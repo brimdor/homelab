@@ -1,0 +1,4 @@
+- name: Update Cronjobs
+  hosts: metal
+  roles:
+    - cronjobs
