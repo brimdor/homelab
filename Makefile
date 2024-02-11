@@ -40,7 +40,7 @@ tools:
 		--volume homelab-tools-cache:/root/.cache \
 		--volume homelab-tools-nix:/nix \
 		--workdir $(shell pwd) \
-		--entrypoint /bin/sh \
+		--entrypoint /bin/bash \
 		docker.io/nixos/nix -c "\
 		git config --global --add safe.directory $(shell pwd) && \
 		nix --experimental-features 'nix-command flakes' develop"
