@@ -17,7 +17,7 @@ repositories:
     private: false
     migrate:
       source: https://github.com/brimdor/homelab
-      mirror: true
+      mirror: false
   - name: blog
     owner: khuedoan
     migrate:
