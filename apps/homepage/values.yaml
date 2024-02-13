@@ -64,27 +64,11 @@ app-template:
                 href: https://chat.eaglepass.io
                 description: Chat client
                 icon: element.svg
-            - Jellyfin:
-                href: https://jellyfin.eaglepass.io
-                description: Media system (movies, music, etc.)
-                icon: jellyfin.svg
-            - Jellyseerr:
-                href: https://jellyseerr.eaglepass.io
-                description: Request media
-                icon: jellyseerr.svg
             - Paperless:
                 href: https://paperless.eaglepass.io
                 description: Document management system
                 icon: paperless.svg
           - Management:
-            - Transmission:
-                href: https://transmission.eaglepass.io
-                description: Bittorrent client
-                icon: transmission.svg
-            - Prowlarr:
-                href: https://prowlarr.eaglepass.io
-                description: Indexer manager
-                icon: prowlarr.svg
             - Radarr:
                 href: https://radarr.eaglepass.io
                 description: Movie manager
