@@ -4,7 +4,7 @@ app-template:
       containers:
         main:
           image:
-            repository: registry.khuedoan.com/blog
+            repository: registry.eaglepass.io/blog
             tag: latest
   service:
     main:
