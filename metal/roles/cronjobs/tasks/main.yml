@@ -18,6 +18,15 @@
     name: Second Weekly Reboot
     minute: 0
     hour: 2
+    weekday: 3
+    job: "/usr/bin/touch /var/run/reboot-required"
+    state: present
+
+- name: Set up THIRD WEEKLY reboot
+  cron:
+    name: Third Weekly Reboot
+    minute: 0
+    hour: 2
     weekday: 5
     job: "/usr/bin/touch /var/run/reboot-required"
     state: present
