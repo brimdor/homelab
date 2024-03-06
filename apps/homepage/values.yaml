@@ -117,7 +117,7 @@ app-template:
               - href: https://homelab.eaglepass.io
                 icon: google-docs.svg
             - Public homelab repository:
-              - href: https://github.com/khuedoan/homelab
+              - href: https://github.com/brimdor/homelab
                 icon: github.svg
           - Managed services:
             - Cloudflare:
@@ -131,7 +131,7 @@ app-template:
                 icon: zerotier.svg
           - Infrastructure:
             - Router:
-              - href: https://192.168.1.1
+              - href: http://10.0.0.1
                 icon: router.svg
             - Proxmox:
               - href: https://proxmox:8006
