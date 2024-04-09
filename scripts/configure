@@ -15,7 +15,7 @@ from rich.prompt import Confirm, Prompt
 
 upstream_config = {
     "seed_repo": "<seed_repo>",
-    "branch": "main",
+    "branch": "<branch>",
     "domain": "<domain>",
     "timezone": "<timezone>",
     "terraform_workspace": "<terraform_workspace>",

@@ -7,33 +7,33 @@ metal:
   children:
     masters:
       hosts:
-        luigi:
+        charmander:
           {
-            ansible_host: 10.0.60.131,
-            mac: "6c:4b:90:60:29:c4",
+            ansible_host: 10.0.50.121,
+            mac: "00:23:24:b0:ff:03",
             disk: sda,
             network_interface: eno1,
           }
-        peach:
+        squirtle:
           {
-            ansible_host: 10.0.60.132,
-            mac: "6c:4b:90:5f:8e:43",
+            ansible_host: 10.0.50.122,
+            mac: "00:23:24:e2:1f:a1",
             disk: sda,
             network_interface: eno1,
           }
-        toad:
+        bulbasaur:
           {
-            ansible_host: 10.0.60.133,
-            mac: "6c:4b:90:5b:a3:56",
+            ansible_host: 10.0.50.123,
+            mac: "00:23:24:e2:0d:ea",
             disk: sda,
             network_interface: eno1,
           }
     workers:
       hosts:
-        yoshi:
+        pikachu:
           {
-            ansible_host: 10.0.60.134,
-            mac: "6c:4b:90:5b:6e:6d",
+            ansible_host: 10.0.50.124,
+            mac: "e0:4f:43:24:0b:53",
             disk: sda,
             network_interface: eno1,
           }
