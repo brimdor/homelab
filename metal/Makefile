@@ -21,8 +21,3 @@ cluster:
 console:
 	ansible-console \
 		--inventory inventories/${env}.yml
-
-cronjobs:
-	ansible-playbook \
-		--inventory inventories/${env}.yml \
-		update_cron.yml

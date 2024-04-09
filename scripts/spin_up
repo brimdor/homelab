@@ -1,0 +1,18 @@
+NAMESPACE=<set_namespace> # Set the namespace
+
+# Scale down deployments in the namespace
+kubectl get deployments -n $NAMESPACE -o name | xargs -I {} kubectl scale {} --replicas=1 -n $NAMESPACE
+
+# Scale down statefulsets in the namespace
+kubectl get statefulsets -n $NAMESPACE -o name | xargs -I {} kubectl scale {} --replicas=1 -n $NAMESPACE
+
+# Scale down replica sets in the namespace
+kubectl get replicasets -n $NAMESPACE -o name | xargs -I {} kubectl scale {} --replicas=1 -n $NAMESPACE
+
+echo "Pausing for 10 seconds to allow all resources to process scaling request."
+sleep 10
+
+echo ""
+echo "Here is the current state of all $NAMESPACE resources:"
+echo ""
+kubectl get deployments,statefulsets,replicasets -n $NAMESPACE

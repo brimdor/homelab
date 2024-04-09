@@ -63,7 +63,7 @@ sudo rm -Rf ~/.terraform.d
 # Removing homelab folder
 echo "Removing homelab folder"
 cd ~
-sudo rm -Rf homelab
+sudo rm -Rf homelab*
 
 # Pulling a Fresh Clone of Homelab
 echo "Pulling a Fresh Clone of Homelab from $REPO_URL"

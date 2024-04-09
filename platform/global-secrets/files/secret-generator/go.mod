@@ -1,13 +1,13 @@
-module git.eaglepass.io/khuedoan/homelab/platform/secret-generator
+module git.<domain>/khuedoan/homelab/platform/secret-generator
 
 go 1.19
 
 require (
 	github.com/sethvargo/go-password v0.2.0
-	gopkg.in/yaml.v3 v3.0.1
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
-	k8s.io/client-go/v12 v12.0.0
+	k8s.io/client-go v0.28.4
 )
 
 require (

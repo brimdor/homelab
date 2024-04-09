@@ -19,7 +19,7 @@ app-template:
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: &host home.eaglepass.io
+        - host: &host home.<domain>
           paths:
             - path: /
               pathType: Prefix
@@ -61,63 +61,63 @@ app-template:
         services.yaml: |
           - Popular:
             - Matrix:
-                href: https://chat.eaglepass.io
+                href: https://chat.<domain>
                 description: Chat client
                 icon: element.svg
             - Paperless:
-                href: https://paperless.eaglepass.io
+                href: https://paperless.<domain>
                 description: Document management system
                 icon: paperless.svg
           - Management:
             - Radarr:
-                href: https://radarr.eaglepass.io
+                href: https://radarr.<domain>
                 description: Movie manager
                 icon: radarr.svg
             - Sonarr:
-                href: https://sonarr.eaglepass.io
+                href: https://sonarr.<domain>
                 description: TV show manager
                 icon: sonarr.svg
             - Kanidm:
-                href: https://auth.eaglepass.io
+                href: https://auth.<domain>
                 description: Identity management
-                icon: https://auth.eaglepass.io/pkg/img/logo-square.svg
+                icon: https://auth.<domain>/pkg/img/logo-square.svg
           - Development:
             - Gitea:
-                href: https://git.eaglepass.io
+                href: https://git.<domain>
                 description: Git forge
                 icon: gitea.svg
             - Woodpecker:
-                href: https://ci.eaglepass.io
+                href: https://ci.<domain>
                 description: Continuous integration
                 icon: woodpecker-ci.svg
             - ArgoCD:
-                href: https://argocd.eaglepass.io
+                href: https://argocd.<domain>
                 description: Continuous deployment
                 icon: argocd.svg
             - Registry:
-                href: https://registry.eaglepass.io
+                href: https://registry.<domain>
                 description: Container registry
                 icon: docker.svg
             - Grafana:
-                href: https://grafana.eaglepass.io
+                href: https://grafana.<domain>
                 description: Observability dashboards
                 icon: grafana.svg
           - Utilities:
             - Excalidraw:
-                href: https://draw.eaglepass.io
+                href: https://draw.<domain>
                 description: Virtual whiteboard
                 icon: excalidraw.svg
             - Speedtest:
-                href: https://speedtest.eaglepass.io
+                href: https://speedtest.<domain>
                 description: Internal network speed test
                 icon: openspeedtest.png
         bookmarks.yaml: |
           - Homelab:
             - Documentation:
-              - href: https://homelab.eaglepass.io
+              - href: https://homelab.<domain>
                 icon: google-docs.svg
             - Public homelab repository:
-              - href: https://github.com/brimdor/homelab
+              - href: https://github.com/khuedoan/homelab
                 icon: github.svg
           - Managed services:
             - Cloudflare:
@@ -131,7 +131,7 @@ app-template:
                 icon: zerotier.svg
           - Infrastructure:
             - Router:
-              - href: http://10.0.0.1
+              - href: https://192.168.1.1
                 icon: router.svg
             - Proxmox:
               - href: https://proxmox:8006

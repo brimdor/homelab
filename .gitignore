@@ -1,6 +1,7 @@
 .venv/
 book/
-
+.env
+.env_*
 *.iso
 *.log
 *.png

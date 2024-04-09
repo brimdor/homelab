@@ -3,7 +3,7 @@ terraform {
 
   backend "remote" {
     hostname     = "app.terraform.io"
-    organization = "brimdor"
+    organization = "<terraform_workspace>"
 
     workspaces {
       name = "homelab-external"
@@ -13,7 +13,7 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 4.26.0"
+      version = "~> 3.11.0"
     }
 
     kubernetes = {

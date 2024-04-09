@@ -6,7 +6,7 @@ spec:
   backend:
     s3:
       endpoint: s3.us-west-002.backblazeb2.com
-      bucket: brimdor-homelab-backup
+      bucket: <terraform_workspace>-homelab-backup
       accessKeyIDSecretRef:
         name: backblaze-credentials
         key: application-key-id
@@ -17,16 +17,16 @@ spec:
       name: backblaze-credentials
       key: repo-password
   backup:
-    schedule: '0 8 * * *'
+    schedule: "0 8 * * *"
     failedJobsHistoryLimit: 2
     successfulJobsHistoryLimit: 2
     # TODO
     #promURL: https://prometheus:8443
   check:
-    schedule: '0 1 * * 1'
+    schedule: "0 1 * * 1"
     #promURL: https://prometheus:8443
   prune:
-    schedule: '0 1 * * 0'
+    schedule: "0 1 * * 0"
     retention:
       keepLast: 5
       keepDaily: 14

@@ -1,39 +1,39 @@
 all:
   vars:
-    control_plane_endpoint: 10.0.50.100
+    control_plane_endpoint: <control_plane_endoint>
     load_balancer_ip_pool:
-      - 10.0.50.224/27
+      - <loadbalancer_ip_range>
 metal:
   children:
     masters:
       hosts:
-        charmander:
+        luigi:
           {
-            ansible_host: 10.0.50.121,
-            mac: "00:23:24:b0:ff:03",
+            ansible_host: 10.0.60.131,
+            mac: "6c:4b:90:60:29:c4",
             disk: sda,
             network_interface: eno1,
           }
-        squirtle:
+        peach:
           {
-            ansible_host: 10.0.50.122,
-            mac: "00:23:24:e2:1f:a1",
+            ansible_host: 10.0.60.132,
+            mac: "6c:4b:90:5f:8e:43",
             disk: sda,
             network_interface: eno1,
           }
-        bulbasaur:
+        toad:
           {
-            ansible_host: 10.0.50.123,
-            mac: "00:23:24:e2:0d:ea",
+            ansible_host: 10.0.60.133,
+            mac: "6c:4b:90:5b:a3:56",
             disk: sda,
             network_interface: eno1,
           }
     workers:
       hosts:
-        pikachu:
+        yoshi:
           {
-            ansible_host: 10.0.50.124,
-            mac: "e0:4f:43:24:0b:53",
+            ansible_host: 10.0.60.134,
+            mac: "6c:4b:90:5b:6e:6d",
             disk: sda,
             network_interface: eno1,
           }
