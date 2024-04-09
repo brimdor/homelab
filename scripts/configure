@@ -10,6 +10,7 @@ Basic configure script for new users
 import fileinput
 import subprocess
 import sys
+import os
 
 from rich.prompt import Confirm, Prompt
 
@@ -118,8 +119,9 @@ def main() -> None:
     )
 
     if Confirm.ask("Update server list?", default=True):
+        editor = os.getenv('EDITOR', 'nvim')
         subprocess.run(
-            ['nvim metal/inventories/prod.yml']
+            [editor, "metal/inventories/prod.yml"]
         )
 
 
