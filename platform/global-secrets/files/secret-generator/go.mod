@@ -1,4 +1,4 @@
-module git.<domain>/brimdor/homelab/platform/secret-generator
+module git.eaglepass.io/brimdor/homelab/platform/secret-generator
 
 go 1.19
 

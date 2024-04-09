@@ -1,4 +1,4 @@
-module git.<domain>/brimdor/homelab/gitea/config
+module git.eaglepass.io/brimdor/homelab/gitea/config
 
 go 1.19
 

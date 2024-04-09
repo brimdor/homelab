@@ -6,7 +6,7 @@ kured:
     rebootDays: [mo, we, fr]
     startTime: 6:00
     endTime: 5:00
-    timeZone: <timezone>
+    timeZone: America/Chicago
 
   initContainers:
     - name: deploy-rebooter-script
