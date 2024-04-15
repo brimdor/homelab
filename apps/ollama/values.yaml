@@ -53,11 +53,11 @@ app-template:
                 name: ui
                 port:
                   number: 8080  # Use actual port number
-        tls:
-          - hosts:
-              - *ollamaHost
-              - *uiHost
-            secretName: ollama-tls-certificate
+      tls:
+        - hosts:
+            - *ollamaHost
+            - *uiHost
+          secretName: ollama-tls-certificate
   persistence:
     data:
       enabled: true
