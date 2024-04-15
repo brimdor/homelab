@@ -18,14 +18,12 @@ app-template:
     main:
       ports:
         http:
-          name: http2
           port: 11434
           protocol: HTTP
     ui:
       controller: ui
       ports:
         http:
-          name: http
           port: 8080
           protocol: HTTP
   ingress:
