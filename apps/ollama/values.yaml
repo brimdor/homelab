@@ -17,17 +17,17 @@ app-template:
   service:
     main:
       ports:
-        http:
-          port: 11434
-          targetPort: http2
-          protocol: HTTP
+        name: http2
+        port: 11434
+        targetPort: http
+        protocol: HTTP
     ui:
       controller: ui
       ports:
-        http:
-          port: 8080
-          targetPort: http
-          protocol: HTTP
+        name: http
+        port: 8080
+        targetPort: http
+        protocol: HTTP
   ingress:
     main:
       enabled: true
@@ -44,7 +44,7 @@ app-template:
               service:
                 name: main
                 port:
-                  number: 11434  # Use actual port number
+                  name: http2  # Use actual port number
         - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
@@ -52,7 +52,7 @@ app-template:
               service:
                 name: ui
                 port:
-                  number: 8080  # Use actual port number
+                  name: http  # Use actual port number
       tls:
         - hosts:
             - *ollamaHost
