@@ -41,7 +41,7 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: http2
+                port: http
         - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
