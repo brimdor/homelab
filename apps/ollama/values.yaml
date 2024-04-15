@@ -15,21 +15,17 @@ app-template:
           env:
             OLLAMA_BASE_URL: http://ollama:11434
   service:
-    type: ClusterIP
     main:
       ports:
-        - name: http2
+        http:
           port: 11434
-          targetPort: http
-          protocol: TCP
+          protocol: HTTP
     ui:
       controller: ui
-      type: ClusterIP
       ports:
-        - name: http
+        http:
           port: 8080
-          targetPort: http
-          protocol: TCP
+          protocol: HTTP
   ingress:
     main:
       enabled: true
@@ -39,28 +35,24 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       hosts:
-        - host: ollama.eaglepass.io
+        - host: &ollamaHost ollama.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
-              backend:
-                service:
-                  name: main
-                  port:
-                    number: 11434
-        - host: ai.eaglepass.io
+              service:
+                name: main
+                port: http
+        - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
-              backend:
-                service:
-                  name: ui
-                  port:
-                    number: 8080  # Use actual port number
+              service:
+                name: ui
+                port: http
       tls:
         - hosts:
-            - ai.eaglepass.io
-            - ollama.eaglepass.io
+            - *ollamaHost
+            - *uiHost
           secretName: ollama-tls-certificate
   persistence:
     data:
