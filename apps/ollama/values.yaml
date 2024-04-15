@@ -20,14 +20,14 @@ app-template:
         name: http2
         port: 11434
         targetPort: http
-        protocol: HTTP
+        protocol: TCP
     ui:
       controller: ui
       ports:
         name: http
         port: 8080
         targetPort: http
-        protocol: HTTP
+        protocol: TCP
   ingress:
     main:
       enabled: true
@@ -41,18 +41,20 @@ app-template:
           paths:
             - path: /
               pathType: Prefix
-              service:
-                name: main
-                port:
-                  number: 11434
+              backend:
+                service:
+                  name: main
+                  port:
+                    number: 11434
         - host: ai.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
-              service:
-                name: ui
-                port:
-                  number: 8080  # Use actual port number
+              backend:
+                service:
+                  name: ui
+                  port:
+                    number: 8080  # Use actual port number
       tls:
         - hosts:
             - ai.eaglepass.io
