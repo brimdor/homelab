@@ -44,7 +44,7 @@ app-template:
               service:
                 name: main
                 port:
-                  name: 11434
+                  number: 11434
         - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
@@ -52,7 +52,7 @@ app-template:
               service:
                 name: ui
                 port:
-                  name: 8080  # Use actual port number
+                  number: 8080  # Use actual port number
       tls:
         - hosts:
             - *ollamaHost
