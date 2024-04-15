@@ -41,18 +41,16 @@ app-template:
           paths:
             - path: /
               pathType: Prefix
-              backend:
-                service:
-                  name: main
-                  port: http2
+              service:
+                name: main
+                port: http2
         - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
-              backend:
-                service:
-                  name: ui
-                  port: http
+              service:
+                name: ui
+                port: http
       tls:
         - hosts:
             - *ollamaHost
