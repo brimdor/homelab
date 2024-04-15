@@ -44,8 +44,7 @@ app-template:
               backend:
                 service:
                   name: main
-                  port:
-                    name: http2
+                  port: http2
         - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
@@ -53,8 +52,7 @@ app-template:
               backend:
                 service:
                   name: ui
-                  port:
-                    name: http
+                  port: http
       tls:
         - hosts:
             - *ollamaHost
