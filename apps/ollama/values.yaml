@@ -16,18 +16,20 @@ app-template:
             OLLAMA_BASE_URL: http://ollama:11434
   service:
     main:
+      type: ClusterIP
       ports:
-        name: http2
-        port: 11434
-        targetPort: http
-        protocol: TCP
+        - name: http2
+          port: 11434
+          targetPort: http
+          protocol: TCP
     ui:
       controller: ui
+      type: ClusterIP
       ports:
-        name: http
-        port: 8080
-        targetPort: http
-        protocol: TCP
+        - name: http
+          port: 8080
+          targetPort: http
+          protocol: TCP
   ingress:
     main:
       enabled: true
