@@ -17,13 +17,15 @@ app-template:
   service:
     main:
       ports:
-        http2:
+        http:
+          name: http2
           port: 11434
           protocol: HTTP
     ui:
       controller: ui
       ports:
         http:
+          name: http
           port: 8080
           protocol: HTTP
   ingress:
@@ -41,14 +43,16 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: http2
+                port:
+                  name: http2
         - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
                 name: ui
-                port: http
+                port:
+                  name: http
       tls:
         - hosts:
             - *ollamaHost
