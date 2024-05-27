@@ -26,9 +26,9 @@ spec:
                   name: backlog-companion-secrets
                   key: STEAM_API_KEY
           volumeMounts:
-            - name: data
+            - name: backlog-companion-data
               mountPath: /app/backend/data
       volumes:
-        - name: data
+        - name: backlog-companion-data
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.name }}
