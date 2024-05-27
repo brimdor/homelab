@@ -47,4 +47,3 @@ externalSecret:
         property: STEAM_API_KEY
         conversionStrategy: Default
         decodingStrategy: None
-
