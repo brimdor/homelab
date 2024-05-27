@@ -25,7 +25,7 @@ spec:
             - name: STEAM_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: steam-api-secret
+                  name: {{ .Values.externalSecret.name }}
                   key: STEAM_API_KEY
           volumeMounts:
             - name: data
