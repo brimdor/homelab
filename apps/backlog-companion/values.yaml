@@ -33,3 +33,18 @@ persistence:
   enabled: true
   accessMode: ReadWriteOnce
   size: 1Gi
+
+externalSecret:
+  name: backlog-companion-secret
+  namespace: default
+  secretStoreRef:
+    kind: SecretStore
+    name: my-secret-store
+  data:
+    - secretKey: STEAM_API_KEY
+      remoteRef:
+        conversionStrategy: Default
+        decodingStrategy: None
+        key: backlog-companion/steam-api-key
+        metadataPolicy: Fetch
+        property: apiKey
