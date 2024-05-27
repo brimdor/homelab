@@ -45,6 +45,6 @@ externalSecret:
       remoteRef:
         conversionStrategy: Default
         decodingStrategy: None
-        key: backlog-companion/steam-api-key
+        key: secret/steam-api-key
         metadataPolicy: Fetch
         property: apiKey
