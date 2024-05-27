@@ -1,5 +1,5 @@
 image:
-  repository: brimdor/backlog-companion
+  repository: brimdor/backlog-companion-web
   tag: latest
 
 ingress:
