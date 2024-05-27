@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backlog-companion
+  labels:
+    app: backlog-companion
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backlog-companion
+  template:
+    metadata:
+      labels:
+        app: backlog-companion
+    spec:
+      containers:
+        - name: backlog-companion
+          image: <DOCKER_USERNAME>/backlog-companion:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: STEAM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: steam-api-secret
+                  key: STEAM_API_KEY
+          volumeMounts:
+            - name: data
+              mountPath: /app/backend/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: backlog-companion-pvc
