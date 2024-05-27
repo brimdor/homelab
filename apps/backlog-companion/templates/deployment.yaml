@@ -25,6 +25,8 @@ spec:
                 secretKeyRef:
                   name: backlog-companion-secrets
                   key: STEAM_API_KEY
+            - name: FLASK_APP
+              value: "backend/app.py"
           volumeMounts:
             - name: backlog-companion-data
               mountPath: /app/backend/data
