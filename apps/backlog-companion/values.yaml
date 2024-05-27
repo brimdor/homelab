@@ -37,7 +37,7 @@ persistence:
 
 externalSecret:
   name: backlog-companion-secrets
-  namespace: default
+  namespace: backlog-companion
   secretStoreRef:
     kind: ClusterSecretStore
     name: global-secrets
