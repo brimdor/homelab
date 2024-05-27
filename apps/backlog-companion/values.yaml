@@ -48,3 +48,8 @@ externalSecret:
         property: STEAM_API_KEY
         conversionStrategy: Default
         decodingStrategy: None
+  
+nfs:
+  enabled: true
+  server: 10.0.50.3
+  path: /mnt/user/backlog_companion_config
