@@ -1,0 +1,35 @@
+image:
+  repository: brimdor/backlog-companion
+  tag: latest
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    hajimari.io/appName: Backlog Companion
+    hajimari.io/icon: movie-roll
+  hosts:
+    - host: backlog-companion.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - backlog-companion.eaglepass.io
+      secretName: backlog-companion-tls
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "250m"
+  limits:
+    memory: "128Mi"
+    cpu: "500m"
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 1Gi
