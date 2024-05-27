@@ -6,8 +6,6 @@ metadata:
     app: backlog-companion
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: backlog-companion
@@ -18,14 +16,14 @@ spec:
     spec:
       containers:
         - name: backlog-companion
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           ports:
             - containerPort: 5000
           env:
             - name: STEAM_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.externalSecret.name }}
+                  name: backlog-companion-secrets
                   key: STEAM_API_KEY
           volumeMounts:
             - name: data
@@ -33,4 +31,4 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: backlog-companion-pvc
+            claimName: {{ .Values.persistence.name }}
