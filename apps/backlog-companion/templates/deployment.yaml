@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: backlog-companion
-          image: <DOCKER_USERNAME>/backlog-companion:latest
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           ports:
             - containerPort: 5000
           env:
