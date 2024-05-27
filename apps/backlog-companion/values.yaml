@@ -35,7 +35,7 @@ persistence:
   size: 1Gi
 
 externalSecret:
-  name: backlog-companion-secret
+  name: backlog-companion-secrets
   namespace: default
   secretStoreRef:
     kind: ClusterSecretStore
@@ -43,8 +43,8 @@ externalSecret:
   data:
     - secretKey: STEAM_API_KEY
       remoteRef:
+        key: steam-api-key-secret
+        property: STEAM_API_KEY
         conversionStrategy: Default
         decodingStrategy: None
-        key: steam-api-key
-        metadataPolicy: Fetch
-        property: apiKey
+
