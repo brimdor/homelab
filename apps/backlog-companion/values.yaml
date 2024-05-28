@@ -32,6 +32,8 @@ resources:
 
 env:
   APP_VERSION: "0.1.0 BETA"
+  UID: 1000
+  GID: 1000
 
 externalSecret:
   name: backlog-companion-secrets
