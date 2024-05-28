@@ -1,6 +1,7 @@
 image:
   repository: brimdor/backlog-companion-web
   tag: latest
+  policy: Always
 
 ingress:
   enabled: true
