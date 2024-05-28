@@ -30,6 +30,9 @@ resources:
     memory: "128Mi"
     cpu: "500m"
 
+env:
+  APP_VERSION: "0.1.0 BETA"
+
 externalSecret:
   name: backlog-companion-secrets
   namespace: backlog-companion
