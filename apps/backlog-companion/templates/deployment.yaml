@@ -23,6 +23,10 @@ spec:
           env:
             - name: APP_VERSION
               value: "{{ .Values.env.APP_VERSION }}"
+            - name: UID
+              value: "{{ .Values.env.UID }}"
+            - name: GID
+              value: "{{ .Values.env.GID }}"
             - name: STEAM_API_KEY
               valueFrom:
                 secretKeyRef:
