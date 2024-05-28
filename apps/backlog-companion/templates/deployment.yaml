@@ -21,6 +21,8 @@ spec:
           ports:
             - containerPort: 5000
           env:
+            - name: APP_VERSION
+              value: "{{ .Values.env.APP_VERSION }}"
             - name: STEAM_API_KEY
               valueFrom:
                 secretKeyRef:
