@@ -31,7 +31,7 @@ resources:
     cpu: "500m"
 
 env:
-  APP_VERSION: "0.1.0a BETA"
+  APP_VERSION: "0.1.0b BETA"
   UID: 1000
   GID: 1000
 
