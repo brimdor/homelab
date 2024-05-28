@@ -17,6 +17,7 @@ spec:
       containers:
         - name: backlog-companion
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.policy }}"
           ports:
             - containerPort: 5000
           env:
