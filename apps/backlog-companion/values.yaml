@@ -29,12 +29,6 @@ resources:
     memory: "128Mi"
     cpu: "500m"
 
-# persistence:
-#   enabled: true
-#   name: backlog-companion-data
-#   accessMode: ReadWriteOnce
-#   size: 1Gi
-
 externalSecret:
   name: backlog-companion-secrets
   namespace: backlog-companion
