@@ -4,12 +4,11 @@ metadata:
   name: mail-server-pvc
 spec:
   accessModes:
-    - {{ .Values.persistence.accessMode }}
+    - {{ .Values.persistence.accessModes | join ", " }}
   resources:
     requests:
       storage: {{ .Values.persistence.size }}
-  storageClassName: ""
-  volumeMode: Filesystem
+  storageClassName: {{ .Values.persistence.storageClass }}
   nfs:
-    server: {{ .Values.persistence.nfs.server }}
     path: {{ .Values.persistence.nfs.path }}
+    server: {{ .Values.persistence.nfs.server }}
