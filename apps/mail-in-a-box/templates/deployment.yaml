@@ -17,14 +17,46 @@ spec:
       containers:
         - name: mail-server
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.policy }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: TZ
-              value: {{ .Values.env.TZ }}
+            - name: HOSTNAME
+              value: {{ .Values.env.HOSTNAME }}
+            - name: ONE_DIR
+              value: '1'
+            - name: DMS_DEBUG
+              value: '0'
+          ports:
+            - name: smtp
+              containerPort: 25
+            - name: imap
+              containerPort: 143
+            - name: esmtp-implicit
+              containerPort: 465
+            - name: esmtp-explicit
+              containerPort: 587
+            - name: imap-implicit
+              containerPort: 993
           volumeMounts:
-            - name: mail-server-data
-              mountPath: /mnt/data
+            - name: mail-data
+              mountPath: /var/mail
+              subPath: mail-data
+            - name: mail-state
+              mountPath: /var/mail-state
+              subPath: mail-state
+            - name: mail-logs
+              mountPath: /var/log/mail
+              subPath: mail-logs
+            - name: mail-config
+              mountPath: /tmp/docker-mailserver
+              subPath: config
+            - name: localtime
+              mountPath: /etc/localtime
+              readOnly: true
       volumes:
-        - name: mail-server-data
+        - name: mail-data
           persistentVolumeClaim:
             claimName: mail-server-pvc
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
+            type: File
