@@ -28,6 +28,6 @@ spec:
               service:
                 name: mail-server
                 port:
-                  name: http
+                  number: 80
           {{- end }}
     {{- end }}
