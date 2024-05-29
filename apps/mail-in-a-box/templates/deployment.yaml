@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mail-server
+  labels:
+    app: mail-server
 spec:
   replicas: 1
   selector:
@@ -13,28 +15,16 @@ spec:
         app: mail-server
     spec:
       containers:
-      - name: mail-server
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        env:
-        - name: MAIL_DOMAIN
-          value: {{ .Values.env.MAIL_DOMAIN }}
-        - name: ADMIN_EMAIL
-          value: {{ .Values.env.ADMIN_EMAIL }}
-        - name: UID
-          value: {{ .Values.env.UID | quote }}
-        - name: GID
-          value: {{ .Values.env.GID | quote }}
-        ports:
-        - containerPort: 80
-        - containerPort: 443
-        - containerPort: 25
-        - containerPort: 587
-        - containerPort: 993
-        volumeMounts:
-        - name: config-volume
-          mountPath: /mailinabox-data
+        - name: mail-server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.policy }}
+          env:
+            - name: TZ
+              value: {{ .Values.env.TZ }}
+          volumeMounts:
+            - name: mail-server-data
+              mountPath: /mnt/data
       volumes:
-      - name: config-volume
-        persistentVolumeClaim:
-          claimName: mail-server-pvc
+        - name: mail-server-data
+          persistentVolumeClaim:
+            claimName: mail-server-pvc
