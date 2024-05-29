@@ -1,0 +1,45 @@
+image:
+  repository: mailinabox/mailinabox
+  tag: latest
+  pullPolicy: Always
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    hajimari.io/appName: Mail Service
+    hajimari.io/icon: mail
+  hosts:
+    - host: webmail.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - webmail.eaglepass.io
+      secretName: mail-server-tls
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "250m"
+  limits:
+    memory: "256Mi"
+    cpu: "500m"
+
+env:
+  MAIL_DOMAIN: "eaglepass.io"
+  ADMIN_EMAIL: "admin@eaglepass.io"
+  UID: 1000
+  GID: 1000
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteMany
+  size: 10Gi
+  nfs:
+    server: 10.0.50.3
+    path: /mnt/user/mail_server_config
