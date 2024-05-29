@@ -56,6 +56,15 @@ spec:
         - name: mail-data
           persistentVolumeClaim:
             claimName: mail-server-pvc
+        - name: mail-state
+          persistentVolumeClaim:
+            claimName: mail-server-pvc
+        - name: mail-logs
+          persistentVolumeClaim:
+            claimName: mail-server-pvc
+        - name: mail-config
+          persistentVolumeClaim:
+            claimName: mail-server-pvc
         - name: localtime
           hostPath:
             path: /etc/localtime
