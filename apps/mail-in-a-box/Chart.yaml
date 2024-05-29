@@ -1,0 +1,32 @@
+apiVersion: v2
+name: mail-server
+description: A Helm chart for deploying Mail-in-a-Box email server on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "latest"
+
+maintainers:
+  - name: Chris Nelson
+    email: chrisnelsonx@gmail.com
+
+dependencies: []
+
+keywords:
+  - email
+  - mail server
+  - Mail-in-a-Box
+  - Kubernetes
+  - Helm
+
+home: https://mailinabox.email/
+icon: https://mailinabox.email/img/mailinabox.png
+sources:
+  - https://github.com/mail-in-a-box/mailinabox
+
+# Specify the Kubernetes version requirement if needed
+kubeVersion: ">=1.16.0"
+
+# Optional metadata for application, useful for categorizing and searching
+annotations:
+  category: "communication"
+  support: "community"
