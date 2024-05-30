@@ -15,40 +15,29 @@ spec:
       containers:
         - name: mail-server
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           ports:
-            - containerPort: 25
-              name: smtp
-            - containerPort: 465
-              name: smtps
-            - containerPort: 587
-              name: submission
-            - containerPort: 143
-              name: imap
-            - containerPort: 993
-              name: imaps
-            - containerPort: 80
-              name: http
-            - containerPort: 443
-              name: https
+            {{- range .Values.ports }}
+            - containerPort: {{ .port }}
+              name: {{ .name }}
+              protocol: {{ .protocol }}
+            {{- end }}
           volumeMounts:
-            - name: mail-data
-              mountPath: /var/mail
-            - name: mail-state
-              mountPath: /var/mail-state
-            - name: mail-logs
-              mountPath: /var/log/mail
-            - name: mail-config
-              mountPath: /tmp/docker-mailserver
+            {{- range .Values.volumes }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
       volumes:
-        - name: mail-data
-          persistentVolumeClaim:
-            claimName: mail-data-pvc
-        - name: mail-state
-          persistentVolumeClaim:
-            claimName: mail-state-pvc
-        - name: mail-logs
-          persistentVolumeClaim:
-            claimName: mail-logs-pvc
-        - name: mail-config
-          persistentVolumeClaim:
-            claimName: mail-config-pvc
+        {{- range .Values.volumes }}
+        - name: {{ .name }}
+          nfs:
+            server: "{{ .Values.nfs.server }}"
+            path: {{ .nfsPath }}
+        {{- end }}
+      resources:
+        requests:
+          memory: "{{ .Values.resources.requests.memory }}"
+          cpu: "{{ .Values.resources.requests.cpu }}"
+        limits:
+          memory: "{{ .Values.resources.limits.memory }}"
+          cpu: "{{ .Values.resources.limits.cpu }}"
