@@ -12,6 +12,27 @@ spec:
       labels:
         app: mail-server
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          command: ['sh', '-c', 'chown -R 5000:5000 /var/log/mail']
+          volumeMounts:
+            - name: mail-logs
+              mountPath: /var/log/mail
+        - name: init-mail-account
+          image: ghcr.io/docker-mailserver/docker-mailserver:latest
+          command: ["/bin/bash", "-c"]
+          args:
+            - >
+              echo "${MAIL_USER}|$(doveadm pw -s SHA512-CRYPT -u ${MAIL_USER} -p ${MAIL_PASS})" >> /tmp/docker-mailserver/postfix-accounts.cf;
+          env:
+            - name: MAIL_USER
+              value: "{{ .Values.initialAccount.email }}"
+            - name: MAIL_PASS
+              value: "{{ .Values.initialAccount.password }}"
+          volumeMounts:
+            - name: mail-config
+              mountPath: /tmp/docker-mailserver
       containers:
         - name: mail-server
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -52,12 +73,6 @@ spec:
               value: "0"
             - name: SSL_TYPE
               value: "letsencrypt"
-            {{- if .Values.initialAccount.enabled }}
-            - name: DMS_ADMIN
-              value: "{{ .Values.initialAccount.email }}"
-            - name: DMS_PASS
-              value: "{{ .Values.initialAccount.password }}"
-            {{- end }}
       volumes:
         - name: mail-data
           nfs:
