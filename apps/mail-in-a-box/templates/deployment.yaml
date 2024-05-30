@@ -31,6 +31,11 @@ spec:
               mountPath: {{ .Values.volumes.mailLogs.mountPath }}
             - name: mail-config
               mountPath: {{ .Values.volumes.mailConfig.mountPath }}
+          env:
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value }}
+            {{- end }}
       volumes:
         - name: mail-data
           nfs:
