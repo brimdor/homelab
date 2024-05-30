@@ -34,8 +34,23 @@ env:
   HOSTNAME: "mail.eaglepass.io"
 
 persistence:
-  enabled: true
-  size: 10Gi
-  nfs:
-    server: 10.0.50.3
-    path: /mnt/user/mail_server
+  mail-data:
+    size: 10Gi
+    nfs:
+      server: 10.0.50.3
+      path: /mnt/user/mail-data
+  mail-state:
+    size: 10Gi
+    nfs:
+      server: 10.0.50.3
+      path: /mnt/user/mail-state
+  mail-logs:
+    size: 10Gi
+    nfs:
+      server: 10.0.50.3
+      path: /mnt/user/mail-logs
+  mail-config:
+    size: 10Gi
+    nfs:
+      server: 10.0.50.3
+      path: /mnt/user/mail-config
