@@ -5,7 +5,11 @@ image:
 
 nfs:
   server: 10.0.50.3
-  path: /mnt/user
+  paths:
+    mailData: /mnt/user/mail-data
+    mailState: /mnt/user/mail-state
+    mailLogs: /mnt/user/mail-logs
+    mailConfig: /mnt/user/mail-config
 
 resources:
   requests:
@@ -33,3 +37,47 @@ ingress:
     - hosts:
         - mail.eaglepass.io
       secretName: mail-server-tls
+
+ports:
+  - name: smtp
+    port: 25
+    targetPort: 25
+    protocol: TCP
+  - name: smtps
+    port: 465
+    targetPort: 465
+    protocol: TCP
+  - name: submission
+    port: 587
+    targetPort: 587
+    protocol: TCP
+  - name: imap
+    port: 143
+    targetPort: 143
+    protocol: TCP
+  - name: imaps
+    port: 993
+    targetPort: 993
+    protocol: TCP
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+
+volumes:
+  - name: mail-data
+    mountPath: /var/mail
+    nfsPath: "{{ .Values.nfs.paths.mailData }}"
+  - name: mail-state
+    mountPath: /var/mail-state
+    nfsPath: "{{ .Values.nfs.paths.mailState }}"
+  - name: mail-logs
+    mountPath: /var/log/mail
+    nfsPath: "{{ .Values.nfs.paths.mailLogs }}"
+  - name: mail-config
+    mountPath: /tmp/docker-mailserver
+    nfsPath: "{{ .Values.nfs.paths.mailConfig }}"
