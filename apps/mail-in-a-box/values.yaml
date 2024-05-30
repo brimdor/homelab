@@ -77,3 +77,8 @@ volumes:
     name: mail-config
     mountPath: /tmp/docker-mailserver
     nfsPath: /mnt/user/mail-config
+
+initialAccount:
+  enabled: true
+  email: "admin@eaglepass.io"
+  password: "securepassword"
