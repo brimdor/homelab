@@ -4,12 +4,13 @@ metadata:
   name: mail-data-pv
 spec:
   capacity:
-    storage: {{ .Values.persistence.mail-data.size }}
+    storage: 5Gi
   accessModes:
     - ReadWriteMany
   nfs:
-    server: {{ .Values.persistence.mail-data.nfs.server }}
-    path: {{ .Values.persistence.mail-data.nfs.path }}
+    server: {{ .Values.nfs.server }}
+    path: {{ .Values.nfs.path }}/mail-data
+
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -17,12 +18,13 @@ metadata:
   name: mail-state-pv
 spec:
   capacity:
-    storage: {{ .Values.persistence.mail-state.size }}
+    storage: 5Gi
   accessModes:
     - ReadWriteMany
   nfs:
-    server: {{ .Values.persistence.mail-state.nfs.server }}
-    path: {{ .Values.persistence.mail-state.nfs.path }}
+    server: {{ .Values.nfs.server }}
+    path: {{ .Values.nfs.path }}/mail-state
+
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -30,12 +32,13 @@ metadata:
   name: mail-logs-pv
 spec:
   capacity:
-    storage: {{ .Values.persistence.mail-logs.size }}
+    storage: 5Gi
   accessModes:
     - ReadWriteMany
   nfs:
-    server: {{ .Values.persistence.mail-logs.nfs.server }}
-    path: {{ .Values.persistence.mail-logs.nfs.path }}
+    server: {{ .Values.nfs.server }}
+    path: {{ .Values.nfs.path }}/mail-logs
+
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -43,9 +46,9 @@ metadata:
   name: mail-config-pv
 spec:
   capacity:
-    storage: {{ .Values.persistence.mail-config.size }}
+    storage: 5Gi
   accessModes:
     - ReadWriteMany
   nfs:
-    server: {{ .Values.persistence.mail-config.nfs.server }}
-    path: {{ .Values.persistence.mail-config.nfs.path }}
+    server: {{ .Values.nfs.server }}
+    path: {{ .Values.nfs.path }}/mail-config
