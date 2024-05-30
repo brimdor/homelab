@@ -3,6 +3,18 @@ image:
   tag: latest
   pullPolicy: Always
 
+nfs:
+  server: 10.0.50.3
+  path: /mnt/user
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "250m"
+  limits:
+    memory: "128Mi"
+    cpu: "500m"
+
 ingress:
   enabled: true
   className: nginx
@@ -10,8 +22,8 @@ ingress:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
     external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-    hajimari.io/appName: Mailserver
-    hajimari.io/icon: email
+    hajimari.io/appName: Mail Server
+    hajimari.io/icon: mail
   hosts:
     - host: mail.eaglepass.io
       paths:
@@ -20,37 +32,4 @@ ingress:
   tls:
     - hosts:
         - mail.eaglepass.io
-      secretName: mail-tls
-
-resources:
-  requests:
-    memory: "512Mi"
-    cpu: "500m"
-  limits:
-    memory: "1Gi"
-    cpu: "1"
-
-env:
-  HOSTNAME: "mail.eaglepass.io"
-
-persistence:
-  mail-data:
-    size: 10Gi
-    nfs:
-      server: 10.0.50.3
-      path: /mnt/user/mail-data
-  mail-state:
-    size: 10Gi
-    nfs:
-      server: 10.0.50.3
-      path: /mnt/user/mail-state
-  mail-logs:
-    size: 10Gi
-    nfs:
-      server: 10.0.50.3
-      path: /mnt/user/mail-logs
-  mail-config:
-    size: 10Gi
-    nfs:
-      server: 10.0.50.3
-      path: /mnt/user/mail-config
+      secretName: mail-server-tls
