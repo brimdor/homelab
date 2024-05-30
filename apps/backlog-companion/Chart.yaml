@@ -2,4 +2,4 @@ apiVersion: v2
 name: backlog-companion
 description: A Helm chart
 version: 0.1.0
-appVersion: "0.1.1 BETA"
+appVersion: "{{ .Values.env.APP_VERSION }}"
