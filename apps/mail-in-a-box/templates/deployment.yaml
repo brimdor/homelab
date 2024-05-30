@@ -23,17 +23,31 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           volumeMounts:
-            {{- range .Values.volumes }}
-            - name: {{ .name }}
-              mountPath: {{ .mountPath }}
-            {{- end }}
+            - name: mail-data
+              mountPath: {{ .Values.volumes.mailData.mountPath }}
+            - name: mail-state
+              mountPath: {{ .Values.volumes.mailState.mountPath }}
+            - name: mail-logs
+              mountPath: {{ .Values.volumes.mailLogs.mountPath }}
+            - name: mail-config
+              mountPath: {{ .Values.volumes.mailConfig.mountPath }}
       volumes:
-        {{- range .Values.volumes }}
-        - name: {{ .name }}
+        - name: mail-data
           nfs:
-            server: "{{ .Values.nfs.server }}"
-            path: {{ .nfsPath }}
-        {{- end }}
+            server: {{ .Values.nfs.server }}
+            path: {{ .Values.volumes.mailData.nfsPath }}
+        - name: mail-state
+          nfs:
+            server: {{ .Values.nfs.server }}
+            path: {{ .Values.volumes.mailState.nfsPath }}
+        - name: mail-logs
+          nfs:
+            server: {{ .Values.nfs.server }}
+            path: {{ .Values.volumes.mailLogs.nfsPath }}
+        - name: mail-config
+          nfs:
+            server: {{ .Values.nfs.server }}
+            path: {{ .Values.volumes.mailConfig.nfsPath }}
       resources:
         requests:
           memory: "{{ .Values.resources.requests.memory }}"
