@@ -12,6 +12,13 @@ spec:
       labels:
         app: mail-server
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          command: ['sh', '-c', 'chown -R 5000:5000 /var/log/mail']
+          volumeMounts:
+            - name: mail-logs
+              mountPath: /var/log/mail
       containers:
         - name: mail-server
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -52,6 +59,12 @@ spec:
               value: "0"
             - name: SSL_TYPE
               value: "letsencrypt"
+            {{- if .Values.initialAccount.enabled }}
+            - name: DMS_ADMIN
+              value: "{{ .Values.initialAccount.email }}"
+            - name: DMS_PASS
+              value: "{{ .Values.initialAccount.password }}"
+            {{- end }}
       volumes:
         - name: mail-data
           nfs:
