@@ -86,16 +86,16 @@ env:
   - name: OVERRIDE_HOSTNAME
     value: "mail.eaglepass.io"
   - name: ENABLE_SPAMASSASSIN
-    value: "1"
+    value: 1
   - name: ENABLE_CLAMAV
-    value: "1"
+    value: 1
   - name: ENABLE_FAIL2BAN
-    value: "1"
+    value: 1
   - name: ENABLE_POSTGREY
-    value: "1"
+    value: 1
   - name: SMTP_ONLY
-    value: "0"
+    value: 0
   - name: ENABLE_SRS
-    value: "0"
+    value: 0
   - name: SSL_TYPE
     value: "letsencrypt"
