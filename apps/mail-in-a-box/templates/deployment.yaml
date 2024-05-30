@@ -32,10 +32,26 @@ spec:
             - name: mail-config
               mountPath: {{ .Values.volumes.mailConfig.mountPath }}
           env:
-            {{- range .Values.env }}
-            - name: {{ .name }}
-              value: {{ .value }}
-            {{- end }}
+            - name: HOSTNAME
+              value: "mail.eaglepass.io"
+            - name: DOMAINNAME
+              value: "eaglepass.io"
+            - name: OVERRIDE_HOSTNAME
+              value: "mail.eaglepass.io"
+            - name: ENABLE_SPAMASSASSIN
+              value: "1"
+            - name: ENABLE_CLAMAV
+              value: "1"
+            - name: ENABLE_FAIL2BAN
+              value: "1"
+            - name: ENABLE_POSTGREY
+              value: "1"
+            - name: SMTP_ONLY
+              value: "0"
+            - name: ENABLE_SRS
+              value: "0"
+            - name: SSL_TYPE
+              value: "letsencrypt"
       volumes:
         - name: mail-data
           nfs:
