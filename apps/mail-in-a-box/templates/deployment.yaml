@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mail-server
-  labels:
-    app: mail-server
 spec:
   replicas: 1
   selector:
@@ -17,55 +15,40 @@ spec:
       containers:
         - name: mail-server
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: HOSTNAME
-              value: {{ .Values.env.HOSTNAME }}
-            - name: ONE_DIR
-              value: '1'
-            - name: DMS_DEBUG
-              value: '0'
           ports:
-            - name: smtp
-              containerPort: 25
-            - name: imap
-              containerPort: 143
-            - name: esmtp-implicit
-              containerPort: 465
-            - name: esmtp-explicit
-              containerPort: 587
-            - name: imap-implicit
-              containerPort: 993
+            - containerPort: 25
+              name: smtp
+            - containerPort: 465
+              name: smtps
+            - containerPort: 587
+              name: submission
+            - containerPort: 143
+              name: imap
+            - containerPort: 993
+              name: imaps
+            - containerPort: 80
+              name: http
+            - containerPort: 443
+              name: https
           volumeMounts:
             - name: mail-data
               mountPath: /var/mail
-              subPath: mail-data
             - name: mail-state
               mountPath: /var/mail-state
-              subPath: mail-state
             - name: mail-logs
               mountPath: /var/log/mail
-              subPath: mail-logs
             - name: mail-config
               mountPath: /tmp/docker-mailserver
-              subPath: config
-            - name: localtime
-              mountPath: /etc/localtime
-              readOnly: true
       volumes:
         - name: mail-data
           persistentVolumeClaim:
-            claimName: mail-server-pvc
+            claimName: mail-data-pvc
         - name: mail-state
           persistentVolumeClaim:
-            claimName: mail-server-pvc
+            claimName: mail-state-pvc
         - name: mail-logs
           persistentVolumeClaim:
-            claimName: mail-server-pvc
+            claimName: mail-logs-pvc
         - name: mail-config
           persistentVolumeClaim:
-            claimName: mail-server-pvc
-        - name: localtime
-          hostPath:
-            path: /etc/localtime
-            type: File
+            claimName: mail-config-pvc
