@@ -22,7 +22,7 @@ spec:
             - containerPort: 5000
           env:
             - name: APP_VERSION
-              value: "{{ .Chart.version }}"
+              value: "{{ .Chart.appVersion }}"
             - name: UID
               value: "{{ .Values.env.UID }}"
             - name: GID
