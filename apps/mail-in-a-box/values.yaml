@@ -77,25 +77,3 @@ volumes:
     name: mail-config
     mountPath: /tmp/docker-mailserver
     nfsPath: /mnt/user/mail-config
-
-env:
-  - name: HOSTNAME
-    value: "mail.eaglepass.io"
-  - name: DOMAINNAME
-    value: "eaglepass.io"
-  - name: OVERRIDE_HOSTNAME
-    value: "mail.eaglepass.io"
-  - name: ENABLE_SPAMASSASSIN
-    value: "1"
-  - name: ENABLE_CLAMAV
-    value: "1"
-  - name: ENABLE_FAIL2BAN
-    value: "1"
-  - name: ENABLE_POSTGREY
-    value: "1"
-  - name: SMTP_ONLY
-    value: "0"
-  - name: ENABLE_SRS
-    value: "0"
-  - name: SSL_TYPE
-    value: "letsencrypt"
