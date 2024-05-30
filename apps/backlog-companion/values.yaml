@@ -31,7 +31,7 @@ resources:
     cpu: "500m"
 
 env:
-  APP_VERSION: {{ .Chart.version }}
+  # APP_VERSION: {{ .Chart.version }}
   UID: 1000
   GID: 1000
 
