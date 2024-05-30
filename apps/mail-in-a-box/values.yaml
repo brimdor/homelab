@@ -11,13 +11,8 @@ nfs:
     mailLogs: /mnt/user/mail-logs
     mailConfig: /mnt/user/mail-config
 
-resources:
-  requests:
-    memory: "64Mi"
-    cpu: "250m"
-  limits:
-    memory: "128Mi"
-    cpu: "500m"
+hostname: mail
+domainname: eaglepass.io
 
 ingress:
   enabled: true
@@ -67,21 +62,3 @@ ports:
     port: 443
     targetPort: 443
     protocol: TCP
-
-volumes:
-  mailData:
-    name: mail-data
-    mountPath: /var/mail
-    nfsPath: /mnt/user/mail-data
-  mailState:
-    name: mail-state
-    mountPath: /var/mail-state
-    nfsPath: /mnt/user/mail-state
-  mailLogs:
-    name: mail-logs
-    mountPath: /var/log/mail
-    nfsPath: /mnt/user/mail-logs
-  mailConfig:
-    name: mail-config
-    mountPath: /tmp/docker-mailserver
-    nfsPath: /mnt/user/mail-config
