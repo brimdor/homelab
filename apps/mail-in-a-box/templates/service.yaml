@@ -6,34 +6,12 @@ metadata:
     app: mail-server
 spec:
   ports:
-    - name: smtp
-      port: 25
-      targetPort: 25
-      protocol: TCP
-    - name: smtps
-      port: 465
-      targetPort: 465
-      protocol: TCP
-    - name: submission
-      port: 587
-      targetPort: 587
-      protocol: TCP
-    - name: imap
-      port: 143
-      targetPort: 143
-      protocol: TCP
-    - name: imaps
-      port: 993
-      targetPort: 993
-      protocol: TCP
-    - name: http
-      port: 80
-      targetPort: 80
-      protocol: TCP
-    - name: https
-      port: 443
-      targetPort: 443
-      protocol: TCP
+    {{- range .Values.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      protocol: {{ .protocol }}
+    {{- end }}
   selector:
     app: mail-server
   type: ClusterIP
