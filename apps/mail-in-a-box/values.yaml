@@ -69,15 +69,19 @@ ports:
     protocol: TCP
 
 volumes:
-  - name: mail-data
+  mailData:
+    name: mail-data
     mountPath: /var/mail
-    nfsPath: "{{ .Values.nfs.paths.mailData }}"
-  - name: mail-state
+    nfsPath: /mnt/user/mail-data
+  mailState:
+    name: mail-state
     mountPath: /var/mail-state
-    nfsPath: "{{ .Values.nfs.paths.mailState }}"
-  - name: mail-logs
+    nfsPath: /mnt/user/mail-state
+  mailLogs:
+    name: mail-logs
     mountPath: /var/log/mail
-    nfsPath: "{{ .Values.nfs.paths.mailLogs }}"
-  - name: mail-config
+    nfsPath: /mnt/user/mail-logs
+  mailConfig:
+    name: mail-config
     mountPath: /tmp/docker-mailserver
-    nfsPath: "{{ .Values.nfs.paths.mailConfig }}"
+    nfsPath: /mnt/user/mail-config
