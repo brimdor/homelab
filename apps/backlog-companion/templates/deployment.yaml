@@ -21,8 +21,6 @@ spec:
           ports:
             - containerPort: 5000
           env:
-            - name: APP_VERSION
-              value: "{{ .Values.env.APP_VERSION }}"
             - name: UID
               value: "{{ .Values.env.UID }}"
             - name: GID
