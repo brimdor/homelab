@@ -1,0 +1,5 @@
+NAMESPACE=<set_namespace> # Replace with your namespace
+kubectl get pods -n $NAMESPACE -o custom-columns=NAME:.metadata.name --no-headers=true | while read POD_NAME; do
+    echo "Logs from pod $POD_NAME"
+    kubectl logs $POD_NAME -n $NAMESPACE | grep -i "error"
+done
