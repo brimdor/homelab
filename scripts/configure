@@ -15,12 +15,12 @@ import os
 from rich.prompt import Confirm, Prompt
 
 upstream_config = {
-    "seed_repo": "https://github.com/khuedoan/homelab",
-    "domain": "khuedoan.com",
-    "timezone": "Asia/Ho_Chi_Minh",
-    "terraform_workspace": "khuedoan",
-    "loadbalancer_ip_range": "192.168.1.224/27",
-    "control_plane_endpoint": "192.168.1.100"
+    "seed_repo": "https://github.com/brimdor/homelab",
+    "domain": "eaglepass.io",
+    "timezone": "America/Chicago",
+    "terraform_workspace": "brimdor",
+    "loadbalancer_ip_range": "10.0.50.224/27",
+    "control_plane_endpoint": "10.0.50.100"
 }
 
 
