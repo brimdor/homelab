@@ -1,5 +1,34 @@
 kured:
   configuration:
     annotateNodes: true
-    rebootSentinelCommand: sh -c "! needs-restarting --reboothint"
-    timeZone: Asia/Ho_Chi_Minh
+    rebootSentinelCommand: sh -c "/usr/local/bin/rebooter.sh"
+    period: 5m
+    rebootDays: [mo, we, fr]
+    startTime: 00:00
+    endTime: 5:00
+    timeZone: America/Chicago
+
+  initContainers:
+    - name: deploy-rebooter-script
+      image: alpine:latest
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          REBOOTER_SCRIPT_BASE64="IyEvYmluL2Jhc2gKCkxPR19GSUxFPSIvdmFyL2xvZy9yZWJvb3Rlcl9jaGVjay5sb2ciCgojIEZ1bmN0aW9uIHRvIGxvZyBtZXNzYWdlcwpsb2dfbWVzc2FnZSgpIHsKICAgICMgU2V0IHRoZSBUWiBlbnZpcm9ubWVudCB2YXJpYWJsZSB0byBBbWVyaWNhL0NoaWNhZ28KICAgIGVjaG8gIiQoVFo9J0FtZXJpY2EvQ2hpY2FnbycgZGF0ZSAnKyVZLSVtLSVkICVIOiVNOiVTICVaJyk6ICQxIiA+PiAiJExPR19GSUxFIgp9CgojIENoZWNrIGlmIC92YXIvcnVuL3JlYm9vdC1yZXF1aXJlZCBleGlzdHMKaWYgWyAtZiAiL3Zhci9ydW4vcmVib290LXJlcXVpcmVkIiBdOyB0aGVuCiAgICBsb2dfbWVzc2FnZSAiUmVib290IHJlcXVpcmVkIGR1ZSB0byAvdmFyL3J1bi9yZWJvb3QtcmVxdWlyZWQgZmlsZS4iCiAgICBleGl0IDAKZmkKCiMgQWx0ZXJuYXRpdmVseSwgdXNlIG5lZWRzLXJlc3RhcnRpbmcgdG8gY2hlY2sgaWYgYSByZWJvb3QgaXMgbmVlZGVkCmlmICEgbmVlZHMtcmVzdGFydGluZyAtLXJlYm9vdGhpbnQ7IHRoZW4KICAgIGxvZ19tZXNzYWdlICJObyByZWJvb3QgbmVlZGVkIGFjY29yZGluZyB0byBuZWVkcy1yZXN0YXJ0aW5nLiIKICAgIGV4aXQgMApmaQoKIyBEZWZhdWx0IGV4aXQsIG1lYW5pbmcgbm8gcmVib290IHJlcXVpcmVkCmxvZ19tZXNzYWdlICJObyByZWJvb3QgcmVxdWlyZWQuIgpleGl0IDEK"
+          if [ ! -f /host/usr/local/bin/rebooter.sh ]; then
+            echo "Deploying rebooter script..."
+            echo "$REBOOTER_SCRIPT_BASE64" | base64 -d > /host/usr/local/bin/rebooter.sh
+            chmod +x /host/usr/local/bin/rebooter.sh
+          else
+            echo "rebooter.sh script already exists. Skipping deployment."
+          fi
+      volumeMounts:
+        - name: host-usr-local-bin
+          mountPath: /host/usr/local/bin
+
+  volumes:
+    - name: host-usr-local-bin
+      hostPath:
+        path: /usr/local/bin
+        type: DirectoryOrCreate
+
