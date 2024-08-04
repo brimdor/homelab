@@ -3,6 +3,8 @@
   roles:
     - prerequisites
     - k3s
+    - nfs_utils
+    - cronjobs
     - automatic_upgrade
 
 - name: Install Kubernetes addons
