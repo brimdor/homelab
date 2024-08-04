@@ -1,0 +1,54 @@
+image:
+  repository: brimdor/backlog-companion-web
+  tag: latest
+  policy: Always
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    hajimari.io/appName: Backlog Companion
+    hajimari.io/icon: movie-roll
+  hosts:
+    - host: backlog-companion.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - backlog-companion.eaglepass.io
+      secretName: backlog-companion-tls
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "250m"
+  limits:
+    memory: "128Mi"
+    cpu: "500m"
+
+env:
+  UID: 1000
+  GID: 1000
+
+externalSecret:
+  name: backlog-companion-secrets
+  namespace: backlog-companion
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: global-secrets
+  data:
+    - secretKey: STEAM_API_KEY
+      remoteRef:
+        key: steam-api-key-secret
+        property: STEAM_API_KEY
+        conversionStrategy: Default
+        decodingStrategy: None
+  
+nfs:
+  enabled: true
+  server: 10.0.50.3
+  path: /mnt/user/backlog_companion_config
