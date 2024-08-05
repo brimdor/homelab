@@ -28,7 +28,17 @@ gitea_user = base64.b64decode(gitea_user_secret.data['username']).decode("utf-8"
 gitea_pass = base64.b64decode(gitea_user_secret.data['password']).decode("utf-8")
 gitea_url = f"http://{gitea_host}"
 
-kanidm_host = client.NetworkingV1Api().read_namespaced_ingress('kanidm', 'kanidm').spec.rules[0].host
+try:
+    ingress = client.NetworkingV1Api().read_namespaced_ingress('kanidm', 'kanidm')
+    print(f"Ingress object: {ingress}")  # Debugging output
+    kanidm_host = ingress.spec.rules[0].host
+    print(f"Kanidm Host: {kanidm_host}")
+except Exception as e:
+    print(f"Failed to retrieve kanidm_host: {e}")
+    kanidm_host = None
+
+
+# kanidm_host = client.NetworkingV1Api().read_namespaced_ingress('kanidm', 'kanidm').spec.rules[0].host
 
 def apply_secret(name: str, namespace: str, data: dict) -> None:
     try:
