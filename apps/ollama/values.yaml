@@ -35,14 +35,14 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       hosts:
-        - host: &ollamaHost ollama.eaglepass.io
+        - host: ollama.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
                 name: main
                 port: http
-        - host: &uiHost ai.eaglepass.io
+        - host: ai.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -51,8 +51,8 @@ app-template:
                 port: http
       tls:
         - hosts:
-            - *ollamaHost
-            - *uiHost
+            - ollama.eaglepass.io
+            - ai.eaglepass.io
           secretName: ollama-tls-certificate
   persistence:
     data:
