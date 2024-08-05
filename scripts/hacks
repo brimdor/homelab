@@ -193,6 +193,12 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
         check=True,
     )
 
+    # Set the kanidm_host based on the Ingress information
+    kanidm_host = "auth.eaglepass.io"
+
+    # Set the name of the OAuth app; update this if you have a specific name
+    name = "dex"  # Replace with the appropriate OAuth app name if different
+
     try:
         # Run the command and capture the output
         result = subprocess.run(
