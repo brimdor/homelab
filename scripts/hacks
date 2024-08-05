@@ -196,20 +196,20 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
         check=True,
     )
 
-    client_secret = json.loads(subprocess.run(
-        ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
-        capture_output=True,
-        check=True,
-    ).stdout.decode("utf-8"))['secret']
+    # client_secret = json.loads(subprocess.run(
+    #     ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
+    #     capture_output=True,
+    #     check=True,
+    # ).stdout.decode("utf-8"))['secret']
 
-    apply_secret(
-        f"kanidm.{name}",
-        "global-secrets",
-        {
-            'client_id': base64.b64encode(name.encode("utf-8")).decode("utf-8"),
-            'client_secret': base64.b64encode(client_secret.encode("utf-8")).decode("utf-8"),
-        }
-    )
+    # apply_secret(
+    #     f"kanidm.{name}",
+    #     "global-secrets",
+    #     {
+    #         'client_id': base64.b64encode(name.encode("utf-8")).decode("utf-8"),
+    #         'client_secret': base64.b64encode(client_secret.encode("utf-8")).decode("utf-8"),
+    #     }
+    # )
 
 def main() -> None:
     with Console().status("Completing the remaining sorcery"):
