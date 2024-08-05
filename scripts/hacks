@@ -179,6 +179,11 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
             capture_output=True,
             check=True,
         )
+        print("")
+        print("$$$$$$$$$$$$$$$$$$$$$$$")
+        print(f"result variable is this -->",result)
+        print("$$$$$$$$$$$$$$$$$$$$$$$")
+        print("")
         output = result.stdout.decode("utf-8")
         print(f"Subprocess output: {output}")  # Debugging output
 
