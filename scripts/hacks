@@ -179,24 +179,37 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
             capture_output=True,
             check=True,
         )
-        print("")
-        print("$$$$$$$$$$$$$$$$$$$$$$$")
-        print(f"result variable is this -->",result)
-        print("$$$$$$$$$$$$$$$$$$$$$$$")
-        print("")
         output = result.stdout.decode("utf-8")
-        print(f"Subprocess output: {output}")  # Debugging output
+        stderr_output = result.stderr.decode("utf-8")
 
-        client_secret = json.loads(output)['secret']
+        # Print the outputs for debugging
+        print(f"Subprocess stdout: {output}")
+        print(f"Subprocess stderr: {stderr_output}")
 
-        apply_secret(
-            f"kanidm.{name}",
-            "global-secrets",
-            {
-                'client_id': base64.b64encode(name.encode("utf-8")).decode("utf-8"),
-                'client_secret': base64.b64encode(client_secret.encode("utf-8")).decode("utf-8"),
-            }
-        )
+        if "No secret configured" in stderr_output:
+            print(f"No secret configured for the OAuth app: {name}")
+            sys.exit(1)
+
+        # Check for mismatched client and server versions
+        if "Mismatched client and server version" in stderr_output:
+            print(f"Warning: {stderr_output}")
+
+        # Only proceed if valid JSON output is found
+        if output:
+            client_secret = json.loads(output)['secret']
+
+            apply_secret(
+                f"kanidm.{name}",
+                "global-secrets",
+                {
+                    'client_id': base64.b64encode(name.encode("utf-8")).decode("utf-8"),
+                    'client_secret': base64.b64encode(client_secret.encode("utf-8")).decode("utf-8"),
+                }
+            )
+        else:
+            print(f"No valid JSON output returned. Exiting.")
+            sys.exit(1)
+
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with return code {e.returncode}")
         print(f"stderr: {e.stderr.decode('utf-8') if e.stderr else 'No stderr output'}")
