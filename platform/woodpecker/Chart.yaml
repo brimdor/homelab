@@ -4,4 +4,4 @@ version: 0.0.0
 dependencies:
   - name: woodpecker
     version: 1.1.1
-    repository: https://woodpecker-ci.org
+    repository: https://github.com/woodpecker-ci/helm/archive/refs/tags/1.1.1.tar.gz
