@@ -193,11 +193,38 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
         check=True,
     )
 
-    client_secret = json.loads(subprocess.run(
-        ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
-        capture_output=True,
-        check=True,
-    ).stdout.decode("utf-8"))['secret']
+    try:
+        # Run the command and capture the output
+        result = subprocess.run(
+            ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
+            capture_output=True,
+            check=True,
+        )
+
+        # Decode the stdout to a string
+        output = result.stdout.decode("utf-8")
+
+        # Print the output for debugging purposes
+        print(f"Subprocess output: {output}")
+
+        # Attempt to load the JSON and extract the 'secret'
+        client_secret = json.loads(output)['secret']
+
+    except subprocess.CalledProcessError as e:
+        # Handle subprocess errors
+        print(f"Subprocess failed with return code {e.returncode}")
+        print(f"stderr: {e.stderr.decode('utf-8') if e.stderr else 'No stderr output'}")
+        sys.exit(1)
+
+    except json.JSONDecodeError:
+        # Handle JSON decode errors
+        print(f"Failed to decode JSON. Subprocess output: {output}")
+        sys.exit(1)
+
+    except KeyError:
+        # Handle the case where 'secret' key is not in the JSON output
+        print(f"JSON output does not contain 'secret' key. Full output: {output}")
+        sys.exit(1)
 
     apply_secret(
         f"kanidm.{name}",
