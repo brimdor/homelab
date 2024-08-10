@@ -226,39 +226,11 @@ Please see [contributing guide](https://homelab.eaglepass.io/reference/contribut
 
 ## License
 
-Copyright &copy; 2020 - 2022 Brimdor (Edited by Brimdor)
+Copyright &copy; 2020 - 2022 Brimdor (Edited by Brimdor) based on [khuedoan/homelab](https://github.com/khuedoan/homelab)
 
 Distributed under the GPLv3 License.
 See [license page](https://homelab.eaglepass.io/reference/license) or `LICENSE.md` file for more information.
 
 ## Acknowledgements
 
-References:
-
-- [Ephemeral PXE server inspired by Minimal First Machine in the DC](https://speakerdeck.com/amcguign/minimal-first-machine-in-the-dc)
-- [ArgoCD usage and monitoring configuration in locmai/humble](https://github.com/locmai/humble)
-- [README template](https://github.com/othneildrew/Best-README-Template)
-- [Run the same Cloudflare Tunnel across many `cloudflared` processes](https://developers.cloudflare.com/cloudflare-one/tutorials/many-cfd-one-tunnel)
-- [MAC address environment variable in GRUB config](https://askubuntu.com/questions/1272400/how-do-i-automate-network-installation-of-many-ubuntu-18-04-systems-with-efi-and)
-- [Official k3s systemd service file](https://github.com/k3s-io/k3s/blob/master/k3s.service)
-- [Official Cloudflare Tunnel examples](https://github.com/cloudflare/argo-tunnel-examples)
-- [Initialize GitOps repository on Gitea and integrate with Tekton by RedHat](https://github.com/redhat-scholars/tekton-tutorial/tree/master/triggers)
-- [SSO configuration from xUnholy/k8s-gitops](https://github.com/xUnholy/k8s-gitops)
-- [Pre-commit config from k8s-at-home/flux-cluster-template](https://github.com/k8s-at-home/flux-cluster-template)
-- [Diátaxis technical documentation framework](https://diataxis.fr)
-- [Official Terratest examples](https://github.com/gruntwork-io/terratest/tree/master/test)
-
-Here is a list of the contributors who have helped to improve this project.
-Big shout-out to them!
-
-- ![](https://github.com/locmai.png?size=24) [@locmai](https://github.com/locmai)
-- ![](https://github.com/MatthewJohn.png?size=24) [@MatthewJohn](https://github.com/MatthewJohn)
-- ![](https://github.com/karpfediem.png?size=24) [@karpfediem](https://github.com/karpfediem)
-- ![](https://github.com/linhng98.png?size=24) [@linhng98](https://github.com/linhng98)
-- ![](https://github.com/BlueHatbRit.png?size=24) [@BlueHatbRit](https://github.com/BlueHatbRit)
-- ![](https://github.com/dotdiego.png?size=24) [@dotdiego](https://github.com/dotdiego)
-- ![](https://github.com/Crimrose.png?size=24) [@Crimrose](https://github.com/Crimrose)
-- ![](https://github.com/eventi.png?size=24) [@eventi](https://github.com/eventi)
-- ![](https://github.com/Bourne-ID.png?size=24) [@Bourne-ID](https://github.com/Bourne-ID)
-- ![](https://github.com/akwan.png?size=24) [@akwan](https://github.com/akwan)
-- ![](https://github.com/trangmaiq.png?size=24) [@trangmaiq](https://github.com/trangmaiq)
+Based on work originating from [khuedoan/homelab](https://github.com/khuedoan/homelab) - Buy him a coffee!!
