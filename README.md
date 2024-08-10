@@ -21,7 +21,6 @@ A proper upgrade path is planned for the stable release.
 More information can be found in [the roadmap](#roadmap) below.
 
 ### Hardware
-![](https://drive.google.com/uc?id=1SRlCLolzmB37S68bckVka3SoqFv9O2te)
 
 - 8 × Lenovo Thinkcentre M700:
     - CPU: `Intel Core i5-6600T @ 2.70GHz`
