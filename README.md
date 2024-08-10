@@ -13,7 +13,7 @@ It can be used as a highly customizable framework to build your own homelab.
 
 ## Overview
 
-Project status: **ALPHA**
+Project status: **BETA**
 
 This project is still in the experimental stage, and I don't use anything critical on it.
 Expect breaking changes that may require a complete redeployment.
