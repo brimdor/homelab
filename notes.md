@@ -21,26 +21,20 @@ User - idm_admin
 `export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account idm_admin`
 
 ## 1Password Connect Setup
-`nvim /tmp/1password-credentials.json`
+`read -sp "Enter the token: " token
+kubectl create secret generic onepassword-token \
+  --from-literal=token=$(echo -n "$token" | base64) \
+  -n global-secrets`  
 
-Copy the contents of the 1password-credentials.json file generated from the Connect server implementation into nvim.
+`read -sp "Enter the contents of the JSON (for 1password-credentials): " json_data
+kubectl create secret generic op-credentials \
+  --from-literal=1password-credentials.json=$(echo -n "$json_data" | base64) \
+  -n global-secrets`
 
-Input `:wq`
+### Troubleshoot the secrets for Connect
+`kubectl -n global-secrets get secrets op-credentials -o json | jq -r '.data."1password-credentials.json"' | base64 -d | base64 -d`  
 
-`nvim /tmp/token`
-
-Copy the Access Token generated from the Connect server implementation into the nvim.
-
-Input `:wq`
-
-`base64 /tmp/1password-credentials.json > /tmp/1password-credentials.json`
-
-`base64 /tmp/token > /tmp/token`
-
-`kubectl create secret generic op-credentials --from-file=/tmp/1password-credentials.json -n global-secrets`
-
-`kubectl create secret generic onepassword-token --from-file=/tmp/token -n global-secrets`
-
+`kubectl -n global-secrets get secrets onepassword-token -o json | jq -r '.data."token"' | base64 -d | base64 -d`
 
 ## Fixes and Processes
 
