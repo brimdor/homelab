@@ -29,7 +29,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.opSecret.secretName }}
-                  key: STEAM_API_KEY
+                  key: credential
             - name: FLASK_APP
               value: "backend/app.py"
           volumeMounts:
