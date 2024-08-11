@@ -37,7 +37,7 @@ env:
 opSecret:
   vault: "4uaua4a45yuhnwhehp5bwylmti"
   item: "wvr523k3gegace5ysd7ubxkb2u"
-  secretName: "STEAM_API_KEY"
+  secretName: "Steam API Key"
   
 nfs:
   enabled: true
