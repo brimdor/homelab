@@ -28,7 +28,7 @@ spec:
             - name: STEAM_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: backlog-companion-secrets
+                  name: {{ .Values.opSecret.secretName }}
                   key: STEAM_API_KEY
             - name: FLASK_APP
               value: "backend/app.py"

@@ -34,19 +34,10 @@ env:
   UID: 1000
   GID: 1000
 
-externalSecret:
-  name: backlog-companion-secrets
-  namespace: backlog-companion
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: global-secrets
-  data:
-    - secretKey: STEAM_API_KEY
-      remoteRef:
-        key: steam-api-key-secret
-        property: STEAM_API_KEY
-        conversionStrategy: Default
-        decodingStrategy: None
+opSecret:
+  vault: "4uaua4a45yuhnwhehp5bwylmti"
+  item: "wvr523k3gegace5ysd7ubxkb2u"
+  secretName: "STEAM_API_KEY"
   
 nfs:
   enabled: true

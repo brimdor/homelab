@@ -21,25 +21,26 @@ User - idm_admin
 `export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account idm_admin`
 
 ## 1Password Connect Setup
-`touch /tmp/1password-credentials`
-
-`touch /tmp/onepassword-token`
-
-`nvim /tmp/1password-credentials`
+`nvim /tmp/1password-credentials.json`
 
 Copy the contents of the 1password-credentials.json file generated from the Connect server implementation into nvim.
 
 Input `:wq`
 
-`nvim /tmp/onepassword-token`
+`nvim /tmp/token`
 
 Copy the Access Token generated from the Connect server implementation into the nvim.
 
 Input `:wq`
 
-run 1password_connect script from the homelab folder
+`base64 /tmp/1password-credentials.json > /tmp/1password-credentials.json`
 
-`./scripts/1password_connect`
+`base64 /tmp/token > /tmp/token`
+
+`kubectl create secret generic op-credentials --from-file=/tmp/1password-credentials.json -n global-secrets`
+
+`kubectl create secret generic onepassword-token --from-file=/tmp/token -n global-secrets`
+
 
 ## Fixes and Processes
 
