@@ -7,8 +7,8 @@ image:
   policy: Always
 
 env:
-  UID: 1000
-  GID: 1000
+  UID: 99
+  GID: 100
   TZ: "America/Chicago"
   RADARR__URL: https://radarr.eaglepass.io
   SONARR__URL: https://sonarr.eaglepass.io
