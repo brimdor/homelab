@@ -19,7 +19,7 @@ env:
   SONARR__QUALITY_PROFILE: "Any"
   SONARR__LANGUAGE_PROFILE: "English"
   PARTIAL_SEASONS: "true"
-  LOG_LEVEL: ":error"
+  LOG_LEVEL: ":info"
 
 opSecret:
   DISCORD__TOKEN:
