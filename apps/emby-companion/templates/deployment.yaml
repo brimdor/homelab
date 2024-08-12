@@ -25,14 +25,14 @@ spec:
               value: "{{ .Values.env.GID }}"
             - name: TZ
               value: "{{ .Values.env.TZ }}"
-            - name: RADARR__URL
-              value: "{{ .Values.env.RADARR__URL }}"
-            - name: DISCORD_TOKEN
+            - name: EMBY_URL
+              value: "{{ .Values.env.EMBY_URL }}"
+            - name: DISCORD_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Values.opSecret.DISCORD_TOKEN.secretName }}"
                   key: "{{ .Values.opSecret.DISCORD_TOKEN.key }}"
-            - name: EMBY_API
+            - name: EMBY_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Values.opSecret.EMBY_API.secretName }}"
