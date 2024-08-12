@@ -1,0 +1,25 @@
+app:
+  name: emby-companion
+
+image:
+  repository: brimdor/emby_companion
+  tag: latest
+  policy: Always
+
+env:
+  UID: 1000
+  GID: 1000
+  TZ: "America/Chicago"
+  EMBY_URL: https://emby.eaglepass.io
+
+opSecret:
+  DISCORD_TOKEN:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "pd6ehnq7eyx3pp4rqdixb4cmbm"
+    secretName: "discord-token"
+    key: "credential"
+  EMBY_API:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "sy4xrs3sqjbfxlakkudjibgngu"
+    secretName: "emby-api"
+    key: "credential"

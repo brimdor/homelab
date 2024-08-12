@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.app.name }}"
+  labels:
+    app: "{{ .Values.app.name }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Values.app.name }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Values.app.name }}"
+    spec:
+      containers:
+        - name: "{{ .Values.app.name }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.policy }}"
+          env:
+            - name: UID
+              value: "{{ .Values.env.UID }}"
+            - name: GID
+              value: "{{ .Values.env.GID }}"
+            - name: TZ
+              value: "{{ .Values.env.TZ }}"
+            - name: RADARR__URL
+              value: "{{ .Values.env.RADARR__URL }}"
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.DISCORD_TOKEN.secretName }}"
+                  key: "{{ .Values.opSecret.DISCORD_TOKEN.key }}"
+            - name: EMBY_API
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.EMBY_API.secretName }}"
+                  key: "{{ .Values.opSecret.EMBY_API.key }}"
