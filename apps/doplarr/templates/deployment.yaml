@@ -19,9 +19,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: "{{ .Values.image.policy }}"
           env:
-            - name: UID
+            - name: PUID
               value: "{{ .Values.env.UID }}"
-            - name: GID
+            - name: PGID
               value: "{{ .Values.env.GID }}"
             - name: TZ
               value: "{{ .Values.env.TZ }}"
