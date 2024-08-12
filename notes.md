@@ -21,9 +21,11 @@ User - idm_admin
 `export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account idm_admin`
 
 ## 1Password Connect Setup
+The token does not need to be base64 encoded prior to creating the secret. The json file does need to be encoded first.  
+
 `read -sp "Enter the token: " token
 kubectl create secret generic onepassword-token \
-  --from-literal=token=$(echo -n "$token" | base64) \
+  --from-literal=token="$token" \
   -n global-secrets`  
 
 `read -sp "Enter the contents of the JSON (for 1password-credentials): " json_data
@@ -34,7 +36,7 @@ kubectl create secret generic op-credentials \
 ### Troubleshoot the secrets for Connect
 `kubectl -n global-secrets get secrets op-credentials -o json | jq -r '.data."1password-credentials.json"' | base64 -d | base64 -d`  
 
-`kubectl -n global-secrets get secrets onepassword-token -o json | jq -r '.data."token"' | base64 -d | base64 -d`
+`kubectl -n global-secrets get secrets onepassword-token -o json | jq -r '.data."token"' | base64 -d`
 
 ## Fixes and Processes
 

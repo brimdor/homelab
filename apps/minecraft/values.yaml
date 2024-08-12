@@ -460,9 +460,6 @@ deploymentLabels: {}
 
 serviceAnnotations:
   external-dns.alpha.kubernetes.io/hostname: "thecraft.eaglepass.io"
-  # external-dns.alpha.kubernetes.io/target: "homelab-tunnel.falconpunch.org"
-  # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-  # metallb.universe.tf/allow-shared-ip: "minecraft"
 serviceLabels: {}
 
 rconServiceAnnotations: {}

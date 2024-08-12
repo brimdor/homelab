@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.app.name }}"
+  labels:
+    app: "{{ .Values.app.name }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Values.app.name }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Values.app.name }}"
+    spec:
+      containers:
+        - name: "{{ .Values.app.name }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.policy }}"
+          env:
+            - name: UID
+              value: "{{ .Values.env.UID }}"
+            - name: GID
+              value: "{{ .Values.env.GID }}"
+            - name: TZ
+              value: "{{ .Values.env.TZ }}"
+            - name: RADARR__URL
+              value: "{{ .Values.env.RADARR__URL }}"
+            - name: SONARR__URL
+              value: "{{ .Values.env.SONARR__URL }}"
+            - name: DISCORD__MAS_RESULTS
+              value: "{{ .Values.env.DISCORD__MAS_RESULTS }}"
+            - name: DISCORD__REQUESTED_MSG_STYLE
+              value: "{{ .Values.env.DISCORD__REQUESTED_MSG_STYLE }}"
+            - name: RADARR__QUALITY_PROFILE
+              value: "{{ .Values.env.RADARR__QUALITY_PROFILE }}"
+            - name: RADARR__LANGUAGE_PROFILE
+              value: "{{ .Values.env.RADARR__LANGUAGE_PROFILE }}"
+            - name: SONARR__QUALITY_PROFILE
+              value: "{{ .Values.env.SONARR__QUALITY_PROFILE }}"
+            - name: SONARR__LANGUAGE_PROFILE
+              value: "{{ .Values.env.SONARR__LANGUAGE_PROFILE }}"
+            - name: PARTIAL_SEASONS
+              value: "{{ .Values.env.PARTIAL_SEASONS }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.env.LOG_LEVEL }}"
+            - name: DISCORD__TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.DISCORD__TOKEN.secretName }}"
+                  key: "{{ .Values.opSecret.DISCORD__TOKEN.key }}"
+            - name: RADARR__API
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.RADARR__API.secretName }}"
+                  key: "{{ .Values.opSecret.RADARR__API.key }}"
+            - name: SONARR__API
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.SONARR__API.secretName }}"
+                  key: "{{ .Values.opSecret.SONARR__API.key }}"
+          volumeMounts:
+            {{- if .Values.volumes.nfs.enabled }}
+            - name: "{{ .Values.volumeMounts.config.name }}"
+              mountPath: "{{ .Values.volumeMounts.config.mountPath }}"
+            {{- end }}
+      volumes:
+        {{- if .Values.volumes.nfs.enabled }}
+        - name: "{{ .Values.volumes.nfs.name }}"
+          nfs:
+            server: {{ .Values.volumes.nfs.server }}
+            path: {{ .Values.volumes.nfs.path }}
+        {{- end }}

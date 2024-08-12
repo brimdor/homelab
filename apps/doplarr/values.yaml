@@ -1,0 +1,51 @@
+app:
+  name: doplarr
+
+image:
+  repository: lscr.io/linuxserver/doplarr
+  tag: latest
+  policy: Always
+
+env:
+  UID: 1000
+  GID: 1000
+  TZ: "America/Chicago"
+  RADARR__URL: https://radarr.eaglepass.io
+  SONARR__URL: https://sonarr.eaglepass.io
+  DISCORD__MAS_RESULTS: "25"
+  DISCORD__REQUESTED_MSG_STYLE: ":embed"
+  RADARR__QUALITY_PROFILE: "Any"
+  RADARR__LANGUAGE_PROFILE: "English"
+  SONARR__QUALITY_PROFILE: "Any"
+  SONARR__LANGUAGE_PROFILE: "English"
+  PARTIAL_SEASONS: "true"
+  LOG_LEVEL: ":error"
+
+opSecret:
+  DISCORD__TOKEN:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "mcc37qj3yzweznruznh3qwlqta"
+    secretName: "DISCORD__TOKEN"
+    key: "password"
+  RADARR__API:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "rb3gyodqcqxl7votw2tdvwgmeq"
+    secretName: "DISCORD__TOKEN"
+    key: "API Key"
+  SONARR__API:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "ywvxjd4w3u3nnoedkwfymwaokm"
+    secretName: "SONARR__API"
+    key: "API Key"
+
+volumeMounts:
+  config:
+    name: "config"
+    mountPath: "/config"
+
+volumes:
+  nfs:
+    enabled: "true"
+    name: "config"
+    server: "10.0.50.3"
+    path: "/mnt/user/doplarr_config"
