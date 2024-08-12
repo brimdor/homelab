@@ -31,12 +31,12 @@ opSecret:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "rb3gyodqcqxl7votw2tdvwgmeq"
     secretName: "radarr-api"
-    key: "API Key"
+    key: "api_key"
   SONARR__API:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "ywvxjd4w3u3nnoedkwfymwaokm"
     secretName: "sonarr-api"
-    key: "API Key"
+    key: "api_key"
 
 volumeMounts:
   config:
