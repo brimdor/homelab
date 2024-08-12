@@ -25,17 +25,17 @@ opSecret:
   DISCORD__TOKEN:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "mcc37qj3yzweznruznh3qwlqta"
-    secretName: "DISCORD__TOKEN"
+    secretName: "discord-token"
     key: "password"
   RADARR__API:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "rb3gyodqcqxl7votw2tdvwgmeq"
-    secretName: "DISCORD__TOKEN"
+    secretName: "radarr-api"
     key: "API Key"
   SONARR__API:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "ywvxjd4w3u3nnoedkwfymwaokm"
-    secretName: "SONARR__API"
+    secretName: "sonarr-api"
     key: "API Key"
 
 volumeMounts:
