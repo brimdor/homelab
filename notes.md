@@ -46,10 +46,10 @@ kubectl create secret generic op-credentials \
 
 ### Stop Auto-Heal and Set Manual-Sync
 `argocd login argocd.eaglepass.io --grpc-web --no-verify`  
-`argocd proj windows add default -k deny --schedule "* * * * *" --duration 24h --namespaces * --manual-sync`
+`argocd proj windows add fixing -k deny --schedule "* * * * *" --duration 24h --namespaces * --manual-sync`
 
 ### Start Auto-Heal and Set Auto-Sync
-`argocd proj windows delete default`
+`argocd proj windows delete fixing`
 
 ### Scale Deployments
 `kubectl scale deployment (name of deployment)-deployment --replicas=(count) -n (namespace)`
