@@ -24,7 +24,7 @@ spec:
                 --from-literal=client_secret=${CLIENT_SECRET} \
                 -n global-secrets
       serviceAccount: secret-generator
-      volumes:
-        - name: source
-          configMap:
-            name: secret-generator
+      # volumes:
+      #   - name: source
+      #     configMap:
+      #       name: secret-generator
