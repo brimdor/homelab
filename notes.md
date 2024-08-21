@@ -60,7 +60,7 @@ kubectl create secret generic op-credentials \
 
 ### Node Restarts Stuck
 `kubectl -n longhorn-system get pods -o wide | grep instance-manager`  
-`kubectl -n longhorn-system delete pod instance-manager<fill in> --force`  
+`kubectl -n longhorn-system delete pod instance-manager<fill in> --force`
 
 
 ## Backup
