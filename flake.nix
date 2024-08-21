@@ -21,7 +21,7 @@
                   owner = "kanidm";
                   repo = "kanidm";
                   rev = "v${version}";
-                  sha256 = lib.fakeSha256;
+                  sha256 = "NH9V5KKI9LAtJ2/WuWtUJUzkjVMfO7Q5NQkK7Ys2olU=";
                 };
               });
             })
