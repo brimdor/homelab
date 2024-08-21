@@ -1,0 +1,6 @@
+- name: Setup Nodes
+  hosts: metal
+  roles:
+    - system_settings
+    - nfs_utils
+    - cronjobs
