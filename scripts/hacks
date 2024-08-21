@@ -171,9 +171,16 @@ def setup_kanidm_group(name: str) -> None:
 
 def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
     try:
+        # Log the command being executed
+        command = [
+            "kanidm", "system", "oauth2", "show-basic-secret",
+            "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name
+        ]
+        print(f"Executing command: {' '.join(command)}")
+
         # Run the command to get the basic secret
         result = subprocess.run(
-            ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
+            command,
             capture_output=True,
             check=True,
         )
@@ -209,6 +216,7 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with error: {e}")
         return
+
 
 
 
