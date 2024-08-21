@@ -172,27 +172,38 @@ def setup_kanidm_group(name: str) -> None:
 def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
     try:
         # Log the command being executed
-        command = [
-            "kanidm", "system", "oauth2", "show-basic-secret",
-            "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name
-        ]
-        print(f"Executing command: {' '.join(command)}")
+        print(f"Creating OAuth app: {name} with redirect URI: {redirect_uri}")
 
-        # Run the command to get the basic secret
-        result = subprocess.run(
-            command,
+        # Run the command to create the OAuth application
+        create_result = subprocess.run(
+            ["kanidm", "system", "oauth2", "create", "--url", f"https://{kanidm_host}", "--name", "admin", name, redirect_uri],
             capture_output=True,
             check=True,
         )
 
         # Check if the command was successful
-        if result.returncode != 0:
-            print(f"Command failed with return code {result.returncode}")
-            print(f"Error output: {result.stderr.decode('utf-8')}")
+        if create_result.returncode != 0:
+            print(f"Failed to create OAuth app. Return code: {create_result.returncode}")
+            print(f"Error output: {create_result.stderr.decode('utf-8')}")
+            return
+
+        print("OAuth app created successfully.")
+
+        # Retrieve the secret associated with the OAuth application
+        secret_result = subprocess.run(
+            ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
+            capture_output=True,
+            check=True,
+        )
+
+        # Check if the command was successful
+        if secret_result.returncode != 0:
+            print(f"Failed to retrieve OAuth app secret. Return code: {secret_result.returncode}")
+            print(f"Error output: {secret_result.stderr.decode('utf-8')}")
             return
 
         # Decode the command output
-        output = result.stdout.decode("utf-8")
+        output = secret_result.stdout.decode("utf-8")
         print(f"Raw command output: {repr(output)}")
 
         # Attempt to parse the JSON output
@@ -213,9 +224,12 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
             }
         )
 
+        print(f"Secret for {name} applied to Kubernetes.")
+
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with error: {e}")
         return
+
 
 
 
