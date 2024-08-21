@@ -15,18 +15,19 @@
 
           overlays = [
             (final: prev: {
-              kanidm = prev.kanidm.overrideAttrs (old: {
+              kanidm = prev.kanidm.overrideAttrs (old: rec {
                 version = "1.1.0-rc.16";
                 src = prev.fetchFromGitHub {
                   owner = "kanidm";
                   repo = "kanidm";
-                  rev = "v1.1.0-rc.16";
-                  sha256 = "0md26s5ys2h96lwv8fqzaf6y8k15aimvkmkg4wnv1x48lbj5azrl";
+                  rev = "v${version}";
+                  sha256 = lib.fakeSha256;
                 };
               });
             })
           ];
         };
+        lib = pkgs.lib;
       in
       with pkgs;
       {
@@ -57,6 +58,7 @@
             pre-commit
             shellcheck
             terraform
+            yamllint
 
             (python3.withPackages (p: with p; [
               jinja2
