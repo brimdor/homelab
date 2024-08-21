@@ -186,14 +186,14 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
 
         # Decode the command output
         output = result.stdout.decode("utf-8")
-        print(f"Command output: {output}")
+        print(f"Raw command output: {repr(output)}")
 
         # Attempt to parse the JSON output
         try:
             client_secret = json.loads(output)['secret']
         except json.JSONDecodeError:
             print("Failed to decode JSON. Output was:")
-            print(output)
+            print(repr(output))  # Print the raw output to show any hidden characters
             return
 
         # Apply the secret to Kubernetes
@@ -209,6 +209,7 @@ def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with error: {e}")
         return
+
 
 
 def main() -> None:
