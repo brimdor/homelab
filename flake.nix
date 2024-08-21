@@ -9,26 +9,12 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        # TODO remove unfree after removing Terraform
+        # (Source: https://xeiaso.net/blog/notes/nix-flakes-terraform-unfree-fix)
         pkgs = import nixpkgs {
           inherit system;
           config.allowUnfree = true;
-
-          overlays = [
-            (final: prev: {
-              kanidm = prev.kanidm.overrideAttrs (old: rec {
-                version = "1.1.0-rc.16";
-                src = prev.fetchFromGitHub {
-                  owner = "kanidm";
-                  repo = "kanidm";
-                  rev = "v${version}";
-                  sha256 = "NH9V5KKI9LAtJ2/WuWtUJUzkjVMfO7Q5NQkK7Ys2olU=";
-                };
-                cargoSha256 = "";
-              });
-            })
-          ];
         };
-        lib = pkgs.lib;
       in
       with pkgs;
       {
@@ -39,7 +25,7 @@
             bmake
             diffutils
             docker
-            docker-compose_1
+            docker-compose_1 # TODO upgrade to version 2
             dyff
             git
             go
@@ -58,7 +44,7 @@
             p7zip
             pre-commit
             shellcheck
-            terraform
+            terraform # TODO replace with OpenTofu, Terraform is no longer FOSS
             yamllint
 
             (python3.withPackages (p: with p; [
