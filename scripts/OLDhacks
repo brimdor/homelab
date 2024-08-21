@@ -171,45 +171,42 @@ def setup_kanidm_group(name: str) -> None:
 
 def setup_kanidm_oauth_app(name: str, redirect_uri: str) -> None:
     try:
-        # Run the command to get the basic secret
-        result = subprocess.run(
-            ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
+        subprocess.run(
+            ["kanidm", "system", "oauth2", "create", "--url", f"https://{kanidm_host}", "--name", "admin", name, name, redirect_uri],
             capture_output=True,
             check=True,
         )
-
-        # Check if the command was successful
-        if result.returncode != 0:
-            print(f"Command failed with return code {result.returncode}")
-            print(f"Error output: {result.stderr.decode('utf-8')}")
-            return
-
-        # Decode the command output
-        output = result.stdout.decode("utf-8")
-        print(f"Command output: {output}")
-
-        # Attempt to parse the JSON output
-        try:
-            client_secret = json.loads(output)['secret']
-        except json.JSONDecodeError:
-            print("Failed to decode JSON. Output was:")
-            print(output)
-            return
-
-        # Apply the secret to Kubernetes
-        apply_secret(
-            f"kanidm.{name}",
-            "global-secrets",
-            {
-                'client_id': base64.b64encode(name.encode("utf-8")).decode("utf-8"),
-                'client_secret': base64.b64encode(client_secret.encode("utf-8")).decode("utf-8"),
-            }
-        )
-
-    except subprocess.CalledProcessError as e:
-        print(f"Subprocess failed with error: {e}")
+    except subprocess.CalledProcessError:
         return
 
+    # TODO https://github.com/dexidp/dex/pull/3188
+    subprocess.run(
+        ["kanidm", "system", "oauth2", "warning-insecure-client-disable-pkce", "--url", f"https://{kanidm_host}", "--name", "admin", name],
+        capture_output=True,
+        check=True,
+    )
+
+    subprocess.run(
+        # TODO better group management
+        ["kanidm", "system", "oauth2", "create-scope-map", "--url", f"https://{kanidm_host}", "--name", "admin", name, "editor", "openid", "profile", "email", "groups"],
+        capture_output=True,
+        check=True,
+    )
+
+    client_secret = json.loads(subprocess.run(
+        ["kanidm", "system", "oauth2", "show-basic-secret", "--url", f"https://{kanidm_host}", "--name", "admin", "--output", "json", name],
+        capture_output=True,
+        check=True,
+    ).stdout.decode("utf-8"))['secret']
+
+    apply_secret(
+        f"kanidm.{name}",
+        "global-secrets",
+        {
+            'client_id': base64.b64encode(name.encode("utf-8")).decode("utf-8"),
+            'client_secret': base64.b64encode(client_secret.encode("utf-8")).decode("utf-8"),
+        }
+    )
 
 def main() -> None:
     with Console().status("Completing the remaining sorcery"):
