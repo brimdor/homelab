@@ -21,7 +21,8 @@ User - idm_admin
 `export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account idm_admin`
 
 ## 1Password Connect Setup
-The token does not need to be base64 encoded prior to creating the secret. The json file does need to be encoded first.  
+The token does not need to be base64 encoded prior to creating the secret.  
+The json file does need to be encoded first.  
 
 `read -sp "Enter the token: " token
 kubectl create secret generic onepassword-token \
@@ -39,6 +40,9 @@ kubectl create secret generic op-credentials \
 `kubectl -n global-secrets get secrets onepassword-token -o json | jq -r '.data."token"' | base64 -d`
 
 ## Fixes and Processes
+
+### SABnzbd Host Whitelist Fix
+`kubectl exec -n sabnzbd $(kubectl get pods -n sabnzbd -l app=sabnzbd -o jsonpath='{.items[0].metadata.name}') -- bash -c "sed -i '/^host_whitelist =.*/c\host_whitelist = sabnzbd.eaglepass.io' /path/to/configuration/file && exit"`
 
 ### Stop Auto-Heal and Set Manual-Sync
 `argocd login argocd.eaglepass.io --grpc-web --no-verify`  

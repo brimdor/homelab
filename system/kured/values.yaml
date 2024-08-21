@@ -3,7 +3,7 @@ kured:
     rebootSentinelCommand: sh -c "/usr/local/bin/rebooter.sh"
     period: 5m
     rebootDays: [mo, we, fr]
-    startTime: 01:45
+    startTime: 1:45
     endTime: 5:00
     timeZone: America/Chicago
 
