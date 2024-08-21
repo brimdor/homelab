@@ -10,13 +10,13 @@ spec:
       restartPolicy: Never
       containers:
         - name: secret-generator
-          image: bitnami/minideb:latest  # Debian-based image
+          image: lachlanevenson/k8s-kubectl:latest  # Use an image with kubectl and apk
           command:
             - sh
             - -c
           args:
             - |
-              apt-get update && apt-get install -y openssl kubectl
+              apk add --no-cache openssl
               CLIENT_ID=$(openssl rand -base64 32)
               CLIENT_SECRET=$(openssl rand -base64 64)
               kubectl create secret generic kanidm.dex \
