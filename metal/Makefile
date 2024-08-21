@@ -21,6 +21,7 @@ cluster:
 nodes:
 	ansible-playbook \
 		--inventory inventories/${env}.yml \
+		nodes.yml
 
 console:
 	ansible-console \
