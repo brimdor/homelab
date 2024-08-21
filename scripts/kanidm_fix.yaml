@@ -10,7 +10,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: secret-generator
-          image: lachlanevenson/k8s-kubectl:latest  # Use an image with kubectl and apk
+          image: lachlanevenson/k8s-kubectl:latest
           command:
             - sh
             - -c
