@@ -6,9 +6,9 @@
       special: true
 
 # Tailscale
-- name: tailscale-auth-key
+- name: ts-auth-key
   data:
-    - key: authkey
+    - key: tailscale-auth-key
       prefix: tskey-auth-
       length: 48
       special: false
