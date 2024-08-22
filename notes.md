@@ -42,7 +42,7 @@ kubectl create secret generic op-credentials \
 ## Fixes and Processes
 
 ### SABnzbd Host Whitelist Fix
-`kubectl exec -n sabnzbd $(kubectl get pods -n sabnzbd -l app=sabnzbd -o jsonpath='{.items[0].metadata.name}') -- bash -c "sed -i '/^host_whitelist =.*/c\host_whitelist = sabnzbd.eaglepass.io' /path/to/configuration/file && exit"`
+`kubectl exec -n sabnzbd $(kubectl get pods -n sabnzbd -l app=sabnzbd -o jsonpath='{.items[0].metadata.name}') -- bash -c "sed -i '/^host_whitelist =.*/c\host_whitelist = sabnzbd.eaglepass.io' /config/sabnzbd.ini && exit"`
 
 ### Stop Auto-Heal and Set Manual-Sync
 `argocd login argocd.eaglepass.io --grpc-web --no-verify`  
