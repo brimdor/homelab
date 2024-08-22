@@ -30,8 +30,9 @@ kubectl create secret generic onepassword-token \
   -n global-secrets`  
 
 `read -sp "Enter the contents of the JSON (for 1password-credentials): " json_data
+encoded_json=$(echo -n "$json_data" | base64)
 kubectl create secret generic op-credentials \
-  --from-literal=1password-credentials.json=$(echo -n "$json_data" | base64) \
+  --from-literal=1password-credentials.json="$encoded_json" \
   -n global-secrets`
 
 ### Troubleshoot the secrets for Connect
