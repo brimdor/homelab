@@ -5,6 +5,14 @@
       length: 32
       special: true
 
+# Tailscale
+- name: ts-auth-key
+  data:
+    - key: tailscale-auth-key
+      prefix: tskey-auth-
+      length: 48
+      special: false
+
 # Dex
 - name: dex.grafana
   data:
