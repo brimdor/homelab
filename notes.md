@@ -61,14 +61,15 @@ kubectl create secret generic op-credentials \
 ### Scale Deployments
 `kubectl scale deployment (name of deployment)-deployment --replicas=(count) -n (namespace)`
 
-### Gitea Fix
+### Gitea Repo Fix
 `argocd app set gitea --repo https://github.com/brimdor/homelab`  
 `argocd app sync gitea`
+
+## ARCHIVED
 
 ### Node Restarts Stuck
 `kubectl -n longhorn-system get pods -o wide | grep instance-manager`  
 `kubectl -n longhorn-system delete pod instance-manager<fill in> --force`
-
 
 ## Backup
 1. `locate backup -> Operation -> Restore Latest Backup`
