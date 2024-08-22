@@ -45,6 +45,12 @@ kubectl create secret generic op-credentials \
 ### SABnzbd Host Whitelist Fix
 `kubectl exec -n sabnzbd $(kubectl get pods -n sabnzbd -l app=sabnzbd -o jsonpath='{.items[0].metadata.name}') -- bash -c "sed -i '/^host_whitelist =.*/c\host_whitelist = sabnzbd.eaglepass.io' /config/sabnzbd.ini && exit"`
 
+### Sonarr Locked Out
+`kubectl exec -n sonarr $(kubectl get pods -n sonarr -l app=sonarr -o jsonpath='{.items[0].metadata.name}') -- sed -i 's|<AuthenticationMethod>.*</AuthenticationMethod>|<AuthenticationMethod>External</AuthenticationMethod>|' /config/config.xml && kubectl rollout restart deployment/sonarr-deployment -n sonarr`
+
+### Radarr Locked Out
+`kubectl exec -n radarr $(kubectl get pods -n radarr -l app=radarr -o jsonpath='{.items[0].metadata.name}') -- sed -i 's|<AuthenticationMethod>.*</AuthenticationMethod>|<AuthenticationMethod>External</AuthenticationMethod>|' /config/config.xml && kubectl rollout restart deployment/radarr-deployment -n radarr`
+
 ### Stop Auto-Heal and Set Manual-Sync
 `argocd login argocd.eaglepass.io --grpc-web --no-verify`  
 `argocd proj windows add fixing -k deny --schedule "* * * * *" --duration 24h --namespaces * --manual-sync`
