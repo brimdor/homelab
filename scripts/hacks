@@ -244,8 +244,7 @@ def main() -> None:
 
         setup_gitea_auth_with_dex()
 
-        # kanidm_login(["admin", "idm_admin"])
-        kanidm_login(["idm_admin"])
+        kanidm_login(["admin", "idm_admin"])
 
         for group in kanidm_groups:
             setup_kanidm_group(group['name'])
