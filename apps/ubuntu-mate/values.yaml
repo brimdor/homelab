@@ -5,7 +5,7 @@ app:
 image:
   repository: lscr.io/linuxserver/webtop
   tag: ubuntu-mate
-  policy: Always
+  policy: IfNotPresent
 
 env:
   PUID: 99
@@ -13,8 +13,8 @@ env:
   TZ: "America/Chicago"
   CUSTOM_USER: "brimdor"
   TITLE: "UBUNTU-MATE"
-  START_DOCKER: "true"
-  DISABLE_IPV6: "true"
+  START_DOCKER: true
+  DISABLE_IPV6: true
 
 ingress:
   name: ubuntu-mate-ingress
