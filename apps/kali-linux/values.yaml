@@ -3,7 +3,7 @@ app:
   capname: Kali-Linux
 
 image:
-  repository: lscr.io/linuxserver/webtop
+  repository: lscr.io/linuxserver/kali-linux
   tag: latest
   policy: IfNotPresent
 
