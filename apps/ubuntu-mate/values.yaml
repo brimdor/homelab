@@ -3,8 +3,8 @@ app:
   capname: Ubuntu-Mate
 
 image:
-  repository: lscr.io/linuxserver/webtop:ubuntu-mate
-  tag: latest
+  repository: lscr.io/linuxserver/webtop
+  tag: ubuntu-mate
   policy: Always
 
 env:
