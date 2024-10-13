@@ -29,15 +29,3 @@ opSecret:
     item: "qvocwbnbqwlpsakd6tu5onhsui"
     secretName: "password"
     key: "password"
-
-# volumeMounts:
-#   config:
-#     name: "config"
-#     mountPath: "/config"
-
-# volumes:
-#   nfs:
-#     enabled: "true"
-#     name: "config"
-#     server: "10.0.50.3"
-#     path: "/mnt/user/ubuntu-mate-config"
