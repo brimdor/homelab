@@ -12,7 +12,7 @@ spec:
   externalTrafficPolicy:
   ports:
     - name: http
-      port: "{{ .Values.service.port }}"
+      port: {{ .Values.service.port | int }}
       targetPort: http
       protocol: TCP
   selector:
