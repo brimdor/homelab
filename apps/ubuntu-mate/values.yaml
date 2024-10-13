@@ -1,6 +1,6 @@
 app:
   name: ubuntu-mate
-  cap-name: Ubuntu-Mate
+  capname: Ubuntu-Mate
 
 image:
   repository: lscr.io/linuxserver/webtop:ubuntu-mate

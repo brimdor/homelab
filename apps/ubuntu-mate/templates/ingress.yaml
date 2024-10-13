@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/instance: "{{ .Values.app.name }}"
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    hajimari.io/appName: "{{ .Values.app.cap-name }}"
+    hajimari.io/appName: "{{ .Values.app.capname }}"
     hajimari.io/icon: radar
 spec:
   ingressClassName: nginx
