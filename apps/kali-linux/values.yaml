@@ -4,7 +4,7 @@ app:
 
 image:
   repository: lscr.io/linuxserver/webtop
-  tag: kali-linux
+  tag: latest
   policy: IfNotPresent
 
 env:
