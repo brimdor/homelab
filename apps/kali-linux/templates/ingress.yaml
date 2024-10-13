@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ .Values.ingress.name }}"
+  labels:
+    app: "{{ .Values.app.name }}"
+    app.kubernetes.io/name: "{{ .Values.app.name }}"
+    app.kubernetes.io/instance: "{{ .Values.app.name }}"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    hajimari.io/appName: "{{ .Values.app.capname }}"
+    hajimari.io/icon: radar
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "{{ .Values.ingress.host }}"
+      secretName: "{{ .Values.app.name }}-tls-certificate"
+  rules:
+    - host: "{{ .Values.ingress.host }}"
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: "{{ .Values.app.name }}-service"
+                port:
+                  name: http
+            pathType: Prefix

@@ -1,0 +1,31 @@
+app:
+  name: kali-linux
+  capname: Kali-Linux
+
+image:
+  repository: lscr.io/linuxserver/webtop
+  tag: kali-linux
+  policy: IfNotPresent
+
+env:
+  PUID: 99
+  PGID: 100
+  TZ: "America/Chicago"
+  CUSTOM_USER: "brimdor"
+  TITLE: "KALI-LINUX"
+  START_DOCKER: true
+  DISABLE_IPV6: true
+
+ingress:
+  name: kali-linux-ingress
+  host: kali-linux.eaglepass.io
+
+service:
+  port: 3000
+
+opSecret:
+  PASSWORD:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "i2sgkwuspkyp3llwotdnmdnywq"
+    secretName: "password"
+    key: "password"

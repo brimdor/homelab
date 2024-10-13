@@ -25,6 +25,3 @@ from deployment.yaml
       #       server: {{ .Values.volumes.nfs.server }}
       #       path: {{ .Values.volumes.nfs.path }}
       #   {{- end }}
-
-
-      https://start.1password.com/open/i?a=O3GHXGF6V5GCDFMXH4JFWYLLKM&v=4uaua4a45yuhnwhehp5bwylmti&i=i2sgkwuspkyp3llwotdnmdnywq&h=my.ent.1password.com
