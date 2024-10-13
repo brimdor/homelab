@@ -40,4 +40,4 @@ spec:
                   key: "{{ .Values.opSecret.PASSWORD.key }}"
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.service.port | int }}
