@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.app.name }}"
+  labels:
+    app: "{{ .Values.app.name }}"
+  namespace: "{{ .Values.app.name }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Values.app.name }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Values.app.name }}"
+    spec:
+      containers:
+        - name: "{{ .Values.app.name }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.policy }}"
+          env:
+            - name: PUID
+              value: "{{ .Values.env.PUID }}"
+            - name: PGID
+              value: "{{ .Values.env.PGID }}"
+            - name: TZ
+              value: "{{ .Values.env.TZ }}"
+            - name: CUSTOM_USER
+              value: "{{ .Values.env.CUSTOM_USER }}"
+            - name: TITLE
+              value: "{{ .Values.env.TITLE }}"
+            - name: START_DOCKER
+              value: "{{ .Values.env.START_DOCKER }}"
+            - name: DISABLE_IPV6
+              value: "{{ .Values.env.DISABLE_IPV6 }}"
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.PASSWORD.secretName }}"
+                  key: "{{ .Values.opSecret.PASSWORD.key }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port | int }}
