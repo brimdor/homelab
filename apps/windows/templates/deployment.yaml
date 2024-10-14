@@ -36,8 +36,8 @@ spec:
                   name: "{{ .Values.opSecret.PASSWORD.secretName }}"
                   key: "{{ .Values.opSecret.PASSWORD.key }}"
           securityContext:
-          capabilities:
-            add: ["NET_ADMIN"]
+            capabilities:
+              add: ["NET_ADMIN"]
           ports:
             - name: http
               containerPort: {{ .Values.service.port | int }}
