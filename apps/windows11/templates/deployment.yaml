@@ -26,14 +26,10 @@ spec:
               value: "{{ .Values.env.PGID }}"
             - name: TZ
               value: "{{ .Values.env.TZ }}"
-            - name: CUSTOM_USER
-              value: "{{ .Values.env.CUSTOM_USER }}"
-            - name: TITLE
-              value: "{{ .Values.env.TITLE }}"
-            - name: START_DOCKER
-              value: "{{ .Values.env.START_DOCKER }}"
-            - name: DISABLE_IPV6
-              value: "{{ .Values.env.DISABLE_IPV6 }}"
+            - name: USERNAME
+              value: "{{ .Values.env.USERNAME }}"
+            - name: VERSION
+              value: "{{ .Values.env.VERSION }}"
             - name: PASSWORD
               valueFrom:
                 secretKeyRef:
