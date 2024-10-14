@@ -1,0 +1,27 @@
+app:
+  name: homeassistant
+  capname: Homeassistant
+
+image:
+  repository: lscr.io/linuxserver/homeassistant
+  tag: latest
+  policy: IfNotPresent
+
+env:
+  PUID: 99
+  PGID: 100
+  TZ: "America/Chicago"
+
+ingress:
+  name: homeassistant-ingress
+  host: homeassistant.eaglepass.io
+
+service:
+  port: 3000
+
+# opSecret:
+#   PASSWORD:
+#     vault: "4uaua4a45yuhnwhehp5bwylmti"
+#     item: "i2sgkwuspkyp3llwotdnmdnywq"
+#     secretName: "password"
+#     key: "password"

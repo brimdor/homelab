@@ -26,26 +26,6 @@ spec:
               value: "{{ .Values.env.PGID }}"
             - name: TZ
               value: "{{ .Values.env.TZ }}"
-            - name: USERNAME
-              value: "{{ .Values.env.USERNAME }}"
-            - name: VERSION
-              value: "{{ .Values.env.VERSION }}"
-            - name: PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: "{{ .Values.opSecret.PASSWORD.secretName }}"
-                  key: "{{ .Values.opSecret.PASSWORD.key }}"
-          securityContext:
-            capabilities:
-              add: ["NET_ADMIN"]
           ports:
             - name: http
               containerPort: {{ .Values.service.port | int }}
-          volumeMounts:
-          - name: kvm-device
-            mountPath: /dev/kvm
-      volumes:
-      - name: kvm-device
-        hostPath:
-          path: /dev/kvm
-          type: CharDevice
