@@ -3,7 +3,7 @@ app:
   capname: Windows
 
 image:
-  repository: lscr.io/linuxserver/windows
+  repository: dockurr/windows
   tag: latest
   policy: IfNotPresent
 
