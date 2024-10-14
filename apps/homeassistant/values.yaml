@@ -20,6 +20,8 @@ env:
   # -- Set the container timezone
   TZ: CST
 
+  HASS_TRUSTED_PROXIES: "10.0.0.0/8"
+
 # -- Configures service settings for the chart. Normally this does not need to be modified.
 # @default -- See values.yaml
 service:
@@ -63,10 +65,11 @@ securityContext:
 persistence:
   config:
     enabled: true
-    http:
-      use_x_forwarded_for: true
-      trusted_proxies:
-        - 10.0.50.127
+    type: pvc
+    mountPath: /config
+    accessMode: ReadWriteOnce
+    size: 1Gi
+
   # -- Configure a hostPathMount to mount a USB device in the container.
   # @default -- See values.yaml
   usb:
@@ -183,6 +186,25 @@ initContainers:
         mountPath: /config
       - name: custom-config
         mountPath: /custom-config
+  
+  config-init:
+    name: config-init
+    image: busybox
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -f /config/configuration.yaml ]; then
+          echo "http:" > /config/configuration.yaml
+          echo "  use_x_forwarded_for: true" >> /config/configuration.yaml
+          echo "  trusted_proxies:" >> /config/configuration.yaml
+          echo "    - 10.0.0.0/8" >> /config/configuration.yaml
+        else
+          sed -i '/^http:/,/^[a-z]/c\http:\n  use_x_forwarded_for: true\n  trusted_proxies:\n    - 10.0.0.0/8' /config/configuration.yaml
+        fi
+    volumeMounts:
+      - name: config
+        mountPath: /config
 
 sidecarContainers:
   - name: config-sidecar
