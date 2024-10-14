@@ -18,10 +18,3 @@ ingress:
 
 service:
   port: 8123
-
-# opSecret:
-#   PASSWORD:
-#     vault: "4uaua4a45yuhnwhehp5bwylmti"
-#     item: "i2sgkwuspkyp3llwotdnmdnywq"
-#     secretName: "password"
-#     key: "password"
