@@ -63,6 +63,10 @@ securityContext:
 persistence:
   config:
     enabled: true
+    http:
+      use_x_forwarded_for: true
+      trusted_proxies:
+        - 10.0.50.127
   # -- Configure a hostPathMount to mount a USB device in the container.
   # @default -- See values.yaml
   usb:
