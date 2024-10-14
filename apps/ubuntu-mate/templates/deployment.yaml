@@ -4,6 +4,7 @@ metadata:
   name: "{{ .Values.app.name }}"
   labels:
     app: "{{ .Values.app.name }}"
+  namespace: "{{ .Values.app.name }}"
 spec:
   replicas: 1
   selector:
