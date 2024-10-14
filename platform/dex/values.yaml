@@ -12,12 +12,12 @@ dex:
         id: kanidm
         name: Kanidm
         config:
-          # clientID: $KANIDM_CLIENT_ID
-          # clientSecret: $KANIDM_CLIENT_SECRET
+          clientID_OG: $KANIDM_CLIENT_ID
+          clientSecret_OG: $KANIDM_CLIENT_SECRET
           clientID: |
-            {{ .Values.dex.config.clientID | quote }}
+            {{ .Values.dex.config.clientID_OG | quote }}
           clientSecret: |
-            {{ .Values.dex.config.clientSecret | quote }}
+            {{ .Values.dex.config.clientSecret_OG | quote }}
           redirectURI: https://dex.eaglepass.io/callback
           issuer: https://auth.eaglepass.io/oauth2/openid/dex
           # TODO https://github.com/dexidp/dex/pull/3188
