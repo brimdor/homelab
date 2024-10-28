@@ -9,4 +9,4 @@ data:
     http:
       use_x_forwarded_for: true
       trusted_proxies:
-        - 10.137.0.0/16
+        - 10.0.50.0/16
