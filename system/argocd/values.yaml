@@ -10,6 +10,7 @@ argo-cd:
       resource.customizations.ignoreResourceUpdates.all: |
         jsonPointers:
           - /status
+      exec.enabled: "true"
   server:
     ingress:
       enabled: true
@@ -21,8 +22,6 @@ argo-cd:
       enabled: true
       serviceMonitor:
         enabled: true
-    config:
-      exec.enabled: "true"
   dex:
     enabled: false
   controller:
