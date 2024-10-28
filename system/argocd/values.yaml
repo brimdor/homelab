@@ -21,6 +21,8 @@ argo-cd:
       enabled: true
       serviceMonitor:
         enabled: true
+    config:
+      exec.enabled: "true"
   dex:
     enabled: false
   controller:
