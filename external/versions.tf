@@ -1,5 +1,5 @@
 terraform {
-  required_version = "~> 1.6.0"
+  required_version = "~> 1.10.0"
 
   backend "remote" {
     hostname     = "app.terraform.io"
@@ -13,12 +13,12 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 4.30.0"
+      version = "~> 4.52.0"
     }
 
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.26.0"
+      version = "~> 2.35.0"
     }
 
     http = {
