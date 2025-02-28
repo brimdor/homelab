@@ -43,7 +43,7 @@ affinity: {}
 podSecurityContext:
   runAsUser: 1000
   runAsGroup: 3000
-  runAsNonRoot: true
+  runAsNonRoot: false
   fsGroup: 2000
   seccompProfile:
     type: RuntimeDefault
@@ -473,8 +473,6 @@ minecraftServer:
 ##
 extraEnv:
   PLAYER_IDLE_TIMEOUT: 0
-  PUID: "99"
-  PGID: "100"
   # some_variable: some value
   # another_variable:
   #   valueFrom:
@@ -622,8 +620,7 @@ mcbackup:
   ## Values can be either variable values or `valueFrom` yaml
   ##
   extraEnv:
-    PUID: "99"
-    PGID: "100"
+    {}
 
   ## Additional environment variables to add to the mc-backup container from
   ## ConfigMaps and Secrets
