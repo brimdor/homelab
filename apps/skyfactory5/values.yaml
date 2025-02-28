@@ -473,6 +473,8 @@ minecraftServer:
 ##
 extraEnv:
   PLAYER_IDLE_TIMEOUT: 0
+  PUID: "99"
+  PGID: "100"
   # some_variable: some value
   # another_variable:
   #   valueFrom:
@@ -620,12 +622,8 @@ mcbackup:
   ## Values can be either variable values or `valueFrom` yaml
   ##
   extraEnv:
-    {}
-    # some_variable: some value
-    # another_variable:
-    #   valueFrom:
-    #     fieldRef:
-    #       fieldPath: status.hostIP
+    PUID: "99"
+    PGID: "100"
 
   ## Additional environment variables to add to the mc-backup container from
   ## ConfigMaps and Secrets
