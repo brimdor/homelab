@@ -563,7 +563,7 @@ mcbackup:
   pauseIfNoPlayers: "true"
 
   # is set to a positive number, it'll delete old .tgz backup files from DEST_DIR. By default deletes backups older than a week.
-  pruneBackupsDays: 7
+  pruneBackupsDays: 30
 
   # Set to a negative value to retry indefinitely
   rconRetries: 5
