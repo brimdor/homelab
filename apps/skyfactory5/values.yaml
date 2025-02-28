@@ -557,13 +557,13 @@ mcbackup:
   # ***set to 0 or smaller, script will run once and exit.  DO NOT SET TO 0 or smaller, this will cause K8s to kill your pod!***
   # backupInterval="1.5d" -> backup every one and a half days (36 hours)
   # backupInterval="2h 30m" -> backup every two and a half hours
-  backupInterval: 10m
+  backupInterval: 2h
 
   # option lets you pause backups if no players are online.
-  pauseIfNoPlayers: "true"
+  pauseIfNoPlayers: "false"
 
   # is set to a positive number, it'll delete old .tgz backup files from DEST_DIR. By default deletes backups older than a week.
-  pruneBackupsDays: 30
+  pruneBackupsDays: 7
 
   # Set to a negative value to retry indefinitely
   rconRetries: 5
@@ -647,7 +647,7 @@ mcbackup:
     backupDir:
       enabled: true
       existingClaim: false
-      Size: 100Gi
+      Size: 200Gi
       accessModes:
         - ReadWriteOnce
 
