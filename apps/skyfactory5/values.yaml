@@ -473,6 +473,7 @@ minecraftServer:
 ##
 extraEnv:
   PLAYER_IDLE_TIMEOUT: 0
+  ALLOW_FLIGHT: "true"
   # some_variable: some value
   # another_variable:
   #   valueFrom:
