@@ -499,7 +499,7 @@ persistence:
   # storageClass: "-"
   dataDir:
     # Set this to false if you don't care to persist state between restarts.
-    enabled: false
+    enabled: true
     Size: 100Gi
     # storageClass: "hostpath-storage"
     accessModes:
@@ -572,7 +572,7 @@ mcbackup:
   # is a comma-separated list of glob(3) patterns to exclude from backups. By default excludes all jar files (plugins, server files),
   # logs folder and cache (used by i.e. PaperMC server).
   excludes: ""
-  includes: "."
+  includes: ""
 
   # backup methods, see https://github.com/itzg/docker-mc-backup e.g. tar, rclone, restic, rsync
   backupMethod: tar
