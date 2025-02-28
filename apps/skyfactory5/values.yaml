@@ -504,7 +504,7 @@ persistence:
     # storageClass: "hostpath-storage"
     accessModes:
       - ReadWriteOnce
-    storageClassName: "-"
+    storageClassName: "standard-rwo"
     # hostPath:
     #   path: /minecraft/data
     # existingClaim: nil
