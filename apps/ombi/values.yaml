@@ -1,4 +1,5 @@
-appName: ombi
+appName:
+  name: ombi
 
 image:
   repository: lscr.io/linuxserver/ombi
