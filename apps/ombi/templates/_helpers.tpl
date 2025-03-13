@@ -1,6 +1,6 @@
-{{- define "custom.envMap" }}
+{{- define "map.env" -}}
 {{- range $key, $value := .Values.env }}
-  - name: {{ $key | quote }}
-    value: {{ $value | quote }}
+- name: "{{ $key }}"
+  value: "{{ $value }}"
 {{- end }}
 {{- end }}
