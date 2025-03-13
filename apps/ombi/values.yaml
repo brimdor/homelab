@@ -37,8 +37,8 @@ resources:
     cpu: "500m"
 
 env:
-  UID: 1000
-  GID: 1000
+  UID: "1000"
+  GID: "1000"
 
 opSecret:
   vault: "4uaua4a45yuhnwhehp5bwylmti"
