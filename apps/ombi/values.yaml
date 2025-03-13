@@ -1,0 +1,55 @@
+appName: ombi
+
+image:
+  repository: lscr.io/linuxserver/ombi
+  tag: latest
+  policy: Always
+  containerPort: 3579
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    hajimari.io/appName: Ombi
+    hajimari.io/icon: movie-roll
+  hosts:
+    - host: ombi.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - ombi.eaglepass.io
+      secretName: ombi-tls
+  port: 3579
+  targetPort: 3579
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "250m"
+  limits:
+    memory: "128Mi"
+    cpu: "500m"
+
+env:
+  UID: 1000
+  GID: 1000
+
+opSecret:
+  vault: "4uaua4a45yuhnwhehp5bwylmti"
+  item: "wvr523k3gegace5ysd7ubxkb2u"
+  secretName: "backlog-companion-secrets"
+
+pvc:
+  name: ombi-config
+  storageSize: 10G
+  accessMode: ReadWriteOnce
+
+nfs:
+  enabled: true
+  server: 10.0.50.3
+  path: /mnt/user/ombi
