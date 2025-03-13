@@ -24,8 +24,8 @@ spec:
             {{- include "map.env" . | nindent 12 }}
           volumeMounts:
             {{- if .Values.nfs.enabled }}
-            - name: remote-config
-              mountPath: /app/backend/data
+            - name: {{ .Values.nfs.name }}
+              mountPath: /config
             {{- end }}
       volumes:
         {{- if .Values.nfs.enabled }}
