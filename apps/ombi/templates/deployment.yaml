@@ -19,9 +19,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: "{{ .Values.image.policy }}"
           ports:
-            - containerPort: "{{ .Values.image.containerPort }}"
+            - containerPort: {{ .Values.image.containerPort }}
           env:
-          {{- include "custom.envMap" .Values.env | indent 6 }}
+          {{- include "custom.envMap" . | indent 6 }}
           volumeMounts:
             {{- if .Values.nfs.enabled }}
             - name: remote-config
