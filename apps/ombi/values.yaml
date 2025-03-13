@@ -37,8 +37,9 @@ resources:
     cpu: "500m"
 
 env:
-  UID: "99"
-  GID: "100"
+  PUID: "99"
+  GUID: "100"
+  TZ: "Etc/UTC"
 
 opSecret:
   vault: "4uaua4a45yuhnwhehp5bwylmti"
@@ -46,11 +47,12 @@ opSecret:
   secretName: "backlog-companion-secrets"
 
 pvc:
-  name: ombi-config
+  name: ombi-pvc
   storageSize: 10G
   accessMode: ReadWriteOnce
 
 nfs:
+  name: ombi-config
   enabled: true
   server: 10.0.50.3
   path: /mnt/user/ombi
