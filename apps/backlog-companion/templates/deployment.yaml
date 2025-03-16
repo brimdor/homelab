@@ -25,11 +25,6 @@ spec:
               value: "{{ .Values.env.UID }}"
             - name: GID
               value: "{{ .Values.env.GID }}"
-            # - name: STEAM_API_KEY
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: {{ .Values.opSecret.secretName }}
-            #       key: credential
             - name: FLASK_APP
               value: "backend/app.py"
           volumeMounts:
