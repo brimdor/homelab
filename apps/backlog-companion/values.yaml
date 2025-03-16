@@ -13,31 +13,28 @@ ingress:
     hajimari.io/appName: Backlog Companion
     hajimari.io/icon: movie-roll
   hosts:
-    - host: backlog-companion.eaglepass.io
+    - host: backlog.eaglepass.io
       paths:
         - path: /
           pathType: Prefix
   tls:
     - hosts:
-        - backlog-companion.eaglepass.io
+        - backlog.eaglepass.io
       secretName: backlog-companion-tls
 
 resources:
   requests:
-    memory: "64Mi"
-    cpu: "250m"
-  limits:
-    memory: "128Mi"
-    cpu: "500m"
+    memory: "5Gi"
+    cpu: "1"
 
 env:
-  UID: 1000
-  GID: 1000
+  UID: 99
+  GID: 100
 
-opSecret:
-  vault: "4uaua4a45yuhnwhehp5bwylmti"
-  item: "wvr523k3gegace5ysd7ubxkb2u"
-  secretName: "backlog-companion-secrets"
+# opSecret:
+#   vault: "4uaua4a45yuhnwhehp5bwylmti"
+#   item: "wvr523k3gegace5ysd7ubxkb2u"
+#   secretName: "backlog-companion-secrets"
   
 nfs:
   enabled: true
