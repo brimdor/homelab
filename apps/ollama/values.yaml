@@ -55,26 +55,10 @@ app-template:
             - ai.eaglepass.io
           secretName: ollama-tls-certificate
   persistence:
-    main:
-      data:
-        accessMode: ReadWriteOnce
-        size: 200Gi
-        storageClass: standard
-        nfs:
-          server: 10.0.50.3  # Replace with your NFS server IP
-          path: /mnt/user/ollama/main  # Replace with your main container NFS path
-    ui:
-      data:
-        accessMode: ReadWriteOnce
-        size: 50Gi
-        storageClass: standard
-        nfs:
-          server: 10.0.50.3  # The same NFS server can be used
-          path: /mnt/user/ollama/ui  # Replace with your UI container NFS path
-    advancedMounts:
-      main:
+    data:
+      accessMode: ReadWriteOnce
+      size: 200Gi
+      advancedMounts:
         main:
-          - path: /root/.ollama
-      ui:
-        main:
-          - path: /app/backend/data
+          main:
+            - path: /root/.ollama
