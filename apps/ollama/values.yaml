@@ -55,27 +55,26 @@ app-template:
             - ai.eaglepass.io
           secretName: ollama-tls-certificate
   persistence:
-    data:
-      advancedMounts:
+    advancedMounts:
+      main:
         main:
-          main:
-            - path: /root/.ollama
-          pvc:
-            enabled: true
-            storageClassName: "standard"
-            accessModes:
-              - ReadWriteOnce
-            resources:
-              requests:
-                storage: 200Gi
-        ui:
-          main:
-            - path: /app/backend/data
-          pvc:
-            enabled: true
-            storageClassName: "standard"
-            accessModes:
-              - ReadWriteOnce
-            resources:
-              requests:
-                storage: 10Gi
+          - path: /root/.ollama
+        pvc:
+          enabled: true
+          storageClassName: "standard"
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 200Gi
+      ui:
+        main:
+          - path: /app/backend/data
+        pvc:
+          enabled: true
+          storageClassName: "standard"
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
