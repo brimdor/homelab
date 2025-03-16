@@ -65,5 +65,5 @@ app-template:
       enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
-      size: 10Gi
+      size: 5Gi
       mountPath: /app/backend/data
