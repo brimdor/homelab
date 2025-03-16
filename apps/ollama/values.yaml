@@ -1,87 +1,80 @@
-# values.yaml for Ollama and Open WebUI
-
-# --- Global Settings ---
-fullnameOverride: ollama
-
-imagePullSecrets: []
-
-# --- Ollama Configuration ---
-ollama:
-  enabled: true
-  name: ollama
-  image:
-    repository: docker.io/ollama/ollama
-    tag: "0.3.5"
-    pullPolicy: IfNotPresent  # Or Always, depending on your needs
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: docker.io/ollama/ollama
+            tag: 0.3.5
+    ui:
+      containers:
+        main:
+          image:
+            repository: ghcr.io/open-webui/open-webui
+            tag: latest
+          env:
+            OLLAMA_BASE_URL: http://ollama:11434
   service:
-    type: ClusterIP #Or LoadBalancer if you need external access
-    port: 11434
+    main:
+      ports:
+        http:
+          port: 11434
+          protocol: HTTP
+    ui:
+      controller: ui
+      ports:
+        http:
+          port: 8080
+          protocol: HTTP
   ingress:
-    enabled: false #disabled by default, using a single ingress
-  resources:
-    requests:
-      memory: 4Gi
-      cpu: 2
-    limits:
-      memory: 8Gi # Adjust based on your resources
-      cpu: 4
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      hosts:
+        - host: ollama.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+        - host: ai.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: ui
+                port: http
+      tls:
+        - hosts:
+            - ollama.eaglepass.io
+            - ai.eaglepass.io
+          secretName: ollama-tls-certificate
   persistence:
-    enabled: true
-    storageClass: "local-path"  # Replace with your storage class
-    size: 200Gi
-
-# --- Open WebUI Configuration ---
-openWebUI:
-  enabled: true
-  name: open-webui
-  image:
-    repository: ghcr.io/open-webui/open-webui
-    tag: "latest"
-    pullPolicy: IfNotPresent
-  env:
-    OLLAMA_BASE_URL: "http://ollama:11434" # Ensure ollama service is accessible
-  service:
-    type: ClusterIP #Or LoadBalancer if you need external access
-    port: 8080
-  ingress:
-    enabled: false #disabled by default, using a single ingress
-  resources:
-    requests:
-      memory: 2Gi
-      cpu: 1
-    limits:
-      memory: 4Gi
-      cpu: 2
-
-# --- Ingress Configuration (Shared) ---
-ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-  hosts:
-    - host: "ollama.eaglepass.io"
-      paths:
-        - path: "/"
-          pathType: Prefix
-          backend:
-            service:
-              name: ollama # Refers to the ollama service
-              port:
-                number: 11434
-    - host: "ai.eaglepass.io"
-      paths:
-        - path: "/"
-          pathType: Prefix
-          backend:
-            service:
-              name: open-webui # Refers to the open-webui service
-              port:
-                number: 8080
-  tls:
-    - hosts:
-        - "ollama.eaglepass.io"
-        - "ai.eaglepass.io"
-      secretName: "ollama-tls-certificate"
+    main:
+      data:
+        accessMode: ReadWriteOnce
+        size: 200Gi
+        storageClass: standard
+        nfs:
+          server: 10.0.50.3  # Replace with your NFS server IP
+          path: /mnt/user/ollama/main  # Replace with your main container NFS path
+    ui:
+      data:
+        accessMode: ReadWriteOnce
+        size: 50Gi
+        storageClass: standard
+        nfs:
+          server: 10.0.50.3  # The same NFS server can be used
+          path: /mnt/user/ollama/ui  # Replace with your UI container NFS path
+    advancedMounts:
+      main:
+        main:
+          - path: /root/.ollama
+      ui:
+        main:
+          - path: /app/backend/data
