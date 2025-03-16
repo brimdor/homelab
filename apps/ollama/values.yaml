@@ -58,12 +58,14 @@ app-template:
     main:
       enabled: true
       type: persistentVolumeClaim
+      storageClass: standard
       accessMode: ReadWriteOnce
       size: 150Gi
       mountPath: /root/.ollama
     ui:
       enabled: true
       type: persistentVolumeClaim
+      storageClass: standard
       accessMode: ReadWriteOnce
       size: 5Gi
       mountPath: /app/backend/data
