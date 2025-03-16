@@ -56,12 +56,26 @@ app-template:
           secretName: ollama-tls-certificate
   persistence:
     data:
-      accessMode: ReadWriteOnce
-      size: 200Gi
       advancedMounts:
         main:
           main:
             - path: /root/.ollama
+          pvc:
+            enabled: true
+            storageClassName: "standard"
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 200Gi
         ui:
           main:
             - path: /app/backend/data
+          pvc:
+            enabled: true
+            storageClassName: "standard"
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
