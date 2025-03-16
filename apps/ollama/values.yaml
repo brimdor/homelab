@@ -63,5 +63,5 @@ app-template:
           main:
             - path: /root/.ollama
         ui:
-          ui:
+          main:
             - path: /app/backend/data
