@@ -1,8 +1,6 @@
 apiVersion: v2
 name: ollama
-description: A Helm chart for deploying Ollama and Open WebUI using the app-template chart.
-version: 1.0.0  # Increment for your releases
-kubeVersion: ">=1.22.0-0" #Minimum k8s version
+version: 0.0.0
 dependencies:
   - name: app-template
     version: 2.6.0
