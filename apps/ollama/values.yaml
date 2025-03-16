@@ -58,7 +58,7 @@ app-template:
     main:
       enabled: true
       type: persistentVolumeClaim
-      storageClass: standard-rwo
+      storageClass: standard-rwx
       accessMode: ReadWriteOnce
       size: 150Gi
       mountPath: /root/.ollama
