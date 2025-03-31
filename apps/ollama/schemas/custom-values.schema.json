@@ -1,0 +1,186 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "type": "object",
+    "properties": {
+      "app-template": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "object",
+            "properties": {
+              "main": {
+                "type": "object",
+                "properties": {
+                  "controller": {
+                    "type": "string"
+                  },
+                  "ports": {
+                    "type": "object",
+                    "properties": {
+                      "http": {
+                        "type": "object",
+                        "properties": {
+                          "port": {
+                            "type": "integer"  // Change this to "string" if needed
+                          },
+                          "protocol": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["port", "protocol"]
+                      }
+                    }
+                  }
+                },
+                "required": ["controller"]
+              },
+              "ui": {
+                "type": "object",
+                "properties": {
+                  "controller": {
+                    "type": "string"
+                  },
+                  "ports": {
+                    "type": "object",
+                    "properties": {
+                      "http": {
+                        "type": "object",
+                        "properties": {
+                          "port": {
+                            "type": "integer"  // Change this to "string" if needed
+                          },
+                          "protocol": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["port", "protocol"]
+                      }
+                    }
+                  }
+                },
+                "required": ["controller"]
+              }
+            }
+          },
+          "persistence": {
+            "type": "object",
+            "properties": {
+              "main": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "server": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": ["enabled", "type", "server", "path"]
+              },
+              "ui": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "server": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": ["enabled", "type", "server", "path"]
+              }
+            }
+          },
+          "ingress": {
+            "type": "object",
+            "properties": {
+              "main": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "className": {
+                    "type": "string"
+                  },
+                  "annotations": {
+                    "type": "object"
+                  },
+                  "hosts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "host": {
+                          "type": "string"
+                        },
+                        "paths": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "pathType": {
+                                "type": "string"
+                              },
+                              "service": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "port": {
+                                    "type": "string"  // Change this to "integer" if needed
+                                  }
+                                },
+                                "required": ["name", "port"]
+                              }
+                            },
+                            "required": ["path", "pathType", "service"]
+                          }
+                        }
+                      },
+                      "required": ["host", "paths"]
+                    }
+                  },
+                  "tls": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "hosts": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "secretName": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["hosts", "secretName"]
+                    }
+                  }
+                },
+                "required": ["enabled", "className", "annotations", "hosts", "tls"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
