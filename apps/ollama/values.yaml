@@ -72,4 +72,4 @@ app-template:
       advancedMounts:
         ui:
           main:
-            - path: /root/.ui-data
+            - path: /app/backend/data
