@@ -5,7 +5,7 @@ app-template:
         main:
           image:
             repository: docker.io/ollama/ollama
-            tag: 0.3.5
+            tag: latest
     ui:
       containers:
         main:
@@ -55,23 +55,39 @@ app-template:
             - ollama.eaglepass.io
             - ai.eaglepass.io
           secretName: ollama-tls-certificate
-  # persistence:
-  #   main:
-  #     enabled: true
-  #     type: nfs
-  #     server: 10.0.50.3
-  #     path: /mnt/user/ollama-main
-  #   ui:
-  #     enabled: true
-  #     type: nfs
-  #     server: 10.0.50.3
-  #     path: /mnt/user/ollama-ui
-  # advancedMounts:
-  #   main:
-  #     main:
-  #       - name: main
-  #         path: /root/.ollama
-  #   ui:
-  #     main:
-  #       - name: ui
-  #         path: /app/backend/data
+  persistence:
+    main:
+      enabled: true
+      pvc:
+        enabled: true
+        size: 10Gi
+        accessModes:
+          - ReadWriteOnce
+      nfs:
+        enabled: true
+        server: 10.0.50.3
+        path: /mnt/user/ollama-main
+    ui:
+      enabled: true
+      pvc:
+        enabled: true
+        size: 10Gi
+        accessModes:
+          - ReadWriteOnce
+      nfs:
+        enabled: true
+        server: 10.0.50.3
+        path: /mnt/user/ollama-ui
+  advancedMounts:
+    main:
+      main:
+        - name: main-pvc
+          path: /root/.ollama
+        - name: main-nfs
+          path: /root/.ollama
+    ui:
+      main:
+        - name: ui-pvc
+          path: /app/backend/data
+        - name: ui-nfs
+          path: /app/backend/data
