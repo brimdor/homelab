@@ -70,6 +70,6 @@ app-template:
       accessMode: ReadWriteMany
       size: 50Gi
       advancedMounts:
-        main:
+        ui:
           main:
             - path: /root/.ui-data
