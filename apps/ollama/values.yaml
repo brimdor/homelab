@@ -69,12 +69,12 @@ app-template:
       path: /mnt/user/ollama-ui
       accessMode: ReadWriteMany
       size: 5Gi
-    advancedMounts:
+  advancedMounts:
+    main:
       main:
-        main:
-          - name: main
-            path: /root/.ollama
-      ui:
-        main:
-          - name: ui
-            path: /app/backend/data
+        - name: main
+          path: /root/.ollama
+    ui:
+      main:
+        - name: ui
+          path: /app/backend/data
