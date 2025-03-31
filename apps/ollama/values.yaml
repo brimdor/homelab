@@ -59,35 +59,19 @@ app-template:
     main:
       enabled: true
       type: nfs
-      server: 10.0.50.3
-      paths:
-        - path: /mnt/user/ollama-main
-          subPath: main
-        - path: /mnt/user/ollama-pvc
-          subPath: pvc
+      nfs:
+        server: 10.0.50.3
+        path: /mnt/user/ollama-main
     ui:
       enabled: true
       type: nfs
-      server: 10.0.50.3
-      paths:
-        - path: /mnt/user/ollama-ui
-          subPath: ui
-        - path: /mnt/user/ui-pvc
-          subPath: pvc
+      nfs:
+        server: 10.0.50.3
+        path: /mnt/user/ollama-ui
   advancedMounts:
     main:
-      main:
-        - name: main
-          path: /root/.ollama
-          subPath: main
-        - name: pvc
-          path: /root/.ollama
-          subPath: pvc
+      - name: main
+        path: /root/.ollama
     ui:
-      main:
-        - name: ui
-          path: /app/backend/data
-          subPath: ui
-        - name: pvc
-          path: /app/backend/data
-          subPath: pvc
+      - name: ui
+        path: /app/backend/data
