@@ -55,23 +55,23 @@ app-template:
             - ollama.eaglepass.io
             - ai.eaglepass.io
           secretName: ollama-tls-certificate
-  persistence:
-    main:
-      enabled: true
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/ollama-main
-    ui:
-      enabled: true
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/ollama-ui
-  advancedMounts:
-    main:
-      main:
-        - name: main
-          path: /root/.ollama
-    ui:
-      main:
-        - name: ui
-          path: /app/backend/data
+  # persistence:
+  #   main:
+  #     enabled: true
+  #     type: nfs
+  #     server: 10.0.50.3
+  #     path: /mnt/user/ollama-main
+  #   ui:
+  #     enabled: true
+  #     type: nfs
+  #     server: 10.0.50.3
+  #     path: /mnt/user/ollama-ui
+  # advancedMounts:
+  #   main:
+  #     main:
+  #       - name: main
+  #         path: /root/.ollama
+  #   ui:
+  #     main:
+  #       - name: ui
+  #         path: /app/backend/data
