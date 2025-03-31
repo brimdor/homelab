@@ -60,13 +60,15 @@ app-template:
       type: nfs
       server: 10.0.50.3
       path: /mnt/user/ollama-main
-      mountPath: /root/.ollama
+      accessMode: ReadWriteMany
+      size: 150Gi
     ui:
       enabled: true
       type: nfs
       server: 10.0.50.3
       path: /mnt/user/ollama-ui
-      mountPath: /app/backend/data
+      accessMode: ReadWriteMany
+      size: 5Gi
     advancedMounts:
       main:
         main:
