@@ -16,6 +16,7 @@ app-template:
             OLLAMA_BASE_URL: http://ollama:11434
   service:
     main:
+      controller: main  # Added this line
       ports:
         http:
           port: 11434
@@ -60,15 +61,11 @@ app-template:
       type: nfs
       server: 10.0.50.3
       path: /mnt/user/ollama-main
-      accessMode: ReadWriteMany
-      size: 150Gi
     ui:
       enabled: true
       type: nfs
       server: 10.0.50.3
       path: /mnt/user/ollama-ui
-      accessMode: ReadWriteMany
-      size: 5Gi
   advancedMounts:
     main:
       main:
