@@ -57,15 +57,17 @@ app-template:
   persistence:
     main:
       enabled: true
-      type: persistentVolumeClaim
-      storageClass: nfs
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/ollama/main
       accessMode: ReadWriteMany
       size: 150Gi
       mountPath: /root/.ollama
     ui:
       enabled: true
-      type: persistentVolumeClaim
-      storageClass: nfs
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/ollama/ui
       accessMode: ReadWriteMany
       size: 5Gi
       mountPath: /app/backend/data
