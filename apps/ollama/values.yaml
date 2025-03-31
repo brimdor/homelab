@@ -58,10 +58,18 @@ app-template:
   persistence:
     main:
       enabled: true
-      name: ollama-main-pvc # Reference to a pre-created PVC backed by NFS
+      type: nfs
+      name: ollama-main-pvc
+      nfs:
+        server: 10.0.50.3
+        path: /mnt/user/ollama-main
     ui:
       enabled: true
-      name: ollama-ui-pvc # Reference to a pre-created PVC backed by NFS
+      type: nfs
+      name: ollama-ui-pvc
+      nfs:
+        server: 10.0.50.3
+        path: /mnt/user/ollama-ui
   advancedMounts:
     main:
       - name: ollama-main-pvc
