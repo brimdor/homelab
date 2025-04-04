@@ -25,7 +25,7 @@ app-template:
                 touch /app/backend/data/bees-knees
                 sleep 600 # Run every 10 minutes
               done) & \
-              exec /app/start.sh
+              ./app/start.sh
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
