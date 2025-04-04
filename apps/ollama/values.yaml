@@ -45,6 +45,7 @@ app-template:
                 fi
               else
                 echo "Restore skipped. Bees-knees file exists."
+              fi
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
