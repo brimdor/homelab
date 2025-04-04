@@ -85,7 +85,6 @@ app-template:
       # type: nfs
       # server: 10.0.50.3
       # path: /mnt/user/ollama-main
-      type: pvc
       accessMode: ReadWriteOnce
       size: 150Gi
       advancedMounts:
@@ -93,7 +92,6 @@ app-template:
           main:
             - path: /root/.ollama
     ui:
-      type: pvc
       accessMode: ReadWriteMany
       size: 10Gi
       advancedMounts:
@@ -106,6 +104,5 @@ app-template:
       server: 10.0.50.3
       path: /mnt/user/ollama-ui
     ui-data:
-      type: pvc
       accessMode: ReadWriteMany
       size: 10Gi
