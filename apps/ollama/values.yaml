@@ -21,12 +21,18 @@ app-template:
                   - /bin/sh
                   - -c
                   - |
-                    mkdir -p /mnt/backup && \
-                    (while true; do
-                      tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
-                      touch /app/backend/data/bees-knees
-                      sleep 600 # Run every 10 minutes
-                    done) &
+                    mkdir -p /mnt/backup && echo "Backup directory created."
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /mnt/backup && \
+              (while true; do
+                tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
+                touch /app/backend/data/bees-knees
+                sleep 600 # Run every 10 minutes
+              done) & \
+              exec /app/start.sh
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
