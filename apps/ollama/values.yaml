@@ -28,7 +28,9 @@ app-template:
                   mountPath: /mnt/backup
       initContainers:
         restore:
-          image: alpine:latest
+          image:
+            repository: alpine
+            tag: latest
           command:
             - /bin/sh
             - -c
