@@ -18,6 +18,7 @@ app-template:
             - /bin/sh
             - -c
             - |
+              chmod +x /app/start.sh && \
               mkdir -p /mnt/backup && \
               (while true; do
                 tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
