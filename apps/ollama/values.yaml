@@ -14,41 +14,24 @@ app-template:
             tag: latest
           env:
             OLLAMA_BASE_URL: http://ollama:11434
-          command:
-            - /bin/bash
-            - -c
-            - |
-              chmod +x /app/start.sh && \
-              mkdir -p /mnt/backup && \
-              (while true; do
-                tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
-                touch /app/backend/data/bees-knees
-                sleep 600 # Run every 10 minutes
-              done)
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    mkdir -p /mnt/backup && \
+                    (while true; do
+                      tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
+                      touch /app/backend/data/bees-knees
+                      sleep 600 # Run every 10 minutes
+                    done) &
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
             - name: ui-data
               mountPath: /app/backend/data
-        # backup:
-        #   image: 
-        #     repository: alpine
-        #     tag: latest
-        #   name: backup
-        #   command:
-        #     - /bin/sh
-        #     - -c
-        #     - |
-        #       while true; do
-        #         tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
-        #         touch /app/backend/data/bees-knees
-        #         sleep 600 # Run every 10 minutes
-        #       done
-          # volumeMounts:
-          #   - name: nfs-backup
-          #     mountPath: /mnt/backup
-            # - name: ui-data
-            #   mountPath: /app/backend/data
       initContainers:
         restore:
           image:
