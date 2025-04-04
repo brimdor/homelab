@@ -28,17 +28,21 @@ app-template:
                   mountPath: /mnt/backup
       initContainers:
         restore:
-          image:
-            repository: alpine
-            tag: latest
+          image: alpine:latest
           command:
             - /bin/sh
             - -c
             - |
-              if [ ! -f /tmp/bees-knees ]; then
-                latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz | head -n 1) && \
-                tar -xzf $latest_backup -C /app/backend/data
-              fi
+              if [ ! -f /mnt/backup/bees-knees ]; then
+                latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
+                if [ -n "$latest_backup" ]; then
+                  echo "Restoring from backup: $latest_backup"
+                  tar -xzf $latest_backup -C /app/backend/data
+                else
+                  echo "No backup found. Skipping restore."
+                fi
+              else
+                echo "Restore skipped. Bees-knees file exists."
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
