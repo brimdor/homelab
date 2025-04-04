@@ -109,7 +109,7 @@ app-template:
           main:
             - path: /root/.ollama
     ui:
-      accessMode: ReadWriteMany
+      accessMode: ReadWriteOnce
       size: 10Gi
       advancedMounts:
         ui:
