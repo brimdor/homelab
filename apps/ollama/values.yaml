@@ -18,7 +18,7 @@ app-template:
             - /bin/sh
             - -c
             - |
-              touch /app/backend/data/bees-knees
+              mkdir -p /mnt/backup && \
               while true; do
                 tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
                 touch /app/backend/data/bees-knees
@@ -27,6 +27,8 @@ app-template:
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
+            - name: ui-data
+              mountPath: /app/backend/data
         # backup:
         #   image: 
         #     repository: alpine
