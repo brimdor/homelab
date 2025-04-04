@@ -121,7 +121,7 @@ app-template:
       server: 10.0.50.3
       path: /mnt/user/ollama-ui
     ui-data:
-      accessMode: ReadWriteMany
+      accessMode: ReadWriteOnce
       size: 10Gi
     tmp-dir:
       emptyDir: {}
