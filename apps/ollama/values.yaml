@@ -14,32 +14,36 @@ app-template:
             tag: latest
           env:
             OLLAMA_BASE_URL: http://ollama:11434
-          cronjobs:
-            - name: backup
-              schedule: "*/10 * * * *" # Every 10 minutes
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
-                  touch /tmp/bees-knees
-              volumeMounts:
-                - name: nfs-backup
-                  mountPath: /mnt/backup
-      initContainers:
-        restore:
-          image:
-            repository: alpine
-            tag: latest
+        backup:
+          image: alpine:latest
+          name: backup
           command:
             - /bin/sh
             - -c
             - |
-              if [ ! -f /mnt/backup/bees-knees ]; then
+              while true; do
+                tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
+                touch /app/backend/data/bees-knees
+                sleep 600 # Run every 10 minutes
+              done
+          volumeMounts:
+            - name: nfs-backup
+              mountPath: /mnt/backup
+            - name: ui-data
+              mountPath: /app/backend/data
+      initContainers:
+        restore:
+          image: alpine:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              if [ ! -f /app/backend/data/bees-knees ]; then
                 latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
                 if [ -n "$latest_backup" ]; then
                   echo "Restoring from backup: $latest_backup"
                   tar -xzf $latest_backup -C /app/backend/data
+                  touch /app/backend/data/bees-knees
                 else
                   echo "No backup found. Skipping restore."
                 fi
@@ -101,7 +105,7 @@ app-template:
           main:
             - path: /root/.ollama
     ui:
-      accessMode: ReadWriteOnce
+      accessMode: ReadWriteMany
       size: 10Gi
       advancedMounts:
         ui:
@@ -113,5 +117,7 @@ app-template:
       server: 10.0.50.3
       path: /mnt/user/ollama-ui
     ui-data:
-      accessMode: ReadWriteOnce
+      accessMode: ReadWriteMany
       size: 10Gi
+    tmp-dir:
+      emptyDir: {}
