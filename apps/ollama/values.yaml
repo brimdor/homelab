@@ -27,7 +27,7 @@ app-template:
                 - name: nfs-backup
                   mountPath: /mnt/backup
       initContainers:
-        main:
+        restore:
           image:
             repository: alpine
             tag: latest
