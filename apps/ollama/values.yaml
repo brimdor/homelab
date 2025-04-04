@@ -18,6 +18,7 @@ app-template:
             - /bin/sh
             - -c
             - |
+              touch /app/backend/data/bees-knees
               while true; do
                 tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
                 touch /app/backend/data/bees-knees
