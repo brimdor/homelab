@@ -18,6 +18,7 @@ app-template:
             - /bin/sh
             - -c
             - |
+              ls /app && \
               chmod +x /app/start.sh && \
               mkdir -p /mnt/backup && \
               (while true; do
