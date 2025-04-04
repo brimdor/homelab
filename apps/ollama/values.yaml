@@ -15,18 +15,16 @@ app-template:
           env:
             OLLAMA_BASE_URL: http://ollama:11434
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
-              ls /app && \
               chmod +x /app/start.sh && \
               mkdir -p /mnt/backup && \
               (while true; do
                 tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
                 touch /app/backend/data/bees-knees
                 sleep 600 # Run every 10 minutes
-              done) & \
-              ./app/start.sh
+              done)
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
