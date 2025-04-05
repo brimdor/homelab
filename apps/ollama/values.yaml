@@ -23,12 +23,22 @@ app-template:
             - /bin/sh
             - -c
             - |
+              MAX_BACKUPS=1 # Set the maximum number of backups to keep
               while true; do
                 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
                 backup_file="/mnt/backup/backup-$timestamp.tar.gz"
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
                 tar --exclude="lost+found" -czf $backup_file -C /app/backend/data .
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
+
+                # Purge old backups if the total exceeds MAX_BACKUPS
+                backup_count=$(ls /mnt/backup/backup-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Total backups ($backup_count) exceed MAX_BACKUPS ($MAX_BACKUPS). Purging oldest backups."
+                  ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Purge complete."
+                fi
+
                 sleep 600 # Wait 10 minutes
               done
       initContainers:
