@@ -20,7 +20,9 @@ app-template:
             - name: ui-data
               mountPath: /app/backend/data
         backup:
-          image: alpine:latest
+          image:
+            repository: alpine
+            tag: latest
           name: backup
           command:
             - /bin/sh
