@@ -14,20 +14,25 @@ app-template:
             tag: latest
           env:
             OLLAMA_BASE_URL: http://ollama:11434
-          # lifecycle:
-          #   postStart:
-          #     exec:
-          #       command:
-          #         - /bin/sh
-          #         - -c
-          #         - |
-          #           mkdir -p /mnt/backup && echo "Backup directory created." && \
-          #           (while true; do
-          #             tar -czf /mnt/backup/backup-$(date +\%Y\%m\%d\%H\%M\%S).tar.gz /app/backend/data && \
-          #             touch /app/backend/data/bees-knees
-          #             sleep 600 # Run every 10 minutes
-          #           done) & \
-          #           exec /app/start.sh
+          volumeMounts:
+            - name: nfs-backup
+              mountPath: /mnt/backup
+            - name: ui-data
+              mountPath: /app/backend/data
+        backup:
+          image: alpine:latest
+          name: backup
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                timestamp=$(date +%Y%m%d%H%M%S)
+                backup_file="/mnt/backup/backup-$timestamp.tar.gz"
+                echo "Creating backup at $backup_file"
+                tar -czf $backup_file -C /app/backend/data .
+                sleep 600 # Wait 10 minutes
+              done
           volumeMounts:
             - name: nfs-backup
               mountPath: /mnt/backup
