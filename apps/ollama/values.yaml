@@ -14,9 +14,6 @@ app-template:
             tag: latest
           env:
             OLLAMA_BASE_URL: http://ollama:11434
-          # volumeMounts:
-          #   - name: ui-data
-          #     mountPath: /app/backend/data
         backup:
           image:
             repository: alpine
@@ -27,17 +24,13 @@ app-template:
             - -c
             - |
               while true; do
-                timestamp=$(date +%Y%m%d%H%M%S)
+                timestamp=$(date +%Y-%m-%d_%H-%M-%S)
                 backup_file="/mnt/backup/backup-$timestamp.tar.gz"
-                echo "Creating backup at $backup_file"
-                tar -czf $backup_file -C /app/backend/data .
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
+                tar --exclude="lost+found" -czf $backup_file -C /app/backend/data .
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
                 sleep 600 # Wait 10 minutes
               done
-          # volumeMounts:
-          #   - name: nfs-backup
-          #     mountPath: /mnt/backup
-          #   - name: ui-data
-          #     mountPath: /app/backend/data
       initContainers:
         restore:
           image:
@@ -47,23 +40,21 @@ app-template:
             - /bin/sh
             - -c
             - |
+              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+              echo "[$timestamp] Starting restore process"
               if [ ! -f /app/backend/data/bees-knees ]; then
                 latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
                 if [ -n "$latest_backup" ]; then
-                  echo "Restoring from backup: $latest_backup"
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
                   tar -xzf $latest_backup -C /app/backend/data
                   touch /app/backend/data/bees-knees
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
                 else
-                  echo "No backup found. Skipping restore."
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
                 fi
               else
-                echo "Restore skipped. Bees-knees file exists."
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
               fi
-          # volumeMounts:
-          #   - name: nfs-backup
-          #     mountPath: /mnt/backup
-          #   - name: ui-data
-          #     mountPath: /app/backend/data
   service:
     main:
       ports:
@@ -104,9 +95,6 @@ app-template:
           secretName: ollama-tls-certificate
   persistence:
     data:
-      # type: nfs
-      # server: 10.0.50.3
-      # path: /mnt/user/ollama-main
       accessMode: ReadWriteOnce
       size: 150Gi
       advancedMounts:
@@ -134,11 +122,3 @@ app-template:
             - path: /mnt/backup
           restore:
             - path: /mnt/backup
-  # volumes:
-  #   nfs-backup:
-  #     type: nfs
-  #     server: 10.0.50.3
-  #     path: /mnt/user/ollama-ui
-  #   ui-data:
-  #     accessMode: ReadWriteOnce
-  #     size: 10Gi
