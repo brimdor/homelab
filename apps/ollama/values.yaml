@@ -15,8 +15,6 @@ app-template:
           env:
             OLLAMA_BASE_URL: http://ollama:11434
           volumeMounts:
-            - name: nfs-backup
-              mountPath: /mnt/backup
             - name: ui-data
               mountPath: /app/backend/data
         backup:
