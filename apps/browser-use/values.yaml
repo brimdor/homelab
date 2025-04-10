@@ -114,3 +114,5 @@ opSecret:
   OPENAI_API_KEY:
     vault: "heodvh77tcrrj6cizyfoytnkuy"
     item: "w4u2ovfyoicyh365gtp5esuu3i"
+    secretName: "api-token"
+    key: "api-token"
