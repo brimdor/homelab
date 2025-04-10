@@ -10,7 +10,7 @@ app-template:
             valueFrom:
               secretKeyRef:
                 name: api-token
-                key: api-token
+                key: password
             
         backup:
           image:
@@ -112,7 +112,7 @@ app-template:
 
 opSecret:
   OPENAI_API_KEY:
-    vault: "heodvh77tcrrj6cizyfoytnkuy"
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "w4u2ovfyoicyh365gtp5esuu3i"
     secretName: "api-token"
-    key: "api-token"
+    key: "password"
