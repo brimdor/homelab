@@ -113,6 +113,6 @@ app-template:
 opSecret:
   OPENAI_API_KEY:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "w4u2ovfyoicyh365gtp5esuu3i"
+    item: "xlqo7wxjjeveea5eq6whcyltmm"
     secretName: "api-token"
     key: "password"
