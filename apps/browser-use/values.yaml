@@ -10,7 +10,7 @@ app-template:
             valueFrom:
               secretKeyRef:
                 name: api_token
-                key: "API Key for LiteLLM"
+                key: api_token
             
         backup:
           image:
@@ -115,4 +115,4 @@ opSecret:
     vault: "heodvh77tcrrj6cizyfoytnkuy"
     item: "w4u2ovfyoicyh365gtp5esuu3i"
     secretName: "api_token"
-    key: "API Key for LiteLLM"
+    key: "api_token"
