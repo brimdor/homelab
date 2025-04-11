@@ -7,11 +7,11 @@ app-template:
             repository: docker.io/brimdor/browser-use
             tag: latest
           env:
-            valueFrom:
-              secretKeyRef:
-                name: api-token
-                key: password
-            
+            OPENAI_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: api-token
+                  key: password
         backup:
           image:
             repository: alpine
@@ -37,7 +37,7 @@ app-template:
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] Purge complete."
                 fi
 
-                sleep 600 # Wait 10 minutes
+                sleep 1200 # Wait 20 minutes
               done
       initContainers:
         restore:
