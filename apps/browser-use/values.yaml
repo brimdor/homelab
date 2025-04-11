@@ -7,8 +7,8 @@ app-template:
             repository: docker.io/brimdor/browser-use
             tag: latest
           env:
-            PGID: "99"
-            PUID: "100"
+            GID: "99"
+            UID: "100"
             CHROME_PERSISTENT_SESSION: "true"
             OPENAI_API_KEY:
               valueFrom:
