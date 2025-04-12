@@ -7,15 +7,19 @@ app-template:
             repository: docker.io/brimdor/browser-use
             tag: latest
           env:
-            uid: "99"
-            pid: "100"
-            CHROME_PERSISTENT_SESSION: "true"
-            IN_DOCKER: "true"
-            OPENAI_API_KEY:
+            - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: "api-token"
-                  key: "password"
+                  name: "{{ .Values.opSecret.OPENAI_API_KEY.secretName }}"
+                  key: "{{ .Values.opSecret.OPENAI_API_KEY.key }}"
+            - name: CHROME_PERSISTENT_SESSION
+              value: "true"
+            - name: IN_DOCKER
+              value: "true"
+            - name: uid
+              value: "99"
+            - name: pid
+              value: "100"
         backup:
           image:
             repository: alpine
