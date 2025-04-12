@@ -14,8 +14,8 @@ app-template:
                   key: "{{ .Values.opSecret.OPENAI_API_KEY.key }}"
             CHROME_PERSISTENT_SESSION: "true"
             IN_DOCKER: "true"
-            uid: "99"
-            pid: "100"
+            UID: "99"
+            PID: "100"
         backup:
           image:
             repository: alpine
