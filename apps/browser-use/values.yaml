@@ -14,8 +14,8 @@ app-template:
             OPENAI_API_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: "{{ Values.opsecret.OPENAI_API_KEY.secretName }}"
-                  key: "{{ Values.opsecret.OPEANAI_API_KEY.key }}"
+                  name: "api-token"
+                  key: "password"
         backup:
           image:
             repository: alpine
