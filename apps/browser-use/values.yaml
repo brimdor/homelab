@@ -12,14 +12,10 @@ app-template:
                 secretKeyRef:
                   name: "{{ .Values.opSecret.OPENAI_API_KEY.secretName }}"
                   key: "{{ .Values.opSecret.OPENAI_API_KEY.key }}"
-            CHROME_PERSISTENT_SESSION:
-              value: "true"
-            IN_DOCKER:
-              value: "true"
-            uid:
-              value: "99"
-            pid:
-              value: "100"
+            CHROME_PERSISTENT_SESSION: "true"
+            IN_DOCKER: "true"
+            uid: "99"
+            pid: "100"
         backup:
           image:
             repository: alpine
