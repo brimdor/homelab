@@ -10,8 +10,8 @@ app-template:
             OPENAI_API_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Values.opSecret.OPENAI_API_KEY.secretName }}"
-                  key: "{{ .Values.opSecret.OPENAI_API_KEY.key }}"
+                  name: "api-token"
+                  key: "password"
             CHROME_PERSISTENT_SESSION: "true"
             IN_DOCKER: "true"
             UID: "99"
