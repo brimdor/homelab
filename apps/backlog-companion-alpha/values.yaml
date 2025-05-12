@@ -22,22 +22,22 @@ env:
 opSecret:
   MYSQL_ROOT_PASSWORD:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "mcc37qj3yzweznruznh3qwlqta"
+    item: "3g3cuf6gowcxdhtlteivplc27u"
     secretName: "mysql-root-password"
     key: "root_password"
   MYSQL_DATABASE:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "rb3gyodqcqxl7votw2tdvwgmeq"
+    item: "3g3cuf6gowcxdhtlteivplc27u"
     secretName: "mysql-database"
     key: "database"
   MYSQL_USER:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "ywvxjd4w3u3nnoedkwfymwaokm"
+    item: "3g3cuf6gowcxdhtlteivplc27u"
     secretName: "mysql-user"
     key: "db_user"
   MYSQL_PASSWORD:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "ywvxjd4w3u3nnoedkwfymwaokm"
+    item: "3g3cuf6gowcxdhtlteivplc27u"
     secretName: "mysql-password"
     key: "db_password"
 
