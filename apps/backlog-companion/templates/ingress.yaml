@@ -10,20 +10,22 @@ metadata:
     cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
     external-dns.alpha.kubernetes.io/target: {{ .Values.ingress.externalDnsTarget | quote }}
     external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    hajimari.io/appName: "Backlog Companion"
+    hajimari.io/icon: movie-roll
 spec:
   ingressClassName: {{ .Values.ingress.className | quote }}
   tls:
     - hosts:
-        - {{ .Values.ingress.host | quote }}
+        - {{ .Values.ingress.hosts.host | quote }}
       secretName: {{ .Values.ingress.tls.secretName | quote }}
   rules:
     - host: {{ .Values.ingress.hosts.host | quote }}
       http:
         paths:
           - path: /
-            pathType: Prefix
             backend:
               service:
                 name: backlog-companion
                 port:
                   name: http
+            pathType: Prefix
