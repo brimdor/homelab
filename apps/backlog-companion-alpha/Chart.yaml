@@ -1,0 +1,4 @@
+apiVersion: v2
+name: backlog-companion
+version: 0.1.0
+description: A Helm chart for running database, backend, and frontend in a single Pod
