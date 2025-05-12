@@ -6,11 +6,16 @@ image:
 
 ingress:
   enabled: true
-  host: backlog.eaglepass.io
-  tlsSecret: backlog-tls-certificate
   className: nginx
-  clusterIssuer: letsencrypt-prod
-  externalDnsTarget: homelab-tunnel.eaglepass.io
+  tls:
+    - hosts:
+        - backlog.eaglepass.io
+      secretName: backlog-tls-certificate
+  hosts:
+    - host: backlog.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
 
 env:
   HOST_URL: https://backlog.eaglepass.io
