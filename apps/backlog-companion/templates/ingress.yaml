@@ -15,17 +15,25 @@ metadata:
 spec:
   ingressClassName: {{ .Values.ingress.className | quote }}
   tls:
+{{- range .Values.ingress.tls }}
     - hosts:
-        - {{ .Values.ingress.hosts.host | quote }}
-      secretName: {{ .Values.ingress.tls.secretName | quote }}
+{{- range .hosts }}
+        - {{ . | quote }}
+{{- end }}
+      secretName: {{ .secretName | quote }}
+{{- end }}
   rules:
-    - host: {{ .Values.ingress.hosts.host | quote }}
+{{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
       http:
         paths:
-          - path: /
+{{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
             backend:
               service:
                 name: backlog-companion
                 port:
                   name: http
-            pathType: Prefix
+{{- end }}
+{{- end }}
