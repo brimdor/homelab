@@ -16,9 +16,11 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+  clusterIssuer: letsencrypt-prod
+  externalDnsTarget: "homelab-tunnel.eaglepass.io"
 
 env:
-  HOST_URL: https://backlog.eaglepass.io
+  HOST_URL: https://localhost
   DB_HOST: localhost
   DB_PORT: 3306
   REACT_APP_API_BASE_URL: https://localhost:3000

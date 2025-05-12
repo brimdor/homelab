@@ -15,9 +15,9 @@ spec:
   tls:
     - hosts:
         - {{ .Values.ingress.host | quote }}
-      secretName: {{ .Values.ingress.tlsSecret | quote }}
+      secretName: {{ .Values.ingress.tls.secretName | quote }}
   rules:
-    - host: {{ .Values.ingress.host | quote }}
+    - host: {{ .Values.ingress.hosts.host | quote }}
       http:
         paths:
           - path: /
@@ -26,4 +26,4 @@ spec:
               service:
                 name: backlog-companion
                 port:
-                  number: 80
+                  name: http
