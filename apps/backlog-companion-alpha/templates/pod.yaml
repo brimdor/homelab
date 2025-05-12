@@ -86,8 +86,6 @@ spec:
           port: 3000
         initialDelaySeconds: 10
         periodSeconds: 10
-      dependsOn:
-        - database
     - name: frontend
       image: {{ .Values.image.frontend }}
       env:
@@ -103,8 +101,6 @@ spec:
           port: 80
         initialDelaySeconds: 10
         periodSeconds: 10
-      dependsOn:
-        - backend
   volumes:
     - name: db-nfs
       nfs:
