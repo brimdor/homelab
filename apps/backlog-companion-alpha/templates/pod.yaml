@@ -11,24 +11,24 @@ spec:
       env:
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.MYSQL_ROOT_PASSWORD.secretName }}"
-            key: "{{ .Values.opSecret.MYSQL_ROOT_PASSWORD.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.MYSQL_ROOT_PASSWORD.secretName }}"
+              key: "{{ .Values.opSecret.MYSQL_ROOT_PASSWORD.key }}"
         - name: MYSQL_DATABASE
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.MYSQL_DATABASE.secretName }}"
-            key: "{{ .Values.opSecret.MYSQL_DATABASE.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.MYSQL_DATABASE.secretName }}"
+              key: "{{ .Values.opSecret.MYSQL_DATABASE.key }}"
         - name: MYSQL_USER
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.MYSQL_USER.secretName }}"
-            key: "{{ .Values.opSecret.MYSQL_USER.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.MYSQL_USER.secretName }}"
+              key: "{{ .Values.opSecret.MYSQL_USER.key }}"
         - name: MYSQL_PASSWORD
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.MYSQL_PASSWORD.secretName }}"
-            key: "{{ .Values.opSecret.MYSQL_PASSWORD.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.MYSQL_PASSWORD.secretName }}"
+              key: "{{ .Values.opSecret.MYSQL_PASSWORD.key }}"
       ports:
         - containerPort: 3306
       volumeMounts:
@@ -55,29 +55,29 @@ spec:
           value: {{ .Values.env.DB_PORT | quote }}
         - name: DB_USER
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.MYSQL_USER.secretName }}"
-            key: "{{ .Values.opSecret.MYSQL_USER.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.MYSQL_USER.secretName }}"
+              key: "{{ .Values.opSecret.MYSQL_USER.key }}"
         - name: DB_PASSWORD
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.MYSQL_PASSWORD.secretName }}"
-            key: "{{ .Values.opSecret.MYSQL_PASSWORD.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.MYSQL_PASSWORD.secretName }}"
+              key: "{{ .Values.opSecret.MYSQL_PASSWORD.key }}"
         - name: DB_NAME
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.MYSQL_DATABASE.secretName }}"
-            key: "{{ .Values.opSecret.MYSQL_DATABASE.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.MYSQL_DATABASE.secretName }}"
+              key: "{{ .Values.opSecret.MYSQL_DATABASE.key }}"
         - name: JWT_SECRET
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.JWT_SECRET.secretName }}"
-            key: "{{ .Values.opSecret.JWT_SECRET.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.JWT_SECRET.secretName }}"
+              key: "{{ .Values.opSecret.JWT_SECRET.key }}"
         - name: ENCRYPTION_KEY
           valueFrom:
-          secretKeyRef:
-            name: "{{ .Values.opSecret.ENCRYPTION_KEY.secretName }}"
-            key: "{{ .Values.opSecret.ENCRYPTION_KEY.key }}"
+            secretKeyRef:
+              name: "{{ .Values.opSecret.ENCRYPTION_KEY.secretName }}"
+              key: "{{ .Values.opSecret.ENCRYPTION_KEY.key }}"
       ports:
         - containerPort: 3000
       readinessProbe:
