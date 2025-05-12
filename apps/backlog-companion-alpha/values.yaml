@@ -14,7 +14,7 @@ ingress:
 
 env:
   HOST_URL: https://backlog.eaglepass.io
-  DB_HOST: database
+  DB_HOST: localhost
   DB_PORT: 3306
   REACT_APP_API_BASE_URL: https://localhost:3000
   REACT_APP_THEME: dark
