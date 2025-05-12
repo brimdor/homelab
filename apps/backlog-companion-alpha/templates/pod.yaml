@@ -36,7 +36,10 @@ spec:
           mountPath: /var/lib/mysql
       readinessProbe:
         exec:
-          command: ["mariadb-admin", "ping", "-h", "localhost", "-uroot", "-p{{ .Values.mysql.rootPassword }}"]
+          command:
+            - sh
+            - -c
+            - 'mariadb-admin ping -h localhost -uroot -p"$MYSQL_ROOT_PASSWORD"'
         initialDelaySeconds: 10
         periodSeconds: 10
     - name: backend
