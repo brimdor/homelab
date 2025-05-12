@@ -40,13 +40,11 @@ opSecret:
     item: "3g3cuf6gowcxdhtlteivplc27u"
     secretName: "mysql-password"
     key: "db_password"
-
   ENCRYPTION_KEY:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "3g3cuf6gowcxdhtlteivplc27u"
     secretName: "encryption-key"
     key: "encryption_key"
-
   JWT_SECRET:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "3g3cuf6gowcxdhtlteivplc27u"
