@@ -1,0 +1,46 @@
+# Default values for backlog-companion Helm chart
+image:
+  database: brimdor/backlog_database
+  backend: brimdor/backlog_backend
+  frontend: brimdor/backlog_frontend
+
+ingress:
+  enabled: true
+  host: backlog.eaglepass.io
+  tlsSecret: backlog-tls-certificate
+  className: nginx
+  clusterIssuer: letsencrypt-prod
+  externalDnsTarget: homelab-tunnel.eaglepass.io
+
+env:
+  HOST_URL: https://backlog.eaglepass.io
+  DB_HOST: database
+  DB_PORT: 3306
+  REACT_APP_API_BASE_URL: https://localhost:3000
+  REACT_APP_THEME: dark
+
+opSecret:
+  MYSQL_ROOT_PASSWORD:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "mcc37qj3yzweznruznh3qwlqta"
+    secretName: "mysql-root-password"
+    key: "root_password"
+  MYSQL_DATABASE:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "rb3gyodqcqxl7votw2tdvwgmeq"
+    secretName: "mysql-database"
+    key: "database"
+  MYSQL_USER:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "ywvxjd4w3u3nnoedkwfymwaokm"
+    secretName: "mysql-user"
+    key: "db_user"
+  MYSQL_PASSWORD:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "ywvxjd4w3u3nnoedkwfymwaokm"
+    secretName: "mysql-password"
+    key: "db_password"
+
+nfs:
+  server: 10.0.50.3
+  path: /user/backlog_companion_database
