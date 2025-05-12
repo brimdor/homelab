@@ -53,4 +53,4 @@ opSecret:
 
 nfs:
   server: 10.0.50.3
-  path: /user/backlog_companion_database
+  path: /mnt/user/backlog_companion_database
