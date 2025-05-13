@@ -4,6 +4,8 @@ metadata:
   name: backlog-companion
   labels:
     app: backlog-companion
+    app.kubernetes.io/instance: backlog-companion
+    app.kubernetes.io/name: backlog-companion
 spec:
   containers:
     - name: database
