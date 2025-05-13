@@ -2,10 +2,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: backlog-companion
-  labels:
-    app: backlog-companion
-    app.kubernetes.io/name: backlog-companion
-    app.kubernetes.io/instance: backlog-companion
+  # labels:
+  #   app: backlog-companion
+  #   app.kubernetes.io/name: backlog-companion
+  #   app.kubernetes.io/instance: backlog-companion
 spec:
   type: ClusterIP
   selector:
