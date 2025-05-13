@@ -2,10 +2,6 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: backlog-companion-ingress
-  # labels:
-  #   app: backlog-companion
-  #   app.kubernetes.io/name: backlog-companion
-  #   app.kubernetes.io/instance: backlog-companion
   annotations:
     cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
     external-dns.alpha.kubernetes.io/target: {{ .Values.ingress.externalDnsTarget | quote }}
