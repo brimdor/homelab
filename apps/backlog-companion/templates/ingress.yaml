@@ -28,6 +28,7 @@ spec:
               service:
                 name: backlog-companion
                 port:
-                  name: http
+                  # name: http
+                  number: 80
 {{- end }}
 {{- end }}
