@@ -10,7 +10,7 @@ ingress:
   tls:
     - hosts:
         - backlog.eaglepass.io
-      secretName: backlog-tls-certificate
+      secretName: backlog-companion-tls
   hosts:
     - host: backlog.eaglepass.io
       paths:
