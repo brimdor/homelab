@@ -14,24 +14,15 @@ app-template:
             NODE_ENV: production
             COMPOSE_PROFILES: production
             PORT: 5173
-            GROQ_API_KEY: "{{ .Values.secrets.GROQ_API_KEY }}"
-            HuggingFace_API_KEY: "{{ .Values.secrets.HuggingFace_API_KEY }}"
             OPENAI_API_KEY:
               valueFrom:
                   secretKeyRef:
                     name: "{{ .Values.secrets.OPENAI_API_KEY.secretName }}"
                     key: "{{ .Values.opSecret.OPENAI_API_KEY.key }}"
-            ANTHROPIC_API_KEY: "{{ .Values.secrets.ANTHROPIC_API_KEY }}"
-            OPEN_ROUTER_API_KEY: "{{ .Values.secrets.OPEN_ROUTER_API_KEY }}"
-            GOOGLE_GENERATIVE_AI_API_KEY: "{{ .Values.secrets.GOOGLE_GENERATIVE_AI_API_KEY }}"
-            OLLAMA_API_BASE_URL: "{{ .Values.secrets.OLLAMA_API_BASE_URL }}"
-            XAI_API_KEY: "{{ .Values.secrets.XAI_API_KEY }}"
-            TOGETHER_API_KEY: "{{ .Values.secrets.TOGETHER_API_KEY }}"
-            TOGETHER_API_BASE_URL: "{{ .Values.secrets.TOGETHER_API_BASE_URL }}"
-            AWS_BEDROCK_CONFIG: "{{ .Values.secrets.AWS_BEDROCK_CONFIG }}"
-            VITE_LOG_LEVEL: "{{ .Values.secrets.VITE_LOG_LEVEL | default 'debug' }}"
-            DEFAULT_NUM_CTX: "{{ .Values.secrets.DEFAULT_NUM_CTX | default '32768' }}"
             RUNNING_IN_DOCKER: "true"
+            OLLAMA_API_BASE_URL: "http://ollama:11434"
+            VITE_LOG_LEVEL: "debug"
+            DEFAULT_NUM_CTX: "32768"
           command:
             - pnpm
             - run
@@ -122,20 +113,9 @@ app-template:
             - path: /mnt/backup
 
 secrets:
-  GROQ_API_KEY: ""
-  HuggingFace_API_KEY: ""
   OPENAI_API_KEY:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "gglbmianqlel62up6isritoi5u"
     secretName: "openai-api-key"
     key: "openai-api-key"
-  ANTHROPIC_API_KEY: ""
-  OPEN_ROUTER_API_KEY: ""
-  GOOGLE_GENERATIVE_AI_API_KEY: ""
-  OLLAMA_API_BASE_URL: "http://ollama:11434"
-  XAI_API_KEY: ""
-  TOGETHER_API_KEY: ""
-  TOGETHER_API_BASE_URL: ""
-  AWS_BEDROCK_CONFIG: ""
-  VITE_LOG_LEVEL: "debug"
-  DEFAULT_NUM_CTX: "32768"
+
