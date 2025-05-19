@@ -110,11 +110,30 @@ app-template:
         restore:
           restore:
             - path: /mnt/backup
-
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &boltHost bolt.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *boltHost
+          secretName: bolt-tls-certificate
 secrets:
   OPENAI_API_KEY:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "gglbmianqlel62up6isritoi5u"
     secretName: "openai-api-key"
     key: "openai-api-key"
+
+
 
