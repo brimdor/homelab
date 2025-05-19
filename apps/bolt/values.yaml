@@ -29,31 +29,6 @@ app-template:
             - dockerstart
           extraHosts:
             - host.docker.internal:host-gateway
-      initContainers:
-        restore:
-          image:
-            repository: alpine
-            tag: latest
-          command:
-            - /bin/sh
-            - -c
-            - |
-              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
-              echo "[$timestamp] Starting restore process"
-              if [ ! -f /app/data/.restored ]; then
-                latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
-                if [ -n "$latest_backup" ]; then
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
-                  tar -xzf $latest_backup -C /app/data
-                  touch /app/data/.restored
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: .restored file created"
-                else
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
-                fi
-              else
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. .restored file exists."
-              fi
-      sidecars:
         backup:
           image:
             repository: alpine
@@ -78,6 +53,30 @@ app-template:
                 fi
                 sleep 1200
               done
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+              echo "[$timestamp] Starting restore process"
+              if [ ! -f /app/data/.restored ]; then
+                latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
+                  tar -xzf $latest_backup -C /app/data
+                  touch /app/data/.restored
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: .restored file created"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. .restored file exists."
+              fi
   service:
     main:
       ports:
