@@ -17,8 +17,8 @@ app-template:
             OPENAI_API_KEY:
               valueFrom:
                   secretKeyRef:
-                    name: "{{ .Values.secrets.OPENAI_API_KEY.secretName }}"
-                    key: "{{ .Values.opSecret.OPENAI_API_KEY.key }}"
+                    name: "openai-api-key"
+                    key: "openai-api-key"
             RUNNING_IN_DOCKER: "true"
             OLLAMA_API_BASE_URL: "http://ollama:11434"
             VITE_LOG_LEVEL: "debug"
