@@ -9,7 +9,7 @@ app-template:
           image:
             repository: brimdor/bolt.diy
             tag: latest
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             NODE_ENV: production
             COMPOSE_PROFILES: production
