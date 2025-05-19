@@ -1,0 +1,141 @@
+# values.yaml for bolt-diy Helm chart using bjw-s common chart
+# See https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: brimdor/bolt-diy
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            NODE_ENV: production
+            COMPOSE_PROFILES: production
+            PORT: 5173
+            GROQ_API_KEY: "{{ .Values.secrets.GROQ_API_KEY }}"
+            HuggingFace_API_KEY: "{{ .Values.secrets.HuggingFace_API_KEY }}"
+            OPENAI_API_KEY:
+              valueFrom:
+                  secretKeyRef:
+                    name: "{{ .Values.secrets.OPENAI_API_KEY.secretName }}"
+                    key: "{{ .Values.opSecret.OPENAI_API_KEY.key }}"
+            ANTHROPIC_API_KEY: "{{ .Values.secrets.ANTHROPIC_API_KEY }}"
+            OPEN_ROUTER_API_KEY: "{{ .Values.secrets.OPEN_ROUTER_API_KEY }}"
+            GOOGLE_GENERATIVE_AI_API_KEY: "{{ .Values.secrets.GOOGLE_GENERATIVE_AI_API_KEY }}"
+            OLLAMA_API_BASE_URL: "{{ .Values.secrets.OLLAMA_API_BASE_URL }}"
+            XAI_API_KEY: "{{ .Values.secrets.XAI_API_KEY }}"
+            TOGETHER_API_KEY: "{{ .Values.secrets.TOGETHER_API_KEY }}"
+            TOGETHER_API_BASE_URL: "{{ .Values.secrets.TOGETHER_API_BASE_URL }}"
+            AWS_BEDROCK_CONFIG: "{{ .Values.secrets.AWS_BEDROCK_CONFIG }}"
+            VITE_LOG_LEVEL: "{{ .Values.secrets.VITE_LOG_LEVEL | default 'debug' }}"
+            DEFAULT_NUM_CTX: "{{ .Values.secrets.DEFAULT_NUM_CTX | default '32768' }}"
+            RUNNING_IN_DOCKER: "true"
+          command:
+            - pnpm
+            - run
+            - dockerstart
+          extraHosts:
+            - host.docker.internal:host-gateway
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+              echo "[$timestamp] Starting restore process"
+              if [ ! -f /app/data/.restored ]; then
+                latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
+                  tar -xzf $latest_backup -C /app/data
+                  touch /app/data/.restored
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: .restored file created"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. .restored file exists."
+              fi
+      sidecars:
+        backup:
+          image:
+            repository: alpine
+            tag: latest
+          name: backup
+          command:
+            - /bin/sh
+            - -c
+            - |
+              MAX_BACKUPS=15
+              while true; do
+                timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+                backup_file="/mnt/backup/backup-$timestamp.tar.gz"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
+                tar --exclude="lost+found" -czf $backup_file -C /app/data .
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
+                backup_count=$(ls /mnt/backup/backup-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Total backups ($backup_count) exceed MAX_BACKUPS ($MAX_BACKUPS). Purging oldest backups."
+                  ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Purge complete."
+                fi
+                sleep 1200
+              done
+  service:
+    main:
+      ports:
+        http:
+          port: 5173
+          protocol: HTTP
+  persistence:
+    data:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /app
+        backup:
+          backup:
+            - path: /app
+        restore:
+          restore:
+            - path: /app
+    nfs-backup:
+      enabled: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/bolt-backup
+      advancedMounts:
+        backup:
+          backup:
+            - path: /mnt/backup
+        restore:
+          restore:
+            - path: /mnt/backup
+
+secrets:
+  GROQ_API_KEY: ""
+  HuggingFace_API_KEY: ""
+  OPENAI_API_KEY:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "gglbmianqlel62up6isritoi5u"
+    secretName: "openai-api-key"
+    key: "openai-api-key"
+  ANTHROPIC_API_KEY: ""
+  OPEN_ROUTER_API_KEY: ""
+  GOOGLE_GENERATIVE_AI_API_KEY: ""
+  OLLAMA_API_BASE_URL: "http://ollama:11434"
+  XAI_API_KEY: ""
+  TOGETHER_API_KEY: ""
+  TOGETHER_API_BASE_URL: ""
+  AWS_BEDROCK_CONFIG: ""
+  VITE_LOG_LEVEL: "debug"
+  DEFAULT_NUM_CTX: "32768"
