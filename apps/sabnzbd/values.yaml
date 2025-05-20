@@ -35,6 +35,7 @@ app-template:
                   echo 'host_whitelist = sabnzbd.eaglepass.io' >> /config/sabnzbd.ini
                 fi
                 touch /config/bees-knees
+                echo "[INFO] host_whitelist added to /config/sabnzbd.ini"
               fi
 
               sleep infinity
