@@ -65,6 +65,16 @@ kubectl create secret generic op-credentials \
 `argocd app set gitea --repo https://github.com/brimdor/homelab`  
 `argocd app sync gitea`
 
+### Internal Cluster DNS Resolution
+> In-cluster DNS resolution works hierarchically:
+> 
+> - `loki` → service `loki` in the **same namespace**
+> - `loki.loki` → service `loki` in namespace `loki`
+> - `loki.loki.svc.cluster.local` → fully qualified domain name (FQDN)
+> 
+> All of these point to the same thing inside the cluster, but  
+> **`loki.loki` is the sweet spot** when you’re in a different namespace and still want it short.
+
 ## ARCHIVED
 
 ### Node Restarts Stuck

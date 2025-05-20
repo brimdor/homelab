@@ -27,15 +27,6 @@ app-template:
         http:
           port: 7878
           protocol: HTTP
-    connect:
-      controller: main
-      ClusterIP: 10.43.10.214
-      ports:
-        http:
-          port: 7878
-          targetPort: 7878
-          protocol: HTTP
-
   ingress:
     main:
       enabled: true
