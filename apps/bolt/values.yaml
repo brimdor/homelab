@@ -99,20 +99,19 @@ app-template:
             - path: /app/data
         backup:
           backup:
-            - path: /app
+            - path: /app/data
         restore:
           restore:
-            - path: /app
+            - path: /app/data
     nfs-backup:
       enabled: true
       type: nfs
       server: 10.0.50.3
       path: /mnt/user/bolt-backup
       advancedMounts:
-        backup:
+        main:
           backup:
             - path: /mnt/backup
-        restore:
           restore:
             - path: /mnt/backup
   ingress:
