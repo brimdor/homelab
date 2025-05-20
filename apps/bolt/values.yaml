@@ -7,7 +7,7 @@ app-template:
       containers:
         main:
           image:
-            repository: brimdor/bolt.diy
+            repository: brimdor/bolt.diy-userauth
             tag: latest
             pullPolicy: Always
           env:
@@ -20,7 +20,6 @@ app-template:
                     name: "openai-api-key"
                     key: "openai-api-key"
             RUNNING_IN_DOCKER: "true"
-            OLLAMA_API_BASE_URL: "http://ollama:11434"
             VITE_LOG_LEVEL: "debug"
             DEFAULT_NUM_CTX: "32768"
             VITE_GITHUB_ACCESS_TOKEN:
