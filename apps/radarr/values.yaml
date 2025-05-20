@@ -22,7 +22,7 @@ app-template:
       controller: main
       primary: true
       type: ClusterIP
-      externalTrafficPolicy: Cluster
+      externalTrafficPolicy:
       ports:
         http:
           port: 7878
