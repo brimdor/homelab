@@ -105,6 +105,7 @@ app-template:
           protocol: HTTP
     connect:
       controller: main
+      type: ClusterIP
       ClusterIP: 10.43.10.13
       ports:
         http:
