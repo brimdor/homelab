@@ -1,6 +1,5 @@
 # values.yaml for bolt-diy Helm chart using bjw-s common chart
 # See https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
-
 app-template:
   controllers:
     main:
@@ -34,85 +33,12 @@ app-template:
             - dockerstart
           extraHosts:
             - host.docker.internal:host-gateway
-        backup:
-          image:
-            repository: alpine
-            tag: latest
-          name: backup
-          command:
-            - /bin/sh
-            - -c
-            - |
-              MAX_BACKUPS=15
-              sleep 60
-              while true; do
-                timestamp=$(date +%Y-%m-%d_%H-%M-%S)
-                backup_file="/mnt/backup/backup-$timestamp.tar.gz"
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
-                tar --exclude="lost+found" -czf $backup_file -C /app .
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
-                backup_count=$(ls /mnt/backup/backup-*.tar.gz 2>/dev/null | wc -l)
-                if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Total backups ($backup_count) exceed MAX_BACKUPS ($MAX_BACKUPS). Purging oldest backups."
-                  ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Purge complete."
-                fi
-                sleep 1200
-              done
-      initContainers:
-        restore:
-          image:
-            repository: alpine
-            tag: latest
-          command:
-            - /bin/sh
-            - -c
-            - |
-              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
-              echo "[$timestamp] Starting restore process"
-              if [ ! -f /tmp/.restored ]; then
-                latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
-                if [ -n "$latest_backup" ]; then
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
-                  tar -xzf $latest_backup -C /app
-                  touch /tmp/.restored
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: .restored file created"
-                else
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
-                fi
-              else
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. .restored file exists."
-              fi
   service:
     main:
       ports:
         http:
           port: 5173
           protocol: HTTP
-  persistence:
-    data:
-      enabled: true
-      accessMode: ReadWriteOnce
-      size: 10Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /app/data
-          backup:
-            - path: /app/data
-          restore:
-            - path: /app/data
-    nfs-backup:
-      enabled: true
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/bolt-backup
-      advancedMounts:
-        main:
-          backup:
-            - path: /mnt/backup
-          restore:
-            - path: /mnt/backup
   ingress:
     main:
       enabled: true
