@@ -48,7 +48,7 @@ app-template:
                 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
                 backup_file="/mnt/backup/backup-$timestamp.tar.gz"
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
-                tar --exclude="lost+found" -czf $backup_file -C /app/data .
+                tar --exclude="lost+found" -czf $backup_file -C /app .
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
                 backup_count=$(ls /mnt/backup/backup-*.tar.gz 2>/dev/null | wc -l)
                 if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
@@ -69,12 +69,12 @@ app-template:
             - |
               timestamp=$(date +%Y-%m-%d_%H-%M-%S)
               echo "[$timestamp] Starting restore process"
-              if [ ! -f /app/data/.restored ]; then
+              if [ ! -f /app/.restored ]; then
                 latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
                 if [ -n "$latest_backup" ]; then
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
-                  tar -xzf $latest_backup -C /app/data
-                  touch /app/data/.restored
+                  tar -xzf $latest_backup -C /app
+                  touch /app/.restored
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: .restored file created"
                 else
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
@@ -96,13 +96,13 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /app/data
+            - path: /app
         backup:
           backup:
-            - path: /app/data
+            - path: /app
         restore:
           restore:
-            - path: /app/data
+            - path: /app
     nfs-backup:
       enabled: true
       type: nfs
