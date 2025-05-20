@@ -48,6 +48,13 @@ app-template:
             - code.eaglepass.io
           secretName: code-tls-certificate
   persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 15Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /config
     nfs:
       type: nfs
       server: 10.0.50.3
