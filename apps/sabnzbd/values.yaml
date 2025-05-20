@@ -38,6 +38,61 @@ app-template:
               fi
 
               sleep infinity
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              echo "[INFO] Checking for /config/bees-knees marker file..."
+              if [ -f /config/bees-knees ]; then
+                echo "[INFO] Restore skipped: /config/bees-knees exists."
+                exit 0
+              fi
+
+              echo "[INFO] Looking for latest backup zip in /backups..."
+              latest_backup=$(ls -t /backups/sabnzbd_backup_*.zip 2>/dev/null | head -n 1)
+
+              if [ -z "$latest_backup" ]; then
+                echo "[ERROR] No backup zip found in /backups. Skipping restore."
+                exit 0
+              fi
+
+              echo "[INFO] Found backup: $latest_backup"
+              echo "[INFO] Extracting backup to /tmp/sabnzbd..."
+              mkdir -p /tmp/sabnzbd
+              if unzip -o "$latest_backup" -d /tmp/sabnzbd; then
+                echo "[INFO] Extraction successful."
+              else
+                echo "[ERROR] Extraction failed!"
+                exit 1
+              fi
+
+              # Move files to their destinations
+              move_and_report() {
+                src="$1"
+                dest="$2"
+                if [ -f "$src" ]; then
+                  mkdir -p "$(dirname "$dest")"
+                  mv -f "$src" "$dest"
+                  echo "[INFO] Restored $(basename "$src") to $dest"
+                else
+                  echo "[WARN] $src not found in backup."
+                fi
+              }
+
+              move_and_report /tmp/sabnzbd/history1.db /config/admin/history1.db
+              move_and_report /tmp/sabnzbd/rss_data.sab /config/admin/rss_data.sab
+              move_and_report /tmp/sabnzbd/sabnzbd.ini /config/sabnzbd.ini
+              move_and_report /tmp/sabnzbd/totals10.sab /config/admin/totals10.sab
+
+              touch /config/bees-knees
+              echo "[INFO] Restore complete. Marker file created at /config/bees-knees."
   service:
     main:
       controller: main
@@ -85,6 +140,8 @@ app-template:
             - path: /config
           fix-host:
             - path: /config
+          restore:
+            - path: /config
     nfs-intermediate:
       type: nfs
       server: 10.0.50.3
@@ -100,6 +157,8 @@ app-template:
       advancedMounts:
         main:
           main:
+            - path: /backups
+          restore:
             - path: /backups
     nfs-downloads:
       type: nfs
