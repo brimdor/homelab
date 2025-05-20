@@ -1,0 +1,69 @@
+# values.yaml for bolt-diy Helm chart using bjw-s common chart
+# See https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/code-server
+            tag: latest
+            pullPolicy: Always
+          env:
+            PUID: "99"
+            PGID: "100"
+            PASSWORD:
+              valueFrom:
+                  secretKeyRef:
+                    name: "code-password"
+                    key: "code-password"
+            SUDO_PASSWORD:
+              valueFrom:
+                  secretKeyRef:
+                    name: "code-sudo-password"
+                    key: "code-sudo-password"
+            TZ: "America/Chicago"
+  service:
+    main:
+      ports:
+        http:
+          port: 8443
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: code.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - code.eaglepass.io
+          secretName: code-tls-certificate
+  persistence:
+    nfs:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/code
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+secrets:
+  PASSWORD:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "fozp4ws74orp6i6x7u4wudk23y"
+    secretName: "code-password"
+
+  SUDO_PASSWORD:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "fozp4ws74orp6i6x7u4wudk23y"
+    secretName: "code-sudo-password"
+
