@@ -83,7 +83,7 @@ app-template:
         main:
           main:
             - path: /config
-          backup:
+          fix-host:
             - path: /config
     nfs-intermediate:
       type: nfs
