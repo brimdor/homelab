@@ -17,12 +17,63 @@ app-template:
             LANGUAGE: "en_US.UTF-8"
             TERM: "xterm"
             XDG_CONFIG_HOME: "/config/xdg"
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              echo "[INFO] Checking for /config/bees-knees marker file..."
+              if [ -f /config/bees-knees ]; then
+                echo "[INFO] Restore skipped: /config/bees-knees exists."
+                exit 0
+              fi
+
+              echo "[INFO] Looking for latest backup zip in /backups..."
+              latest_backup=$(ls -t /config/Backups/scheduled/radarr_backup_*.zip 2>/dev/null | head -n 1)
+
+              if [ -z "$latest_backup" ]; then
+                echo "[ERROR] No backup zip found in /config/Backups/scheduled. Skipping restore."
+                exit 0
+              fi
+
+              echo "[INFO] Found backup: $latest_backup"
+              echo "[INFO] Extracting backup to /tmp/radarr..."
+              mkdir -p /tmp/radarr
+              if unzip -o "$latest_backup" -d /tmp/radarr; then
+                echo "[INFO] Extraction successful."
+              else
+                echo "[ERROR] Extraction failed!"
+                exit 1
+              fi
+
+              # Move files to their destinations
+              move_and_report() {
+                src="$1"
+                dest="$2"
+                if [ -f "$src" ]; then
+                  mkdir -p "$(dirname "$dest")"
+                  mv -f "$src" "$dest"
+                  echo "[INFO] Restored $(basename "$src") to $dest"
+                else
+                  echo "[WARN] $src not found in backup."
+                fi
+              }
+
+              move_and_report /tmp/radarr/radarr.db /config/radarr.db
+              move_and_report /tmp/radarr/config.xml /config/config.xml
+
+              touch /config/bees-knees
+              echo "[INFO] Restore complete. Marker file created at /config/bees-knees."
   service:
     main:
       controller: main
       primary: true
-      type: ClusterIP
-      externalTrafficPolicy:
       ports:
         http:
           port: 7878
@@ -53,6 +104,8 @@ app-template:
         main:
           main:
             - path: /config
+          restore:
+            - path: /config
     nfs-backups:
       type: nfs
       server: 10.0.50.3
@@ -60,6 +113,8 @@ app-template:
       advancedMounts:
         main:
           main:
+            - path: /config/Backups
+          restore:
             - path: /config/Backups
     nfs-downloads:
       type: nfs
