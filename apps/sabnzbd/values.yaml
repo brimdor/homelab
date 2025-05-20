@@ -13,11 +13,11 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: "America/Chicago"
-        fixHost:
+        fix-host:
           image:
             repository: alpine
             tag: latest
-          name: fixHost
+          name: fix-host
           command:
             - /bin/sh
             - -c
