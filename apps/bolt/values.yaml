@@ -7,7 +7,7 @@ app-template:
       containers:
         main:
           image:
-            repository: brimdor/bolt.diy-userauth
+            repository: brimdor/bolt.diy
             tag: latest
             pullPolicy: Always
           env:
