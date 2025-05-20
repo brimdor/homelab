@@ -97,10 +97,8 @@ app-template:
         main:
           main:
             - path: /app/data
-        backup:
           backup:
             - path: /app/data
-        restore:
           restore:
             - path: /app/data
     nfs-backup:
