@@ -33,6 +33,7 @@ app-template:
             - -c
             - |
               MAX_BACKUPS=15 # Set the maximum number of backups to keep
+              touch /tmp
               while true; do
                 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
                 backup_file="/tmp/backup/backup-$timestamp.tar.gz"
