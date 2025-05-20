@@ -28,15 +28,6 @@ app-template:
         http:
           port: 8989
           protocol: HTTP
-    connect:
-      controller: main
-      ClusterIP: 10.43.10.215
-      ports:
-        http:
-          port: 8989
-          targetPort: 8989
-          protocol: HTTP
-
   ingress:
     main:
       enabled: true

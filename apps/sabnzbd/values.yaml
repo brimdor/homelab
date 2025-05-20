@@ -103,16 +103,6 @@ app-template:
         http:
           port: 8080
           protocol: HTTP
-    connect:
-      controller: main
-      type: ClusterIP
-      ClusterIP: 10.43.10.13
-      ports:
-        http:
-          port: 8080
-          targetPort: 8080
-          protocol: HTTP
-
   ingress:
     main:
       enabled: true
