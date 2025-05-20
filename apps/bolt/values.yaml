@@ -97,11 +97,11 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /app
+            - path: /app/data
           backup:
-            - path: /app
+            - path: /app/data
           restore:
-            - path: /app
+            - path: /app/data
     nfs-backup:
       enabled: true
       type: nfs
