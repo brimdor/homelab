@@ -26,7 +26,6 @@ app-template:
       ports:
         http:
           port: 7878
-          targetPort: http
           protocol: HTTP
     connect:
       controller: main
