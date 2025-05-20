@@ -122,7 +122,7 @@ app-template:
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: &boltHost bolt.eaglepass.io
+        - host: bolt.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -131,7 +131,7 @@ app-template:
                 port: http
       tls:
         - hosts:
-            - *boltHost
+            - bolt.eaglepass.io
           secretName: bolt-tls-certificate
 secrets:
   OPENAI_API_KEY:
