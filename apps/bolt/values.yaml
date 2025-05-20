@@ -96,7 +96,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /app
+            - path: /app/data
         backup:
           backup:
             - path: /app
