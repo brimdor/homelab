@@ -101,3 +101,18 @@ kubectl create secret generic op-credentials \
 9. `Create PV/PVC`
 10. `Spin up replicas for application`
 11. `All done`
+
+
+
+
+
+kubectl -n argocd patch applicationset root --type='json'   -p='[{"op": "replace", "path": "/spe
+c/template/spec/source/repoURL", "value": "https://github.com/brimdor/homelab"}]'
+
+### Draining and Removing a Node
+kubectl cordon <node-name>
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data --force --grace-period=10
+kubectl delete node <node-name>
+ssh-keygen -R <node-ip>
+ssh root@<node-ip> 'shutdown now'
+
