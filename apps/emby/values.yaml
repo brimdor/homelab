@@ -77,7 +77,7 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: emby-health
+                name: main
                 port: http2
       tls:
         - hosts:
