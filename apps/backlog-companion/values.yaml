@@ -1,8 +1,8 @@
 # Default values for backlog-companion Helm chart
 image:
-  database: brimdor/backlog_database
-  backend: brimdor/backlog_backend
-  frontend: brimdor/backlog_frontend
+  database: brimdor/backlog_database:alpha
+  backend: brimdor/backlog_backend:alpha
+  frontend: brimdor/backlog_frontend:alpha
 
 ingress:
   enabled: true
