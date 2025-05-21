@@ -96,12 +96,14 @@ app-template:
             - path: /config
     transcode:
       type: hostPath
+      path: /emby/transcode
       advancedMounts:
         main:
           main:
             - path: /emby/transcode
     dev-dri:
       type: hostPath
+      path: /dev/dri
       advancedMounts:
         main:
           main:
