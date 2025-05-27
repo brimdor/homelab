@@ -23,8 +23,8 @@ env:
   HOST_URL: https://backlog.eaglepass.io
   DB_HOST: localhost
   DB_PORT: 3306
-  REACT_APP_API_BASE_URL: http://localhost:3000
-  REACT_APP_THEME: dark
+  VITE_API_BASE_URL: http://localhost:3000
+  # REACT_APP_THEME: dark
 
 opSecret:
   MYSQL_ROOT_PASSWORD:
