@@ -12,8 +12,6 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             TUNNEL-NAME: "SecretTunnel"
-          ports:
-            http: 8080
         backup:
           image:
             repository: alpine
@@ -66,6 +64,12 @@ app-template:
               else
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
               fi
+  service:
+    main:
+      ports:
+        http:
+          port: 8080
+          protocol: HTTP
   persistence:
     data:
       accessMode: ReadWriteOnce
