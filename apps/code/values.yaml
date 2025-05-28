@@ -11,7 +11,7 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: "America/Chicago"
-            TUNNEL-NAME: "SecretTunnel"
+            TUNNEL_NAME: "SecretTunnel"
         backup:
           image:
             repository: alpine
