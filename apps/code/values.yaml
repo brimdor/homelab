@@ -12,6 +12,8 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             TUNNEL-NAME: "SecretTunnel"
+          ports:
+            http: 8080
         backup:
           image:
             repository: alpine
