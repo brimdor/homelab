@@ -1,0 +1,31 @@
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: brimdor/vscode-tunnel
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            TUNNEL_NAME: "SecretTunnel"
+            PROVIDER: "microsoft"
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+  service:
+    main:
+      enabled: false
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 15Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/coder
