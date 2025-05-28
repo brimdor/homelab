@@ -6,23 +6,14 @@ app-template:
       containers:
         main:
           image:
-            repository: lscr.io/linuxserver/code-server
+            repository: brimdor/vscode-tunnel
             tag: latest
             pullPolicy: Always
           env:
             PUID: "99"
             PGID: "100"
-            PASSWORD:
-              valueFrom:
-                  secretKeyRef:
-                    name: "code-password"
-                    key: "code-password"
-            SUDO_PASSWORD:
-              valueFrom:
-                  secretKeyRef:
-                    name: "code-sudo-password"
-                    key: "code-sudo-password"
             TZ: "America/Chicago"
+            TUNNEL-NAME: "SecretTunnel"
         backup:
           image:
             repository: alpine
@@ -38,7 +29,7 @@ app-template:
                 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
                 backup_file="/mnt/backup/backup-$timestamp.tar.gz"
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
-                tar --exclude="lost+found" -czf $backup_file -C /config .
+                tar --exclude="lost+found" -czf $backup_file -C /home/coder .
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
 
                 # Purge old backups if the total exceeds MAX_BACKUPS
@@ -62,12 +53,12 @@ app-template:
             - |
               timestamp=$(date +%Y-%m-%d_%H-%M-%S)
               echo "[$timestamp] Starting restore process"
-              if [ ! -f /config/bees-knees ]; then
+              if [ ! -f /home/coder/.check/bees-knees ]; then
                 latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
                 if [ -n "$latest_backup" ]; then
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
-                  tar -xzf $latest_backup -C /config
-                  touch /config/bees-knees
+                  tar -xzf $latest_backup -C /home/coder
+                  touch /home/coder/.check/bees-knees
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
                 else
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
@@ -75,30 +66,30 @@ app-template:
               else
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
               fi
-  service:
-    main:
-      ports:
-        http:
-          port: 8443
-          protocol: HTTP
-  ingress:
-    main:
-      enabled: true
-      className: nginx
-      annotations:
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: code.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                name: main
-                port: http
-      tls:
-        - hosts:
-            - code.eaglepass.io
-          secretName: code-tls-certificate
+  # service:
+  #   main:
+  #     ports:
+  #       http:
+  #         port: 8443
+  #         protocol: HTTP
+  # ingress:
+  #   main:
+  #     enabled: true
+  #     className: nginx
+  #     annotations:
+  #       cert-manager.io/cluster-issuer: letsencrypt-prod
+  #     hosts:
+  #       - host: code.eaglepass.io
+  #         paths:
+  #           - path: /
+  #             pathType: Prefix
+  #             service:
+  #               name: main
+  #               port: http
+      # tls:
+      #   - hosts:
+      #       - code.eaglepass.io
+      #     secretName: code-tls-certificate
   persistence:
     data:
       accessMode: ReadWriteOnce
@@ -106,11 +97,11 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /config
+            - path: /home/coder
           backup:
-            - path: /config
+            - path: /home/coder
           restore:
-            - path: /config
+            - path: /home/coder
     nfs:
       type: nfs
       server: 10.0.50.3
@@ -121,14 +112,3 @@ app-template:
             - path: /mnt/backup
           restore:
             - path: /mnt/backup
-secrets:
-  PASSWORD:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "fozp4ws74orp6i6x7u4wudk23y"
-    secretName: "code-password"
-
-  SUDO_PASSWORD:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "fozp4ws74orp6i6x7u4wudk23y"
-    secretName: "code-sudo-password"
-
