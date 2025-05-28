@@ -11,6 +11,8 @@ app-template:
             TZ: "America/Chicago"
             TUNNEL_NAME: "SecretTunnel"
             PROVIDER: "microsoft"
+            PODMAN: "true"
+            DOCKER: "true"
           probes:
             liveness:
               enabled: false
