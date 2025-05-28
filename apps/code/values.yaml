@@ -30,6 +30,5 @@ app-template:
           main:
             - path: /home/coder
   defaultPodOptions:
-    main:
-      securityContext:
-        fsGroup: 1000
+    securityContext:
+      fsGroup: 1000
