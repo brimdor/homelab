@@ -1,0 +1,10 @@
+- name: Install Podman
+  dnf:
+    name: podman
+    state: present
+
+- name: Enable and start Podman socket
+  systemd:
+    name: podman.socket
+    enabled: true
+    state: started

@@ -3,4 +3,6 @@
   roles:
     - system_settings
     - nfs_utils
+    - podman
+    - docker
     - cronjobs

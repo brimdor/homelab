@@ -1,0 +1,12 @@
+- name: Install Docker packages
+  dnf:
+    name:
+      - moby-engine
+      - docker-compose
+    state: present
+
+- name: Enable and start Docker service
+  systemd:
+    name: docker
+    enabled: true
+    state: started
