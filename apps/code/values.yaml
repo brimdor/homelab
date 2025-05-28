@@ -30,5 +30,6 @@ app-template:
           main:
             - path: /home/coder
   defaultPodOptions:
+    hostname: "static"
     securityContext:
       fsGroup: 1000
