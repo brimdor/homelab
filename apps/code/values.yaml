@@ -27,7 +27,7 @@ app-template:
                 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
                 backup_file="/mnt/backup/backup-$timestamp.tar.gz"
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
-                tar --exclude="lost+found" -czf $backup_file -C /app/config .
+                tar --exclude="lost+found" -czf $backup_file -C /home/coder .
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
 
                 # Purge old backups if the total exceeds MAX_BACKUPS
@@ -51,12 +51,12 @@ app-template:
             - |
               timestamp=$(date +%Y-%m-%d_%H-%M-%S)
               echo "[$timestamp] Starting restore process"
-              if [ ! -f /app/config/.check/bees-knees ]; then
+              if [ ! -f /home/coder/.check/bees-knees ]; then
                 latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
                 if [ -n "$latest_backup" ]; then
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
-                  tar -xzf $latest_backup -C /app/config
-                  touch /app/config/.check/bees-knees
+                  tar -xzf $latest_backup -C /home/coder
+                  touch /home/coder/.check/bees-knees
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
                 else
                   echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
@@ -70,18 +70,18 @@ app-template:
         http:
           port: 8080
           protocol: HTTP
-  persistence:
-    data:
-      accessMode: ReadWriteOnce
-      size: 15Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /app/config
-          backup:
-            - path: /app/config
-          restore:
-            - path: /app/config
+  # persistence:
+  #   data:
+  #     accessMode: ReadWriteOnce
+  #     size: 15Gi
+  #     advancedMounts:
+  #       main:
+  #         main:
+  #           - path: /home/coder
+  #         backup:
+  #           - path: /home/coder
+  #         restore:
+  #           - path: /home/coder
     nfs:
       type: nfs
       server: 10.0.50.3
