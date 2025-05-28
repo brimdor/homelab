@@ -12,6 +12,7 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             TUNNEL_NAME: "SecretTunnel"
+            PROVIDER: "microsoft"
         backup:
           image:
             repository: alpine
