@@ -66,30 +66,6 @@ app-template:
               else
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
               fi
-  # service:
-  #   main:
-  #     ports:
-  #       http:
-  #         port: 8443
-  #         protocol: HTTP
-  # ingress:
-  #   main:
-  #     enabled: true
-  #     className: nginx
-  #     annotations:
-  #       cert-manager.io/cluster-issuer: letsencrypt-prod
-  #     hosts:
-  #       - host: code.eaglepass.io
-  #         paths:
-  #           - path: /
-  #             pathType: Prefix
-  #             service:
-  #               name: main
-  #               port: http
-      # tls:
-      #   - hosts:
-      #       - code.eaglepass.io
-      #     secretName: code-tls-certificate
   persistence:
     data:
       accessMode: ReadWriteOnce
