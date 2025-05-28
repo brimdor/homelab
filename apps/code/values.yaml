@@ -70,7 +70,7 @@ app-template:
         http:
           port: 8080
           protocol: HTTP
-  # persistence:
+  persistence:
   #   data:
   #     accessMode: ReadWriteOnce
   #     size: 15Gi
