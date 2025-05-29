@@ -11,7 +11,7 @@ app-template:
             TZ: "America/Chicago"
             TUNNEL_NAME: "SecretTunnel"
             PROVIDER: "microsoft"
-            # DOCKER_HOST: ssh://root@10.0.50.3
+            DOCKER_HOST: ssh://root@10.0.50.3
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
