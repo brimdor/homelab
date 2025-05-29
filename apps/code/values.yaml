@@ -11,8 +11,9 @@ app-template:
             TZ: "America/Chicago"
             TUNNEL_NAME: "SecretTunnel"
             PROVIDER: "microsoft"
-            PODMAN: "true"
+            DOCKER_HOST: ssh://root@10.0.50.3
             DOCKER: "true"
+            PRIVATE_KEY: "true"
           probes:
             liveness:
               enabled: false
