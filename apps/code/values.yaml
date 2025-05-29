@@ -17,11 +17,11 @@ app-template:
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
-                  name: "private_key"
+                  name: "private-key"
             SSH_PUBLIC:
               valueFrom:
                 secretKeyRef:
-                  name: "public_key"
+                  name: "public-key"
           probes:
             liveness:
               enabled: false
@@ -64,10 +64,10 @@ secrets:
   SSH_PRIVATE:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "72o4yiye3zrgz3tiucrdgjgpqq"
-    secretName: "private_key"
-    key: "private_key"
+    secretName: "private-key"
+    key: "private-key"
   SSH_PUBLIC:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "72o4yiye3zrgz3tiucrdgjgpqq"
-    secretName: "public_key"
-    key: "public_key"
+    secretName: "public-key"
+    key: "public-key"
