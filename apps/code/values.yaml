@@ -48,7 +48,7 @@ app-template:
     securityContext:
       fsGroup: 1000
 
-secrets:
+opSecrets:
   SSH_PRIVATE:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "72o4yiye3zrgz3tiucrdgjgpqq"
