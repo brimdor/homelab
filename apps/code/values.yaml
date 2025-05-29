@@ -42,20 +42,6 @@ app-template:
         main:
           main:
             - path: /home/coder
-    podman:
-      type: hostPath
-      hostPath: /run/podman/podman.sock
-      advancedMounts:
-        main:
-          main:
-            - path: /run/podman/podman.sock
-    docker:
-      type: hostPath
-      hostPath: /var/run/docker.sock
-      advancedMounts:
-        main:
-          main:
-            - path: /var/run/docker.sock
 
   defaultPodOptions:
     hostname: "static"
