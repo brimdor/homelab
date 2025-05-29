@@ -14,6 +14,14 @@ app-template:
             DOCKER_HOST: ssh://root@10.0.50.3
             DOCKER: "true"
             PRIVATE_KEY: "true"
+            SSH_PRIVATE:
+              valueFrom:
+                secretKeyRef:
+                  name: "private_key"
+            SSH_PUBLIC:
+              valueFrom:
+                secretKeyRef:
+                  name: "public_key"
           probes:
             liveness:
               enabled: false
@@ -51,3 +59,15 @@ app-template:
     hostname: "static"
     securityContext:
       fsGroup: 1000
+
+secrets:
+  SSH_PRIVATE:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "72o4yiye3zrgz3tiucrdgjgpqq"
+    secretName: "private_key"
+    key: "private_key"
+  SSH_PUBLIC:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "72o4yiye3zrgz3tiucrdgjgpqq"
+    secretName: "public_key"
+    key: "public_key"
