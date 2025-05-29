@@ -62,9 +62,7 @@ secrets:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "gglbmianqlel62up6isritoi5u"
     secretName: "openai-api-key"
-    key: "openai-api-key"
   VITE_GITHUB_ACCESS_TOKEN:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "gglbmianqlel62up6isritoi5u"
     secretName: "github-access-token"
-    key: "github-access-token"
