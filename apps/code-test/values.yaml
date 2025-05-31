@@ -1,0 +1,52 @@
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: brimdor/vscode-tunnel
+            tag: canary
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            TUNNEL_NAME: &host "secret-tunnel"
+            PROVIDER: "microsoft"
+            GIT_USER_NAME: "brimdor"
+            GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
+            DOCKER_HOST: ssh://root@10.0.50.3
+            PRIVATE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "ssh-keys"
+                  key: "private-key"
+            PUBLIC_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "ssh-keys"
+                  key: "public-key"
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+  service:
+    main:
+      enabled: false
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 15Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/coder
+  
+  defaultPodOptions:
+    hostname: *host
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/72o4yiye3zrgz3tiucrdgjgpqq"
+      operator.1password.io/item-name: "ssh-keys"
