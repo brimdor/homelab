@@ -14,12 +14,12 @@ app-template:
             GIT_USER_NAME: "brimdor"
             GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: ssh://root@10.0.50.3
-            SSH_PRIVATE:
+            SSH_KEYS:
               valueFrom:
                 secretKeyRef:
                   name: "private-key"
                   key: "private-key"
-            SSH_PUBLIC:
+            SSH_KEYS:
               valueFrom:
                 secretKeyRef:
                   name: "public-key"
@@ -116,11 +116,7 @@ app-template:
       fsGroup: 1000
 
 opSecrets:
-  SSH_PRIVATE:
+  SSH_KEYS:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
     item: "72o4yiye3zrgz3tiucrdgjgpqq"
     secretName: "private-key"
-  SSH_PUBLIC:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "72o4yiye3zrgz3tiucrdgjgpqq"
-    secretName: "public-key"
