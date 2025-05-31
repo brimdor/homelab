@@ -14,12 +14,12 @@ app-template:
             GIT_USER_NAME: "brimdor"
             GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: ssh://root@10.0.50.3
-            PRIVATE_KEY:
+            SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
                   name: "ssh-keys"
                   key: "private-key"
-            PUBLIC_KEY:
+            SSH_PUBLIC:
               valueFrom:
                 secretKeyRef:
                   name: "ssh-keys"
