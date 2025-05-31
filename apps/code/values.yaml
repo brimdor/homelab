@@ -9,7 +9,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
-            TUNNEL_NAME: "SecretTunnel"
+            TUNNEL_NAME: &host "SecretTunnel"
             PROVIDER: "microsoft"
             GIT_USER_NAME: "brimdor"
             GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
@@ -113,7 +113,7 @@ app-template:
   defaultPodOptions:
     main:
       main:
-        hostname: "static"
+        hostname: *host
         securityContext:
           fsGroup: 1000
         annotations:
