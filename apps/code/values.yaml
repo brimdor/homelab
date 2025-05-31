@@ -9,7 +9,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
-            TUNNEL_NAME: &host "SecretTunnel"
+            TUNNEL_NAME: &host "secrettunnel"
             PROVIDER: "microsoft"
             GIT_USER_NAME: "brimdor"
             GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
