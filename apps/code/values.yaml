@@ -14,6 +14,7 @@ app-template:
             GIT_USER_NAME: "brimdor"
             GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: ssh://root@10.0.50.3
+            DOCKER_COMPOSE: "true"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
