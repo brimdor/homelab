@@ -112,10 +112,9 @@ app-template:
   
   defaultPodOptions:
     main:
-      main:
-        hostname: *host
-        securityContext:
-          fsGroup: 1000
-        annotations:
-          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/72o4yiye3zrgz3tiucrdgjgpqq"
-          operator.1password.io/item-name: "ssh-keys"
+      hostname: *host
+      securityContext:
+        fsGroup: 1000
+      annotations:
+        operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/72o4yiye3zrgz3tiucrdgjgpqq"
+        operator.1password.io/item-name: "ssh-keys"
