@@ -100,54 +100,6 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
 
-        # - name: admin
-        #   image: {{ .Values.image.admin }}
-        #   imagePullPolicy: Always
-        #   env:
-        #     - name: HOST_URL
-        #       value: {{ .Values.env.HOST_URL | quote }}
-        #     - name: CORS_ORIGIN
-        #       value: {{ .Values.env.HOST_URL | quote }}
-        #     - name: DB_HOST
-        #       value: {{ .Values.env.DB_HOST | quote }}
-        #     - name: DB_PORT
-        #       value: {{ .Values.env.DB_PORT | quote }}
-        #     - name: ADMIN_MODE
-        #       value: {{ .Values.env.ADMIN_MODE | quote }}
-        #     - name: DB_USER
-        #       valueFrom:
-        #         secretKeyRef:
-        #           name: "{{ .Values.opSecret.MYSQL_USER.secretName }}"
-        #           key: "{{ .Values.opSecret.MYSQL_USER.key }}"
-        #     - name: DB_PASSWORD
-        #       valueFrom:
-        #         secretKeyRef:
-        #           name: "{{ .Values.opSecret.MYSQL_PASSWORD.secretName }}"
-        #           key: "{{ .Values.opSecret.MYSQL_PASSWORD.key }}"
-        #     - name: DB_NAME
-        #       valueFrom:
-        #         secretKeyRef:
-        #           name: "{{ .Values.opSecret.MYSQL_DATABASE.secretName }}"
-        #           key: "{{ .Values.opSecret.MYSQL_DATABASE.key }}"
-        #     - name: JWT_SECRET
-        #       valueFrom:
-        #         secretKeyRef:
-        #           name: "{{ .Values.opSecret.JWT_SECRET.secretName }}"
-        #           key: "{{ .Values.opSecret.JWT_SECRET.key }}"
-        #     - name: ENCRYPTION_KEY
-        #       valueFrom:
-        #         secretKeyRef:
-        #           name: "{{ .Values.opSecret.ENCRYPTION_KEY.secretName }}"
-        #           key: "{{ .Values.opSecret.ENCRYPTION_KEY.key }}"
-        #   ports:
-        #     - containerPort: 3100
-        #   readinessProbe:
-        #     httpGet:
-        #       path: /
-        #       port: 3000
-        #     initialDelaySeconds: 10
-        #     periodSeconds: 10
-
         - name: frontend
           image: {{ .Values.image.frontend }}
           imagePullPolicy: Always
