@@ -45,9 +45,6 @@ spec:
                   key: "{{ .Values.opSecret.MYSQL_PASSWORD.key }}"
           ports:
             - containerPort: 3306
-          # volumeMounts:
-          #   - name: db-nfs
-          #     mountPath: /var/lib/mysql
           readinessProbe:
             exec:
               command:
@@ -119,9 +116,3 @@ spec:
               port: 80
             initialDelaySeconds: 10
             periodSeconds: 10
-
-      # volumes:
-      #   - name: db-nfs
-      #     nfs:
-      #       server: {{ .Values.nfs.server | quote }}
-      #       path: {{ .Values.nfs.path | quote }}
