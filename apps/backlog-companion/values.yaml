@@ -1,8 +1,9 @@
 # Default values for backlog-companion Helm chart
 image:
-  database: brimdor/backlog_database:alpha-1.0.1
-  backend: brimdor/backlog_backend:alpha-1.0.1
-  frontend: brimdor/backlog_frontend:alpha-1.0.1
+  database: brimdor/backlog_database:alpha
+  # admin: brimdor/backlog_admin:alpha
+  backend: brimdor/backlog_backend:alpha
+  frontend: brimdor/backlog_frontend:alpha
 
 ingress:
   enabled: true
@@ -24,7 +25,7 @@ env:
   DB_HOST: localhost
   DB_PORT: 3306
   VITE_API_BASE_URL: http://localhost:3000
-  # REACT_APP_THEME: dark
+  ADMIN_MODE: true
 
 opSecret:
   MYSQL_ROOT_PASSWORD:
