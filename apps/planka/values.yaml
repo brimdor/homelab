@@ -203,7 +203,6 @@ app-template:
           protocol: HTTP
     database:
       controller: main
-      primary: true
       ports:
         postgres:
           port: 5432
