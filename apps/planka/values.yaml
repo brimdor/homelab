@@ -195,11 +195,15 @@ app-template:
               fi
   service:
     main:
+      controller: main
+      primary: true
       ports:
         http:
           port: 1337
           protocol: HTTP
     database:
+      controller: main
+      primary: true
       ports:
         postgres:
           port: 5432
