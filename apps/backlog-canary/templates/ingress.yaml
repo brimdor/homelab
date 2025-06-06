@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: backlog-companion-ingress
+  name: backlog-canary-ingress
   annotations:
     cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
     external-dns.alpha.kubernetes.io/target: {{ .Values.ingress.externalDnsTarget | quote }}
@@ -26,7 +26,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: backlog-companion
+                name: backlog-canary
                 port:
                   # name: http
                   number: 80

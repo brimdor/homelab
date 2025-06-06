@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: backlog-companion
+  name: backlog-canary
 spec:
   type: ClusterIP
   selector:
-    app: backlog-companion
+    app: backlog-canary
   ports:
     - name: mysql
       port: 3306

@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backlog-companion
+  name: backlog-canary
   labels:
-    app: backlog-companion
-    app.kubernetes.io/instance: backlog-companion
-    app.kubernetes.io/name: backlog-companion
+    app: backlog-canary
+    app.kubernetes.io/instance: backlog-canary
+    app.kubernetes.io/name: backlog-canary
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backlog-companion
+      app: backlog-canary
   template:
     metadata:
       labels:
-        app: backlog-companion
-        app.kubernetes.io/instance: backlog-companion
-        app.kubernetes.io/name: backlog-companion
+        app: backlog-canary
+        app.kubernetes.io/instance: backlog-canary
+        app.kubernetes.io/name: backlog-canary
     spec:
       containers:
         - name: database
