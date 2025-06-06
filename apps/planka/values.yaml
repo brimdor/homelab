@@ -15,7 +15,11 @@ app-template:
             TZ: "America/Chicago"
             BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "0"
-            DATABASE_URL: "postgresql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$DATABASE_NAME"
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_url
             DEFAULT_ADMIN_EMAIL:
               valueFrom:
                 secretKeyRef:
@@ -244,6 +248,13 @@ app-template:
             - path: /var/lib/postgresql/data
           db-restore:
             - path: /var/lib/postgresql/data
+    db-init-data:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          database:
+            - path: /docker-entrypoint-initdb.d/init-user-db.sh
     nfs-backups:
       type: nfs
       server: 10.0.50.3
