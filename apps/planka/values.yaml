@@ -217,6 +217,8 @@ app-template:
             - path: /var/lib/postgresql/data
           db-backup:
             - path: /var/lib/postgresql/data
+          db-restore:
+            - path: /var/lib/postgresql/data
     nfs-backups:
       type: nfs
       server: 10.0.50.3
