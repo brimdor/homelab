@@ -1,0 +1,151 @@
+# values.yaml for bolt-diy Helm chart using bjw-s common chart
+# See https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/planka
+            tag: latest
+            pullPolicy: Always
+          env:
+            PUID: "99"
+            PGID: "100"
+            TZ: "America/Chicago"
+            BASE_URL: "https://planka.eaglepass.io"
+            TRUST_PROXY: "0"
+            DATABASE_URL:
+              value_from:
+                secretKeyRef:
+                  name: secrets
+                  key: database_url
+            DEFAULT_ADMIN_EMAIL:
+              value_from:
+                secretKeyRef:
+                  name: secrets
+                  key: default_admin_email
+            DEFAULT_ADMIN_USERNAME:
+              value_from:
+                secretKeyRef:
+                  name: secrets
+                  key: default_admin_username
+            DEFAULT_ADMIN_PASSWORD:
+              value_from:
+                secretKeyRef:
+                  name: secrets
+                  key: default_admin_password
+            DEFAULT_ADMIN_NAME:
+              value_from:
+                secretKeyRef:
+                  name: secrets
+                  key: default_admin_name
+            SECRET_KEY:
+              value_from:
+                secretKeyRef:
+                  name: secrets
+                  key: secret_key
+        backup:
+          image:
+            repository: alpine
+            tag: latest
+          name: backup
+          command:
+            - /bin/sh
+            - -c
+            - |
+              MAX_BACKUPS=15 # Set the maximum number of backups to keep
+              while true; do
+                timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+                backup_file="/mnt/backup/planka_backup-$timestamp.tar.gz"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
+                tar --exclude="lost+found" -czf $backup_file -C /config .
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
+
+                # Purge old backups if the total exceeds MAX_BACKUPS
+                backup_count=$(ls /mnt/backup/planka_backup-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Total backups ($backup_count) exceed MAX_BACKUPS ($MAX_BACKUPS). Purging oldest backups."
+                  ls -t /mnt/backup/planka_backup-*.tar.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Purge complete."
+                fi
+
+                sleep 600 # Wait 10 minutes
+              done
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+              echo "[$timestamp] Starting restore process"
+              if [ ! -f /config/bees-knees ]; then
+                latest_backup=$(ls -t /mnt/backup/planka_backup-*.tar.gz 2>/dev/null | head -n 1)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
+                  tar -xzf $latest_backup -C /config
+                  touch /config/bees-knees
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
+              fi
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 1337
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host planka.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: planka-tls-certificate
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+          backup:
+            - path: /config
+          restore:
+            - path: /config
+    nfs-backups:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/planka_backups
+      advancedMounts:
+        main:
+          main:
+            - path: /config/Backups
+          restore:
+            - path: /config/Backups
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4reos3yi3cmvsbe2nhwfjddeni"
+      operator.1password.io/item-name: "secrets"
