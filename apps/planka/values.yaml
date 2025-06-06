@@ -223,9 +223,13 @@ app-template:
       advancedMounts:
         main:
           backup:
-            - path: /backups
+            - path: /mnt/backup
           restore:
-            - path: /backups
+            - path: /mnt/backup
+          db-backup:
+            - path: /mnt/backup
+          db-restore:
+            - path: /mnt/backup
 
   defaultPodOptions:
     annotations:
