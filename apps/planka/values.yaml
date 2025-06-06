@@ -15,11 +15,11 @@ app-template:
             TZ: "America/Chicago"
             BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "1"
-            DATABASE_URL:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: database_url
+            # DATABASE_URL:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: database_url
             DEFAULT_ADMIN_EMAIL:
               valueFrom:
                 secretKeyRef:
@@ -70,11 +70,11 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: secret_key
+            DATABASE_URL: "postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
         backup:
           image:
             repository: alpine
             tag: latest
-          name: backup
           # command:
           #   - /bin/sh
           #   - -c
@@ -122,7 +122,6 @@ app-template:
           image:
             repository: alpine
             tag: latest
-          name: db-backup
           # command:
           #   - /bin/sh
           #   - -c
