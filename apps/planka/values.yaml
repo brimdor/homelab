@@ -16,32 +16,32 @@ app-template:
             BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "0"
             DATABASE_URL:
-              value_from:
+              valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: database_url
             DEFAULT_ADMIN_EMAIL:
-              value_from:
+              valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: default_admin_email
             DEFAULT_ADMIN_USERNAME:
-              value_from:
+              valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: default_admin_username
             DEFAULT_ADMIN_PASSWORD:
-              value_from:
+              valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: default_admin_password
             DEFAULT_ADMIN_NAME:
-              value_from:
+              valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: default_admin_name
             SECRET_KEY:
-              value_from:
+              valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: secret_key
