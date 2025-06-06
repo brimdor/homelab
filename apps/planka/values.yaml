@@ -35,27 +35,27 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: default_admin_name
-            DATABASE_USER:
+            ADATABASE_USER:
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: database_user
-            DATABASE_PASSWORD:
+            ADATABASE_PASSWORD:
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: database_password
-            DATABASE_HOST:
+            ADATABASE_HOST:
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: database_host
-            DATABASE_PORT:
+            ADATABASE_PORT:
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: database_port
-            DATABASE_NAME:
+            ADATABASE_NAME:
               valueFrom:
                 secretKeyRef:
                   name: secrets
@@ -65,7 +65,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: secret_key
-            DATABASE_URL: "postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+            DATABASE_URL: "postgresql://$(ADATABASE_USER):$(ADATABASE_PASSWORD)@$(ADATABASE_HOST):$(ADATABASE_PORT)/$(ADATABASE_NAME)"
         backup:
           image:
             repository: alpine
@@ -268,3 +268,36 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4reos3yi3cmvsbe2nhwfjddeni"
       operator.1password.io/item-name: "secrets"
+
+
+main_env:
+  - name: PUID
+    value: "99"
+  - name: PGID
+    value: "100"
+  - name: TZ
+    value: "America/Chicago"
+  - name: BASE_URL
+    value: "https://planka.eaglepass.io"
+  - name: TRUST_PROXY
+    value: "1"
+  - name: DEFAULT_ADMIN_EMAIL
+    valueFrom:
+      secretKeyRef:
+        name: secrets
+        key: default_admin_email
+  - name: DEFAULT_ADMIN_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: secrets
+        key: default_admin_username
+  - name: DEFAULT_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: secrets
+        key: default_admin_password
+  - name: DEFAULT_ADMIN_NAME
+    valueFrom:
+      secretKeyRef:
+        name: secrets
+        key: default_admin_name
