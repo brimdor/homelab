@@ -13,7 +13,7 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: "America/Chicago"
-            # BASE_URL: "https://planka.eaglepass.io"
+            BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "1"
             DATABASE_URL:
               valueFrom:
