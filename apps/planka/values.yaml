@@ -15,11 +15,7 @@ app-template:
             TZ: "America/Chicago"
             BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "0"
-            DATABASE_URL:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: database_url
+            DATABASE_URL: "postgresql://$DATABASE_USER:$DATABASE_PASSWORD@$DATABASE_HOST:$DATABASE_PORT/$DATABASE_NAME"
             DEFAULT_ADMIN_EMAIL:
               valueFrom:
                 secretKeyRef:
@@ -40,6 +36,31 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: default_admin_name
+            DATABASE_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_user
+            DATABASE_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_password
+            DATABASE_HOST:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_host
+            DATABASE_PORT:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_port
+            DATABASE_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_name
             SECRET_KEY:
               valueFrom:
                 secretKeyRef:
