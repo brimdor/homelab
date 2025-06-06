@@ -140,10 +140,10 @@ app-template:
       path: /mnt/user/planka_backups
       advancedMounts:
         main:
-          main:
-            - path: /config/Backups
+          backup:
+            - path: /backups
           restore:
-            - path: /config/Backups
+            - path: /backups
 
   defaultPodOptions:
     annotations:
