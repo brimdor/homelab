@@ -99,7 +99,11 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            POSTGRES_DB: planka
+            POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_name
             POSTGRES_USER:
               valueFrom:
                 secretKeyRef:
