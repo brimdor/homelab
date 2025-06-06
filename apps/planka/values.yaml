@@ -109,7 +109,11 @@ app-template:
                   name: secrets
                   key: database_user
             POSTGRES_PASSWORD:
-              valueFrom:x database environment variable names in values.yaml for consistency
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_password
+
           image:
             repository: alpine
             tag: latest
