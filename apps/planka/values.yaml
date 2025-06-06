@@ -15,11 +15,6 @@ app-template:
             TZ: "America/Chicago"
             BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "1"
-            # DATABASE_URL:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: secrets
-            #       key: database_url
             DEFAULT_ADMIN_EMAIL:
               valueFrom:
                 secretKeyRef:
@@ -144,14 +139,9 @@ app-template:
 
           #       sleep 600 # Wait 10 minutes
           #     done
-      initContainers:
-        restore:
-          image:
-            repository: alpine
-            tag: latest
-          # command:
-          #   - /bin/sh
-          #   - -c
+      initContainers:2025-06-06 22:00:45.760 UTC [34] FATAL:  role "$(DATABASE_USER)" does not exist
+2025-06-06 22:00:51.045 UTC [35] FATAL:  role "$(DATABASE_USER)" does not exist
+2025-06-06 22:00:53.459 UTC [36] FATAL:  role "$(DATABASE_USER)" does not exist
           #   - |
           #     timestamp=$(date +%Y-%m-%d_%H-%M-%S)
           #     echo "[$timestamp] Starting restore process"
@@ -160,10 +150,9 @@ app-template:
           #       if [ -n "$latest_backup" ]; then
           #         echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
           #         tar -xzf $latest_backup -C /config
-          #         touch /config/bees-knees
-          #         echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
-          #       else
-          #         echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
+          #         touch /config/bees-kn2025-06-06 22:00:45.760 UTC [34] FATAL:  role "$(DATABASE_USER)" does not exist
+2025-06-06 22:00:51.045 UTC [35] FATAL:  role "$(DATABASE_USER)" does not exist
+2025-06-06 22:00:53.459 UTC [36] FATAL:  role "$(DATABASE_USER)" does not exist%d_%H-%M-%S)] No backup found. Skipping restore."
           #       fi
           #     else
           #       echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
