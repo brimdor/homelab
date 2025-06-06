@@ -264,36 +264,3 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4reos3yi3cmvsbe2nhwfjddeni"
       operator.1password.io/item-name: "secrets"
-
-
-main_env:
-  - name: PUID
-    value: "99"
-  - name: PGID
-    value: "100"
-  - name: TZ
-    value: "America/Chicago"
-  - name: BASE_URL
-    value: "https://planka.eaglepass.io"
-  - name: TRUST_PROXY
-    value: "1"
-  - name: DEFAULT_ADMIN_EMAIL
-    valueFrom:
-      secretKeyRef:
-        name: secrets
-        key: default_admin_email
-  - name: DEFAULT_ADMIN_USERNAME
-    valueFrom:
-      secretKeyRef:
-        name: secrets
-        key: default_admin_username
-  - name: DEFAULT_ADMIN_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: secrets
-        key: default_admin_password
-  - name: DEFAULT_ADMIN_NAME
-    valueFrom:
-      secretKeyRef:
-        name: secrets
-        key: default_admin_name
