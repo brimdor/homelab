@@ -66,11 +66,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: secret_key
-          command:
-            - /bin/sh
-            - -c
-            - |
-              export DATABASE_URL="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}"
         backup:
           image:
             repository: alpine
