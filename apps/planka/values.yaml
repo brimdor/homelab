@@ -14,7 +14,7 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             BASE_URL: "https://planka.eaglepass.io"
-            TRUST_PROXY: "0"
+            TRUST_PROXY: "1"
             DATABASE_URL:
               valueFrom:
                 secretKeyRef:
@@ -195,14 +195,11 @@ app-template:
               fi
   service:
     main:
-      controller: main
-      primary: true
       ports:
         http:
           port: 1337
           protocol: HTTP
     database:
-      controller: main
       ports:
         postgres:
           port: 5432
