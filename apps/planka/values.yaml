@@ -103,6 +103,16 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database_name
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_password
+            POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_user
             # POSTGRES_HOST_AUTH_METHOD: trust
           # command:
           #   - /bin/sh
