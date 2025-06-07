@@ -6,7 +6,7 @@ app-template:
       containers:
         main:
           image:
-            repository: lscr.io/linuxserver/planka
+            repository: ghcr.io/plankanban/planka:2.0.0-rc.3
             tag: latest
             pullPolicy: Always
           env:
@@ -14,7 +14,7 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             BASE_URL: "https://planka.eaglepass.io"
-            TRUST_PROXY: "1"
+            TRUST_PROXY: "true"
             DEFAULT_ADMIN_EMAIL:
               valueFrom:
                 secretKeyRef:
