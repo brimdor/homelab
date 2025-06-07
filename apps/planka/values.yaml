@@ -136,7 +136,7 @@ app-template:
 
           #       sleep 600 # Wait 10 minutes
           #     done
-      # initContainers:
+      initContainers:
       #   restore:
       #     image:
       #       repository: alpine
@@ -160,30 +160,30 @@ app-template:
       #         else
       #           echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
       #         fi
-        # db-restore:
-        #   image:
-        #     repository: alpine
-        #     tag: latest
-        #   command:
-        #     - /bin/sh
-        #     - -c
-        #     - |
-        #       timestamp=$(date +%Y-%m-%d_%H-%M-%S)
-        #       rm -Rf /var/lib/postgresql/data/lost+found
-        #       echo "[$timestamp] Starting restore process"
-        #       if [ ! -f /var/lib/postgresql/data/bees-knees ]; then
-        #         latest_backup=$(ls -t /mnt/backup/planka_database-backup-*.tar.gz 2>/dev/null | head -n 1)
-        #         if [ -n "$latest_backup" ]; then
-        #           echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
-        #           tar -xzf $latest_backup -C /var/lib/postgresql/data
-        #           touch /var/lib/postgresql/data/bees-knees
-        #           echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
-        #         else
-        #           echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
-        #         fi
-        #       else
-        #         echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
-        #       fi
+        db-restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+              rm -Rf /var/lib/postgresql/data/lost+found
+              echo "[$timestamp] Starting restore process"
+              if [ ! -f /var/lib/postgresql/data/bees-knees ]; then
+                latest_backup=$(ls -t /mnt/backup/planka_database-backup-*.tar.gz 2>/dev/null | head -n 1)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
+                  tar -xzf $latest_backup -C /var/lib/postgresql/data
+                  touch /var/lib/postgresql/data/bees-knees
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
+              fi
   service:
     main:
       controller: main
@@ -226,8 +226,8 @@ app-template:
             - path: /config
           # backup:
           #   - path: /config
-          # restore:
-          #   - path: /config
+          restore:
+            - path: /config
     db-data:
       accessMode: ReadWriteOnce
       size: 20Gi
@@ -237,22 +237,22 @@ app-template:
             - path: /var/lib/postgresql/data
           # db-backup:
           #   - path: /var/lib/postgresql/data
-          # db-restore:
-          #   - path: /var/lib/postgresql/data
-    # nfs-backups:
-    #   type: nfs
-    #   server: 10.0.50.3
-    #   path: /mnt/user/planka_backups
-    #   advancedMounts:
-    #     main:
-    #       backup:
-    #         - path: /mnt/backup
-    #       restore:
-    #         - path: /mnt/backup
-    #       db-backup:
-    #         - path: /mnt/backup
-    #       db-restore:
-    #         - path: /mnt/backup
+          db-restore:
+            - path: /var/lib/postgresql/data
+    nfs-backups:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/planka_backups
+      advancedMounts:
+        main:
+          backup:
+            - path: /mnt/backup
+          restore:
+            - path: /mnt/backup
+          db-backup:
+            - path: /mnt/backup
+          db-restore:
+            - path: /mnt/backup
 
   defaultPodOptions:
     annotations:
