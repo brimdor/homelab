@@ -206,6 +206,7 @@ app-template:
       enabled: true
       className: nginx
       annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eagelpass.io"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: &Host planka.eaglepass.io
@@ -259,6 +260,5 @@ app-template:
 
   defaultPodOptions:
     annotations:
-      external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eagelpass.io"
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4reos3yi3cmvsbe2nhwfjddeni"
       operator.1password.io/item-name: "secrets"
