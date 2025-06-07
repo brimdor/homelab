@@ -15,26 +15,26 @@ app-template:
             TZ: "America/Chicago"
             BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "true"
-            DEFAULT_ADMIN_EMAIL:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: default_admin_email
-            DEFAULT_ADMIN_USERNAME:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: default_admin_username
-            DEFAULT_ADMIN_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: default_admin_password
-            DEFAULT_ADMIN_NAME:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: default_admin_name
+            # DEFAULT_ADMIN_EMAIL:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: default_admin_email
+            # DEFAULT_ADMIN_USERNAME:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: default_admin_username
+            # DEFAULT_ADMIN_PASSWORD:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: default_admin_password
+            # DEFAULT_ADMIN_NAME:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: default_admin_name
             ADATABASE_USER:
               valueFrom:
                 secretKeyRef:
