@@ -228,13 +228,13 @@ app-template:
           #   - path: /config
           # restore:
           #   - path: /config
-    # db-data:
-    #   accessMode: ReadWriteOnce
-    #   size: 20Gi
-    #   advancedMounts:
-    #     main:
-    #       database:
-    #         - path: /var/lib/postgresql/data
+    db-data:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          database:
+            - path: /var/lib/postgresql/data
           # db-backup:
           #   - path: /var/lib/postgresql/data
           # db-restore:
