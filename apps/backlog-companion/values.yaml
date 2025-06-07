@@ -1,7 +1,6 @@
 # Default values for backlog-companion Helm chart
 image:
   database: brimdor/backlog_database:alpha
-  # admin: brimdor/backlog_admin:alpha
   backend: brimdor/backlog_backend:alpha
   frontend: brimdor/backlog_frontend:alpha
 
