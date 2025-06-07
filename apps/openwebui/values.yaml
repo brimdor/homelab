@@ -100,7 +100,7 @@ app-template:
                 port: http
       tls:
         - hosts:
-            - *ollamaHost
+            # - *ollamaHost
             - *uiHost
           secretName: ollama-tls-certificate
   persistence:
