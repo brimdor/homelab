@@ -6,8 +6,8 @@ app-template:
       containers:
         main:
           image:
-            repository: ghcr.io/plankanban/planka:2.0.0-rc.3
-            tag: latest
+            repository: ghcr.io/plankanban/planka
+            tag: 2.0.0-rc.3
             pullPolicy: Always
           env:
             PUID: "99"
