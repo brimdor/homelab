@@ -113,7 +113,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database_user
-            # POSTGRES_HOST_AUTH_METHOD: trust
         db-backup:
           image:
             repository: alpine
