@@ -13,7 +13,7 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: "America/Chicago"
-            BASE_URL: "http://localhost:1337"
+            BASE_URL: "https://planka.eaglepass.io"
             TRUST_PROXY: "true"
             DEFAULT_ADMIN_EMAIL:
               valueFrom:
