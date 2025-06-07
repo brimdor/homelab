@@ -17,6 +17,8 @@ app-template:
       enabled: true
       className: nginx
       annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eagelpass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: &host home.eaglepass.io
