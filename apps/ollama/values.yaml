@@ -1,11 +1,11 @@
 app-template:
   controllers:
-    main:
-      containers:
-        main:
-          image:
-            repository: docker.io/ollama/ollama
-            tag: 0.6.3
+    # main:
+    #   containers:
+    #     main:
+    #       image:
+    #         repository: docker.io/ollama/ollama
+    #         tag: 0.6.3
     ui:
       containers:
         main:
@@ -66,11 +66,11 @@ app-template:
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
               fi
   service:
-    main:
-      ports:
-        http:
-          port: 11434
-          protocol: HTTP
+    # main:
+    #   ports:
+    #     http:
+    #       port: 11434
+    #       protocol: HTTP
     ui:
       controller: ui
       ports:
@@ -84,13 +84,13 @@ app-template:
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: &ollamaHost ollama.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                name: main
-                port: http
+        # - host: &ollamaHost ollama.eaglepass.io
+        #   paths:
+        #     - path: /
+        #       pathType: Prefix
+        #       service:
+        #         name: main
+        #         port: http
         - host: &uiHost ai.eaglepass.io
           paths:
             - path: /
@@ -104,13 +104,13 @@ app-template:
             - *uiHost
           secretName: ollama-tls-certificate
   persistence:
-    data:
-      accessMode: ReadWriteOnce
-      size: 150Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /root/.ollama
+    # data:
+    #   accessMode: ReadWriteOnce
+    #   size: 150Gi
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /root/.ollama
     ui:
       accessMode: ReadWriteOnce
       size: 10Gi
