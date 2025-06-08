@@ -38,6 +38,9 @@ spec:
             {{- end }}
           args:
             - {{ .Values.initContainers.restore.script | toYaml | nindent 12 | trim }}
+          volumeMounts:
+            - name: backup
+              mountPath: {{ .Values.persistence.backup.mountPath }}
       {{- end }}
       containers:
         - name: {{ .Values.containerName | default "emby" }}
