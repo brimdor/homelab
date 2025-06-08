@@ -1,148 +1,146 @@
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/emby
+            tag: latest
+          env:
+            PUID: "99"
+            PGID: "100"
+            TZ: America/Chicago
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
 
+              echo "[INFO] Checking for /config/bees-knees marker file..."
+              if [ -f /config/bees-knees ]; then
+                echo "[INFO] Restore skipped: /config/bees-knees exists."
+                exit 0
+              fi
 
+              BACKUP_DIR="/backups/embyserver-backup-full"
+              DEST_DIR="/config"
+              FOLDERS="config metadata root data plugins"
 
-# General
-nameOverride: "emby"
-fullnameOverride: ""
-containerName: "emby"
-deploymentLabels: {}
-deploymentAnnotations: {}
-replicaCount: 1
-strategyType: Recreate
+              # Check all folders exist in backup
+              for folder in $FOLDERS; do
+                if [ ! -d "$BACKUP_DIR/$folder" ]; then
+                  echo "[ERROR] Backup folder $BACKUP_DIR/$folder not found. Aborting restore."
+                  exit 1
+                fi
+              done
 
+              # Restore folders (overwrite if exists)
+              for folder in $FOLDERS; do
+                echo "[INFO] Restoring $folder to $DEST_DIR..."
+                rm -rf "$DEST_DIR/$folder"
+                cp -a "$BACKUP_DIR/$folder" "$DEST_DIR/"
+                echo "[INFO] Restored $folder."
+              done
 
-# Image settings
-image:
-  repository: lscr.io/linuxserver/emby
-  tag: latest
-  pullPolicy: IfNotPresent
-
-
-# Environment variables
-env:
-  - name: PUID
-    value: "99"
-  - name: PGID
-    value: "100"
-  - name: TZ
-    value: America/Chicago
-
-
-# Service settings
-service:
-  type: ClusterIP
-  ports:
-    - name: http
-      port: 8096
-      targetPort: 8096
-      protocol: TCP
-    - name: http2
-      port: 8920
-      targetPort: 8920
-      protocol: TCP
-
-
-# Persistence settings
-persistence:
-  config:
-    accessMode: ReadWriteOnce
-    size: 50Gi
-    mountPath: /config
-  backup:
-    nfs:
+              touch /config/bees-knees
+              echo "[INFO] Restore complete. Marker file created at /config/bees-knees."
+  service:
+    main:
+      ports:
+        http:
+          port: 8096
+          protocol: HTTP
+        http2:
+          port: 8920
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &embyHost emby.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+        - host: &emby-healthHost emby-health.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http2
+      tls:
+        - hosts:
+            - *embyHost
+            - *emby-healthHost
+          secretName: emby-tls-certificate
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+          restore:
+            - path: /config
+    transcode:
+      type: hostPath
+      hostPath: /emby/transcode
+      advancedMounts:
+        main:
+          main:
+            - path: /emby/transcode
+    dev-dri:
+      type: hostPath
+      hostPath: /dev/dri
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/dri
+    nfs-restore:
+      type: nfs
       server: 10.0.50.3
       path: /mnt/user/emby_backups
-    mountPath: /backups
-  transcode:
-    hostPath: /emby/transcode
-    mountPath: /transcode
-  devDri:
-    hostPath: /dev/dri
-    mountPath: /dev/dri
-  movies:
-    nfs:
+      advancedMounts:
+        main:
+          main:
+            - path: /backups
+          restore:
+            - path: /backups
+    nfs-movies:
+      type: nfs
       server: 10.0.50.3
       path: /mnt/user/movies
-    mountPath: /data/movies
-  tv:
-    nfs:
+      advancedMounts:
+        main:
+          main:
+            - path: /data/movies
+    nfs-tv:
+      type: nfs
       server: 10.0.50.3
       path: /mnt/user/tv
-    mountPath: /data/tv
-  music:
-    nfs:
+      advancedMounts:
+        main:
+          main:
+            - path: /data/tv
+    nfs-music:
+      type: nfs
       server: 10.0.50.3
       path: /mnt/user/music
-    mountPath: /data/music
-
-
-# Resource requests/limits
-resources: {}
-
-
-
-# Init container for restore-from-backup
-initContainers:
-  restore:
-    name: restore
-    image: alpine:latest
-    command:
-      - /bin/sh
-      - -c
-      - |
-        set -e
-        echo "[INFO] Checking for /config/bees-knees marker file..."
-        if [ -f /config/bees-knees ]; then
-          echo "[INFO] Restore skipped: /config/bees-knees exists."
-          exit 0
-        fi
-
-        BACKUP_DIR="/backups/embyserver-backup-full"
-        DEST_DIR="/config"
-        FOLDERS="config metadata root data plugins"
-
-        # Check all folders exist in backup
-        for folder in $FOLDERS; do
-          if [ ! -d "$BACKUP_DIR/$folder" ]; then
-            echo "[ERROR] Backup folder $BACKUP_DIR/$folder not found. Aborting restore."
-            exit 1
-          fi
-        done
-
-        # Restore folders (overwrite if exists)
-        for folder in $FOLDERS; do
-          echo "[INFO] Restoring $folder to $DEST_DIR..."
-          rm -rf "$DEST_DIR/$folder"
-          cp -a "$BACKUP_DIR/$folder" "$DEST_DIR/"
-          echo "[INFO] Restored $folder."
-        done
-
-        touch /config/bees-knees
-        echo "[INFO] Restore complete. Marker file created at /config/bees-knees."
-
-# Ingress settings
-ingress:
-  enabled: true
-  className: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-    hajimari.io/appName: Emby
-    hajimari.io/icon: movie-roll
-  tls:
-    - hosts:
-        - emby.eaglepass.io
-        - emby-health.eaglepass.io
-      secretName: emby-tls-certificate
-  hosts:
-    - host: emby.eaglepass.io
-      paths:
-        - path: /
-          pathType: Prefix
-          servicePort: http
-    - host: emby-health.eaglepass.io
-      paths:
-        - path: /
-          pathType: Prefix
-          servicePort: http2
+      advancedMounts:
+        main:
+          main:
+            - path: /data/music
