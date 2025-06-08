@@ -41,6 +41,8 @@ spec:
           volumeMounts:
             - name: backup
               mountPath: {{ .Values.persistence.backup.mountPath }}
+            - name: config
+              mountPath: {{ .Values.persistence.config.mountPath }}
       {{- end }}
       containers:
         - name: {{ .Values.containerName | default "emby" }}
