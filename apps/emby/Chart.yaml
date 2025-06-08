@@ -1,7 +1,5 @@
 apiVersion: v2
 name: emby
-version: 0.0.0
-dependencies:
-  - name: app-template
-    version: 2.6.0
-    repository: https://bjw-s-labs.github.io/helm-charts
+version: 0.1.0
+description: Emby Media Server Helm chart
+appVersion: "latest"
