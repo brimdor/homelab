@@ -10,14 +10,12 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - name: http
-      port: 8920
-      targetPort: 8096
-      protocol: TCP
-    - name: http2
-      port: 8096
-      targetPort: 8920
-      protocol: TCP
+    {{- range .Values.service.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      protocol: {{ .protocol }}
+    {{- end }}
   selector:
     app: {{ include "emby.name" . }}
     release: {{ .Release.Name }}

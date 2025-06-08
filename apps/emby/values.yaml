@@ -1,10 +1,24 @@
-replicaCount: 1
 
+
+
+# General
+nameOverride: "emby"
+fullnameOverride: ""
+containerName: "emby"
+deploymentLabels: {}
+deploymentAnnotations: {}
+replicaCount: 1
+strategyType: Recreate
+
+
+# Image settings
 image:
   repository: lscr.io/linuxserver/emby
   tag: latest
   pullPolicy: IfNotPresent
 
+
+# Environment variables
 env:
   - name: PUID
     value: "99"
@@ -13,69 +27,70 @@ env:
   - name: TZ
     value: America/Chicago
 
+
+# Service settings
 service:
   type: ClusterIP
   ports:
     - name: http
-      port: 8920
+      port: 8096
       targetPort: 8096
       protocol: TCP
     - name: http2
-      port: 8096
+      port: 8920
       targetPort: 8920
       protocol: TCP
 
+
+# Persistence settings
 persistence:
   config:
-    enabled: true
     accessMode: ReadWriteOnce
     size: 50Gi
     mountPath: /config
   backup:
-    enabled: true
     nfs:
       server: 10.0.50.3
       path: /mnt/user/emby_backups
     mountPath: /backups
   transcode:
-    enabled: true
     hostPath: /emby/transcode
     mountPath: /transcode
   devDri:
-    enabled: true
     hostPath: /dev/dri
     mountPath: /dev/dri
   movies:
-    enabled: true
     nfs:
       server: 10.0.50.3
       path: /mnt/user/movies
     mountPath: /data/movies
   tv:
-    enabled: true
     nfs:
       server: 10.0.50.3
       path: /mnt/user/tv
     mountPath: /data/tv
   music:
-    enabled: true
     nfs:
       server: 10.0.50.3
       path: /mnt/user/music
     mountPath: /data/music
 
+
+# Resource requests/limits
 resources: {}
+
+
 
 # Init container for restore-from-backup
 initContainers:
-  - name: restore
+  restore:
+    name: restore
     image: alpine:latest
     command:
       - /bin/sh
       - -c
       - |
         set -e
-
         echo "[INFO] Checking for /config/bees-knees marker file..."
         if [ -f /config/bees-knees ]; then
           echo "[INFO] Restore skipped: /config/bees-knees exists."
@@ -105,6 +120,7 @@ initContainers:
         touch /config/bees-knees
         echo "[INFO] Restore complete. Marker file created at /config/bees-knees."
 
+# Ingress settings
 ingress:
   enabled: true
   className: nginx
