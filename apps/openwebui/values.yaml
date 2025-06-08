@@ -65,7 +65,7 @@ app-template:
       ports:
         http:
           port: 8080
-          protocol: HTTP
+          protocol: TCP
   ingress:
     main:
       enabled: true
