@@ -21,6 +21,10 @@ spec:
         app: {{ include "emby.name" . }}
         release: {{ .Release.Name }}
     spec:
+      {{- if .Values.initContainers }}
+      initContainers:
+        {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
       containers:
         - name: emby
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
