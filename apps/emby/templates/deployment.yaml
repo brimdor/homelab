@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "emby.fullname" . }}
+  labels:
+    app: {{ include "emby.name" . }}
+    chart: {{ include "emby.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ include "emby.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "emby.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: emby
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8096
+            - name: http2
+              containerPort: 8920
+          volumeMounts:
+            - name: config
+              mountPath: {{ .Values.persistence.config.mountPath }}
+            - name: backup
+              mountPath: {{ .Values.persistence.backup.mountPath }}
+            - name: transcode
+              mountPath: {{ .Values.persistence.transcode.mountPath }}
+            - name: dev-dri
+              mountPath: {{ .Values.persistence.devDri.mountPath }}
+            - name: movies
+              mountPath: {{ .Values.persistence.movies.mountPath }}
+            - name: tv
+              mountPath: {{ .Values.persistence.tv.mountPath }}
+            - name: music
+              mountPath: {{ .Values.persistence.music.mountPath }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "emby.fullname" . }}-config
+        - name: backup
+          nfs:
+            server: {{ .Values.persistence.backup.nfs.server }}
+            path: {{ .Values.persistence.backup.nfs.path }}
+        - name: transcode
+          hostPath:
+            path: {{ .Values.persistence.transcode.hostPath }}
+        - name: dev-dri
+          hostPath:
+            path: {{ .Values.persistence.devDri.hostPath }}
+        - name: movies
+          nfs:
+            server: {{ .Values.persistence.movies.nfs.server }}
+            path: {{ .Values.persistence.movies.nfs.path }}
+        - name: tv
+          nfs:
+            server: {{ .Values.persistence.tv.nfs.server }}
+            path: {{ .Values.persistence.tv.nfs.path }}
+        - name: music
+          nfs:
+            server: {{ .Values.persistence.music.nfs.server }}
+            path: {{ .Values.persistence.music.nfs.path }}
