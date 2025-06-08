@@ -106,7 +106,3 @@ app-template:
             - path: /mnt/backup
           restore:
             - path: /mnt/backup
-
-  defaultPodOptions:
-    annotations:
-      external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eagelpass.io"
