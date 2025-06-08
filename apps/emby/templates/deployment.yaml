@@ -1,41 +1,55 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "emby.fullname" . }}
+  name: {{ .Values.fullnameOverride | default (include "emby.fullname" .) }}
   labels:
-    app: {{ include "emby.name" . }}
+    app: {{ .Values.nameOverride | default (include "emby.name" .) }}
     chart: {{ include "emby.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+    {{- with .Values.deploymentLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
-    type: Recreate
+    type: {{ .Values.strategyType | default "Recreate" }}
   selector:
     matchLabels:
-      app: {{ include "emby.name" . }}
+      app: {{ .Values.nameOverride | default (include "emby.name" .) }}
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ include "emby.name" . }}
+        app: {{ .Values.nameOverride | default (include "emby.name" .) }}
         release: {{ .Release.Name }}
     spec:
       {{- if .Values.initContainers }}
       initContainers:
-        {{- toYaml .Values.initContainers | nindent 8 }}
+        - name: {{ .Values.initContainers.restore.name | default "restore" }}
+          image: {{ .Values.initContainers.restore.image | default "alpine:latest" }}
+          command:
+            {{- range .Values.initContainers.restore.command }}
+            - {{ . | quote }}
+            {{- end }}
+          args:
+            - {{ .Values.initContainers.restore.script | toYaml | nindent 12 | trim }}
       {{- end }}
       containers:
-        - name: emby
+        - name: {{ .Values.containerName | default "emby" }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
           ports:
-            - name: http
-              containerPort: 8096
-            - name: http2
-              containerPort: 8920
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .targetPort }}
+            {{- end }}
           volumeMounts:
             - name: config
               mountPath: {{ .Values.persistence.config.mountPath }}
@@ -56,7 +70,7 @@ spec:
       volumes:
         - name: config
           persistentVolumeClaim:
-            claimName: {{ include "emby.fullname" . }}-config
+            claimName: {{ include "emby.fullname" . }}
         - name: backup
           nfs:
             server: {{ .Values.persistence.backup.nfs.server }}
