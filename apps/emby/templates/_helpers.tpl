@@ -1,9 +1,14 @@
+
 {{- define "emby.name" -}}
-emby
+{{- default "emby" .Values.nameOverride -}}
 {{- end -}}
 
 {{- define "emby.fullname" -}}
-{{- printf "%s-%s" .Release.Name (include "emby.name" .) | trunc 63 | trimSuffix "-" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- .Values.nameOverride | default "emby" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "emby.chart" -}}

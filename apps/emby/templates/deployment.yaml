@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.fullnameOverride | default (include "emby.fullname" .) }}
+  name: {{ include "emby.fullname" . }}
   labels:
-    app: {{ .Values.nameOverride | default (include "emby.name" .) }}
+    app: {{ include "emby.name" . }}
     chart: {{ include "emby.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -20,12 +20,12 @@ spec:
     type: {{ .Values.strategyType | default "Recreate" }}
   selector:
     matchLabels:
-      app: {{ .Values.nameOverride | default (include "emby.name" .) }}
+      app: {{ include "emby.name" . }}
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ .Values.nameOverride | default (include "emby.name" .) }}
+        app: {{ include "emby.name" . }}
         release: {{ .Release.Name }}
     spec:
       {{- if .Values.initContainers }}
