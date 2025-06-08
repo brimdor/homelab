@@ -6,8 +6,6 @@ app-template:
           image:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
-          env:
-            OLLAMA_BASE_URL: http://ollama:11434
         backup:
           image:
             repository: alpine
@@ -85,7 +83,7 @@ app-template:
       tls:
         - hosts:
             - *Host
-          secretName: ollama-tls-certificate
+          secretName: ai-tls-certificate
   persistence:
     main:
       accessMode: ReadWriteOnce
