@@ -1,0 +1,165 @@
+# values.yaml for bolt-diy Helm chart using bjw-s common chart
+# See https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: pepperlabs/peppermint
+            tag: latest
+            pullPolicy: Always
+          env:
+            PUID: "99"
+            PGID: "100"
+            TZ: "America/Chicago"
+            DB_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db_username
+            DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db_password
+            DB_HOST:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db_host
+            SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: secret
+        database:
+          image:
+            repository: postgres
+            tag: latest
+            pullPolicy: Always
+          env:
+            POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db_name
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db_password
+            POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db_username
+        db-backup:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              MAX_BACKUPS=15 # Set the maximum number of backups to keep
+              while true; do
+                timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+                backup_file="/mnt/backup/peppermint_database-backup-$timestamp.tar.gz"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
+                tar --exclude="lost+found" -czf $backup_file -C /var/lib/postgresql/data .
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
+
+                # Purge old backups if the total exceeds MAX_BACKUPS
+                backup_count=$(ls /mnt/backup/peppermint_database-backup-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Total backups ($backup_count) exceed MAX_BACKUPS ($MAX_BACKUPS). Purging oldest backups."
+                  ls -t /mnt/backup/peppermint_database-backup-*.tar.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Purge complete."
+                fi
+
+                sleep 600 # Wait 10 minutes
+              done
+      initContainers:
+        db-restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+              rm -Rf /var/lib/postgresql/data/lost+found
+              echo "[$timestamp] Starting restore process"
+              if [ ! -f /var/lib/postgresql/data/bees-knees ]; then
+                latest_backup=$(ls -t /mnt/backup/peppermint_database-backup-*.tar.gz 2>/dev/null | head -n 1)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
+                  tar -xzf $latest_backup -C /var/lib/postgresql/data
+                  touch /var/lib/postgresql/data/bees-knees
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
+              fi
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 3000
+          protocol: TCP
+        http2:
+          port: 5003
+          protocol: TCP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host peppermint.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: peppermint-tls-certificate
+  persistence:
+    db-data:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          database:
+            - path: /var/lib/postgresql/data
+          db-backup:
+            - path: /var/lib/postgresql/data
+          db-restore:
+            - path: /var/lib/postgresql/data
+    nfs-backups:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/peppermint_backups
+      advancedMounts:
+        main:
+          db-backup:
+            - path: /mnt/backup
+          db-restore:
+            - path: /mnt/backup
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/kpipobssljbzyrmxmp4m3obo5i"
+      operator.1password.io/item-name: "secrets"
