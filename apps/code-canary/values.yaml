@@ -17,6 +17,7 @@ app-template:
             DOCKER_COMPOSE: "true"
             NODEJS: "true"
             ANSIBLE: "true"
+            HOMEBREW: "true"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
