@@ -20,6 +20,12 @@ User - admin
 User - idm_admin  
 `export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account idm_admin`
 
+### Registry
+`kubectl get secret registry.admin -n global-secrets -o jsonpath='{.data.password}' | base64 --decode && echo`
+
+### Woodpecker
+`kubectl get secret woodpecker.agent -n global-secrets -o jsonpath='{.data.secret}' | base64 --decode && echo`
+
 ## 1Password Connect Setup
 The token does not need to be base64 encoded prior to creating the secret.  
 The json file does need to be encoded first.  
