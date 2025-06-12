@@ -45,6 +45,13 @@ app-template:
         main:
           main:
             - path: /home/coder
+    cellar:
+      accessMode: ReadWriteOnce
+      size: 15Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/linuxbrew/.linuxbrew/Cellar
   
   defaultPodOptions:
     hostname: *host
