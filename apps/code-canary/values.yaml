@@ -16,7 +16,7 @@ app-template:
             DOCKER_HOST: ssh://root@10.0.50.3
             DOCKER_COMPOSE: "true"
             NODEJS: "true"
-            # ANSIBLE: "true"
+            ANSIBLE: "true"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
