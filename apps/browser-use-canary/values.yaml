@@ -68,17 +68,8 @@ app-template:
   service:
     main:
       ports:
-        http1:
+        http:
           port: 7788
-          protocol: TCP
-        http2:
-          port: 6080
-          protocol: TCP
-        http3:
-          port: 5901
-          protocol: TCP
-        http4:
-          port: 9222
           protocol: TCP
   ingress:
     main:
@@ -93,7 +84,7 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: http1
+                port: http
       tls:
         - hosts:
             - *Host
