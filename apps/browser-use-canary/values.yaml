@@ -12,6 +12,11 @@ app-template:
                 secretKeyRef:
                   name: "api-token"
                   key: "password"
+            OPENAI_ENDPOINT: "https://api.openai.com/v1"
+            DISPLAY: ":99"
+            RESOLUTION: "1920x1080x24"
+            RESOLUTION_WIDTH: "1920"
+            RESOLUTION_HEIGHT: "1080"
             UID: "99"
             PID: "100"
         backup:
