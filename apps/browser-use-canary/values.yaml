@@ -93,7 +93,7 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: http
+                port: http1
       tls:
         - hosts:
             - *Host
