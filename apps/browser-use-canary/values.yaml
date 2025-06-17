@@ -121,5 +121,5 @@ app-template:
 
   defaultPodOptions:
     annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/72o4yiye3zrgz3tiucrdgjgpqq"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/xlqo7wxjjeveea5eq6whcyltmm"
       operator.1password.io/item-name: "api-token"
