@@ -14,9 +14,6 @@ app-template:
             GIT_USER_NAME: "brimdor"
             GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: ssh://root@10.0.50.3
-            DOCKER_COMPOSE: "true"
-            NODEJS: "true"
-            ANSIBLE: "true"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
@@ -44,15 +41,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /home/coder
-    cellar:
-      accessMode: ReadWriteOnce
-      size: 15Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /home/linuxbrew/.linuxbrew/Cellar
-  
+            - path: /home/coder  
   defaultPodOptions:
     hostname: *host
     securityContext:
