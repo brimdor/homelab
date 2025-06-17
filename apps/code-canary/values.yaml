@@ -11,8 +11,8 @@ app-template:
             TZ: "America/Chicago"
             TUNNEL_NAME: &host "canary-tunnel"
             PROVIDER: "microsoft"
-            GIT_USERNAME: "brimdor"
-            GIT_EMAIL: "chrisnelsonx@gmail.com"
+            GITHUB_USERNAME: "brimdor"
+            GITHUB_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: ssh://root@10.0.50.3
             SSH_PRIVATE:
               valueFrom:
