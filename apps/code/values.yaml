@@ -11,11 +11,9 @@ app-template:
             TZ: "America/Chicago"
             TUNNEL_NAME: &host "secret-tunnel"
             PROVIDER: "microsoft"
-            GIT_USER_NAME: "brimdor"
-            GIT_USER_EMAIL: "chrisnelsonx@gmail.com"
+            GITHUB_USERNAME: "brimdor"
+            GITHUB_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: ssh://root@10.0.50.3
-            DOCKER_COMPOSE: "true"
-            NODEJS: "true"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
