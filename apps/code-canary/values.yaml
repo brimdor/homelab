@@ -16,6 +16,8 @@ app-template:
             DOCKER_HOST: ssh://root@10.0.50.3
             CHEZMOI_REPO: "https://github.com/brimdor/dotfiles.git"
             CHEZMOI_BRANCH: "canary"
+            PRIVATE_RSA: "true"
+            PRIVATE_ED: "true"
             OP_SERVICE_ACCOUNT_TOKEN:
               valueFrom:
                 secretKeyRef:
