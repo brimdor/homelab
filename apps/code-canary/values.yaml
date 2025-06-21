@@ -43,14 +43,14 @@ app-template:
   service:
     main:
       enabled: false
-  persistence:
-    data:
-      accessMode: ReadWriteOnce
-      size: 15Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /home/coder  
+  # persistence:
+  #   data:
+  #     accessMode: ReadWriteOnce
+  #     size: 15Gi
+  #     advancedMounts:
+  #       main:
+  #         main:
+  #           - path: /home/coder  
   defaultPodOptions:
     hostname: *host
     securityContext:
