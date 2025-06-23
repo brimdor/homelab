@@ -14,15 +14,22 @@ app-template:
             GITHUB_USERNAME: "brimdor"
             GITHUB_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: ssh://root@10.0.50.3
+            CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
+            CHEZMOI_BRANCH: "brimdor"
+            OP_SERVICE_ACCOUNT_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "token"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
-                  name: "ssh-keys"
+                  name: "secrets"
                   key: "private-key"
             SSH_PUBLIC:
               valueFrom:
                 secretKeyRef:
-                  name: "ssh-keys"
+                  name: "secrets"
                   key: "public-key"
           probes:
             liveness:
@@ -116,4 +123,4 @@ app-template:
       fsGroup: 1000
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/72o4yiye3zrgz3tiucrdgjgpqq"
-      operator.1password.io/item-name: "ssh-keys"
+      operator.1password.io/item-name: "secrets"
