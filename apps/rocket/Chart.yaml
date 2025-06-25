@@ -1,0 +1,17 @@
+apiVersion: v2
+name: rocket
+version: 0.1.0
+description: Rocket.Chat deployment using bjw-s common chart structure for homelab
+keywords:
+  - rocketchat
+  - chat
+  - messaging
+  - bjw-s
+  - homelab
+home: https://rocket.chat
+sources:
+  - https://github.com/RocketChat/Rocket.Chat
+  - https://github.com/bjw-s-labs/helm-charts
+maintainers:
+  - name: homelab
+    email: admin@homelab.local

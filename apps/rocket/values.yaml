@@ -1,0 +1,126 @@
+# values.yaml for Rocket.Chat using bjw-s common chart structure
+# See https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+# See https://github.com/RocketChat/helm-charts/tree/master/rocketchat for Rocket.Chat-specific values
+
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: registry.rocket.chat/rocketchat/rocket.chat
+            tag: 6.7.2
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            ROOT_URL: "https://rocket.eaglepass.io"
+            PORT: "3000"
+            MONGO_INITDB_ROOT_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mongo_root_user
+            MONGO_INITDB_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mongo_root_password
+            MONGO_URL: 
+              value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:27017/rocketchat?replicaSet=rs0"
+            MONGO_OPLOG_URL:
+              value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:27017/local?replicaSet=rs0"
+            ADMIN_EMAIL:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: admin_email
+            ADMIN_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: admin_username
+            ADMIN_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: admin_pass
+
+        mongo:
+          image:
+            repository: mongo
+            tag: 6.0
+            pullPolicy: Always
+          env:
+            MONGO_INITDB_ROOT_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mongo_root_user
+            MONGO_INITDB_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mongo_root_password
+            MONGO_INITDB_DATABASE: rocketchat
+          command:
+            - mongod
+            - --replSet
+            - rs0
+            - --bind_ip_all
+
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 3000
+          protocol: HTTP
+    mongo:
+      controller: main
+      ports:
+        mongo:
+          port: 27017
+          protocol: TCP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host rocket.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: rocket-tls-certificate
+
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /app/uploads
+    mongo-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          mongo:
+            - path: /data/db
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/rocket-secrets"
+      operator.1password.io/item-name: "secrets"
