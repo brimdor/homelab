@@ -26,9 +26,9 @@ app-template:
                   name: secrets
                   key: mongo_root_password
             MONGO_URL: 
-              value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:27017/rocketchat?replicaSet=rs0"
+              value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@rocket-mongo:27017/rocketchat?replicaSet=rs0"
             MONGO_OPLOG_URL:
-              value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@localhost:27017/local?replicaSet=rs0"
+              value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@rocket-mongo:27017/local?replicaSet=rs0"
             ADMIN_EMAIL:
               valueFrom:
                 secretKeyRef:
@@ -67,15 +67,33 @@ app-template:
             - --replSet
             - rs0
             - --bind_ip_all
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - /bin/sh
-                  - -c
-                  - |
-                    until mongo --host localhost --eval 'print("waited for connection")'; do sleep 2; done
-                    mongo --host localhost --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})' || true
+    initcontroller:
+      type: job
+      containers:
+        mongo-init:
+          image:
+            repository: mongo
+            tag: 6.0
+            pullPolicy: IfNotPresent
+          env:
+            MONGO_INITDB_ROOT_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mongo_root_user
+            MONGO_INITDB_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mongo_root_password
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until mongo --host rocket-mongo --eval 'db.adminCommand("ping")'; do sleep 2; done
+              mongo --host rocket-mongo --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "rocket-mongo:27017"}]})' || true
+      restartPolicy: Never
+      backoffLimit: 4
 
   service:
     main:
