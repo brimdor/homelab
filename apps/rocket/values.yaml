@@ -69,7 +69,6 @@ app-template:
             - --bind_ip_all
     initcontroller:
       type: job
-      suspend: false
       containers:
         mongo-init:
           image:
