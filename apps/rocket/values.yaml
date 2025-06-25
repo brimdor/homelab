@@ -67,6 +67,18 @@ app-template:
             - --replSet
             - rs0
             - --bind_ip_all
+      initContainers:
+        mongo-init:
+          image:
+            repository: mongo
+            tag: 6.0
+            pullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until mongo --host localhost --eval 'print("waited for connection")'; do sleep 2; done
+              mongo --host localhost --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})' || true
 
   service:
     main:
