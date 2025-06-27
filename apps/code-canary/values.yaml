@@ -16,6 +16,7 @@ app-template:
             DOCKER_HOST: "ssh://root@10.0.50.3"
             CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
             CHEZMOI_BRANCH: "canary"
+            OP_CONNECT_VAULT: "server"
             # PRIVATE_RSA: "true"
             # PRIVATE_ED: "true"
             OP_SERVICE_ACCOUNT_TOKEN:
