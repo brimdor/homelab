@@ -13,9 +13,10 @@ app-template:
             PROVIDER: "microsoft"
             GITHUB_USERNAME: "brimdor"
             GITHUB_EMAIL: "chrisnelsonx@gmail.com"
-            DOCKER_HOST: ssh://root@10.0.50.3
+            DOCKER_HOST: "ssh://root@10.0.50.3"
             CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
             CHEZMOI_BRANCH: "brimdor"
+            OP_CONNECT_VAULT: "server"
             OP_SERVICE_ACCOUNT_TOKEN:
               valueFrom:
                 secretKeyRef:
