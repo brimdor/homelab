@@ -17,9 +17,13 @@ app-template:
             CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
             CHEZMOI_BRANCH: "canary"
             OP_CONNECT_VAULT: "server"
-            DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/1389342035139493949/plbK8X0AG3OrA9AIlnT04kdKo6mT_9UEMAY5OS5MwgebPulALJr68W3tZNO7UixQhWM3"
             # PRIVATE_RSA: "true"
             # PRIVATE_ED: "true"
+            DISCORD_WEBHOOK_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "discord-webhook-url"
             OP_SERVICE_ACCOUNT_TOKEN:
               valueFrom:
                 secretKeyRef:
