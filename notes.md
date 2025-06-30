@@ -81,6 +81,14 @@ kubectl create secret generic op-credentials \
 > All of these point to the same thing inside the cluster, but  
 > **`loki.loki` is the sweet spot** when you’re in a different namespace and still want it short.
 
+### Draining and Removing a Node
+kubectl cordon <node-name>
+kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data --force --grace-period=10
+kubectl delete node <node-name>
+ssh-keygen -R <node-ip>
+ssh root@<node-ip> 'shutdown now'
+
+
 ## ARCHIVED
 
 ### Node Restarts Stuck
@@ -107,14 +115,6 @@ kubectl create secret generic op-credentials \
 9. `Create PV/PVC`
 10. `Spin up replicas for application`
 11. `All done`
-
-
-### Draining and Removing a Node
-kubectl cordon <node-name>
-kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data --force --grace-period=10
-kubectl delete node <node-name>
-ssh-keygen -R <node-ip>
-ssh root@<node-ip> 'shutdown now'
 
 
 
