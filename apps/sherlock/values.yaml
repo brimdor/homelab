@@ -119,14 +119,14 @@ app-template:
   service:
     main:
       enabled: false
-  # persistence:
-  #   data:
-  #     accessMode: ReadWriteOnce
-  #     size: 15Gi
-  #     advancedMounts:
-  #       main:
-  #         main:
-  #           - path: /app/config
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 15Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /app/config
           # backup:
           #   - path: /app/config
           # restore:
@@ -143,6 +143,8 @@ app-template:
   #           - path: /mnt/backup
   
   defaultPodOptions:
+    securityContext:
+      fsGroup: 10001
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qfzu6le7qncz5otwcnsh7wq4xi"
       operator.1password.io/item-name: "secrets"
