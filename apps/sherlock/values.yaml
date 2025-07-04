@@ -119,14 +119,14 @@ app-template:
   service:
     main:
       enabled: false
-  persistence:
-    data:
-      accessMode: ReadWriteOnce
-      size: 15Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /app/config
+  # persistence:
+  #   data:
+  #     accessMode: ReadWriteOnce
+  #     size: 15Gi
+  #     advancedMounts:
+  #       main:
+  #         main:
+  #           - path: /app/config
           # backup:
           #   - path: /app/config
           # restore:
