@@ -119,28 +119,28 @@ app-template:
   service:
     main:
       enabled: false
-  persistence:
-    data:
-      accessMode: ReadWriteOnce
-      size: 15Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /app/config
-          backup:
-            - path: /app/config
-          restore:
-            - path: /app/config
-    # nfs:
-    #   type: nfs
-    #   server: 10.0.50.3
-    #   path: /mnt/user/sherlock-backups
-    #   advancedMounts:
-    #     main:
-    #       backup:
-    #         - path: /mnt/backup
-    #       restore:
-    #         - path: /mnt/backup
+  # persistence:
+  #   data:
+  #     accessMode: ReadWriteOnce
+  #     size: 15Gi
+  #     advancedMounts:
+  #       main:
+  #         main:
+  #           - path: /app/config
+  #         backup:
+  #           - path: /app/config
+  #         restore:
+  #           - path: /app/config
+  #   nfs:
+  #     type: nfs
+  #     server: 10.0.50.3
+  #     path: /mnt/user/sherlock-backups
+  #     advancedMounts:
+  #       main:
+  #         backup:
+  #           - path: /mnt/backup
+  #         restore:
+  #           - path: /mnt/backup
   
   defaultPodOptions:
     annotations:
