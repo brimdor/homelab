@@ -21,17 +21,17 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "token"
+                  key: "op-service-account-token"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "private-key"
+                  key: "ssh-private"
             SSH_PUBLIC:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "public-key"
+                  key: "ssh-public"
           probes:
             liveness:
               enabled: false
