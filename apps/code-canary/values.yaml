@@ -19,6 +19,11 @@ app-template:
             OP_CONNECT_VAULT: "server"
             # PRIVATE_RSA: "true"
             # PRIVATE_ED: "true"
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "gh-token"
             DISCORD_WEBHOOK_URL:
               valueFrom:
                 secretKeyRef:
@@ -28,17 +33,17 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "token"
+                  key: "op-service-account-token"
             SSH_PRIVATE:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "private-key"
+                  key: "ssh-private"
             SSH_PUBLIC:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "public-key"
+                  key: "ssh-public"
           probes:
             liveness:
               enabled: false
