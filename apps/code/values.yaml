@@ -22,11 +22,11 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "gh-token"
-            DISCORD_WEBHOOK_URL:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "discord-webhook-url"
+            # DISCORD_WEBHOOK_URL:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "discord-webhook-url"
             OP_SERVICE_ACCOUNT_TOKEN:
               valueFrom:
                 secretKeyRef:
