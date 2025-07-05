@@ -17,6 +17,16 @@ app-template:
             CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
             CHEZMOI_BRANCH: "brimdor"
             OP_CONNECT_VAULT: "server"
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "gh-token"
+            DISCORD_WEBHOOK_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "discord-webhook-url"
             OP_SERVICE_ACCOUNT_TOKEN:
               valueFrom:
                 secretKeyRef:
