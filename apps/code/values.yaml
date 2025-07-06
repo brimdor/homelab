@@ -15,7 +15,7 @@ app-template:
             GITHUB_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: "ssh://root@10.0.50.3"
             CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
-            CHEZMOI_BRANCH: "canary"
+            CHEZMOI_BRANCH: "brimdor"
             OP_CONNECT_VAULT: "server"
             GH_TOKEN:
               valueFrom:
