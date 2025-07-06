@@ -5,7 +5,7 @@ app-template:
         main:
           image:
             repository: brimdor/vscode-tunnel
-            tag: fix
+            tag: latest
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
