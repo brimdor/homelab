@@ -5,7 +5,7 @@ app-template:
         main:
           image:
             repository: brimdor/vscode-tunnel
-            tag: latest
+            tag: canary
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
@@ -15,18 +15,18 @@ app-template:
             GITHUB_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: "ssh://root@10.0.50.3"
             CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
-            CHEZMOI_BRANCH: "brimdor"
+            CHEZMOI_BRANCH: "canary"
             OP_CONNECT_VAULT: "server"
             GH_TOKEN:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
                   key: "gh-token"
-            # DISCORD_WEBHOOK_URL:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "discord-webhook-url"
+            DISCORD_WEBHOOK_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "discord-webhook-url"
             OP_SERVICE_ACCOUNT_TOKEN:
               valueFrom:
                 secretKeyRef:
