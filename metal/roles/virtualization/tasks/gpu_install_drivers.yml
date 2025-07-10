@@ -1,5 +1,4 @@
 # metal/roles/gpu_install_drivers/tasks/main.yml
-
 - name: Install NVIDIA drivers on GPU nodes
   block:
 
