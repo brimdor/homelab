@@ -11,16 +11,16 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: America/Chicago
-          # affinity:
-          #   nodeAffinity:
-          #     requiredDuringSchedulingIgnoredDuringExecution:
-          #       nodeSelectorTerms:
-          #         - matchExpressions:
-          #             - key: nvidia.com/gpu.present
-          #               operator: In
-          #               values:
-          #                 - "true"
-            
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: nvidia.com/gpu.present
+                        operator: In
+                        values:
+                          - "true"
+          runtimeClassName: nvidia
       initContainers:
         restore:
           image:
