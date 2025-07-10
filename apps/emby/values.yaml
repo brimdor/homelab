@@ -11,6 +11,10 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: America/Chicago
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+
       initContainers:
         restore:
           image:
