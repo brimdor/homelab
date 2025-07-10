@@ -71,4 +71,5 @@ metal:
             mac: "4c:cc:6a:3d:e5:3f",
             disk: sda,
             network_interface: eno1,
+            gpu_type: 'GeForce GTX 1650'
           }
