@@ -13,6 +13,7 @@ app-template:
             TZ: America/Chicago
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
+            FFMPEG_HWACCEL: "cuda"
           resources:
             limits:
               nvidia.com/gpu: 1
