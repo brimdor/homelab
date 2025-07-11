@@ -113,20 +113,20 @@ app-template:
         main:
           main:
             - path: /home/coder
-          # backup:
-          #   - path: /home/coder
-          # restore:
-          #   - path: /home/coder
-    # nfs:
-    #   type: nfs
-    #   server: 10.0.50.3
-    #   path: /mnt/user/code-backups
-    #   advancedMounts:
-    #     main:
-    #       backup:
-    #         - path: /mnt/backup
-    #       restore:
-    #         - path: /mnt/backup
+          backup:
+            - path: /home/coder
+          restore:
+            - path: /home/coder
+    nfs:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/code-backups
+      advancedMounts:
+        main:
+          backup:
+            - path: /mnt/backup
+          restore:
+            - path: /mnt/backup
   
   defaultPodOptions:
     hostname: *host
