@@ -110,13 +110,6 @@ app-template:
         main:
           main:
             - path: /emby/transcode
-    # dev-dri:
-    #   type: hostPath
-    #   hostPath: /dev/dri
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /dev/dri
     nfs-restore:
       type: nfs
       server: 10.0.50.3
