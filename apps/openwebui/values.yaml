@@ -71,7 +71,7 @@ app-template:
       containers:
         ollama:
           image:
-            repository: ollama/ollama
+            repository: docker.io/ollama/ollama
             tag: latest
           env:
             NVIDIA_VISIBLE_DEVICES: "all"
