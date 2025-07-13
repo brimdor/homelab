@@ -77,9 +77,9 @@ app-template:
             OLLAMA_BASE_URL: http://localhost:11434
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
-          resources:
-            limits:
-              nvidia.com/gpu: 1
+          # resources:
+          #   limits:
+          #     nvidia.com/gpu: 1
   service:
     ollama:
       controller: ollama
