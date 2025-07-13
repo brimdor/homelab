@@ -132,6 +132,13 @@ app-template:
             - path: /app/backend/data
           restore:
             - path: /app/backend/data
+    ollama:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        ollama:
+          ollama:
+            - path: /root/.ollama/models
     nfs:
       type: nfs
       server: 10.0.50.3
