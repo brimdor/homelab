@@ -9,6 +9,13 @@ app-template:
             tag: latest
           env:
             OLLAMA_BASE_URL: http://ollama:11434
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
         backup:
           image:
             repository: alpine
