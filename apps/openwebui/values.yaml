@@ -134,7 +134,7 @@ app-template:
             - path: /app/backend/data
     ollama:
       accessMode: ReadWriteOnce
-      size: 10Gi
+      size: 150Gi
       advancedMounts:
         ollama:
           ollama:
