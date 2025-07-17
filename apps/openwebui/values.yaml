@@ -146,14 +146,14 @@ app-template:
             - path: /mnt/backup
           restore:
             - path: /mnt/backup
-  defaultPodOptions:
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-                - key: nvidia.com/gpu.present
-                  operator: In
-                  values:
-                    - "true"
-    runtimeClassName: nvidia
+  # defaultPodOptions:
+  #   affinity:
+  #     nodeAffinity:
+  #       requiredDuringSchedulingIgnoredDuringExecution:
+  #         nodeSelectorTerms:
+  #           - matchExpressions:
+  #               - key: nvidia.com/gpu.present
+  #                 operator: In
+  #                 values:
+  #                   - "true"
+  #   runtimeClassName: nvidia
