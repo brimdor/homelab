@@ -76,9 +76,6 @@ app-template:
           env:
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
-          # resources:
-          #   limits:
-          #     nvidia.com/gpu: 1
   service:
     ollama:
       controller: ollama
