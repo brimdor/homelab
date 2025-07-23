@@ -9,3 +9,4 @@ spec:
     requests:
       storage: 150Gi
   volumeName: openwebui-nfs-pv
+  storageClassName: openwebui-nfs
