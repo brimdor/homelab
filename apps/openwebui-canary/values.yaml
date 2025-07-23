@@ -29,7 +29,7 @@ open-webui:
         value: "all"
     persistentVolume:
       enabled: true
-      size: 100Gi
+      size: 150Gi
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
@@ -61,8 +61,4 @@ open-webui:
     pullPolicy: "Always"
   persistence:
     enabled: true
-    existingClaim: openwebui-cephfs-pvc
-    accessModes:
-      - ReadWriteMany
-    storageClass: standard-rwx
-    size: 150Gi
+    existingClaim: openwebui-nfs-pvc
