@@ -34,10 +34,10 @@ open-webui:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-                - key: nvidia.com/gpu.memory
-                  operator: In
-                  values:
-                    - "2048"
+              - key: nvidia.com/gpu.present
+                operator: In
+                values:
+                  - "true"
   ingress:
     enabled: true
     class: nginx
