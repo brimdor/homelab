@@ -8,6 +8,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: openwebui-nfs
   nfs:
     server: 10.0.50.3
     path: /mnt/user/openwebui
