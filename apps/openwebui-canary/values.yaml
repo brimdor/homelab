@@ -62,6 +62,3 @@ open-webui:
   persistence:
     enabled: true
     existingClaim: openwebui-nfs-pvc
-    storageClass: ReadWriteOnce
-    accessModes:
-      - ReadWriteOnce
