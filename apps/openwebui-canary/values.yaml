@@ -63,7 +63,7 @@ open-webui:
       - ReadWriteMany
     storageClass: ""
     provider: local
-    size: 100Gi
+    size: 150Gi
   nfs:
     server: 10.0.50.3
     path: /mnt/user/openwebui
