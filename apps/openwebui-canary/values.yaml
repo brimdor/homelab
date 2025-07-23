@@ -58,12 +58,8 @@ open-webui:
     pullPolicy: "Always"
   persistence:
     enabled: true
-    existingClaim: openwebui-nfs-pvc
+    existingClaim: openwebui-cephfs-pvc
     accessModes:
       - ReadWriteMany
-    storageClass: ""
-    provider: local
+    storageClass: standard-rwx
     size: 150Gi
-  nfs:
-    server: 10.0.50.3
-    path: /mnt/user/openwebui
