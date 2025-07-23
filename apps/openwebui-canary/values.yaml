@@ -52,3 +52,7 @@ open-webui:
       value: *openwebuihost
     - name: BYPASS_MODEL_ACCESS_CONTROL
       value: "true"
+  image:
+    repository: ghcr.io/open-webui/open-webui
+    tag: "latest"
+    pullPolicy: "Always"
