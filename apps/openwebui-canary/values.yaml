@@ -43,15 +43,8 @@ open-webui:
     class: nginx
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    hosts:
-      - host: &openwebuihost ai-canary.eaglepass.io
-        paths:
-          - path: /
-            pathType: Prefix
-    tls:
-      - secretName: openwebui-tls
-        hosts:
-          - *openwebuihost
+    host: &openwebuihost ai-canary.eaglepass.io
+    tls: true
   extraEnvVars:
     - name: ENABLE_LOGIN_FORM
       value: "true"
