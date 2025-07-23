@@ -11,12 +11,12 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: America/Chicago
-          #   NVIDIA_VISIBLE_DEVICES: "all"
-          #   NVIDIA_DRIVER_CAPABILITIES: "all"
-          #   FFMPEG_HWACCEL: "cuda"
-          # resources:
-          #   limits:
-          #     nvidia.com/gpu: 1
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            FFMPEG_HWACCEL: "cuda"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
       initContainers:
         restore:
           image:
@@ -144,14 +144,14 @@ app-template:
         main:
           main:
             - path: /data/music
-  # defaultPodOptions:
-  #   affinity:
-  #     nodeAffinity:
-  #       requiredDuringSchedulingIgnoredDuringExecution:
-  #         nodeSelectorTerms:
-  #           - matchExpressions:
-  #               - key: nvidia.com/gpu.present
-  #                 operator: In
-  #                 values:
-  #                   - "true"
-  #   runtimeClassName: nvidia
+  defaultPodOptions:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: nvidia.com/gpu.present
+                  operator: In
+                  values:
+                    - "true"
+    runtimeClassName: nvidia
