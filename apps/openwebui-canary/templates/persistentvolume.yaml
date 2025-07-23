@@ -6,7 +6,7 @@ spec:
   capacity:
     storage: 150Gi
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   nfs:
     server: 10.0.50.3
