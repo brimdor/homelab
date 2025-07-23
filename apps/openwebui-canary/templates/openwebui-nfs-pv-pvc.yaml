@@ -6,9 +6,9 @@ spec:
   capacity:
     storage: {{ .Values.open-webui.persistence.size | default "100Gi" }}
   accessModes:
-{{- range .Values.open-webui.persistence.accessModes }}
+    {{- range .Values.open-webui.persistence.accessModes }}
     - {{ . }}
-{{- end }}
+    {{- end }}
   nfs:
     server: {{ .Values.open-webui.nfs.server | quote }}
     path: {{ .Values.open-webui.nfs.path | quote }}
@@ -19,9 +19,9 @@ metadata:
   name: {{ .Values.open-webui.persistence.existingClaim | default "openwebui-nfs-pvc" }}
 spec:
   accessModes:
-{{- range .Values.open-webui.persistence.accessModes }}
+    {{- range .Values.open-webui.persistence.accessModes }}
     - {{ . }}
-{{- end }}
+    {{- end }}
   resources:
     requests:
       storage: {{ .Values.open-webui.persistence.size | default "100Gi" }}
