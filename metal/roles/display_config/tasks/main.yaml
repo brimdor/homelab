@@ -1,14 +1,3 @@
-- name: Enable and start xvfb
-  systemd:
-    name: xvfb
-    enabled: true
-    state: stopped
-
-- name: Install Xvfb for headless X11
-  dnf:
-    name: xorg-x11-server-Xvfb
-    state: absent
-
 - name: Install weston (Wayland compositor)
   dnf:
     name: weston
@@ -19,12 +8,12 @@
     name: systemd-pam
     state: present
 
-- name: Ensure 'lizard' has XDG_RUNTIME_DIR on boot
+- name: Ensure '1000' has XDG_RUNTIME_DIR on boot
   lineinfile:
     path: /etc/security/pam_env.conf
     line: 'XDG_RUNTIME_DIR DEFAULT=/run/user/1000'
 
-- name: Create weston systemd user service (run as lizard)
+- name: Create weston systemd user service (run as 1000)
   copy:
     dest: /etc/systemd/system/weston-headless.service
     content: |
@@ -33,7 +22,7 @@
       After=network.target
 
       [Service]
-      User=lizard
+      User=admin
       Environment=XDG_RUNTIME_DIR=/run/user/1000
       ExecStart=/usr/bin/weston --backend=headless-backend.so --idle-time=0
       Restart=always
