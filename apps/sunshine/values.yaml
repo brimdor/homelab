@@ -2,6 +2,14 @@
 app-template:
   controllers:
     main:
+      defaultContainerOptions:
+        securityContext:
+          privileged: true
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+              - NET_ADMIN
       containers:
         main:
           image:
@@ -227,12 +235,6 @@ app-template:
     runtimeClassName: nvidia
     securityContext:
       fsGroup: 1000
-      privileged: "true"
-      capabilities:
-        add:
-          - SYS_ADMIN
-          - NET_ADMIN
-      allowPrivilegeEscalation: "true"
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/blko56xpckrxxxm6cnfxyz2kpq"
       operator.1password.io/item-name: "secrets"
