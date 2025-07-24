@@ -234,7 +234,7 @@ app-template:
     runtimeClassName: nvidia
     hostNetwork: true
     securityContext:
-      fsGroup: 1000
+      fsGroup: 1001
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/blko56xpckrxxxm6cnfxyz2kpq"
       operator.1password.io/item-name: "secrets"
