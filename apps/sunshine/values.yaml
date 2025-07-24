@@ -140,18 +140,18 @@ app-template:
             - *Host
           secretName: sunshine-tls-certificate
 
-  # persistence:
-  #   main:
-  #     accessMode: ReadWriteOnce
-  #     size: 20Gi
-  #     advancedMounts:
-  #       main:
-  #         main:
-  #           - path: /config
-  #         backup:
-  #           - path: /config
-  #         restore:
-  #           - path: /config
+  persistence:
+    main:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+          backup:
+            - path: /config
+          restore:
+            - path: /config
     # nfs:
     #   type: nfs
     #   server: 10.0.50.3
