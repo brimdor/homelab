@@ -167,5 +167,6 @@ app-template:
                   values:
                     - "true"
     runtimeClassName: nvidia
-    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/q6cfsdwqjymurjvchq27ei7diu"
-    operator.1password.io/item-name: "secrets"
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/q6cfsdwqjymurjvchq27ei7diu"
+      operator.1password.io/item-name: "secrets"
