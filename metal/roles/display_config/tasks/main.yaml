@@ -1,0 +1,25 @@
+- name: Install Xvfb for headless X11
+  dnf:
+    name: xorg-x11-server-Xvfb
+    state: present
+
+- name: Copy Xvfb systemd unit file
+  copy:
+    dest: /etc/systemd/system/xvfb.service
+    content: |
+      [Unit]
+      Description=Headless Xvfb session
+      After=network.target
+
+      [Service]
+      ExecStart=/usr/bin/Xvfb :0 -screen 0 1280x720x24
+      User=lizard
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+- name: Enable and start xvfb
+  systemd:
+    name: xvfb
+    enabled: true
+    state: started
