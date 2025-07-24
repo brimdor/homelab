@@ -6,7 +6,7 @@ app-template:
         main:
           image:
             repository: docker.io/lizardbyte/sunshine
-            tag: latest-debian-bookworm
+            tag: latest-ubuntu-24.04
             pullPolicy: Always
           securityContext:
             privileged: true
