@@ -15,6 +15,8 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/tmp/.X11-unix"
             HOME: "/config"
+            DISPLAY: ":0"
+            XAUTHORITY: "/config/.Xauthority"
             SUNSHINE_USER: 
               valueFrom:
                 secretKeyRef:
@@ -152,6 +154,34 @@ app-template:
             - path: /config
           restore:
             - path: /config
+    dev-dri:
+      type: hostPath
+      hostPath: /dev/dri
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/dri
+    x11-socket:
+      type: hostPath
+      hostPath: /tmp/.X11-unix
+      advancedMounts:
+        main:
+          main:
+            - path: /tmp/.X11-unix
+    dev-input:
+      type: hostPath
+      hostPath: /dev/input
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/input
+    dev-uinput:
+      type: hostPath
+      hostPath: /dev/uinput
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/uinput
     # nfs:
     #   type: nfs
     #   server: 10.0.50.3
