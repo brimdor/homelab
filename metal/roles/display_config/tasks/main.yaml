@@ -79,3 +79,20 @@
   shell: |
     su -l admin -c 'XDG_RUNTIME_DIR=/run/user/1000 systemctl --user daemon-reload'
     su -l admin -c 'XDG_RUNTIME_DIR=/run/user/1000 systemctl --user enable --now weston-headless.service'
+
+- name: Install seatd (Wayland seat management daemon)
+  dnf:
+    name: seatd
+    state: present
+
+- name: Enable and start seatd service
+  systemd:
+    name: seatd
+    enabled: true
+    state: started
+
+- name: Add admin to seat group for seatd access
+  user:
+    name: admin
+    groups: seat
+    append: yes
