@@ -5,7 +5,7 @@ app-template:
       containers:
         main:
           image:
-            repository: ghcr.io/comfyanonymous/comfyui
+            repository: eisai/comfy-ui
             tag: latest
           env:
             PUID: "99"
