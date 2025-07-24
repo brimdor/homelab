@@ -13,7 +13,8 @@ app-template:
             PGID: "1001"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
-            XDG_RUNTIME_DIR: /tmp/.X11-unix
+            XDG_RUNTIME_DIR: "/tmp/.X11-unix"
+            HOME: "/config"
             SUNSHINE_USER: 
               valueFrom:
                 secretKeyRef:
