@@ -1,0 +1,171 @@
+#https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: docker.io/lizardbyte/sunshine
+            tag: latest-archlinux
+          env:
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            XDG_RUNTIME_DIR: /tmp/.X11-unix
+            SUNSHINE_USER: 
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "sunshine-user"
+            SUNSHINE_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "sunshine-pass"
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+      #   backup:
+      #     image:
+      #       repository: alpine
+      #       tag: latest
+      #     name: backup
+      #     command:
+      #       - /bin/sh
+      #       - -c
+      #       - |
+      #         MAX_BACKUPS=15 # Set the maximum number of backups to keep
+      #         while true; do
+      #           timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+      #           backup_file="/mnt/backup/backup-$timestamp.tar.gz"
+      #           echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting backup to $backup_file"
+      #           tar --exclude="lost+found" -czf $backup_file -C /config .
+      #           echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup is Complete: $backup_file"
+
+      #           # Purge old backups if the total exceeds MAX_BACKUPS
+      #           backup_count=$(ls /mnt/backup/backup-*.tar.gz 2>/dev/null | wc -l)
+      #           if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
+      #             echo "[$(date +%Y-%m-%d_%H-%M-%S)] Total backups ($backup_count) exceed MAX_BACKUPS ($MAX_BACKUPS). Purging oldest backups."
+      #             ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+      #             echo "[$(date +%Y-%m-%d_%H-%M-%S)] Purge complete."
+      #           fi
+
+      #           sleep 600 # Wait 10 minutes
+      #         done
+      # initContainers:
+      #   restore:
+      #     image:
+      #       repository: alpine
+      #       tag: latest
+      #     command:
+      #       - /bin/sh
+      #       - -c
+      #       - |
+      #         timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+      #         echo "[$timestamp] Starting restore process"
+      #         if [ ! -f /config/bees-knees ]; then
+      #           latest_backup=$(ls -t /mnt/backup/backup-*.tar.gz 2>/dev/null | head -n 1)
+      #           if [ -n "$latest_backup" ]; then
+      #             echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring from backup: $latest_backup"
+      #             tar -xzf $latest_backup -C /config
+      #             touch /config/bees-knees
+      #             echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore is Complete: bees-knees file created"
+      #           else
+      #             echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Skipping restore."
+      #           fi
+      #         else
+      #           echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Bees-knees file exists."
+      #         fi
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 47990
+          protocol: TCP
+        tcp1:
+          port: 47984
+          protocol: TCP
+        tcp2:
+          port: 47985
+          protocol: TCP
+        tcp3:
+          port: 47986
+          protocol: TCP
+        tcp4:
+          port: 47987
+          protocol: TCP
+        tcp5:
+          port: 47988
+          protocol: TCP
+        tcp6:
+          port: 47989
+          protocol: TCP
+        udp1:
+          port: 47998
+          protocol: UDP
+        udp2:
+          port: 47999
+          protocol: UDP
+        udp3:
+          port: 48000
+          protocol: UDP
+        
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host sunshine.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: sunshine-tls-certificate
+  persistence:
+    main:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+          backup:
+            - path: /config
+          restore:
+            - path: /config
+    # nfs:
+    #   type: nfs
+    #   server: 10.0.50.3
+    #   path: /mnt/user/sunshine-backups
+    #   advancedMounts:
+    #     main:
+    #       backup:
+    #         - path: /mnt/backup
+    #       restore:
+    #         - path: /mnt/backup
+  defaultPodOptions:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: nvidia.com/gpu.present
+                  operator: In
+                  values:
+                    - "true"
+    runtimeClassName: nvidia
+    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/q6cfsdwqjymurjvchq27ei7diu"
+    operator.1password.io/item-name: "secrets"
