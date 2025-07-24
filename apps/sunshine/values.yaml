@@ -6,7 +6,7 @@ app-template:
         main:
           image:
             repository: docker.io/lizardbyte/sunshine
-            tag: latest-ubuntu-22.04
+            tag: latest-debian-bookworm
           securityContext:
             privileged: true
             allowPrivilegeEscalation: true
