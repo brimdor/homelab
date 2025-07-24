@@ -7,6 +7,7 @@ USER root
 # Install wayland-utils, python, and python-pip for Arch Linux
 RUN pacman -Syu --noconfirm \
     wayland-utils \
+    weston \
     python \
     python-pip && \
     pacman -Scc --noconfirm
