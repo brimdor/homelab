@@ -23,7 +23,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/run/user/$(id -u)"
             # HOME: "/config"
-            WAYLAND_DISPLAY: "wayland-0"
+            DISPLAY: ":0"
             XAUTHORITY: "/config/.Xauthority"
             SUNSHINE_USER: 
               valueFrom:
