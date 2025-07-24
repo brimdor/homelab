@@ -7,6 +7,9 @@ open-webui:
           - deepseek-coder:6.7b
           - deepseek-r1:8b
           - mistral:7b
+      gpu:
+        enabled: true
+        type: 'nvidia'
     runtimeClassName: nvidia
     ingress:
       enabled: true
