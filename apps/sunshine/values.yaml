@@ -2,19 +2,18 @@
 app-template:
   controllers:
     main:
-      defaultContainerOptions:
-        securityContext:
-          privileged: true
-          allowPrivilegeEscalation: true
-          capabilities:
-            add:
-              - SYS_ADMIN
-              - NET_ADMIN
       containers:
         main:
           image:
             repository: docker.io/lizardbyte/sunshine
             tag: latest-archlinux
+          securityContext:
+            privileged: true
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - NET_ADMIN
           env:
             TZ: "America/Chicago"
             PUID: "1000"
@@ -233,6 +232,7 @@ app-template:
                   values:
                     - "true"
     runtimeClassName: nvidia
+    hostNetwork: true
     securityContext:
       fsGroup: 1000
     annotations:
