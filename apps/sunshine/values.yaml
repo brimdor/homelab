@@ -189,6 +189,27 @@ app-template:
         main:
           main:
             - path: /dev/uinput
+    nvidia:
+      type: hostPath
+      hostPath: /dev/nvidia0
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidia0
+    nvidia-ctl:
+      type: hostPath
+      hostPath: /dev/nvidiactl
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidiactl
+    nvidia-modeset:
+      type: hostPath
+      hostPath: /dev/nvidia-modeset
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidia-modeset
     # nfs:
     #   type: nfs
     #   server: 10.0.50.3
