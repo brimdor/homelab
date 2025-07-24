@@ -13,22 +13,24 @@
     path: /etc/security/pam_env.conf
     line: 'XDG_RUNTIME_DIR DEFAULT=/run/user/1000'
 
-- name: Create weston systemd user service (run as 1000)
+- name: Create weston systemd user service (run as admin)
   copy:
-    dest: /etc/systemd/system/weston-headless.service
+    dest: /home/admin/.config/systemd/user/weston-headless.service
+    owner: 1000
+    group: 1000
+    mode: '0644'
     content: |
       [Unit]
       Description=Weston Wayland compositor (DRM backend)
       After=network.target
 
       [Service]
-      User=1000
       Environment=XDG_RUNTIME_DIR=/run/user/1000
       ExecStart=/usr/bin/weston --backend=drm-backend.so --idle-time=0
       Restart=always
 
       [Install]
-      WantedBy=multi-user.target
+      WantedBy=default.target
 
 - name: Ensure /run/user/1000 exists
   file:
@@ -59,8 +61,9 @@
 - name: Set permissions on all /dev/input/*
   shell: chmod 666 /dev/input/*
 
-- name: Enable and start weston-headless
-  systemd:
-    name: weston-headless
-    enabled: true
-    state: started
+- name: Enable and start weston-headless as user admin
+  become: true
+  become_user: admin
+  shell: |
+    XDG_RUNTIME_DIR=/run/user/1000 systemctl --user daemon-reload
+    XDG_RUNTIME_DIR=/run/user/1000 systemctl --user enable --now weston-headless.service
