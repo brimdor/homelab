@@ -23,9 +23,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/run/user/$(id -u)"
             # HOME: "/config"
-            DISPLAY: ":0"
-            # WAYLAND_DISPLAY: "wayland-0"
-            XAUTHORITY: "/config/.Xauthority"
+            WAYLAND_DISPLAY: "wayland-0"
             SUNSHINE_USER: 
               valueFrom:
                 secretKeyRef:
@@ -163,6 +161,13 @@ app-template:
     #         - path: /config
     #       restore:
     #         - path: /config
+    wayland-socket:
+      type: hostPath
+      hostPath: /run/user/1000/wayland-0
+      advancedMounts:
+        main:
+          main:
+            - path: /run/user/1000/wayland-0
     dev-dri:
       type: hostPath
       hostPath: /dev/dri
@@ -170,20 +175,6 @@ app-template:
         main:
           main:
             - path: /dev/dri
-    x11-socket:
-      type: hostPath
-      hostPath: /tmp/.X11-unix
-      advancedMounts:
-        main:
-          main:
-            - path: /tmp/.X11-unix
-    x11-xauthority:
-      type: hostPath
-      hostPath: /etc/xvfb.Xauthority
-      advancedMounts:
-        main:
-          main:
-            - path: /config/.Xauthority
     dev-input:
       type: hostPath
       hostPath: /dev/input

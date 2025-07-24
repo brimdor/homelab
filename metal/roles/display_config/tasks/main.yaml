@@ -1,33 +1,48 @@
+- name: Enable and start xvfb
+  systemd:
+    name: xvfb
+    enabled: true
+    state: stopped
+
 - name: Install Xvfb for headless X11
   dnf:
     name: xorg-x11-server-Xvfb
+    state: absent
+
+- name: Install weston (Wayland compositor)
+  dnf:
+    name: weston
     state: present
 
-- name: Generate Xauthority file for lizard
-  shell: |
-    export DISPLAY=:0
-    xauth generate :0 . trusted
-    cp .Xauthority /etc/xvfb.Xauthority
-  args:
-    creates: /etc/xvfb.Xauthority
+- name: Ensure pam_systemd is enabled (for /run/user/1000 management)
+  dnf:
+    name: systemd-pam
+    state: present
 
-- name: Copy Xvfb systemd unit file
+- name: Ensure 'lizard' has XDG_RUNTIME_DIR on boot
+  lineinfile:
+    path: /etc/security/pam_env.conf
+    line: 'XDG_RUNTIME_DIR DEFAULT=/run/user/1000'
+
+- name: Create weston systemd user service (run as lizard)
   copy:
-    dest: /etc/systemd/system/xvfb.service
+    dest: /etc/systemd/system/weston-headless.service
     content: |
       [Unit]
-      Description=Headless Xvfb session
+      Description=Headless Weston Wayland compositor
       After=network.target
 
       [Service]
-      ExecStart=/usr/bin/Xvfb :0 -screen 0 1280x720x24
       User=lizard
+      Environment=XDG_RUNTIME_DIR=/run/user/1000
+      ExecStart=/usr/bin/weston --backend=headless-backend.so --idle-time=0
       Restart=always
 
       [Install]
       WantedBy=multi-user.target
-- name: Enable and start xvfb
+
+- name: Enable and start weston-headless
   systemd:
-    name: xvfb
+    name: weston-headless
     enabled: true
     state: started
