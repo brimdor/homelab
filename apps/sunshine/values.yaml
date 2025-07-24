@@ -101,7 +101,7 @@ app-template:
       ports:
         http:
           port: 47990
-          protocol: TCP
+          protocol: HTTP
         tcp1:
           port: 47984
           protocol: TCP
