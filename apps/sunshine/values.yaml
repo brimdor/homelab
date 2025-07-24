@@ -9,8 +9,8 @@ app-template:
             tag: latest-archlinux
           env:
             TZ: "America/Chicago"
-            PUID: "1001"
-            PGID: "1001"
+            # PUID: "99"
+            # PGID: "100"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/tmp/.X11-unix"
@@ -175,9 +175,7 @@ app-template:
                     - "true"
     runtimeClassName: nvidia
     securityContext:
-      runAsUser: 1001
-      runAsGroup: 1001
-      fsGroup: 1001
+      fsGroup: 1000
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/blko56xpckrxxxm6cnfxyz2kpq"
       operator.1password.io/item-name: "secrets"
