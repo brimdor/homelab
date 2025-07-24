@@ -23,7 +23,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/run/user/$(id -u)"
             # HOME: "/config"
-            WAYLAND_DISPLAY: "wayland-0"
+            WAYLAND_DISPLAY: "wayland-1"
             SUNSHINE_USER: 
               valueFrom:
                 secretKeyRef:
@@ -163,11 +163,11 @@ app-template:
     #         - path: /config
     wayland-socket:
       type: hostPath
-      hostPath: /run/user/1000/wayland-0
+      hostPath: /run/user/1000/wayland-1
       advancedMounts:
         main:
           main:
-            - path: /run/user/1000/wayland-0
+            - path: /run/user/1000/wayland-1
     dev-dri:
       type: hostPath
       hostPath: /dev/dri
