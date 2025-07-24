@@ -13,6 +13,14 @@
     path: /etc/security/pam_env.conf
     line: 'XDG_RUNTIME_DIR DEFAULT=/run/user/1000'
 
+- name: Ensure systemd user service directory exists for admin
+  file:
+    path: /home/admin/.config/systemd/user
+    state: directory
+    owner: 1000
+    group: 1000
+    mode: '0700'
+
 - name: Create weston systemd user service (run as admin)
   copy:
     dest: /home/admin/.config/systemd/user/weston-headless.service
