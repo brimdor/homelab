@@ -24,6 +24,7 @@ app-template:
             XDG_RUNTIME_DIR: "/run/user/$(id -u)"
             # HOME: "/config"
             DISPLAY: ":0"
+            WAYLAND_DISPLAY: ":0"
             XAUTHORITY: "/config/.Xauthority"
             SUNSHINE_USER: 
               valueFrom:
