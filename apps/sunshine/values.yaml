@@ -177,6 +177,13 @@ app-template:
         main:
           main:
             - path: /tmp/.X11-unix
+    x11-xauthority:
+      type: hostPath
+      hostPath: /etc/xvfb.Xauthority
+      advancedMounts:
+        main:
+          main:
+            - path: /config/.Xauthority
     dev-input:
       type: hostPath
       hostPath: /dev/input
