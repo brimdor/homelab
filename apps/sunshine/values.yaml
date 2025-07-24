@@ -9,8 +9,8 @@ app-template:
             tag: latest-archlinux
           env:
             TZ: "America/Chicago"
-            # PUID: "99"
-            # PGID: "100"
+            PUID: "1000"
+            PGID: "1000"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/tmp/.X11-unix"
@@ -182,6 +182,27 @@ app-template:
         main:
           main:
             - path: /dev/uinput
+    nvidia:
+      type: hostPath
+      hostPath: /dev/nvidia0
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidia0
+    nvidia-ctl:
+      type: hostPath
+      hostPath: /dev/nvidiactl
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidiactl
+    nvidia-modeset:
+      type: hostPath
+      hostPath: /dev/nvidia-modeset
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidia-modeset
     # nfs:
     #   type: nfs
     #   server: 10.0.50.3
@@ -206,6 +227,12 @@ app-template:
     runtimeClassName: nvidia
     securityContext:
       fsGroup: 1000
+      privileged: true  # Required for full device access
+      capabilities:
+        add:
+          - SYS_ADMIN
+          - NET_ADMIN
+      allowPrivilegeEscalation: true
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/blko56xpckrxxxm6cnfxyz2kpq"
       operator.1password.io/item-name: "secrets"
