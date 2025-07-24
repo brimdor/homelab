@@ -149,7 +149,7 @@ app-template:
             - *Host
           secretName: sunshine-tls-certificate
 
-  # persistence:
+  persistence:
     # main:
     #   accessMode: ReadWriteOnce
     #   size: 20Gi
@@ -161,65 +161,65 @@ app-template:
     #         - path: /config
     #       restore:
     #         - path: /config
-    # dev-dri:
-    #   type: hostPath
-    #   hostPath: /dev/dri
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /dev/dri
-    # x11-socket:
-    #   type: hostPath
-    #   hostPath: /tmp/.X11-unix
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /tmp/.X11-unix
-    # dev-input:
-    #   type: hostPath
-    #   hostPath: /dev/input
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /dev/input
-    # dev-uinput:
-    #   type: hostPath
-    #   hostPath: /dev/uinput
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /dev/uinput
-    # nvidia:
-    #   type: hostPath
-    #   hostPath: /dev/nvidia0
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /dev/nvidia0
-    # nvidia-ctl:
-    #   type: hostPath
-    #   hostPath: /dev/nvidiactl
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /dev/nvidiactl
-    # nvidia-modeset:
-    #   type: hostPath
-    #   hostPath: /dev/nvidia-modeset
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /dev/nvidia-modeset
-    # nfs:
-    #   type: nfs
-    #   server: 10.0.50.3
-    #   path: /mnt/user/sunshine-backups
-    #   advancedMounts:
-    #     main:
-    #       backup:
-    #         - path: /mnt/backup
-    #       restore:
-    #         - path: /mnt/backup
+    dev-dri:
+      type: hostPath
+      hostPath: /dev/dri
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/dri
+    x11-socket:
+      type: hostPath
+      hostPath: /tmp/.X11-unix
+      advancedMounts:
+        main:
+          main:
+            - path: /tmp/.X11-unix
+    dev-input:
+      type: hostPath
+      hostPath: /dev/input
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/input
+    dev-uinput:
+      type: hostPath
+      hostPath: /dev/uinput
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/uinput
+    nvidia:
+      type: hostPath
+      hostPath: /dev/nvidia0
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidia0
+    nvidia-ctl:
+      type: hostPath
+      hostPath: /dev/nvidiactl
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidiactl
+    nvidia-modeset:
+      type: hostPath
+      hostPath: /dev/nvidia-modeset
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/nvidia-modeset
+    nfs:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/sunshine-backups
+      advancedMounts:
+        main:
+          backup:
+            - path: /mnt/backup
+          restore:
+            - path: /mnt/backup
 
   defaultPodOptions:
     affinity:
