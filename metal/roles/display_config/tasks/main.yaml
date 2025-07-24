@@ -22,7 +22,7 @@
       After=network.target
 
       [Service]
-      User=admin
+      User=1000
       Environment=XDG_RUNTIME_DIR=/run/user/1000
       ExecStart=/usr/bin/weston --backend=headless-backend.so --idle-time=0
       Restart=always
