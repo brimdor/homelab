@@ -69,7 +69,14 @@
 - name: Set permissions on all /dev/input/*
   shell: chmod 666 /dev/input/*
 
+- name: Enable lingering for admin user (allow user systemd instance without login)
+  command: loginctl enable-linger admin
+
+- name: Start user systemd instance for admin (user@1000.service)
+  command: systemctl start user@1000.service
+
 - name: Enable and start weston-headless as user admin
+  become_user: admin
   shell: |
     XDG_RUNTIME_DIR=/run/user/1000 systemctl --user daemon-reload
     XDG_RUNTIME_DIR=/run/user/1000 systemctl --user enable --now weston-headless.service
