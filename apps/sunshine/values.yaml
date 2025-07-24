@@ -16,12 +16,12 @@ app-template:
                 - NET_ADMIN
           env:
             TZ: "America/Chicago"
-            PUID: "1000"
-            PGID: "1000"
+            PUID: "1001"
+            PGID: "1001"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/tmp/.X11-unix"
-            HOME: "/config"
+            # HOME: "/config"
             DISPLAY: ":0"
             XAUTHORITY: "/config/.Xauthority"
             SUNSHINE_USER: 
