@@ -3,6 +3,14 @@
     name: xorg-x11-server-Xvfb
     state: present
 
+- name: Generate Xauthority file for lizard
+  shell: |
+    export DISPLAY=:0
+    xauth generate :0 . trusted
+    cp .Xauthority /etc/xvfb.Xauthority
+  args:
+    creates: /etc/xvfb.Xauthority
+
 - name: Copy Xvfb systemd unit file
   copy:
     dest: /etc/systemd/system/xvfb.service
