@@ -6,7 +6,7 @@ app-template:
         main:
           image:
             repository: docker.io/lizardbyte/sunshine
-            tag: latest-ubuntu-24.04
+            tag: latest-ubuntu-22.04
           securityContext:
             privileged: true
             allowPrivilegeEscalation: true
