@@ -4,9 +4,14 @@ open-webui:
     ollama:
       models:
         pull:
-          - deepseek-coder:6.7b
-          - deepseek-r1:8b
+          - deepseek-coder-v2:16b
+          - deepseek-r1:14b
           - mistral:7b
+          - mixtral:8x7b
+          - llama3:8b
+          - starcoder2:15b
+          - gemma3:12b-it-qat
+          - gemma3:27b-it-qat
     runtimeClassName: nvidia
     ingress:
       enabled: true
