@@ -30,6 +30,22 @@
       [Install]
       WantedBy=multi-user.target
 
+- name: Ensure /run/user/1000 exists
+  file:
+    path: /run/user/1000
+    state: directory
+    owner: 1000
+    group: 1000
+    mode: '0700'
+
+- name: Set correct ownership and permissions on /run/user/1000
+  file:
+    path: /run/user/1000
+    owner: 1000
+    group: 1000
+    mode: '0700'
+    recurse: no
+
 - name: Enable and start weston-headless
   systemd:
     name: weston-headless
