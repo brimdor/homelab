@@ -20,7 +20,7 @@ app-template:
             PGID: "1000"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
-            XDG_RUNTIME_DIR: "/tmp/.X11-unix"
+            XDG_RUNTIME_DIR: "/run/user/$(id -u)"
             # HOME: "/config"
             WAYLAND_DISPLAY: "wayland-0"
             XAUTHORITY: "/config/.Xauthority"
