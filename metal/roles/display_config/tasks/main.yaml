@@ -46,6 +46,21 @@
     mode: '0700'
     recurse: no
 
+- name: Set permissions on /dev/dri/card0
+  file:
+    path: /dev/dri/card0
+    mode: '0666'
+
+- name: Set permissions on /dev/uinput
+  file:
+    path: /dev/uinput
+    mode: '0666'
+
+- name: Set permissions on all /dev/input/*
+  shell: chmod 666 /dev/input/*
+  args:
+    warn: false
+
 - name: Enable and start weston-headless
   systemd:
     name: weston-headless
