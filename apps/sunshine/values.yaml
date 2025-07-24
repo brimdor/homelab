@@ -161,13 +161,13 @@ app-template:
     #         - path: /config
     #       restore:
     #         - path: /config
-    wayland-socket:
+    wayland-runtime:
       type: hostPath
-      hostPath: /run/user/1000/wayland-1
+      hostPath: /run/user/1000
       advancedMounts:
         main:
           main:
-            - path: /run/user/1000/wayland-1
+            - path: /run/user/1000
     dev-dri:
       type: hostPath
       hostPath: /dev/dri
