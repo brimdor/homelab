@@ -173,6 +173,7 @@ app-template:
 
   defaultPodOptions:
     hostname: steam-headless
+    hostIPC: true
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
