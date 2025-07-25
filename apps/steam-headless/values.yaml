@@ -161,6 +161,7 @@ app-template:
     #         - path: /run/dbus
 
   defaultPodOptions:
+    hostname: steam-headless
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
