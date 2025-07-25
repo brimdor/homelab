@@ -105,13 +105,13 @@ app-template:
           secretName: steam-tls-certificate
 
   persistence:
-    # data:
-    #   accessMode: ReadWriteOnce
-    #   size: 20Gi
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /home/default
+    data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/default/.steam
           # backup:
           #   - path: /opt/container-data/steam-headless/home
           # restore:
