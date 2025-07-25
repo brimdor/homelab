@@ -20,7 +20,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             USER_LOCALES: "en_US.UTF-8"
-            DISPLAY: ":55"
+            DISPLAY: ":0"
             PUID: "1000"
             PGID: "1000"
             UMASK: "000"
@@ -29,7 +29,8 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "user-password"
-            MODE: "primary"
+            MODE: "secondary"
+            HOST_DBUS: "true"
             WEB_UI_MODE: "vnc"
             ENABLE_VNC_AUDIO: "true"
             PORT_NOVNC_WEB: "8083"
@@ -53,7 +54,7 @@ app-template:
             NVIDIA_VISIBLE_DEVICES: "all"
           resources: {}
           volumeMounts:
-            - name: home-dir
+            - name: data
               mountPath: /home/default
             - name: games-dir
               mountPath: /mnt/games
@@ -65,6 +66,8 @@ app-template:
               mountPath: /dev/fuse
             - name: dev-uinput
               mountPath: /dev/uinput
+            - name: dbus-socket
+              mountPath: /run/dbus
           ulimits:
             nofile:
               soft: 1024
@@ -109,7 +112,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /home/default/.steam
+            - path: /home/default
           # backup:
           #   - path: /opt/container-data/steam-headless/home
           # restore:
@@ -149,6 +152,13 @@ app-template:
         main:
           main:
             - path: /dev/uinput
+    dbus-socket:
+      type: hostPath
+      hostPath: /run/dbus
+      advancedMounts:
+        main:
+          main:
+            - path: /run/dbus
 
   defaultPodOptions:
     affinity:
