@@ -1,3 +1,4 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
   controllers:
     main:
@@ -9,14 +10,15 @@ app-template:
             pullPolicy: Always
           securityContext:
             privileged: true
-            allowPrivilegeEscalation: true
-            capabilities:
-              add:
-                - NET_ADMIN
-                - SYS_ADMIN
-                - SYS_NICE
-            seccompProfile:
-              type: Unconfined
+            # allowPrivilegeEscalation: true
+            # capabilities:
+            #   add:
+            #     - NET_ADMIN
+            #     - SYS_ADMIN
+            #     - SYS_NICE
+            # seccompProfile:
+            #   type: Unconfined
+          networkMode: host
           probes:
             liveness:
               enabled: false
@@ -61,6 +63,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_VISIBLE_DEVICES: "all"
           resources: {}
+          shmSize: 2Gi
           volumeMounts:
             - name: data
               mountPath: /home/default
@@ -72,8 +75,8 @@ app-template:
               mountPath: /tmp/pulse
             - name: dev-fuse
               mountPath: /dev/fuse
-            - name: dev-uinput
-              mountPath: /dev/uinput
+            - name: dev-input
+              mountPath: /dev/input
             - name: dbus-socket
               mountPath: /run/dbus
           ulimits:
@@ -155,11 +158,11 @@ app-template:
             - path: /dev/fuse
     dev-uinput:
       type: hostPath
-      hostPath: /dev/uinput
+      hostPath: /dev/input
       advancedMounts:
         main:
           main:
-            - path: /dev/uinput
+            - path: /dev/input
     dbus-socket:
       type: hostPath
       hostPath: /run/dbus
