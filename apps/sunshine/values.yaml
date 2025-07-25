@@ -139,7 +139,7 @@ app-template:
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: &Host sunshine-test.eaglepass.io
+        - host: &Host sunshine.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -149,7 +149,7 @@ app-template:
       tls:
         - hosts:
             - *Host
-          secretName: sunshine-test-tls-certificate
+          secretName: sunshine-tls-certificate
 
   persistence:
     # main:
