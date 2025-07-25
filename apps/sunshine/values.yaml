@@ -100,7 +100,7 @@ app-template:
       ports:
         http:
           port: 47990
-          protocol: HTTP
+          protocol: HTTPS
         tcp1:
           port: 47984
           protocol: HTTP
@@ -137,6 +137,7 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
       hosts:
         - host: &Host sunshine.eaglepass.io
           paths:
