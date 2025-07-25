@@ -30,7 +30,7 @@ app-template:
                   name: "secrets"
                   key: "user-password"
             MODE: "secondary"
-            HOST_DBUS: "true"
+            # HOST_DBUS: "true"
             WEB_UI_MODE: "vnc"
             ENABLE_VNC_AUDIO: "true"
             PORT_NOVNC_WEB: "8083"
