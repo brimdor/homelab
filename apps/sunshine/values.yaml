@@ -235,8 +235,8 @@ app-template:
                     - "true"
     runtimeClassName: nvidia
     # hostNetwork: true
-    hostPID: true
-    hostIPC: true
+    # hostPID: true
+    # hostIPC: true
     securityContext:
       fsGroup: 1000
     annotations:
