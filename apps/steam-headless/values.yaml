@@ -17,8 +17,6 @@ app-template:
                 - SYS_NICE
             seccompProfile:
               type: Unconfined
-            runAsUser: 1000
-            runAsGroup: 1000
           env:
             TZ: "America/Chicago"
             USER_LOCALES: "en_US.UTF-8"
