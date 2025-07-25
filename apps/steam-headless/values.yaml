@@ -11,13 +11,14 @@ app-template:
           defaultContainerOptions:
             securityContext:
               privileged: true
-              # allowPrivilegeEscalation: true
-              # capabilities:
-              #   add:
-              #     - NET_ADMIN
-              #     - SYS_ADMIN
-              #     - SYS_NICE
-              # seccompProfile:
+              allowPrivilegeEscalation: true
+              capabilities:
+                add:
+                  - NET_ADMIN
+                  - SYS_ADMIN
+                  - SYS_NICE
+              seccompProfile:
+                type: Unconfined
               resources:
                 limits:
                   cpu: 2000m
