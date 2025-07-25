@@ -29,7 +29,7 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "user-password"
-            MODE: "secondary"
+            MODE: "primary"
             # HOST_DBUS: "true"
             WEB_UI_MODE: "vnc"
             ENABLE_VNC_AUDIO: "false"
