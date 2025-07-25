@@ -1,98 +1,114 @@
-- name: Install weston (Wayland compositor)
-  dnf:
-    name: weston
-    state: present
+- name: Stop and disable weston-headless user service if exists
+  become: true
+  shell: |
+    su -l admin -c 'systemctl --user stop weston-headless.service || true'
+    su -l admin -c 'systemctl --user disable weston-headless.service || true'
+  ignore_errors: true
 
-- name: Ensure pam_systemd is enabled (for /run/user/1000 management)
-  dnf:
-    name: systemd-pam
-    state: present
-
-- name: Ensure '1000' has XDG_RUNTIME_DIR on boot
-  lineinfile:
-    path: /etc/security/pam_env.conf
-    line: 'XDG_RUNTIME_DIR DEFAULT=/run/user/1000'
-
-- name: Ensure systemd user service directory exists for admin
+- name: Remove weston-headless user service file if exists
   file:
-    path: /home/admin/.config/systemd/user
-    state: directory
-    owner: 1000
-    group: 1000
-    mode: '0700'
+    path: /home/admin/.config/systemd/user/weston-headless.service
+    state: absent
 
-- name: Create weston systemd user service (run as admin)
+- name: Stop and disable seatd service if exists
+  systemd:
+    name: seatd
+    enabled: false
+    state: stopped
+  ignore_errors: true
+
+- name: Remove seat group from admin if exists
+  user:
+    name: admin
+    groups: seat
+    append: no
+    state: present
+  ignore_errors: true
+
+- name: Remove weston and seatd packages if installed
+  package:
+    name:
+      - weston
+      - seatd
+    state: absent
+
+- name: Install Xorg dummy driver and utilities
+  package:
+    name:
+      - xorg-x11-server-Xorg
+      - xorg-x11-drv-dummy
+      - xorg-x11-xinit
+      - xorg-x11-server-utils
+    state: present
+
+- name: Create Xorg dummy config for headless operation
   copy:
-    dest: /home/admin/.config/systemd/user/weston-headless.service
-    owner: 1000
-    group: 1000
+    dest: /etc/X11/xorg.conf.d/10-dummy.conf
+    owner: root
+    group: root
     mode: '0644'
     content: |
-      [Unit]
-      Description=Weston Wayland compositor (DRM backend)
-      After=network.target
+      Section "Monitor"
+          Identifier "Monitor0"
+          HorizSync 28.0-80.0
+          VertRefresh 48.0-75.0
+          # 1920x1080 @ 60Hz
+          Modeline "1920x1080_60.00"  172.80  1920 2040 2248 2576  1080 1083 1088 1120 -hsync +vsync
+          Option "DPMS" "false"
+      EndSection
 
-      [Service]
-      Environment=XDG_RUNTIME_DIR=/run/user/1000
-      ExecStart=/usr/bin/weston --backend=drm-backend.so --idle-time=0
-      Restart=always
+      Section "Device"
+          Identifier "Device0"
+          Driver "dummy"
+          VideoRam 256000
+      EndSection
 
-      [Install]
-      WantedBy=default.target
+      Section "Screen"
+          Identifier "Screen0"
+          Device "Device0"
+          Monitor "Monitor0"
+          DefaultDepth 24
+          SubSection "Display"
+              Depth 24
+              Modes "1920x1080_60.00"
+          EndSubSection
+      EndSection
 
-- name: Ensure /run/user/1000 exists
+      Section "ServerLayout"
+          Identifier "Layout0"
+          Screen 0 "Screen0"
+      EndSection
+
+- name: Ensure /tmp/.X11-unix exists and is writable
   file:
-    path: /run/user/1000
+    path: /tmp/.X11-unix
     state: directory
-    owner: 1000
-    group: 1000
-    mode: '0700'
+    owner: root
+    group: root
+    mode: '1777'
 
-- name: Set correct ownership and permissions on /run/user/1000
-  file:
-    path: /run/user/1000
-    owner: 1000
-    group: 1000
-    mode: '0700'
-    recurse: no
-
-- name: Set permissions on /dev/dri/card0
+- name: Set permissions on /dev/dri/card0 (if present)
   file:
     path: /dev/dri/card0
     mode: '0666'
+  ignore_errors: true
 
-- name: Set permissions on /dev/uinput
+- name: Set permissions on /dev/uinput (if present)
   file:
     path: /dev/uinput
     mode: '0666'
+  ignore_errors: true
 
-- name: Set permissions on all /dev/input/*
-  shell: chmod 666 /dev/input/*
+- name: Set permissions on all /dev/input/* (if present)
+  shell: chmod 666 /dev/input/* || true
+  ignore_errors: true
 
 - name: Enable lingering for admin user (allow user systemd instance without login)
   command: loginctl enable-linger admin
 
-- name: Start user systemd instance for admin (user@1000.service)
-  command: systemctl start user@1000.service
-
-- name: Enable and start weston-headless as user admin
+- name: Start Xorg headless session as admin (optional)
   shell: |
-    su -l admin -c 'XDG_RUNTIME_DIR=/run/user/1000 systemctl --user daemon-reload'
-    su -l admin -c 'XDG_RUNTIME_DIR=/run/user/1000 systemctl --user enable --now weston-headless.service'
-
-- name: Install seatd (Wayland seat management daemon)
-  dnf:
-    name: seatd
-    state: present
-
-- name: Enable and start seatd service
-  systemd:
-    name: seatd
-    enabled: true
-    state: started
-
-- name: Add admin to seat group for seatd access
-  user:
-    name: admin
-    groups: seat
-    append: yes
+    su -l admin -c 'Xorg :0 -config /etc/X11/xorg.conf.d/10-dummy.conf &'
+  args:
+    executable: /bin/bash
+  ignore_errors: true
