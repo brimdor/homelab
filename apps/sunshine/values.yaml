@@ -104,22 +104,22 @@ app-template:
           protocol: HTTP
         tcp1:
           port: 47984
-          protocol: TCP
+          protocol: HTTP
         tcp2:
           port: 47985
-          protocol: TCP
+          protocol: HTTP
         tcp3:
           port: 47986
-          protocol: TCP
+          protocol: HTTP
         tcp4:
           port: 47987
-          protocol: TCP
+          protocol: HTTP
         tcp5:
           port: 47988
-          protocol: TCP
+          protocol: HTTP
         tcp6:
           port: 47989
-          protocol: TCP
+          protocol: HTTP
         udp1:
           port: 47998
           protocol: UDP
