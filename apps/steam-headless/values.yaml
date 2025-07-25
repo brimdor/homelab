@@ -36,7 +36,7 @@ app-template:
             NEKO_NAT1TO1: ""
             ENABLE_STEAM: "true"
             STEAM_ARGS: "-silent"
-            ENABLE_SUNSHINE: "true"
+            ENABLE_SUNSHINE: "false"
             SUNSHINE_USER:
               valueFrom:
                 secretKeyRef:
@@ -107,18 +107,18 @@ app-template:
   persistence:
     data:
       accessMode: ReadWriteOnce
-      size: 15Gi
+      size: 20Gi
       advancedMounts:
         main:
           main:
-            - path: /home/steam-headless
+            - path: /home/default
           # backup:
           #   - path: /opt/container-data/steam-headless/home
           # restore:
           #   - path: /opt/container-data/steam-headless/home
     games-dir:
       accessMode: ReadWriteOnce
-      size: 50Gi
+      size: 100Gi
       advancedMounts:
         main:
           main:
