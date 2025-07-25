@@ -17,6 +17,8 @@ app-template:
                 - SYS_NICE
             seccompProfile:
               type: Unconfined
+            apparmorProfile:
+              type: unconfined
           env:
             TZ: "America/Chicago"
             USER_LOCALES: "en_US.UTF-8"
@@ -163,8 +165,8 @@ app-template:
                   values:
                     - "true"
     runtimeClassName: nvidia
-    securityContext:
-      fsGroup: 1000
+    # securityContext:
+    #   fsGroup: 1000
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/blko56xpckrxxxm6cnfxyz2kpq"
       operator.1password.io/item-name: "secrets"
