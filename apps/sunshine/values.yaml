@@ -234,7 +234,7 @@ app-template:
                   values:
                     - "true"
     runtimeClassName: nvidia
-    hostNetwork: true
+    # hostNetwork: true
     hostPID: true
     hostIPC: true
     securityContext:

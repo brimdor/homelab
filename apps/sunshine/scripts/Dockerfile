@@ -16,4 +16,6 @@ RUN pacman -Syu --noconfirm \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+EXPOSE 47990
+
 ENTRYPOINT ["/entrypoint.sh"]
