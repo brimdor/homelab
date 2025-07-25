@@ -111,14 +111,14 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /opt/container-data/steam-headless/home
-          backup:
-            - path: /opt/container-data/steam-headless/home
-          restore:
-            - path: /opt/container-data/steam-headless/home
+            - path: /home/steam-headless
+          # backup:
+          #   - path: /opt/container-data/steam-headless/home
+          # restore:
+          #   - path: /opt/container-data/steam-headless/home
     games-dir:
       accessMode: ReadWriteOnce
-      size: 100Gi
+      size: 50Gi
       advancedMounts:
         main:
           main:
