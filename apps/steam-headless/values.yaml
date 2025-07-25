@@ -1,0 +1,170 @@
+app-template:
+  controllers:
+    steam-headless:
+      containers:
+        main:
+          image:
+            repository: josh5/steam-headless
+            tag: latest
+            pullPolicy: Always
+          securityContext:
+            privileged: true
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_ADMIN
+                - SYS_NICE
+            seccompProfile:
+              type: Unconfined
+            apparmorProfile: unconfined
+            runAsUser: 1000
+            runAsGroup: 1000
+          env:
+            TZ: "America/Chicago"
+            USER_LOCALES: "en_US.UTF-8"
+            DISPLAY: ":55"
+            PUID: "1000"
+            PGID: "1000"
+            UMASK: "000"
+            USER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "user-password"
+            MODE: "primary"
+            WEB_UI_MODE: "vnc"
+            ENABLE_VNC_AUDIO: "true"
+            PORT_NOVNC_WEB: "8083"
+            NEKO_NAT1TO1: ""
+            ENABLE_STEAM: "true"
+            STEAM_ARGS: "-silent"
+            ENABLE_SUNSHINE: "true"
+            SUNSHINE_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "sunshine-user"
+            SUNSHINE_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "sunshine-pass"
+            ENABLE_EVDEV_INPUTS: "true"
+            FORCE_X11_DUMMY_CONFIG: "false"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            NVIDIA_VISIBLE_DEVICES: "all"
+          resources: {}
+          volumeMounts:
+            - name: home-dir
+              mountPath: /home/default
+            - name: games-dir
+              mountPath: /mnt/games
+            - name: x11-unix
+              mountPath: /tmp/.X11-unix
+            - name: pulse
+              mountPath: /tmp/pulse
+            - name: dev-fuse
+              mountPath: /dev/fuse
+            - name: dev-uinput
+              mountPath: /dev/uinput
+          ulimits:
+            nofile:
+              soft: 1024
+              hard: 524288
+      hostNetwork: true
+      hostIPC: true
+      hostname: "SteamHeadless"
+      extraHosts:
+        - "SteamHeadless:127.0.0.1"
+      deviceCgroupRules:
+        - "c 13:* rmw"
+
+  service:
+    main:
+      ports:
+        http:
+          port: 8083
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host steam.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: steam-tls-certificate
+
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 15Gi
+      advancedMounts:
+        steam-headless:
+          main:
+            - path: /opt/container-data/steam-headless/home
+          backup:
+            - path: /opt/container-data/steam-headless/home
+          restore:
+            - path: /opt/container-data/steam-headless/home
+    games-dir:
+      accessMode: ReadWriteOnce
+      size: 200Gi
+      advancedMounts:
+        steam-headless:
+          main:
+            - path: /mnt/games
+    x11-unix:
+      type: hostPath
+      hostPath: /opt/container-data/steam-headless/sockets/.X11-unix
+      advancedMounts:
+        steam-headless:
+          main:
+            - path: /tmp/.X11-unix
+    pulse:
+      type: hostPath
+      hostPath: /opt/container-data/steam-headless/sockets/pulse
+      advancedMounts:
+        steam-headless:
+          main:
+            - path: /tmp/pulse
+    dev-fuse:
+      type: hostPath
+      hostPath: /dev/fuse
+      advancedMounts:
+        steam-headless:
+          main:
+            - path: /dev/fuse
+    dev-uinput:
+      type: hostPath
+      hostPath: /dev/uinput
+      advancedMounts:
+        steam-headless:
+          main:
+            - path: /dev/uinput
+
+  defaultPodOptions:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: nvidia.com/gpu.present
+                  operator: In
+                  values:
+                    - "true"
+    runtimeClassName: nvidia
+    securityContext:
+      fsGroup: 1000
