@@ -17,6 +17,13 @@ app-template:
                 - SYS_NICE
             seccompProfile:
               type: Unconfined
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
           env:
             TZ: "America/Chicago"
             USER_LOCALES: "en_US.UTF-8"
