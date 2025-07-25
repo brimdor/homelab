@@ -8,7 +8,6 @@ app-template:
             repository: josh5/steam-headless
             tag: latest
             pullPolicy: Always
-          defaultContainerOptions:
             securityContext:
               privileged: true
               allowPrivilegeEscalation: true
@@ -19,13 +18,13 @@ app-template:
                   - SYS_NICE
               seccompProfile:
                 type: Unconfined
-              resources:
-                limits:
-                  cpu: 2000m
-                  memory: 12Gi
-                requests:
-                  cpu: 2000m
-                  memory: 12Gi
+            resources:
+              limits:
+                cpu: 2000m
+                memory: 12Gi
+              requests:
+                cpu: 2000m
+                memory: 12Gi
           networkMode: host
           probes:
             liveness:
