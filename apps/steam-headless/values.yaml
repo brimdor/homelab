@@ -118,7 +118,7 @@ app-template:
             - path: /opt/container-data/steam-headless/home
     games-dir:
       accessMode: ReadWriteOnce
-      size: 200Gi
+      size: 100Gi
       advancedMounts:
         main:
           main:
