@@ -24,7 +24,6 @@ app-template:
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             XDG_RUNTIME_DIR: "/run/user/1000"
-            # HOME: "/config"
             WAYLAND_DISPLAY: "wayland-1"
             SUNSHINE_USER: 
               valueFrom:
@@ -101,7 +100,7 @@ app-template:
       ports:
         http:
           port: 47990
-          protocol: HTTP
+          protocol: HTTPS
         tcp1:
           port: 47984
           protocol: HTTP
