@@ -66,8 +66,8 @@ app-template:
               mountPath: /dev/fuse
             - name: dev-uinput
               mountPath: /dev/uinput
-            - name: dbus-socket
-              mountPath: /run/dbus
+            # - name: dbus-socket
+            #   mountPath: /run/dbus
           ulimits:
             nofile:
               soft: 1024
@@ -152,13 +152,13 @@ app-template:
         main:
           main:
             - path: /dev/uinput
-    dbus-socket:
-      type: hostPath
-      hostPath: /run/dbus
-      advancedMounts:
-        main:
-          main:
-            - path: /run/dbus
+    # dbus-socket:
+    #   type: hostPath
+    #   hostPath: /run/dbus
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /run/dbus
 
   defaultPodOptions:
     affinity:
