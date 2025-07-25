@@ -1,6 +1,6 @@
 app-template:
   controllers:
-    steam-headless:
+    main:
       containers:
         main:
           image:
@@ -112,7 +112,7 @@ app-template:
       accessMode: ReadWriteOnce
       size: 15Gi
       advancedMounts:
-        steam-headless:
+        main:
           main:
             - path: /opt/container-data/steam-headless/home
           backup:
@@ -123,35 +123,35 @@ app-template:
       accessMode: ReadWriteOnce
       size: 200Gi
       advancedMounts:
-        steam-headless:
+        main:
           main:
             - path: /mnt/games
     x11-unix:
       type: hostPath
       hostPath: /opt/container-data/steam-headless/sockets/.X11-unix
       advancedMounts:
-        steam-headless:
+        main:
           main:
             - path: /tmp/.X11-unix
     pulse:
       type: hostPath
       hostPath: /opt/container-data/steam-headless/sockets/pulse
       advancedMounts:
-        steam-headless:
+        main:
           main:
             - path: /tmp/pulse
     dev-fuse:
       type: hostPath
       hostPath: /dev/fuse
       advancedMounts:
-        steam-headless:
+        main:
           main:
             - path: /dev/fuse
     dev-uinput:
       type: hostPath
       hostPath: /dev/uinput
       advancedMounts:
-        steam-headless:
+        main:
           main:
             - path: /dev/uinput
 
