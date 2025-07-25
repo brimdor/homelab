@@ -70,7 +70,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_VISIBLE_DEVICES: "all"
           resources: {}
-          shmSize: 2Gi
+          shmSize: 4Gi
           volumeMounts:
             - name: data
               mountPath: /home/default
@@ -137,7 +137,7 @@ app-template:
           #   - path: /opt/container-data/steam-headless/home
     games-dir:
       accessMode: ReadWriteOnce
-      size: 100Gi
+      size: 150Gi
       advancedMounts:
         main:
           main:
