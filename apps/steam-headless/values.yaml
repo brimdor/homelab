@@ -17,7 +17,6 @@ app-template:
                 - SYS_NICE
             seccompProfile:
               type: Unconfined
-            apparmorProfile: unconfined
             runAsUser: 1000
             runAsGroup: 1000
           env:
