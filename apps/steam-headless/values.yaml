@@ -52,7 +52,7 @@ app-template:
             PORT_NOVNC_WEB: "8083"
             NEKO_NAT1TO1: ""
             ENABLE_STEAM: "true"
-            # STEAM_ARGS: "-silent"
+            STEAM_ARGS: "-silent"
             STEAM_ARGS: ""
             ENABLE_SUNSHINE: "false"
             SUNSHINE_USER:
