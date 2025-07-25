@@ -37,6 +37,7 @@ app-template:
             NEKO_NAT1TO1: ""
             ENABLE_STEAM: "true"
             # STEAM_ARGS: "-silent"
+            STEAM_ARGS: ""
             ENABLE_SUNSHINE: "false"
             SUNSHINE_USER:
               valueFrom:
