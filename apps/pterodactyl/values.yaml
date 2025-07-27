@@ -103,6 +103,7 @@ app-template:
     main:
       enabled: false
     nginx:
+      controller: nginx
       ports:
         http:
           port: 5080
