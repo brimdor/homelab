@@ -15,9 +15,9 @@ providers:
     apiKey: ""
   ollama:
     provider: Ollama
-    model: "mistral:7b"
+    model: "llama3.2"
     config:
-      host: ollama.eaglepass.io
+      host: host.docker.internal:11434
   anthropic:
     provider: Anthropic
     model: "claude-3-sonnet-20240229"
