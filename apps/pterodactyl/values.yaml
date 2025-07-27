@@ -109,6 +109,8 @@ app-template:
           port: 5080
           protocol: HTTP
   ingress:
+    main:
+      enabled: false
     nginx:
       enabled: true
       className: nginx
