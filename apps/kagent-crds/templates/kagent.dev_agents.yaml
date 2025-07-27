@@ -1,0 +1,245 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.1
+  name: agents.kagent.dev
+spec:
+  group: kagent.dev
+  names:
+    kind: Agent
+    listKind: AgentList
+    plural: agents
+    singular: agent
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Whether or not the agent has been accepted by the system.
+      jsonPath: .status.conditions[0].status
+      name: Accepted
+      type: string
+    - description: The ModelConfig resource referenced by this agent.
+      jsonPath: .spec.modelConfig
+      name: ModelConfig
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Agent is the Schema for the agents API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AgentSpec defines the desired state of Agent.
+            properties:
+              a2aConfig:
+                description: |-
+                  A2AConfig instantiates an A2A server for this agent,
+                  served on the HTTP port of the kagent kubernetes
+                  controller (default 8083).
+                  The A2A server URL will be served at
+                  <kagent-controller-ip>:8083/api/a2a/<agent-namespace>/<agent-name>
+                  Read more about the A2A protocol here: https://github.com/google/A2A
+                properties:
+                  skills:
+                    items:
+                      description: AgentSkill describes a specific capability or function
+                        of the agent.
+                      properties:
+                        description:
+                          description: Description is an optional detailed description
+                            of the skill.
+                          type: string
+                        examples:
+                          description: Examples are optional usage examples.
+                          items:
+                            type: string
+                          type: array
+                        id:
+                          description: ID is the unique identifier for the skill.
+                          type: string
+                        inputModes:
+                          description: InputModes are the supported input data modes/types.
+                          items:
+                            type: string
+                          type: array
+                        name:
+                          description: Name is the human-readable name of the skill.
+                          type: string
+                        outputModes:
+                          description: OutputModes are the supported output data modes/types.
+                          items:
+                            type: string
+                          type: array
+                        tags:
+                          description: Tags are optional tags for categorization.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - id
+                      - name
+                      - tags
+                      type: object
+                    minItems: 1
+                    type: array
+                type: object
+              description:
+                type: string
+              memory:
+                description: Can either be a reference to the name of a Memory in
+                  the same namespace as the referencing Agent, or a reference to the
+                  name of a Memory in a different namespace in the form <namespace>/<name>
+                items:
+                  type: string
+                type: array
+              modelConfig:
+                description: Can either be a reference to the name of a ModelConfig
+                  in the same namespace as the referencing Agent, or a reference to
+                  the name of a ModelConfig in a different namespace in the form <namespace>/<name>
+                type: string
+              stream:
+                description: |-
+                  Whether to stream the response from the model.
+                  If not specified, the default value is true.
+                type: boolean
+              systemMessage:
+                minLength: 1
+                type: string
+              tools:
+                items:
+                  properties:
+                    agent:
+                      properties:
+                        ref:
+                          description: |-
+                            Reference to the Agent resource to use as a tool.
+                            Can either be a reference to the name of an Agent in the same namespace as the referencing Agent, or a reference to the name of an Agent in a different namespace in the form <namespace>/<name>
+                          minLength: 1
+                          type: string
+                      type: object
+                    mcpServer:
+                      properties:
+                        toolNames:
+                          description: |-
+                            The names of the tools to be provided by the ToolServer
+                            For a list of all the tools provided by the server,
+                            the client can query the status of the ToolServer object after it has been created
+                          items:
+                            type: string
+                          type: array
+                        toolServer:
+                          description: the name of the ToolServer that provides the
+                            tool. can either be a reference to the name of a ToolServer
+                            in the same namespace as the referencing Agent, or a reference
+                            to the name of an ToolServer in a different namespace
+                            in the form <namespace>/<name>
+                          type: string
+                      type: object
+                    type:
+                      allOf:
+                      - enum:
+                        - McpServer
+                        - Agent
+                      - enum:
+                        - McpServer
+                        - Agent
+                      description: ToolProviderType represents the tool provider type
+                      type: string
+                  type: object
+                  x-kubernetes-validations:
+                  - message: type.mcpServer must be nil if the type is not McpServer
+                    rule: '!(has(self.mcpServer) && self.type != ''McpServer'')'
+                  - message: type.mcpServer must be specified for McpServer filter.type
+                    rule: '!(!has(self.mcpServer) && self.type == ''McpServer'')'
+                  - message: type.agent must be nil if the type is not Agent
+                    rule: '!(has(self.agent) && self.type != ''Agent'')'
+                  - message: type.agent must be specified for Agent filter.type
+                    rule: '!(!has(self.agent) && self.type == ''Agent'')'
+                maxItems: 20
+                type: array
+            type: object
+          status:
+            description: AgentStatus defines the observed state of Agent.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
