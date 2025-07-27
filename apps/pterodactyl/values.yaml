@@ -106,6 +106,7 @@ app-template:
           port: 5080
           protocol: HTTP
     database:
+      controller: main
       ports:
         mysql:
           port: 3306
