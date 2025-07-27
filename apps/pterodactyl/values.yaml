@@ -105,6 +105,11 @@ app-template:
         http:
           port: 5080
           protocol: HTTP
+    database:
+      ports:
+        mysql:
+          port: 3306
+          protocol: TCP
   ingress:
     main:
       enabled: true
