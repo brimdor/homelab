@@ -84,35 +84,29 @@ app-template:
               enabled: false
             startup:
               enabled: false
-        nginx:
-          image:
-            repository: yoshiwalsh/nginx-for-php-fpm
-            tag: latest
-            pullPolicy: Always
-            restartPolicy: Always
-          dependsOn:
-            - main
-          probes:
-            liveness:
-              enabled: false
-            readiness:
-              enabled: false
-            startup:
-              enabled: false
+        # nginx:
+        #   image:
+        #     repository: yoshiwalsh/nginx-for-php-fpm
+        #     tag: latest
+        #     pullPolicy: Always
+        #     restartPolicy: Always
+        #   dependsOn:
+        #     - main
+        #   probes:
+        #     liveness:
+        #       enabled: false
+        #     readiness:
+        #       enabled: false
+        #     startup:
+        #       enabled: false
   service:
     main:
-      enabled: false
-    nginx:
-      controller: nginx
       ports:
         http:
           port: 5080
           protocol: HTTP
   ingress:
     main:
-      enabled: false
-    nginx:
-      enabled: true
       className: nginx
       annotations:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
