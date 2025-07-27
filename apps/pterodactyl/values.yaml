@@ -1,0 +1,135 @@
+#https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: yoshiwalsh/pterodactyl-panel
+            tag: v1.11.10
+            pullPolicy: Always
+            restartPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            DB_HOST: "database"
+            DB_PORT: 3306
+            DB_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "db-database"
+            DB_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "db-username"
+            DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "db-password"
+          dependsOn:
+            - database
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+        database:
+          image:
+            repository: mariadb
+            tag: latest
+            pullPolicy: Always
+            restartPolicy: Always
+          env:
+            MYSQL_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "db-root-password"
+            MYSQL_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "db-database"
+            MYSQL_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "db-username"
+            MYSQL_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "db-password"
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+        cache:
+          image:
+            repository: redis
+            tag: latest
+            pullPolicy: Always
+            restartPolicy: Always
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+        nginx:
+          image:
+            repository: yoshiwalsh/nginx-for-php-fpm
+            tag: latest
+            pullPolicy: Always
+            restartPolicy: Always
+          dependsOn:
+            - main
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+  service:
+    nginx:
+      ports:
+        http:
+          port: 5080
+          protocol: HTTP
+  ingress:
+    nginx:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host eggs.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: eggs-tls-certificate
+  
+  defaultPodOptions:
+    # hostname: *host
+    # securityContext:
+    #   fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qgggzzfswrhkkbfqem4shtxria"
+      operator.1password.io/item-name: "secrets"
