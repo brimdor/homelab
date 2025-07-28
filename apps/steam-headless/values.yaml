@@ -54,7 +54,7 @@ app-template:
             ENABLE_STEAM: "true"
             STEAM_ARGS: "-silent"
             STEAM_ARGS: ""
-            ENABLE_SUNSHINE: "true"
+            ENABLE_SUNSHINE: "false"
             SUNSHINE_USER:
               valueFrom:
                 secretKeyRef:
@@ -103,9 +103,6 @@ app-template:
         http:
           port: 8083
           protocol: HTTP
-        sunshine:
-          port: 47989
-          protocol: TCP
 
   ingress:
     main:
@@ -121,17 +118,9 @@ app-template:
               service:
                 name: main
                 port: http
-        - host: &Sunshine sunshine.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                name: main
-                port: sunshine
       tls:
         - hosts:
             - *Host
-            - *Sunshine
           secretName: steam-tls-certificate
 
   persistence:
