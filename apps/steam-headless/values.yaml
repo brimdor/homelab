@@ -53,7 +53,6 @@ app-template:
             NEKO_NAT1TO1: ""
             ENABLE_STEAM: "true"
             STEAM_ARGS: "-silent"
-            STEAM_ARGS: ""
             ENABLE_SUNSHINE: "false"
             # SUNSHINE_USER:
             #   valueFrom:
@@ -69,7 +68,7 @@ app-template:
             FORCE_X11_DUMMY_CONFIG: "false"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_VISIBLE_DEVICES: "all"
-          shmSize: 4Gi
+          shmSize: 6Gi
           volumeMounts:
             - name: data
               mountPath: /home/default
