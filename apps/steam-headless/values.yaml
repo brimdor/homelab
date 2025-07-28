@@ -69,7 +69,6 @@ app-template:
             FORCE_X11_DUMMY_CONFIG: "false"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_VISIBLE_DEVICES: "all"
-          resources: {}
           shmSize: 4Gi
           volumeMounts:
             - name: data
