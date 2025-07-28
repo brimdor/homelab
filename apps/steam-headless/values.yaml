@@ -55,16 +55,16 @@ app-template:
             STEAM_ARGS: "-silent"
             STEAM_ARGS: ""
             ENABLE_SUNSHINE: "false"
-            SUNSHINE_USER:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "sunshine-user"
-            SUNSHINE_PASS:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "sunshine-pass"
+            # SUNSHINE_USER:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "sunshine-user"
+            # SUNSHINE_PASS:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "sunshine-pass"
             ENABLE_EVDEV_INPUTS: "true"
             FORCE_X11_DUMMY_CONFIG: "false"
             NVIDIA_DRIVER_CAPABILITIES: "all"
