@@ -54,7 +54,7 @@ app-template:
             ENABLE_STEAM: "true"
             STEAM_ARGS: "-silent"
             STEAM_ARGS: ""
-            ENABLE_SUNSHINE: "false"
+            ENABLE_SUNSHINE: "true"
             SUNSHINE_USER:
               valueFrom:
                 secretKeyRef:
