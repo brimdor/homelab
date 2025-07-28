@@ -104,6 +104,7 @@ app-template:
         http:
           port: 8083
           protocol: HTTP
+
   ingress:
     main:
       enabled: true
@@ -131,10 +132,6 @@ app-template:
         main:
           main:
             - path: /home/default
-          # backup:
-          #   - path: /opt/container-data/steam-headless/home
-          # restore:
-          #   - path: /opt/container-data/steam-headless/home
     games-dir:
       accessMode: ReadWriteOnce
       size: 150Gi
