@@ -12,17 +12,3 @@ spec:
   nfs:
     server: 10.0.50.3
     path: /mnt/user/openwebui
-
----
-
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: openwebui-embedded-models-pv
-spec:
-  capacity:
-    storage: 50Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: openwebui-pv
