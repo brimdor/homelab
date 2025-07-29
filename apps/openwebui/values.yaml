@@ -65,3 +65,10 @@ open-webui:
   persistence:
     enabled: true
     existingClaim: openwebui-nfs-pvc
+    additionalVolumes:
+      - name: embedded-models
+        persistentVolumeClaim:
+          claimName: openwebui-embedded-models-pvc
+    additionalVolumeMounts:
+      - name: embedded-models
+        mountPath: /app/embedded-models
