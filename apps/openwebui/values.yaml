@@ -8,6 +8,7 @@ open-webui:
           - deepseek-coder-v2:16b
           - mistral:7b
           - llama3:8b
+          - llama3.2:3b
           - starcoder2:15b
           - gemma3:12b-it-qat
     runtimeClassName: nvidia
