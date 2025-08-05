@@ -36,6 +36,8 @@ app-template:
               enabled: false
   service:
     main:
+      externalTrafficPolicy: Local
+      internalTrafficPolicy: Cluster
       type: ClusterIP
       ports:
         http:
