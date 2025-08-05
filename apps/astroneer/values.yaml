@@ -39,6 +39,7 @@ app-template:
       type: ClusterIP
       ports:
         http:
+          port: 7777
           targetPort: 7777
           protocol: UDP
   ingress:
