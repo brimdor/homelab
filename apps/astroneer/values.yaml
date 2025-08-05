@@ -37,7 +37,7 @@ app-template:
   service:
     main:
       externalTrafficPolicy: Local
-      internalTrafficPolicy: Cluster
+      internalTrafficPolicy: Local
       type: LoadBalancer
       ports:
         http:
