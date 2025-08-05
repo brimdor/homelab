@@ -42,24 +42,24 @@ app-template:
           port: 7777
           targetPort: 7777
           protocol: UDP
-  ingress:
-    main:
-      enabled: true
-      className: nginx
-      annotations:
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: &Host astroneer.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                name: main
-                port: http
-      tls:
-        - hosts:
-            - *Host
-          secretName: astroneer-tls-certificate
+  # ingress:
+  #   main:
+  #     enabled: true
+  #     className: nginx
+  #     annotations:
+  #       cert-manager.io/cluster-issuer: letsencrypt-prod
+  #     hosts:
+  #       - host: &Host astroneer.eaglepass.io
+  #         paths:
+  #           - path: /
+  #             pathType: Prefix
+  #             service:
+  #               name: main
+  #               port: http
+  #     tls:
+  #       - hosts:
+  #           - *Host
+  #         secretName: astroneer-tls-certificate
   persistence:
     data:
       accessMode: ReadWriteOnce
