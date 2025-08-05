@@ -36,10 +36,7 @@ app-template:
               enabled: false
   service:
     main:
-      externalTrafficPolicy: Local
-      internalTrafficPolicy: Local
       type: LoadBalancer
-      LoadBalancerIP: 10.0.50.250
       ports:
         http:
           port: 7777
