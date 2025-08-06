@@ -8,6 +8,13 @@ app-template:
             repository: ghcr.io/birdhimself/astroneer-server
             tag: latest
             pullPolicy: Always
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+            limits:
+              cpu: 2000m
+              memory: 8Gi
           env:
             TZ: "America/Chicago"
             ActiveSaveFileDescriptiveName: "broville"
