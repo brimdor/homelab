@@ -10,10 +10,10 @@ app-template:
             pullPolicy: Always
           resources:
             requests:
-              cpu: 1000m
+              cpu: 1500m
               memory: 2Gi
             limits:
-              cpu: 2000m
+              cpu: 3000m
               memory: 8Gi
           env:
             TZ: "America/Chicago"
