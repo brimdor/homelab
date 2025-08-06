@@ -39,7 +39,6 @@ app-template:
       type: LoadBalancer
       ports:
         http:
-          nodePort: 30000
           port: 7777
           targetPort: 7777
           protocol: UDP
