@@ -37,6 +37,7 @@ app-template:
   service:
     main:
       type: LoadBalancer
+      LoadBalancerIP: 10.43.10.249
       ports:
         http:
           port: 7777
