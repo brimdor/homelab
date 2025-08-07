@@ -3,13 +3,13 @@ open-webui:
   ollama:
     ollama:
       enabled: true
-      image:
-        repository: ollama/ollama
-        tag: "latest"
-        pullPolicy: "Always"
       models:
         pull:
           - mistral:7b
+    image:
+      repository: ollama/ollama
+      tag: "latest"
+      pullPolicy: "Always"
     runtimeClassName: nvidia
     ingress:
       enabled: true
