@@ -1,75 +1,74 @@
 # https://github.com/open-webui/helm-charts/blob/main/charts/open-webui/values.yaml
-open-webui:
-  ollama:
-    imagePullPolicy: Always
-    models:
-      pull:
-        - deepseek-r1:14b
-        - gpt-oss:20b
-        - mistral:7b
-        - llama3:8b
-        - llama3.2:3b
-        - starcoder2:15b
-        - gemma3:12b-it-qat
-    runtimeClassName: nvidia
-    ingress:
-      enabled: true
-      className: nginx
-      annotations:
-        cert-manager.io/cluster-issuer: "letsencrypt-prod"
-      hosts:
-        - host: &ollamahost ollama.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-      tls:
-        - secretName: ollama-tls
-          hosts:
-            - *ollamahost
-    extraEnv:
-      - name: NVIDIA_VISIBLE_DEVICES
-        value: "all"
-      - name: NVIDIA_DRIVER_CAPABILITIES
-        value: "all"
-    persistentVolume:
-      enabled: true
-      size: 150Gi
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-              - key: nvidia.com/gpu.present
-                operator: In
-                values:
-                  - "true"
+ollama:
+  imagePullPolicy: Always
+  models:
+    pull:
+      - deepseek-r1:14b
+      - gpt-oss:20b
+      - mistral:7b
+      - llama3:8b
+      - llama3.2:3b
+      - starcoder2:15b
+      - gemma3:12b-it-qat
+  runtimeClassName: nvidia
   ingress:
     enabled: true
-    class: nginx
+    className: nginx
     annotations:
-      external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-      cert-manager.io/cluster-issuer: letsencrypt-prod
-    host: &openwebuihost ai.eaglepass.io
-    tls: true
-  extraEnvVars:
-    - name: ENABLE_LOGIN_FORM
-      value: "true"
-    - name: WEBUI_URL
-      value: *openwebuihost
-    - name: BYPASS_MODEL_ACCESS_CONTROL
-      value: "true"
-  image:
-    repository: ghcr.io/open-webui/open-webui
-    tag: "latest"
-    pullPolicy: "Always"
-  persistence:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: &ollamahost ollama.eaglepass.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ollama-tls
+        hosts:
+          - *ollamahost
+  extraEnv:
+    - name: NVIDIA_VISIBLE_DEVICES
+      value: "all"
+    - name: NVIDIA_DRIVER_CAPABILITIES
+      value: "all"
+  persistentVolume:
     enabled: true
-    existingClaim: openwebui-nfs-pvc
-    additionalVolumes:
-      - name: embedded-models
-        persistentVolumeClaim:
-          claimName: openwebui-embedded-models-pvc
-    additionalVolumeMounts:
-      - name: embedded-models
-        mountPath: /app/embedded-models
+    size: 150Gi
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: nvidia.com/gpu.present
+              operator: In
+              values:
+                - "true"
+ingress:
+  enabled: true
+  class: nginx
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: &openwebuihost ai.eaglepass.io
+  tls: true
+extraEnvVars:
+  - name: ENABLE_LOGIN_FORM
+    value: "true"
+  - name: WEBUI_URL
+    value: *openwebuihost
+  - name: BYPASS_MODEL_ACCESS_CONTROL
+    value: "true"
+image:
+  repository: ghcr.io/open-webui/open-webui
+  tag: "latest"
+  pullPolicy: "Always"
+persistence:
+  enabled: true
+  existingClaim: openwebui-nfs-pvc
+  additionalVolumes:
+    - name: embedded-models
+      persistentVolumeClaim:
+        claimName: openwebui-embedded-models-pvc
+  additionalVolumeMounts:
+    - name: embedded-models
+      mountPath: /app/embedded-models
