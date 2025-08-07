@@ -11,8 +11,6 @@ open-webui:
           - llama3.2:3b
           - starcoder2:15b
           - gemma3:12b-it-qat
-        run:
-          - gpt-oss:20b
         image:
           pullPolicy: Always
     runtimeClassName: nvidia
