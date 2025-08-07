@@ -4,6 +4,7 @@ open-webui:
     ollama:
       enabled: true
       image:
+        repository: ollama/ollama
         tag: "latest"
         pullPolicy: "Always"
       models:
