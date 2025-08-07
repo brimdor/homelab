@@ -75,7 +75,7 @@ open-webui:
           claimName: openwebui-embedded-models-pvc
       - name: openwebui-data
         persistentVolumeClaim:
-          claimName: openwebui-pvc
+          claimName: openwebui-data-pvc
     additionalVolumeMounts:
       - name: embedded-models
         mountPath: /app/embedded-models
