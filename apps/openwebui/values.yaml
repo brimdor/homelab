@@ -5,13 +5,18 @@ open-webui:
       imagePullPolicy: Always
       models:
         pull:
-          - gpt-oss:20b
           - deepseek-r1:14b
           - mistral:7b
           - llama3:8b
           - llama3.2:3b
           - starcoder2:15b
           - gemma3:12b-it-qat
+        run:
+          - gpt-oss:20b
+        image:
+          repository: ghcr.io/ollama/ollama
+          tag: "latest"
+          pullPolicy: Always
     runtimeClassName: nvidia
     ingress:
       enabled: true
