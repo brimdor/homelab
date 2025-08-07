@@ -14,8 +14,6 @@ open-webui:
         run:
           - gpt-oss:20b
         image:
-          repository: ghcr.io/ollama/ollama
-          tag: "latest"
           pullPolicy: Always
     runtimeClassName: nvidia
     ingress:
