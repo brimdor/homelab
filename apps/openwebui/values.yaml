@@ -2,7 +2,8 @@
 # open-webui:
 ollama:
   enabled: true
-  imagePullPolicy: Always
+  image:
+    pullPolicy: Always
   models:
     pull:
       - deepseek-r1:14b
@@ -45,33 +46,35 @@ ollama:
                 - "true"
 pipelines:
   enabled: false
-ingress:
-  enabled: true
-  class: nginx
-  annotations:
-    external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-  host: &openwebuihost ai.eaglepass.io
-  tls: true
-extraEnvVars:
-  - name: ENABLE_LOGIN_FORM
-    value: "true"
-  - name: WEBUI_URL
-    value: *openwebuihost
-  - name: BYPASS_MODEL_ACCESS_CONTROL
-    value: "true"
-image:
-  repository: ghcr.io/open-webui/open-webui
-  tag: "latest"
-  pullPolicy: "Always"
-persistence:
-  enabled: true
-  existingClaim: openwebui-nfs-pvc
-  additionalVolumes:
-    - name: embedded-models
-      persistentVolumeClaim:
-        claimName: openwebui-embedded-models-pvc
-  additionalVolumeMounts:
-    - name: embedded-models
-      mountPath: /app/embedded-models
+
+openwebui:
+  ingress:
+    enabled: true
+    class: nginx
+    annotations:
+      external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    host: &openwebuihost ai.eaglepass.io
+    tls: true
+  extraEnvVars:
+    - name: ENABLE_LOGIN_FORM
+      value: "true"
+    - name: WEBUI_URL
+      value: *openwebuihost
+    - name: BYPASS_MODEL_ACCESS_CONTROL
+      value: "true"
+  image:
+    repository: ghcr.io/open-webui/open-webui
+    tag: "latest"
+    pullPolicy: "Always"
+  persistence:
+    enabled: true
+    existingClaim: openwebui-nfs-pvc
+    additionalVolumes:
+      - name: embedded-models
+        persistentVolumeClaim:
+          claimName: openwebui-embedded-models-pvc
+    additionalVolumeMounts:
+      - name: embedded-models
+        mountPath: /app/embedded-models
