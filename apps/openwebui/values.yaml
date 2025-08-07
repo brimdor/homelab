@@ -14,38 +14,38 @@ open-webui:
           - llama3.2:3b
           - starcoder2:15b
           - gemma3:12b-it-qat
-      runtimeClassName: nvidia
-      ingress:
-        enabled: true
-        className: nginx
-        annotations:
-          cert-manager.io/cluster-issuer: "letsencrypt-prod"
-        hosts:
-          - host: &ollamahost ollama.eaglepass.io
-            paths:
-              - path: /
-                pathType: Prefix
-        tls:
-          - secretName: ollama-tls
-            hosts:
-              - *ollamahost
-      extraEnv:
-        - name: NVIDIA_VISIBLE_DEVICES
-          value: "all"
-        - name: NVIDIA_DRIVER_CAPABILITIES
-          value: "all"
-      persistentVolume:
-        enabled: true
-        size: 150Gi
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: nvidia.com/gpu.present
-                  operator: In
-                  values:
-                    - "true"
+    runtimeClassName: nvidia
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      hosts:
+        - host: &ollamahost ollama.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: ollama-tls
+          hosts:
+            - *ollamahost
+    extraEnv:
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: "all"
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: "all"
+    persistentVolume:
+      enabled: true
+      size: 150Gi
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.present
+                operator: In
+                values:
+                  - "true"
 
   pipelines:
     enabled: false
