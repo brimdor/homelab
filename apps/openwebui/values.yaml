@@ -26,6 +26,13 @@ open-webui:
         - secretName: ollama-tls
           hosts:
             - *ollamahost
+    resources:
+      limits:
+        cpu: 3000m
+        memory: 16Gi
+      requests:
+        cpu: 2
+        memory: 8Gi
     extraEnv:
       - name: NVIDIA_VISIBLE_DEVICES
         value: "all"
@@ -46,7 +53,13 @@ open-webui:
 
   pipelines:
     enabled: false
-
+  resources:
+    limits:
+      cpu: 2
+      memory: 4Gi
+    requests:
+      cpu: 1500m
+      memory: 2Gi
   ingress:
     enabled: true
     class: nginx
