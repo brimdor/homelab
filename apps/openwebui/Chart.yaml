@@ -8,10 +8,10 @@ dependencies:
   # - name: open-webui
   #   version: 7.0.1
   #   repository: https://helm.openwebui.com/
-  - name: ollama
-    repository: https://otwld.github.io/ollama-helm/
-    version: ">=0.24.0"
-    import-values:
-      - child: service
-        parent: ollama.service
-    condition: ollama.enabled
+  # - name: ollama
+  #   repository: https://otwld.github.io/ollama-helm/
+  #   version: ">=0.24.0"
+  #   import-values:
+  #     - child: service
+  #       parent: ollama.service
+  #   condition: ollama.enabled
