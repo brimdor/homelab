@@ -6,7 +6,6 @@ open-webui:
       models:
         pull:
           - deepseek-r1:14b
-          - gpt-oss:20b
           - mistral:7b
           - llama3:8b
           - llama3.2:3b
