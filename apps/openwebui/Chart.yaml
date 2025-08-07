@@ -1,13 +1,13 @@
 apiVersion: v2
-name: open-webui
-version: 7.0.1
-appVersion: 0.6.18
+name: openwebui
+description: A Helm chart for Open WebUI
 type: application
-description: "Open WebUI: A User-Friendly Web Interface for Chat Interactions 👋"
+version: 2.1.1
+appVersion: "1.16.0"
 dependencies:
   # - name: open-webui
-  #   version: 7.0.1
-  #   repository: https://helm.openwebui.com/
+    # version: 7.0.1
+    # repository: https://helm.openwebui.com/
   # - name: ollama
   #   repository: https://otwld.github.io/ollama-helm/
   #   version: ">=0.24.0"
