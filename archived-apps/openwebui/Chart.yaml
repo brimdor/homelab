@@ -1,7 +1,10 @@
 apiVersion: v2
 name: openwebui
-version: 0.0.0
+description: A Helm chart for Open WebUI
+type: application
+version: 2.1.1
+appVersion: "1.16.0"
 dependencies:
-  - name: app-template
-    version: 2.6.0
-    repository: https://bjw-s-labs.github.io/helm-charts
+  - name: open-webui
+    version: 6.22.0
+    repository: https://helm.openwebui.com/
