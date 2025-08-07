@@ -6,6 +6,7 @@ open-webui:
       models:
         pull:
           - mistral:7b
+          - gpt-oss:20b
     image:
       repository: ollama/ollama
       tag: "latest"
