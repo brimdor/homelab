@@ -44,6 +44,8 @@ open-webui:
                 operator: In
                 values:
                   - "true"
+  pipelines:
+    enabled: false
   ingress:
     enabled: true
     class: nginx
