@@ -65,7 +65,7 @@ app-template:
         http2:
           port: 8920
           protocol: HTTP
-    lb:
+    main:
       type: LoadBalancer
       ports:
         http:
