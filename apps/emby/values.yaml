@@ -70,7 +70,7 @@ app-template:
       ports:
         http:
           port: 8096
-          targetPort: 8096
+          targetPort: 8907
           protocol: HTTP
   ingress:
     main:
