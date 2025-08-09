@@ -65,13 +65,13 @@ app-template:
         http2:
           port: 8920
           protocol: HTTP
-    # main:
-    #   type: LoadBalancer
-    #   ports:
-    #     http:
-    #       port: 8096
-    #       targetPort: 8096
-    #       protocol: HTTP
+    main:
+      type: LoadBalancer
+      ports:
+        http:
+          port: 8096
+          targetPort: 8096
+          protocol: HTTP
   ingress:
     main:
       enabled: true
