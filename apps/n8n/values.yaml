@@ -112,15 +112,34 @@ app-template:
               mkdir -p /mnt/backup/n8n /mnt/backup/db
               while true; do
                 ts=$(date +%Y-%m-%d_%H-%M-%S)
-                # n8n app data backup (tar.gz of /home/node/.n8n)
-                n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
-                tar --exclude="lost+found" -czf "$n8n_file" -C /home/node/.n8n . || true
 
-                # postgres logical backup
+                # n8n app data backup (tar.gz of /home/node/.n8n) - atomic write
+                n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
+                tmp_n8n="${n8n_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
+                if tar --exclude="lost+found" -czf "$tmp_n8n" -C /home/node/.n8n . \
+                  && tar -tzf "$tmp_n8n" >/dev/null 2>&1; then
+                  mv -f "$tmp_n8n" "$n8n_file"
+                else
+                  echo "[WARN] n8n tar verification failed; skipping."
+                  rm -f "$tmp_n8n"
+                fi
+
+                # postgres logical backup - atomic write, skip if empty
                 db_file="/mnt/backup/db/db-${ts}.dump"
+                tmp_db="${db_file}.tmp"
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
-                pg_dump -Fc -f "$db_file" || echo "[WARN] pg_dump failed (db may not be ready)."
+                if pg_dump -Fc -f "$tmp_db"; then
+                  if [ -s "$tmp_db" ]; then
+                    mv -f "$tmp_db" "$db_file"
+                  else
+                    echo "[WARN] pg_dump created empty file; skipping."
+                    rm -f "$tmp_db"
+                  fi
+                else
+                  echo "[WARN] pg_dump failed (db may not be ready)."
+                  rm -f "$tmp_db"
+                fi
 
                 # Purge old n8n backups
                 cnt=$(ls -1 /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | wc -l)
@@ -135,57 +154,6 @@ app-template:
 
                 sleep 600
               done
-        db-restore:
-          image:
-            repository: postgres
-            tag: "16-alpine"
-          env:
-            TZ: "America/Chicago"
-            PGHOST: "127.0.0.1"
-            PGPORT: "5432"
-            PGDATABASE:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "n8n-postgres-db"
-            PGUSER:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "n8n-postgres-user"
-            PGPASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "n8n-postgres-password"
-          name: db-restore
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              MARKER="/var/lib/postgresql/.bees-knees-db"
-              echo "[INFO] DB restore sidecar starting..."
-              until pg_isready -h 127.0.0.1 -p 5432 -U "$PGUSER"; do
-                echo "[INFO] Waiting for Postgres to be ready..."
-                sleep 5
-              done
-              if [ -f "$MARKER" ]; then
-                echo "[INFO] DB restore skipped: marker exists."
-                tail -f /dev/null
-              fi
-              latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
-              if [ -n "$latest_dump" ]; then
-                echo "[INFO] Restoring database from $latest_dump"
-                psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${PGDATABASE}'" | grep -q 1 || createdb "$PGDATABASE"
-                pg_restore -c -d "$PGDATABASE" "$latest_dump"
-                touch "$MARKER"
-                echo "[INFO] DB restore complete."
-              else
-                echo "[INFO] No DB dump found. Skipping DB restore."
-                touch "$MARKER"
-              fi
-              tail -f /dev/null
       initContainers:
         restore:
           image:
@@ -211,6 +179,38 @@ app-template:
                 fi
               else
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore skipped. Marker exists."
+              fi
+        db-restore-init:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[INIT] Preparing initial DB restore script..."
+              mkdir -p /work
+              # Find latest non-empty dump
+              latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
+                echo "[INIT] Using dump: $latest_dump"
+                cp "$latest_dump" /work/db.dump
+                cat > /work/10-restore.sh <<'EOF'
+                #!/bin/sh
+                set -e
+                echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"
+                pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump
+                echo "[INITDB] Restore complete."
+                EOF
+                chmod +x /work/10-restore.sh
+              else
+                echo "[INIT] No valid DB dump found. Creating no-op init script."
+                cat > /work/99-noop.sh <<'EOF'
+                #!/bin/sh
+                echo "[INITDB] No dump present; skipping database restore."
+                EOF
+                chmod +x /work/99-noop.sh
               fi
   service:
     main:
@@ -257,8 +257,14 @@ app-template:
         main:
           db:
             - path: /var/lib/postgresql
-          db-restore:
-            - path: /var/lib/postgresql
+    db-init:
+      type: emptyDir
+      advancedMounts:
+        main:
+          db:
+            - path: /docker-entrypoint-initdb.d
+          db-restore-init:
+            - path: /work
     nfs-backups:
       type: nfs
       server: 10.0.50.3
@@ -269,7 +275,7 @@ app-template:
             - path: /mnt/backup
           restore:
             - path: /mnt/backup
-          db-restore:
+          db-restore-init:
             - path: /mnt/backup
   defaultPodOptions:
     securityContext:
