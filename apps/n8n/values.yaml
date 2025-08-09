@@ -11,7 +11,7 @@ app-template:
             TZ: "America/Chicago"
             # n8n database configuration (PostgreSQL)
             DB_TYPE: "postgresdb"
-            DB_POSTGRESDB_HOST: "db.n8n.svc.cluster.local"
+            DB_POSTGRESDB_HOST: "n8n-db.n8n.svc.cluster.local"
             DB_POSTGRESDB_PORT: "5432"
             DB_POSTGRESDB_DATABASE:
               valueFrom:
