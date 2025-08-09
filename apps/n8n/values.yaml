@@ -2,8 +2,6 @@
 app-template:
   controllers:
     main:
-      pod:
-        hostname: n8n
       containers:
         main:
           image:
@@ -35,11 +33,6 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-encryption-key"
-            # N8N_LICENSE_ACTIVATION_KEY:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "n8n-license-activation-key"
           # Ensure n8n starts after the db sidecar is running
           dependsOn:
             - db
@@ -64,6 +57,67 @@ app-template:
                 periodSeconds: 10
             startup:
               enabled: false
+        main-backup:
+          image:
+            repository: alpine
+            tag: latest
+          env:
+            TZ: "America/Chicago"
+            MAX_BACKUPS: "15"
+          dependsOn:
+            - main
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              mkdir -p /mnt/backup/n8n
+              while true; do
+                ts=$(date +%Y-%m-%d_%H-%M-%S)
+                n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
+                tmp_n8n="${n8n_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
+                if tar --exclude="lost+found" -czf "$tmp_n8n" -C /home/node/.n8n . \
+                  && tar -tzf "$tmp_n8n" >/dev/null 2>&1; then
+                  mv -f "$tmp_n8n" "$n8n_file"
+                else
+                  echo "[WARN] n8n tar verification failed; skipping."
+                  rm -f "$tmp_n8n"
+                fi
+                cnt=$(ls -1 /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/n8n/n8n-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+                sleep 600
+              done
+      initContainers:
+        main-restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              ts=$(date +%Y-%m-%d_%H-%M-%S)
+              echo "[$ts] Starting n8n config restore"
+              if [ ! -f /home/node/.n8n/.bees-knees ]; then
+                latest_backup=$(ls -t /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | head -n 1 || true)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring n8n config from: $latest_backup"
+                  mkdir -p /home/node/.n8n
+                  tar -xzf "$latest_backup" -C /home/node/.n8n
+                  touch /home/node/.n8n/.bees-knees
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore complete"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No n8n config backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore skipped. Marker exists."
+              fi
+    db:
+      containers:
         db:
           image:
             repository: postgres
@@ -86,7 +140,7 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-postgres-password"
-        backup:
+        db-backup:
           image:
             repository: postgres
             tag: "16-alpine"
@@ -117,23 +171,9 @@ app-template:
             - -c
             - |
               set -e
-              mkdir -p /mnt/backup/n8n /mnt/backup/db
+              mkdir -p /mnt/backup/db
               while true; do
                 ts=$(date +%Y-%m-%d_%H-%M-%S)
-
-                # n8n app data backup (tar.gz of /home/node/.n8n) - atomic write
-                n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
-                tmp_n8n="${n8n_file}.tmp"
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
-                if tar --exclude="lost+found" -czf "$tmp_n8n" -C /home/node/.n8n . \
-                  && tar -tzf "$tmp_n8n" >/dev/null 2>&1; then
-                  mv -f "$tmp_n8n" "$n8n_file"
-                else
-                  echo "[WARN] n8n tar verification failed; skipping."
-                  rm -f "$tmp_n8n"
-                fi
-
-                # postgres logical backup - atomic write, skip if empty
                 db_file="/mnt/backup/db/db-${ts}.dump"
                 tmp_db="${db_file}.tmp"
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Waiting for postgres to be ready..."
@@ -152,47 +192,14 @@ app-template:
                   echo "[WARN] pg_dump failed (db may not be ready)."
                   rm -f "$tmp_db"
                 fi
-
-                # Purge old n8n backups
-                cnt=$(ls -1 /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | wc -l)
-                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
-                  ls -t /mnt/backup/n8n/n8n-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
-                fi
-                # Purge old db backups
                 cnt=$(ls -1 /mnt/backup/db/db-*.dump 2>/dev/null | wc -l)
                 if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
                   ls -t /mnt/backup/db/db-*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
                 fi
-
                 sleep 600
               done
       initContainers:
-        restore:
-          image:
-            repository: alpine
-            tag: latest
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              ts=$(date +%Y-%m-%d_%H-%M-%S)
-              echo "[$ts] Starting n8n config restore"
-              if [ ! -f /home/node/.n8n/.bees-knees ]; then
-                latest_backup=$(ls -t /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | head -n 1 || true)
-                if [ -n "$latest_backup" ]; then
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring n8n config from: $latest_backup"
-                  mkdir -p /home/node/.n8n
-                  tar -xzf "$latest_backup" -C /home/node/.n8n
-                  touch /home/node/.n8n/.bees-knees
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore complete"
-                else
-                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No n8n config backup found. Skipping restore."
-                fi
-              else
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore skipped. Marker exists."
-              fi
-        db-restore-init:
+        db-restore:
           image:
             repository: alpine
             tag: latest
@@ -258,24 +265,26 @@ app-template:
         main:
           main:
             - path: /home/node/.n8n
-          backup:
+          main-backup:
             - path: /home/node/.n8n
-          restore:
+          main-restore:
             - path: /home/node/.n8n
     db-data:
       accessMode: ReadWriteOnce
       size: 10Gi
       advancedMounts:
-        main:
+        db:
           db:
-            - path: /var/lib/postgresql/data
+            - path: /var/lib/postgresql
+          db-backup:
+            - path: /var/lib/postgresql
     db-init:
       type: emptyDir
       advancedMounts:
-        main:
+        db:
           db:
             - path: /docker-entrypoint-initdb.d
-          db-restore-init:
+          db-restore:
             - path: /work
     nfs-backups:
       type: nfs
@@ -283,11 +292,14 @@ app-template:
       path: /mnt/user/n8n_backups
       advancedMounts:
         main:
-          backup:
+          main-backup:
             - path: /mnt/backup
-          restore:
+          main-restore:
             - path: /mnt/backup
-          db-restore-init:
+        db:
+          db-backup:
+            - path: /mnt/backup
+          db-restore:
             - path: /mnt/backup
   defaultPodOptions:
     securityContext:
