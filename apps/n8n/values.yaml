@@ -63,7 +63,7 @@ app-template:
             startup:
               enabled: false
         db:
-          hostname: db
+          name: db
           image:
             repository: postgres
             tag: "16-alpine"
@@ -109,7 +109,7 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-postgres-password"
-          hostname: backup
+          name: backup
           command:
             - /bin/sh
             - -c
