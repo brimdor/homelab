@@ -196,20 +196,20 @@ app-template:
               if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
                 echo "[INIT] Using dump: $latest_dump"
                 cp "$latest_dump" /work/db.dump
-                cat > /work/10-restore.sh <<'EOF'
-                #!/bin/sh
-                set -e
-                echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"
-                pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump
-                echo "[INITDB] Restore complete."
-                EOF
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'set -e' \
+                  'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
+                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
+                  'echo "[INITDB] Restore complete."' \
+                  > /work/10-restore.sh
                 chmod +x /work/10-restore.sh
               else
                 echo "[INIT] No valid DB dump found. Creating no-op init script."
-                cat > /work/99-noop.sh <<'EOF'
-                #!/bin/sh
-                echo "[INITDB] No dump present; skipping database restore."
-                EOF
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'echo "[INITDB] No dump present; skipping database restore."' \
+                  > /work/99-noop.sh
                 chmod +x /work/99-noop.sh
               fi
   service:
