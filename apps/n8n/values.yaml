@@ -1,0 +1,282 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: n8nio/n8n
+            tag: latest
+          env:
+            TZ: "America/Chicago"
+            # n8n database configuration (PostgreSQL)
+            DB_TYPE: "postgresdb"
+            DB_POSTGRESDB_HOST: "127.0.0.1"
+            DB_POSTGRESDB_PORT: "5432"
+            DB_POSTGRESDB_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-db"
+            DB_POSTGRESDB_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-user"
+            DB_POSTGRESDB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-password"
+            N8N_ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-encryption-key"
+          # Ensure n8n starts after the db sidecar is running
+          dependsOn:
+            - db
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5678
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5678
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            startup:
+              enabled: false
+        db:
+          image:
+            repository: postgres
+            tag: "16-alpine"
+          env:
+            TZ: "America/Chicago"
+            POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-db"
+            POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-user"
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-password"
+        backup:
+          image:
+            repository: postgres
+            tag: "16-alpine"
+          env:
+            TZ: "America/Chicago"
+            MAX_BACKUPS: "15"
+            PGHOST: "127.0.0.1"
+            PGPORT: "5432"
+            PGDATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-db"
+            PGUSER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-user"
+            PGPASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-password"
+          name: backup
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              mkdir -p /mnt/backup/n8n /mnt/backup/db
+              while true; do
+                ts=$(date +%Y-%m-%d_%H-%M-%S)
+                # n8n app data backup (tar.gz of /home/node/.n8n)
+                n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
+                tar --exclude="lost+found" -czf "$n8n_file" -C /home/node/.n8n . || true
+
+                # postgres logical backup
+                db_file="/mnt/backup/db/db-${ts}.dump"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
+                pg_dump -Fc -f "$db_file" || echo "[WARN] pg_dump failed (db may not be ready)."
+
+                # Purge old n8n backups
+                cnt=$(ls -1 /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/n8n/n8n-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+                # Purge old db backups
+                cnt=$(ls -1 /mnt/backup/db/db-*.dump 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/db/db-*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+
+                sleep 600
+              done
+        db-restore:
+          image:
+            repository: postgres
+            tag: "16-alpine"
+          env:
+            TZ: "America/Chicago"
+            PGHOST: "127.0.0.1"
+            PGPORT: "5432"
+            PGDATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-db"
+            PGUSER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-user"
+            PGPASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-password"
+          name: db-restore
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              MARKER="/var/lib/postgresql/data/.bees-knees-db"
+              echo "[INFO] DB restore sidecar starting..."
+              # wait for postgres to be ready
+              until pg_isready -h 127.0.0.1 -p 5432 -U "$PGUSER"; do
+                echo "[INFO] Waiting for Postgres to be ready..."
+                sleep 5
+              done
+
+              if [ -f "$MARKER" ]; then
+                echo "[INFO] DB restore skipped: marker exists."
+                tail -f /dev/null
+              fi
+
+              latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_dump" ]; then
+                echo "[INFO] Restoring database from $latest_dump"
+                # create DB if missing
+                psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${PGDATABASE}'" | grep -q 1 || createdb "$PGDATABASE"
+                pg_restore -c -d "$PGDATABASE" "$latest_dump"
+                touch "$MARKER"
+                echo "[INFO] DB restore complete."
+              else
+                echo "[INFO] No DB dump found. Skipping DB restore."
+                touch "$MARKER"
+              fi
+              tail -f /dev/null
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              ts=$(date +%Y-%m-%d_%H-%M-%S)
+              echo "[$ts] Starting n8n config restore"
+              if [ ! -f /home/node/.n8n/.bees-knees ]; then
+                latest_backup=$(ls -t /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | head -n 1 || true)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring n8n config from: $latest_backup"
+                  mkdir -p /home/node/.n8n
+                  tar -xzf "$latest_backup" -C /home/node/.n8n
+                  touch /home/node/.n8n/.bees-knees
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore complete"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No n8n config backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore skipped. Marker exists."
+              fi
+  service:
+    main:
+      ports:
+        http:
+          port: 5678
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        # external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host n8n.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: n8n-tls-certificate
+  persistence:
+    n8n-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/node/.n8n
+          backup:
+            - path: /home/node/.n8n
+          restore:
+            - path: /home/node/.n8n
+    db-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          db:
+            - path: /var/lib/postgresql/data
+          db-restore:
+            - path: /var/lib/postgresql/data
+    nfs-backups:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/n8n_backups
+      advancedMounts:
+        main:
+          backup:
+            - path: /mnt/backup
+          restore:
+            - path: /mnt/backup
+          db-restore:
+            - path: /mnt/backup
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
+      operator.1password.io/item-name: "secrets"
