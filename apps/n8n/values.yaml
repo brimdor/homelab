@@ -63,6 +63,7 @@ app-template:
             tag: "16-alpine"
           env:
             TZ: "America/Chicago"
+            PGDATA: "/var/lib/postgresql/data"
             POSTGRES_DB:
               valueFrom:
                 secretKeyRef:
@@ -163,23 +164,19 @@ app-template:
             - -c
             - |
               set -e
-              MARKER="/var/lib/postgresql/data/.bees-knees-db"
+              MARKER="/var/lib/postgresql/.bees-knees-db"
               echo "[INFO] DB restore sidecar starting..."
-              # wait for postgres to be ready
               until pg_isready -h 127.0.0.1 -p 5432 -U "$PGUSER"; do
                 echo "[INFO] Waiting for Postgres to be ready..."
                 sleep 5
               done
-
               if [ -f "$MARKER" ]; then
                 echo "[INFO] DB restore skipped: marker exists."
                 tail -f /dev/null
               fi
-
               latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
               if [ -n "$latest_dump" ]; then
                 echo "[INFO] Restoring database from $latest_dump"
-                # create DB if missing
                 psql -v ON_ERROR_STOP=1 -tc "SELECT 1 FROM pg_database WHERE datname='${PGDATABASE}'" | grep -q 1 || createdb "$PGDATABASE"
                 pg_restore -c -d "$PGDATABASE" "$latest_dump"
                 touch "$MARKER"
@@ -259,9 +256,9 @@ app-template:
       advancedMounts:
         main:
           db:
-            - path: /var/lib/postgresql/data
+            - path: /var/lib/postgresql
           db-restore:
-            - path: /var/lib/postgresql/data
+            - path: /var/lib/postgresql
     nfs-backups:
       type: nfs
       server: 10.0.50.3
