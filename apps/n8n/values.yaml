@@ -268,7 +268,7 @@ app-template:
       advancedMounts:
         main:
           db:
-            - path: /var/lib/postgresql
+            - path: /var/lib/postgresql/data
     db-init:
       type: emptyDir
       advancedMounts:
