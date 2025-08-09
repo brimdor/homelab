@@ -66,6 +66,7 @@ app-template:
             - -c
             - |
               set -e
+              sleep 30
               mkdir -p /mnt/backup/n8n
               while true; do
                 ts=$(date +%Y-%m-%d_%H-%M-%S)
@@ -166,6 +167,7 @@ app-template:
             - -c
             - |
               set -e
+              sleep 30
               mkdir -p /mnt/backup/db
               while true; do
                 ts=$(date +%Y-%m-%d_%H-%M-%S)
