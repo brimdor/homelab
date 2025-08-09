@@ -235,6 +235,7 @@ app-template:
           port: 5678
           protocol: HTTP
     db:
+      controller: db
       ports:
         postgres:
           port: 5432
