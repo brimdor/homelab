@@ -33,6 +33,11 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-encryption-key"
+            N8N_LICENSE_ACTIVATION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-license-activation-key"
           # Ensure n8n starts after the db sidecar is running
           dependsOn:
             - db
