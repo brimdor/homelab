@@ -64,8 +64,6 @@ app-template:
           env:
             TZ: "America/Chicago"
             MAX_BACKUPS: "15"
-          dependsOn:
-            - main
           command:
             - /bin/sh
             - -c
