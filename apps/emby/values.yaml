@@ -68,7 +68,7 @@ app-template:
     main:
       type: LoadBalancer
       ports:
-        http:
+        lb:
           port: 8096
           targetPort: 8096
           protocol: HTTP
