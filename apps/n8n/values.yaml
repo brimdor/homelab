@@ -33,9 +33,6 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-encryption-key"
-          # Ensure n8n starts after the db sidecar is running
-          dependsOn:
-            - db
           probes:
             liveness:
               enabled: true
