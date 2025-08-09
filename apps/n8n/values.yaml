@@ -91,7 +91,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             MAX_BACKUPS: "15"
-            PGHOST: "127.0.0.1"
+            PGHOST: "db"
             PGPORT: "5432"
             PGDATABASE:
               valueFrom:
