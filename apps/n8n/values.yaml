@@ -63,6 +63,7 @@ app-template:
             startup:
               enabled: false
         db:
+          name: db
           image:
             repository: postgres
             tag: "16-alpine"
