@@ -14,7 +14,9 @@ n8n:
       cert-manager.io/cluster-issuer: letsencrypt-prod
     hosts:
       - host: n8n-canary.eaglepass.io
-        paths: []
+        paths:
+          - path: /
+            pathType: Prefix
     tls:
       - hosts:
           - n8n-canary.eaglepass.io
