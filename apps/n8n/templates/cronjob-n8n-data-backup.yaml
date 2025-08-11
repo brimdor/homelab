@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: n8n-data-backup
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
+            operator.1password.io/item-name: "secrets"
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: alpine:latest
+              imagePullPolicy: Always
+              env:
+                - name: TZ
+                  value: America/Chicago
+                - name: MAX_BACKUPS
+                  value: "15"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  mkdir -p /mnt/backup/n8n
+                  ts=$(date +%Y-%m-%d_%H-%M-%S)
+                  n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
+                  tmp_n8n="${n8n_file}.tmp"
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
+                  if tar --exclude="lost+found" -czf "$tmp_n8n" -C /home/node/.n8n . \
+                    && tar -tzf "$tmp_n8n" >/dev/null 2>&1; then
+                    mv -f "$tmp_n8n" "$n8n_file"
+                  else
+                    echo "[WARN] n8n tar verification failed; skipping."
+                    rm -f "$tmp_n8n"
+                  fi
+                  cnt=$(ls -1 /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | wc -l)
+                  if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                    ls -t /mnt/backup/n8n/n8n-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                  fi
+              volumeMounts:
+                - name: n8n-data
+                  mountPath: /home/node/.n8n
+                - name: nfs-backups
+                  mountPath: /mnt/backup
+          volumes:
+            - name: n8n-data
+              persistentVolumeClaim:
+                claimName: n8n-data
+            - name: nfs-backups
+              nfs:
+                server: 10.0.50.3
+                path: /mnt/user/n8n_backups

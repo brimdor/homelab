@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: n8n-db
+  labels:
+    app: n8n-db
+spec:
+  selector:
+    matchLabels:
+      app: n8n-db
+  serviceName: n8n-db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: n8n-db
+      annotations:
+        operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
+        operator.1password.io/item-name: "secrets"
+    spec:
+      initContainers:
+        - name: db-restore
+          image: alpine:latest
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[INIT] Preparing initial DB restore script..."
+              mkdir -p /work
+              latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
+                echo "[INIT] Using dump: $latest_dump"
+                cp "$latest_dump" /work/db.dump
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'set -e' \
+                  'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
+                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
+                  'echo "[INITDB] Restore complete."' \
+                  > /work/10-restore.sh
+                chmod +x /work/10-restore.sh
+              else
+                echo "[INIT] No valid DB dump found. Creating no-op init script."
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'echo "[INITDB] No dump present; skipping database restore."' \
+                  > /work/99-noop.sh
+                chmod +x /work/99-noop.sh
+              fi
+          volumeMounts:
+            - name: initdb
+              mountPath: /work
+            - name: nfs-backups
+              mountPath: /mnt/backup
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: Always
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: PGDATA
+              value: /var/lib/postgresql/data
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: n8n-postgres-db
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: n8n-postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: n8n-postgres-password
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: nfs-backups
+              mountPath: /mnt/backup
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: nfs-backups
+          nfs:
+            server: 10.0.50.3
+            path: /mnt/user/n8n_backups
+        - name: initdb
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
