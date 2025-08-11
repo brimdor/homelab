@@ -1,0 +1,312 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: n8nio/n8n
+            tag: latest
+          env:
+            TZ: "America/Chicago"
+            # n8n database configuration (PostgreSQL)
+            DB_TYPE: "postgresdb"
+            DB_POSTGRESDB_HOST: "n8n-db.n8n.svc.cluster.local"
+            DB_POSTGRESDB_PORT: "5432"
+            DB_POSTGRESDB_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-db"
+            DB_POSTGRESDB_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-user"
+            DB_POSTGRESDB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-password"
+            N8N_ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-encryption-key"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5678
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5678
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            startup:
+              enabled: false
+        main-backup:
+          image:
+            repository: alpine
+            tag: latest
+          env:
+            TZ: "America/Chicago"
+            MAX_BACKUPS: "15"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              sleep 30
+              mkdir -p /mnt/backup/n8n
+              while true; do
+                ts=$(date +%Y-%m-%d_%H-%M-%S)
+                n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
+                tmp_n8n="${n8n_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
+                if tar --exclude="lost+found" -czf "$tmp_n8n" -C /home/node/.n8n . \
+                  && tar -tzf "$tmp_n8n" >/dev/null 2>&1; then
+                  mv -f "$tmp_n8n" "$n8n_file"
+                else
+                  echo "[WARN] n8n tar verification failed; skipping."
+                  rm -f "$tmp_n8n"
+                fi
+                cnt=$(ls -1 /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/n8n/n8n-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+                sleep 600
+              done
+      initContainers:
+        main-restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              ts=$(date +%Y-%m-%d_%H-%M-%S)
+              echo "[$ts] Starting n8n config restore"
+              if [ ! -f /home/node/.n8n/.bees-knees ]; then
+                latest_backup=$(ls -t /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | head -n 1 || true)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring n8n config from: $latest_backup"
+                  mkdir -p /home/node/.n8n
+                  tar -xzf "$latest_backup" -C /home/node/.n8n
+                  touch /home/node/.n8n/.bees-knees
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore complete"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No n8n config backup found. Skipping restore."
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore skipped. Marker exists."
+              fi
+    db:
+      containers:
+        db:
+          image:
+            repository: postgres
+            tag: "16-alpine"
+          env:
+            TZ: "America/Chicago"
+            PGDATA: "/var/lib/postgresql/data"
+            POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-db"
+            POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-user"
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-password"
+        db-backup:
+          image:
+            repository: postgres
+            tag: "16-alpine"
+          env:
+            TZ: "America/Chicago"
+            MAX_BACKUPS: "15"
+            PGHOST: "127.0.0.1"
+            PGPORT: "5432"
+            PGDATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-db"
+            PGUSER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-user"
+            PGPASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "n8n-postgres-password"
+          dependsOn:
+            - db
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              sleep 30
+              mkdir -p /mnt/backup/db
+              while true; do
+                ts=$(date +%Y-%m-%d_%H-%M-%S)
+                db_file="/mnt/backup/db/db-${ts}.dump"
+                tmp_db="${db_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Waiting for postgres to be ready..."
+                until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
+                  sleep 2
+                done
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
+                if pg_dump -Fc -f "$tmp_db"; then
+                  if [ -s "$tmp_db" ]; then
+                    mv -f "$tmp_db" "$db_file"
+                  else
+                    echo "[WARN] pg_dump created empty file; skipping."
+                    rm -f "$tmp_db"
+                  fi
+                else
+                  echo "[WARN] pg_dump failed (db may not be ready)."
+                  rm -f "$tmp_db"
+                fi
+                cnt=$(ls -1 /mnt/backup/db/db-*.dump 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/db/db-*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+                sleep 600
+              done
+      initContainers:
+        db-restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[INIT] Preparing initial DB restore script..."
+              mkdir -p /work
+              # Find latest non-empty dump
+              latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
+                echo "[INIT] Using dump: $latest_dump"
+                cp "$latest_dump" /work/db.dump
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'set -e' \
+                  'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
+                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
+                  'echo "[INITDB] Restore complete."' \
+                  > /work/10-restore.sh
+                chmod +x /work/10-restore.sh
+              else
+                echo "[INIT] No valid DB dump found. Creating no-op init script."
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'echo "[INITDB] No dump present; skipping database restore."' \
+                  > /work/99-noop.sh
+                chmod +x /work/99-noop.sh
+              fi
+  service:
+    main:
+      ports:
+        http:
+          port: 5678
+          protocol: HTTP
+    db:
+      controller: db
+      ports:
+        postgres:
+          port: 5432
+          protocol: TCP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host n8n.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: n8n-tls-certificate
+  persistence:
+    n8n-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/node/.n8n
+          main-backup:
+            - path: /home/node/.n8n
+          main-restore:
+            - path: /home/node/.n8n
+    db-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        db:
+          db:
+            - path: /var/lib/postgresql
+          db-backup:
+            - path: /var/lib/postgresql
+    db-init:
+      type: emptyDir
+      advancedMounts:
+        db:
+          db:
+            - path: /docker-entrypoint-initdb.d
+          db-restore:
+            - path: /work
+    nfs-backups:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/n8n_backups
+      advancedMounts:
+        main:
+          main-backup:
+            - path: /mnt/backup
+          main-restore:
+            - path: /mnt/backup
+        db:
+          db-backup:
+            - path: /mnt/backup
+          db-restore:
+            - path: /mnt/backup
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
+      operator.1password.io/item-name: "secrets"
