@@ -1,10 +1,29 @@
-# n8n umbrella values for the official 8gears n8n chart
+# n8n umbrella values for the community-charts n8n chart (v1.14.1)
 # References:
-# - https://github.com/8gears/n8n-helm-chart/tree/main/charts/n8n
-# - https://artifacthub.io/packages/helm/open-8gears/n8n
+# - https://artifacthub.io/packages/helm/community-charts/n8n/1.14.1
+# - apps/examples for official example values
 
 n8n:
-  # Ingress configuration modeled after `apps/emby/values.yaml`
+  # Image settings
+  image:
+    repository: n8nio/n8n
+    pullPolicy: Always
+    tag: ""  # use chart appVersion (1.106.3)
+
+  # Optional: init container image policy for nodes external packages
+  nodes:
+    initContainer:
+      image:
+        pullPolicy: Always
+
+  # Service exposed to Ingress
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 5678
+    name: http
+
+  # Ingress configuration (community chart schema)
   ingress:
     enabled: true
     className: nginx
@@ -15,70 +34,49 @@ n8n:
     hosts:
       - host: n8n.eaglepass.io
         paths:
-          - /
+          - path: /
+            pathType: Prefix
     tls:
-      - hosts:
+      - secretName: n8n-tls-certificate
+        hosts:
           - n8n.eaglepass.io
-        secretName: n8n-tls-certificate
 
-  # Main n8n app config using Postgres inside same namespace
+  # Database selection (we use external Postgres we manage below)
+  db:
+    type: postgresdb
+
+  # Main pod settings
   main:
-    config:
-      n8n:
-        host: n8n.eaglepass.io
-        port: 5678
-        protocol: https
-      db:
-        type: postgresdb
-        postgresdb:
-          host: n8n-db
-          port: 5432
-      generic:
-        timezone: America/Chicago
-
-    # Provide sensitive values from external Secret managed by 1Password Operator
-    # The operator will create a Secret named `secrets` using the annotations below
-    secret: {}
-    extraEnv:
-      N8N_ENCRYPTION_KEY:
-        valueFrom:
-          secretKeyRef:
-            name: secrets
-            key: n8n-encryption-key
-      DB_POSTGRESDB_DATABASE:
-        valueFrom:
-          secretKeyRef:
-            name: secrets
-            key: n8n-postgres-db
-      DB_POSTGRESDB_USER:
-        valueFrom:
-          secretKeyRef:
-            name: secrets
-            key: n8n-postgres-user
-      DB_POSTGRESDB_PASSWORD:
-        valueFrom:
-          secretKeyRef:
-            name: secrets
-            key: n8n-postgres-password
-
-    service:
-      type: ClusterIP
-      # Chart defaults to mapping to container port http (5678). Expose 80 for ingress.
-      port: 80
-
+    # Probes (community chart defaults shown explicitly)
     livenessProbe:
       httpGet:
         path: /healthz
         port: http
     readinessProbe:
       httpGet:
-        path: /healthz
+        path: /healthz/readiness
         port: http
 
-    # Remove duplicate initContainers and keep a single restore matching current app
+    # Mount external PVC and NFS backup volume
+    volumes:
+      - name: n8n-data
+        persistentVolumeClaim:
+          claimName: n8n-data
+      - name: nfs-backups
+        nfs:
+          server: 10.0.50.3
+          path: /mnt/user/n8n_backups
+    volumeMounts:
+      - name: n8n-data
+        mountPath: /home/node/.n8n
+      - name: nfs-backups
+        mountPath: /mnt/backup
+
+    # Restore latest config from NFS on first boot
     initContainers:
       - name: main-restore
         image: alpine:latest
+        imagePullPolicy: Always
         command:
           - /bin/sh
           - -c
@@ -101,290 +99,40 @@ n8n:
               echo "[$(date +%Y-%m-%d_%H-%M-%S)] n8n config restore skipped. Marker exists."
             fi
         volumeMounts:
-          - name: data
+          - name: n8n-data
             mountPath: /home/node/.n8n
           - name: nfs-backups
             mountPath: /mnt/backup
 
-    # Ensure NFS backups path uses n8n_backups
-    extraVolumes:
-      - name: nfs-backups
-        nfs:
-          server: 10.0.50.3
-          path: /mnt/user/n8n_backups
-    extraVolumeMounts:
-      - name: nfs-backups
-        mountPath: /mnt/backup
-
+    # Provide sensitive values from external Secret managed by 1Password Operator
     podAnnotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
       operator.1password.io/item-name: "secrets"
 
-  worker:
-    enabled: false
-  webhook:
-    enabled: false
-
-  # Supplementary K8s manifests applied with the subchart
-  extraManifests:
-    # PVC for n8n data used by the main pod and backup CronJob
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: n8n-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 10Gi
-        # storageClassName: ""  # optional: set if you need a specific class
-
-    # Postgres headless Service
-    - apiVersion: v1
-      kind: Service
-      metadata:
-        name: n8n-db
-        labels:
-          app: n8n-db
-      spec:
-        ports:
-          - name: postgres
-            port: 5432
-            targetPort: 5432
-        clusterIP: None
-        selector:
-          app: n8n-db
-
-    # Postgres StatefulSet with PVC for swift local I/O and NFS for backups
-    - apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: n8n-db
-        labels:
-          app: n8n-db
-      spec:
-        selector: { matchLabels: { app: n8n-db } }
-        serviceName: n8n-db
-        replicas: 1
-        template:
-          metadata:
-            labels:
-              app: n8n-db
-            annotations:
-              operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
-              operator.1password.io/item-name: "secrets"
-          spec:
-            initContainers:
-              - name: db-restore
-                image: alpine:latest
-                command:
-                  - /bin/sh
-                  - -c
-                  - |
-                    set -e
-                    echo "[INIT] Preparing initial DB restore script..."
-                    mkdir -p /work
-                    latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
-                    if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
-                      echo "[INIT] Using dump: $latest_dump"
-                      cp "$latest_dump" /work/db.dump
-                      printf '%s\n' \
-                        '#!/bin/sh' \
-                        'set -e' \
-                        'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
-                        'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
-                        'echo "[INITDB] Restore complete."' \
-                        > /work/10-restore.sh
-                      chmod +x /work/10-restore.sh
-                    else
-                      echo "[INIT] No valid DB dump found. Creating no-op init script."
-                      printf '%s\n' \
-                        '#!/bin/sh' \
-                        'echo "[INITDB] No dump present; skipping database restore."' \
-                        > /work/99-noop.sh
-                      chmod +x /work/99-noop.sh
-                    fi
-                volumeMounts:
-                  - name: initdb
-                    mountPath: /work
-                  - name: nfs-backups
-                    mountPath: /mnt/backup
-            containers:
-              - name: postgres
-                image: postgres:16-alpine
-                env:
-                  - { name: TZ, value: America/Chicago }
-                  - { name: PGDATA, value: /var/lib/postgresql/data }
-                  - name: POSTGRES_DB
-                    valueFrom: { secretKeyRef: { name: secrets, key: n8n-postgres-db } }
-                  - name: POSTGRES_USER
-                    valueFrom: { secretKeyRef: { name: secrets, key: n8n-postgres-user } }
-                  - name: POSTGRES_PASSWORD
-                    valueFrom: { secretKeyRef: { name: secrets, key: n8n-postgres-password } }
-                ports:
-                  - { name: postgres, containerPort: 5432 }
-                volumeMounts:
-                  - { name: data, mountPath: /var/lib/postgresql }
-                  - { name: nfs-backups, mountPath: /mnt/backup }
-                  - { name: initdb, mountPath: /docker-entrypoint-initdb.d }
-            volumes:
-              - name: nfs-backups
-                nfs:
-                  server: 10.0.50.3
-                  path: /mnt/user/n8n_backups
-              - name: initdb
-                emptyDir: {}
-        volumeClaimTemplates:
-          - metadata:
-              name: data
-            spec:
-              accessModes: ["ReadWriteOnce"]
-              resources:
-                requests:
-                  storage: 10Gi
-
-    # CronJob to back up n8n application data (PVC -> NFS), same command style as current app
-    - apiVersion: batch/v1
-      kind: CronJob
-      metadata:
-        name: n8n-data-backup
-      spec:
-        schedule: "*/10 * * * *"
-        concurrencyPolicy: Forbid
-        successfulJobsHistoryLimit: 1
-        failedJobsHistoryLimit: 3
-        jobTemplate:
-          spec:
-            template:
-              metadata:
-                annotations:
-                  operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
-                  operator.1password.io/item-name: "secrets"
-              spec:
-                restartPolicy: OnFailure
-                containers:
-                  - name: backup
-                    image: alpine:latest
-                    env:
-                      - name: TZ
-                        value: America/Chicago
-                      - name: MAX_BACKUPS
-                        value: "15"
-                    command:
-                      - /bin/sh
-                      - -c
-                      - |
-                        set -e
-                        mkdir -p /mnt/backup/n8n
-                        ts=$(date +%Y-%m-%d_%H-%M-%S)
-                        n8n_file="/mnt/backup/n8n/n8n-${ts}.tar.gz"
-                        tmp_n8n="${n8n_file}.tmp"
-                        echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up n8n config to $n8n_file"
-                        if tar --exclude="lost+found" -czf "$tmp_n8n" -C /home/node/.n8n . \
-                          && tar -tzf "$tmp_n8n" >/dev/null 2>&1; then
-                          mv -f "$tmp_n8n" "$n8n_file"
-                        else
-                          echo "[WARN] n8n tar verification failed; skipping."
-                          rm -f "$tmp_n8n"
-                        fi
-                        cnt=$(ls -1 /mnt/backup/n8n/n8n-*.tar.gz 2>/dev/null | wc -l)
-                        if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
-                          ls -t /mnt/backup/n8n/n8n-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
-                        fi
-                    volumeMounts:
-                      - name: n8n-data
-                        mountPath: /home/node/.n8n
-                      - name: nfs-backups
-                        mountPath: /mnt/backup
-                volumes:
-                  - name: n8n-data
-                    persistentVolumeClaim:
-                      claimName: n8n-data
-                  - name: nfs-backups
-                    nfs:
-                      server: 10.0.50.3
-                      path: /mnt/user/n8n_backups
-
-    # CronJob to back up Postgres database (pg_dump -> NFS), same command style as current app (single-run)
-    - apiVersion: batch/v1
-      kind: CronJob
-      metadata:
-        name: n8n-db-backup
-      spec:
-        schedule: "*/10 * * * *"
-        concurrencyPolicy: Forbid
-        successfulJobsHistoryLimit: 1
-        failedJobsHistoryLimit: 3
-        jobTemplate:
-          spec:
-            template:
-              metadata:
-                annotations:
-                  operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
-                  operator.1password.io/item-name: "secrets"
-              spec:
-                restartPolicy: OnFailure
-                containers:
-                  - name: backup
-                    image: postgres:16-alpine
-                    env:
-                      - name: TZ
-                        value: America/Chicago
-                      - name: MAX_BACKUPS
-                        value: "15"
-                      - name: PGHOST
-                        value: n8n-db
-                      - name: PGPORT
-                        value: "5432"
-                      - name: PGDATABASE
-                        valueFrom:
-                          secretKeyRef:
-                            name: secrets
-                            key: n8n-postgres-db
-                      - name: PGUSER
-                        valueFrom:
-                          secretKeyRef:
-                            name: secrets
-                            key: n8n-postgres-user
-                      - name: PGPASSWORD
-                        valueFrom:
-                          secretKeyRef:
-                            name: secrets
-                            key: n8n-postgres-password
-                    command:
-                      - /bin/sh
-                      - -c
-                      - |
-                        set -e
-                        mkdir -p /mnt/backup/db
-                        ts=$(date +%Y-%m-%d_%H-%M-%S)
-                        db_file="/mnt/backup/db/db-${ts}.dump"
-                        tmp_db="${db_file}.tmp"
-                        echo "[$(date +%Y-%m-%d_%H-%M-%S)] Waiting for postgres to be ready..."
-                        until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
-                          sleep 2
-                        done
-                        echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
-                        if pg_dump -Fc -f "$tmp_db"; then
-                          if [ -s "$tmp_db" ]; then
-                            mv -f "$tmp_db" "$db_file"
-                          else
-                            echo "[WARN] pg_dump created empty file; skipping."
-                            rm -f "$tmp_db"
-                          fi
-                        else
-                          echo "[WARN] pg_dump failed (db may not be ready)."
-                          rm -f "$tmp_db"
-                        fi
-                        cnt=$(ls -1 /mnt/backup/db/db-*.dump 2>/dev/null | wc -l)
-                        if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
-                          ls -t /mnt/backup/db/db-*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
-                        fi
-                    volumeMounts:
-                      - name: nfs-backups
-                        mountPath: /mnt/backup
-                volumes:
-                  - name: nfs-backups
-                    nfs:
-                      server: 10.0.50.3
-                      path: /mnt/user/n8n_backups
+    # Environment variables for Postgres and timezone
+    extraEnvVars:
+      TZ: America/Chicago
+      DB_POSTGRESDB_HOST: n8n-db
+      DB_POSTGRESDB_PORT: "5432"
+      N8N_HOST: n8n.eaglepass.io
+      N8N_PROTOCOL: https
+      N8N_ENCRYPTION_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: secrets
+            key: n8n-encryption-key
+      DB_POSTGRESDB_DATABASE:
+        valueFrom:
+          secretKeyRef:
+            name: secrets
+            key: n8n-postgres-db
+      DB_POSTGRESDB_USER:
+        valueFrom:
+          secretKeyRef:
+            name: secrets
+            key: n8n-postgres-user
+      DB_POSTGRESDB_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: secrets
+            key: n8n-postgres-password
