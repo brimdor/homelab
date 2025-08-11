@@ -15,8 +15,7 @@ n8n:
     hosts:
       - host: n8n-canary.eaglepass.io
         paths:
-          - path: /
-            pathType: Prefix
+          - /
     tls:
       - hosts:
           - n8n-canary.eaglepass.io
