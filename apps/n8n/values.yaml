@@ -63,6 +63,8 @@ n8n:
       securityContext:
         runAsUser: 0
     primary:
+      statefulsetAnnotations:
+        argocd.argoproj.io/sync-options: Replace=true
       podSecurityContext:
         fsGroup: 1001
         fsGroupChangePolicy: Always
@@ -98,8 +100,10 @@ n8n:
             fi
     auth:
       username: n8n
-      password: ""
       database: n8n
+      existingSecret: secrets
+      secretKeys:
+        userPasswordKey: n8n-postgres-password
 
   # Main pod settings
   main:
@@ -159,12 +163,19 @@ n8n:
           - name: nfs-backups
             mountPath: /mnt/backup
 
-    # Import all keys from this secret into env (expects N8N_ENCRYPTION_KEY in the secret)
-    extraSecretNamesForEnvFrom:
-      - secrets
+    # Remove envFrom due to hyphenated keys; map needed secrets explicitly
+    # extraSecretNamesForEnvFrom: []
 
     # Environment variables
     extraEnvVars:
-      TZ: America/Chicago
-      N8N_HOST: n8n.eaglepass.io
-      N8N_PROTOCOL: https
+      - name: TZ
+        value: America/Chicago
+      - name: N8N_HOST
+        value: n8n.eaglepass.io
+      - name: N8N_PROTOCOL
+        value: https
+      - name: N8N_ENCRYPTION_KEY
+        valueFrom:
+          secretKeyRef:
+            name: secrets
+            key: n8n-encryption-key
