@@ -7,6 +7,7 @@ open-webui:
         pull:
           - mistral:7b
           - gpt-oss:20b
+          - mxbai-embed-large:latest
     image:
       repository: ollama/ollama
       tag: "latest"
