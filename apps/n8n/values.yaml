@@ -116,8 +116,8 @@ app-template:
       containers:
         db:
           image:
-            repository: docker.io/bitnami/postgresql
-            tag: "17.5.0-debian-12-r20"
+            repository: postgres
+            tag: "17.5-alpine"
           env:
             TZ: "America/Chicago"
             PGDATA: "/var/lib/postgresql/data"
@@ -138,8 +138,8 @@ app-template:
                   key: "n8n-postgres-password"
         db-backup:
           image:
-            repository: docker.io/bitnami/postgresql
-            tag: "17.5.0-debian-12-r20"
+            repository: postgres
+            tag: "17.5-alpine"
           env:
             TZ: "America/Chicago"
             MAX_BACKUPS: "15"
