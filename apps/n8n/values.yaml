@@ -13,31 +13,6 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
-env:
-  TZ: "America/Chicago" # Set timezone for n8n and cron jobs
-  DB_POSTGRESDB_HOST: "n8n-db.n8n.svc.cluster.local"
-  DB_POSTGRESDB_PORT: "5432"
-  DB_POSTGRESDB_DATABASE:
-    valueFrom:
-      secretKeyRef:
-        name: "secrets"
-        key: "n8n-postgres-db"
-  DB_POSTGRESDB_USER:
-    valueFrom:
-      secretKeyRef:
-        name: "secrets"
-        key: "n8n-postgres-user"
-  DB_POSTGRESDB_PASSWORD:
-    valueFrom:
-      secretKeyRef:
-        name: "secrets"
-        key: "n8n-postgres-password"
-  N8N_ENCRYPTION_KEY:
-    valueFrom:
-      secretKeyRef:
-        name: "secrets"
-        key: "n8n-encryption-key"
-
 # Global pod annotations (1Password operator)
 podAnnotations:
   operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
@@ -49,6 +24,7 @@ service:
   port: 5678
   name: http
 
+# Ingress for HTTPS at n8n.eaglepass.io
 ingress:
   enabled: true
   className: nginx
@@ -66,14 +42,7 @@ ingress:
         - n8n.eaglepass.io
       secretName: n8n-tls-certificate
 
-# ClusterIP service for n8n
-# service:
-#   enabled: true
-#   type: ClusterIP
-#   port: 5678
-#   name: http
-
-# Database configuration (use built-in Bitnami PostgreSQL subchart)
+# Use PostgreSQL database managed by the subchart
 db:
   type: postgresdb
 
@@ -87,7 +56,6 @@ postgresql:
     persistence:
       enabled: true
       existingClaim: n8n-db-data
-    # Mount NFS backups into Postgres pod for initdb restore
     extraVolumes:
       - name: nfs-backups
         nfs:
@@ -96,7 +64,6 @@ postgresql:
     extraVolumeMounts:
       - name: nfs-backups
         mountPath: /mnt/backup
-    # Run a restore script on first DB initialization (if a dump exists on NFS)
     initdb:
       scripts:
         10-restore.sh: |
@@ -112,13 +79,33 @@ postgresql:
             echo "[INITDB] No dump found; skipping restore"
           fi
 
-# Main n8n application
+# ...existing code...
 main:
   count: 1
-  # Remove DB env overrides; chart wires from db/postgresql values
-  extraEnvVars: {}
-
-  # Probes (use defaults if omitted)
+  extraEnvVars:
+    TZ: "America/Chicago"
+    DB_POSTGRESDB_HOST: "n8n-db.n8n.svc.cluster.local"
+    DB_POSTGRESDB_PORT: "5432"
+    DB_POSTGRESDB_DATABASE:
+      valueFrom:
+        secretKeyRef:
+          name: "secrets"
+          key: "n8n-postgres-db"
+    DB_POSTGRESDB_USER:
+      valueFrom:
+        secretKeyRef:
+          name: "secrets"
+          key: "n8n-postgres-user"
+    DB_POSTGRESDB_PASSWORD:
+      valueFrom:
+        secretKeyRef:
+          name: "secrets"
+          key: "n8n-postgres-password"
+    N8N_ENCRYPTION_KEY:
+      valueFrom:
+        secretKeyRef:
+          name: "secrets"
+          key: "n8n-encryption-key"
   livenessProbe:
     httpGet:
       path: /healthz
@@ -127,20 +114,14 @@ main:
     httpGet:
       path: /healthz/readiness
       port: http
-
-  # Persistent storage for n8n working dir
   persistence:
     enabled: true
     existingClaim: n8n-data
     mountPath: /home/node/.n8n
     accessMode: ReadWriteOnce
-
-  # Mount NFS backups into n8n pod
   volumeMounts:
     - name: nfs-backups
       mountPath: /mnt/backup
-
-  # Restore from latest backup on pod cold start (before main container starts)
   initContainers:
     - name: n8n-restore
       image: alpine:3.20
@@ -172,8 +153,6 @@ main:
           mountPath: /mnt/backup
         - name: node-modules
           mountPath: /home/node/.n8n
-
-  # Backup sidecars (cron-like loops)
   extraContainers:
     - name: n8n-config-backup
       image: alpine:3.20
@@ -267,6 +246,14 @@ main:
       volumeMounts:
         - name: nfs-backups
           mountPath: /mnt/backup
+
+# n8n app settings required by the chart (use external secret for encryption key)
+encryptionKey: ""
+existingEncryptionKeySecret: "secrets"
+
+timezone: "America/Chicago"
+defaultLocale: en
+gracefulShutdownTimeout: 30
 
 # Extra volumes available to the pod (for NFS backups)
 volumes:
