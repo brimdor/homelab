@@ -78,8 +78,6 @@ postgresql:
           else
             echo "[INITDB] No dump found; skipping restore"
           fi
-
-# ...existing code...
 main:
   count: 1
   extraEnvVars:
@@ -119,6 +117,11 @@ main:
     existingClaim: n8n-data
     mountPath: /home/node/.n8n
     accessMode: ReadWriteOnce
+  volumes:
+    - name: nfs-backups
+      nfs:
+        server: 10.0.50.3
+        path: /mnt/user/n8n_backups
   volumeMounts:
     - name: nfs-backups
       mountPath: /mnt/backup
@@ -254,10 +257,3 @@ existingEncryptionKeySecret: "secrets"
 timezone: "America/Chicago"
 defaultLocale: en
 gracefulShutdownTimeout: 30
-
-# Extra volumes available to the pod (for NFS backups)
-volumes:
-  - name: nfs-backups
-    nfs:
-      server: 10.0.50.3
-      path: /mnt/user/n8n_backups
