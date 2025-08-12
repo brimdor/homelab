@@ -116,7 +116,7 @@ app-template:
       containers:
         db:
           image:
-            repository: postgres
+            repository: docker.io/brimdor/postgres
             tag: "17.5-bookworm"
           env:
             TZ: "America/Chicago"
