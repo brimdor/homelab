@@ -8,7 +8,7 @@ n8n:
   image:
     repository: n8nio/n8n
     pullPolicy: Always
-    tag: "latest"  # use chart appVersion (1.106.3)
+    tag: ""  # use chart appVersion (1.106.3)
 
   # Apply pod annotations (moved from main.podAnnotations)
   podAnnotations:
@@ -56,59 +56,50 @@ n8n:
     image:
       pullPolicy: Always
     architecture: standalone
+    volumePermissions:
+      enabled: true
+      image:
+        pullPolicy: Always
+      securityContext:
+        runAsUser: 0
     primary:
+      podSecurityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: Always
+      containerSecurityContext:
+        enabled: true
+        runAsUser: 1001
+        runAsNonRoot: true
       persistence:
         enabled: true
-        mountPath: /bitnami/postgresql
-        accessMode: ReadWriteOnce
-        size: 10Gi
+        # use default mount (/bitnami/postgresql)
+        existingClaim: ""
       extraVolumes:
         - name: nfs-backups
           nfs:
             server: 10.0.50.3
             path: /mnt/user/n8n_backups
-        - name: initdb
-          emptyDir: {}
       extraVolumeMounts:
         - name: nfs-backups
           mountPath: /mnt/backup
-        - name: initdb
-          mountPath: /docker-entrypoint-initdb.d
-    initContainers:
-      - name: db-restore
-        image: alpine:latest
-        imagePullPolicy: Always
-        command:
-          - /bin/sh
-          - -c
-          - |
+      initdb:
+        scripts:
+          10-restore.sh: |
+            #!/bin/sh
             set -e
-            echo "[INIT] Preparing initial DB restore script..."
-            mkdir -p /work
+            echo "[INITDB] Checking for latest DB dump in /mnt/backup/db"
             latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
             if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
-              echo "[INIT] Using dump: $latest_dump"
-              cp "$latest_dump" /work/db.dump
-              printf '%s\n' \
-                '#!/bin/sh' \
-                'set -e' \
-                'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
-                'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
-                'echo "[INITDB] Restore complete."' \
-                > /work/10-restore.sh
-              chmod +x /work/10-restore.sh
+              echo "[INITDB] Restoring database from $latest_dump"
+              pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$latest_dump"
+              echo "[INITDB] Restore complete."
             else
-              echo "[INIT] No valid DB dump found. Creating no-op init script."
-              printf '%s\n' \
-                '#!/bin/sh' \
-                'echo "[INITDB] No dump present; skipping database restore."' \
-                > /work/99-noop.sh
-              chmod +x /work/99-noop.sh
-        volumeMounts:
-          - name: initdb
-            mountPath: /work
-          - name: nfs-backups
-            mountPath: /mnt/backup
+              echo "[INITDB] No valid dump found; skipping restore."
+            fi
+    auth:
+      username: n8n
+      password: ""
+      database: n8n
 
   # Main pod settings
   main:
@@ -126,6 +117,7 @@ n8n:
     persistence:
       enabled: true
       mountPath: /home/node/.n8n
+      volumeName: n8n-data
       accessMode: ReadWriteOnce
       size: 10Gi
     volumes:
@@ -176,4 +168,3 @@ n8n:
       TZ: America/Chicago
       N8N_HOST: n8n.eaglepass.io
       N8N_PROTOCOL: https
-      N8N_ENCRYPTION_KEY: ""
