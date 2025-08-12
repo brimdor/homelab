@@ -59,7 +59,7 @@ n8n:
     primary:
       persistence:
         enabled: true
-        mountPath: /var/lib/postgresql
+        mountPath: /bitnami/postgresql
         accessMode: ReadWriteOnce
         size: 10Gi
       extraVolumes:
@@ -136,8 +136,6 @@ n8n:
     volumeMounts:
       - name: nfs-backups
         mountPath: /mnt/backup
-      - name: n8n-data
-        mountPath: /home/node/.n8n
     initContainers:
       - name: main-restore
         image: alpine:latest
