@@ -81,3 +81,4 @@ spec:
               nfs:
                 server: 10.0.50.3
                 path: /mnt/user/n8n_backups
+# removed: custom DB backup CronJob; maintain as separate chart if required
