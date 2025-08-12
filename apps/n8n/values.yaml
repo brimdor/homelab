@@ -10,6 +10,7 @@
 
 image:
   repository: n8nio/n8n
+  tag: latest
   pullPolicy: IfNotPresent
 
 ingress:
