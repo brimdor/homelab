@@ -43,6 +43,12 @@ podAnnotations:
   operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
   operator.1password.io/item-name: "secrets"
 
+service:
+  enabled: true
+  type: ClusterIP
+  port: 5678
+  name: http
+
 ingress:
   enabled: true
   className: nginx
