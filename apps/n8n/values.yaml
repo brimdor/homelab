@@ -114,6 +114,7 @@ postgresql:
 
 # Main n8n application
 main:
+  count: 1
   # Remove DB env overrides; chart wires from db/postgresql values
   extraEnvVars: {}
 
