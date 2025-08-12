@@ -10,7 +10,7 @@
 
 image:
   repository: n8nio/n8n
-  tag: latest
+  tag: ""
   pullPolicy: IfNotPresent
 
 ingress:
@@ -23,8 +23,7 @@ ingress:
   hosts:
     - host: n8n.eaglepass.io
       paths:
-        - path: /
-          pathType: Prefix
+        - /
   tls:
     - hosts:
         - n8n.eaglepass.io
@@ -62,6 +61,8 @@ main:
   podAnnotations:
     operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
     operator.1password.io/item-name: "secrets"
+  podSecurityContext:
+    runAsUser: 0
 
   # Health probes
   livenessProbe:
@@ -99,6 +100,8 @@ main:
   initContainers:
     - name: n8n-restore
       image: alpine:3.20
+      securityContext:
+        runAsUser: 0
       command:
         - /bin/sh
         - -c
@@ -125,6 +128,12 @@ main:
           mountPath: /home/node/.n8n
         - name: nfs-backups
           mountPath: /mnt/backup
+
+  service:
+    enabled: true
+    port: 80
+  deploymentStrategy:
+    type: "Recreate"
 
 # Create DB, PVCs and backup CronJobs as raw resources
 extraManifests:
@@ -184,6 +193,8 @@ extraManifests:
           initContainers:
             - name: db-restore
               image: alpine:3.20
+              securityContext:
+                runAsUser: 0
               command:
                 - /bin/sh
                 - -c
@@ -395,3 +406,6 @@ extraManifests:
                   nfs:
                     server: 10.0.50.3
                     path: /mnt/user/n8n_backups
+
+valkey:
+  enabled: false
