@@ -33,6 +33,12 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-encryption-key"
+            # Other secrets for workflow use.
+            EMBY_API_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "emby-api-token"
           probes:
             liveness:
               enabled: true
