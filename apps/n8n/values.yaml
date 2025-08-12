@@ -117,7 +117,7 @@ app-template:
         db:
           image:
             repository: postgres
-            tag: "17.5-alpine"
+            tag: "17.5-bookworm"
           env:
             TZ: "America/Chicago"
             PGDATA: "/var/lib/postgresql/data"
@@ -139,7 +139,7 @@ app-template:
         db-backup:
           image:
             repository: postgres
-            tag: "17.5-alpine"
+            tag: "17.5-bookworm"
           env:
             TZ: "America/Chicago"
             MAX_BACKUPS: "15"
