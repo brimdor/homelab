@@ -13,13 +13,35 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
+env:
+  TZ: "America/Chicago" # Set timezone for n8n and cron jobs
+  DB_POSTGRESDB_HOST: "n8n-db.n8n.svc.cluster.local"
+  DB_POSTGRESDB_PORT: "5432"
+  DB_POSTGRESDB_DATABASE:
+    valueFrom:
+      secretKeyRef:
+        name: "secrets"
+        key: "n8n-postgres-db"
+  DB_POSTGRESDB_USER:
+    valueFrom:
+      secretKeyRef:
+        name: "secrets"
+        key: "n8n-postgres-user"
+  DB_POSTGRESDB_PASSWORD:
+    valueFrom:
+      secretKeyRef:
+        name: "secrets"
+        key: "n8n-postgres-password"
+  N8N_ENCRYPTION_KEY:
+    valueFrom:
+      secretKeyRef:
+        name: "secrets"
+        key: "n8n-encryption-key"
+
 # Global pod annotations (1Password operator)
 podAnnotations:
   operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
   operator.1password.io/item-name: "secrets"
-
-timezone: "America/Chicago"
-existingEncryptionKeySecret: "secrets" # secret must contain key: N8N_ENCRYPTION_KEY
 
 ingress:
   enabled: true
@@ -39,11 +61,11 @@ ingress:
       secretName: n8n-tls-certificate
 
 # ClusterIP service for n8n
-service:
-  enabled: true
-  type: ClusterIP
-  port: 5678
-  name: http
+# service:
+#   enabled: true
+#   type: ClusterIP
+#   port: 5678
+#   name: http
 
 # Database configuration (use built-in Bitnami PostgreSQL subchart)
 db:
@@ -245,9 +267,3 @@ volumes:
     nfs:
       server: 10.0.50.3
       path: /mnt/user/n8n_backups
-
-# Removed unsupported/incorrect blocks:
-# - extraManifests
-# - main.service (use root service)
-# - valkey (not used by this chart)
-# - manual Postgres StatefulSet/Service (use built-in postgresql subchart)
