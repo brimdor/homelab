@@ -6,5 +6,5 @@
     - podman
     - docker
     - cronjobs
-    - { role: virtualization, when: inventory_hostname == "arcanine" }
-    - { role: display_config, when: inventory_hostname == "arcanine", tags: display_config }
+    - { role: virtualization, when: hostvars[inventory_hostname].has_virtualization | default(false) }
+    - { role: display_config, when: hostvars[inventory_hostname].has_display | default(false), tags: display_config }
