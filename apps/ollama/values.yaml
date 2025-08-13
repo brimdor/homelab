@@ -158,7 +158,7 @@ ollama:
   service:
 
     # -- Service type
-    type: ClusterIP
+    type: LoadBalancer
 
     # -- Service port
     port: 11434
@@ -167,7 +167,7 @@ ollama:
     nodePort: 31434
 
     # -- Load Balancer IP address
-    loadBalancerIP:
+    loadBalancerIP: 10.0.50.225
 
     # -- Annotations to add to the service
     annotations: {}
