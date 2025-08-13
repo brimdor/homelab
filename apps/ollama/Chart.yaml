@@ -9,3 +9,10 @@ sources:
 - https://github.com/otwld/ollama-helm
 type: application
 version: 1.26.0
+dependencies:
+- name: ollama
+  repository: https://otwld.github.io/ollama-helm
+  version: 1.26.0
+  tags:
+    - ollama
+    - open-webui
