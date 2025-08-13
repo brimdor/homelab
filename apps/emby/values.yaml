@@ -155,4 +155,7 @@ app-template:
                   operator: In
                   values:
                     - "true"
+    tolerations:
+      - key: nvidia.com/gpu.present
+        operator: Exists
     runtimeClassName: nvidia
