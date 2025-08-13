@@ -1,0 +1,11 @@
+apiVersion: v2
+name: ollama
+appVersion: 0.11.2
+description: Get up and running with large language models locally.
+home: https://ollama.com/
+icon: https://ollama.com/public/ollama.png
+sources:
+- https://github.com/ollama/ollama
+- https://github.com/otwld/ollama-helm
+type: application
+version: 1.26.0
