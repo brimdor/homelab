@@ -65,7 +65,6 @@ metal:
             disk: sda,
             network_interface: eno1,
             gpu_type: 'GeForce GTX 1650',
-            has_display: true,
             has_virtualization: true
           }
         arcanine:
