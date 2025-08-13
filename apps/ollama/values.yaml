@@ -364,15 +364,24 @@ ollama:
   tolerations: []
 
   # -- Affinity for pod assignment
+  # affinity:
+  #   nodeAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       nodeSelectorTerms:
+  #         - matchFields:
+  #             - key: metadata.name
+  #               operator: In
+  #               values:
+  #                 - arcanine
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
-          - matchFields:
-              - key: metadata.name
-                operator: In
-                values:
-                  - arcanine
+          - matchExpressions:
+            - key: nvidia.com/gpu.present
+              operator: In
+              values:
+                - "true"
 
   # -- Lifecycle for pod assignment (override ollama.models startup pull/run)
   lifecycle: {}
