@@ -36,7 +36,7 @@ ollama:
 
     gpu:
       # -- Enable GPU integration
-      enabled: true
+      enabled: false
 
       # -- Enable DRA GPU integration
       # If enabled, it will use DRA instead of Device Driver Plugin and create a ResourceClaim and GpuClaimParameters
