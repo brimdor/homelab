@@ -46,11 +46,11 @@ open-webui:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
-            - matchExpressions:
-              - key: nvidia.com/gpu.present
-                operator: In
-                values:
-                  - "true"
+            - matchFields:
+                - key: metadata.name
+                  operator: In
+                  values:
+                    - arcanine
 
   pipelines:
     enabled: false
