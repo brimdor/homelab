@@ -1,13 +1,9 @@
 # https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
-  image:
-    repository: docker.io/brimdor/postgres
-    tag: "17.5-bookworm"
   controllers:
-    db:
-      type: statefulset
+    main:
       containers:
-        db:
+        main:
           image:
             repository: docker.io/brimdor/postgres
             tag: "17.5-bookworm"
@@ -97,7 +93,7 @@ app-template:
                   name: "secrets"
                   key: "postgres-password"
           dependsOn:
-            - db
+            - main
           command:
             - /bin/sh
             - -c
@@ -164,8 +160,8 @@ app-template:
                   > /work/99-noop.sh
                 chmod +x /work/99-noop.sh
   service:
-    db:
-      controller: db
+    main:
+      controller: main
       ports:
         postgres:
           port: 5432
@@ -175,16 +171,16 @@ app-template:
       accessMode: ReadWriteOnce
       size: 10Gi
       advancedMounts:
-        db:
-          db:
+        main:
+          main:
             - path: /var/lib/postgresql
           db-backup:
             - path: /var/lib/postgresql
     db-init:
       type: emptyDir
       advancedMounts:
-        db:
-          db:
+        main:
+          main:
             - path: /docker-entrypoint-initdb.d
           db-restore:
             - path: /work
@@ -193,7 +189,7 @@ app-template:
       server: 10.0.50.3
       path: /mnt/user/postgres_backups
       advancedMounts:
-        db:
+        main:
           db-backup:
             - path: /mnt/backup
           db-restore:
