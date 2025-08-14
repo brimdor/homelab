@@ -35,6 +35,13 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-encryption-key"
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1024Mi"
+            limits:
+              cpu: "2"
+              memory: "4096Mi"
           probes:
             liveness:
               enabled: true
