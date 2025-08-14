@@ -163,7 +163,7 @@ app-template:
     main:
       controller: main
       ports:
-        postgres:
+        http:
           port: 5432
           protocol: TCP
   persistence:
