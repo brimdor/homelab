@@ -1,0 +1,202 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    db:
+      containers:
+        db:
+          image:
+            repository: docker.io/brimdor/postgres
+            tag: "17.5-bookworm"
+          env:
+            TZ: "America/Chicago"
+            PGDATA: "/var/lib/postgresql/data"
+            POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-db"
+            POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-user"
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-password"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - |
+                      pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER"
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - |
+                      pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER"
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - |
+                      pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER"
+                initialDelaySeconds: 5
+                periodSeconds: 5
+                timeoutSeconds: 5
+                failureThreshold: 60
+        db-backup:
+          image:
+            repository: postgres
+            tag: "17.5-bookworm"
+          env:
+            TZ: "America/Chicago"
+            MAX_BACKUPS: "15"
+            PGHOST: "127.0.0.1"
+            PGPORT: "5432"
+            PGDATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-db"
+            PGUSER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-user"
+            PGPASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-password"
+          dependsOn:
+            - db
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              sleep 30
+              mkdir -p /mnt/backup/db
+              while true; do
+                ts=$(date +%Y-%m-%d_%H-%M-%S)
+                db_file="/mnt/backup/db/db-${ts}.dump"
+                tmp_db="${db_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Waiting for postgres to be ready..."
+                until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
+                  sleep 2
+                done
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
+                if pg_dump -Fc -f "$tmp_db"; then
+                  if [ -s "$tmp_db" ]; then
+                    mv -f "$tmp_db" "$db_file"
+                  else
+                    echo "[WARN] pg_dump created empty file; skipping."
+                    rm -f "$tmp_db"
+                  fi
+                else
+                  echo "[WARN] pg_dump failed (db may not be ready)."
+                  rm -f "$tmp_db"
+                fi
+                cnt=$(ls -1 /mnt/backup/db/db-*.dump 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/db/db-*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+                sleep 600
+              done
+      initContainers:
+        db-restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[INIT] Preparing initial DB restore script..."
+              mkdir -p /work
+              # Find latest non-empty dump
+              latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
+                echo "[INIT] Using dump: $latest_dump"
+                cp "$latest_dump" /work/db.dump
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'set -e' \
+                  'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
+                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
+                  'echo "[INITDB] Restore complete."' \
+                  > /work/10-restore.sh
+                chmod +x /work/10-restore.sh
+              else
+                echo "[INIT] No valid DB dump found. Creating no-op init script."
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'echo "[INITDB] No dump present; skipping database restore."' \
+                  > /work/99-noop.sh
+                chmod +x /work/99-noop.sh
+  service:
+    db:
+      controller: db
+      ports:
+        postgres:
+          port: 5432
+          protocol: TCP
+  persistence:
+    db-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        db:
+          db:
+            - path: /var/lib/postgresql
+          db-backup:
+            - path: /var/lib/postgresql
+    db-init:
+      type: emptyDir
+      advancedMounts:
+        db:
+          db:
+            - path: /docker-entrypoint-initdb.d
+          db-restore:
+            - path: /work
+    nfs-backups:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/postgres_backups
+      advancedMounts:
+        db:
+          db-backup:
+            - path: /mnt/backup
+          db-restore:
+            - path: /mnt/backup
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
+      operator.1password.io/item-name: "secrets"
