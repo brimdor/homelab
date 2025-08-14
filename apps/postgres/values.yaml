@@ -109,7 +109,6 @@ app-template:
                 until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
                   sleep 2
                 done
-                # waiting for postgres ready
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
                 if pg_dump -Fc -f "$tmp_db"; then
                   if [ -s "$tmp_db" ]; then
@@ -133,24 +132,6 @@ app-template:
           image:
             repository: alpine
             tag: latest
-          env:
-            TZ: "America/Chicago"
-            PGDATA: "/var/lib/postgresql/data"
-            POSTGRES_DB:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "postgres-db"
-            POSTGRES_USER:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "postgres-user"
-            POSTGRES_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "postgres-password"
           command:
             - /bin/sh
             - -c
@@ -166,24 +147,18 @@ app-template:
                 printf '%s\n' \
                   '#!/bin/sh' \
                   'set -e' \
-                  'echo "[INITDB] Marker check: $PGDATA/.bees-knees"' \
-                  'if [ -f "$PGDATA/.bees-knees" ]; then' \
-                  '  echo "[INITDB] Marker file present; skipping restore."' \
-                  '  exit 0' \
-                  'fi' \
-                  'echo "[INITDB] Checking for existing database \"$POSTGRES_DB\""' \
-                  'if psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tc "SELECT 1 FROM pg_database WHERE datname = '\''$POSTGRES_DB'\''" | grep -q 1; then' \
-                  '  echo "[INITDB] Database $POSTGRES_DB exists; skipping restore."' \
-                  '  exit 0' \
-                  'fi' \
                   'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
                   'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
                   'echo "[INITDB] Restore complete."' \
-                  'touch "$PGDATA/.bees-knees"' \
                   > /work/10-restore.sh
                 chmod +x /work/10-restore.sh
               else
-                echo "[INIT] No dump present; skipping database restore."
+                echo "[INIT] No valid DB dump found. Creating no-op init script."
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'echo "[INITDB] No dump present; skipping database restore."' \
+                  > /work/99-noop.sh
+                chmod +x /work/99-noop.sh
               fi
   service:
     main:
