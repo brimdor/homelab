@@ -1,4 +1,4 @@
 - name: Install NFS Utilities
   dnf:
-    name: nfs-utils
+    name: inxi
     state: present
