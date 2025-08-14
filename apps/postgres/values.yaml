@@ -144,21 +144,16 @@ app-template:
               if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
                 echo "[INIT] Using dump: $latest_dump"
                 cp "$latest_dump" /work/db.dump
-                printf '%s\n' \
-                  '#!/bin/sh' \
-                  'set -e' \
-                  'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
-                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
-                  'echo "[INITDB] Restore complete."' \
-                  > /work/10-restore.sh
-                chmod +x /work/10-restore.sh
+                echo "[INITDB] Restoring database from /work/db.dump"
+                # Attempt restore directly; if the database is already initialized, pg_restore may fail.
+                if pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /work/db.dump; then
+                  echo "[INITDB] Restore complete."
+                else
+                  echo "[WARN] pg_restore failed or DB not ready; leaving dump in /work for later processing."
+                fi
               else
-                echo "[INIT] No valid DB dump found. Creating no-op init script."
-                printf '%s\n' \
-                  '#!/bin/sh' \
-                  'echo "[INITDB] No dump present; skipping database restore."' \
-                  > /work/99-noop.sh
-                chmod +x /work/99-noop.sh
+                echo "[INIT] No valid DB dump found. Skipping restore."
+              fi
   service:
     main:
       controller: main
