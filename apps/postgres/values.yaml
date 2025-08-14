@@ -109,6 +109,13 @@ app-template:
                 until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
                   sleep 2
                 done
+                # Ensure the target database exists (create if missing). Some apps use the username as DB name.
+                if ! psql -v ON_ERROR_STOP=1 -U "$PGUSER" -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$PGDATABASE'" | grep -q 1; then
+                  echo "[INIT] Database $PGDATABASE not found; creating..."
+                  if ! createdb -U "$PGUSER" "$PGDATABASE" 2>/dev/null; then
+                    psql -v ON_ERROR_STOP=1 -U "$PGUSER" -d postgres -c "CREATE DATABASE \"$PGDATABASE\";"
+                  fi
+                fi
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
                 if pg_dump -Fc -f "$tmp_db"; then
                   if [ -s "$tmp_db" ]; then
@@ -144,15 +151,26 @@ app-template:
               if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
                 echo "[INIT] Using dump: $latest_dump"
                 cp "$latest_dump" /work/db.dump
-                echo "[INITDB] Restoring database from /work/db.dump"
-                # Attempt restore directly; if the database is already initialized, pg_restore may fail.
-                if pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /work/db.dump; then
-                  echo "[INITDB] Restore complete."
-                else
-                  echo "[WARN] pg_restore failed or DB not ready; leaving dump in /work for later processing."
-                fi
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'set -e' \
+                  'echo "[INITDB] Checking/creating target database \"$POSTGRES_DB\""' \
+                  'if ! psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = \"$POSTGRES_DB\"" | grep -q 1; then' \
+                  '  echo "[INITDB] Database $POSTGRES_DB not found; creating..."' \
+                  '  psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\";"' \
+                  'fi' \
+                  'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
+                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
+                  'echo "[INITDB] Restore complete."' \
+                  > /work/10-restore.sh
+                chmod +x /work/10-restore.sh
               else
-                echo "[INIT] No valid DB dump found. Skipping restore."
+                echo "[INIT] No valid DB dump found. Creating no-op init script."
+                printf '%s\n' \
+                  '#!/bin/sh' \
+                  'echo "[INITDB] No dump present; skipping database restore."' \
+                  > /work/99-noop.sh
+                chmod +x /work/99-noop.sh
               fi
   service:
     main:
