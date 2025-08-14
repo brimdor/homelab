@@ -3,6 +3,7 @@
   roles:
     - system_settings
     - nfs_utils
+    - inxi
     - podman
     - docker
     - cronjobs
