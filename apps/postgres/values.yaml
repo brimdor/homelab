@@ -25,49 +25,6 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "postgres-password"
-          probes:
-            liveness:
-              enabled: true
-              custom: true
-              spec:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - |
-                      pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER"
-                initialDelaySeconds: 30
-                periodSeconds: 10
-                timeoutSeconds: 5
-                failureThreshold: 6
-            readiness:
-              enabled: true
-              custom: true
-              spec:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - |
-                      pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER"
-                initialDelaySeconds: 10
-                periodSeconds: 10
-                timeoutSeconds: 5
-                failureThreshold: 6
-            startup:
-              enabled: true
-              custom: true
-              spec:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - |
-                      pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER"
-                initialDelaySeconds: 5
-                periodSeconds: 5
-                timeoutSeconds: 5
-                failureThreshold: 60
         db-backup:
           image:
             repository: postgres
@@ -176,8 +133,6 @@ app-template:
           main:
             - path: /var/lib/postgresql
           db-backup:
-            - path: /var/lib/postgresql
-          db-restore:
             - path: /var/lib/postgresql
     db-init:
       type: emptyDir
