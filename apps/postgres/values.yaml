@@ -193,5 +193,5 @@ app-template:
     securityContext:
       fsGroup: 1000
     annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/c5krkheantm42ss5tgpg5gsxeq"
       operator.1password.io/item-name: "secrets"
