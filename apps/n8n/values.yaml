@@ -35,6 +35,7 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "n8n-encryption-key"
+            N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: "true"
           resources:
             requests:
               cpu: 1
