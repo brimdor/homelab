@@ -137,3 +137,5 @@ kubectl -n argocd patch applicationset root \
   ssh-keygen -R <node-ip>
   ssh root@<node-ip>
   wipefs -a /dev/sda3
+
+  to check system stats - inxi
