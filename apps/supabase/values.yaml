@@ -10,11 +10,11 @@ app-template:
       containers:
         studio:
           image:
-            repository: supabase/studio
+            repository: "supabase/studio"
             tag: "2025.06.30-sha-6f5982d"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             STUDIO_PG_META_URL: "http://supabase-meta:8080"
             SUPABASE_URL: "http://supabase-kong:8000"
@@ -23,30 +23,30 @@ app-template:
             ANON_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: anon-key
+                  name: "supabase-secrets"
+                  key: "anon-key"
             SERVICE_ROLE_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: service-role-key
+                  name: "supabase-secrets"
+                  key: "service-role-key"
             JWT_SECRET:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: jwt-secret
+                  name: "supabase-secrets"
+                  key: "jwt-secret"
             POSTGRES_PASSWORD:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: postgres-password
+                  name: "supabase-secrets"
+                  key: "postgres-password"
           probes:
             liveness:
               enabled: true
               custom: true
               spec:
                 httpGet:
-                  path: /api/platform/profile
+                  path: "/api/platform/profile"
                   port: 3000
                 initialDelaySeconds: 10
                 periodSeconds: 10
@@ -55,7 +55,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /api/platform/profile
+                  path: "/api/platform/profile"
                   port: 3000
                 initialDelaySeconds: 5
                 periodSeconds: 5
@@ -63,11 +63,11 @@ app-template:
       containers:
         kong:
           image:
-            repository: kong
+            repository: "kong"
             tag: "2.8.1"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             KONG_DATABASE: "off"
             KONG_DNS_ORDER: "LAST,A,CNAME"
@@ -77,32 +77,32 @@ app-template:
             SUPABASE_ANON_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: anon-key
+                  name: "supabase-secrets"
+                  key: "anon-key"
             SUPABASE_SERVICE_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: service-role-key
+                  name: "supabase-secrets"
+                  key: "service-role-key"
             DASHBOARD_USERNAME:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: dashboard-username
+                  name: "supabase-secrets"
+                  key: "dashboard-username"
             DASHBOARD_PASSWORD:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: dashboard-password
+                  name: "supabase-secrets"
+                  key: "dashboard-password"
     auth:
       containers:
         auth:
           image:
-            repository: supabase/gotrue
+            repository: "supabase/gotrue"
             tag: "v2.177.0"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             GOTRUE_API_HOST: "0.0.0.0"
             GOTRUE_API_PORT: "9999"
@@ -110,88 +110,88 @@ app-template:
             GOTRUE_DB_DATABASE_URL:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: gotrue-db-database-url
+                  name: "supabase-secrets"
+                  key: "gotrue-db-database-url"
             GOTRUE_JWT_SECRET:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: jwt-secret
+                  name: "supabase-secrets"
+                  key: "jwt-secret"
             GOTRUE_JWT_EXP:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: gotrue-jwt-exp
+                  name: "supabase-secrets"
+                  key: "gotrue-jwt-exp"
             GOTRUE_SMTP_ADMIN_EMAIL:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: smtp-admin-email
+                  name: "supabase-secrets"
+                  key: "smtp-admin-email"
             GOTRUE_SMTP_HOST:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: smtp-host
+                  name: "supabase-secrets"
+                  key: "smtp-host"
             GOTRUE_SMTP_PORT:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: smtp-port
+                  name: "supabase-secrets"
+                  key: "smtp-port"
             GOTRUE_SMTP_USER:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: smtp-user
+                  name: "supabase-secrets"
+                  key: "smtp-user"
             GOTRUE_SMTP_PASS:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: smtp-pass
+                  name: "supabase-secrets"
+                  key: "smtp-pass"
     rest:
       containers:
         rest:
           image:
-            repository: postgrest/postgrest
+            repository: "postgrest/postgrest"
             tag: "v12.2.12"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             PGRST_DB_ANON_ROLE: "anon"
             PGRST_DB_USE_LEGACY_GUCS: "false"
             PGRST_DB_URI:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: pgrst-db-uri
+                  name: "supabase-secrets"
+                  key: "pgrst-db-uri"
             PGRST_JWT_SECRET:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: jwt-secret
+                  name: "supabase-secrets"
+                  key: "jwt-secret"
     realtime:
       containers:
         realtime:
           image:
-            repository: supabase/realtime
+            repository: "supabase/realtime"
             tag: "v2.34.47"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             PORT: "4000"
             DB_USER: "supabase_admin"
             DB_PASSWORD:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: postgres-password
+                  name: "supabase-secrets"
+                  key: "postgres-password"
             DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
             DB_ENC_KEY: "supabaserealtime"
             SECRET_KEY_BASE:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
+                  name: "supabase-secrets"
                   key: secret-key-base
             ERL_AFLAGS: "-proto_dist inet_tcp"
             DNS_NODES: "''"
@@ -203,11 +203,11 @@ app-template:
       containers:
         storage:
           image:
-            repository: supabase/storage-api
+            repository: "supabase/storage-api"
             tag: "v1.25.7"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             POSTGREST_URL: "http://supabase-rest:3000"
             FILE_SIZE_LIMIT: "52428800"
@@ -221,16 +221,16 @@ app-template:
             ANON_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: anon-key
+                  name: "supabase-secrets"
+                  key: "anon-key"
             SERVICE_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: service-role-key
+                  name: "supabase-secrets"
+                  key: "service-role-key"
         backup:
           image:
-            repository: alpine
+            repository: "alpine"
             tag: "latest"
           command:
             - /bin/sh
@@ -251,7 +251,7 @@ app-template:
       initContainers:
         restore:
           image:
-            repository: alpine
+            repository: "alpine"
             tag: "latest"
           command:
             - /bin/sh
@@ -276,11 +276,11 @@ app-template:
       containers:
         imgproxy:
           image:
-            repository: darthsim/imgproxy
+            repository: "darthsim/imgproxy"
             tag: "v3.8.0"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             IMGPROXY_BIND: ":5001"
             IMGPROXY_LOCAL_FILESYSTEM_ROOT: "/"
@@ -289,52 +289,52 @@ app-template:
       containers:
         meta:
           image:
-            repository: supabase/postgres-meta
+            repository: "supabase/postgres-meta"
             tag: "v0.91.0"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             PG_META_PORT: "8080"
             PG_META_DB_USER: "supabase_admin"
             PG_META_DB_PASSWORD:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: postgres-password
+                  name: "supabase-secrets"
+                  key: "postgres-password"
     functions:
       containers:
         functions:
           image:
-            repository: supabase/edge-runtime
+            repository: "supabase/edge-runtime"
             tag: "v1.67.4"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             SUPABASE_URL: "http://supabase-kong:8000"
             VERIFY_JWT:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: functions-verify-jwt
+                  name: "supabase-secrets"
+                  key: "functions-verify-jwt"
             SUPABASE_ANON_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: anon-key
+                  name: "supabase-secrets"
+                  key: "anon-key"
             SUPABASE_SERVICE_ROLE_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: service-role-key
+                  name: "supabase-secrets"
+                  key: "service-role-key"
           command:
             - start
             - --main-service
             - /home/deno/functions/main
         backup:
           image:
-            repository: alpine
+            repository: "alpine"
             tag: "latest"
           command:
             - /bin/sh
@@ -356,8 +356,8 @@ app-template:
       initContainers:
         restore:
           image:
-            repository: alpine
-            tag: latest
+            repository: "alpine"
+            tag: "latest"
           command:
             - /bin/sh
             - -c
@@ -380,11 +380,11 @@ app-template:
       containers:
         analytics:
           image:
-            repository: supabase/logflare
+            repository: "supabase/logflare"
             tag: "1.14.2"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             LOGFLARE_NODE_HOST: "127.0.0.1"
             DB_USERNAME: "supabase_admin"
@@ -396,57 +396,57 @@ app-template:
             LOGFLARE_PRIVATE_ACCESS_TOKEN:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: logflare-private-access-token
+                  name: "supabase-secrets"
+                  key: "logflare-private-access-token"
             LOGFLARE_PUBLIC_ACCESS_TOKEN:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: logflare-public-access-token
+                  name: "supabase-secrets"
+                  key: "logflare-public-access-token"
     db:
       containers:
         db:
           image:
-            repository: supabase/postgres
+            repository: "supabase/postgres"
             tag: "15.8.1.060"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             POSTGRES_HOST: "/var/run/postgresql"
             POSTGRES_PASSWORD:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: postgres-password
+                  name: "supabase-secrets"
+                  key: "postgres-password"
             JWT_SECRET:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: jwt-secret
+                  name: "supabase-secrets"
+                  key: "jwt-secret"
             JWT_EXP:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: jwt-expiry
+                  name: "supabase-secrets"
+                  key: "jwt-expiry"
           ports:
             - name: pg
               containerPort: 5432
         backup:
           image:
-            repository: postgres
+            repository: "postgres"
             tag: "15-alpine"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             PGHOST: "127.0.0.1"
             PGUSER: "postgres"
             PGPASSWORD:
               valueFrom:
                 secretKeyRef:
-                  name: supabase-secrets
-                  key: postgres-password
+                  name: "supabase-secrets"
+                  key: "postgres-password"
           command:
             - /bin/sh
             - -c
@@ -466,7 +466,7 @@ app-template:
       initContainers:
         restore:
           image:
-            repository: alpine
+            repository: "alpine"
             tag: "latest"
           command:
             - /bin/sh
@@ -495,17 +495,17 @@ app-template:
       containers:
         vector:
           image:
-            repository: timberio/vector
+            repository: "timberio/vector"
             tag: "0.28.1-alpine"
     supavisor:
       containers:
         supavisor:
           image:
-            repository: supabase/supavisor
+            repository: "supabase/supavisor"
             tag: "2.5.7"
           envFrom:
             - secretRef:
-                name: supabase-secrets
+                name: "supabase-secrets"
           env:
             PORT: "4000"
             CLUSTER_POSTGRES: "true"
