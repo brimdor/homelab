@@ -19,10 +19,10 @@ app-template:
         main:
           image:
             repository: "supabase/studio"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "2025.06.30-sha-6f5982d"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             STUDIO_PG_META_URL: "http://supabase-meta:8080"
             SUPABASE_URL: "http://supabase-kong:8000"
@@ -72,10 +72,10 @@ app-template:
         kong:
           image:
             repository: "kong"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "2.8.1"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             KONG_DATABASE: "off"
             KONG_DNS_ORDER: "LAST,A,CNAME"
@@ -107,10 +107,10 @@ app-template:
         auth:
           image:
             repository: "supabase/gotrue"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "v2.177.0"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             GOTRUE_API_HOST: "0.0.0.0"
             GOTRUE_API_PORT: "9999"
@@ -160,10 +160,10 @@ app-template:
         rest:
           image:
             repository: "postgrest/postgrest"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "v12.2.12"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             PGRST_DB_ANON_ROLE: "anon"
             PGRST_DB_USE_LEGACY_GUCS: "false"
@@ -182,10 +182,10 @@ app-template:
         realtime:
           image:
             repository: "supabase/realtime"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "v2.34.47"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             PORT: "4000"
             DB_USER: "supabase_admin"
@@ -212,10 +212,10 @@ app-template:
         storage:
           image:
             repository: "supabase/storage-api"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "v1.25.7"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             POSTGREST_URL: "http://supabase-rest:3000"
             FILE_SIZE_LIMIT: "52428800"
@@ -285,10 +285,10 @@ app-template:
         imgproxy:
           image:
             repository: "darthsim/imgproxy"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "v3.8.0"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             IMGPROXY_BIND: ":5001"
             IMGPROXY_LOCAL_FILESYSTEM_ROOT: "/"
@@ -298,10 +298,10 @@ app-template:
         meta:
           image:
             repository: "supabase/postgres-meta"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "v0.91.0"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             PG_META_PORT: "8080"
             PG_META_DB_USER: "supabase_admin"
@@ -315,10 +315,10 @@ app-template:
         functions:
           image:
             repository: "supabase/edge-runtime"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "v1.67.4"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             SUPABASE_URL: "http://supabase-kong:8000"
             VERIFY_JWT:
@@ -389,10 +389,10 @@ app-template:
         analytics:
           image:
             repository: "supabase/logflare"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "1.14.2"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             LOGFLARE_NODE_HOST: "127.0.0.1"
             DB_USERNAME: "supabase_admin"
@@ -416,10 +416,10 @@ app-template:
         db:
           image:
             repository: "supabase/postgres"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "15.8.1.060"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             POSTGRES_HOST: "/var/run/postgresql"
             POSTGRES_PASSWORD:
@@ -444,9 +444,9 @@ app-template:
           image:
             repository: "postgres"
             tag: "15-alpine"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             PGHOST: "127.0.0.1"
             PGUSER: "postgres"
@@ -504,16 +504,16 @@ app-template:
         vector:
           image:
             repository: "timberio/vector"
-            tag: "latest"
+            tag: "0.28.1-alpine"
     supavisor:
       containers:
         supavisor:
           image:
             repository: "supabase/supavisor"
-            tag: "latest"
-          # envFrom:
-          #   - secretRef:
-          #       name: "supabase-secrets"
+            tag: "2.5.7"
+          envFrom:
+            - secretRef:
+                name: "supabase-secrets"
           env:
             PORT: "4000"
             CLUSTER_POSTGRES: "true"
@@ -659,3 +659,7 @@ app-template:
         api:
           port: 4000
           protocol: HTTP
+
+  # Note: secrets must be created by 1Password Operator as a Secret named "supabase-secrets" in this namespace.
+  # Expected keys include all variables referenced by the containers above (e.g., POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT,
+  # JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY, SUPABASE_PUBLIC_URL, API_EXTERNAL_URL, SITE_URL, etc.).
