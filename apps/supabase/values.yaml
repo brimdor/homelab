@@ -11,7 +11,7 @@ app-template:
   defaultPodOptions:
     annotations:
       # Replace the example path/name below with your vault/item values
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/hnf6uqvtbdmj63q3go5y5mabqy"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/niivetvnqdoscrksuxmlksw3iu"
       operator.1password.io/item-name: "supabase-secrets"
   controllers:
     main:
