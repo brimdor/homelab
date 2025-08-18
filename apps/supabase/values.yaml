@@ -14,9 +14,9 @@ app-template:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/hnf6uqvtbdmj63q3go5y5mabqy"
       operator.1password.io/item-name: "supabase-secrets"
   controllers:
-    studio:
+    main:
       containers:
-        studio:
+        main:
           image:
             repository: "supabase/studio"
             tag: "latest"
@@ -578,8 +578,8 @@ app-template:
             - path: /backups
 
   service:
-    studio:
-      controller: studio
+    main:
+      controller: main
       ports:
         http:
           port: 3000
@@ -659,7 +659,3 @@ app-template:
         api:
           port: 4000
           protocol: HTTP
-
-  # Note: secrets must be created by 1Password Operator as a Secret named "supabase-secrets" in this namespace.
-  # Expected keys include all variables referenced by the containers above (e.g., POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT,
-  # JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY, SUPABASE_PUBLIC_URL, API_EXTERNAL_URL, SITE_URL, etc.).
