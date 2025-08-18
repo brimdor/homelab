@@ -1,0 +1,657 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+app-template:
+  defaultPodOptions:
+    annotations:
+      # Replace the example path/name below with your vault/item values
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/hnf6uqvtbdmj63q3go5y5mabqy"
+      operator.1password.io/item-name: "supabase-secrets"
+  controllers:
+    studio:
+      containers:
+        studio:
+          image:
+            repository: supabase/studio
+            tag: 2025.06.30-sha-6f5982d
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            STUDIO_PG_META_URL: http://supabase-meta:8080
+            SUPABASE_URL: http://supabase-kong:8000
+            NEXT_PUBLIC_ENABLE_LOGS: "true"
+            NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+            ANON_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: anon-key
+            SERVICE_ROLE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: service-role-key
+            JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: jwt-secret
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: postgres-password
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/platform/profile
+                  port: 3000
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/platform/profile
+                  port: 3000
+                initialDelaySeconds: 5
+                periodSeconds: 5
+    kong:
+      containers:
+        kong:
+          image:
+            repository: kong
+            tag: 2.8.1
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            KONG_DATABASE: "off"
+            KONG_DNS_ORDER: LAST,A,CNAME
+            KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+            KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+            KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+            SUPABASE_ANON_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: anon-key
+            SUPABASE_SERVICE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: service-role-key
+            DASHBOARD_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: dashboard-username
+            DASHBOARD_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: dashboard-password
+    auth:
+      containers:
+        auth:
+          image:
+            repository: supabase/gotrue
+            tag: v2.177.0
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            GOTRUE_API_HOST: 0.0.0.0
+            GOTRUE_API_PORT: "9999"
+            GOTRUE_DB_DRIVER: postgres
+            GOTRUE_DB_DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: gotrue-db-database-url
+            GOTRUE_JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: jwt-secret
+            GOTRUE_JWT_EXP:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: gotrue-jwt-exp
+            GOTRUE_SMTP_ADMIN_EMAIL:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: smtp-admin-email
+            GOTRUE_SMTP_HOST:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: smtp-host
+            GOTRUE_SMTP_PORT:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: smtp-port
+            GOTRUE_SMTP_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: smtp-user
+            GOTRUE_SMTP_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: smtp-pass
+    rest:
+      containers:
+        rest:
+          image:
+            repository: postgrest/postgrest
+            tag: v12.2.12
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            PGRST_DB_ANON_ROLE: anon
+            PGRST_DB_USE_LEGACY_GUCS: "false"
+            PGRST_DB_URI:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: pgrst-db-uri
+            PGRST_JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: jwt-secret
+    realtime:
+      containers:
+        realtime:
+          image:
+            repository: supabase/realtime
+            tag: v2.34.47
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            PORT: "4000"
+            DB_USER: supabase_admin
+            DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: postgres-password
+            DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+            DB_ENC_KEY: supabaserealtime
+            SECRET_KEY_BASE:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: secret-key-base
+            ERL_AFLAGS: -proto_dist inet_tcp
+            DNS_NODES: "''"
+            RLIMIT_NOFILE: "10000"
+            APP_NAME: realtime
+            SEED_SELF_HOST: "true"
+            RUN_JANITOR: "true"
+    storage:
+      containers:
+        storage:
+          image:
+            repository: supabase/storage-api
+            tag: v1.25.7
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            POSTGREST_URL: http://supabase-rest:3000
+            FILE_SIZE_LIMIT: "52428800"
+            STORAGE_BACKEND: file
+            FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+            TENANT_ID: stub
+            REGION: stub
+            GLOBAL_S3_BUCKET: stub
+            ENABLE_IMAGE_TRANSFORMATION: "true"
+            IMGPROXY_URL: http://supabase-imgproxy:5001
+            ANON_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: anon-key
+            SERVICE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: service-role-key
+        backup:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              while true; do
+                TS=$(date +%Y%m%d-%H%M%S)
+                echo "[storage-backup] creating archive /backups/storage-$TS.tgz"
+                tar -czf /backups/storage-$TS.tgz -C /var/lib/storage .
+                sleep 86400
+              done
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              MARKER="/var/lib/storage/.restored"
+              if [ -f "$MARKER" ]; then
+                echo "[storage] restore skipped"
+                exit 0
+              fi
+              if ls /backups/storage-* 1> /dev/null 2>&1; then
+                LATEST=$(ls -1t /backups/storage-* | head -n1)
+                echo "[storage] restoring from $LATEST"
+                rm -rf /var/lib/storage/*
+                tar -xzf "$LATEST" -C /var/lib/storage
+                touch "$MARKER"
+              else
+                echo "[storage] no backup found; skipping"
+              fi
+    imgproxy:
+      containers:
+        imgproxy:
+          image:
+            repository: darthsim/imgproxy
+            tag: v3.8.0
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            IMGPROXY_BIND: ":5001"
+            IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+            IMGPROXY_USE_ETAG: "true"
+    meta:
+      containers:
+        meta:
+          image:
+            repository: supabase/postgres-meta
+            tag: v0.91.0
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            PG_META_PORT: "8080"
+            PG_META_DB_USER: supabase_admin
+            PG_META_DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: postgres-password
+    functions:
+      containers:
+        functions:
+          image:
+            repository: supabase/edge-runtime
+            tag: v1.67.4
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            SUPABASE_URL: http://supabase-kong:8000
+            VERIFY_JWT:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: functions-verify-jwt
+            SUPABASE_ANON_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: anon-key
+            SUPABASE_SERVICE_ROLE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: service-role-key
+          command:
+            - start
+            - --main-service
+            - /home/deno/functions/main
+        backup:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              while true; do
+                echo "[functions-backup] syncing /home/deno/functions to /backups/functions-latest"
+                rm -rf /backups/functions-latest
+                mkdir -p /backups/functions-latest
+                cp -a /home/deno/functions/* /backups/functions-latest/ || true
+                sleep 86400
+              done
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              MARKER="/home/deno/functions/.restored"
+              if [ -f "$MARKER" ]; then
+                echo "[functions] restore skipped"
+                exit 0
+              fi
+              if [ -d /backups/functions-latest ]; then
+                echo "[functions] restoring from /backups/functions-latest"
+                rm -rf /home/deno/functions/*
+                cp -a /backups/functions-latest/* /home/deno/functions/
+                touch "$MARKER"
+              else
+                echo "[functions] no backup dir found; skipping"
+              fi
+    analytics:
+      containers:
+        analytics:
+          image:
+            repository: supabase/logflare
+            tag: "1.14.2"
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            LOGFLARE_NODE_HOST: 127.0.0.1
+            DB_USERNAME: supabase_admin
+            DB_DATABASE: _supabase
+            DB_SCHEMA: _analytics
+            LOGFLARE_SINGLE_TENANT: "true"
+            LOGFLARE_SUPABASE_MODE: "true"
+            LOGFLARE_MIN_CLUSTER_SIZE: "1"
+            LOGFLARE_PRIVATE_ACCESS_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: logflare-private-access-token
+            LOGFLARE_PUBLIC_ACCESS_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: logflare-public-access-token
+    db:
+      containers:
+        db:
+          image:
+            repository: supabase/postgres
+            tag: 15.8.1.060
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            POSTGRES_HOST: /var/run/postgresql
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: postgres-password
+            JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: jwt-secret
+            JWT_EXP:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: jwt-expiry
+          ports:
+            - name: pg
+              containerPort: 5432
+        backup:
+          image:
+            repository: postgres
+            tag: 15-alpine
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            PGHOST: 127.0.0.1
+            PGUSER: postgres
+            PGPASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-secrets
+                  key: postgres-password
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              while true; do
+                TS=$(date +%Y%m%d-%H%M%S)
+                echo "[db-backup] running pg_dumpall"
+                pg_dumpall -h "$PGHOST" -U "$PGUSER" -p 5432 > /backups/db-$TS.sql || echo "backup failed"
+                sleep 86400
+              done
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              MARKER="/var/lib/postgresql/data/.restored"
+              if [ -f "$MARKER" ]; then
+                echo "[db] restore skipped"
+                exit 0
+              fi
+              if [ -d /var/lib/postgresql/data ] && [ "$(ls -A /var/lib/postgresql/data)" ]; then
+                echo "[db] data directory not empty; skipping initdb restore"
+                exit 0
+              fi
+              LATEST=$(ls -1t /backups/db-*.sql 2>/dev/null | head -n1 || true)
+              if [ -n "$LATEST" ]; then
+                echo "[db] preparing init SQL from $LATEST"
+                mkdir -p /docker-entrypoint-initdb.d
+                cp "$LATEST" /docker-entrypoint-initdb.d/00-restore.sql
+                touch "$MARKER"
+              else
+                echo "[db] no SQL backup found; skipping"
+              fi
+    vector:
+      containers:
+        vector:
+          image:
+            repository: timberio/vector
+            tag: 0.28.1-alpine
+    supavisor:
+      containers:
+        supavisor:
+          image:
+            repository: supabase/supavisor
+            tag: 2.5.7
+          envFrom:
+            - secretRef:
+                name: supabase-secrets
+          env:
+            PORT: "4000"
+            CLUSTER_POSTGRES: "true"
+            REGION: local
+            ERL_AFLAGS: -proto_dist inet_tcp
+
+  persistence:
+    storage-data:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        storage:
+          storage:
+            - path: /var/lib/storage
+          restore:
+            - path: /var/lib/storage
+    functions-data:
+      accessMode: ReadWriteOnce
+      size: 2Gi
+      advancedMounts:
+        functions:
+          functions:
+            - path: /home/deno/functions
+          restore:
+            - path: /home/deno/functions
+    db-data:
+      accessMode: ReadWriteOnce
+      size: 50Gi
+      advancedMounts:
+        db:
+          db:
+            - path: /var/lib/postgresql/data
+          restore:
+            - path: /var/lib/postgresql/data
+    db-init:
+      type: emptyDir
+      advancedMounts:
+        db:
+          db:
+            - path: /docker-entrypoint-initdb.d
+          restore:
+            - path: /docker-entrypoint-initdb.d
+    nfs-backups:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/supabase_backups
+      advancedMounts:
+        storage:
+          restore:
+            - path: /backups
+          backup:
+            - path: /backups
+        functions:
+          restore:
+            - path: /backups
+          backup:
+            - path: /backups
+        db:
+          restore:
+            - path: /backups
+          backup:
+            - path: /backups
+
+  service:
+    studio:
+      controller: studio
+      ports:
+        http:
+          port: 3000
+          protocol: HTTP
+    kong:
+      controller: kong
+      ports:
+        http:
+          port: 8000
+          protocol: HTTP
+        https:
+          port: 8443
+          protocol: HTTP
+    auth:
+      controller: auth
+      ports:
+        http:
+          port: 9999
+          protocol: HTTP
+    rest:
+      controller: rest
+      ports:
+        http:
+          port: 3000
+          protocol: HTTP
+    realtime:
+      controller: realtime
+      ports:
+        http:
+          port: 4000
+          protocol: HTTP
+    storage:
+      controller: storage
+      ports:
+        http:
+          port: 5000
+          protocol: HTTP
+    imgproxy:
+      controller: imgproxy
+      ports:
+        http:
+          port: 5001
+          protocol: HTTP
+    meta:
+      controller: meta
+      ports:
+        http:
+          port: 8080
+          protocol: HTTP
+    functions:
+      controller: functions
+      ports:
+        http:
+          port: 8000
+          protocol: HTTP
+    analytics:
+      controller: analytics
+      ports:
+        http:
+          port: 4000
+          protocol: HTTP
+    db:
+      controller: db
+      ports:
+        pg:
+          port: 5432
+          protocol: TCP
+    supavisor:
+      controller: supavisor
+      ports:
+        pg:
+          port: 5432
+          protocol: TCP
+        tx:
+          port: 6543
+          protocol: TCP
+        api:
+          port: 4000
+          protocol: HTTP
+
+  # Note: secrets must be created by 1Password Operator as a Secret named "supabase-secrets" in this namespace.
+  # Expected keys include all variables referenced by the containers above (e.g., POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT,
+  # JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY, SUPABASE_PUBLIC_URL, API_EXTERNAL_URL, SITE_URL, etc.).
