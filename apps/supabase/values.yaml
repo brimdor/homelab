@@ -11,15 +11,15 @@ app-template:
         studio:
           image:
             repository: supabase/studio
-            tag: 2025.06.30-sha-6f5982d
+            tag: "2025.06.30-sha-6f5982d"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
-            STUDIO_PG_META_URL: http://supabase-meta:8080
-            SUPABASE_URL: http://supabase-kong:8000
+            STUDIO_PG_META_URL: "http://supabase-meta:8080"
+            SUPABASE_URL: "http://supabase-kong:8000"
             NEXT_PUBLIC_ENABLE_LOGS: "true"
-            NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+            NEXT_ANALYTICS_BACKEND_PROVIDER: "postgres"
             ANON_KEY:
               valueFrom:
                 secretKeyRef:
@@ -64,16 +64,16 @@ app-template:
         kong:
           image:
             repository: kong
-            tag: 2.8.1
+            tag: "2.8.1"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
             KONG_DATABASE: "off"
-            KONG_DNS_ORDER: LAST,A,CNAME
-            KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
-            KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
-            KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+            KONG_DNS_ORDER: "LAST,A,CNAME"
+            KONG_PLUGINS: "request-transformer,cors,key-auth,acl,basic-auth"
+            KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: "160k"
+            KONG_NGINX_PROXY_PROXY_BUFFERS: "64 160k"
             SUPABASE_ANON_KEY:
               valueFrom:
                 secretKeyRef:
@@ -99,14 +99,14 @@ app-template:
         auth:
           image:
             repository: supabase/gotrue
-            tag: v2.177.0
+            tag: "v2.177.0"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
-            GOTRUE_API_HOST: 0.0.0.0
+            GOTRUE_API_HOST: "0.0.0.0"
             GOTRUE_API_PORT: "9999"
-            GOTRUE_DB_DRIVER: postgres
+            GOTRUE_DB_DRIVER: "postgres"
             GOTRUE_DB_DATABASE_URL:
               valueFrom:
                 secretKeyRef:
@@ -152,12 +152,12 @@ app-template:
         rest:
           image:
             repository: postgrest/postgrest
-            tag: v12.2.12
+            tag: "v12.2.12"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
-            PGRST_DB_ANON_ROLE: anon
+            PGRST_DB_ANON_ROLE: "anon"
             PGRST_DB_USE_LEGACY_GUCS: "false"
             PGRST_DB_URI:
               valueFrom:
@@ -174,29 +174,29 @@ app-template:
         realtime:
           image:
             repository: supabase/realtime
-            tag: v2.34.47
+            tag: "v2.34.47"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
             PORT: "4000"
-            DB_USER: supabase_admin
+            DB_USER: "supabase_admin"
             DB_PASSWORD:
               valueFrom:
                 secretKeyRef:
                   name: supabase-secrets
                   key: postgres-password
             DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-            DB_ENC_KEY: supabaserealtime
+            DB_ENC_KEY: "supabaserealtime"
             SECRET_KEY_BASE:
               valueFrom:
                 secretKeyRef:
                   name: supabase-secrets
                   key: secret-key-base
-            ERL_AFLAGS: -proto_dist inet_tcp
+            ERL_AFLAGS: "-proto_dist inet_tcp"
             DNS_NODES: "''"
             RLIMIT_NOFILE: "10000"
-            APP_NAME: realtime
+            APP_NAME: "realtime"
             SEED_SELF_HOST: "true"
             RUN_JANITOR: "true"
     storage:
@@ -204,20 +204,20 @@ app-template:
         storage:
           image:
             repository: supabase/storage-api
-            tag: v1.25.7
+            tag: "v1.25.7"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
-            POSTGREST_URL: http://supabase-rest:3000
+            POSTGREST_URL: "http://supabase-rest:3000"
             FILE_SIZE_LIMIT: "52428800"
-            STORAGE_BACKEND: file
-            FILE_STORAGE_BACKEND_PATH: /var/lib/storage
-            TENANT_ID: stub
-            REGION: stub
-            GLOBAL_S3_BUCKET: stub
+            STORAGE_BACKEND: "file"
+            FILE_STORAGE_BACKEND_PATH: "/var/lib/storage"
+            TENANT_ID: "stub"
+            REGION: "stub"
+            GLOBAL_S3_BUCKET: "stub"
             ENABLE_IMAGE_TRANSFORMATION: "true"
-            IMGPROXY_URL: http://supabase-imgproxy:5001
+            IMGPROXY_URL: "http://supabase-imgproxy:5001"
             ANON_KEY:
               valueFrom:
                 secretKeyRef:
@@ -231,7 +231,7 @@ app-template:
         backup:
           image:
             repository: alpine
-            tag: latest
+            tag: "latest"
           command:
             - /bin/sh
             - -c
@@ -252,7 +252,7 @@ app-template:
         restore:
           image:
             repository: alpine
-            tag: latest
+            tag: "latest"
           command:
             - /bin/sh
             - -c
@@ -277,26 +277,26 @@ app-template:
         imgproxy:
           image:
             repository: darthsim/imgproxy
-            tag: v3.8.0
+            tag: "v3.8.0"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
             IMGPROXY_BIND: ":5001"
-            IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+            IMGPROXY_LOCAL_FILESYSTEM_ROOT: "/"
             IMGPROXY_USE_ETAG: "true"
     meta:
       containers:
         meta:
           image:
             repository: supabase/postgres-meta
-            tag: v0.91.0
+            tag: "v0.91.0"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
             PG_META_PORT: "8080"
-            PG_META_DB_USER: supabase_admin
+            PG_META_DB_USER: "supabase_admin"
             PG_META_DB_PASSWORD:
               valueFrom:
                 secretKeyRef:
@@ -307,12 +307,12 @@ app-template:
         functions:
           image:
             repository: supabase/edge-runtime
-            tag: v1.67.4
+            tag: "v1.67.4"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
-            SUPABASE_URL: http://supabase-kong:8000
+            SUPABASE_URL: "http://supabase-kong:8000"
             VERIFY_JWT:
               valueFrom:
                 secretKeyRef:
@@ -335,7 +335,7 @@ app-template:
         backup:
           image:
             repository: alpine
-            tag: latest
+            tag: "latest"
           command:
             - /bin/sh
             - -c
@@ -386,10 +386,10 @@ app-template:
             - secretRef:
                 name: supabase-secrets
           env:
-            LOGFLARE_NODE_HOST: 127.0.0.1
-            DB_USERNAME: supabase_admin
-            DB_DATABASE: _supabase
-            DB_SCHEMA: _analytics
+            LOGFLARE_NODE_HOST: "127.0.0.1"
+            DB_USERNAME: "supabase_admin"
+            DB_DATABASE: "_supabase"
+            DB_SCHEMA: "_analytics"
             LOGFLARE_SINGLE_TENANT: "true"
             LOGFLARE_SUPABASE_MODE: "true"
             LOGFLARE_MIN_CLUSTER_SIZE: "1"
@@ -408,12 +408,12 @@ app-template:
         db:
           image:
             repository: supabase/postgres
-            tag: 15.8.1.060
+            tag: "15.8.1.060"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
-            POSTGRES_HOST: /var/run/postgresql
+            POSTGRES_HOST: "/var/run/postgresql"
             POSTGRES_PASSWORD:
               valueFrom:
                 secretKeyRef:
@@ -435,13 +435,13 @@ app-template:
         backup:
           image:
             repository: postgres
-            tag: 15-alpine
+            tag: "15-alpine"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
-            PGHOST: 127.0.0.1
-            PGUSER: postgres
+            PGHOST: "127.0.0.1"
+            PGUSER: "postgres"
             PGPASSWORD:
               valueFrom:
                 secretKeyRef:
@@ -467,7 +467,7 @@ app-template:
         restore:
           image:
             repository: alpine
-            tag: latest
+            tag: "latest"
           command:
             - /bin/sh
             - -c
@@ -496,21 +496,21 @@ app-template:
         vector:
           image:
             repository: timberio/vector
-            tag: 0.28.1-alpine
+            tag: "0.28.1-alpine"
     supavisor:
       containers:
         supavisor:
           image:
             repository: supabase/supavisor
-            tag: 2.5.7
+            tag: "2.5.7"
           envFrom:
             - secretRef:
                 name: supabase-secrets
           env:
             PORT: "4000"
             CLUSTER_POSTGRES: "true"
-            REGION: local
-            ERL_AFLAGS: -proto_dist inet_tcp
+            REGION: "local"
+            ERL_AFLAGS: "-proto_dist inet_tcp"
 
   persistence:
     storage-data:
