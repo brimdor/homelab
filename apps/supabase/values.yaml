@@ -20,9 +20,7 @@ app-template:
           image:
             repository: "supabase/studio"
             tag: "2025.06.30-sha-6f5982d"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             STUDIO_PG_META_URL: "http://supabase-meta:8080"
             SUPABASE_URL: "http://supabase-kong:8000"
@@ -73,9 +71,7 @@ app-template:
           image:
             repository: "kong"
             tag: "2.8.1"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             KONG_DATABASE: "off"
             KONG_DNS_ORDER: "LAST,A,CNAME"
@@ -108,9 +104,7 @@ app-template:
           image:
             repository: "supabase/gotrue"
             tag: "v2.177.0"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             GOTRUE_API_HOST: "0.0.0.0"
             GOTRUE_API_PORT: "9999"
@@ -161,9 +155,7 @@ app-template:
           image:
             repository: "postgrest/postgrest"
             tag: "v12.2.12"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             PGRST_DB_ANON_ROLE: "anon"
             PGRST_DB_USE_LEGACY_GUCS: "false"
@@ -183,9 +175,7 @@ app-template:
           image:
             repository: "supabase/realtime"
             tag: "v2.34.47"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             PORT: "4000"
             DB_USER: "supabase_admin"
@@ -213,9 +203,7 @@ app-template:
           image:
             repository: "supabase/storage-api"
             tag: "v1.25.7"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             POSTGREST_URL: "http://supabase-rest:3000"
             FILE_SIZE_LIMIT: "52428800"
@@ -286,9 +274,7 @@ app-template:
           image:
             repository: "darthsim/imgproxy"
             tag: "v3.8.0"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             IMGPROXY_BIND: ":5001"
             IMGPROXY_LOCAL_FILESYSTEM_ROOT: "/"
@@ -299,9 +285,7 @@ app-template:
           image:
             repository: "supabase/postgres-meta"
             tag: "v0.91.0"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             PG_META_PORT: "8080"
             PG_META_DB_USER: "supabase_admin"
@@ -316,9 +300,7 @@ app-template:
           image:
             repository: "supabase/edge-runtime"
             tag: "v1.67.4"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             SUPABASE_URL: "http://supabase-kong:8000"
             VERIFY_JWT:
@@ -390,9 +372,7 @@ app-template:
           image:
             repository: "supabase/logflare"
             tag: "1.14.2"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             LOGFLARE_NODE_HOST: "127.0.0.1"
             DB_USERNAME: "supabase_admin"
@@ -417,9 +397,7 @@ app-template:
           image:
             repository: "supabase/postgres"
             tag: "15.8.1.060"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             POSTGRES_HOST: "/var/run/postgresql"
             POSTGRES_PASSWORD:
@@ -444,9 +422,7 @@ app-template:
           image:
             repository: "postgres"
             tag: "15-alpine"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             PGHOST: "127.0.0.1"
             PGUSER: "postgres"
@@ -511,9 +487,7 @@ app-template:
           image:
             repository: "supabase/supavisor"
             tag: "2.5.7"
-          envFrom:
-            - secretRef:
-                name: "supabase-secrets"
+
           env:
             PORT: "4000"
             CLUSTER_POSTGRES: "true"
