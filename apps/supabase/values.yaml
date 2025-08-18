@@ -1,5 +1,13 @@
 # https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
 app-template:
+  # Common library defaults (kept minimal and non-destructive).
+  # These mirror keys from the library/common values.yaml so templates
+  # that expect them won't fail when rendering.
+  defaultPodOptionsStrategy: overwrite
+  applyDefaultContainerOptionsToInitContainers: true
+  defaultContainerOptionsStrategy: overwrite
+  defaultContainerOptions:
+    image: {}
   defaultPodOptions:
     annotations:
       # Replace the example path/name below with your vault/item values
@@ -11,7 +19,7 @@ app-template:
         studio:
           image:
             repository: "supabase/studio"
-            tag: "2025.06.30-sha-6f5982d"
+            tag: "latest"
           envFrom:
             - secretRef:
                 name: "supabase-secrets"
@@ -46,7 +54,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: "/api/platform/profile"
+                  path: /api/platform/profile
                   port: 3000
                 initialDelaySeconds: 10
                 periodSeconds: 10
@@ -55,7 +63,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: "/api/platform/profile"
+                  path: /api/platform/profile
                   port: 3000
                 initialDelaySeconds: 5
                 periodSeconds: 5
