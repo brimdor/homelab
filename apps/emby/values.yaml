@@ -10,7 +10,7 @@ app-template:
           env:
             PUID: "99"
             PGID: "100"
-            TZ: America/Chicago
+            TZ: "America/Chicago"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             FFMPEG_HWACCEL: "cuda"
