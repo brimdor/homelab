@@ -23,13 +23,13 @@ app-template:
             requests:
               cpu: 2
               memory: "4096Mi"
-          probes:
-            liveness:
-              enabled: false
-            readiness:
-              enabled: false
-            startup:
-              enabled: false
+          # probes:
+          #   liveness:
+          #     enabled: false
+          #   readiness:
+          #     enabled: false
+          #   startup:
+          #     enabled: false
       initContainers:
         restore:
           name: restore
