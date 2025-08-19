@@ -31,6 +31,7 @@ app-template:
               enabled: false
       initContainers:
         restore:
+          name: restore
           image:
             repository: alpine
             tag: latest
