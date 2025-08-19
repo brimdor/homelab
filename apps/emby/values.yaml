@@ -1,5 +1,5 @@
 #https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
-app-template:
+common:
   controllers:
     main:
       containers:
