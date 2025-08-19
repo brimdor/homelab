@@ -17,6 +17,11 @@ app-template:
           resources:
             limits:
               nvidia.com/gpu: 1
+              cpu: 4
+              memory: "8192Mi"
+            requests:
+              cpu: 2
+              memory: "4096Mi"
       initContainers:
         restore:
           image:
