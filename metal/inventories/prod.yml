@@ -75,3 +75,12 @@ metal:
             has_display: true,
             has_virtualization: true
           }
+        sprigatito:
+          {
+            ansible_host: 10.0.50.130,
+            mac: "4c:cc:6a:34:dc:6d",
+            disk: sda,
+            network_interface: eno1,
+            gpu_type: 'GeForce GTX 1650',
+            has_virtualization: true
+          }
