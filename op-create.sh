@@ -1,43 +1,47 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# generate Open Notebook secrets
-OPEN_NOTEBOOK_PASSWORD="$(openssl rand -base64 24)"
-OPENAI_API_KEY="$(openssl rand -hex 24)"
-ANTHROPIC_API_KEY="$(openssl rand -hex 24)"
-GOOGLE_API_KEY="$(openssl rand -hex 24)"
-GOOGLE_APPLICATION_CREDENTIALS="$(openssl rand -base64 64)"
-MISTRAL_API_KEY="$(openssl rand -hex 24)"
-DEEPSEEK_API_KEY="$(openssl rand -hex 24)"
-OLLAMA_API_BASE="http://10.20.30.20:11434"
-OPENROUTER_API_KEY="$(openssl rand -hex 24)"
-GROQ_API_KEY="$(openssl rand -hex 24)"
-XAI_API_KEY="$(openssl rand -hex 24)"
-ELEVENLABS_API_KEY="$(openssl rand -hex 24)"
-VOYAGE_API_KEY="$(openssl rand -hex 24)"
-OPENAI_COMPATIBLE_API_KEY="$(openssl rand -hex 24)"
-AZURE_OPENAI_API_KEY="$(openssl rand -hex 24)"
-AZURE_OPENAI_ENDPOINT="https://example.azure.net/"
-SURREAL_USER="root"
-SURREAL_PASSWORD="$(openssl rand -base64 24)"
+# generate Supabase secrets
+SUPABASE_POSTGRES_USER="supabase"
+SUPABASE_POSTGRES_PASSWORD="$(openssl rand -base64 24)"
+SUPABASE_POSTGRES_DB="supabase"
+SUPABASE_JWT_ANON_KEY="$(openssl rand -hex 32)"
+SUPABASE_JWT_SERVICE_KEY="$(openssl rand -hex 32)"
+SUPABASE_JWT_SECRET="$(openssl rand -hex 64)"
+SUPABASE_SMTP_USERNAME="your-smtp-user"
+SUPABASE_SMTP_PASSWORD="$(openssl rand -hex 16)"
+SUPABASE_DASHBOARD_USERNAME="admin-supabase"
+SUPABASE_DASHBOARD_PASSWORD="$(openssl rand -base64 24)"
 
-# build payload for Open Notebook (1Password field keys must match values.yaml secret keys)
-payload="$(cat <<JSON
+# build payload for Supabase (keys must match apps/supabase/values.yaml secretRefKey names)
+supabase_payload="$(cat <<JSON
 {
-  "title": "Open Notebook",
-  "notes": "Auto-created Open Notebook secrets (valueFrom keys) - created on $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC",
+  "title": "Supabase",
+  "notes": "Supabase secrets for Helm values (created on $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC)",
   "fields": [
-    {"label":"open-notebook-password","value":"$OPEN_NOTEBOOK_PASSWORD","type":"CONCEALED"},
-    {"label":"openai-api-key","value":"$OPENAI_API_KEY","type":"CONCEALED"},
-    {"label":"ollama-api-base","value":"$OLLAMA_API_BASE","type":"STRING"},
-    {"label":"surreal-user","value":"$SURREAL_USER","type":"STRING"},
-    {"label":"surreal-password","value":"$SURREAL_PASSWORD","type":"CONCEALED"}
+    {"label":"supabase-postgres-user","value":"$SUPABASE_POSTGRES_USER","type":"STRING"},
+    {"label":"supabase-postgres-password","value":"$SUPABASE_POSTGRES_PASSWORD","type":"CONCEALED"},
+    {"label":"supabase-postgres-db","value":"$SUPABASE_POSTGRES_DB","type":"STRING"},
+
+    {"label":"supabase-jwt-anon-key","value":"$SUPABASE_JWT_ANON_KEY","type":"CONCEALED"},
+    {"label":"supabase-jwt-service-key","value":"$SUPABASE_JWT_SERVICE_KEY","type":"CONCEALED"},
+    {"label":"supabase-jwt-secret","value":"$SUPABASE_JWT_SECRET","type":"CONCEALED"},
+
+    {"label":"supabase-smtp-username","value":"$SUPABASE_SMTP_USERNAME","type":"STRING"},
+    {"label":"supabase-smtp-password","value":"$SUPABASE_SMTP_PASSWORD","type":"CONCEALED"},
+
+    {"label":"supabase-dashboard-username","value":"$SUPABASE_DASHBOARD_USERNAME","type":"STRING"},
+  {"label":"supabase-dashboard-password","value":"$SUPABASE_DASHBOARD_PASSWORD","type":"CONCEALED"}
   ]
 }
 JSON
 )"
 
-# create item in 1Password Server vault (requires op signed-in)
-echo "$payload" | op item create --vault "Server" --category "Database" --format=json
-
-echo "Open Notebook item created in vault 'Server'."
+# upsert into 1Password Server vault item named "secrets" (matches Operator annotations and Secret name)
+if op item get --vault "Server" "secrets" >/dev/null 2>&1; then
+  echo "$supabase_payload" | op item edit --vault "Server" "secrets" --format=json >/dev/null
+  echo "Supabase fields updated in existing 1Password item 'secrets' (vault 'Server')."
+else
+  echo "$supabase_payload" | op item create --vault "Server" --category "Database" --format=json >/dev/null
+  echo "1Password item 'secrets' created in vault 'Server' with Supabase fields."
+fi
