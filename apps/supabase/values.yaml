@@ -18,9 +18,9 @@ secret:
   # Anon & Service key: Studio, Storage, Kong
   # JWT Secret: Analytics, Auth, Rest, Realtime, Storage
   jwt:
-    anonKey: ""
-    serviceKey: ""
-    secret: ""
+    # anonKey: ""
+    # serviceKey: ""
+    # secret: ""
     # specify existing secret, which takes precedence over variables above
     # We source all secrets from the 1Password Operator-managed Secret named "secrets"
     secretRef: "secrets"
@@ -33,9 +33,9 @@ secret:
   # database credentials
   # these fields must be provided even if using external database
   db:
-    username: ""
-    password: ""
-    database: ""
+    # username: ""
+    # password: ""
+    # database: ""
     # specify existing secret, which takes precedence over variables above
     # We source all secrets from the 1Password Operator-managed Secret named "secrets"
     secretRef: "secrets"
@@ -75,15 +75,15 @@ secret:
       username: supabase-dashboard-username
       password: supabase-dashboard-password
   # S3 credentials for storage object bucket
-  s3:
-    # keyId: ""
-    # accessKey: ""
-    # specify existing secret, which takes precedence over variables above
-    secretRef: "secrets"
-    # override secret keys for existing secret refs
-    secretRefKey:
-      keyId: supabase-s3-key-id
-      accessKey: supabase-s3-access-key
+  # s3:
+  #   # keyId: ""
+  #   # accessKey: ""
+  #   # specify existing secret, which takes precedence over variables above
+  #   secretRef: "secrets"
+  #   # override secret keys for existing secret refs
+  #   secretRefKey:
+  #     keyId: supabase-s3-key-id
+  #     accessKey: supabase-s3-access-key
 
 # Optional: Postgres Database
 # A standalone Postgres database configured to work with Supabase services.
