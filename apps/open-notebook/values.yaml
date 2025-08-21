@@ -95,6 +95,9 @@ app-template:
         api:
           port: 5055
           protocol: HTTP
+        surreal:
+          port: 8000
+          protocol: HTTP
   ingress:
     main:
       enabled: true
