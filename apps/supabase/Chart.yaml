@@ -1,6 +1,6 @@
 apiVersion: v2
 name: supabase
-description: A Helm chart for deploying Supabase on Kubernetes
+description: A Helm chart for Supabase deployment with 1Password integration
 type: application
 version: 0.1.0
 appVersion: "latest"
@@ -9,15 +9,3 @@ dependencies:
   - name: supabase
     version: "0.1.0"
     repository: "https://supabase-community.github.io/supabase-kubernetes"
-    condition: supabase.enabled
-
-maintainers:
-  - name: homelab-admin
-    email: admin@eaglepass.io
-
-keywords:
-  - supabase
-  - database
-  - auth
-  - api
-  - realtime
