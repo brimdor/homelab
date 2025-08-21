@@ -95,7 +95,7 @@ db:
   image:
     repository: supabase/postgres
     pullPolicy: IfNotPresent
-    tag: "latest"
+    tag: "17.4.1.074"
   imagePullSecrets: []
   replicaCount: 1
   nameOverride: ""
@@ -525,7 +525,7 @@ meta:
   image:
     repository: supabase/postgres-meta
     pullPolicy: IfNotPresent
-    tag: "latest"
+    tag: "v0.91.5"
   imagePullSecrets: []
   replicaCount: 1
   nameOverride: ""
@@ -961,7 +961,7 @@ vector:
   image:
     repository: timberio/vector
     pullPolicy: IfNotPresent
-    tag: "latest"
+    tag: "latest-alpine"
   imagePullSecrets: []
   replicaCount: 1
   nameOverride: ""
@@ -1030,7 +1030,7 @@ functions:
   image:
     repository: supabase/edge-runtime
     pullPolicy: IfNotPresent
-    tag: "latest"
+    tag: "v1.69.1"
   imagePullSecrets: []
   replicaCount: 1
   nameOverride: ""
