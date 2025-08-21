@@ -1,0 +1,154 @@
+# values for open-notebook chart
+# Follows bjw-s-labs app-template layout (see: https://github.com/bjw-s-labs/helm-charts)
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: lfnovo/open_notebook
+            tag: latest-single
+          env:
+            PORT: "8502"
+            STREAMLIT_PORT: "8502"
+            API_PORT: "5055"
+            OPEN_NOTEBOOK_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "open-notebook-password"
+            OPENAI_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "openai-api-key"
+            OLLAMA_API_BASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "ollama-api-base"
+            LANGCHAIN_TRACING_V2: "true"
+            LANGCHAIN_PROJECT: "Open Notebook"
+            SURREAL_URL:
+              value: "ws://surrealdb/rpc:8000"
+            SURREAL_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "surreal-user"
+            SURREAL_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "surreal-password"
+            SURREAL_NAMESPACE:
+              value: "open_notebook"
+            SURREAL_DATABASE:
+              value: "staging"
+          resources:
+            requests:
+              cpu: 250m
+              memory: "256Mi"
+            limits:
+              cpu: 1
+              memory: "1Gi"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5055
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5055
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            startup:
+              enabled: false
+      # containers:
+      #   main-backup:
+      #     image:
+      #       repository: alpine
+      #       tag: latest
+      #     env:
+      #       TZ: "UTC"
+      #       MAX_BACKUPS: "15"
+      #     command:
+      #       - /bin/sh
+      #       - -c
+      #       - |
+      #         set -e
+      #         sleep 30
+      #         mkdir -p /mnt/backup/open-notebook
+      #         while true; do
+      #           ts=$(date +%Y-%m-%d_%H-%M-%S)
+      #           backup_file="/mnt/backup/open-notebook/open-notebook-${ts}.tar.gz"
+      #           tmp_file="${backup_file}.tmp"
+      #           if tar -czf "$tmp_file" -C /app/data . && tar -tzf "$tmp_file" >/dev/null 2>&1; then
+      #             mv -f "$tmp_file" "$backup_file"
+      #           else
+      #             rm -f "$tmp_file"
+      #           fi
+      #           cnt=$(ls -1 /mnt/backup/open-notebook/open-notebook-*.tar.gz 2>/dev/null | wc -l)
+      #           if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+      #             ls -t /mnt/backup/open-notebook/open-notebook-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+      #           fi
+      #           sleep 600
+      #         done
+  service:
+    main:
+      ports:
+        http:
+          port: 5055
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host open-notebook.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: open-notebook-tls-certificate
+  persistence:
+    open-notebook-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
+          # main-backup:
+          #   - path: /app/data
+    surreal-data:
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /mydata
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2bqjjkij7ldyd6c2qqgayxs3au"
+      operator.1password.io/item-name: "secrets"

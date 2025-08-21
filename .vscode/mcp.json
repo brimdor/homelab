@@ -1,0 +1,15 @@
+// {
+// 	"servers": {
+// 		"time": {
+// 			"command": "docker",
+// 			"args": [
+// 				"run",
+// 				"-i",
+// 				"--rm",
+// 				"mcp/time"
+// 			],
+// 			"type": "stdio"
+// 		}
+// 	},
+// 	"inputs": []
+// }
