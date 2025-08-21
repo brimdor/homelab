@@ -217,10 +217,10 @@ studio:
     STUDIO_DEFAULT_ORGANIZATION: Default Organization
     STUDIO_DEFAULT_PROJECT: Default Project
     STUDIO_PORT: "3000"
-  SUPABASE_PUBLIC_URL: https://supabase.eaglepass.io
-  NEXT_PUBLIC_ENABLE_LOGS: "true"
-  # Set value to bigquery to use Big Query backend for analytics
-  NEXT_ANALYTICS_BACKEND_PROVIDER: postgres  # postgres, bigquery
+    SUPABASE_PUBLIC_URL: https://supabase.eaglepass.io
+    NEXT_PUBLIC_ENABLE_LOGS: "true"
+    # Set value to bigquery to use Big Query backend for analytics
+    NEXT_ANALYTICS_BACKEND_PROVIDER: postgres  # postgres, bigquery
   # volumeMounts:
   #   - name: volume_name
   #     mountPath: /path/to/my/secret
@@ -297,30 +297,30 @@ auth:
     DB_PORT: 5432
     DB_DRIVER: postgres
     DB_SSL: disable  # disable, allow, prefer, require, verify-ca, verify-full
-  API_EXTERNAL_URL: https://supabase.eaglepass.io
-  GOTRUE_API_HOST: "0.0.0.0"
-  GOTRUE_API_PORT: "9999"
-  GOTRUE_SITE_URL: https://supabase.eaglepass.io
-  GOTRUE_URI_ALLOW_LIST: "*"
-  GOTRUE_DISABLE_SIGNUP: "false"
-  GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
-  GOTRUE_JWT_ADMIN_ROLES: service_role
-  GOTRUE_JWT_AUD: authenticated
-  GOTRUE_JWT_EXP: "3600"
-  GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
-  GOTRUE_MAILER_AUTOCONFIRM: "true"
-  # GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: true
-  # GOTRUE_SMTP_MAX_FREQUENCY: 1s
-  GOTRUE_SMTP_ADMIN_EMAIL: "SMTP_ADMIN_MAIL"
-  GOTRUE_SMTP_HOST: "SMTP_HOST"
-  GOTRUE_SMTP_PORT: "SMTP_PORT"
-  GOTRUE_SMTP_SENDER_NAME: "SMTP_SENDER_NAME"
-  GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
-  GOTRUE_SMS_AUTOCONFIRM: "false"
-  GOTRUE_MAILER_URLPATHS_INVITE: "/auth/v1/verify"
-  GOTRUE_MAILER_URLPATHS_CONFIRMATION: "/auth/v1/verify"
-  GOTRUE_MAILER_URLPATHS_RECOVERY: "/auth/v1/verify"
-  GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: "/auth/v1/verify"
+    API_EXTERNAL_URL: https://supabase.eaglepass.io
+    GOTRUE_API_HOST: "0.0.0.0"
+    GOTRUE_API_PORT: "9999"
+    GOTRUE_SITE_URL: https://supabase.eaglepass.io
+    GOTRUE_URI_ALLOW_LIST: "*"
+    GOTRUE_DISABLE_SIGNUP: "false"
+    GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+    GOTRUE_JWT_ADMIN_ROLES: service_role
+    GOTRUE_JWT_AUD: authenticated
+    GOTRUE_JWT_EXP: "3600"
+    GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+    GOTRUE_MAILER_AUTOCONFIRM: "true"
+    # GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: true
+    # GOTRUE_SMTP_MAX_FREQUENCY: 1s
+    GOTRUE_SMTP_ADMIN_EMAIL: "SMTP_ADMIN_MAIL"
+    GOTRUE_SMTP_HOST: "SMTP_HOST"
+    GOTRUE_SMTP_PORT: "SMTP_PORT"
+    GOTRUE_SMTP_SENDER_NAME: "SMTP_SENDER_NAME"
+    GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+    GOTRUE_SMS_AUTOCONFIRM: "false"
+    GOTRUE_MAILER_URLPATHS_INVITE: "/auth/v1/verify"
+    GOTRUE_MAILER_URLPATHS_CONFIRMATION: "/auth/v1/verify"
+    GOTRUE_MAILER_URLPATHS_RECOVERY: "/auth/v1/verify"
+    GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: "/auth/v1/verify"
   envFrom: []
     # - secretRef:
     #     name: env-secret
@@ -1161,13 +1161,13 @@ minio:
     #   cpu: 100m
     #   memory: 128Mi
   persistence:
-    enabled: false
-    storageClassName: ""
+    enabled: true
+    # storageClassName: ""
     annotations: {}
     size: 10Gi
     accessModes:
       - ReadWriteOnce
-    class: ""
+    # class: ""
   autoscaling:
     enabled: true
     minReplicas: 1
