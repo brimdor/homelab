@@ -29,8 +29,7 @@ app-template:
                   key: "ollama-api-base"
             LANGCHAIN_TRACING_V2: "true"
             LANGCHAIN_PROJECT: "Open Notebook"
-            SURREAL_URL:
-              value: "ws://surrealdb/rpc:8000"
+            SURREAL_URL: "ws://surrealdb/rpc:8000"
             SURREAL_USER:
               valueFrom:
                 secretKeyRef:
@@ -41,10 +40,8 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "surreal-password"
-            SURREAL_NAMESPACE:
-              value: "open_notebook"
-            SURREAL_DATABASE:
-              value: "staging"
+            SURREAL_NAMESPACE: "open_notebook"
+            SURREAL_DATABASE: "staging"
           resources:
             requests:
               cpu: 250m
