@@ -55,8 +55,22 @@ app-template:
           probes:
             liveness:
               enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5055
+                initialDelaySeconds: 30
+                periodSeconds: 10
             readiness:
               enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 5055
+                initialDelaySeconds: 10
+                periodSeconds: 10
             startup:
               enabled: false
       # containers:
