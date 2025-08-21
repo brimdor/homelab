@@ -1,0 +1,213 @@
+# Supabase subchart configuration
+supabase:
+  enabled: true
+  
+  # Default pod options with 1Password operator integration
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/homelab/items/supabase-secrets"
+      operator.1password.io/item-name: "secrets"
+
+  # Database configuration
+  database:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: ""
+    env:
+      POSTGRES_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "postgres-password"
+
+  # Kong API Gateway
+  kong:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 8000
+    env:
+      KONG_DATABASE:
+        value: "postgres"
+      KONG_PG_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "postgres-password"
+
+  # GoTrue Auth Service
+  auth:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 9999
+    env:
+      GOTRUE_JWT_SECRET:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "jwt-secret"
+      GOTRUE_JWT_EXP:
+        value: "3600"
+      GOTRUE_DB_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "postgres-password"
+
+  # PostgREST API Service
+  rest:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 3000
+    env:
+      PGRST_JWT_SECRET:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "jwt-secret"
+      PGRST_DB_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "postgres-password"
+
+  # Realtime Service
+  realtime:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 4000
+    env:
+      SECRET_KEY_BASE:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "secret-key-base"
+      DATABASE_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "postgres-password"
+
+  # Storage Service
+  storage:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 5000
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+    env:
+      STORAGE_BACKEND:
+        value: "file"
+      DATABASE_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "postgres-password"
+
+  # Meta Service
+  meta:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 8080
+    env:
+      PG_META_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: "secrets"
+            key: "postgres-password"
+
+  # Studio Web UI
+  studio:
+    enabled: true
+    service:
+      type: ClusterIP
+      port: 3001
+    env:
+      STUDIO_DEFAULT_ORGANIZATION:
+        value: "Default Organization"
+      STUDIO_DEFAULT_PROJECT:
+        value: "Default Project"
+      SUPABASE_PUBLIC_URL:
+        value: "https://supabase.eaglepass.io"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+  hosts:
+    - host: &dbhost supabase.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: supabase-kong
+              port:
+                number: 8000
+    - host: &uihost studio.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: supabase-studio
+              port:
+                number: 3001
+  tls:
+    - secretName: supabase-tls
+      hosts:
+        - *dbhost
+        - *uihost
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    kong: 8000
+    studio: 3001
+    auth: 9999
+    rest: 3000
+    realtime: 4000
+    storage: 5000
+    meta: 8080
+
+# Persistence configuration
+persistence:
+  database:
+    enabled: true
+    size: 20Gi
+    accessMode: ReadWriteOnce
+    storageClass: ""
+  storage:
+    enabled: true
+    size: 10Gi
+    accessMode: ReadWriteOnce
+    storageClass: ""
+
+# 1Password operator annotations for secret management
+secretsAnnotations:
+  operator.1password.io/item-path: "vaults/homelab/items/supabase-secrets"
+  operator.1password.io/item-name: "secrets"
+
+# Required secrets (to be created in 1Password):
+# - postgres-password: PostgreSQL database password
+# - jwt-secret: JWT signing secret
+# - secret-key-base: Secret key base for realtime service
+# - anon-key: Anonymous key for public API access
+# - service-role-key: Service role key for admin operations
