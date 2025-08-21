@@ -1,6 +1,7 @@
 apiVersion: v2
-name: n8n
+name: open-notebook
 version: 0.0.0
+appVersion: "latest-single"
 dependencies:
   - name: app-template
     version: 4.2.0
