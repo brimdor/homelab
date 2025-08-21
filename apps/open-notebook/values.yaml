@@ -93,6 +93,9 @@ app-template:
     main:
       ports:
         http:
+          port: 8502
+          protocol: HTTP
+        api:
           port: 5055
           protocol: HTTP
   ingress:
