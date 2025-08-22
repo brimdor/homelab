@@ -20,6 +20,6 @@ opSecret:
     key: "credential"
   EMBY_API:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "sy4xrs3sqjbfxlakkudjibgngu"
+    item: "pd6ehnq7eyx3pp4rqdixb4cmbm"
     secretName: "emby-api"
-    key: "credential"
+    key: "api-key"
