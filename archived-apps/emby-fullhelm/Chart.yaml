@@ -1,5 +1,0 @@
-apiVersion: v2
-name: emby
-version: 0.1.0
-description: Emby Media Server Helm chart
-appVersion: "latest"
