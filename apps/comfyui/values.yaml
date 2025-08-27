@@ -8,8 +8,8 @@ app-template:
         main:
           name: main
           image:
-            repository: brimdor/comfyui
-            tag: canary
+            repository: ghcr.io/ai-dock/comfyui
+            tag: v2-cuda-12.1.1-cudnn8-devel-22.04-v0.2.7
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
