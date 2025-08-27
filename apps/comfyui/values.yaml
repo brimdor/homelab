@@ -110,7 +110,7 @@ app-template:
                 - key: kubernetes.io/hostname
                   operator: In
                   values:
-                    - "sprigatito"
+                    - "arcanine"
     runtimeClassName: nvidia
     securityContext:
       runAsUser: 1000
