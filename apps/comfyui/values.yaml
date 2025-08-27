@@ -1,0 +1,105 @@
+app-template:
+  controllers:
+    main:
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      containers:
+        main:
+          name: main
+          image:
+            repository: brimdor/comfyui
+            tag: canary
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+            COMFYUI_PORT: "8188"
+            # Example secret envs via 1Password Operator managed K8s Secret (uncomment and set names/keys as needed)
+            # HUGGINGFACE_TOKEN:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "huggingface-token"
+          securityContext:
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1024Mi
+            limits:
+              cpu: 1200m
+              memory: 6144Mi
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 8188
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 8188
+                initialDelaySeconds: 10
+                periodSeconds: 10
+  service:
+    main:
+      ports:
+        http:
+          port: 8188
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-buffering: "off"
+      hosts:
+        - host: &host comfyui.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: comfyui-tls
+  persistence:
+    models:
+      accessMode: ReadWriteOnce
+      size: 150Gi
+      globalMounts:
+        - path: /comfyui/models
+    input:
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      globalMounts:
+        - path: /comfyui/input
+    output:
+      accessMode: ReadWriteOnce
+      size: 50Gi
+      globalMounts:
+        - path: /comfyui/output
+  defaultPodOptions:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+    # Add these annotations only if secrets are managed by 1Password Operator for this app.
+    # annotations:
+    #   operator.1password.io/auto-restart: "true"
