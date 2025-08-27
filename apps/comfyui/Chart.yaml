@@ -1,0 +1,14 @@
+apiVersion: v2
+name: comfyui
+description: ComfyUI packaged via bjw-s common library chart
+type: application
+version: 0.1.0
+appVersion: "canary"
+
+dependencies:
+  - name: app-template
+    version: 2.6.0
+    repository: https://bjw-s-labs.github.io/helm-charts
+
+maintainers:
+  - name: homelab
