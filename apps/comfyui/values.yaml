@@ -77,7 +77,7 @@ app-template:
       tls:
         - hosts:
             - *host
-          secretName: comfyui-tls
+          secretName: comfyui-tls-certificate
   persistence:
     models:
       accessMode: ReadWriteOnce
