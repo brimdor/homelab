@@ -84,7 +84,7 @@ app-template:
   persistence:
     models:
       accessMode: ReadWriteOnce
-      size: 150Gi
+      size: 60Gi
       globalMounts:
         - path: /comfyui/models
     input:
@@ -94,7 +94,7 @@ app-template:
         - path: /comfyui/input
     output:
       accessMode: ReadWriteOnce
-      size: 50Gi
+      size: 20Gi
       globalMounts:
         - path: /comfyui/output
   defaultPodOptions:
