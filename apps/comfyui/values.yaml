@@ -17,9 +17,6 @@ app-template:
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             FFMPEG_HWACCEL: "cuda"
-            WEB_ENABLE_HTTPS: "false"
-            SERVICEPORTAL_URL: "https://comfyui.eaglepass.io"
-            COMFYUI_URL: "https://comfyui.eaglepass.io"
             # Example secret envs via 1Password Operator managed K8s Secret (uncomment and set names/keys as needed)
             # HUGGINGFACE_TOKEN:
             #   valueFrom:
@@ -61,6 +58,9 @@ app-template:
         http:
           port: 8188
           protocol: HTTP
+        portal:
+          port: 1111
+          protocol: HTTP
   ingress:
     main:
       enabled: true
@@ -69,11 +69,6 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
-        nginx.ingress.kubernetes.io/configuration-snippet: |
-          proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_set_header X-Forwarded-Host $host;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        nginx.ingress.kubernetes.io/ssl-redirect: "true"
       hosts:
         - host: &host comfyui.eaglepass.io
           paths:
@@ -81,7 +76,7 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: http
+                port: portal
       tls:
         - hosts:
             - *host
