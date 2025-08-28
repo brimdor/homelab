@@ -23,11 +23,11 @@ app-template:
                   secretKeyRef:
                     name: "secrets"
                     key: "openai-api-key"
-            # VITE_GITHUB_ACCESS_TOKEN:
-            #   valueFrom:
-            #       secretKeyRef:
-            #         name: "secrets"
-            #         key: "github-access-token"
+            VITE_GITHUB_ACCESS_TOKEN:
+              valueFrom:
+                  secretKeyRef:
+                    name: "secrets"
+                    key: "github-access-token"
 
           command:
             - pnpm
