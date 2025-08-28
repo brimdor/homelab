@@ -17,7 +17,7 @@ app-template:
             FFMPEG_HWACCEL: "cuda"
           resources:
             limits:
-              cpu: 4
+              cpu: 2
               memory: "8192Mi"
             requests:
               cpu: 2
