@@ -153,6 +153,10 @@ app-template:
           main:
             - path: /data/music
   defaultPodOptions:
+    tolerations:
+      - key: "dedicated"
+        value: "sprigatito"
+        effect: "NoSchedule"
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:

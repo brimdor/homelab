@@ -361,7 +361,10 @@ ollama:
   nodeSelector: {}
 
   # -- Tolerations for pod assignment
-  tolerations: []
+  tolerations:
+    - key: "dedicated"
+      value: "arcanine"
+      effect: "NoSchedule"
 
   # -- Affinity for pod assignment
   # affinity:
@@ -382,6 +385,10 @@ ollama:
               operator: In
               values:
                 - "true"
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - "sprigatito"
 
   # -- Lifecycle for pod assignment (override ollama.models startup pull/run)
   lifecycle: {}
