@@ -13,8 +13,13 @@ app-template:
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
-            SERVICEPORTAL_URL: "comfyui.eaglepass.io"
+            SERVICEPORTAL_URL: ""
             CF_QUICK_TUNNELS: "false"
+            WEB_ENABLE_HTTPS: "false"
+            COMFYUI_URL: "https://comfyui.eaglepass.io"
+            SYNCTHING_UI_PORT_HOST: "0"
+            SYNCTHING_TRANSPORT_PORT_HOST: "0"
+            SYNCTHING_URL: ""
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             FFMPEG_HWACCEL: "cuda"
@@ -62,6 +67,10 @@ app-template:
       className: nginx
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/configuration-snippet: |
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header X-Forwarded-Host $host;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       hosts:
         - host: &host comfyui.eaglepass.io
           paths:
@@ -69,7 +78,7 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: portal
+                port: http
       tls:
         - hosts:
             - *host
