@@ -17,7 +17,8 @@ app-template:
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             FFMPEG_HWACCEL: "cuda"
-            COMFYUI_URL: "comfyui.eaglepass.io"
+            # COMFYUI_URL: "comfyui.eaglepass.io"
+            # DIRECT_ADDRESS: "comfyui.eaglepass.io"
             # Example secret envs via 1Password Operator managed K8s Secret (uncomment and set names/keys as needed)
             # HUGGINGFACE_TOKEN:
             #   valueFrom:
