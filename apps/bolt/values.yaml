@@ -17,7 +17,7 @@ app-template:
             RUNNING_IN_DOCKER: "true"
             VITE_LOG_LEVEL: "info"
             DEFAULT_NUM_CTX: "20000"
-            OLLAMA_API_BASE_URL: "ollama.ollama.svc.cluster.local:11434"
+            OLLAMA_API_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
             OPENAI_API_KEY:
               valueFrom:
                   secretKeyRef:
