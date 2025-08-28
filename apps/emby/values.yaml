@@ -17,7 +17,6 @@ app-template:
             FFMPEG_HWACCEL: "cuda"
           resources:
             limits:
-              nvidia.com/gpu: 1
               cpu: 4
               memory: "8192Mi"
             requests:
@@ -162,10 +161,6 @@ app-template:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-                - key: nvidia.com/gpu.present
-                  operator: In
-                  values:
-                    - "true"
                 - key: kubernetes.io/hostname
                   operator: In
                   values:
