@@ -212,7 +212,7 @@ ollama:
   resources:
     # -- CPU and memory resource requests and limits
     limits:
-      cpu: 3
+      cpu: 2
       memory: 24Gi
     requests:
       cpu: 2
