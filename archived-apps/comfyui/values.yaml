@@ -98,6 +98,10 @@ app-template:
       globalMounts:
         - path: /comfyui/output
   defaultPodOptions:
+    tolerations:
+      - key: "dedicated"
+        value: "arcanine"
+        effect: "NoSchedule"
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
