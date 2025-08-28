@@ -35,7 +35,7 @@ app-template:
               memory: 6144Mi
           probes:
             liveness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
@@ -44,7 +44,7 @@ app-template:
                 initialDelaySeconds: 30
                 periodSeconds: 10
             readiness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
