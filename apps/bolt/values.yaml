@@ -6,27 +6,29 @@ app-template:
       containers:
         main:
           image:
-            repository: brimdor/bolt.diy
-            tag: latest
+            repository: docker.io/bolt-ai
+            tag: production
             pullPolicy: Always
           env:
             NODE_ENV: production
             COMPOSE_PROFILES: production
             PORT: 5173
+            VITE_GITHUB_TOKEN_TYPE: "classic"
+            RUNNING_IN_DOCKER: "true"
+            VITE_LOG_LEVEL: "info"
+            DEFAULT_NUM_CTX: "20000"
+            OLLAMA_API_BASE_URL: "ollama.ollama.svc.cluster.local:11434"
             OPENAI_API_KEY:
               valueFrom:
                   secretKeyRef:
-                    name: "openai-api-key"
+                    name: "secrets"
                     key: "openai-api-key"
-            RUNNING_IN_DOCKER: "true"
-            VITE_LOG_LEVEL: "debug"
-            DEFAULT_NUM_CTX: "32768"
-            VITE_GITHUB_ACCESS_TOKEN:
-              valueFrom:
-                  secretKeyRef:
-                    name: "github-access-token"
-                    key: "github-access-token"
-            VITE_GITHUB_TOKEN_TYPE: "classic"
+            # VITE_GITHUB_ACCESS_TOKEN:
+            #   valueFrom:
+            #       secretKeyRef:
+            #         name: "secrets"
+            #         key: "github-access-token"
+
           command:
             - pnpm
             - run
@@ -57,12 +59,9 @@ app-template:
         - hosts:
             - bolt.eaglepass.io
           secretName: bolt-tls-certificate
-secrets:
-  OPENAI_API_KEY:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "gglbmianqlel62up6isritoi5u"
-    secretName: "openai-api-key"
-  VITE_GITHUB_ACCESS_TOKEN:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "gglbmianqlel62up6isritoi5u"
-    secretName: "github-access-token"
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gglbmianqlel62up6isritoi5u"
+      operator.1password.io/item-name: "secrets"
