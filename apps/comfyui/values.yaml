@@ -35,7 +35,7 @@ app-template:
               memory: 6144Mi
           probes:
             liveness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 httpGet:
@@ -44,7 +44,7 @@ app-template:
                 initialDelaySeconds: 30
                 periodSeconds: 10
             readiness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 httpGet:
@@ -66,9 +66,6 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-buffering: "off"
       hosts:
         - host: &host comfyui.eaglepass.io
           paths:
