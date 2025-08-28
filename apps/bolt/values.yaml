@@ -6,8 +6,8 @@ app-template:
       containers:
         main:
           image:
-            repository: docker.io/bolt-ai
-            tag: production
+            repository: brimdor/bolt
+            tag: canary
             pullPolicy: Always
           env:
             NODE_ENV: production
