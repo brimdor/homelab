@@ -59,6 +59,7 @@ app-template:
           port: 8188
           protocol: HTTP
         portal:
+          controller: main
           port: 1111
           protocol: HTTP
   ingress:
