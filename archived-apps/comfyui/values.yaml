@@ -107,10 +107,6 @@ app-template:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-                - key: nvidia.com/gpu.present
-                  operator: In
-                  values:
-                    - "true"
                 - key: kubernetes.io/hostname
                   operator: In
                   values:
