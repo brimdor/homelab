@@ -96,7 +96,7 @@ app-template:
             - *Host
           secretName: altus-tls-certificate
   persistence:
-    config:
+    data:
       accessMode: ReadWriteOnce
       size: 5Gi
       advancedMounts:
