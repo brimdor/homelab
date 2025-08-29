@@ -40,5 +40,14 @@
         "terminal.border": "#42a5f5",
         "window.activeBorder": "#42a5f5",
         "window.inactiveBorder": "#42a5f5"
-    }
+    },
+    // "chat.mcp.serverSampling": {
+    //     "homelab/.vscode/mcp.json: n8n-mcp": {
+    //         "allowedModels": [
+    //             "copilot/gpt-4.1",
+    //             "ollama/gpt-oss:20b",
+    //             "ollama/mistral:7b"
+    //         ]
+    //     }
+    // }
 }
