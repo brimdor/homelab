@@ -1,0 +1,130 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/altus
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            # LinuxServer standards
+            PUID: "1000"
+            PGID: "1000"
+            TZ: "America/Chicago"
+            # Altus/Selkies options (keep defaults unless you need to change)
+            # CUSTOM_PORT: "3000"           # Internal HTTP (not used behind TLS)
+            CUSTOM_HTTPS_PORT: "3001"       # Internal HTTPS port used by UI
+            # CUSTOM_WS_PORT: "8082"        # Websocket if changed from default
+            # SUBFOLDER: "/"               # Optional subfolder
+            # TITLE: "Altus"               # Browser page title
+            # Optional basic auth (NOT recommended for Internet exposure)
+            # CUSTOM_USER:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "altus-user"     # Update to match your 1Password item field
+            #       optional: true
+            # PASSWORD:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "altus-password" # Update to match your 1Password item field
+            #       optional: true
+            # Optional i18n
+            # LC_ALL: "en_US.UTF-8"
+          resources:
+            requests:
+              cpu: 100m
+              memory: "256Mi"
+            limits:
+              cpu: 2000m
+              memory: "2Gi"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  # Altus requires HTTPS internally; use scheme HTTPS on port 3001
+                  scheme: HTTPS
+                  path: /
+                  port: 3001
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  scheme: HTTPS
+                  path: /
+                  port: 3001
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            startup:
+              enabled: false
+      pod:
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+          # readOnlyRootFilesystem: true # Alt images generally need write; test before enabling
+        terminationGracePeriodSeconds: 30
+  service:
+    main:
+      type: ClusterIP
+      ports:
+        https:
+          port: 3001
+          targetPort: 3001
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host altus.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: https
+      tls:
+        - hosts:
+            - *Host
+          secretName: altus-tls-certificate
+  persistence:
+    config:
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+    shm:
+      type: emptyDir
+      medium: Memory
+      sizeLimit: 1Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /dev/shm
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    # annotations:
+    #   operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zvwkudjkklr6j3ezq5kpi4tzki"
+    #   operator.1password.io/item-name: "secrets"
