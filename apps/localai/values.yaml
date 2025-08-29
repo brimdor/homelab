@@ -47,20 +47,14 @@ local-ai:
   persistence:
     models:
       enabled: true
-      annotations: {}
-      storageClass: "" # set your storageClassName
       accessModes:
-        - ReadWriteMany
+        - ReadWriteOnce
       size: 100Gi
       globalMount: /models
-      labels:
-        data: "true"
     output:
       enabled: true
-      annotations: {}
-      storageClass: ""
       accessModes:
-        - ReadWriteMany
+        - ReadWriteOnce
       size: 20Gi
       globalMount: /tmp/generated
 
