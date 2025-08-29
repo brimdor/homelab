@@ -2,7 +2,6 @@
 app-template:
   controllers:
     main:
-      replicas: 1
       containers:
         main:
           image:
@@ -70,14 +69,6 @@ app-template:
                 failureThreshold: 6
             startup:
               enabled: false
-      pod:
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          fsGroup: 1000
-          fsGroupChangePolicy: OnRootMismatch
-          # readOnlyRootFilesystem: true # Alt images generally need write; test before enabling
-        terminationGracePeriodSeconds: 30
   service:
     main:
       type: ClusterIP
