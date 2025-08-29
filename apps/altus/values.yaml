@@ -15,7 +15,7 @@ app-template:
             TZ: "America/Chicago"
             # Altus/Selkies options (keep defaults unless you need to change)
             CUSTOM_PORT: "3000"           # Internal HTTP (not used behind TLS)
-            # CUSTOM_HTTPS_PORT: "3001"       # Internal HTTPS port used by UI
+            CUSTOM_HTTPS_PORT: "3001"       # Internal HTTPS port used by UI
             # CUSTOM_WS_PORT: "8082"        # Websocket if changed from default
             # SUBFOLDER: "/"               # Optional subfolder
             # TITLE: "Altus"               # Browser page title
