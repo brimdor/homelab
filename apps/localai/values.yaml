@@ -51,6 +51,12 @@ local-ai:
         - ReadWriteOnce
       size: 100Gi
       globalMount: /models
+    backends:
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+      size: 100Gi
+      globalMount: /backends
     output:
       enabled: true
       accessModes:
