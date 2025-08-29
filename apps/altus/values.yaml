@@ -71,11 +71,9 @@ app-template:
               enabled: false
   service:
     main:
-      type: ClusterIP
       ports:
         https:
           port: 3001
-          targetPort: 3001
           protocol: HTTP
   ingress:
     main:
