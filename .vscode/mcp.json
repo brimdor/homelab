@@ -1,13 +1,15 @@
 // {
 // 	"servers": {
-// 		"time": {
-// 			"command": "docker",
+// 		"n8n-mcp": {
+// 			"command": "npx",
 // 			"args": [
-// 				"run",
-// 				"-i",
-// 				"--rm",
-// 				"mcp/time"
+// 				"n8n-mcp"
 // 			],
+// 			"env": {
+// 				"MCP_MODE": "stdio",
+// 				"LOG_LEVEL": "error",
+// 				"DISABLE_CONSOLE_OUTPUT": "true"
+// 			},
 // 			"type": "stdio"
 // 		}
 // 	},
