@@ -72,7 +72,7 @@ app-template:
   service:
     main:
       ports:
-        https:
+        http:
           port: 3001
           protocol: HTTP
   ingress:
@@ -90,7 +90,7 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: https
+                port: http
       tls:
         - hosts:
             - *Host
