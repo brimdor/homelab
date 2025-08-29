@@ -47,8 +47,8 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  # Altus requires HTTPS internally; use scheme HTTPS on port 3001
-                  scheme: HTTPS
+                  # Probe the HTTP reverse-proxy port exposed by the container
+                  scheme: HTTP
                   path: /
                   port: 3000
                 initialDelaySeconds: 30
@@ -60,7 +60,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  scheme: HTTPS
+                  scheme: HTTP
                   path: /
                   port: 3000
                 initialDelaySeconds: 10
