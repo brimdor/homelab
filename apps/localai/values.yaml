@@ -1,0 +1,135 @@
+# Values for umbrella chart to configure the go-skynet/local-ai subchart.
+# Schema reference: https://raw.githubusercontent.com/go-skynet/helm-charts/main/charts/local-ai/values.yaml
+
+local-ai:
+  # Deployment image override
+  deployment:
+    image:
+      repository: localai/localai
+      tag: latest-aio-gpu-nvidia-cuda-12
+    pullPolicy: IfNotPresent
+
+    # Env variables mapped from docker run example
+    env:
+      debug: "true"
+      single_active_backend: "true"
+      parallel_requests: "false"
+      watchdog_idle: "true"
+      watchdog_busy: "true"
+      watchdog_idle_timeout: 50m
+      watchdog_busy_timeout: 50m
+      VIDIA_VISIBLE_DEVICES: "all"
+      NVIDIA_DRIVER_CAPABILITIES: "all"
+      FFMPEG_HWACCEL: "cuda"
+    # MODELS_PATH is injected automatically by template from modelsPath below
+    modelsPath: /models
+
+    # Secrets via 1Password operator
+    # Add secretEnv items that reference Kubernetes Secrets created by 1Password operator
+    # Docs: https://developer.1password.com/docs/k8s/secret-reference/ (fill in your operator annotation keys/values)
+    secretEnv: []
+
+    # If your cluster uses NVIDIA runtimeClass, set it here; otherwise use GPU device plugin resources below.
+    runtimeClassName: nvidia
+
+  # Resources suitable for GPU workloads (adjust as needed)
+  resources:
+    requests:
+      cpu: "2000m"
+      memory: "8Gi"
+      # nvidia.com/gpu: 1
+    limits:
+      cpu: "4"
+      memory: "16Gi"
+      # nvidia.com/gpu: 1
+
+  # Persistent storage for models and outputs
+  persistence:
+    models:
+      enabled: true
+      annotations: {}
+      storageClass: "" # set your storageClassName
+      accessModes:
+        - ReadWriteMany
+      size: 100Gi
+      globalMount: /models
+      labels:
+        data: "true"
+    output:
+      enabled: true
+      annotations: {}
+      storageClass: ""
+      accessModes:
+        - ReadWriteMany
+      size: 20Gi
+      globalMount: /tmp/generated
+
+  # Service exposure
+  service:
+    type: ClusterIP
+    port: 8080
+
+  # Ingress for eaglepass.io
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: localai.eaglepass.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: localai-eaglepass-io-tls
+        hosts:
+          - localai.eaglepass.io
+
+  # Probes (use upstream defaults; override if needed)
+  # livenessProbe:
+  #   httpGet:
+  #     path: /health
+  #     port: 8080
+  # readinessProbe:
+  #   httpGet:
+  #     path: /ready
+  #     port: 8080
+
+  # Node placement and GPU scheduling
+  nodeSelector: {}
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "arcanine"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - arcanine
+
+  # 1Password operator annotations on Pod template (placeholders)
+  # podAnnotations:
+    # onepassword.com/item-path: "vaults/<vault>/items/<item>"
+    # onepassword.com/auto-restart: "true"
+    # onepassword.com/inject: "true"
+    # "onepassword.example/placeholder": "fill-me"
+
+  # Example of secret-driven env using secretKeyRef (K8s Secret created by 1Password operator)
+  # deployment:
+  #   secretEnv:
+  #     - name: SOME_API_KEY
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: "localai-secrets" # Secret created by 1Password operator
+  #           key: "SOME_API_KEY"
+
+  # Optional: override threads/context
+  # deployment:
+  #   env:
+  #     threads: "8"
+  #     context_size: "4096"
