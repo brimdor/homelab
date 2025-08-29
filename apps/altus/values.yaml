@@ -75,6 +75,9 @@ app-template:
         http:
           port: 3000
           protocol: HTTP
+        https:
+          port: 3001
+          protocol: HTTPS
   ingress:
     main:
       enabled: true
