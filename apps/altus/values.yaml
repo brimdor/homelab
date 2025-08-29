@@ -14,8 +14,8 @@ app-template:
             PGID: "1000"
             TZ: "America/Chicago"
             # Altus/Selkies options (keep defaults unless you need to change)
-            # CUSTOM_PORT: "3000"           # Internal HTTP (not used behind TLS)
-            CUSTOM_HTTPS_PORT: "3001"       # Internal HTTPS port used by UI
+            CUSTOM_PORT: "3000"           # Internal HTTP (not used behind TLS)
+            # CUSTOM_HTTPS_PORT: "3001"       # Internal HTTPS port used by UI
             # CUSTOM_WS_PORT: "8082"        # Websocket if changed from default
             # SUBFOLDER: "/"               # Optional subfolder
             # TITLE: "Altus"               # Browser page title
@@ -50,7 +50,7 @@ app-template:
                   # Altus requires HTTPS internally; use scheme HTTPS on port 3001
                   scheme: HTTPS
                   path: /
-                  port: 3001
+                  port: 3000
                 initialDelaySeconds: 30
                 periodSeconds: 10
                 timeoutSeconds: 5
@@ -62,7 +62,7 @@ app-template:
                 httpGet:
                   scheme: HTTPS
                   path: /
-                  port: 3001
+                  port: 3000
                 initialDelaySeconds: 10
                 periodSeconds: 10
                 timeoutSeconds: 5
@@ -73,7 +73,7 @@ app-template:
     main:
       ports:
         http:
-          port: 3001
+          port: 3000
           protocol: HTTP
   ingress:
     main:
