@@ -40,7 +40,7 @@ local-ai:
       # nvidia.com/gpu: 1
     limits:
       cpu: "4"
-      memory: "16Gi"
+      memory: "12Gi"
       # nvidia.com/gpu: 1
 
   # Persistent storage for models and outputs
@@ -99,7 +99,6 @@ local-ai:
   nodeSelector: {}
   tolerations:
     - key: "dedicated"
-      operator: "Equal"
       value: "arcanine"
       effect: "NoSchedule"
   affinity:
