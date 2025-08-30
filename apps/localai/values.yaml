@@ -38,15 +38,15 @@ local-ai:
     runtimeClassName: nvidia
 
   # Resources suitable for GPU workloads (adjust as needed)
-  resources:
-    requests:
-      # cpu: "2000m"
-      # memory: "8Gi"
-      nvidia.com/gpu: 1
-    limits:
-      # cpu: "4"
-      # memory: "12Gi"
-      nvidia.com/gpu: 1
+  # resources:
+  #   requests:
+  #     cpu: "2000m"
+  #     memory: "8Gi"
+  #     nvidia.com/gpu: 1
+  #   limits:
+  #     cpu: "4"
+  #     memory: "12Gi"
+  #     nvidia.com/gpu: 1
 
   # Persistent storage for models and outputs
   persistence:
