@@ -20,7 +20,7 @@ app-template:
               cpu: 2
               memory: "8192Mi"
             requests:
-              cpu: 2
+              cpu: 1.5
               memory: "4096Mi"
       initContainers:
         restore:
