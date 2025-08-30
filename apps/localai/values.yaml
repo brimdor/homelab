@@ -12,7 +12,7 @@ local-ai:
     # Env variables mapped from docker run example
     env:
       LOCALAI_LOG_LEVEL: "debug"
-      LOCALAI_SINGLE_ACTIVE_BACKGROUND: "false"
+      LOCALAI_SINGLE_ACTIVE_BACKEND: "false"
       LOCALAI_PARALLEL_REQUESTS: "true"
       LOCALAI_WATCHDOG_IDLE: "true"
       LOCALAI_WATCHDOG_BUSY: "true"
@@ -24,8 +24,9 @@ local-ai:
       NVIDIA_VISIBLE_DEVICES: "all"
       NVIDIA_DRIVER_CAPABILITIES: "all"
       FFMPEG_HWACCEL: "cuda"
+      LOCAL_AI_MODELS_PATH: "/models"
+      LOCALAI_IMAGE_PATH: "/tmp/generated/images"
     # MODELS_PATH is injected automatically by template from modelsPath below
-    MODELS_PATH: /models
     BACKENDS_PATH: /backends
 
     # Secrets via 1Password operator
