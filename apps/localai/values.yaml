@@ -62,6 +62,12 @@ local-ai:
         - ReadWriteOnce
       size: 100Gi
       globalMount: /backends
+    sec-backends:
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+      globalMount: /usr/share/localai/backends
     output:
       enabled: true
       accessModes:
