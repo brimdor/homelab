@@ -5,24 +5,27 @@ local-ai:
   # Deployment image override
   deployment:
     image:
-      repository: localai/localai
-      tag: latest-aio-gpu-nvidia-cuda-12
+      repository: quay.io/go-skynet/local-ai
+      tag: master-aio-gpu-nvidia-cuda-12
     pullPolicy: IfNotPresent
 
     # Env variables mapped from docker run example
     env:
-      debug: "false"
-      single_active_backend: "true"
-      parallel_requests: "true"
-      watchdog_idle: "true"
-      watchdog_busy: "true"
-      watchdog_idle_timeout: 50m
-      watchdog_busy_timeout: 50m
+      LOCALAI_LOG_LEVEL: "debug"
+      LOCALAI_SINGLE_ACTIVE_BACKGROUND: "false"
+      LOCALAI_PARALLEL_REQUESTS: "true"
+      LOCALAI_WATCHDOG_IDLE: "true"
+      LOCALAI_WATCHDOG_BUSY: "true"
+      LOCALAI_WATCHDOG_IDLE_TIMEOUT: 5m
+      LOCALAI_WATCHDOG_BUSY_TIMEOUT: 5m
+      PYTHON_GRPC_MAX_WORKERS: "3"
+      LLAMACPP_PARALLEL: "3"
+      BUILD_TYPE: "cublas"
       NVIDIA_VISIBLE_DEVICES: "all"
       NVIDIA_DRIVER_CAPABILITIES: "all"
       FFMPEG_HWACCEL: "cuda"
     # MODELS_PATH is injected automatically by template from modelsPath below
-    modelsPath: /models
+    MODELS_PATH: /models
 
     # Secrets via 1Password operator
     # Add secretEnv items that reference Kubernetes Secrets created by 1Password operator
@@ -35,12 +38,12 @@ local-ai:
   # Resources suitable for GPU workloads (adjust as needed)
   resources:
     requests:
-      cpu: "2000m"
-      memory: "8Gi"
-      # nvidia.com/gpu: 1
+      # cpu: "2000m"
+      # memory: "8Gi"
+      nvidia.com/gpu: 1
     limits:
-      cpu: "4"
-      memory: "12Gi"
+      # cpu: "4"
+      # memory: "12Gi"
       nvidia.com/gpu: 1
 
   # Persistent storage for models and outputs
