@@ -3,7 +3,7 @@ name: localai
 description: Umbrella chart for LocalAI using go-skynet/local-ai as a dependency.
 type: application
 version: 0.1.0
-appVersion: "latest-aio-gpu-nvidia-cuda-12"
+appVersion: "latest-gpu-nvidia-cuda-12"
 
 dependencies:
   - name: local-ai
