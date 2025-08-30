@@ -81,10 +81,7 @@ ollama:
       #  - llama2
       #  - mistral
       pull:
-        - mistral:7b
-        - gpt-oss:20b
         - mxbai-embed-large:latest
-        - CognitiveComputations/devstral-vision:q3_K_M
 
       # -- List of models to load in memory at container startup
       # run:
