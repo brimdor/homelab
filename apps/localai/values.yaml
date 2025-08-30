@@ -11,14 +11,14 @@ local-ai:
 
     # Env variables mapped from docker run example
     env:
-      debug: "true"
-      single_active_backend: "true"
-      parallel_requests: "false"
+      debug: "false"
+      single_active_backend: "false"
+      parallel_requests: "true"
       watchdog_idle: "true"
       watchdog_busy: "true"
       watchdog_idle_timeout: 50m
       watchdog_busy_timeout: 50m
-      VIDIA_VISIBLE_DEVICES: "all"
+      NVIDIA_VISIBLE_DEVICES: "all"
       NVIDIA_DRIVER_CAPABILITIES: "all"
       FFMPEG_HWACCEL: "cuda"
     # MODELS_PATH is injected automatically by template from modelsPath below
