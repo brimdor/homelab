@@ -6,7 +6,6 @@ local-ai:
   deployment:
     image:
       repository: localai/localai
-      tag: latest-aio-gpu-nvidia-cuda-12
     pullPolicy: IfNotPresent
 
     # Env variables mapped from docker run example
