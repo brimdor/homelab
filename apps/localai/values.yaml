@@ -11,9 +11,9 @@ local-ai:
 
     # Env variables mapped from docker run example
     env:
-      debug: "true"
+      debug: "false"
       single_active_backend: "true"
-      parallel_requests: "false"
+      parallel_requests: "true"
       watchdog_idle: "true"
       watchdog_busy: "true"
       watchdog_idle_timeout: 50m
