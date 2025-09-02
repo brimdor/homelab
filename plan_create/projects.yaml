@@ -3,6 +3,10 @@ Sim AI:
     - https://github.com/simstudioai/sim
     - https://sim.ai
     - https://docs.sim.ai/introduction
+    - https://github.com/simstudioai/sim/tree/main/helm/sim
+    - https://github.com/simstudioai/sim/blob/main/helm/sim/values.schema.json
+    - Ollama URL: http://localai-local-ai.localai.svc.cluster.local:8080
+    - Database URL: postgresql://postgres.postgres.svc.cluster.local:5432
   Chart Files:
     - apps/sim
 Weaviate:
