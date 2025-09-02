@@ -47,8 +47,8 @@ spec:
             {{- end }}
             {{- end }}
             {{- if .Values.redis.enabled }}
-            - name: LIVEKIT_REDIS_ADDRESS
-              value: "redis://localhost:{{ .Values.redis.port }}"
+            - name: REDIS_HOST
+              value: "localhost:{{ .Values.redis.port }}"
             {{- end }}
           args:
             {{- range .Values.args }}
@@ -58,6 +58,7 @@ spec:
             {{- if .Values.config.enabled }}
             - name: config
               mountPath: /etc/livekit
+              readOnly: true
             {{- end }}
             {{- if .Values.persistence.enabled }}
             - name: data

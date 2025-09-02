@@ -42,7 +42,6 @@ ingress:
 
 persistence:
   enabled: true
-  storageClass: null
   accessMode: ReadWriteOnce
   size: 5Gi
   mountPath: /var/lib/livekit
@@ -56,11 +55,8 @@ affinity: {}
 # LiveKit specific args and config
 # Use either args or a config file mounted via ConfigMap; defaults target a simple single-node setup.
 args:
-  - "--bind=0.0.0.0:7880"
-  - "--rtc.port=7881"
-  - "--rtc.tcp_port=7882"
+  - "--config=/etc/livekit/livekit.yaml"
   - "--node-ip=$(POD_IP)"
-  - "--log.level=info"
 
 env:
   # Example: set keys for LiveKit API (supply via Secret in production)
