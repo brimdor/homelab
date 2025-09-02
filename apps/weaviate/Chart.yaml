@@ -1,0 +1,19 @@
+apiVersion: v2
+name: weaviate
+description: |
+  Homelab wrapper (sub-chart) for the official Weaviate Helm chart.
+  This chart contains no templates. It pins the upstream dependency and exposes
+  homelab-focused values overrides via values.yaml.
+  Upstream: https://github.com/weaviate/weaviate-helm
+type: application
+
+# Bump this chart version when changing this wrapper (not the upstream pin).
+version: 0.1.0
+
+# appVersion is informational here; we mirror the upstream app version we pin to.
+appVersion: "1.32.3"
+
+dependencies:
+  - name: weaviate
+    version: 17.5.1
+    repository: https://weaviate.github.io/weaviate-helm
