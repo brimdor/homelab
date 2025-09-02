@@ -1,6 +1,5 @@
 apiVersion: v2
 name: ollama
-appVersion: 0.11.8
 description: Get up and running with large language models locally.
 home: https://ollama.com/
 icon: https://ollama.com/public/ollama.png
