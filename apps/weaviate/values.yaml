@@ -17,6 +17,7 @@ weaviate:
   # Storage (PVC) configuration as per upstream `storage` keys.
   storage:
     size: 10Gi
+    storageClassName: standard-rwo
 
   # Resource requests/limits left empty by default. Set as needed.
   resources: {}
@@ -74,14 +75,14 @@ ingress:
   annotations:
     - cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-  - host: weaviate.eaglepass.io
+  - host: &host weaviate.eaglepass.io
     paths:
       - path: /
         pathType: Prefix
   tls:
-  - secretName: weaviate-tls
+  - secretName: weaviate-tls-certificate
     hosts:
-      - weaviate.example.com
+      - *host
 
 # Backup configuration — disabled by default. This wrapper ships no CronJob templates;
 # wire a platform-level CronJob that consumes these values to archive data to NFS.
