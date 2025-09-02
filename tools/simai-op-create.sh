@@ -11,6 +11,7 @@ SIM_OPENAI_API_KEY=""
 SIM_ANTHROPIC_API_KEY_1=""
 SIM_MISTRAL_API_KEY=""
 SIM_ELEVENLABS_API_KEY=""
+SIM_DATABASE_URL=""
 
 sim_fields="$(cat <<JSON
   {"label":"better-auth-secret","value":"$SIM_BETTER_AUTH_SECRET","type":"CONCEALED"},
@@ -18,7 +19,8 @@ sim_fields="$(cat <<JSON
   {"label":"openai-api-key","value":"$SIM_OPENAI_API_KEY","type":"CONCEALED"},
   {"label":"anthropic-api-key-1","value":"$SIM_ANTHROPIC_API_KEY_1","type":"CONCEALED"},
   {"label":"mistral-api-key","value":"$SIM_MISTRAL_API_KEY","type":"CONCEALED"},
-  {"label":"elevenlabs-api-key","value":"$SIM_ELEVENLABS_API_KEY","type":"CONCEALED"}
+  {"label":"elevenlabs-api-key","value":"$SIM_ELEVENLABS_API_KEY","type":"CONCEALED"},
+  {"label":"database-url","value":"$SIM_DATABASE_URL","type":"CONCEALED"}
 JSON
 )"
 

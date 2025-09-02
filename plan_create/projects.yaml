@@ -1,9 +1,18 @@
 Sim AI:
   Documentation:
-  - /home/coder/homelab/docs/how-to-guides/sim-ai.md
+    - https://github.com/simstudioai/sim
+    - https://sim.ai
+    - https://docs.sim.ai/introduction
+    - https://github.com/simstudioai/sim/tree/main/helm/sim
+    - https://github.com/simstudioai/sim/blob/main/helm/sim/values.schema.json
+    - Ollama URL: http://localai-local-ai.localai.svc.cluster.local:8080
+    - Database URL:
+      - postgresql://postgres.postgres.svc.cluster.local:5432
+    - Database Docs:
+      - https://github.com/simstudioai/sim/blob/main/helm/sim/examples/values-external-db.yaml
+      - https://github.com/simstudioai/sim/blob/main/helm/sim/templates/deployment-app.yaml
   Chart Files:
-  - /home/coder/homelab/apps/sim/Chart.yaml
-  - /home/coder/homelab/apps/sim/values.yaml
+    - apps/sim
 Weaviate:
   Documentation:
     - https://docs.weaviate.io/academy/deployment/k8s/setup_weaviate

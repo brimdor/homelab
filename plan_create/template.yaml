@@ -5,6 +5,7 @@ Generate an extensive plan/instructions and initial prompt for AI to achieve the
 
 Requirements:
   - Generate the plan/instructions autonomously
+  - Never edit anything in the 'plan_create' folder
   - YOU WILL INVESTIGATE THE APPLICATION TO DETERMINE THE BEST APPROACH TO CREATE A HELM CHART BASED ON THE CONDITIONS BELOW
   - DO NOT PROPOSE ANY CONDITIONS FOR THE AI TO INVESTIGATE
   - DO NOT PROPOSE A DIRECTORY STRUCTURE

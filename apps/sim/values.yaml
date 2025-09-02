@@ -16,9 +16,17 @@ app-template:
             NEXT_PUBLIC_SOCKET_URL: "https://sim-ws.eaglepass.io"
             NODE_ENV: "production"
             NEXT_TELEMETRY_DISABLED: "1"
-            # Local models via LocalAI (Ollama-compatible) default URL
+            NEXT_PUBLIC_BRAND_NAME: "Sim City"
+            NEXT_PUBLIC_BRAND_LOGO_URL: ""
+            NEXT_PUBLIC_BRAND_FAVICON_URL: ""
+            NEXT_PUBLIC_CUSTOM_CSS_URL: ""
+            NEXT_PUBLIC_SUPPORT_EMAIL: "help@sim.ai"
+            NEXT_PUBLIC_DOCUMENTATION_URL: ""
+            NEXT_PUBLIC_TERMS_URL: ""
+            NEXT_PUBLIC_PRIVACY_URL: ""
+            ALLOWED_LOGIN_EMAILS: ""
+            ALLOWED_LOGIN_DOMAINS: ""
             OLLAMA_URL: "http://localai-local-ai.localai.svc.cluster.local:8080"
-            # Secrets via 1Password Operator
             BETTER_AUTH_SECRET:
               valueFrom:
                 secretKeyRef:
@@ -50,8 +58,12 @@ app-template:
             #     secretKeyRef:
             #       name: "secrets"
             #       key: "elevenlabs-api-key"
-            # Database selection: prefer external DB
-            DATABASE_URL: "postgresql://postgres.postgres.svc.cluster.local:5432/sim"
+            # External database connection string (via 1Password)
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "database-url"
           # resources:
           #   requests:
           #     cpu: 500m
@@ -81,9 +93,6 @@ app-template:
     # Service ports for main are defined at top-level service.main
     realtime:
       type: deployment
-      annotations:
-        operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
-        operator.1password.io/item-name: "Sim AI"
       containers:
         realtime:
           image:
