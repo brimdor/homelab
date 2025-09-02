@@ -11,7 +11,9 @@ SIM_OPENAI_API_KEY=""
 SIM_ANTHROPIC_API_KEY_1=""
 SIM_MISTRAL_API_KEY=""
 SIM_ELEVENLABS_API_KEY=""
-SIM_DATABASE_URL=""
+# Optionally predefine the external Postgres DSN via env var before running this script
+# Example: export SIM_DATABASE_URL="postgresql://user:pass@postgres.postgres.svc.cluster.local:5432/sim"
+SIM_DATABASE_URL="${SIM_DATABASE_URL:-}"
 
 sim_fields="$(cat <<JSON
   {"label":"better-auth-secret","value":"$SIM_BETTER_AUTH_SECRET","type":"CONCEALED"},
