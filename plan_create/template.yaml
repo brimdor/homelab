@@ -83,7 +83,7 @@ Secrets:
               operator.1password.io/item-name: "secrets"
       - Use the existing script to create a new 1password vault item for the application secrets using the 1password CLI or web interface.
       - New 1password vault item must be a "Database" category to allow custom key/value pairs.
-      - Update the tools/op-create.sh script to create the new vault item for the application secrets using the existing script method.
+      - Reference the tools/example-op-create.sh script to create the new vault item for the application secrets using the existing script method. Use it to create a new <app>-op-create.sh script for the application and also place it in the tools folder.
       - Ensure no sensitive information is hardcoded in the Helm Chart or values.yaml
 
 Service:
