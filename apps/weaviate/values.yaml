@@ -1,0 +1,100 @@
+# This values.yaml only overrides homelab-relevant settings. All other defaults
+# are inherited from the upstream chart (pinned in Chart.yaml dependencies).
+# Upstream chart: https://github.com/weaviate/weaviate-helm (repo URL: https://weaviate.github.io/weaviate-helm)
+
+weaviate:
+  # Image settings. Default repository/tag align with upstream.
+  image:
+    registry: cr.weaviate.io
+    repo: semitechnologies/weaviate
+    # Default to upstream appVersion. You can opt-in to "latest" explicitly.
+    tag: "1.32.3"
+    pullPolicy: IfNotPresent
+
+  # Number of replicas (upstream key is `replicas`).
+  replicas: 1
+
+  # Storage (PVC) configuration as per upstream `storage` keys.
+  storage:
+    size: 10Gi
+
+  # Resource requests/limits left empty by default. Set as needed.
+  resources: {}
+  # requests:
+  #   cpu: "500m"
+  #   memory: "2Gi"
+  # limits:
+  #   cpu: "2"
+  #   memory: "8Gi"
+
+  # Env variables passed to Weaviate container. Use for non-sensitive overrides.
+  env: {}
+  # EXAMPLE:
+  # - name: QUERY_DEFAULTS_LIMIT
+  #   value: "100"
+
+  # Pod annotations (e.g., 1Password Operator item-path). Applied to the Weaviate pod(s).
+  annotations: {}
+
+  # Non-sensitive configuration rendered via a ConfigMap can be enabled via upstream
+  # `custom_config_map`. See README and upstream docs for details.
+  # custom_config_map:
+  #   enabled: false
+  #   name: 'custom-config'
+  # example-config.yaml: |
+  #   some: config
+  #   go: here
+
+  # Secrets are NOT stored here. Prefer 1Password Operator + ExternalSecret to
+  # materialize a Kubernetes Secret named "secrets" with needed keys, then set
+  # upstream.envSecrets to reference that secret per-key.
+  envSecrets: {}
+  # Provide references like this in env (above):
+  # - name: SOME_PASSWORD
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: secrets
+  #       key: some-password
+  # 1Password Operator annotations (example) must be added at Pod/Workload level
+  # via upstream values or by setting pod annotations in this chart's values if exposed:
+  # Example (requires a K8s Secret named 'secrets' with the exact key):
+  # envSecrets:
+  #   AUTHENTICATION_APIKEY_ALLOWED_KEYS: secrets
+  #   AUTHENTICATION_APIKEY_USERS: secrets
+  # For 1Password Operator, apply Pod annotations (on the workload template):
+  # annotations:
+  #   operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+  #   operator.1password.io/item-name: "secrets"
+
+# Ingress configuration (wrapper only). Upstream does not ship an Ingress; use your
+# umbrella/platform to render one. These values are placeholders for that layer.
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    - cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+  - host: weaviate.eaglepass.io
+    paths:
+      - path: /
+        pathType: Prefix
+  tls:
+  - secretName: weaviate-tls
+    hosts:
+      - weaviate.example.com
+
+# Backup configuration — disabled by default. This wrapper ships no CronJob templates;
+# wire a platform-level CronJob that consumes these values to archive data to NFS.
+# backups:
+#   enabled: true
+
+# cronjob:
+#   enabled: false
+#   nfs_backup:
+#     enabled: true
+#     nfsServer: 10.0.50.3
+#     nfsPath: "/mnt/user/weaviate_backups" # CHANGE THIS before enabling backups
+#     schedule: "*/15 * * * *"
+#     retentionDays: 7
+  # Implementation note: this sub-chart does not ship templates; use an umbrella
+  # or platform-level backup CronJob wired to the Weaviate PVC. See README.

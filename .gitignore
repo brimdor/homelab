@@ -1,6 +1,7 @@
 .venv/
 book/
 .github/instructions
+.github/prompts
 
 *.iso
 *.log

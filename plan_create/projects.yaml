@@ -1,17 +1,29 @@
-Sim AI
+Sim AI:
+  Documentation:
     - https://github.com/simstudioai/sim
     - https://sim.ai
     - https://docs.sim.ai/introduction
-Weaviate
+  Chart Files:
+    - apps/sim
+Weaviate:
+  Documentation:
     - https://docs.weaviate.io/academy/deployment/k8s/setup_weaviate
     - https://docs.weaviate.io/deploy/installation-guides/k8s-installation
     - https://github.com/weaviate/weaviate-helm
-Elysia
+  Chart Files:
+    - apps/weaviate
+Elysia:
+  Documentation:
     - https://github.com/weaviate/elysia
     - https://elysia.weaviate.io
     - https://weaviate.io/blog/elysia-agentic-rag
     - https://weaviate.github.io/elysia
-LiveKit
+  Chart Files:
+    - apps/elysia
+LiveKit:
+  Documentation:
     - https://cloud.livekit.io
     - https://livekit.io/
     - https://docs.livekit.io
+  Chart Files:
+    - apps/livekit
