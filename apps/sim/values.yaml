@@ -78,11 +78,6 @@ app-template:
                   port: 3000
                 initialDelaySeconds: 10
                 periodSeconds: 30
-      pod:
-        securityContext:
-          runAsNonRoot: true
-          fsGroup: 1001
-          fsGroupChangePolicy: OnRootMismatch
     # Service ports for main are defined at top-level service.main
     realtime:
       type: deployment
@@ -131,11 +126,6 @@ app-template:
                   port: 3002
                 initialDelaySeconds: 10
                 periodSeconds: 30
-      pod:
-        securityContext:
-          runAsNonRoot: true
-          fsGroup: 1001
-          fsGroupChangePolicy: OnRootMismatch
     # Service ports for realtime are defined at top-level service.realtime
   service:
     main:
@@ -178,8 +168,8 @@ app-template:
   persistence: {}
   defaultPodOptions:
     securityContext:
-      runAsNonRoot: true
-      fsGroup: 1001
+      # runAsNonRoot: true
+      fsGroup: 1000
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/foakqd7jlq22quglukjm2k5ddq"
       operator.1password.io/item-name: "secrets"
