@@ -1,0 +1,28 @@
+{{- if .Values.ingress.grpc.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "weaviate.fullname" . }}-grpc
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    {{- with .Values.ingress.grpc.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | default "nginx" | quote }}
+  rules:
+    - host: {{ .Values.ingress.grpc.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.ingress.grpc.serviceName | default "weaviate-grpc" }}
+                port:
+                  number: {{ .Values.ingress.grpc.servicePort | default 50051 }}
+  tls:
+    {{- toYaml .Values.ingress.grpc.tls | nindent 4 }}
+{{- end }}
