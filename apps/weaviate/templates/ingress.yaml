@@ -1,4 +1,3 @@
-{{- /* intentionally empty to allow leading comments via YAML */ -}}
 # Ingress for Weaviate
 #
 # Controls:
