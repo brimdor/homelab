@@ -2,6 +2,10 @@ Sim AI
     - https://github.com/simstudioai/sim
     - https://sim.ai
     - https://docs.sim.ai/introduction
+Weaviate
+    - https://docs.weaviate.io/academy/deployment/k8s/setup_weaviate
+    - https://docs.weaviate.io/deploy/installation-guides/k8s-installation
+    - https://github.com/weaviate/weaviate-helm
 Elysia
     - https://github.com/weaviate/elysia
     - https://elysia.weaviate.io

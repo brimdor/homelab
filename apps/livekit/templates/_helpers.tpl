@@ -13,3 +13,7 @@ chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 release: {{ .Release.Name }}
 heritage: {{ .Release.Service }}
 {{- end -}}
+
+{{- define "livekit.serviceName" -}}
+{{- printf "%s-svc" (include "livekit.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}

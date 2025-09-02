@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "livekit.fullname" . }}
+  name: {{ include "livekit.serviceName" . }}
   labels:
     {{- include "livekit.labels" . | nindent 4 }}
   {{- with .Values.service.annotations }}
