@@ -2,17 +2,73 @@
 # are inherited from the upstream chart (pinned in Chart.yaml dependencies).
 # Upstream chart: https://github.com/weaviate/weaviate-helm (repo URL: https://weaviate.github.io/weaviate-helm)
 
-# Image settings. Default repository/tag align with upstream.
-image:
-  repository: cr.weaviate.io/semitechnologies/weaviate
-  # Default to upstream appVersion. You can opt-in to "latest" explicitly.
-  tag: "1.32.3"
-  pullPolicy: IfNotPresent
+upstream:
+  # Image settings. Default repository/tag align with upstream.
+  image:
+    registry: cr.weaviate.io
+    repo: semitechnologies/weaviate
+    # Default to upstream appVersion. You can opt-in to "latest" explicitly.
+    tag: "1.32.3"
+    pullPolicy: IfNotPresent
 
-# Number of replicas for the Weaviate deployment/statefulset (upstream handles controller type).
-replicaCount: 1
+  # Number of replicas (upstream key is `replicas`).
+  replicas: 1
 
-# Ingress configuration. Disabled by default. Enable and set hosts to expose externally.
+  # Storage (PVC) configuration as per upstream `storage` keys.
+  storage:
+    size: 10Gi
+    storageClassName: "" # e.g., rook-ceph-block
+
+  # Resource requests/limits left empty by default. Set as needed.
+  resources: {}
+  # requests:
+  #   cpu: "500m"
+  #   memory: "2Gi"
+  # limits:
+  #   cpu: "2"
+  #   memory: "8Gi"
+
+  # Env variables passed to Weaviate container. Use for non-sensitive overrides.
+  env: {}
+  # EXAMPLE:
+  # - name: QUERY_DEFAULTS_LIMIT
+  #   value: "100"
+
+  # Pod annotations (e.g., 1Password Operator item-path). Applied to the Weaviate pod(s).
+  annotations: {}
+
+  # Non-sensitive configuration rendered via a ConfigMap can be enabled via upstream
+  # `custom_config_map`. See README and upstream docs for details.
+  # custom_config_map:
+  #   enabled: false
+  #   name: 'custom-config'
+  # example-config.yaml: |
+  #   some: config
+  #   go: here
+
+  # Secrets are NOT stored here. Prefer 1Password Operator + ExternalSecret to
+  # materialize a Kubernetes Secret named "secrets" with needed keys, then set
+  # upstream.envSecrets to reference that secret per-key.
+  envSecrets: {}
+  # Provide references like this in env (above):
+  # - name: SOME_PASSWORD
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: secrets
+  #       key: some-password
+  # 1Password Operator annotations (example) must be added at Pod/Workload level
+  # via upstream values or by setting pod annotations in this chart's values if exposed:
+  # Example (requires a K8s Secret named 'secrets' with the exact key):
+  # envSecrets:
+  #   AUTHENTICATION_APIKEY_ALLOWED_KEYS: secrets
+  #   AUTHENTICATION_APIKEY_USERS: secrets
+  # For 1Password Operator, apply Pod annotations (on the workload template):
+  # annotations:
+  #   operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+  #   operator.1password.io/item-name: "secrets"
+
+# Ingress configuration (wrapper only). Upstream does not ship an Ingress; use your
+# umbrella/platform to render one. These values are placeholders for that layer.
 ingress:
   enabled: false
   className: "" # e.g., nginx
@@ -27,59 +83,8 @@ ingress:
   #   hosts:
   #     - weaviate.example.com
 
-# Persistence for Weaviate data. Upstream supports persistence; expose key knobs here.
-persistence:
-  enabled: true # set false to run ephemeral
-  existingClaim: "" # if provided, overrides storageClass/size
-  storageClass: "" # e.g., rook-ceph-block
-  accessModes: ["ReadWriteOnce"]
-  size: 10Gi
-  # Homelab convention: the first PVC should be semantically "data". Upstream naming
-  # may vary; consult upstream values for exact claim names.
-
-# Resource requests/limits left empty by default. Set as needed.
-resources: {}
-  # requests:
-  #   cpu: "500m"
-  #   memory: "2Gi"
-  # limits:
-  #   cpu: "2"
-  #   memory: "8Gi"
-
-# Env variables passed to Weaviate container. Use for non-sensitive overrides.
-env: {}
-  # EXAMPLE:
-  # - name: QUERY_DEFAULTS_LIMIT
-  #   value: "100"
-
-# Non-sensitive configuration rendered via a ConfigMap. Keys map to config file
-# fragments the upstream chart can mount. See README for examples and docs.
-config: {}
-  # example-config.yaml: |
-  #   some: config
-  #   go: here
-
-# Secrets are NOT stored here. Use 1Password Operator to inject secrets into a
-# Kubernetes Secret named "secrets" and consume via env.valueFrom.secretKeyRef.
-# DO NOT commit secret values.
-secrets: {}
-  # Provide references like this in env (above):
-  # - name: SOME_PASSWORD
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: secrets
-  #       key: some-password
-  # 1Password Operator annotations (example) must be added at Pod/Workload level
-  # via upstream values or by setting pod annotations in this chart's values if exposed:
-podAnnotations: {}
-  # operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
-  # operator.1password.io/item-name: "secrets"
-
-# Metrics block (if supported by upstream; left as passthrough)
-metrics: {}
-
-# Backup configuration — disabled by default. When enabled, a CronJob will
-# tar/rsync the Weaviate data directory to an NFS share.
+# Backup configuration — disabled by default. This wrapper ships no CronJob templates;
+# wire a platform-level CronJob that consumes these values to archive data to NFS.
 backup:
   enabled: false
   nfsServer: 10.0.50.3

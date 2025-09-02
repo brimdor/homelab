@@ -17,3 +17,4 @@ dependencies:
   - name: weaviate
     version: 17.5.1
     repository: https://weaviate.github.io/weaviate-helm
+    alias: upstream
