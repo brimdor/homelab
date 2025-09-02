@@ -83,6 +83,22 @@ ingress:
   - secretName: weaviate-tls-certificate
     hosts:
       - *host
+  # Optional gRPC Ingress (disabled by default). Enable this to expose the gRPC
+  # API through the ingress controller on a separate host (recommended).
+  grpc:
+    enabled: false
+    # host to serve gRPC on; set to a DNS name that resolves to the ingress LB
+    host: grpc.weaviate.eaglepass.io
+    # annotations applied to the gRPC ingress. Must include backend-protocol=GRPC
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    serviceName: weaviate-grpc
+    servicePort: 50051
+    tls:
+      - secretName: weaviate-tls-certificate
+        hosts:
+          - grpc.weaviate.eaglepass.io
 
 # Backup configuration — disabled by default. This wrapper ships no CronJob templates;
 # wire a platform-level CronJob that consumes these values to archive data to NFS.
