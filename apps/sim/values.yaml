@@ -1,0 +1,185 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: ghcr.io/simstudioai/simstudio
+            tag: latest
+          env:
+            TZ: "America/Chicago"
+            # Core URLs (override in your values if needed)
+            NEXT_PUBLIC_APP_URL: "https://sim.eaglepass.io"
+            BETTER_AUTH_URL: "https://sim.eaglepass.io"
+            SOCKET_SERVER_URL: "https://sim-ws.eaglepass.io"
+            NEXT_PUBLIC_SOCKET_URL: "https://sim-ws.eaglepass.io"
+            NODE_ENV: "production"
+            NEXT_TELEMETRY_DISABLED: "1"
+            # Local models via LocalAI (Ollama-compatible) default URL
+            OLLAMA_URL: "http://localai-local-ai.localai.svc.cluster.local:8080"
+            # Secrets via 1Password Operator
+            BETTER_AUTH_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "better-auth-secret"
+            ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "encryption-key"
+            # Optional third-party API keys
+            # OPENAI_API_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "openai-api-key"
+            # ANTHROPIC_API_KEY_1:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "anthropic-api-key-1"
+            # MISTRAL_API_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "mistral-api-key"
+            # ELEVENLABS_API_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "elevenlabs-api-key"
+            # Database selection: prefer external DB
+            DATABASE_URL: "postgresql://postgres.postgres.svc.cluster.local:5432/sim"
+          # resources:
+          #   requests:
+          #     cpu: 500m
+          #     memory: 1024Mi
+          #   limits:
+          #     cpu: 2000m
+          #     memory: 4Gi
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 3000
+                initialDelaySeconds: 20
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 3000
+                initialDelaySeconds: 10
+                periodSeconds: 30
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          fsGroup: 1001
+          fsGroupChangePolicy: OnRootMismatch
+    # Service ports for main are defined at top-level service.main
+    realtime:
+      type: deployment
+      annotations:
+        operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+        operator.1password.io/item-name: "Sim AI"
+      containers:
+        realtime:
+          image:
+            repository: ghcr.io/simstudioai/realtime
+            tag: latest
+          env:
+            TZ: "America/Chicago"
+            NEXT_PUBLIC_APP_URL: "https://sim.eaglepass.io"
+            BETTER_AUTH_URL: "https://sim.eaglepass.io"
+            NEXT_PUBLIC_SOCKET_URL: "https://sim-ws.eaglepass.io"
+            NODE_ENV: "production"
+            BETTER_AUTH_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "better-auth-secret"
+          # resources:
+          #   requests:
+          #     cpu: 250m
+          #     memory: 512Mi
+          #   limits:
+          #     cpu: 1000m
+          #     memory: 2Gi
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 3002
+                initialDelaySeconds: 20
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 3002
+                initialDelaySeconds: 10
+                periodSeconds: 30
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          fsGroup: 1001
+          fsGroupChangePolicy: OnRootMismatch
+    # Service ports for realtime are defined at top-level service.realtime
+  service:
+    main:
+      ports:
+        http:
+          port: 3000
+          protocol: HTTP
+    realtime:
+      controller: realtime
+      ports:
+        ws:
+          port: 3002
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host sim.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+        - host: &WsHost sim-ws.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: realtime
+                port: ws
+      tls:
+        - hosts:
+            - *Host
+            - *WsHost
+          secretName: sim-tls-certificate
+  persistence: {}
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: true
+      fsGroup: 1001
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/foakqd7jlq22quglukjm2k5ddq"
+      operator.1password.io/item-name: "Sim AI"
