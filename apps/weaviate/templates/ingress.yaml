@@ -1,0 +1,57 @@
+# Ingress for Weaviate
+#
+# Controls:
+#   .Values.ingress.enabled      (bool)
+#   .Values.ingress.className    (string)
+#   .Values.ingress.annotations  (map or list-of-maps)
+#   .Values.ingress.hosts[]      (list of { host, paths: [{path, pathType}] })
+#   .Values.ingress.tls[]        (list)
+#   .Values.ingress.serviceName  (string, optional; defaults to .Release.Name)
+#   .Values.ingress.servicePort  (number|string, optional; defaults to 80)
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- if kindIs "map" . }}
+    {{- toYaml . | nindent 4 }}
+    {{- else }}
+    {{- range . }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  rules:
+    {{- range $host := .Values.ingress.hosts }}
+    - host: {{ $host.host | quote }}
+      http:
+        paths:
+          {{- range $p := $host.paths }}
+          - path: {{ $p.path | default "/" | quote }}
+            pathType: {{ $p.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $.Values.ingress.serviceName | default $.Release.Name }}
+                port:
+                  {{- if kindIs "string" $.Values.ingress.servicePort }}
+                  name: {{ $.Values.ingress.servicePort }}
+                  {{- else }}
+                  number: {{ $.Values.ingress.servicePort | default 80 }}
+                  {{- end }}
+          {{- end }}
+    {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
