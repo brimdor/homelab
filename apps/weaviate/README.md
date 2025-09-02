@@ -25,11 +25,11 @@ To update locally:
 ## Key values and conventions
 
 - Image: Defaults to `cr.weaviate.io/semitechnologies/weaviate:1.32.3`. Avoid floating `latest` unless you opt-in.
-- Persistence: Enabled by default with `size: 10Gi`. First PVC semantics should be "data"; consult upstream for exact claim names. You can set `existingClaim` to bind an external PVC.
-- Ingress: Disabled by default. Enable via `ingress.enabled=true`, set `hosts`, optionally `className`, `annotations`, and `tls`.
-- Resources: Empty by default; set requests/limits as needed.
-- Env: Non-sensitive env via `values.env`. Sensitive values must come from 1Password Operator (see below).
-- Config: Non-sensitive config as ConfigMap key-values via `values.config`.
+- Persistence: Set under `upstream.storage` (default `size: 10Gi`). You can set a storage class via `upstream.storage.storageClassName`.
+- Ingress: This wrapper ships no Ingress templates. Use `ingress.*` here only as inputs for your umbrella/platform chart to render an Ingress. Upstream exposes a LoadBalancer Service by default; switch to `ClusterIP` at `upstream.service.type` in advanced overrides if needed.
+- Resources: Empty by default; set requests/limits under `upstream.resources` as needed.
+- Env: Non-sensitive env via `upstream.env`. Sensitive values should come from 1Password Operator (see below) and be referenced via `upstream.envSecrets`.
+- Config: Use upstream `custom_config_map` to point Weaviate at a custom ConfigMap if you need to inject a custom conf.yaml. See upstream docs.
 
 ## 1Password Operator integration (secrets)
 
@@ -37,7 +37,7 @@ Do not commit secrets.
 
 Pattern for env to consume secrets:
 
-- In `values.env` add an entry:
+- In `upstream.env` add an entry:
   - name: SOME_PASSWORD
     valueFrom:
       secretKeyRef:
@@ -74,6 +74,13 @@ This wrapper does not ship templates. For backups, deploy a platform-level CronJ
 
 The values under `backup:` provide the required parameters, but you must wire a CronJob in your umbrella/platform to consume them.
 
+## Upstream snapshot
+
+- Pinned chart: weaviate 17.5.1 (Helm v3)
+- Upstream appVersion: 1.32.3
+- Repo index indicates recent builds around 2025-08; consult the index.yaml for exact timestamps
+  https://weaviate.github.io/weaviate-helm/index.yaml
+
 ## Lint, template, and install (local checks)
 
 - helm dependency update ./apps/weaviate
@@ -89,7 +96,7 @@ Optional install for a smoke test (requires a cluster context):
 ## Incompatibilities and notes
 
 - Secret name: Upstream templates might not expose a direct override for a unified secret name. Our convention uses a single secret named `secrets`. If upstream diverges, set env with `valueFrom.secretKeyRef.name: secrets` under `values.env` and ensure 1Password Operator annotations are on the Pod template.
-- PVC naming: If upstream does not allow naming the claim, rely on the default claim name(s) and document bindings in your umbrella chart.
+- PVC naming: Upstream uses `weaviate-data` as the default volume claim template; if you need a specific PVC name, bind via an existing claim at the umbrella/platform layer.
 - This sub-chart intentionally contains no templates; any additional wiring (ingress class defaults, backup CronJob) should be applied at umbrella/platform level.
 
 ## Images
