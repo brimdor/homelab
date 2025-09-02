@@ -1,7 +1,7 @@
 Generate an extensive plan/instructions and initial prompt for AI to achieve the following Goal for the stated Application based on your investigation of the following conditions and requirements (DO NOT GENERATE CODE):
 
   Goal: Create a Helm Chart for the stated application
-  Application: Sim AI
+  Application: DeepCode
 
 Requirements:
   - Generate the plan/instructions autonomously
