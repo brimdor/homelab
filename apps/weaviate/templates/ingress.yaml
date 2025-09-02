@@ -46,7 +46,7 @@ spec:
                   {{- if kindIs "string" $.Values.ingress.servicePort }}
                   name: {{ $.Values.ingress.servicePort }}
                   {{- else }}
-                  number: {{ $.Values.ingress.servicePort | default 8080 }}
+                  number: {{ $.Values.ingress.servicePort | default 80 }}
                   {{- end }}
           {{- end }}
     {{- end }}
