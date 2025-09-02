@@ -29,7 +29,11 @@ weaviate:
   #   memory: "8Gi"
 
   # Env variables passed to Weaviate container. Use for non-sensitive overrides.
-  env: {}
+  env:
+    - name: AUTHENTICATION_APIKEY_ENABLED
+      value: "true"
+    - name: AUTHENTICATION_APIKEY_ALLOWED_KEYS
+      value: 12345678
   # EXAMPLE:
   # - name: QUERY_DEFAULTS_LIMIT
   #   value: "100"
