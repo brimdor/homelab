@@ -17,7 +17,6 @@ upstream:
   # Storage (PVC) configuration as per upstream `storage` keys.
   storage:
     size: 10Gi
-    storageClassName: "" # e.g., rook-ceph-block
 
   # Resource requests/limits left empty by default. Set as needed.
   resources: {}
@@ -70,26 +69,32 @@ upstream:
 # Ingress configuration (wrapper only). Upstream does not ship an Ingress; use your
 # umbrella/platform to render one. These values are placeholders for that layer.
 ingress:
-  enabled: false
-  className: "" # e.g., nginx
-  annotations: {}
-  hosts: []
-  # - host: weaviate.example.com
-  #   paths:
-  #     - path: /
-  #       pathType: Prefix
-  tls: []
-  # - secretName: weaviate-tls
-  #   hosts:
-  #     - weaviate.example.com
+  enabled: true
+  className: "nginx"
+  annotations:
+    - cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+  - host: weaviate.eaglepass.io
+    paths:
+      - path: /
+        pathType: Prefix
+  tls:
+  - secretName: weaviate-tls
+    hosts:
+      - weaviate.example.com
 
 # Backup configuration — disabled by default. This wrapper ships no CronJob templates;
 # wire a platform-level CronJob that consumes these values to archive data to NFS.
-backup:
-  enabled: false
-  nfsServer: 10.0.50.3
-  nfsPath: "/path/to/backup" # CHANGE THIS before enabling backups
-  schedule: "*/15 * * * *"
-  retentionDays: 7
+# backups:
+#   enabled: true
+
+# cronjob:
+#   enabled: false
+#   nfs_backup:
+#     enabled: true
+#     nfsServer: 10.0.50.3
+#     nfsPath: "/mnt/user/weaviate_backups" # CHANGE THIS before enabling backups
+#     schedule: "*/15 * * * *"
+#     retentionDays: 7
   # Implementation note: this sub-chart does not ship templates; use an umbrella
   # or platform-level backup CronJob wired to the Weaviate PVC. See README.

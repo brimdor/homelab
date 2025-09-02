@@ -1,0 +1,137 @@
+Generate an extensive plan/instructions and initial prompt for AI to achieve the following Goal for the stated Application based on your investigation of the following conditions and requirements (DO NOT GENERATE CODE):
+
+  Goal: Create a Helm Chart for the stated application
+  Application: Weaviate
+
+Requirements:
+  - Generate the plan/instructions autonomously
+  - YOU WILL INVESTIGATE THE APPLICATION TO DETERMINE THE BEST APPROACH TO CREATE A HELM CHART BASED ON THE CONDITIONS BELOW
+  - DO NOT PROPOSE ANY CONDITIONS FOR THE AI TO INVESTIGATE
+  - DO NOT PROPOSE A DIRECTORY STRUCTURE
+  - Wrap your entire plan/instructions in a single code block of plain text only
+  - Separately wrap your initial prompt to the AI in a single code block of plain text only
+  - Plan/Instructions must require the AI to do everything autonomously.
+  - Documentation:
+    - Reference from the 'plan-create/projects.yaml' file specific to the Application
+    - Provide full pathing to documentation
+  - Chart Files:
+    - Reference from the 'plan-create/projects.yaml' file specific to the Application
+    - Provide full pathing to chart files
+
+Chart Type:
+  Descriptions:
+    - Sub-Chart:
+      - Only applies the Chart.yaml and values.yaml to utilize an umbrella approach from a remote chart.
+    - bjw-s Chart:
+      - bjw-s-labs Sub-Chart Helm Chart structure and format is required, utilizing only the Chart.yaml and values.yaml files while adhering to the bjw-s-labs Helm Chart conventions.
+      - structure:
+        - https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+      - values.schema.json:
+        - https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.schema.json
+  Determine the Chart Type based on the following conditions:
+    - If the application has an existing, well-maintained Helm Chart that meets homelab conventions:
+      - Chart Type: Sub-Chart
+    - If the application has an existing Helm Chart that does not meet homelab conventions:
+      - Chart Type: bjw-s Chart
+    - If the application does not have an existing Helm Chart (or it is outdated or unmaintained):
+      - Chart Type: bjw-s Chart
+    - If the application is a custom application without an existing Helm Chart:
+      - Chart Type: bjw-s Chart
+  If Sub-charting bjw-s helm chart:
+    Controller and Container:
+      - First controller and container must be labeled "main"
+    Persistence:
+      - First PVC must be labeled "data"
+
+Image Build and Push:
+  Conditions:
+    - If an image does not exist for the application:
+      - Create a Dockerfile in the apps/<app> directory
+      - Use an official slim base image if possible
+      - Use the build_push.sh script to build and push the image to docker.io/brimdor/<app>:<tag> (default to "latest" tag if not specified)
+      - Ensure the image is as minimal as possible
+      - Ensure the image is secure
+      - Ensure the image is functional
+
+configMaps:
+  Conditions:
+    - If the application requires configuration files that are not sensitive:
+      - Use ConfigMaps for non-sensitive configuration files
+    - If the application requires sensitive configuration files:
+      - Use Secrets for sensitive configuration files
+
+Secrets:
+  Conditions:
+    - If Secrets are needed:
+      - All secrets are provided through 1password operator using valueFrom:
+        - Example:
+          - valueFrom:
+              secretKeyRef:
+                name: "secrets"
+                key: "<key-in-1password>"
+      - All secrets created in 1password required format:
+        - lowercase
+        - hyphens
+        - match wording of Key in values.yaml env
+        - Example:
+          - ROOT_PASSWORD
+          - root-password
+      - must use the annotations for 1password operator:
+        - Example:
+          - annotations:
+              operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+              operator.1password.io/item-name: "secrets"
+      - Use the existing script to create a new 1password vault item for the application secrets using the 1password CLI or web interface.
+      - New 1password vault item must be a "Database" category to allow custom key/value pairs.
+      - Update the tools/op-create.sh script to create the new vault item for the application secrets using the existing script method.
+      - Ensure no sensitive information is hardcoded in the Helm Chart or values.yaml
+
+Service:
+  Conditions:
+    - If the application requires a service:
+      - Use a Kubernetes Service for internal access
+      - Ensure the service is configurable via values.yaml
+      - Ensure the service follows homelab conventions
+    - If the application does not require a service:
+      - Do not include a service in the Helm Chart
+
+Ingress:
+  Conditions:
+    - If the application requires ingress:
+      - Use Ingress for external access only.
+      - Ensure the ingress is configurable via values.yaml
+      - Ensure the ingress follows homelab conventions
+    - If the application does not require ingress:
+      - Do not include ingress in the Helm Chart
+
+Persistence:
+  Conditions:
+    - If the application requires persistent storage:
+      - Use Persistent Volume Claims (PVCs) for data persistence
+      - Ensure the PVCs are configurable via values.yaml
+      - Ensure the PVCs follow homelab conventions
+    - If the application does not require persistent storage:
+      - Do not include PVCs in the Helm Chart
+
+Backups:
+  Conditions:
+    - If the application requires backups:
+      - Use NFS for backups storage.
+      - NFS Server:
+        - 10.0.50.3
+      - Use placeholder for the path in values.yaml and inform the user to change it.
+      - Ensure the backup configuration is configurable via values.yaml
+      - Ensure the backup configuration follows homelab conventions
+      - Cronjobs within the Helm Chart should be used for scheduling backups.
+      - Ensure the cronjob schedule is configurable via values.yaml
+      Cronjob Schedule:
+        - Default: default to 15 minute intervals
+      Backup Retention:
+        - Default: default to 7 days retention
+    - If the application does not require backups:
+      - Do not include backup configuration in the Helm Chart
+
+Example Applications:
+  - apps/n8n
+  - apps/emby
+  - apps/localai
