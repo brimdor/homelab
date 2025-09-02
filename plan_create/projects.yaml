@@ -35,3 +35,6 @@ LiveKit:
     - https://docs.livekit.io
   Chart Files:
     - apps/livekit
+DeepCode:
+  Documentation:
+    - https://github.com/HKUDS/DeepCode/tree/docker

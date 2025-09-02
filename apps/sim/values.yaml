@@ -38,26 +38,26 @@ app-template:
                   name: "secrets"
                   key: "encryption-key"
             # Optional third-party API keys
-            # OPENAI_API_KEY:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "openai-api-key"
+    # OPENAI_API_KEY:
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: "secrets"
+    #       key: "openai-api-key"
             # ANTHROPIC_API_KEY_1:
             #   valueFrom:
             #     secretKeyRef:
             #       name: "secrets"
             #       key: "anthropic-api-key-1"
             # MISTRAL_API_KEY:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "mistral-api-key"
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: "secrets"
+    #       key: "mistral-api-key"
             # ELEVENLABS_API_KEY:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "elevenlabs-api-key"
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: "secrets"
+    #       key: "elevenlabs-api-key"
             # External database connection string (via 1Password)
             DATABASE_URL:
               valueFrom:
@@ -181,4 +181,4 @@ app-template:
       fsGroup: 1000
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/foakqd7jlq22quglukjm2k5ddq"
-      operator.1password.io/item-name: "secrets"
+  operator.1password.io/item-name: "secrets"
