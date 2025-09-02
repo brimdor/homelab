@@ -2,7 +2,7 @@
 # are inherited from the upstream chart (pinned in Chart.yaml dependencies).
 # Upstream chart: https://github.com/weaviate/weaviate-helm (repo URL: https://weaviate.github.io/weaviate-helm)
 
-upstream:
+weaviate:
   # Image settings. Default repository/tag align with upstream.
   image:
     registry: cr.weaviate.io
