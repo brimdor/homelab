@@ -1,0 +1,89 @@
+# Values for LiveKit standalone chart (homelab conventions inspired by apps/localai)
+
+replicaCount: 1
+
+image:
+  repository: livekit/livekit-server
+  tag: master
+  pullPolicy: IfNotPresent
+
+# Optional Redis sidecar for Room/Node coordination in small clusters
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7.2-alpine
+    pullPolicy: IfNotPresent
+  port: 6379
+  resources: {}
+  env: {}
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 7880
+  targetPort: 7880
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: livekit.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: livekit-eaglepass-io-tls
+      hosts:
+        - livekit.eaglepass.io
+
+persistence:
+  enabled: true
+  storageClass: null
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  mountPath: /var/lib/livekit
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# LiveKit specific args and config
+# Use either args or a config file mounted via ConfigMap; defaults target a simple single-node setup.
+args:
+  - "--bind=0.0.0.0:7880"
+  - "--rtc.port=7881"
+  - "--rtc.tcp_port=7882"
+  - "--node-ip=$(POD_IP)"
+  - "--log.level=info"
+
+env:
+  # Example: set keys for LiveKit API (supply via Secret in production)
+  # LIVEKIT_KEYS: "key1:secret1,key2:secret2"
+  # LIVEKIT_WEBHOOKS: "https://example/hooks"
+  # LIVEKIT_REDIS_ADDRESS is set automatically when redis.enabled=true
+  {}
+
+config:
+  enabled: true
+  # Minimal inline config; you can replace with your full livekit.yaml
+  content: |
+    port: 7880
+    log_level: info
+    rtc:
+      port: 7881
+      tcp_port: 7882
+    keys:
+      devkey: devsecret
+
+podAnnotations: {}
+podLabels: {}
+
+# Extra volume mounts for custom configs/certs
+extraVolumes: []
+extraVolumeMounts: []

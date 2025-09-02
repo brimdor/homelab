@@ -1,6 +1,0 @@
-apiVersion: v2
-name: livekit
-description: Values-only subchart for LiveKit server (used by umbrella chart templates)
-type: application
-version: 0.1.0
-appVersion: "1.5.2"

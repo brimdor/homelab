@@ -1,0 +1,11 @@
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "livekit.fullname" . }}-config
+  labels:
+    {{- include "livekit.labels" . | nindent 4 }}
+data:
+  livekit.yaml: |
+{{- .Values.config.content | nindent 4 }}
+{{- end }}
