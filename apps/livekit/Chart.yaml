@@ -1,0 +1,6 @@
+apiVersion: v2
+name: livekit
+description: Standalone LiveKit server Helm chart adapted to homelab conventions.
+type: application
+version: 0.1.0
+appVersion: "latest"
