@@ -112,7 +112,8 @@ app-template:
     main:
       enabled: true
       className: nginx
-      annotations: {}
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
       labels: {}
       hosts:
         - host: deepcode.eaglepass.io
@@ -120,8 +121,7 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                # Use either 'name' or 'identifier' (oneOf). Here we use identifier.
-                identifier: main
+                name: main
                 port: 8501
       tls: []
       # Example TLS config
