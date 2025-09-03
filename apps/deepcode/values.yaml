@@ -20,7 +20,7 @@ app-template:
       annotations: {}
       labels: {}
       replicas: 1
-      strategy: RollingUpdate
+      strategy: Recreate
       revisionHistoryLimit: 3
 
       pod: {}
@@ -54,23 +54,9 @@ app-template:
           # Probes - default disabled until the UI/API endpoints are confirmed
           probes:
             liveness:
-              enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /
-                  port: 8501
-                initialDelaySeconds: 15
-                periodSeconds: 10
+              enabled: false
             readiness:
-              enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /
-                  port: 8501
-                initialDelaySeconds: 5
-                periodSeconds: 5
+              enabled: false
             startup:
               enabled: false
 
