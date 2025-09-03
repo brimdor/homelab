@@ -139,7 +139,6 @@ app-template:
       storageClass: ""
       accessMode: ReadWriteOnce
       size: 10Gi
-      annotations: {}
       globalMounts:
         - path: /data
     # NFS backup destination (disabled by default). Enable when using controllers.backup
@@ -148,7 +147,6 @@ app-template:
       type: nfs
       server: "10.0.50.3"
       path: "/mnt/user/deepcode_backups"
-      annotations: {}
       # Mount only to the backup controller's main container by default
       advancedMounts:
         backup:
