@@ -1,0 +1,20 @@
+app-template:
+  controllers:
+    backup:
+      enabled: true
+      cronjob:
+        schedule: "*/15 * * * *"
+  persistence:
+    data:
+      enabled: true
+      size: 10Gi
+  service:
+    main:
+      enabled: true
+
+backups:
+  enabled: true
+  nfs:
+    server: 10.0.50.3
+    path: /mnt/user/deepcode_backups
+  retentionDays: 7

@@ -1,0 +1,10 @@
+app-template:
+  service:
+    main:
+      enabled: true
+  ingress:
+    main:
+      enabled: false
+  persistence:
+    data:
+      enabled: false

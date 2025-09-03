@@ -1,0 +1,217 @@
+# bjw-s common values reference:
+# https://github.com/bjw-s-labs/helm-charts/blob/app-template-2.6.0/charts/library/common/values.yaml
+
+app-template:
+  # Default pod options applied to all controllers (can be overridden per controller)
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/46akg5sgvdnqbt7t3l5vvoevqq"
+      operator.1password.io/item-name: "secrets"
+    labels: {}
+    securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  controllers:
+    main:
+      enabled: true
+      type: deployment
+      annotations: {}
+      labels: {}
+      replicas: 1
+      strategy:
+        rollingUpdate:
+          unavailable:
+          surge:
+      revisionHistoryLimit: 3
+
+      pod: {}
+
+      containers:
+        main:
+          image:
+            # If you prefer an external image, set it here. Otherwise use apps/deepcode/Dockerfile and build.
+            repository: docker.io/brimdor/deepcode
+            tag: latest
+            pullPolicy: IfNotPresent
+
+          # Common non-sensitive env values go here
+          env:
+            TZ: "America/Chicago"
+            # Example of plain value
+            # EXAMPLE_VAR: "value"
+            # Sensitive values should be mapped via valueFrom.secretKeyRef with hyphenated keys
+            # Example:
+            OPENAI_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "openai-api-key"
+
+          # Probes - default disabled until the UI/API endpoints are confirmed
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+
+          resources: {}
+          securityContext: {}
+
+      initContainers: {}
+
+    # Optional backup CronJob controller (disabled by default)
+    backup:
+      enabled: false
+      type: cronjob
+      annotations: {}
+      labels: {}
+      cronjob:
+        schedule: "*/15 * * * *"
+        successfulJobsHistory: 1
+        failedJobsHistory: 1
+      containers:
+        main:
+          image:
+            repository: alpine
+            tag: latest
+          env:
+            # Retention policy in days
+            RETENTION_DAYS: "7"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              TS=$(date +%Y-%m-%d_%H-%M-%S)
+              DEST="/backup/deepcode-$TS.tar.gz"
+              echo "[${TS}] Starting backup to $DEST"
+              tar --exclude="lost+found" -czf "$DEST" -C /data .
+              echo "[${TS}] Backup complete: $DEST"
+              # prune files older than RETENTION_DAYS
+              find /backup -type f -name "deepcode-*.tar.gz" -mtime +"${RETENTION_DAYS}" -print -delete
+      # Ensure the backup job mounts the app data PVC and the NFS export
+      persistence:
+        data:
+          enabled: true
+          type: persistentVolumeClaim
+          globalMounts:
+            - path: /data
+        nfs:
+          enabled: true
+          type: nfs
+          server: "10.0.50.3"
+          path: "/mnt/user/deepcode_backups"
+          globalMounts:
+            - path: /backup
+
+  service:
+    main:
+      enabled: true
+      controller: main
+      primary: true
+      type: ClusterIP
+      annotations: {}
+      labels: {}
+      ports:
+        http:
+          enabled: true
+          primary: true
+          port: 8501
+          protocol: HTTP
+          # targetPort can be overridden if the container exposes a different port
+          # targetPort: 8501
+
+  ingress:
+    main:
+      enabled: true
+      primary: true
+      className: nginx
+      annotations: {}
+      labels: {}
+      hosts:
+        - host: deepcode.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls: []
+      # Example TLS config
+      # tls:
+      #   - hosts:
+      #       - deepcode.eaglepass.io
+      #     secretName: deepcode-tls-certificate
+
+  persistence:
+    # PVC for application data (disabled by default)
+    data:
+      enabled: false
+      type: persistentVolumeClaim
+      # existingClaim: ""
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      annotations: {}
+      globalMounts:
+        - path: /data
+
+  # Optional ConfigMaps for non-sensitive config files
+  configMaps: {}
+  # Example:
+  # configMaps:
+  #   config:
+  #     enabled: true
+  #     data:
+  #       mcp_agent.config.yaml: |
+  #         # content here
+
+  # Optional secrets object for non-sensitive templated secrets (not recommended for real secrets)
+  # Use 1Password Operator to populate a Kubernetes Secret and reference via env -> valueFrom.secretKeyRef
+  secrets:
+    # This object is disabled by default; included for completeness
+    secret:
+      enabled: false
+      annotations: {}
+      labels: {}
+      stringData: {}
+
+# Secrets integration helpers (referenced by docs and schema)
+# secretsIntegration:
+#   secretName: "secrets"
+#   secretAnnotations:
+#     operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+#     operator.1password.io/item-name: "secrets"
+
+  # Example of wiring env to secret values (to be set per environment)
+  # controllers:
+  #   main:
+  #     containers:
+  #       main:
+  #         env:
+  #           OPENAI_API_KEY:
+  #             valueFrom:
+  #               secretKeyRef:
+  #                 name: "secrets"
+  #                 key: "openai-api-key"
+
+# Backups configurables (for reference/validation). When enabling backups, also enable
+# app-template.controllers.backup and adjust its persistence.nfs.server/path as needed.
+backups:
+  enabled: false
+  nfs:
+    server: "10.0.50.3"
+    path: "/mnt/user/deepcode_backups"
+  schedule: "*/15 * * * *"
+  retentionDays: 7
+  job:
+    annotations: {}
+    labels: {}
+    resources: {}
+    securityContext: {}
+    successfulJobsHistoryLimit: 1
+    failedJobsHistoryLimit: 1
