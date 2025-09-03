@@ -116,14 +116,17 @@ app-template:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       labels: {}
       hosts:
-        - host: deepcode.eaglepass.io
+        - host: &Host deepcode.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
                 name: main
                 port: 8501
-      tls: []
+      tls:
+        - hosts:
+            - *Host
+          secretName: deepcode-tls-certificate
       # Example TLS config
       # tls:
       #   - hosts:
