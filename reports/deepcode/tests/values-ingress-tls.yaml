@@ -17,8 +17,8 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: http
+                identifier: main
+                port: 8501
       tls:
         - hosts:
             - deepcode.eaglepass.io

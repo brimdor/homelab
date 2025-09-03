@@ -8,6 +8,15 @@ app-template:
     data:
       enabled: true
       size: 10Gi
+    nfs-backup:
+      enabled: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/deepcode_backups
+      advancedMounts:
+        backup:
+          main:
+            - path: /backup
   service:
     main:
       enabled: true
