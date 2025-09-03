@@ -84,6 +84,9 @@ ollama:
         - gpt-oss:20b
         - mistral:7b
         - mxbai-embed-large:latest
+        - clore/gpt-oss-20b-Q8_0:latest
+        - MHKetbi/Qwen2.5-Coder-32B-Instruct:q6_K
+        - huihui_ai/gpt-oss-abliterated:20b
 
       # -- List of models to load in memory at container startup
       # run:
@@ -209,14 +212,14 @@ ollama:
 
   # Configure resource requests and limits
   # ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  resources:
-    # -- CPU and memory resource requests and limits
-    limits:
-      cpu: 2
-      memory: 24Gi
-    requests:
-      cpu: 2
-      memory: 8Gi
+  # resources:
+  #   # -- CPU and memory resource requests and limits
+  #   limits:
+  #     cpu: 2
+  #     memory: 24Gi
+  #   requests:
+  #     cpu: 2
+  #     memory: 8Gi
 
   # Configure extra options for liveness probe
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
@@ -332,7 +335,7 @@ ollama:
     existingClaim: ""
 
     # -- Ollama server data Persistent Volume size
-    size: 150Gi
+    size: 200Gi
 
     # -- Ollama server data Persistent Volume Storage Class
     # If defined, storageClassName: <storageClass>
