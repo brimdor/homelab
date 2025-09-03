@@ -44,8 +44,10 @@ Chart Type Options and Rules:
     - bjw-s Chart:
       - Use bjw-s-labs “common library” conventions with only Chart.yaml and values.yaml while adhering to bjw-s expectations.
       - Reference structure and options:
-        - values.yaml baseline: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
-        - values.schema.json baseline: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.schema.json
+        - Determine the current release branch (e.g., app-template-<current-release>) in the bjw-s-labs helm-charts repo: https://github.com/bjw-s-labs/helm-charts/releases
+        - bjw-s-labs repo root for context: https://github.com/bjw-s-labs/helm-charts/tree/app-template-<current-release>
+        - values.yaml baseline: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.yaml
+        - values.schema.json baseline: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.schema.json
   Determination Logic (do not invent new criteria):
     - If the application has an existing, well-maintained Helm Chart that meets homelab conventions:
       - Chart Type: Sub-Chart
@@ -154,10 +156,10 @@ Example Applications:
 
 Required References (when writing the plan/instructions output):
   - plan-create/projects.yaml: Reference the specific Application entry and include full path(s) to any documentation and chart files cited.
-  - For bjw-s conventions (if applicable), reference:
-    - bjw-s-labs repo root for context: https://github.com/bjw-s-labs/helm-charts
-    - common/values.yaml: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
-    - common/values.schema.json (schema validation notes and dereferencing context in releases): https://github.com/bjw-s-labs/helm-charts/releases
+  - For bjw-s conventions (if applicable), reference from earlier in this spec:
+    - bjw-s-labs repo root for context
+    - common/values.yaml
+    - common/values.schema.json
   - Helm Best Practices:
     - Charts guide and values/schema behavior to justify values.yaml configurability and schema usage: https://helm.sh/docs/topics/charts/
     - Best practices guide for chart design conventions: https://helm.sh/docs/chart_best_practices/
