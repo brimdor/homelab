@@ -94,7 +94,7 @@
                               "type": "object",
                               "properties": {
                                 "name": { "type": ["string", "null"] },
-                                "port": { "type": ["string", "integer", "null"] }
+                                "port": { "type": ["integer", "null"] }
                               }
                             }
                           },
@@ -127,8 +127,7 @@
                 "existingClaim": { "type": ["string", "null"] },
                 "storageClass": { "type": ["string", "null"] },
                 "accessMode": { "type": "string" },
-                "size": { "type": ["string", "null"] },
-                "annotations": { "type": "object" }
+                "size": { "type": ["string", "null"] }
               },
               "allOf": [
                 {
