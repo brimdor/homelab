@@ -36,6 +36,11 @@ app-template:
           # Common non-sensitive env values go here
           env:
             TZ: "America/Chicago"
+            # Ensure Streamlit binds correctly behind Ingress
+            STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+            STREAMLIT_SERVER_PORT: "8501"
+            STREAMLIT_SERVER_ENABLECORS: "false"
+            STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
             # Example of plain value
             # EXAMPLE_VAR: "value"
             # Sensitive values should be mapped via valueFrom.secretKeyRef with hyphenated keys
@@ -49,9 +54,23 @@ app-template:
           # Probes - default disabled until the UI/API endpoints are confirmed
           probes:
             liveness:
-              enabled: false
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 8501
+                initialDelaySeconds: 15
+                periodSeconds: 10
             readiness:
-              enabled: false
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 8501
+                initialDelaySeconds: 5
+                periodSeconds: 5
             startup:
               enabled: false
 
