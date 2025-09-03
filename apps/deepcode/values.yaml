@@ -94,8 +94,13 @@ app-template:
 
   service:
     main:
+      enabled: true
+      controller: main
+      type: ClusterIP
       ports:
         http:
+          enabled: true
+          primary: true
           port: 8501
           protocol: HTTP
 
@@ -105,24 +110,18 @@ app-template:
       className: nginx
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
-      labels: {}
       hosts:
         - host: &Host deepcode.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
-                name: main
+                identifier: main
                 port: 8501
       tls:
         - hosts:
             - *Host
           secretName: deepcode-tls-certificate
-      # Example TLS config
-      # tls:
-      #   - hosts:
-      #       - deepcode.eaglepass.io
-      #     secretName: deepcode-tls-certificate
 
   persistence:
     # PVC for application data (disabled by default)
