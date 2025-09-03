@@ -1,49 +1,60 @@
+# -----------------------------------------------------------------------------
+# Homelab 1Password Secret Creation Script Template Schema
+# -----------------------------------------------------------------------------
+# 1. Shebang and strict mode
+# 2. App name variable: app_name="<app-name>"
+# 3. Secret variables: ALL CAPS, hyphen-case labels
+# 4. Fields array: label, value, type (CONCEALED)
+# 5. Payload: title, notes, fields
+# 6. 1Password CLI logic: get/edit/create item in vault
+# 7. Naming: keys lowercase-hyphens, item title "$app_name Secrets"
+# -----------------------------------------------------------------------------
+# Copy this template and replace placeholders for each app.
+# -----------------------------------------------------------------------------
+
 #!/usr/bin/env bash
 set -euo pipefail
 
-# -----------------------------------------------------------------------------
-# Sim AI secret fields (Database category). Keys must match lowercase-hyphen
-# labels referenced in apps/sim/values.yaml secretKeyRef.key
-# NOTE: These are placeholders/randoms for bootstrap. Replace as needed.
-SIM_BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
-SIM_ENCRYPTION_KEY="$(openssl rand -hex 32)"
-SIM_OPENAI_API_KEY=""
-SIM_ANTHROPIC_API_KEY_1=""
-SIM_MISTRAL_API_KEY=""
-SIM_ELEVENLABS_API_KEY=""
+# Set your application name (used for the 1Password item title)
+app_name="<app-name>"
 
-sim_fields="$(cat <<JSON
-  {"label":"better-auth-secret","value":"$SIM_BETTER_AUTH_SECRET","type":"CONCEALED"},
-  {"label":"encryption-key","value":"$SIM_ENCRYPTION_KEY","type":"CONCEALED"},
-  {"label":"openai-api-key","value":"$SIM_OPENAI_API_KEY","type":"CONCEALED"},
-  {"label":"anthropic-api-key-1","value":"$SIM_ANTHROPIC_API_KEY_1","type":"CONCEALED"},
-  {"label":"mistral-api-key","value":"$SIM_MISTRAL_API_KEY","type":"CONCEALED"},
-  {"label":"elevenlabs-api-key","value":"$SIM_ELEVENLABS_API_KEY","type":"CONCEALED"}
+# Define your secret variables below. Use hyphen-case for labels and ALL CAPS for variable names.
+# Example:
+# OPENAI_API_KEY="$(openssl rand -hex 32)"
+# ANTHROPIC_API_KEY=""
+# ...
+<SECRET_VAR_1>="$(openssl rand -hex 32)"
+<SECRET_VAR_2>="$(openssl rand -hex 32)"
+<SECRET_VAR_3>=""
+<SECRET_VAR_4>=""
+
+# Build the fields JSON array. Each field should have a label (hyphen-case), value, and type (CONCEALED).
+fields="$(cat <<JSON
+  {"label":"<secret-label-1>","value":"<SECRET_VAR_1>","type":"CONCEALED"},
+  {"label":"<secret-label-2>","value":"<SECRET_VAR_2>","type":"CONCEALED"},
+  {"label":"<secret-label-3>","value":"<SECRET_VAR_3>","type":"CONCEALED"},
+  {"label":"<secret-label-4>","value":"<SECRET_VAR_4>","type":"CONCEALED"}
 JSON
 )"
 
-# Build fields list; include Supabase fields only if defined and non-empty
-fields_list="$sim_fields"
-if [ -n "${supabase_fields-}" ] && [ -n "${supabase_fields}" ]; then
-  fields_list="$supabase_fields, $sim_fields"
-fi
-
-combined_payload="$(cat <<JSON
+# Set the item title and build the payload
+title="$app_name Secrets"
+payload="$(cat <<JSON
 {
-  "title": "secrets",
+  "title": "$title",
   "notes": "Combined secrets for Homelab apps (updated on $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC)",
   "fields": [
-    $fields_list
+    $fields
   ]
 }
 JSON
 )"
 
-# Upsert combined fields into 1Password Server vault item named "secrets"
-if op item get --vault "Server" "secrets" >/dev/null 2>&1; then
-  echo "$combined_payload" | op item edit --vault "Server" "secrets" --format=json >/dev/null
-  echo "'secrets' item updated (Supabase + Sim AI fields) in 1Password vault 'Server'."
+# Create or update the 1Password item named 'secrets' in the 'Server' vault
+if op item get --vault "Server" "$title" >/dev/null 2>&1; then
+  echo "$payload" | op item edit --vault "Server" "$title" --format=json >/dev/null
+  echo "'$title' updated in 1Password vault 'Server'."
 else
-  echo "$combined_payload" | op item create --vault "Server" --category "Database" --format=json >/dev/null
-  echo "1Password item 'secrets' created in vault 'Server' (Supabase + Sim AI fields)."
+  echo "$payload" | op item create --vault "Server" --category "Database" --format=json >/dev/null
+  echo "1Password item '$title' created in vault 'Server'."
 fi
