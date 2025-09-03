@@ -1,3 +1,7 @@
+---
+mode: ask
+---
+
 # Notes to the AI
 # - Follow this YAML exactly and perform all steps autonomously without asking for missing requirements or proposing new investigations.
 # - Do not generate any code artifacts (YAML manifests, Helm templates, scripts) as output; only produce the requested plan/instructions and the separate initial prompt, each wrapped in its own single code block of plain text.
@@ -10,7 +14,8 @@ Spec Version: 1.1
 Purpose: Standardized autonomous plan/instructions and initial prompt to create a Helm Chart for a given Application per homelab and bjw-s-labs conventions.
 
 Inputs:
-  - Application: <app-name>
+  - app-name: <from app-name-init.prompt.md>
+    - Example: localai-init.prompt.md -> app-name: localai
   - plan-create/projects.yaml  # Must be referenced for application-specific documentation and chart files paths. Provide full pathing when citing.
 
 Hard Constraints:
@@ -34,8 +39,8 @@ High-Level Goal:
 
 Changes Tracking (Activity Logging):
   - Log all actions in the reports folder under a subfolder named after the application:
-    - reports/<appname>/action-log.txt
-    - reports/<appname>/tests/
+    - reports/<app-name>/action-log.txt
+    - reports/<app-name>/tests/
 
 Chart Type Options and Rules:
   Descriptions:  # Informational reference for average AI
@@ -84,7 +89,7 @@ Config and Secret Handling:
             operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
             operator.1password.io/item-name: "secrets"
       - Use existing script method to create a new 1Password vault item for application secrets (via 1Password CLI or web interface). New item category must be "Database" and support custom key/value pairs.
-      - Reference tools/example-op-create.sh to produce tools/<app>-op-create.sh using the same method; place it in the tools folder.
+      - Reference tools/example-op-create.sh to produce tools/<app-name>-op-create.sh using the same method; place it in the tools folder.
       - Ensure no sensitive information is hardcoded in Helm templates or values.yaml.
     Example (valueFrom reference):
       - valueFrom:
@@ -139,7 +144,7 @@ Backups:
 Image Build and Push:
   Conditions:
     - If no external image exists and no Dockerfile is provided by the application:
-      - Create a Dockerfile in apps/<app> directory.
+      - Create a Dockerfile in apps/<app-name> directory.
       - Use an official compatible slim base image if possible.
       - Use build_push.sh to build and push to docker.io/brimdor/<app-name>:<tag> (default tag "latest" if unspecified).
       - Ensure the image is minimal, secure, and functional.
@@ -172,12 +177,12 @@ Plan/Instructions Authoring Checklist (to be followed when generating the Plan/I
   - For Secrets:
     - Describe how to rely on 1Password Operator via annotations and/or OnePasswordItem to populate a Kubernetes Secret, and how workloads will reference it via valueFrom.secretKeyRef.
     - Include the exact annotation keys and example formats.
-    - Instruct the creation of tools/<app>-op-create.sh based on tools/example-op-create.sh, noting 1Password item category “Database” and key naming conventions.
+    - Instruct the creation of tools/<app-name>-op-create.sh based on tools/example-op-create.sh, noting 1Password item category “Database” and key naming conventions.
   - For Ingress:
     - Use networking.k8s.io/v1 and values-driven host rules for eaglepass.io; ensure annotations and TLS can be set from values.yaml per modern patterns.
   - For Backups:
     - Define NFS server 10.0.50.3, placeholder path, schedule default (15 min), retention default (7 days), all configurable.
-  - Include a logging section instructing to append human-readable action notes and test artifacts to the reports/<appname>/ paths.
+  - Include a logging section instructing to append human-readable action notes and test artifacts to the reports/<app-name>/ paths.
   - Provide explicit full paths from plan-create/projects.yaml for any documentation and chart files referenced.
   - Do not propose a directory structure; focus only on the plan and references.
   - Do not generate code; only describe steps, configurations expected in values.yaml, and references.
@@ -189,7 +194,7 @@ Initial Prompt Authoring Checklist (to be followed when generating the Initial P
     - Configure values.yaml fields for Service/Ingress/PVC/Backups as needed.
     - Integrate 1Password Operator annotations/OnePasswordItem and reference via valueFrom.secretKeyRef with the key naming conventions.
     - Use provided image or build/push using build_push.sh and Dockerfile rules as applicable.
-    - Log actions and tests to reports/<appname> paths.
+    - Log actions and tests to reports/<app-name> paths.
   - Remind the AI not to edit the 'plan_create' folder and not to propose directories.
   - Ensure the prompt is wrapped in a single code block of plain text only.
 
