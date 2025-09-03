@@ -1,5 +1,4 @@
 {
-    "ansible.python.interpreterPath": "c:\\Users\\chris\\AppData\\Local\\Microsoft\\WindowsApps\\python3.11.exe",
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#1565c0",
         "titleBar.activeForeground": "#ffffff",
@@ -40,9 +39,6 @@
         "terminal.border": "#42a5f5",
         "window.activeBorder": "#42a5f5",
         "window.inactiveBorder": "#42a5f5"
-    },
-    "yaml.schemas": {
-        "https://www.schemastore.org/sourcehut-build-0.65.0.json": "file:///home/coder/homelab/plan_create/template.yaml"
     },
     // "chat.mcp.serverSampling": {
     //     "homelab/.vscode/mcp.json: n8n-mcp": {

@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://eaglepass.io/homelab/apps/deepcode/values.schema.json",
+  "title": "DeepCode Values Schema",
+  "type": "object",
+  "properties": {
+    "app-template": {
+      "type": "object",
+      "properties": {
+        "controllers": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string", "enum": ["deployment", "statefulset", "daemonset", "cronjob", "job"] },
+                "replicas": { "type": ["integer", "null"], "minimum": 0 },
+                "containers": { "type": "object" }
+              },
+              "required": ["type"]
+            },
+            "backup": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "type": { "type": "string", "enum": ["cronjob"] },
+                "cronjob": {
+                  "type": "object",
+                  "properties": {
+                    "schedule": { "type": "string" },
+                    "successfulJobsHistory": { "type": "integer", "minimum": 0 },
+                    "failedJobsHistory": { "type": "integer", "minimum": 0 }
+                  },
+                  "required": ["schedule"]
+                }
+              }
+            }
+          }
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "type": { "type": "string" },
+                "ports": {
+                  "type": "object",
+                  "properties": {
+                    "http": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": { "type": "boolean" },
+                        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+                        "protocol": { "type": "string", "enum": ["HTTP", "HTTPS", "TCP", "UDP"] }
+                      },
+                      "required": ["port"]
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "enabled": { "const": true } } },
+                  "then": { "required": ["ports"] }
+                }
+              ]
+            }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "className": { "type": ["string", "null"] },
+                "hosts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "host": { "type": "string" },
+                      "paths": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "path": { "type": "string" },
+                            "pathType": { "type": "string" },
+                            "service": {
+                              "type": "object",
+                              "properties": {
+                                "name": { "type": ["string", "null"] },
+                                "port": { "type": ["string", "integer", "null"] }
+                              }
+                            }
+                          },
+                          "required": ["path", "pathType"]
+                        }
+                      }
+                    },
+                    "required": ["host", "paths"]
+                  }
+                },
+                "tls": { "type": "array" }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "enabled": { "const": true } } },
+                  "then": { "required": ["hosts"] }
+                }
+              ]
+            }
+          }
+        },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "type": { "type": "string" },
+                "existingClaim": { "type": ["string", "null"] },
+                "storageClass": { "type": ["string", "null"] },
+                "accessMode": { "type": "string" },
+                "size": { "type": ["string", "null"] },
+                "annotations": { "type": "object" }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "enabled": { "const": true } } },
+                  "then": { "required": ["size"] }
+                }
+              ]
+            }
+          }
+        },
+        "configMaps": { "type": "object" },
+        "secrets": { "type": "object" }
+      }
+    },
+    "backups": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "nfs": {
+          "type": "object",
+          "properties": {
+            "server": { "type": "string" },
+            "path": { "type": "string" }
+          },
+          "required": ["server", "path"]
+        },
+        "schedule": { "type": "string" },
+        "retentionDays": { "type": "integer", "minimum": 0 },
+        "job": {
+          "type": "object",
+          "properties": {
+            "annotations": { "type": "object" },
+            "labels": { "type": "object" },
+            "resources": { "type": "object" },
+            "securityContext": { "type": "object" },
+            "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+            "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "secretsIntegration": {
+      "type": "object",
+      "properties": {
+        "secretName": { "type": "string" },
+        "secretAnnotations": { "type": "object" }
+      },
+      "required": ["secretName"]
+    }
+  },
+  "additionalProperties": true
+}
