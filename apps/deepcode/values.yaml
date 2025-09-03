@@ -1,5 +1,5 @@
-# bjw-s common values reference:
-# https://github.com/bjw-s-labs/helm-charts/blob/app-template-2.6.0/charts/library/common/values.yaml
+# bjw-s common values reference (app-template 4.2.0):
+# https://github.com/bjw-s-labs/helm-charts/blob/app-template-4.2.0/charts/library/common/values.yaml
 
 app-template:
   # Default pod options applied to all controllers (can be overridden per controller)
@@ -7,8 +7,8 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/46akg5sgvdnqbt7t3l5vvoevqq"
       operator.1password.io/item-name: "secrets"
-    labels: {}
-    securityContext: {}
+  labels: {}
+  securityContext: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -20,10 +20,7 @@ app-template:
       annotations: {}
       labels: {}
       replicas: 1
-      strategy:
-        rollingUpdate:
-          unavailable:
-          surge:
+      strategy: RollingUpdate
       revisionHistoryLimit: 3
 
       pod: {}
@@ -93,26 +90,12 @@ app-template:
               echo "[${TS}] Backup complete: $DEST"
               # prune files older than RETENTION_DAYS
               find /backup -type f -name "deepcode-*.tar.gz" -mtime +"${RETENTION_DAYS}" -print -delete
-      # Ensure the backup job mounts the app data PVC and the NFS export
-      persistence:
-        data:
-          enabled: true
-          type: persistentVolumeClaim
-          globalMounts:
-            - path: /data
-        nfs:
-          enabled: true
-          type: nfs
-          server: "10.0.50.3"
-          path: "/mnt/user/deepcode_backups"
-          globalMounts:
-            - path: /backup
+      # Note: mount data/NFS using top-level persistence. See persistence.advancedMounts
 
   service:
     main:
       enabled: true
       controller: main
-      primary: true
       type: ClusterIP
       annotations: {}
       labels: {}
@@ -128,7 +111,6 @@ app-template:
   ingress:
     main:
       enabled: true
-      primary: true
       className: nginx
       annotations: {}
       labels: {}
@@ -138,8 +120,9 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: http
+                # Use either 'name' or 'identifier' (oneOf). Here we use identifier.
+                identifier: main
+                port: 8501
       tls: []
       # Example TLS config
       # tls:
@@ -159,6 +142,18 @@ app-template:
       annotations: {}
       globalMounts:
         - path: /data
+    # NFS backup destination (disabled by default). Enable when using controllers.backup
+    nfs-backup:
+      enabled: false
+      type: nfs
+      server: "10.0.50.3"
+      path: "/mnt/user/deepcode_backups"
+      annotations: {}
+      # Mount only to the backup controller's main container by default
+      advancedMounts:
+        backup:
+          main:
+            - path: /backup
 
   # Optional ConfigMaps for non-sensitive config files
   configMaps: {}
