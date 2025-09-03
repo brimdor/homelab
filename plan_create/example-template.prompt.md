@@ -44,7 +44,6 @@ Chart Type Options and Rules:
     - bjw-s Chart:
       - Use bjw-s-labs “common library” conventions with only Chart.yaml and values.yaml while adhering to bjw-s expectations.
       - Reference structure and options:
-        - Determine the current release branch (e.g., app-template-<current-release>) in the bjw-s-labs helm-charts repo: https://github.com/bjw-s-labs/helm-charts/releases
         - bjw-s-labs repo root for context: https://github.com/bjw-s-labs/helm-charts/tree/app-template-<current-release>
         - values.yaml baseline: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.yaml
         - values.schema.json baseline: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.schema.json
@@ -58,6 +57,8 @@ Chart Type Options and Rules:
     - If the application is a custom application without an existing Helm Chart:
       - Chart Type: bjw-s Chart
   If Sub-charting bjw-s helm chart:
+    app-template versioning:
+      - Determine the current release branch (e.g., app-template-<current-release>) in the bjw-s-labs helm-charts repo: https://github.com/bjw-s-labs/helm-charts/releases
     Controller and Container:
       - First controller and container must be labeled "main"
     Persistence:
