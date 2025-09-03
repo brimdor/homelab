@@ -94,19 +94,10 @@ app-template:
 
   service:
     main:
-      enabled: true
-      controller: main
-      type: ClusterIP
-      annotations: {}
-      labels: {}
       ports:
         http:
-          enabled: true
-          primary: true
           port: 8501
           protocol: HTTP
-          # targetPort can be overridden if the container exposes a different port
-          # targetPort: 8501
 
   ingress:
     main:
