@@ -131,7 +131,7 @@ config:
 
 # Backups CronJob (only meaningful if persistence.data.enabled=true)
 backups:
-  enabled: true
+  enabled: false
   schedule: "*/15 * * * *"
   retentionDays: 7
   nfs:
