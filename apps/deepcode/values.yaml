@@ -7,24 +7,14 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/46akg5sgvdnqbt7t3l5vvoevqq"
       operator.1password.io/item-name: "secrets"
-  labels: {}
-  securityContext: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
 
   controllers:
     main:
       enabled: true
       type: deployment
-      annotations: {}
-      labels: {}
       replicas: 1
       strategy: Recreate
       revisionHistoryLimit: 3
-
-      pod: {}
-
       containers:
         main:
           image:
@@ -37,7 +27,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             # Ensure Streamlit binds correctly behind Ingress
-            STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+            STREAMLIT_SERVER_ADDRESS: "https://deepcode.eaglepass.io"
             STREAMLIT_SERVER_PORT: "8501"
             STREAMLIT_SERVER_ENABLECORS: "false"
             STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
@@ -200,9 +190,5 @@ backups:
   schedule: "*/15 * * * *"
   retentionDays: 7
   job:
-    annotations: {}
-    labels: {}
-    resources: {}
-    securityContext: {}
     successfulJobsHistoryLimit: 1
     failedJobsHistoryLimit: 1
