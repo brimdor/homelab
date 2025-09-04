@@ -44,11 +44,29 @@ app-template:
           # Probes - default disabled until the UI/API endpoints are confirmed
           probes:
             liveness:
-              enabled: false
+              enabled: true
+              type: TCP
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 2
+                failureThreshold: 6
             readiness:
-              enabled: false
+              enabled: true
+              type: TCP
+              spec:
+                initialDelaySeconds: 2
+                periodSeconds: 10
+                timeoutSeconds: 2
+                failureThreshold: 3
             startup:
-              enabled: false
+              enabled: true
+              type: TCP
+              spec:
+                initialDelaySeconds: 0
+                periodSeconds: 5
+                timeoutSeconds: 2
+                failureThreshold: 30
 
     # Optional backup CronJob controller (disabled by default)
     backup:
@@ -87,6 +105,7 @@ app-template:
       ports:
         http:
           port: &port 8501
+          targetPort: 8501
           protocol: HTTP
 
   ingress:

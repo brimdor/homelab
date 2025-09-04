@@ -14,6 +14,8 @@ Spec Version: 1.1
 Purpose: Standardized autonomous plan/instructions and initial prompt to create a Helm Chart for a given Application per homelab and bjw-s-labs conventions.
 
 Host Shell Environment: ZSH
+All apps hosted in a Kubernetes Cluster.
+Kubernetes Environment is managed by Argo CD.
 
 Inputs:
   - app-name: <from app-name-init.prompt.md>
