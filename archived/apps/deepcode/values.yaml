@@ -102,10 +102,14 @@ app-template:
 
   service:
     main:
+      controller: main
+      primary: true
+      enabled: true
+      type: ClusterIP
+      annotations: {}
       ports:
         http:
-          port: &port 8501
-          targetPort: 8501
+          port: 8501
           protocol: HTTP
 
   ingress:
@@ -121,7 +125,7 @@ app-template:
               pathType: Prefix
               service:
                 identifier: main
-                port: *port
+                port: http
       tls:
         - hosts:
             - *Host

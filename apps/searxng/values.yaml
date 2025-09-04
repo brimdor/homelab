@@ -96,7 +96,7 @@ app-template:
   persistence:
     # ConfigMap-backed settings.yml (non-sensitive)
     config:
-      enabled: true
+      enabled: false
       type: configMap
       name: searxng-config
       advancedMounts:
@@ -137,6 +137,7 @@ backups:
   nfs:
     server: "10.0.50.3"
     path: "/mnt/users/searxng_backups"
+  path: "/exports/backups/searxng"
   annotations: {}
   resources: {}
 
