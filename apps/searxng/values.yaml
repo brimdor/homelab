@@ -115,7 +115,7 @@ app-template:
     labels: {}
   persistence:
     config:
-      enabled: true
+      enabled: false
       type: configMap
       name: searxng-config
       advancedMounts:
