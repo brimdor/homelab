@@ -1,0 +1,7 @@
+Created chart skeleton and values for searxng using bjw-s app-template.
+Added 1Password helper script tools/searxng-op-create.sh (category Database).
+Added ConfigMap template for settings and optional backups CronJob template.
+Configured 1Password Operator via pod annotations; no Secret manifests committed.
+Created reports/searxng/tests/ for test artifacts.
+Ran helm dependency update, lint, template, and dry-run; artifacts saved under reports/searxng/tests/.
+Prepared backups-enabled values and attempted backups render; verify CronJob presence post-run.

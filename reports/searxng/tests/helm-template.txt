@@ -1,0 +1,152 @@
+---
+# Source: searxng/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: searxng-config
+binaryData:
+  settings.yml: "IyBNaW5pbWFsIGV4YW1wbGUgbm9uLXNlbnNpdGl2ZSBTZWFyeE5HIGNvbmZpZ3VyYXRpb24uCnNlcnZlcjoKICBwb3J0OiA4MDgwCiAgbGltaXRlcjogdHJ1ZQp1aToKICBzdGF0aWNfdXNlX2hhc2g6IHRydWUKc2VhcmNoOgogIHNhZmVfc2VhcmNoOiAwCg=="
+---
+# Source: searxng/charts/app-template/templates/common.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: searxng
+  labels:
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: searxng
+    app.kubernetes.io/service: searxng
+    helm.sh/chart: app-template-2.6.0
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: main
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/name: searxng
+---
+# Source: searxng/charts/app-template/templates/common.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: searxng
+  labels:
+    app.kubernetes.io/component: main
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: searxng
+    helm.sh/chart: app-template-2.6.0
+spec:
+  revisionHistoryLimit: 3
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: main
+      app.kubernetes.io/name: searxng
+      app.kubernetes.io/instance: searxng
+  template:
+    metadata:
+      annotations: 
+        operator.1password.io/item-name: secrets
+        operator.1password.io/item-path: vaults/<vault-id>/items/<item-id>
+      labels: 
+        app.kubernetes.io/component: main
+        app.kubernetes.io/instance: searxng
+        app.kubernetes.io/name: searxng
+    spec: 
+      enableServiceLinks: true
+      serviceAccountName: default
+      automountServiceAccountToken: true
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      dnsPolicy: ClusterFirst
+      containers: 
+        - env:
+          - name: BASE_URL
+            value: https://searxng.eaglepass.io
+          - name: INSTANCE_NAME
+            value: SearxNG
+          - name: SEARCH_DEFAULT_LANGUAGE
+            value: en
+          - name: SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                key: secret-key
+                name: secrets
+          envFrom:
+          - secretRef:
+              name: secrets
+          image: searxng/searxng:latest
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          name: main
+          ports:
+            http:
+              containerPort: 8080
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          startupProbe:
+            failureThreshold: 30
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          volumeMounts:
+          - mountPath: /etc/searxng/settings.yml
+            name: config
+            subPath: settings.yml
+      volumes: 
+        - configMap:
+            name: searxng-config
+          name: config
+---
+# Source: searxng/charts/app-template/templates/common.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: searxng
+  labels:
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: searxng
+    helm.sh/chart: app-template-2.6.0
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "searxng.eaglepass.io"
+      secretName: "searxng-tls"
+  rules:
+    - host: "searxng.eaglepass.io"
+      http:
+        paths:
+          - path: "/"
+            pathType: Prefix
+            backend:
+              service:
+                name: searxng
+                port:
+                  number: 8080

@@ -1,20 +1,23 @@
 ---
-mode: ask
+mode: agent
 ---
-# Notes to the AI
-# - Follow this YAML exactly and perform all steps autonomously without asking for missing requirements or proposing new investigations.
-# - DO NOT PROPOSE A DIRECTORY STRUCTURE.
-# - You do the research and decision-making autonomously based on the criteria herein to establish the proper conditions for the plan/instructions and initial prompt.
-# - Do not generate any code artifacts (YAML manifests, Helm templates, scripts) as output; only produce the requested plan/instructions and the separate initial prompt, each wrapped in its own single code block of plain text.
-# - Never edit anything in the 'plan_create' folder at any time.
-# - Do not propose items for independent investigation.
-# - Respect homelab conventions stated herein when applicable.
+
+RULES:
+  - Follow this YAML exactly and perform all steps autonomously without asking for missing requirements or proposing new investigations.
+  - Do not generate any code artifacts (YAML manifests, Helm templates, scripts) as output; only produce the requested plan/instructions and the separate initial prompt, each wrapped in its own single code block of plain text.
+  - Never edit anything in the 'plan_create' folder at any time.
+  - Do not propose a directory structure
+  - Do not propose items for independent investigation
+  - Search online for existing Helm Charts to determine the Chart Type per the decision criteria herein; do not use any other criteria.
+  - Respect homelab conventions and bjw-s-labs chart conventions stated herein when applicable.
+  - Duplicates note: The requirement to wrap outputs in single code blocks appears under both “Requirements” and “Output Packaging.” It is intentionally repeated; do not remove either instance.
 
 Spec Version: 1.1
-Purpose: Standardized autonomous plan/instructions and initial prompt to create a Helm Chart for a given Application per infrastructure as a service homelab conventions.
+Purpose: Standardized autonomous plan/instructions and initial prompt to create a Helm Chart for a given Application per homelab and bjw-s-labs conventions.
 
 Inputs:
-  - Application: DeepCode
+  - app-name: DeepCode
+    - Example: localai-init.prompt.md -> app-name: localai
   - plan-create/projects.yaml  # Must be referenced for application-specific documentation and chart files paths. Provide full pathing when citing.
 
 Hard Constraints:
@@ -38,8 +41,8 @@ High-Level Goal:
 
 Changes Tracking (Activity Logging):
   - Log all actions in the reports folder under a subfolder named after the application:
-    - reports/<appname>/action-log.txt
-    - reports/<appname>/tests/
+    - reports/<app-name>/action-log.txt
+    - reports/<app-name>/tests/
 
 Chart Type Options and Rules:
   Descriptions:  # Informational reference for average AI
@@ -48,8 +51,9 @@ Chart Type Options and Rules:
     - bjw-s Chart:
       - Use bjw-s-labs “common library” conventions with only Chart.yaml and values.yaml while adhering to bjw-s expectations.
       - Reference structure and options:
-        - values.yaml baseline: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
-        - values.schema.json baseline: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.schema.json
+        - bjw-s-labs repo root for context: https://github.com/bjw-s-labs/helm-charts/tree/app-template-<current-release>
+        - values.yaml baseline: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.yaml
+        - values.schema.json baseline: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.schema.json
   Determination Logic (do not invent new criteria):
     - If the application has an existing, well-maintained Helm Chart that meets homelab conventions:
       - Chart Type: Sub-Chart
@@ -60,6 +64,8 @@ Chart Type Options and Rules:
     - If the application is a custom application without an existing Helm Chart:
       - Chart Type: bjw-s Chart
   If Sub-charting bjw-s helm chart:
+    app-template versioning:
+      - Determine the current release branch (e.g., app-template-<current-release>) in the bjw-s-labs helm-charts repo: https://github.com/bjw-s-labs/helm-charts/releases
     Controller and Container:
       - First controller and container must be labeled "main"
     Persistence:
@@ -85,7 +91,7 @@ Config and Secret Handling:
             operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
             operator.1password.io/item-name: "secrets"
       - Use existing script method to create a new 1Password vault item for application secrets (via 1Password CLI or web interface). New item category must be "Database" and support custom key/value pairs.
-      - Reference tools/example-op-create.sh to produce tools/<app>-op-create.sh using the same method; place it in the tools folder.
+      - Reference tools/example-op-create.sh to produce tools/<app-name>-op-create.sh using the same method; place it in the tools folder.
       - Ensure no sensitive information is hardcoded in Helm templates or values.yaml.
     Example (valueFrom reference):
       - valueFrom:
@@ -140,7 +146,7 @@ Backups:
 Image Build and Push:
   Conditions:
     - If no external image exists and no Dockerfile is provided by the application:
-      - Create a Dockerfile in apps/<app> directory.
+      - Create a Dockerfile in apps/<app-name> directory.
       - Use an official compatible slim base image if possible.
       - Use build_push.sh to build and push to docker.io/brimdor/<app-name>:<tag> (default tag "latest" if unspecified).
       - Ensure the image is minimal, secure, and functional.
@@ -158,10 +164,10 @@ Example Applications:
 
 Required References (when writing the plan/instructions output):
   - plan-create/projects.yaml: Reference the specific Application entry and include full path(s) to any documentation and chart files cited.
-  - For bjw-s conventions (if applicable), reference:
-    - bjw-s-labs repo root for context: https://github.com/bjw-s-labs/helm-charts
-    - common/values.yaml: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
-    - common/values.schema.json (schema validation notes and dereferencing context in releases): https://github.com/bjw-s-labs/helm-charts/releases
+  - For bjw-s conventions (if applicable), reference from earlier in this spec:
+    - bjw-s-labs repo root for context
+    - common/values.yaml
+    - common/values.schema.json
   - Helm Best Practices:
     - Charts guide and values/schema behavior to justify values.yaml configurability and schema usage: https://helm.sh/docs/topics/charts/
     - Best practices guide for chart design conventions: https://helm.sh/docs/chart_best_practices/
@@ -173,12 +179,12 @@ Plan/Instructions Authoring Checklist (to be followed when generating the Plan/I
   - For Secrets:
     - Describe how to rely on 1Password Operator via annotations and/or OnePasswordItem to populate a Kubernetes Secret, and how workloads will reference it via valueFrom.secretKeyRef.
     - Include the exact annotation keys and example formats.
-    - Instruct the creation of tools/<app>-op-create.sh based on tools/example-op-create.sh, noting 1Password item category “Database” and key naming conventions.
+    - Instruct the creation of tools/<app-name>-op-create.sh based on tools/example-op-create.sh, noting 1Password item category “Database” and key naming conventions.
   - For Ingress:
     - Use networking.k8s.io/v1 and values-driven host rules for eaglepass.io; ensure annotations and TLS can be set from values.yaml per modern patterns.
   - For Backups:
     - Define NFS server 10.0.50.3, placeholder path, schedule default (15 min), retention default (7 days), all configurable.
-  - Include a logging section instructing to append human-readable action notes and test artifacts to the reports/<appname>/ paths.
+  - Include a logging section instructing to append human-readable action notes and test artifacts to the reports/<app-name>/ paths.
   - Provide explicit full paths from plan-create/projects.yaml for any documentation and chart files referenced.
   - Do not propose a directory structure; focus only on the plan and references.
   - Do not generate code; only describe steps, configurations expected in values.yaml, and references.
@@ -190,7 +196,7 @@ Initial Prompt Authoring Checklist (to be followed when generating the Initial P
     - Configure values.yaml fields for Service/Ingress/PVC/Backups as needed.
     - Integrate 1Password Operator annotations/OnePasswordItem and reference via valueFrom.secretKeyRef with the key naming conventions.
     - Use provided image or build/push using build_push.sh and Dockerfile rules as applicable.
-    - Log actions and tests to reports/<appname> paths.
+    - Log actions and tests to reports/<app-name> paths.
   - Remind the AI not to edit the 'plan_create' folder and not to propose directories.
   - Ensure the prompt is wrapped in a single code block of plain text only.
 

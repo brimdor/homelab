@@ -1,0 +1,48 @@
+{{- if and (.Values.backups.enabled) (index (index (index .Values "app-template") "persistence") "data" "enabled") }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: searxng-backup
+  {{- with .Values.backups.annotations }}
+  annotations:
+{{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  schedule: {{ .Values.backups.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: alpine:3.20
+              {{- with .Values.backups.resources }}
+              resources:
+{{ toYaml . | nindent 16 }}
+              {{- end }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  ts=$(date -u +%Y%m%dT%H%M%SZ)
+                  dest="/nfs/searxng-${ts}.tar.gz"
+                  echo "[backup] Archiving /data to $dest"
+                  tar -czf "$dest" -C / data
+                  echo "[backup] Removing files older than {{ .Values.backups.retentionDays }} days"
+                  find /nfs -type f -name 'searxng-*.tar.gz' -mtime +{{ .Values.backups.retentionDays }} -delete
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: nfs
+                  mountPath: /nfs
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ default "data" (index (index (index .Values "app-template") "persistence") "data" "existingClaim") | quote }}
+            - name: nfs
+              nfs:
+                server: {{ .Values.backups.nfs.server | quote }}
+                path: {{ .Values.backups.nfs.path | quote }}
+{{- end }}
