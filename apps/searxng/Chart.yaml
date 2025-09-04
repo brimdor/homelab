@@ -1,0 +1,10 @@
+apiVersion: v2
+name: searxng
+description: A Helm chart for deploying SearxNG using bjw-s app-template
+type: application
+version: 0.1.0
+appVersion: "latest"
+dependencies:
+  - name: app-template
+    version: 2.6.0
+    repository: https://bjw-s-labs.github.io/helm-charts

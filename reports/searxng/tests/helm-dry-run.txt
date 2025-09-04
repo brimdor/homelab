@@ -1,0 +1,479 @@
+history.go:56: 2025-09-04 16:10:45.859731284 -0500 CDT m=+0.053916276 [debug] getting history for release searxng
+Release "searxng" does not exist. Installing it now.
+install.go:225: 2025-09-04 16:10:45.864929416 -0500 CDT m=+0.059114409 [debug] Original chart version: ""
+install.go:242: 2025-09-04 16:10:45.864968995 -0500 CDT m=+0.059153988 [debug] CHART PATH: /home/coder/homelab/apps/searxng
+
+NAME: searxng
+LAST DEPLOYED: Thu Sep  4 16:10:45 2025
+NAMESPACE: searxng
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+USER-SUPPLIED VALUES:
+{}
+
+COMPUTED VALUES:
+app-template:
+  common:
+    configMaps:
+      config:
+        annotations: {}
+        data: {}
+        enabled: false
+        labels: {}
+    controllers:
+      main:
+        annotations: {}
+        containers:
+          main:
+            args: []
+            command: []
+            dependsOn: []
+            envFrom: []
+            image: {}
+            lifecycle: {}
+            order: 1
+            probes:
+              liveness:
+                custom: false
+                enabled: true
+                spec:
+                  failureThreshold: 3
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                type: TCP
+              readiness:
+                custom: false
+                enabled: true
+                spec:
+                  failureThreshold: 3
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                type: TCP
+              startup:
+                custom: false
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  initialDelaySeconds: 0
+                  periodSeconds: 5
+                  timeoutSeconds: 1
+                type: TCP
+            resources: {}
+            securityContext: {}
+        cronjob:
+          backoffLimit: 6
+          concurrencyPolicy: Forbid
+          failedJobsHistory: 1
+          schedule: '*/20 * * * *'
+          startingDeadlineSeconds: 30
+          successfulJobsHistory: 1
+        enabled: true
+        initContainers: {}
+        job:
+          backoffLimit: 6
+        labels: {}
+        pod: {}
+        replicas: 1
+        revisionHistoryLimit: 3
+        rollingUpdate: {}
+        statefulset:
+          volumeClaimTemplates: []
+        type: deployment
+    defaultPodOptions:
+      affinity: {}
+      annotations: {}
+      automountServiceAccountToken: true
+      dnsConfig: {}
+      enableServiceLinks: true
+      hostAliases: []
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      imagePullSecrets: []
+      labels: {}
+      nodeSelector: {}
+      securityContext: {}
+      tolerations: []
+      topologySpreadConstraints: []
+    global:
+      annotations: {}
+      labels: {}
+    ingress:
+      main:
+        annotations: {}
+        enabled: false
+        hosts:
+        - host: chart-example.local
+          paths:
+          - path: /
+            pathType: Prefix
+            service:
+              name: main
+              port: null
+        labels: {}
+        primary: true
+        tls: []
+    networkpolicies:
+      main:
+        controller: main
+        enabled: false
+        policyTypes:
+        - Ingress
+        - Egress
+        rules:
+          egress:
+          - {}
+          ingress:
+          - {}
+    persistence:
+      config:
+        accessMode: ReadWriteOnce
+        advancedMounts: {}
+        dataSource: {}
+        dataSourceRef: {}
+        enabled: false
+        globalMounts: []
+        retain: false
+        size: 1Gi
+        type: persistentVolumeClaim
+    route:
+      main:
+        annotations: {}
+        enabled: false
+        hostnames: []
+        kind: HTTPRoute
+        labels: {}
+        parentRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: null
+          namespace: null
+          sectionName: null
+        rules:
+        - backendRefs: []
+          filters: []
+          matches:
+          - path:
+              type: PathPrefix
+              value: /
+          timeouts: {}
+    secrets:
+      secret:
+        annotations: {}
+        enabled: false
+        labels: {}
+        stringData: {}
+    service:
+      main:
+        annotations: {}
+        controller: main
+        enabled: true
+        extraSelectorLabels: {}
+        ipFamilies: []
+        labels: {}
+        ports:
+          http:
+            enabled: true
+            primary: true
+            protocol: HTTP
+        primary: true
+        type: ClusterIP
+    serviceAccount:
+      annotations: {}
+      create: false
+      labels: {}
+      name: ""
+    serviceMonitor:
+      main:
+        annotations: {}
+        enabled: false
+        endpoints:
+        - interval: 1m
+          path: /metrics
+          port: http
+          scheme: http
+          scrapeTimeout: 10s
+        labels: {}
+        selector: {}
+        serviceName: '{{ include "bjw-s.common.lib.chart.names.fullname" $ }}'
+        targetLabels: []
+  controllers:
+    main:
+      annotations: {}
+      containers:
+        main:
+          env:
+            BASE_URL: https://searxng.eaglepass.io
+            INSTANCE_NAME: SearxNG
+            SEARCH_DEFAULT_LANGUAGE: en
+            SECRET_KEY:
+              valueFrom:
+                secretKeyRef:
+                  key: secret-key
+                  name: secrets
+          envFrom:
+          - secretRef:
+              name: secrets
+          image:
+            pullPolicy: IfNotPresent
+            repository: searxng/searxng
+            tag: latest
+          ports:
+            http:
+              containerPort: 8080
+      probes:
+        liveness:
+          custom: true
+          enabled: true
+          spec:
+            httpGet:
+              path: /
+              port: http
+        readiness:
+          custom: true
+          enabled: true
+          spec:
+            httpGet:
+              path: /
+              port: http
+        startup:
+          enabled: false
+      resources: {}
+  defaultPodOptions:
+    affinity: {}
+    annotations:
+      operator.1password.io/item-name: secrets
+      operator.1password.io/item-path: vaults/<vault-id>/items/<item-id>
+    labels: {}
+    nodeSelector: {}
+    securityContext: {}
+    tolerations: []
+  global: {}
+  ingress:
+    main:
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      className: nginx
+      enabled: true
+      hosts:
+      - host: searxng.eaglepass.io
+        paths:
+        - path: /
+          pathType: Prefix
+          service:
+            name: main
+            port: http
+      tls:
+      - hosts:
+        - searxng.eaglepass.io
+        secretName: searxng-tls
+  persistence:
+    config:
+      advancedMounts:
+        main:
+          main:
+          - path: /etc/searxng/settings.yml
+            subPath: settings.yml
+      enabled: true
+      name: searxng-config
+      type: configMap
+    data:
+      accessMode: ReadWriteOnce
+      advancedMounts:
+        main:
+          main:
+          - path: /data
+      enabled: false
+      existingClaim: ""
+      size: 1Gi
+      storageClass: ""
+      type: pvc
+  service:
+    main:
+      annotations: {}
+      controller: main
+      enabled: true
+      ports:
+        http:
+          port: 8080
+          protocol: HTTP
+      primary: true
+      type: ClusterIP
+backups:
+  annotations: {}
+  enabled: false
+  nfs:
+    path: /exports/backups/searxng
+    server: 10.0.50.3
+  resources: {}
+  retentionDays: 7
+  schedule: '*/15 * * * *'
+config:
+  settingsYaml: |
+    # Minimal example non-sensitive SearxNG configuration.
+    server:
+      port: 8080
+      limiter: true
+    ui:
+      static_use_hash: true
+    search:
+      safe_search: 0
+
+HOOKS:
+MANIFEST:
+---
+# Source: searxng/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: searxng-config
+binaryData:
+  settings.yml: "IyBNaW5pbWFsIGV4YW1wbGUgbm9uLXNlbnNpdGl2ZSBTZWFyeE5HIGNvbmZpZ3VyYXRpb24uCnNlcnZlcjoKICBwb3J0OiA4MDgwCiAgbGltaXRlcjogdHJ1ZQp1aToKICBzdGF0aWNfdXNlX2hhc2g6IHRydWUKc2VhcmNoOgogIHNhZmVfc2VhcmNoOiAwCg=="
+---
+# Source: searxng/charts/app-template/templates/common.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: searxng
+  labels:
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: searxng
+    app.kubernetes.io/service: searxng
+    helm.sh/chart: app-template-2.6.0
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: main
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/name: searxng
+---
+# Source: searxng/charts/app-template/templates/common.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: searxng
+  labels:
+    app.kubernetes.io/component: main
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: searxng
+    helm.sh/chart: app-template-2.6.0
+spec:
+  revisionHistoryLimit: 3
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: main
+      app.kubernetes.io/name: searxng
+      app.kubernetes.io/instance: searxng
+  template:
+    metadata:
+      annotations: 
+        operator.1password.io/item-name: secrets
+        operator.1password.io/item-path: vaults/<vault-id>/items/<item-id>
+      labels: 
+        app.kubernetes.io/component: main
+        app.kubernetes.io/instance: searxng
+        app.kubernetes.io/name: searxng
+    spec: 
+      enableServiceLinks: true
+      serviceAccountName: default
+      automountServiceAccountToken: true
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      dnsPolicy: ClusterFirst
+      containers: 
+        - env:
+          - name: BASE_URL
+            value: https://searxng.eaglepass.io
+          - name: INSTANCE_NAME
+            value: SearxNG
+          - name: SEARCH_DEFAULT_LANGUAGE
+            value: en
+          - name: SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                key: secret-key
+                name: secrets
+          envFrom:
+          - secretRef:
+              name: secrets
+          image: searxng/searxng:latest
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          name: main
+          ports:
+            http:
+              containerPort: 8080
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          startupProbe:
+            failureThreshold: 30
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          volumeMounts:
+          - mountPath: /etc/searxng/settings.yml
+            name: config
+            subPath: settings.yml
+      volumes: 
+        - configMap:
+            name: searxng-config
+          name: config
+---
+# Source: searxng/charts/app-template/templates/common.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: searxng
+  labels:
+    app.kubernetes.io/instance: searxng
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: searxng
+    helm.sh/chart: app-template-2.6.0
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "searxng.eaglepass.io"
+      secretName: "searxng-tls"
+  rules:
+    - host: "searxng.eaglepass.io"
+      http:
+        paths:
+          - path: "/"
+            pathType: Prefix
+            backend:
+              service:
+                name: searxng
+                port:
+                  number: 8080
+

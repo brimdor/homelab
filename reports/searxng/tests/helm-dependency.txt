@@ -1,0 +1,9 @@
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "go-skynet" chart repository
+...Successfully got an update from the "weaviate" chart repository
+...Successfully got an update from the "bjw-s" chart repository
+...Successfully got an update from the "livekit" chart repository
+Update Complete. ⎈Happy Helming!⎈
+Saving 1 charts
+Downloading app-template from repo https://bjw-s-labs.github.io/helm-charts
+Deleting outdated charts

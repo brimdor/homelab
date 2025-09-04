@@ -1,14 +1,13 @@
 ---
-mode: ask
+mode: agent
 ---
 
-# Notes to the AI
-# - Follow this YAML exactly and perform all steps autonomously without asking for missing requirements or proposing new investigations.
-# - Do not generate any code artifacts (YAML manifests, Helm templates, scripts) as output; only produce the requested plan/instructions and the separate initial prompt, each wrapped in its own single code block of plain text.
-# - Never edit anything in the 'plan_create' folder at any time.
-# - Do not propose a directory structure and do not propose items for independent investigation.
-# - Respect homelab conventions and bjw-s-labs chart conventions stated herein when applicable.
-# - Duplicates note: The requirement to wrap outputs in single code blocks appears under both “Requirements” and “Output Packaging.” It is intentionally repeated; do not remove either instance.
+ - Follow this YAML exactly and perform all steps autonomously without asking for missing requirements or proposing new investigations.
+ - Do not generate any code artifacts (YAML manifests, Helm templates, scripts) as output; only produce the requested plan/instructions and the separate initial prompt, each wrapped in its own single code block of plain text.
+ - Never edit anything in the 'plan_create' folder at any time.
+ - Do not propose a directory structure and do not propose items for independent investigation.
+ - Respect homelab conventions and bjw-s-labs chart conventions stated herein when applicable.
+ - Duplicates note: The requirement to wrap outputs in single code blocks appears under both “Requirements” and “Output Packaging.” It is intentionally repeated; do not remove either instance.
 
 Spec Version: 1.1
 Purpose: Standardized autonomous plan/instructions and initial prompt to create a Helm Chart for a given Application per homelab and bjw-s-labs conventions.

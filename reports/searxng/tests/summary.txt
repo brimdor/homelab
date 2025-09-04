@@ -1,0 +1,6 @@
+Tests summary
+-------------
+Helm schema: values.schema.json added; custom keys validate locally.
+Helm lint/template: Deferred (helm not available in this execution context). Run: helm dependency update && helm lint apps/searxng
+Service/Ingress: Defined via app-template values; verify post-deploy.
+Secrets wiring: Verified in values.yaml (secretKeyRef name "secrets"; keys hyphen-case). Pod annotations carry 1Password operator item-path and item-name.

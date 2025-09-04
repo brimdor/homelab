@@ -44,7 +44,7 @@ app-template:
           # Probes - default disabled until the UI/API endpoints are confirmed
           probes:
             liveness:
-              enabled: true
+              enabled: false
               type: TCP
               spec:
                 initialDelaySeconds: 5
@@ -52,7 +52,7 @@ app-template:
                 timeoutSeconds: 2
                 failureThreshold: 6
             readiness:
-              enabled: true
+              enabled: false
               type: TCP
               spec:
                 initialDelaySeconds: 2
@@ -60,7 +60,7 @@ app-template:
                 timeoutSeconds: 2
                 failureThreshold: 3
             startup:
-              enabled: true
+              enabled: false
               type: TCP
               spec:
                 initialDelaySeconds: 0
