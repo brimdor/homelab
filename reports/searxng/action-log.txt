@@ -5,3 +5,10 @@ Configured 1Password Operator via pod annotations; no Secret manifests committed
 Created reports/searxng/tests/ for test artifacts.
 Ran helm dependency update, lint, template, and dry-run; artifacts saved under reports/searxng/tests/.
 Prepared backups-enabled values and attempted backups render; verify CronJob presence post-run.
+
+2025-09-04: Mirrored docker-compose into Helm chart
+- Added Redis controller and ClusterIP service (valkey 8-alpine)
+- Mounted ConfigMap at /etc/searxng/settings.yml via persistence.type=configMap
+- Changed data mount to /var/cache/searxng to match compose
+- Templated redis URL in settings.yml to point to in-cluster redis service
+- Left logging and networks out per request
