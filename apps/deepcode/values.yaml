@@ -50,18 +50,6 @@ app-template:
             startup:
               enabled: false
 
-          resources: {}
-          securityContext: {}
-
-          # Expose the container port with a named port for clean Service mapping
-          ports:
-            http:
-              enabled: true
-              containerPort: 8501
-              protocol: HTTP
-
-      initContainers: {}
-
     # Optional backup CronJob controller (disabled by default)
     backup:
       enabled: false
