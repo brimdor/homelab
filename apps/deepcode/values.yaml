@@ -27,7 +27,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             # Ensure Streamlit binds correctly behind Ingress
-            STREAMLIT_SERVER_ADDRESS: "https://deepcode.eaglepass.io"
+            STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
             STREAMLIT_SERVER_PORT: "8501"
             STREAMLIT_SERVER_ENABLECORS: "false"
             STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
@@ -52,6 +52,13 @@ app-template:
 
           resources: {}
           securityContext: {}
+
+          # Expose the container port with a named port for clean Service mapping
+          ports:
+            http:
+              enabled: true
+              containerPort: 8501
+              protocol: HTTP
 
       initContainers: {}
 
@@ -98,6 +105,7 @@ app-template:
           primary: true
           port: 8501
           protocol: HTTP
+          targetPort: http
 
   ingress:
     main:
@@ -112,7 +120,7 @@ app-template:
               pathType: Prefix
               service:
                 identifier: main
-                port: 8501
+                port: http
       tls:
         - hosts:
             - *Host
