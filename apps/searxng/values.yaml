@@ -2,7 +2,9 @@
 app-template:
   controllers:
     main:
-      annotations: {}
+      annotations:
+        operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zmzs6wc2wftouzhoaufk7eivdy"
+        operator.1password.io/item-name: "secrets"
       containers:
         main:
           image:
@@ -109,9 +111,6 @@ app-template:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-    annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zmzs6wc2wftouzhoaufk7eivdy"
-      operator.1password.io/item-name: "secrets"
     labels: {}
   persistence:
     config:
