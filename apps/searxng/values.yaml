@@ -11,12 +11,12 @@ app-template:
             pullPolicy: IfNotPresent
           env:
             # Non-sensitive literals
-            INSTANCE_NAME: "SearxNG"
-            BASE_URL: "https://searxng.eaglepass.io"
-            SEARCH_DEFAULT_LANGUAGE: "en"
+            # INSTANCE_NAME: "SearxNG"
+            SEARXNG_BASE_URL: "https://searxng.eaglepass.io"
+            # SEARCH_DEFAULT_LANGUAGE: "en"
             # Ensure SearXNG binds to IPv4 any address inside the pod
-            SEARXNG_BIND_ADDRESS: "0.0.0.0"
-            SEARXNG_PORT: "8080"
+            # SEARXNG_BIND_ADDRESS: "0.0.0.0"
+            # SEARXNG_PORT: "8080"
             # Sensitive envs via secretKeyRef (1Password Operator backed Secret named 'secrets')
             SECRET_KEY:
               valueFrom:
