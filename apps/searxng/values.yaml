@@ -9,9 +9,6 @@ app-template:
             repository: searxng/searxng
             tag: latest
             pullPolicy: IfNotPresent
-          ports:
-            http:
-              containerPort: 8080
           env:
             # Non-sensitive literals
             INSTANCE_NAME: "SearxNG"
