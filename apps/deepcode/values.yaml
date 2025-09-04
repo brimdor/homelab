@@ -86,7 +86,7 @@ app-template:
     main:
       ports:
         http:
-          port: 8501
+          port: &port 8501
           protocol: HTTP
 
   ingress:
@@ -102,7 +102,7 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: http
+                port: *port
       tls:
         - hosts:
             - *Host
