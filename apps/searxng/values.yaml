@@ -20,11 +20,11 @@ app-template:
             # SEARXNG_BIND_ADDRESS: "0.0.0.0"
             # SEARXNG_PORT: "8080"
             # Sensitive envs via secretKeyRef (1Password Operator backed Secret named 'secrets')
-            SEARXNG_SERVER_SECRET_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "secret-key"
+            # SEARXNG_SERVER_SECRET_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "secret-key"
             # Example engine keys (commented out by default)
             # GOOGLE_API_KEY:
             #   valueFrom:
