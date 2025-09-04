@@ -40,7 +40,7 @@ spec:
           volumes:
             - name: data
               persistentVolumeClaim:
-                claimName: {{ default "data" (index (index (index .Values "app-template") "persistence") "data" "existingClaim") | quote }}
+                claimName: {{ (index (index (index .Values "app-template") "persistence") "data" "existingClaim") | default (printf "%s-data" (include "bjw-s.common.fullname" .)) | quote }}
             - name: nfs
               nfs:
                 server: {{ .Values.backups.nfs.server | quote }}

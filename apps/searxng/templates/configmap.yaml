@@ -3,4 +3,5 @@ kind: ConfigMap
 metadata:
   name: searxng-config
 binaryData:
-  settings.yml: {{ .Values.config.settingsYaml | b64enc | quote }}
+  # Allow templating inside settingsYaml using tpl before base64 encoding
+  settings.yml: {{ tpl .Values.config.settingsYaml . | b64enc | quote }}

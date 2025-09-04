@@ -57,6 +57,18 @@ app-template:
               enabled: false
           # Resources placeholder (tune per environment)
           resources: {}
+    redis:
+      containers:
+        main:
+          image:
+            repository: valkey/valkey
+            tag: 8-alpine
+            pullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - "exec valkey-server --save 30 1 --loglevel warning"
+          resources: {}
   service:
     main:
       controller: main
@@ -68,6 +80,14 @@ app-template:
         http:
           port: 8080
           protocol: HTTP
+    redis:
+      controller: redis
+      enabled: true
+      type: ClusterIP
+      ports:
+        redis:
+          port: 6379
+          protocol: TCP
   ingress:
     main:
       enabled: true
@@ -99,15 +119,13 @@ app-template:
   persistence:
     config:
       enabled: true
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 2Gi
-      storageClass: ""
-      existingClaim: ""
+      type: configMap
+      name: searxng-config
       advancedMounts:
         main:
           main:
-            - path: /etc/searxng
+            - path: /etc/searxng/settings.yml
+              subPath: settings.yml
     # Optional data persistence (disabled by default)
     data:
       enabled: true
@@ -119,19 +137,34 @@ app-template:
       advancedMounts:
         main:
           main:
+            - path: /var/cache/searxng
+    redisdata:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      storageClass: ""
+      existingClaim: ""
+      advancedMounts:
+        redis:
+          main:
             - path: /data
 
 # Non-sensitive configuration rendered into a ConfigMap
 config:
   settingsYaml: |
-    # Minimal example non-sensitive SearxNG configuration.
+    # Minimal non-sensitive SearxNG configuration, templated by Helm.
     server:
       port: 8080
       limiter: true
+      # Bind address set by env or default
     ui:
       static_use_hash: true
     search:
       safe_search: 0
+    redis:
+      # Use the redis service created by this chart
+  url: redis://{{ include "bjw-s.common.fullname" . }}-redis.{{ .Release.Namespace }}.svc.cluster.local:6379/0
 
 # Backups CronJob (only meaningful if persistence.data.enabled=true)
 backups:
