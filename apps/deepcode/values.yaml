@@ -84,16 +84,10 @@ app-template:
 
   service:
     main:
-      enabled: true
-      controller: main
-      type: ClusterIP
       ports:
         http:
-          enabled: true
-          primary: true
           port: 8501
           protocol: HTTP
-          targetPort: http
 
   ingress:
     main:
