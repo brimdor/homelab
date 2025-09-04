@@ -15,6 +15,7 @@ app-template:
             # Non-sensitive literals
             # INSTANCE_NAME: "SearxNG"
             SEARXNG_BASE_URL: "https://searxng.eaglepass.io"
+            HOSTNAME: "SearXNG"
             # SEARCH_DEFAULT_LANGUAGE: "en"
             # Ensure SearXNG binds to IPv4 any address inside the pod
             # SEARXNG_BIND_ADDRESS: "0.0.0.0"
@@ -124,7 +125,7 @@ app-template:
               subPath: settings.yml
     # Optional data persistence (disabled by default)
     data:
-      enabled: false
+      enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 5Gi
