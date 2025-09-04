@@ -136,7 +136,7 @@ backups:
   retentionDays: 7
   nfs:
     server: "10.0.50.3"
-    ath: "/mnt/users/searxng_backups"
+    path: "/mnt/users/searxng_backups"
   annotations: {}
   resources: {}
 
