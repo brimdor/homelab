@@ -34,26 +34,26 @@ app-template:
           envFrom:
             - secretRef:
                 name: secrets
-      # Probes (can be tuned as needed)
-      probes:
-        liveness:
-          enabled: true
-          custom: true
-          spec:
-            httpGet:
-              path: /
-              port: http
-        readiness:
-          enabled: true
-          custom: true
-          spec:
-            httpGet:
-              path: /
-              port: http
-        startup:
-          enabled: false
-      # Resources placeholder (tune per environment)
-      resources: {}
+          # Probes (can be tuned as needed)
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+            startup:
+              enabled: false
+          # Resources placeholder (tune per environment)
+          resources: {}
   service:
     main:
       controller: main
@@ -107,7 +107,7 @@ app-template:
     # Optional data persistence (disabled by default)
     data:
       enabled: false
-      type: pvc
+      type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 1Gi
       storageClass: ""
@@ -136,7 +136,7 @@ backups:
   retentionDays: 7
   nfs:
     server: "10.0.50.3"
-    path: "/mnt/users/searxng_backups"
+  path: "/exports/backups/searxng"
   annotations: {}
   resources: {}
 
