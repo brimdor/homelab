@@ -12,3 +12,7 @@ Prepared backups-enabled values and attempted backups render; verify CronJob pre
 - Changed data mount to /var/cache/searxng to match compose
 - Templated redis URL in settings.yml to point to in-cluster redis service
 - Left logging and networks out per request
+
+2025-09-04: Fix startup crash due to invalid settings
+- Renamed secret env var to SEARXNG_SERVER_SECRET_KEY to match app schema
+- Added empty `server.secret_key` to settings.yml to pass validation
