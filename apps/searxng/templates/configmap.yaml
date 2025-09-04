@@ -1,7 +1,99 @@
-# apiVersion: v1
-# kind: ConfigMap
-# metadata:
-#   name: searxng-config
-# binaryData:
-#   # Allow templating inside settingsYaml using tpl before base64 encoding
-#   settings.yml: {{ tpl .Values.config.settingsYaml . | b64enc | quote }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: searxng-config
+  namespace: searxng
+data:
+  settings.yml: |
+    # Use defaults and override only what's needed
+    use_default_settings: true
+
+    server:
+      # Replace with a secure random hex; example: openssl rand -hex 32
+      secret_key: "REPLACE_WITH_SECURE_RANDOM_HEX"
+      bind_address: "0.0.0.0"
+      port: 8080
+      base_url: "https://searxng.example.com/"
+      # When running behind reverse proxy, set method & headers there
+      image_proxy: false
+
+    ui:
+      # Minimal UI options; adjust theme if desired
+      default_theme: simple
+      static_use_hash: true
+
+    search:
+      # Ensure JSON is allowed for API clients like Open WebUI
+      formats:
+        - html
+        - json
+      # Optional: adjust suspension windows; values are seconds
+      suspended_times:
+        SearxEngineCaptcha: 3600
+        SearxEngineTooManyRequests: 600
+        SearxEngineAccessDenied: 1800
+      # Language and safe search defaults
+      safe_search: 1
+      language: "en-US"
+
+    # Limiter helps avoid upstream CAPTCHAs/blocks
+    limiter:
+      # Enable if you deploy Redis/Valkey; otherwise leave disabled
+      # enabled: true
+      # valkey_url: "redis://searxng-redis:6379/0"
+      ip_limit: 30/minute
+      # trust reverse proxy and forwarded IP headers if using ingress
+      # behind_proxy: true
+
+    # Basic bot-detection knobs; tailor pass/block lists for cluster ranges
+    botdetection:
+      ip_lists:
+        block_ip: []
+        pass_ip: []
+      link_token: false
+
+    # Engines: start with defaults and selectively disable troubled ones
+    engines:
+      # Remove known CAPTCHA-prone engines in server contexts (example: qwant)
+      remove:
+        - qwant
+        - qwant images
+        - qwant news
+        - qwant videos
+      # Optionally keep only a curated set for stability
+      # keep_only:
+      #   - duckduckgo
+      #   - wikipedia
+      #   - binglite
+
+    # Outgoing network timeouts
+    outgoing:
+      request_timeout: 6.0
+      max_redirects: 3
+      pool_connections: 10
+      pool_maxsize: 20
+
+    # CORS for API use if accessing directly (ingress usually handles this)
+    http:
+      method: GET
+      headers:
+        Access-Control-Allow-Origin: "*"
+        Access-Control-Allow-Methods: "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers: "Content-Type, X-Requested-With"
+
+    # Logging verbosity
+    logging:
+      version: 1
+      disable_existing_loggers: false
+      root:
+        level: INFO
+        handlers: [console]
+      handlers:
+        console:
+          class: logging.StreamHandler
+          level: INFO
+          formatter: simple
+          stream: ext://sys.stdout
+      formatters:
+        simple:
+          format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
