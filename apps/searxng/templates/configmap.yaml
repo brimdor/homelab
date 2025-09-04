@@ -1,7 +1,7 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: searxng-config
-binaryData:
-  # Allow templating inside settingsYaml using tpl before base64 encoding
-  settings.yml: {{ tpl .Values.config.settingsYaml . | b64enc | quote }}
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: searxng-config
+# binaryData:
+#   # Allow templating inside settingsYaml using tpl before base64 encoding
+#   settings.yml: {{ tpl .Values.config.settingsYaml . | b64enc | quote }}
