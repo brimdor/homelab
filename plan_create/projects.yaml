@@ -38,3 +38,9 @@ LiveKit:
 DeepCode:
   Documentation:
     - https://github.com/HKUDS/DeepCode/tree/docker
+Searxng:
+  Documentation:
+    - https://github.com/searxng/searxng-helm-chart
+    - https://charts.searxng.org/index.yaml
+  Chart Files:
+    - apps/searxng
