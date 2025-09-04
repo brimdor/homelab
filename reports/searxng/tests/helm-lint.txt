@@ -1,4 +1,11 @@
 ==> Linting apps/searxng
 [INFO] Chart.yaml: icon is recommended
+[ERROR] values.yaml: - at '/backups/nfs': missing property 'path'
+- at '/backups': additional properties 'path' not allowed
 
-1 chart(s) linted, 0 chart(s) failed
+[ERROR] templates/: values don't meet the specifications of the schema(s) in the following chart(s):
+searxng:
+- at '/backups/nfs': missing property 'path'
+- at '/backups': additional properties 'path' not allowed
+
+
