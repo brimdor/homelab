@@ -101,7 +101,7 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                identifier: main
+                name: main
                 port: http
       tls:
         - hosts:
