@@ -114,7 +114,7 @@ app-template:
     labels: {}
   persistence:
     config:
-      enabled: true
+      enabled: false
       type: configMap
       name: searxng-config
       advancedMounts:
@@ -124,7 +124,7 @@ app-template:
               subPath: settings.yml
     # Optional data persistence (disabled by default)
     data:
-      enabled: true
+      enabled: false
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 5Gi
