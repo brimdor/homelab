@@ -120,6 +120,17 @@ app-template:
         main:
           main:
             - path: /var/cache/searxng
+    etc:
+      enabled: false
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      storageClass: ""
+      existingClaim: ""
+      advancedMounts:
+        main:
+          main:
+            - path: /etc/searxng
     config:
       enabled: true
       type: configMap
