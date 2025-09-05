@@ -115,14 +115,24 @@ app-template:
       name: searxng-config
       items:
         - key: settings.yml
-          path: /etc/searxng/settings.yml
+          path: settings.yml
+      advancedMounts:
+        main:
+          main:
+            - path: /etc/searxng/settings.yml
+              subPath: settings.yml
     limiter:
       enabled: true
       type: configMap
       name: searxng-limiter
       items:
-        - key: settings.yml
-          path: /etc/searxng/limiter.toml
+        - key: limiter.toml
+          path: limiter.toml
+      advancedMounts:
+        main:
+          main:
+            - path: /etc/searxng/limiter.toml
+              subPath: limiter.toml
     redisdata:
       enabled: false
       type: persistentVolumeClaim
