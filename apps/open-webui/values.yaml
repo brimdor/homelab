@@ -27,6 +27,11 @@ open-webui:
       value: *openwebuihost
     - name: BYPASS_MODEL_ACCESS_CONTROL
       value: "true"
+    # New environment variables for RAG and Audio STT engines
+    - name: RAG_EMBEDDING_ENGINE
+      value: "ollama"
+    - AUDIO_STT_ENGINE:
+      value: "openai"
   image:
     repository: ghcr.io/open-webui/open-webui
     tag: "latest"
