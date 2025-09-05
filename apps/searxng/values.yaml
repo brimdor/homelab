@@ -126,8 +126,7 @@ app-template:
     redisdata:
       enabled: true
       type: persistentVolumeClaim
-      accessModes:
-        - ReadWriteOnce
+      accessModes: ReadWriteOnce
       size: 5Gi
       storageClass: ""
       existingClaim: ""
