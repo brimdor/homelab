@@ -37,16 +37,9 @@ open-webui:
       value: "ollama"
     - name: AUDIO_STT_ENGINE
       value: "openai"
-  extraResources:
-    - apiVersion: v1
-      kind: Secret
-      metadata:
-        name: secrets
-        annotations:
-          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-          operator.1password.io/item-name: "secrets"
-      type: Opaque
-      stringData: {}
+  podAnnotations:
+    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+    operator.1password.io/item-name: "secrets"
   image:
     repository: ghcr.io/open-webui/open-webui
     tag: "latest"
