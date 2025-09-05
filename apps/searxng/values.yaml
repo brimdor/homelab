@@ -99,9 +99,9 @@ app-template:
     labels: {}
   persistence:
     data:
-      enabled: true
+      enabled: false
       type: persistentVolumeClaim
-      accessModes: ReadWriteOnce
+      accessMode: ReadWriteOnce
       size: 5Gi
       storageClass: ""
       existingClaim: ""
@@ -124,9 +124,9 @@ app-template:
         - key: settings.yml
           path: /etc/searxng/limiter.toml
     redisdata:
-      enabled: true
+      enabled: false
       type: persistentVolumeClaim
-      accessModes: ReadWriteOnce
+      accessMode: ReadWriteOnce
       size: 5Gi
       storageClass: ""
       existingClaim: ""
