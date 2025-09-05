@@ -213,19 +213,19 @@ app-template:
           plugins:
 
             searx.plugins.calculator.SXNGPlugin:
-              active: true
+              active: false
 
             searx.plugins.hash_plugin.SXNGPlugin:
               active: true
 
             searx.plugins.self_info.SXNGPlugin:
-              active: true
+              active: false
 
             searx.plugins.unit_converter.SXNGPlugin:
-              active: true
+              active: false
 
             searx.plugins.ahmia_filter.SXNGPlugin:
-              active: true
+              active: false
 
             searx.plugins.hostnames.SXNGPlugin:
               active: true
