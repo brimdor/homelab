@@ -101,7 +101,8 @@ app-template:
     data:
       enabled: true
       type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
+      accessModes:
+        - ReadWriteOnce
       size: 5Gi
       storageClass: ""
       existingClaim: ""
@@ -115,18 +116,19 @@ app-template:
       name: searxng-config
       items:
         - key: settings.yml
-        - path: /etc/searxng/settings.yml
+          path: /etc/searxng/settings.yml
     limiter:
       enabled: true
       type: configMap
       name: searxng-limiter
       items:
         - key: settings.yml
-        - path: /etc/searxng/limiter.toml
+          path: /etc/searxng/limiter.toml
     redisdata:
       enabled: true
       type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
+      accessModes:
+        - ReadWriteOnce
       size: 5Gi
       storageClass: ""
       existingClaim: ""
