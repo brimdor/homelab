@@ -32,14 +32,30 @@ open-webui:
         secretKeyRef:
           name: secrets
           key: webui-secret-key
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: secrets
+          key: openai-api-key
     # New environment variables for RAG and Audio STT engines
     - name: RAG_EMBEDDING_ENGINE
       value: "ollama"
     - name: AUDIO_STT_ENGINE
       value: "openai"
-  annotations:
-    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-    operator.1password.io/item-name: "secrets"
+  podAnnotations:
+    operator.1password.io/auto-restart: "true"
+  extraResources:
+    - apiVersion: v1
+      kind: Secret
+      metadata:
+        name: secrets
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+          operator.1password.io/item-name: "secrets"
+      type: Opaque
+      stringData:
+        webui-secret-key: "placeholder"
+        openai-api-key: "placeholder"
   image:
     repository: ghcr.io/open-webui/open-webui
     tag: "latest"
