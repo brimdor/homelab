@@ -26,6 +26,17 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "secret-key"
+            # SearXNG reads SECRET_KEY / SEARXNG_SECRET to populate server.secret_key
+            SECRET_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "secret-key"
+            SEARXNG_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "secret-key"
             # Example engine keys (commented out by default)
             # GOOGLE_API_KEY:
             #   valueFrom:
