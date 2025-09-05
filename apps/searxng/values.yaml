@@ -123,7 +123,7 @@ app-template:
       items:
         - key: settings.yml
         - path: /etc/searxng/limiter.toml
-    redis-data:
+    redisdata:
       enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
@@ -164,7 +164,7 @@ app-template:
           limiter:
             # Enable if you deploy Redis/Valkey; otherwise leave disabled
             # enabled: true
-            # valkey_url: "redis://searxng-redis:6379/0"
+            valkey_url: "redis://searxng-redis:6379/0"
             ip_limit: 30/minute
             # trust reverse proxy and forwarded IP headers if using ingress
             # behind_proxy: true
@@ -283,8 +283,3 @@ backups:
   path: "/exports/backups/searxng"
   annotations: {}
   resources: {}
-
-  path: "/exports/backups/searxng"
-  annotations: {}
-  resources: {}
-
