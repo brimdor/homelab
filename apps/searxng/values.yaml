@@ -41,6 +41,7 @@ app-template:
     #         - path: /etc/searxng/settings.yml
     #           subPath: settings.yml
     # Optional data persistence (disabled by default)
+  persistence:
     data:
       enabled: true
       type: persistentVolumeClaim
