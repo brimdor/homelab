@@ -267,12 +267,11 @@ app-template:
               shortcut: go
               categories: [general]
               disabled: false
-
-            - name: brave
-              engine: brave
-              shortcut: br
+            
+            - name: mojeek
+              engine: mojeek
+              shortcut: mjk
               categories: [general, web]
-              brave_category: search
               disabled: false
 
             - name: startpage
@@ -602,6 +601,14 @@ app-template:
               about:
                 website: https://minecraft.wiki/
                 wikidata_id: Q105533483
+            
+            ######### DISABLED ENGINES #########
+            - name: brave
+              engine: brave
+              shortcut: br
+              categories: [general, web]
+              brave_category: search
+              disabled: true
 
 
           # Basic bot-detection knobs; tailor pass/block lists for cluster ranges
