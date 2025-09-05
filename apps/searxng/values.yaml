@@ -109,7 +109,7 @@ app-template:
         main:
           main:
             - path: /var/cache/searxng
-    searxng-config:
+    config:
       enabled: true
       type: configMap
       name: searxng-config
@@ -145,7 +145,7 @@ app-template:
           main:
             - path: /data
   configMaps:
-    searxng-config:
+    config:
       enabled: true
       data:
         settings.yml: |
