@@ -233,13 +233,14 @@ app-template:
       enabled: true
       data:
         limiter.toml: |
-          [real_ip]
-          # Number of values to trust for X-Forwarded-For.
-          x_for = 1
-
-          # Prefix defines network matching for client IPs.
+          [botdetection]
+          # Number of proxy hops to trust in X-Forwarded-For
+          trusted_proxies = 1
+          # Network prefix lengths for client IP evaluation
           ipv4_prefix = 32
           ipv6_prefix = 48
+          # Allow whitelisted IPs from the SearXNG organization (enabled by default)
+          pass_searxng_org = true
 
           [botdetection.ip_limit]
           # Do not monitor link-local networks by default
@@ -253,15 +254,12 @@ app-template:
           block_ip = [
             # '93.184.216.34',
           ]
-
           # IPs with unrestricted access (example entries, adjust as needed)
           pass_ip = [
             # '192.168.0.0/16',
             # 'fe80::/10'
           ]
-
-          # Allow whitelisted IPs from the SearXNG organization (enabled by default)
-          pass_searxng_org = true
+          
 
 
 
