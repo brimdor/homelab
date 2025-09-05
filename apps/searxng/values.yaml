@@ -233,34 +233,30 @@ app-template:
       enabled: true
       data:
         limiter.toml: |
-          [real_ip]
-          # Number of values to trust for X-Forwarded-For.
-          x_for = 1
-
-          # Prefix defines network matching for client IPs.
+          [botdetection]
+          # Defines network matching for client IPs.
           ipv4_prefix = 32
           ipv6_prefix = 48
 
-          [botdetection.ip_limit]
-          # Do not monitor link-local networks by default
-          filter_link_local = false
+          # List of trusted proxies for extracting client IP headers; update per your setup.
+          trusted_proxies = [
+            '127.0.0.1',
+            # '::1',
+            # '192.168.0.0/16'
+          ]
 
-          # Activate link_token method if you need token-based limiting
+          [botdetection.ip_limit]
+          filter_link_local = false
           link_token = false
 
           [botdetection.ip_lists]
-          # Block specific IPs (example IP listed, remove/comment as appropriate)
           block_ip = [
             # '93.184.216.34',
           ]
-
-          # IPs with unrestricted access (example entries, adjust as needed)
           pass_ip = [
             # '192.168.0.0/16',
             # 'fe80::/10'
           ]
-
-          # Allow whitelisted IPs from the SearXNG organization (enabled by default)
           pass_searxng_org = true
 
 
