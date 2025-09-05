@@ -109,7 +109,21 @@ app-template:
         main:
           main:
             - path: /var/cache/searxng
-    redisdata:
+    config:
+      enabled: true
+      type: configMap
+      name: searxng-config
+      items:
+        - key: settings.yml
+        - path: /etc/searxng/settings.yml
+    limiter:
+      enabled: true
+      type: configMap
+      name: searxng-limiter
+      items:
+        - key: settings.yml
+        - path: /etc/searxng/limiter.toml
+    redis-data:
       enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
@@ -121,7 +135,7 @@ app-template:
           main:
             - path: /data
   configMaps:
-    config:
+    searxng-config:
       enabled: true
       data:
         settings.yml: |
@@ -207,6 +221,40 @@ app-template:
             formatters:
               simple:
                 format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    limiter:
+      enabled: true
+      data:
+        limiter.toml: |
+          [real_ip]
+          # Number of values to trust for X-Forwarded-For.
+          x_for = 1
+
+          # Prefix defines network matching for client IPs.
+          ipv4_prefix = 32
+          ipv6_prefix = 48
+
+          [botdetection.ip_limit]
+          # Do not monitor link-local networks by default
+          filter_link_local = false
+
+          # Activate link_token method if you need token-based limiting
+          link_token = false
+
+          [botdetection.ip_lists]
+          # Block specific IPs (example IP listed, remove/comment as appropriate)
+          block_ip = [
+            # '93.184.216.34',
+          ]
+
+          # IPs with unrestricted access (example entries, adjust as needed)
+          pass_ip = [
+            # '192.168.0.0/16',
+            # 'fe80::/10'
+          ]
+
+          # Allow whitelisted IPs from the SearXNG organization (enabled by default)
+          pass_searxng_org = true
+
 
 
 # Non-sensitive configuration rendered into a ConfigMap
