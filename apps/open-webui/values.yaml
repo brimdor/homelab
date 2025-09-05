@@ -30,7 +30,7 @@ open-webui:
     # New environment variables for RAG and Audio STT engines
     - name: RAG_EMBEDDING_ENGINE
       value: "ollama"
-    - AUDIO_STT_ENGINE:
+    - name: AUDIO_STT_ENGINE
       value: "openai"
   image:
     repository: ghcr.io/open-webui/open-webui
