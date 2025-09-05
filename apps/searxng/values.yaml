@@ -171,8 +171,17 @@ app-template:
       enabled: true
       data:
         settings.yml: |
-          # Use defaults and override only what's needed
           use_default_settings: true
+          general:
+            instance_name: "Eagle-SearXNG"
+
+          search:
+            formats:
+              - html
+              - json
+            safe_search: 0
+            language: "en-US"
+
           server:
             bind_address: 0.0.0.0
             port: 8080
@@ -183,14 +192,59 @@ app-template:
             default_theme: simple
             static_use_hash: true
 
-          search:
-            # Ensure JSON is allowed for API clients like Open WebUI
-            formats:
-              - html
-              - json
-            # Language and safe search defaults
-            safe_search: 0
-            language: "en-US"
+          preferences:
+            lock:
+              - categories
+              - language
+              - autocomplete
+              - favicon
+              - safesearch
+              - method
+              - doi_resolver
+              - locale
+              - theme
+              - results_on_new_tab
+              - infinite_scroll
+              - search_on_category_select
+              - method
+              - image_proxy
+              - query_in_title
+
+          plugins:
+
+            searx.plugins.calculator.SXNGPlugin:
+              active: true
+
+            searx.plugins.hash_plugin.SXNGPlugin:
+              active: true
+
+            searx.plugins.self_info.SXNGPlugin:
+              active: true
+
+            searx.plugins.unit_converter.SXNGPlugin:
+              active: true
+
+            searx.plugins.ahmia_filter.SXNGPlugin:
+              active: true
+
+            searx.plugins.hostnames.SXNGPlugin:
+              active: true
+
+            searx.plugins.time_zone.SXNGPlugin:
+              active: true
+
+            searx.plugins.oa_doi_rewrite.SXNGPlugin:
+              active: false
+
+            searx.plugins.tor_check.SXNGPlugin:
+              active: false
+
+            searx.plugins.tracker_url_remover.SXNGPlugin:
+              active: true
+
+
+          valkey:
+            url: valkey://redis.searxng.svc.cluster.local:6379/0
 
           default_categories:
             - general
@@ -218,10 +272,11 @@ app-template:
               categories: [general]
               disabled: false
 
-            - name: mojeek
-              engine: mojeek
-              shortcut: mjk
+            - name: brave
+              engine: brave
+              shortcut: br
               categories: [general, web]
+              brave_category: search
               disabled: false
 
             - name: startpage
@@ -538,6 +593,19 @@ app-template:
               shortcut: toot
               categories: ["social media"]
               disabled: false
+            
+            ####### MISC ENGINES ########
+            - name: minecraft wiki
+              engine: mediawiki
+              shortcut: mcw
+              categories: ["software wikis"]
+              base_url: https://minecraft.wiki/
+              api_path: "api.php"
+              search_type: text
+              disabled: true
+              about:
+                website: https://minecraft.wiki/
+                wikidata_id: Q105533483
 
 
           # Basic bot-detection knobs; tailor pass/block lists for cluster ranges
@@ -578,6 +646,7 @@ app-template:
             formatters:
               simple:
                 format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
     limiter:
       enabled: true
       data:
