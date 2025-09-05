@@ -1,0 +1,58 @@
+# Use defaults and override only what's needed
+use_default_settings: true
+server:
+  bind_address: 0.0.0.0
+  port: 8080
+  base_url: "https://searxng.eaglepass.io"
+ui:
+  # Minimal UI options; adjust theme if desired
+  default_theme: simple
+  static_use_hash: true
+
+search:
+  # Ensure JSON is allowed for API clients like Open WebUI
+  formats:
+    - html
+    - json
+  # Language and safe search defaults
+  safe_search: 1
+  language: "en-US"
+
+# Basic bot-detection knobs; tailor pass/block lists for cluster ranges
+botdetection:
+  ip_lists:
+    block_ip: []
+    pass_ip: []
+  link_token: false
+
+# Outgoing network timeouts
+outgoing:
+  request_timeout: 6.0
+  max_redirects: 3
+  pool_connections: 10
+  pool_maxsize: 20
+
+# CORS for API use if accessing directly (ingress usually handles this)
+http:
+  method: GET
+  headers:
+    Access-Control-Allow-Origin: "*"
+    Access-Control-Allow-Methods: "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers: "Content-Type, X-Requested-With"
+
+# Logging verbosity
+logging:
+  version: 1
+  disable_existing_loggers: false
+  root:
+    level: INFO
+    handlers: [console]
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: simple
+      stream: ext://sys.stdout
+  formatters:
+    simple:
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
