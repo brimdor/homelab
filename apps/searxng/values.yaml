@@ -131,18 +131,18 @@ app-template:
         main:
           main:
             - path: /etc/searxng
-    config:
-      enabled: true
-      type: configMap
-      name: searxng-config
-      items:
-        - key: settings.yml
-          path: settings.yml
-      advancedMounts:
-        main:
-          main:
-            - path: /etc/searxng/settings.yml
-              subPath: settings.yml
+    # config:
+    #   enabled: true
+    #   type: configMap
+    #   name: searxng-config
+    #   items:
+    #     - key: settings.yml
+    #       path: settings.yml
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /etc/searxng/settings.yml
+    #           subPath: settings.yml
     limiter:
       enabled: true
       type: configMap
@@ -177,6 +177,7 @@ app-template:
             bind_address: 0.0.0.0
             port: 8080
             base_url: "https://searxng.eaglepass.io"
+
           ui:
             # Minimal UI options; adjust theme if desired
             default_theme: simple
@@ -217,11 +218,10 @@ app-template:
               categories: [general]
               disabled: false
 
-            - name: brave
-              engine: brave
-              shortcut: br
+            - name: mojeek
+              engine: mojeek
+              shortcut: mjk
               categories: [general, web]
-              brave_category: search
               disabled: false
 
             - name: startpage
