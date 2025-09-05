@@ -242,10 +242,6 @@ app-template:
             searx.plugins.tracker_url_remover.SXNGPlugin:
               active: true
 
-
-          valkey:
-            url: valkey://redis.searxng.svc.cluster.local:6379/0
-
           default_categories:
             - general
             - images
