@@ -6,7 +6,7 @@ local-ai:
   deployment:
     image:
       repository: quay.io/go-skynet/local-ai
-      tag: master-aio-gpu-nvidia-cuda-12
+      tag: master-gpu-nvidia-cuda-12
     pullPolicy: IfNotPresent
 
     # Env variables mapped from docker run example
