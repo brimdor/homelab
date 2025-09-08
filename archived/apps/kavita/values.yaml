@@ -11,7 +11,7 @@ app-template:
             tag: latest
             pullPolicy: IfNotPresent
           env:
-            PUID: "1000"
+            PUID: "99"
             PGID: "1000"
             TZ: "America/Chicago"
             # Secret driven env examples (1Password operator fills secret keys)
@@ -47,12 +47,6 @@ app-template:
             startup:
               enabled: false
           resources: {}
-      pod:
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          fsGroup: 1000
-          fsGroupChangePolicy: OnRootMismatch
     backup:
       containers:
         backup:
@@ -89,11 +83,7 @@ app-template:
             restartPolicy: OnFailure
   service:
     main:
-      controller: main
       primary: true
-      enabled: true
-      type: ClusterIP
-      annotations: {}
       ports:
         http:
           port: 5000
@@ -102,16 +92,20 @@ app-template:
     main:
       enabled: true
       className: nginx
-      annotations: {}
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: kavita.eaglepass.io
+        - host: &host kavita.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
                 name: main
                 port: http
-      tls: []
+      tls:
+        - hosts:
+            - *host
+          secretName: kavita-tls-certificate
   persistence:
     data:
       accessMode: ReadWriteOnce
@@ -143,10 +137,10 @@ app-template:
         backup:
           backup:
             - path: /backup
-  defaultPodOptions:
-    securityContext:
-      runAsNonRoot: true
-      readOnlyRootFilesystem: false
+  # defaultPodOptions:
+  #   securityContext:
+  #     runAsNonRoot: true
+  #     readOnlyRootFilesystem: false
 
 # # Optional config map for non-sensitive configuration
 # config:
