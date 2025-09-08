@@ -12,7 +12,7 @@ app-template:
             pullPolicy: IfNotPresent
           env:
             PUID: "99"
-            PGID: "1000"
+            PGID: "100"
             TZ: "America/Chicago"
             # Secret driven env examples (1Password operator fills secret keys)
             # KAVITA_ADMIN_PASSWORD:
