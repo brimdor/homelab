@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "kavita-values",
+  "type": "object",
+  "properties": {
+    "app-template": {
+      "type": "object"
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "configMap": {
+        "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "data": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        },
+        "extraEnv": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "value"],
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": "string" }
+            }
+          }
+        },
+        "extraEnvFrom": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "secretEnv": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "key"],
+        "properties": {
+          "name": { "type": "string" },
+          "key": { "type": "string" }
+        }
+      }
+    },
+    "backups": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "schedule": { "type": "string" },
+        "retentionDays": { "type": "integer", "minimum": 1 },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": { "type": "string" }
+          }
+        },
+        "nfs": {
+          "type": "object",
+          "properties": {
+            "server": { "type": "string" },
+            "path": { "type": "string" },
+            "mountPath": { "type": "string" }
+          },
+          "required": ["server", "path", "mountPath"]
+        },
+        "resources": { "type": "object" },
+        "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+        "failedJobsHistoryLimit": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": { "type": "string" }
+      }
+    },
+    "strategy": { "type": "object" }
+  }
+}

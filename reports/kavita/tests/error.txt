@@ -1,0 +1,1 @@
+Dependency app-template failed to unpack or is empty; helm template produced no manifests. Need to verify network or repository configuration. (Automated note)

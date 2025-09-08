@@ -38,9 +38,9 @@ LiveKit:
 DeepCode:
   Documentation:
     - https://github.com/HKUDS/DeepCode/tree/docker
-Searxng:
+Kavita:
   Documentation:
-    - https://github.com/searxng/searxng-helm-chart
-    - https://charts.searxng.org/index.yaml
-  Chart Files:
-    - apps/searxng
+    - https://kavitareader.com
+    - https://github.com/Kareadita/Kavita
+      - https://github.com/Kareadita/Kavita/blob/develop/Dockerfile
+    - https://hub.docker.com/r/linuxserver/kavita
