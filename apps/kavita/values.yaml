@@ -149,42 +149,42 @@ app-template:
       runAsNonRoot: true
       readOnlyRootFilesystem: false
 
-# Optional config map for non-sensitive configuration
-config:
-  configMap:
-    enabled: false
-    data: {}
-  extraEnv: [] # list of { name: "" , value: "" }
-  extraEnvFrom: [] # raw entries appended as is
+# # Optional config map for non-sensitive configuration
+# config:
+#   configMap:
+#     enabled: false
+#     data: {}
+#   extraEnv: [] # list of { name: "" , value: "" }
+#   extraEnvFrom: [] # raw entries appended as is
 
-# Map environment variables to secret keys from the 1Password-managed secret named 'secrets'
-# Each item: { name: APP_ENV_VAR_NAME, key: lowercase-hyphen-key }
-secretEnv: []  # (informational only; secrets mapped directly in env above)
+# # Map environment variables to secret keys from the 1Password-managed secret named 'secrets'
+# # Each item: { name: APP_ENV_VAR_NAME, key: lowercase-hyphen-key }
+# secretEnv: []  # (informational only; secrets mapped directly in env above)
 
-# Backups CronJob configuration
-backups:
-  retentionDays: 7
+# # Backups CronJob configuration
+# backups:
+#   retentionDays: 7
 
-serviceAccount:
-  create: false
-  name: ""
-  annotations: {}
+# serviceAccount:
+#   create: false
+#   name: ""
+#   annotations: {}
 
-logging:
-  level: ""
+# logging:
+#   level: ""
 
-# Allow user overrides of pod/container security contexts
-podSecurityContext: {}
-containerSecurityContext: {}
+# # Allow user overrides of pod/container security contexts
+# podSecurityContext: {}
+# containerSecurityContext: {}
 
-nodeSelector: {}
-tolerations: []
-affinity: {}
-priorityClassName: ""
-schedulerName: ""
+# nodeSelector: {}
+# tolerations: []
+# affinity: {}
+# priorityClassName: ""
+# schedulerName: ""
 
-# Additional strategy override (top-level convenience) - kept for compatibility
-strategy: {}
+# # Additional strategy override (top-level convenience) - kept for compatibility
+# strategy: {}
 
 # Extra resources (Secret placeholder with 1Password annotations only)
 # extraResources:
