@@ -82,11 +82,7 @@ ollama:
       #  - mistral
       pull:
         - gpt-oss:20b
-        - mistral:7b
         - mxbai-embed-large:latest
-        - clore/gpt-oss-20b-Q8_0:latest
-        - huihui_ai/gpt-oss-abliterated:20b
-        - devstral:24b
 
       # -- List of models to load in memory at container startup
       # run:
