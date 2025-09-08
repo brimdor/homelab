@@ -2,7 +2,6 @@
 # Reference: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 
 app-template:
-  enabled: true
   controllers:
     main:
       containers:
