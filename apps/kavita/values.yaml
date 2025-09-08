@@ -47,40 +47,40 @@ app-template:
             startup:
               enabled: false
           resources: {}
-    backup:
-      containers:
-        backup:
-          type: cronjob
-          schedule: "*/15 * * * *"
-          containers:
-            backup:
-              image:
-                repository: alpine
-                tag: latest
-                pullPolicy: IfNotPresent
-              env:
-                RETENTION_DAYS: "{{ .Values.backups.retentionDays }}"
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -euo pipefail
-                  TS=$(date +%Y%m%d-%H%M%S)
-                  BACKUP_DIR="/backup"
-                  RETENTION_DAYS="${RETENTION_DAYS:-7}"
-                  CFG_ARCHIVE="$BACKUP_DIR/kavita-config-$TS.tar.gz"
-                  echo "[INFO] Archiving /config to $CFG_ARCHIVE"; tar -czf "$CFG_ARCHIVE" -C /config .
-                  if [ -d /data ]; then
-                    DATA_ARCHIVE="$BACKUP_DIR/kavita-data-$TS.tar.gz"
-                    echo "[INFO] Archiving /data to $DATA_ARCHIVE"; tar -czf "$DATA_ARCHIVE" -C /data .
-                  else
-                    echo "[WARN] /data not mounted; skipping data archive"
-                  fi
-                  echo "[INFO] Pruning older than ${RETENTION_DAYS} days"
-                  find "$BACKUP_DIR" -type f \( -name 'kavita-config-*.tar.gz' -o -name 'kavita-data-*.tar.gz' \) -mtime +${RETENTION_DAYS} -print -delete
-                  echo "[INFO] Backup cycle complete"
-          pod:
-            restartPolicy: OnFailure
+    # backup:
+    #   containers:
+    #     backup:
+    #       type: cronjob
+    #       schedule: "*/15 * * * *"
+    #       containers:
+    #         backup:
+    #           image:
+    #             repository: alpine
+    #             tag: latest
+    #             pullPolicy: IfNotPresent
+    #           env:
+    #             RETENTION_DAYS: "{{ .Values.backups.retentionDays }}"
+    #           command:
+    #             - /bin/sh
+    #             - -c
+    #             - |
+    #               set -euo pipefail
+    #               TS=$(date +%Y%m%d-%H%M%S)
+    #               BACKUP_DIR="/backup"
+    #               RETENTION_DAYS="${RETENTION_DAYS:-7}"
+    #               CFG_ARCHIVE="$BACKUP_DIR/kavita-config-$TS.tar.gz"
+    #               echo "[INFO] Archiving /config to $CFG_ARCHIVE"; tar -czf "$CFG_ARCHIVE" -C /config .
+    #               if [ -d /data ]; then
+    #                 DATA_ARCHIVE="$BACKUP_DIR/kavita-data-$TS.tar.gz"
+    #                 echo "[INFO] Archiving /data to $DATA_ARCHIVE"; tar -czf "$DATA_ARCHIVE" -C /data .
+    #               else
+    #                 echo "[WARN] /data not mounted; skipping data archive"
+    #               fi
+    #               echo "[INFO] Pruning older than ${RETENTION_DAYS} days"
+    #               find "$BACKUP_DIR" -type f \( -name 'kavita-config-*.tar.gz' -o -name 'kavita-data-*.tar.gz' \) -mtime +${RETENTION_DAYS} -print -delete
+    #               echo "[INFO] Backup cycle complete"
+    #       pod:
+    #         restartPolicy: OnFailure
   service:
     main:
       primary: true
@@ -115,9 +115,9 @@ app-template:
         main:
           main:
             - path: /config
-        backup:
-          backup:
-            - path: /config
+        # backup:
+        #   backup:
+        #     - path: /config
     library:
       accessMode: ReadWriteOnce
       size: 100Gi
@@ -126,17 +126,17 @@ app-template:
         main:
           main:
             - path: /data
-        backup:
-          backup:
-            - path: /data
-    backup-target:
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/kavita_backups
-      advancedMounts:
-        backup:
-          backup:
-            - path: /backup
+        # backup:
+        #   backup:
+        #     - path: /data
+    # backup-target:
+    #   type: nfs
+    #   server: 10.0.50.3
+    #   path: /mnt/user/kavita_backups
+    #   advancedMounts:
+    #     backup:
+    #       backup:
+    #         - path: /backup
   # defaultPodOptions:
   #   securityContext:
   #     runAsNonRoot: true
