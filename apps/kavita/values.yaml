@@ -1,0 +1,198 @@
+# values.yaml for Kavita Helm chart using bjw-s common chart
+# Reference: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+
+app-template:
+  enabled: true
+  controllers:
+    main:
+      replicas: 1
+      strategy: {}
+      containers:
+        main:
+          image:
+            repository: linuxserver/kavita
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            PUID: "1000"
+            PGID: "1000"
+            TZ: "America/Chicago"
+            # Secret driven env examples (1Password operator fills secret keys)
+            # KAVITA_ADMIN_PASSWORD:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: admin-password
+            # KAVITA_API_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: api-key
+          probes:
+            liveness:
+              enabled: true
+              custom: false
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: false
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 15
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources: {}
+      pod:
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+    backup:
+      type: cronjob
+      schedule: "*/15 * * * *"
+      containers:
+        backup:
+          image:
+            repository: alpine
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            RETENTION_DAYS: "{{ .Values.backups.retentionDays }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              TS=$(date +%Y%m%d-%H%M%S)
+              BACKUP_DIR="/backup"
+              RETENTION_DAYS="${RETENTION_DAYS:-7}"
+              CFG_ARCHIVE="$BACKUP_DIR/kavita-config-$TS.tar.gz"
+              echo "[INFO] Archiving /config to $CFG_ARCHIVE"; tar -czf "$CFG_ARCHIVE" -C /config .
+              if [ -d /data ]; then
+                DATA_ARCHIVE="$BACKUP_DIR/kavita-data-$TS.tar.gz"
+                echo "[INFO] Archiving /data to $DATA_ARCHIVE"; tar -czf "$DATA_ARCHIVE" -C /data .
+              else
+                echo "[WARN] /data not mounted; skipping data archive"
+              fi
+              echo "[INFO] Pruning older than ${RETENTION_DAYS} days"
+              find "$BACKUP_DIR" -type f \( -name 'kavita-config-*.tar.gz' -o -name 'kavita-data-*.tar.gz' \) -mtime +${RETENTION_DAYS} -print -delete
+              echo "[INFO] Backup cycle complete"
+      pod:
+        restartPolicy: OnFailure
+  service:
+    main:
+      controller: main
+      primary: true
+      enabled: true
+      type: ClusterIP
+      annotations: {}
+      ports:
+        http:
+          port: 5000
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations: {}
+      hosts:
+        - host: kavita.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls: []
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      retain: true
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+        backup:
+          backup:
+            - path: /config
+    library:
+      accessMode: ReadWriteOnce
+      size: 100Gi
+      retain: true
+      advancedMounts:
+        main:
+          main:
+            - path: /data
+        backup:
+          backup:
+            - path: /data
+    backup-target:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/kavita_backups
+      advancedMounts:
+        backup:
+          backup:
+            - path: /backup
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: false
+
+# Optional config map for non-sensitive configuration
+config:
+  configMap:
+    enabled: false
+    data: {}
+  extraEnv: [] # list of { name: "" , value: "" }
+  extraEnvFrom: [] # raw entries appended as is
+
+# Map environment variables to secret keys from the 1Password-managed secret named 'secrets'
+# Each item: { name: APP_ENV_VAR_NAME, key: lowercase-hyphen-key }
+secretEnv: []  # (informational only; secrets mapped directly in env above)
+
+# Backups CronJob configuration
+backups:
+  retentionDays: 7
+
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+logging:
+  level: ""
+
+# Allow user overrides of pod/container security contexts
+podSecurityContext: {}
+containerSecurityContext: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+priorityClassName: ""
+schedulerName: ""
+
+# Additional strategy override (top-level convenience) - kept for compatibility
+strategy: {}
+
+# Extra resources (Secret placeholder with 1Password annotations only)
+# extraResources:
+#   - apiVersion: v1
+#     kind: Secret
+#     metadata:
+#       name: secrets
+#       annotations:
+#         operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+#         operator.1password.io/item-name: "secrets"
+#     type: Opaque
