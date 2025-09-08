@@ -7,57 +7,53 @@ app-template:
     main:
       containers:
         main:
-          replicas: 1
-          strategy: {}
-          containers:
-            main:
-              image:
-                repository: lscr.io/linuxserver/kavita
-                tag: latest
-                pullPolicy: IfNotPresent
-              env:
-                PUID: "1000"
-                PGID: "1000"
-                TZ: "America/Chicago"
-                # Secret driven env examples (1Password operator fills secret keys)
-                # KAVITA_ADMIN_PASSWORD:
-                #   valueFrom:
-                #     secretKeyRef:
-                #       name: secrets
-                #       key: admin-password
-                # KAVITA_API_KEY:
-                #   valueFrom:
-                #     secretKeyRef:
-                #       name: secrets
-                #       key: api-key
-              probes:
-                liveness:
-                  enabled: true
-                  custom: false
-                  spec:
-                    httpGet:
-                      path: /
-                      port: http
-                    initialDelaySeconds: 30
-                    periodSeconds: 10
-                readiness:
-                  enabled: true
-                  custom: false
-                  spec:
-                    httpGet:
-                      path: /
-                      port: http
-                    initialDelaySeconds: 15
-                    periodSeconds: 10
-                startup:
-                  enabled: false
-              resources: {}
-          pod:
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
-              fsGroup: 1000
-              fsGroupChangePolicy: OnRootMismatch
+          image:
+            repository: lscr.io/linuxserver/kavita
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            PUID: "1000"
+            PGID: "1000"
+            TZ: "America/Chicago"
+            # Secret driven env examples (1Password operator fills secret keys)
+            # KAVITA_ADMIN_PASSWORD:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: admin-password
+            # KAVITA_API_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: api-key
+          probes:
+            liveness:
+              enabled: true
+              custom: false
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: false
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 15
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources: {}
+      pod:
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
     backup:
       containers:
         backup:
