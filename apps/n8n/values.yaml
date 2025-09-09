@@ -10,6 +10,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+            N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
             # n8n database configuration (PostgreSQL)
             DB_TYPE: "postgresdb"
             N8N_PORT: "5678"
