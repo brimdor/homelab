@@ -312,6 +312,14 @@ app-template:
             - path: /mnt/backup
           db-restore:
             - path: /mnt/backup
+    ebooks:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/ebooks
+      advancedMounts:
+        main:
+          main:
+            - path: /nfs/ebooks
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
