@@ -181,6 +181,19 @@ Plan/Instructions Authoring Checklist (to be followed when generating the Plan/I
     - Describe how to rely on 1Password Operator via annotations and/or OnePasswordItem to populate a Kubernetes Secret, and how workloads will reference it via valueFrom.secretKeyRef.
     - Include the exact annotation keys and example formats.
     - Instruct the creation of tools/<app-name>-op-create.sh based on tools/example-op-create.sh, noting 1Password item category “Database” and key naming conventions.
+    - Instruct making the new <app-name>-op-create.sh executable.
+    - Instruct using the output of the <app-name>-op-create.sh script to add the vault and item ids to the annotations in the values.yaml.
+      - Example output from the <app-name>-op-create.sh script:
+        ```
+        {
+        "id": "<item-id>>",
+        "title": "<App-name> Secrets",
+        "version": 1,
+        "vault": {
+          "id": "<vault-id>",
+          "name": "Server"
+        }
+        ```
   - For Ingress:
     - Use networking.k8s.io/v1 and values-driven host rules for eaglepass.io; ensure annotations and TLS can be set from values.yaml per modern patterns.
   - For Backups:

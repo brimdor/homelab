@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "app-template": {
+      "type": "object",
+      "properties": {
+        "controllers": {"type": "object"},
+        "service": {"type": "object"},
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "type": "object",
+              "properties": {
+                "hosts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?\\.)+[a-z]{2,}$"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "persistence": {"type": "object"},
+        "configMaps": {"type": "object"}
+      }
+    },
+    "backups": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean", "default": false},
+        "schedule": {
+          "type": "string",
+          "description": "Cron expression (@yearly etc.) or standard 5-field cron allowing ranges, lists, steps (e.g. */15 * * * * )",
+          "pattern": "^(@(yearly|annually|monthly|weekly|daily|hourly|reboot)|([\\*/0-9,-]+\\s+){4}[\\*/0-9,-]+)$",
+          "default": "*/15 * * * *"
+        },
+        "retentionDays": {"type": "integer", "minimum": 1, "default": 7},
+        "nfs": {
+          "type": "object",
+          "properties": {
+            "server": {"type": "string", "default": "10.0.50.3"},
+            "path": {"type": "string", "default": "/export/path/elysia"}
+          },
+          "required": ["server", "path"]
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {"type": "string"},
+            "tag": {"type": "string"},
+            "pullPolicy": {"type": "string"}
+          },
+          "required": ["repository", "tag"]
+        },
+        "resources": {"type": "object"},
+        "successfulJobsHistoryLimit": {"type": "integer", "minimum": 0},
+        "failedJobsHistoryLimit": {"type": "integer", "minimum": 0}
+      },
+      "required": ["enabled", "schedule", "retentionDays"]
+    },
+    "extraResources": {
+      "type": "array",
+      "items": {"type": "object"}
+    }
+  }
+}

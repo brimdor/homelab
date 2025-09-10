@@ -1,0 +1,10 @@
+==> Linting apps/elysia
+[INFO] Chart.yaml: icon is recommended
+[ERROR] values.yaml: - at '/backups/schedule': '*/15 * * * *' does not match pattern '^(@(yearly|annually|monthly|weekly|daily|hourly|reboot)|((\\*|([0-5]?\\d))(\\s+(\\*|([01]?\\d|2[0-3]))){1}(\\s+(\\*|([1-9]|[12]\\d|3[01]))){1}(\\s+(\\*|(1[0-2]|0?[1-9]))){1}(\\s+(\\*|([0-6]))){1}))$'
+
+[ERROR] templates/: values don't meet the specifications of the schema(s) in the following chart(s):
+elysia:
+- at '/backups/schedule': '*/15 * * * *' does not match pattern '^(@(yearly|annually|monthly|weekly|daily|hourly|reboot)|((\\*|([0-5]?\\d))(\\s+(\\*|([01]?\\d|2[0-3]))){1}(\\s+(\\*|([1-9]|[12]\\d|3[01]))){1}(\\s+(\\*|(1[0-2]|0?[1-9]))){1}(\\s+(\\*|([0-6]))){1}))$'
+
+[WARNING] /home/coder/homelab/apps/elysia: chart directory is missing these dependencies: app-template
+

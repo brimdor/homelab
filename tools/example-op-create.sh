@@ -52,9 +52,9 @@ JSON
 
 # Create or update the 1Password item named 'secrets' in the 'Server' vault
 if op item get --vault "Server" "$title" >/dev/null 2>&1; then
-  echo "$payload" | op item edit --vault "Server" "$title" --format=json >/dev/null
+  echo "$payload" | op item edit --vault "Server" "$title" --format=json
   echo "'$title' updated in 1Password vault 'Server'."
 else
-  echo "$payload" | op item create --vault "Server" --category "Database" --format=json >/dev/null
+  echo "$payload" | op item create --vault "Server" --category "Database" --format=json
   echo "1Password item '$title' created in vault 'Server'."
 fi

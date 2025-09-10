@@ -121,16 +121,13 @@ app-template:
         #   backup:
         #     - path: /config
     library:
-      accessMode: ReadWriteOnce
-      size: 100Gi
-      retain: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/ebooks
       advancedMounts:
         main:
           main:
-            - path: /data
-        # backup:
-        #   backup:
-        #     - path: /data
+            - path: /nfs/library
     # backup-target:
     #   type: nfs
     #   server: 10.0.50.3
