@@ -1,0 +1,155 @@
+# values.yaml for Elysia Helm chart using bjw-s app-template
+# Documentation: https://elysia.weaviate.io
+# Upstream Repo: https://github.com/weaviate/elysia
+# This chart follows patterns from other charts in this repository (e.g., kavita, searxng)
+
+app-template:
+  controllers:
+    main:
+      annotations: {}
+      containers:
+        main:
+          image:
+            repository: ghcr.io/weaviate/elysia
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            # Example non-sensitive vars
+            # LOG_LEVEL: info
+            # API_BASE_URL: "https://elysia.eaglepass.io"
+            # Secret driven env examples (1Password operator fills secret keys)
+            # API_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: api-key
+            # WEAVIATE_ENDPOINT:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: weaviate-endpoint
+            # OLLAMA_URL:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: ollama-url
+          probes:
+            liveness:
+              enabled: true
+              custom: false
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: false
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 15
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits: {}
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile:
+            type: RuntimeDefault
+        labels: {}
+        annotations: {}
+  service:
+    main:
+      primary: true
+      enabled: true
+      type: ClusterIP
+      annotations: {}
+      ports:
+        http:
+          port: 8080
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host elysia.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: elysia-tls-certificate
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      storageClass: ""
+      existingClaim: ""
+      advancedMounts:
+        main:
+          main:
+            - path: /data
+  configMaps:
+    app-config:
+      enabled: false
+      data: {}
+  # Backup CronJob (disabled by default) implemented via a controller when enabled
+  # Pattern uses an additional controller named backup if needed; alternative cronjob raw resource can be added later.
+# backups configuration (informational for now, CronJob implemented via rawResources or future extension)
+backups:
+  enabled: false
+  schedule: "*/15 * * * *"
+  retentionDays: 7
+  nfs:
+    server: 10.0.50.3
+    path: /export/path/elysia
+  image:
+    repository: alpine
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources: {}
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+
+# Secret placeholder resource (1Password Operator will populate the real data)
+extraResources:
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: secrets
+      annotations:
+        operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+        operator.1password.io/item-name: "secrets"
+    type: Opaque
+
+# Node scheduling (override as needed)
+# defaultPodOptions:
+#   nodeSelector: {}
+#   tolerations: []
+#   affinity: {}
+
+# Additional configuration convenience (commented examples)
+# secretEnv: []  # list of mappings for documentation only

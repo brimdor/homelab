@@ -1,0 +1,8 @@
+apiVersion: v2
+name: elysia
+version: 0.1.0
+description: A Helm chart for deploying Elysia using bjw-s app-template
+dependencies:
+  - name: app-template
+    version: 2.6.0
+    repository: https://bjw-s-labs.github.io/helm-charts

@@ -1,0 +1,1 @@
+Elysia chart: uses bjw-s app-template. Most resources are generated from values.yaml; no bespoke templates besides optional backups CronJob when enabled.

@@ -1,0 +1,7 @@
+2025-09-09T00:00:00Z Initialized Elysia chart scaffold (Chart.yaml, values.yaml, README.md, preliminary schema)
+2025-09-09T00:05:00Z Completed values.schema.json with validation patterns
+2025-09-09T00:06:00Z Added 1Password helper script tools/elysia-op-create.sh
+2025-09-09T00:15:00Z Ran helm lint (noted schedule regex mismatch and missing dependency)
+2025-09-09T00:16:00Z Ran helm template (empty due to dependency not fetched / no templates besides backups)
+2025-09-09T00:25:00Z Removed failing backups-cronjob template pending dependency resolution; backups logic remains in values/backups section
+2025-09-09T00:32:00Z Re-added backups CronJob template (still lint parse issues with Helm YAML) and relaxed cron schedule regex pattern
