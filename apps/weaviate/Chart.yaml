@@ -1,0 +1,12 @@
+apiVersion: v2
+name: weaviate
+description: Parent chart that wraps the upstream Weaviate Helm chart as a sub-chart
+type: application
+version: 0.1.0
+appVersion: "latest"
+dependencies:
+  - name: weaviate
+    # Use upstream maintained Weaviate chart as a sub-chart
+    # Pin or range-select a version; Argo CD/helm will resolve the latest matching.
+    version: ">= 1.0.0"
+    repository: https://weaviate.github.io/weaviate-helm
