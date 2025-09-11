@@ -1,15 +1,1 @@
-{{- if and (hasKey .Values "weaviate") (hasKey .Values.weaviate "storage") (eq (default "" .Values.weaviate.storage.fullnameOverride) "data") }}
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data
-spec:
-  accessModes:
-    - ReadWriteOnce
-  {{- if .Values.weaviate.storage.storageClassName }}
-  storageClassName: {{ .Values.weaviate.storage.storageClassName | quote }}
-  {{- end }}
-  resources:
-    requests:
-      storage: {{ default "32Gi" .Values.weaviate.storage.size | quote }}
-{{- end }}
+{{/* deprecated placeholder removed intentionally */}}
