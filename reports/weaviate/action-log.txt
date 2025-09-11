@@ -2,3 +2,5 @@
 2025-09-10T00:05:00Z Added values.yaml with image configuration, service/ingress defaults, persistence, backups, and 1Password secret annotations placeholder.
 2025-09-10T00:10:00Z Added templates: secret placeholder, PVC 'data', and backup CronJob to NFS.
 2025-09-10T00:12:00Z Added tools/weaviate-op-create.sh script for 1Password Operator integration.
+2025-09-10T16:55:00Z Fixed Secret annotations indentation; re-rendered Helm templates; added values.schema.json; parameterized backup PVC name.
+2025-09-10T17:05:00Z Removed duplicate PVC/placeholder templates; relying on upstream sub-chart resources. Cleaned values and schema accordingly.

@@ -3,72 +3,47 @@
 # Upstream sub-chart values are nested under the dependency name 'weaviate'
 weaviate:
   image:
-    repository: cr.weaviate.io/semitechnologies/weaviate
+    registry: cr.weaviate.io
+    repo: semitechnologies/weaviate
     tag: "latest"
     pullPolicy: IfNotPresent
-  imagePullSecrets: []
+    pullSecrets: []
 
-  # Environment variables (non-sensitive here). Sensitive like ROOT_PASSWORD must be set via secretKeyRef.
+  # Non-sensitive environment variables
   env:
-    - name: QUERY_DEFAULTS_LIMIT
-      value: "25"
-    - name: AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED
-      value: "true"
-    - name: PERSISTENCE_DATA_PATH
-      value: "/var/lib/weaviate/data"
-    - name: ROOT_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: secrets
-          key: ROOT_PASSWORD
-    # Example sensitive env (commented): provided via secretKeyRef below
-    # - name: ROOT_PASSWORD
-    #   valueFrom:
-    #     secretKeyRef:
-    #       name: secrets
-    #       key: ROOT_PASSWORD
+    QUERY_MAXIMUM_RESULTS: 100000
+    PROMETHEUS_MONITORING_ENABLED: "false"
 
-  # Service configuration (internal access)
+  # Map env vars to a Kubernetes Secret name (the key must match the env var name)
+  envSecrets:
+    ROOT_PASSWORD: secrets
+
+  # Internal service configuration
   service:
-    enabled: true
+    name: weaviate
     type: ClusterIP
-    annotations: {}
     ports:
       - name: http
-        port: 8080
-        targetPort: 8080
         protocol: TCP
-      - name: grpc
-        port: 50051
-        targetPort: 50051
-        protocol: TCP
-
-  # Ingress (external access)
-  ingress:
-    enabled: false
-    className: nginx
+        port: 80
     annotations: {}
-    hosts:
-      - host: weaviate.eaglepass.io
-        paths:
-          - path: /
-            pathType: Prefix
-    tls: []
-    # tls:
-    #   - secretName: weaviate-tls-certificate
-    #     hosts:
-    #       - weaviate.eaglepass.io
 
-  # Persistence for Weaviate data
-  persistence:
+  # Upstream chart storage configuration
+  storage:
+    size: 32Gi
+    storageClassName: ""
+  # Note: upstream chart manages its own StatefulSet volumeClaimTemplates (name: weaviate-data).
+  # We rely on that PVC and target it in backups via backups.pvcName.
+
+  # gRPC service for internal access
+  grpcService:
     enabled: true
-    data:
-      # Use existingClaim if provided, otherwise create
-      existingClaim: ""
-      storageClass: ""
-      accessModes: ["ReadWriteOnce"]
-      size: 20Gi
-      # PVC name should resolve to 'data' (upstream chart uses its own naming; we also create a PVC named 'data' below for backups)
+    type: ClusterIP
+    ports:
+      - name: grpc
+        protocol: TCP
+        port: 50051
+    annotations: {}
 
   resources: {}
   nodeSelector: {}
@@ -78,16 +53,38 @@ weaviate:
 # 1Password Operator secret annotations configuration
 secret:
   # Set after running tools/weaviate-op-create.sh
-  itemPath: "vaults/<vault-id>/items/<item-id>"
+  itemPath: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/xe4jnzi46s7xonfwgsvkyuvapa"
 
 # Backups CronJob settings (backs up the 'data' PVC to NFS)
 backups:
   enabled: true
   schedule: "*/15 * * * *"
   retentionDays: 7
+  pvcName: "weaviate-data-weaviate-0"
   nfs:
     server: "10.0.50.3"
-    path: "/mnt/user/weaviate_backups" # placeholder, customize in your environment
+    path: "/path/to/backups/weaviate" # placeholder, customize in your environment
   labels: {}
   annotations: {}
   podResources: {}
+
+# Wrapper chart-managed Ingress (preferred)
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    # external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+    # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: weaviate.eaglepass.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: weaviate-tls-certificate
+      hosts:
+        - weaviate.eaglepass.io
+  # Service backend settings for this Ingress
+  serviceName: weaviate
+  servicePort: http
