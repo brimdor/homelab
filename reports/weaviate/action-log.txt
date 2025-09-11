@@ -10,3 +10,5 @@
 2025-09-11T15:40:00Z Validated values.yaml structure against schema; backups CronJob template reviewed.
 2025-09-11T15:41:00Z Neutralized deprecated templates with comment stubs; confirmed no references remain.
 2025-09-11T15:42:00Z Ready for deployment: secret annotations, backups, ingress scaffolding complete.
+2025-09-11T15:50:00Z Investigated missing ROOT_PASSWORD key in rendered Secret; confirmed secret template only supplies annotations and expects 1Password Operator to populate data.
+2025-09-11T15:55:00Z Updated secret.yaml item-name to match 1Password title; added optional keys support and set keys=[ROOT_PASSWORD].

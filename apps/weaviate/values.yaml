@@ -54,6 +54,9 @@ weaviate:
 secret:
   # Set after running tools/weaviate-op-create.sh
   itemPath: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/xe4jnzi46s7xonfwgsvkyuvapa"
+  # Optional: restrict operator to only these keys
+  keys:
+    - ROOT_PASSWORD
 
 # Backups CronJob settings (backs up the 'data' PVC to NFS)
 backups:

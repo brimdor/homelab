@@ -34,7 +34,8 @@
     "secret": {
       "type": "object",
       "properties": {
-        "itemPath": { "type": "string", "pattern": "^vaults/.+/items/.+" }
+  "itemPath": { "type": "string", "pattern": "^vaults/.+/items/.+" },
+  "keys": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["itemPath"],
       "additionalProperties": false
