@@ -23,11 +23,7 @@ app-template:
             #     secretKeyRef:
             #       name: secrets
             #       key: api-key
-            # WEAVIATE_ENDPOINT:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: secrets
-            #       key: weaviate-endpoint
+            # WEAVIATE_ENDPOINT: "http://weaviate.weaviate.svc.cluster.local:80"
             # OLLAMA_URL:
             #   valueFrom:
             #     secretKeyRef:
