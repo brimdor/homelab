@@ -11,6 +11,7 @@ VAULT_NAME="Server"
 # Ensure required fields (lowercase hyphenated)
 FIELDS=(
   "root-password"
+  "ROOT_PASSWORD"
 )
 
 echo "[INFO] Ensuring 1Password item '$ITEM_TITLE' exists in vault '$VAULT_NAME' with fields: ${FIELDS[*]}" 1>&2

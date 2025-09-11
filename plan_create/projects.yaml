@@ -38,9 +38,8 @@ LiveKit:
 DeepCode:
   Documentation:
     - https://github.com/HKUDS/DeepCode/tree/docker
-Kavita:
+OpenCode:
   Documentation:
-    - https://kavitareader.com
-    - https://github.com/Kareadita/Kavita
-      - https://github.com/Kareadita/Kavita/blob/develop/Dockerfile
-    - https://hub.docker.com/r/linuxserver/kavita
+    - https://github.com/sst/opencode
+    - https://opencode.ai
+    - 

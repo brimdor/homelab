@@ -44,7 +44,7 @@ spec:
           volumes:
             - name: data
               persistentVolumeClaim:
-                claimName: data
+                claimName: {{ .Values.backups.pvcName | default "data" | quote }}
             - name: nfs
               nfs:
                 server: {{ .Values.backups.nfs.server | quote }}

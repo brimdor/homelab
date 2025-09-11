@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaviate wrapper values schema",
+  "type": "object",
+  "properties": {
+    "weaviate": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "object",
+          "properties": {
+            "registry": { "type": "string" },
+            "repo": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "env": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean"] } },
+        "envSecrets": { "type": "object", "additionalProperties": { "type": "string" } },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "size": { "type": ["string", "number"] },
+            "storageClassName": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "service": { "type": "object" },
+        "grpcService": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "secret": {
+      "type": "object",
+      "properties": {
+        "itemPath": { "type": "string", "pattern": "^vaults/.+/items/.+" }
+      },
+      "required": ["itemPath"],
+      "additionalProperties": false
+    },
+    "backups": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "schedule": { "type": "string" },
+        "retentionDays": { "type": "integer", "minimum": 1 },
+        "pvcName": { "type": "string" },
+        "nfs": {
+          "type": "object",
+          "properties": {
+            "server": { "type": "string" },
+            "path": { "type": "string" }
+          },
+          "required": ["server", "path"],
+          "additionalProperties": false
+        },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "podResources": { "type": "object" }
+      },
+      "required": ["enabled", "schedule", "retentionDays", "nfs"],
+      "additionalProperties": false
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": { "type": "string" },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": { "type": "string" },
+                    "pathType": { "type": "string" }
+                  },
+                  "required": ["path"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["host", "paths"],
+            "additionalProperties": false
+          }
+        },
+        "tls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "secretName": { "type": "string" },
+              "hosts": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["secretName", "hosts"],
+            "additionalProperties": false
+          }
+        },
+        "serviceName": { "type": "string" },
+        "servicePort": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
