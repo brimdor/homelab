@@ -6,3 +6,4 @@
 2025-09-09T00:25:00Z Removed failing backups-cronjob template pending dependency resolution; backups logic remains in values/backups section
 2025-09-09T00:32:00Z Re-added backups CronJob template (still lint parse issues with Helm YAML) and relaxed cron schedule regex pattern
 2025-09-11T00:00:00Z Fixed duplicate CronJob and templating for PVC claimName in templates/backups-cronjob.yaml; removed duplicate block and converted claimName to safe templated expression.
+2025-09-11T00:05:00Z Added Dockerfile at apps/elysia/Dockerfile to build Elysia via `pip install` from GitHub (default ref: main). Created non-root user and exposed port 8080.
