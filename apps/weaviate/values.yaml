@@ -53,7 +53,7 @@ weaviate:
 # 1Password Operator secret annotations configuration
 secret:
   # Set after running tools/weaviate-op-create.sh
-  itemPath: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/xe4jnzi46s7xonfwgsvkyuvapa"
+  itemPath: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4uaua4a45yuhnwhehp5bwylmti"
 
 # Backups CronJob settings (backs up the 'data' PVC to NFS)
 backups:
