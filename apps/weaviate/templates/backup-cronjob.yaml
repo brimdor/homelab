@@ -1,0 +1,52 @@
+{{- if .Values.backups.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weaviate-backup
+  {{- with .Values.backups.annotations }}
+  annotations:
+{{ toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backups.labels }}
+  labels:
+{{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  schedule: {{ .Values.backups.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: alpine:3.20
+              {{- with .Values.backups.podResources }}
+              resources:
+{{ toYaml . | nindent 16 }}
+              {{- end }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  ts=$(date -u +%Y%m%dT%H%M%SZ)
+                  dest="/nfs/weaviate-${ts}.tar.gz"
+                  echo "[backup] Archiving /data to $dest"
+                  tar -czf "$dest" -C / data
+                  echo "[backup] Removing files older than {{ .Values.backups.retentionDays }} days"
+                  find /nfs -type f -name 'weaviate-*.tar.gz' -mtime +{{ .Values.backups.retentionDays }} -delete
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: nfs
+                  mountPath: /nfs
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: data
+            - name: nfs
+              nfs:
+                server: {{ .Values.backups.nfs.server | quote }}
+                path: {{ .Values.backups.nfs.path | quote }}
+{{- end }}
