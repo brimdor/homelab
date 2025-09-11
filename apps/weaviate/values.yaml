@@ -63,7 +63,7 @@ backups:
   pvcName: "weaviate-data-weaviate-0"
   nfs:
     server: "10.0.50.3"
-    path: "/path/to/backups/weaviate" # placeholder, customize in your environment
+    path: "/mnt/user/weaviate_backups"
   labels: {}
   annotations: {}
   podResources: {}

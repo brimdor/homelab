@@ -4,3 +4,9 @@
 2025-09-10T00:12:00Z Added tools/weaviate-op-create.sh script for 1Password Operator integration.
 2025-09-10T16:55:00Z Fixed Secret annotations indentation; re-rendered Helm templates; added values.schema.json; parameterized backup PVC name.
 2025-09-10T17:05:00Z Removed duplicate PVC/placeholder templates; relying on upstream sub-chart resources. Cleaned values and schema accordingly.
+2025-09-11T15:04:00Z Adjusted secret.yaml indentation and removed unused pvc/secret-placeholder templates; pending correct nested annotations rendering.
+2025-09-11T15:30:00Z Fixed Secret annotations indentation; verified Helm render shows nested annotations.
+2025-09-11T15:32:00Z Removed deprecated templates (secret-placeholder.yaml, pvc.yaml) to prevent confusion; upstream chart handles PVC.
+2025-09-11T15:40:00Z Validated values.yaml structure against schema; backups CronJob template reviewed.
+2025-09-11T15:41:00Z Neutralized deprecated templates with comment stubs; confirmed no references remain.
+2025-09-11T15:42:00Z Ready for deployment: secret annotations, backups, ingress scaffolding complete.
