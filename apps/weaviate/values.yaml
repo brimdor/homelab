@@ -16,7 +16,7 @@ weaviate:
 
   # Map env vars to a Kubernetes Secret name (the key must match the env var name)
   envSecrets:
-    ROOT_PASSWORD:
+    ROOT_PASSWORD: ROOT_PASSWORD
       
 
   # Internal service configuration
