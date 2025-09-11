@@ -1,0 +1,4 @@
+2025-09-10T00:00:00Z Created Weaviate sub-chart skeleton with upstream dependency.
+2025-09-10T00:05:00Z Added values.yaml with image configuration, service/ingress defaults, persistence, backups, and 1Password secret annotations placeholder.
+2025-09-10T00:10:00Z Added templates: secret placeholder, PVC 'data', and backup CronJob to NFS.
+2025-09-10T00:12:00Z Added tools/weaviate-op-create.sh script for 1Password Operator integration.
