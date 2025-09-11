@@ -12,3 +12,4 @@
 2025-09-11T15:42:00Z Ready for deployment: secret annotations, backups, ingress scaffolding complete.
 2025-09-11T15:50:00Z Investigated missing ROOT_PASSWORD key in rendered Secret; confirmed secret template only supplies annotations and expects 1Password Operator to populate data.
 2025-09-11T15:55:00Z Updated secret.yaml item-name to match 1Password title; added optional keys support and set keys=[ROOT_PASSWORD].
+2025-09-11T16:05:00Z Simplified secret.yaml to only item-path annotation; removed item-name/keys due to schema indentation issues during apply.
