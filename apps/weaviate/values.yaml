@@ -16,7 +16,8 @@ weaviate:
 
   # Map env vars to a Kubernetes Secret name (the key must match the env var name)
   envSecrets:
-    ROOT_PASSWORD: secrets
+    ROOT_PASSWORD:
+      
 
   # Internal service configuration
   service:
@@ -51,12 +52,11 @@ weaviate:
   affinity: {}
 
 # 1Password Operator secret annotations configuration
-secret:
-  # Set after running tools/weaviate-op-create.sh
-  itemPath: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/xe4jnzi46s7xonfwgsvkyuvapa"
-  # Optional: restrict operator to only these keys
-  keys:
-    - ROOT_PASSWORD
+opSecret:
+  ROOT_PASSWORD:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "xe4jnzi46s7xonfwgsvkyuvapa"
+    secretName: "root-password"
 
 # Backups CronJob settings (backs up the 'data' PVC to NFS)
 backups:
