@@ -36,5 +36,6 @@ EXPOSE 8080
 USER ${USER}
 
 # Assumption: elysia provides a CLI entrypoint `elysia` or an ASGI app callable. Use `elysia` CLI if present.
-# Default command tries `elysia` executable. If that's different, override CMD when running or edit accordingly.
-CMD ["elysia start"]
+# Default command runs the `elysia` CLI with `start` subcommand.
+# Use exec form so the command and its args are separate tokens.
+CMD ["elysia", "start"]
