@@ -11,7 +11,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             TUNNEL_NAME: &host "secret-tunnel"
-            PROVIDER: "github"
+            PROVIDER: "microsoft"
             GITHUB_USERNAME: "brimdor"
             GITHUB_EMAIL: "chrisnelsonx@gmail.com"
             DOCKER_HOST: "ssh://root@10.0.50.3"
