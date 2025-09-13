@@ -56,6 +56,53 @@ open-webui:
       stringData:
         webui-secret-key: "placeholder"
         openai-api-key: "placeholder"
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mcpo
+        labels:
+          app.kubernetes.io/name: mcpo
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: mcpo
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: mcpo
+          spec:
+            containers:
+              - name: mcpo
+                image: ghcr.io/open-webui/mcpo:latest
+                imagePullPolicy: IfNotPresent
+                args:
+                  - "--host=0.0.0.0"
+                  - "--port=8081"
+                  - "--"
+                  - "uvx"
+                  - "mcp-server-time"   # replace with the MCP server to proxy
+                ports:
+                  - name: http
+                    containerPort: 8081
+                env:
+                  - name: LOG_LEVEL
+                    value: info
+                resources: {}
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: mcpo
+        labels:
+          app.kubernetes.io/name: mcpo
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: mcpo
+        ports:
+          - name: http
+            port: 8081
+            targetPort: 8081
   image:
     repository: ghcr.io/open-webui/open-webui
     tag: "latest"
