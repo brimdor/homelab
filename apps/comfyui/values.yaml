@@ -10,7 +10,7 @@ app-template:
           image:
             repository: brimdor/comfyui
             tag: cuda
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: "America/Chicago"
             NVIDIA_VISIBLE_DEVICES: "all"
