@@ -9,7 +9,7 @@ app-template:
           name: main
           image:
             repository: ghcr.io/ai-dock/comfyui
-            tag: latest-cuda
+            tag: v2-cuda-12.1.1-base-22.04-v0.2.7
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
