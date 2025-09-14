@@ -66,7 +66,6 @@ open-webui:
       stringData:
         webui-secret-key: "placeholder"
         openai-api-key: "placeholder"
-        # New mcpo API key placeholder; actual value is managed by 1Password Operator
         mcpo-api-key: "placeholder"
     # mcpo Service (internal)
     - apiVersion: v1
@@ -99,9 +98,36 @@ open-webui:
           metadata:
             labels:
               app.kubernetes.io/name: mcpo
+            annotations:
+              operator.1password.io/auto-restart: "true"
           spec:
             securityContext:
               runAsNonRoot: false
+            initContainers:
+              - name: wait-mcpo-secret
+                image: busybox:1.36
+                command: ["/bin/sh","-c"]
+                args:
+                  - |
+                    set -eu
+                    FILE=/var/secret/mcpo-api-key
+                    # If the file is missing, it may be created shortly after pod start
+                    for i in $(seq 1 120); do
+                      if [ -f "$FILE" ]; then
+                        VAL=$(cat "$FILE")
+                        if [ -n "$VAL" ] && [ "$VAL" != "placeholder" ]; then
+                          echo "mcpo-api-key populated"; exit 0
+                        fi
+                        echo "waiting for mcpo-api-key to be populated..."
+                      else
+                        echo "waiting for secret volume..."
+                      fi
+                      sleep 5
+                    done
+                    echo "mcpo-api-key was not populated in time" >&2; exit 1
+                volumeMounts:
+                  - name: mcpo-secret
+                    mountPath: /var/secret
             containers:
               - name: mcpo
                 image: ghcr.io/open-webui/mcpo:main
@@ -148,6 +174,13 @@ open-webui:
             volumes:
               - name: mcpo-config
                 emptyDir: {}
+              - name: mcpo-secret
+                secret:
+                  secretName: secrets
+                  optional: true
+                  items:
+                    - key: mcpo-api-key
+                      path: mcpo-api-key
   image:
     repository: ghcr.io/open-webui/open-webui
     tag: "latest"
