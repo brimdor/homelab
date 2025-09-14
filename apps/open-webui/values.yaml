@@ -105,6 +105,7 @@ open-webui:
           spec:
             securityContext:
               runAsNonRoot: false
+            shareProcessNamespace: true
             initContainers:
               - name: wait-mcpo-secret
                 image: busybox:1.36
@@ -170,6 +171,13 @@ open-webui:
                     value: "30s" # polling interval
                   - name: GITSYNC_ONE_TIME
                     value: "false"
+                  # run this hook after a successful sync so mcpo is signaled to reload
+                  - name: GITSYNC_EXECHOOK_COMMAND
+                    value: "kill -HUP 1"
+                  - name: GITSYNC_EXECHOOK_TIMEOUT
+                    value: "5s"
+                  - name: GITSYNC_EXECHOOK_BACKOFF
+                    value: "3s"
                 volumeMounts:
                   - name: mcpo-config
                     mountPath: /config
