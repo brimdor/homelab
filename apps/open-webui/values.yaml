@@ -169,8 +169,10 @@ open-webui:
                   - name: GITSYNC_HTTP_BIND
                     value: ":9090"
                   # Optional auth for private repos
-                  # Use bearer token sourced from 1Password (Secret/secrets key mcpo-git-sync-auth)
-                  - name: GITSYNC_BEARER_TOKEN
+                  # Use basic auth with PAT (GitHub): username x-access-token + PAT as password from 1Password
+                  - name: GITSYNC_USERNAME
+                    value: "x-access-token"
+                  - name: GITSYNC_PASSWORD
                     valueFrom:
                       secretKeyRef:
                         name: secrets
