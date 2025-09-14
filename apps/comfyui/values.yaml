@@ -8,24 +8,13 @@ app-template:
         main:
           name: main
           image:
-            repository: ghcr.io/ai-dock/comfyui
-            tag: v2-cuda-12.1.1-base-22.04-v0.2.7
+            repository: brimdor/comfyui
+            tag: cuda
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
-            SERVICEPORTAL_URL: ""
-            CF_QUICK_TUNNELS: "false"
-            WEB_ENABLE_HTTPS: "false"
-            COMFYUI_URL: "https://comfyui.eaglepass.io"
-            COMFYUI_PORT_HOST: "8188"
-            WEB_ENABLE_AUTH: "false"
-            SERVERLESS: "true"
-            SYNCTHING_UI_PORT_HOST: "0"
-            SYNCTHING_TRANSPORT_PORT_HOST: "0"
-            SYNCTHING_URL: ""
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
-            FFMPEG_HWACCEL: "cuda"
           securityContext:
             readOnlyRootFilesystem: false
             allowPrivilegeEscalation: false
@@ -36,6 +25,7 @@ app-template:
             limits:
               cpu: 1200m
               memory: 6144Mi
+              nvidia.com/gpu: 1
           probes:
             liveness:
               enabled: true
@@ -61,9 +51,6 @@ app-template:
         http:
           port: 8188
           protocol: HTTP
-        portal:
-          port: 1111
-          protocol: HTTP
   ingress:
     main:
       enabled: true
@@ -87,17 +74,23 @@ app-template:
       accessMode: ReadWriteOnce
       size: 60Gi
       globalMounts:
-        - path: /comfyui/models
+        - path: /app/models
     input:
       accessMode: ReadWriteOnce
       size: 20Gi
       globalMounts:
-        - path: /comfyui/input
+        - path: /app/input
     output:
       accessMode: ReadWriteOnce
       size: 20Gi
       globalMounts:
-        - path: /comfyui/output
+        - path: /app/output
+    venv-cache:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      globalMounts:
+        - path: /opt/venv
   defaultPodOptions:
     tolerations:
       - key: "dedicated"
