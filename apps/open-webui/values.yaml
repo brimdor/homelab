@@ -171,7 +171,7 @@ open-webui:
                   # Optional auth for private repos
                   # Use basic auth with PAT (GitHub): username x-access-token + PAT as password from 1Password
                   - name: GITSYNC_USERNAME
-                    value: "x-access-token"
+                    value: "brimdor"
                   - name: GITSYNC_PASSWORD
                     valueFrom:
                       secretKeyRef:
