@@ -39,6 +39,13 @@ open-webui:
         secretKeyRef:
           name: secrets
           key: openai-api-key
+    - name: GITSYNC_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: secrets
+          key: mcpo-git-sync-auth
+          optional: true
+    
     # New environment variables for RAG and Audio STT engines
     - name: RAG_EMBEDDING_ENGINE
       value: "ollama"
