@@ -44,7 +44,6 @@ open-webui:
         secretKeyRef:
           name: secrets
           key: mcpo-git-sync-auth
-          optional: true
     
     # New environment variables for RAG and Audio STT engines
     - name: RAG_EMBEDDING_ENGINE
