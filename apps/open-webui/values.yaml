@@ -58,256 +58,88 @@ open-webui:
       stringData:
         webui-secret-key: "placeholder"
         openai-api-key: "placeholder"
-    # - apiVersion: v1
-    #   kind: ConfigMap
-    #   metadata:
-    #     name: mcpo-sync-scripts
-    #   data:
-    #     gen-config.py: |
-    #       import json
-    #       import os
-    #       import time
-    #       from pathlib import Path
-
-    #       REPO_LINK = os.getenv("REPO_LINK", "/git/repo")
-    #       SERVERS_DIR = os.getenv("SERVERS_DIR", "servers")
-    #       OUT = os.getenv("OUT", "/config/config.json")
-    #       WATCH = os.getenv("WATCH", "false").lower() == "true"
-
-    #       def build_config():
-    #         base = Path(REPO_LINK) / SERVERS_DIR
-    #         mcp_servers = {}
-    #         if base.exists():
-    #           for d in sorted(base.iterdir()):
-    #             if d.is_dir():
-    #               server_json = d / "server.json"
-    #               if server_json.exists():
-    #                 try:
-    #                   with server_json.open() as f:
-    #                     data = json.load(f)
-    #                   name = data.get("name") or d.name
-    #                   # Remove name from config if present; MCPO expects server config under the key
-    #                   if "name" in data:
-    #                     data = {k: v for k, v in data.items() if k != "name"}
-    #                   mcp_servers[name] = data
-    #                 except Exception as e:
-    #                   print(f"Failed to parse {server_json}: {e}")
-    #         cfg = {"mcpServers": mcp_servers}
-    #         Path(OUT).parent.mkdir(parents=True, exist_ok=True)
-    #         with open(OUT, "w") as f:
-    #           json.dump(cfg, f, indent=2)
-    #         print(f"Wrote config with {len(mcp_servers)} servers to {OUT}")
-
-    #       if __name__ == "__main__":
-    #         if WATCH:
-    #           last = None
-    #           while True:
-    #             try:
-    #               snap = None
-    #               base = Path(REPO_LINK) / SERVERS_DIR
-    #               if base.exists():
-    #                 snap = tuple(sorted(p.stat().st_mtime for p in base.rglob("*")))
-    #               if snap != last:
-    #                 build_config()
-    #                 last = snap
-    #             except Exception as e:
-    #               print(f"Error while generating config: {e}")
-    #             time.sleep(5)
-    #         else:
-    #           build_config()
-    # - apiVersion: apps/v1
-    #   kind: Deployment
-    #   metadata:
-    #     name: mcpo
-    #     labels:
-    #       app.kubernetes.io/name: mcpo
-    #   spec:
-    #     replicas: 1
-    #     selector:
-    #       matchLabels:
-    #         app.kubernetes.io/name: mcpo
-    #     template:
-    #       metadata:
-    #         labels:
-    #           app.kubernetes.io/name: mcpo
-    #       spec:
-    #         volumes:
-    #           - name: git-data
-    #             emptyDir: {}
-    #           - name: mcpo-config
-    #             emptyDir: {}
-    #           - name: mcpo-scripts
-    #             configMap:
-    #               name: mcpo-sync-scripts
-    #               defaultMode: 0755
-    #           - name: git-sync-ssh
-    #             secret:
-    #               secretName: secrets
-    #               optional: true
-    #               items:
-    #                 - key: ssh_private_key
-    #                   path: ssh_private_key
-    #                 - key: ssh_known_hosts
-    #                   path: known_hosts
-    #         initContainers:
-    #           - name: wait-git-secret
-    #             image: busybox:1.36
-    #             command: ["/bin/sh","-c"]
-    #             args:
-    #               - >
-    #                 # If no password file is present, assume public repo and continue
-    #                 if [ ! -e /etc/git-secret/password ]; then exit 0; fi;
-    #                 # If present and non-empty, continue
-    #                 if [ -s /etc/git-secret/password ]; then exit 0; fi;
-    #                 # Otherwise, wait briefly for 1Password to populate it
-    #                 for i in $(seq 1 60); do
-    #                   if [ -s /etc/git-secret/password ]; then exit 0; fi;
-    #                   echo "waiting for git secret..."; sleep 2;
-    #                 done;
-    #                 echo "git secret not found or empty"; exit 1
-    #             volumeMounts:
-    #               - name: git-sync-ssh
-    #                 mountPath: /etc/git-secret
-    #                 readOnly: true
-    #         containers:
-    #           # 1) git-sync: pull the servers repo into /git/repo
-    #           - name: git-sync
-    #             image: registry.k8s.io/git-sync/git-sync:v4.5.0
-    #             imagePullPolicy: IfNotPresent
-    #             env:
-    #               - name: GITSYNC_REPO
-    #                 valueFrom:
-    #                   secretKeyRef:
-    #                     name: secrets
-    #                     key: mcpo-git-sync-repo
-    #                     optional: true
-    #               - name: GITSYNC_REF
-    #                 value: "main"
-    #               - name: GITSYNC_ROOT
-    #                 value: "/git"
-    #               - name: GITSYNC_LINK
-    #                 value: "repo"
-    #               - name: GITSYNC_PERIOD
-    #                 value: "30s"
-    #               - name: GITSYNC_HTTP_BIND
-    #                 value: ":9090"
-    #               # Optional: enable SSH by setting this secret key to "true" and using an SSH repo URL
-    #               - name: GITSYNC_SSH
-    #                 valueFrom:
-    #                   secretKeyRef:
-    #                     name: secrets
-    #                     key: mcpo-git-sync-ssh-enable
-    #                     optional: true
-    #             command: ["/bin/sh","-c"]
-    #             args:
-    #               - |
-    #                 set -e
-    #                 REPO="${GITSYNC_REPO:-https://github.com/ACME/my-mcp-servers.git}"
-    #                 # Detect auth method: SSH, HTTPS with PAT, or public
-    #                 if [ "${GITSYNC_SSH}" = "true" ]; then
-    #                   exec /git-sync \
-    #                     --repo="${REPO}" \
-    #                     --ref="${GITSYNC_REF}" \
-    #                     --root="${GITSYNC_ROOT}" \
-    #                     --link="${GITSYNC_LINK}" \
-    #                     --period="${GITSYNC_PERIOD}" \
-    #                     --http-bind="${GITSYNC_HTTP_BIND}" \
-    #                     --ssh \
-    #                     --ssh-key-file=/etc/git-secret/ssh_private_key \
-    #                     --ssh-known-hosts=true \
-    #                     --ssh-known-hosts-file=/etc/git-secret/known_hosts;
-    #                 elif [ -s /etc/git-secret/password ]; then
-    #                   exec /git-sync \
-    #                     --repo="${REPO}" \
-    #                     --ref="${GITSYNC_REF}" \
-    #                     --root="${GITSYNC_ROOT}" \
-    #                     --link="${GITSYNC_LINK}" \
-    #                     --period="${GITSYNC_PERIOD}" \
-    #                     --http-bind="${GITSYNC_HTTP_BIND}" \
-    #                     --username=x-access-token \
-    #                     --password-file=/etc/git-secret/password;
-    #                 else
-    #                   exec /git-sync \
-    #                     --repo="${REPO}" \
-    #                     --ref="${GITSYNC_REF}" \
-    #                     --root="${GITSYNC_ROOT}" \
-    #                     --link="${GITSYNC_LINK}" \
-    #                     --period="${GITSYNC_PERIOD}" \
-    #                     --http-bind="${GITSYNC_HTTP_BIND}";
-    #                 fi
-    #             volumeMounts:
-    #               - name: git-data
-    #                 mountPath: /git
-    #               - name: git-sync-ssh
-    #                 mountPath: /etc/git-secret
-    #                 readOnly: true
-
-    #           # 2) Config watcher: generates /config/config.json and keeps it up-to-date
-    #           - name: mcpo-config-watcher
-    #             image: python:3.12-alpine
-    #             command: ["sh","-lc"]
-    #             args:
-    #               - >
-    #                 python /opt/mcpo/gen-config.py || true;
-    #                 exec python /opt/mcpo/gen-config.py
-    #             env:
-    #               - name: REPO_LINK
-    #                 value: /git/repo
-    #               - name: SERVERS_DIR
-    #                 value: servers
-    #               - name: OUT
-    #                 value: /config/config.json
-    #               - name: WATCH
-    #                 value: "true"
-    #             volumeMounts:
-    #               - name: git-data
-    #                 mountPath: /git
-    #               - name: mcpo-config
-    #                 mountPath: /config
-    #               - name: mcpo-scripts
-    #                 mountPath: /opt/mcpo
-
-    #           # 3) MCPO server: waits for config then starts
-    #           - name: mcpo
-    #             image: ghcr.io/open-webui/mcpo:latest
-    #             command: ["/bin/sh","-lc"]
-    #             args:
-    #               - >
-    #                 until [ -s /config/config.json ]; do echo "[mcpo] waiting for /config/config.json..."; sleep 2; done;
-    #                 exec mcpo --host=0.0.0.0 --port=8081 --config=/config/config.json --hot-reload
-    #             ports:
-    #               - name: http
-    #                 containerPort: 8081
-    #             env:
-    #               - name: LOG_LEVEL
-    #                 value: info
-    #             readinessProbe:
-    #               exec:
-    #                 command:
-    #                   - /bin/sh
-    #                   - -c
-    #                   - 'test -s /config/config.json'
-    #               initialDelaySeconds: 5
-    #               periodSeconds: 5
-    #               timeoutSeconds: 2
-    #               failureThreshold: 12
-    #             volumeMounts:
-    #               - name: mcpo-config
-    #                 mountPath: /config
-    # - apiVersion: v1
-    #   kind: Service
-    #   metadata:
-    #     name: mcpo
-    #     labels:
-    #       app.kubernetes.io/name: mcpo
-    #   spec:
-    #     type: ClusterIP
-    #     selector:
-    #       app.kubernetes.io/name: mcpo
-    #     ports:
-    #       - name: http
-    #         port: 8081
-    #         targetPort: 8081
+        # New mcpo API key placeholder; actual value is managed by 1Password Operator
+        mcpo-api-key: "placeholder"
+    # mcpo Service (internal)
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: mcpo
+        labels:
+          app.kubernetes.io/name: mcpo
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: mcpo
+        ports:
+          - name: http
+            port: 8081
+            targetPort: 8081
+    # mcpo Deployment with git-sync sidecar for hot-reloading config.json from GitHub
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mcpo
+        labels:
+          app.kubernetes.io/name: mcpo
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: mcpo
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: mcpo
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            containers:
+              - name: mcpo
+                image: ghcr.io/open-webui/mcpo:main
+                imagePullPolicy: Always
+                args:
+                  - "--config"
+                  - "/config/repo/config.json"
+                  - "--host"
+                  - "0.0.0.0"
+                  - "--port"
+                  - "8081"
+                  - "--hot-reload"
+                ports:
+                  - name: http
+                    containerPort: 8081
+                env:
+                  - name: MCPO_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: secrets
+                        key: mcpo-api-key
+                volumeMounts:
+                  - name: mcpo-config
+                    mountPath: /config
+              - name: git-sync
+                image: registry.k8s.io/git-sync/git-sync:v4.0.3
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: GITSYNC_REPO
+                    value: "https://github.com/brimdor/mcp-servers"
+                  - name: GITSYNC_BRANCH
+                    value: "main"
+                  - name: GITSYNC_ROOT
+                    value: "/config"
+                  - name: GITSYNC_DEST
+                    value: "repo"
+                  - name: GITSYNC_WAIT
+                    value: "30" # seconds; adjust as desired
+                  - name: GITSYNC_ONE_TIME
+                    value: "false"
+                volumeMounts:
+                  - name: mcpo-config
+                    mountPath: /config
+            volumes:
+              - name: mcpo-config
+                emptyDir: {}
   image:
     repository: ghcr.io/open-webui/open-webui
     tag: "latest"
