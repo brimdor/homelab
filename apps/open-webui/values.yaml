@@ -99,6 +99,8 @@ open-webui:
             labels:
               app.kubernetes.io/name: mcpo
             annotations:
+              operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+              operator.1password.io/item-name: "secrets"
               operator.1password.io/auto-restart: "true"
           spec:
             securityContext:
