@@ -145,21 +145,26 @@ open-webui:
                       path: ssh_private_key
                     - key: ssh_known_hosts
                       path: known_hosts
-            containers:
-              - name: git-sync
-                image: registry.k8s.io/git-sync/git-sync:v4.5.0
+            initContainers:
+              - name: wait-git-secret
+                image: busybox:1.36
+                command: ["/bin/sh","-c"]
+                args:
+                  - >
+                    # If no password file is present, assume public repo and continue
+                    if [ ! -e /etc/git-secret/password ]; then exit 0; fi;
+                    # If present and non-empty, continue
+                    if [ -s /etc/git-secret/password ]; then exit 0; fi;
+                    # Otherwise, wait briefly for 1Password to populate it
+                    for i in $(seq 1 60); do
+                      if [ -s /etc/git-secret/password ]; then exit 0; fi;
+                      echo "waiting for git secret..."; sleep 2;
+                    done;
+                    echo "git secret not found or empty"; exit 1
                 volumeMounts:
-                  - name: git-data
-                    mountPath: /git
                   - name: git-sync-ssh
                     mountPath: /etc/git-secret
                     readOnly: true
-                env:
-                  # Core git-sync env (replaces args)
-                  - name: GITSYNC_REPO
-                    value: "https://github.com/brimdor/mcp-servers.git"
-                  - name: GITSYNC_REF
-                    value: "main"
                   - name: GITSYNC_ROOT
                     value: "/git"
                   - name: GITSYNC_LINK
@@ -232,6 +237,16 @@ open-webui:
                 env:
                   - name: LOG_LEVEL
                     value: info
+                readinessProbe:
+                  exec:
+                    command:
+                      - /bin/sh
+                      - -c
+                      - 'test -s /config/config.json'
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 2
+                  failureThreshold: 12
                 volumeMounts:
                   - name: mcpo-config
                     mountPath: /config
