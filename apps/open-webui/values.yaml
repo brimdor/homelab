@@ -74,23 +74,76 @@ open-webui:
             labels:
               app.kubernetes.io/name: mcpo
           spec:
+            volumes:
+              - name: git-data
+                emptyDir: {}
+              - name: mcpo-config
+                emptyDir: {}
+              - name: mcpo-scripts
+                configMap:
+                  name: mcpo-sync-scripts
+                  defaultMode: 0755
             containers:
+              - name: git-sync
+                image: registry.k8s.io/git-sync/git-sync:v4.5.0
+                args:
+                  - "--repo=https://github.com/ACME/my-mcp-servers.git"
+                  - "--ref=main"
+                  - "--root=/git"
+                  - "--link=repo"
+                  - "--period=30s"
+                volumeMounts:
+                  - name: git-data
+                    mountPath: /git
+                env:
+                  - name: GITSYNC_HTTP_BIND
+                    value: ":9090"
+              - name: mcpo-config-watcher
+                image: python:3.12-alpine
+                command: ["sh","-lc"]
+                args:
+                  - >
+                    python /opt/mcpo/gen-config.py
+                    || true;
+                    python /opt/mcpo/gen-config.py
+                env:
+                  - name: REPO_LINK
+                    value: /git/repo
+                  - name: SERVERS_DIR
+                    value: servers
+                  - name: OUT
+                    value: /config/config.json
+                  - name: GITHUB_OWNER
+                    value: ACME
+                  - name: GITHUB_REPO
+                    value: my-mcp-servers
+                  - name: GITHUB_REF
+                    value: main
+                  - name: WATCH
+                    value: "true"
+                volumeMounts:
+                  - name: git-data
+                    mountPath: /git
+                  - name: mcpo-config
+                    mountPath: /config
+                  - name: mcpo-scripts
+                    mountPath: /opt/mcpo
               - name: mcpo
                 image: ghcr.io/open-webui/mcpo:latest
-                imagePullPolicy: IfNotPresent
                 args:
                   - "--host=0.0.0.0"
                   - "--port=8081"
-                  - "--"
-                  - "uvx"
-                  - "mcp-server-time"   # replace with the MCP server to proxy
+                  - "--config=/config/config.json"
+                  - "--hot-reload"
                 ports:
                   - name: http
                     containerPort: 8081
                 env:
                   - name: LOG_LEVEL
                     value: info
-                resources: {}
+                volumeMounts:
+                  - name: mcpo-config
+                    mountPath: /config
     - apiVersion: v1
       kind: Service
       metadata:

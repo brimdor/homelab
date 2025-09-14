@@ -85,12 +85,6 @@ app-template:
       size: 20Gi
       globalMounts:
         - path: /app/output
-    venv-cache:
-      enabled: true
-      accessMode: ReadWriteOnce
-      size: 10Gi
-      globalMounts:
-        - path: /opt/venv
   defaultPodOptions:
     tolerations:
       - key: "dedicated"
