@@ -64,6 +64,7 @@ open-webui:
       stringData:
         webui-secret-key: "placeholder"
         openai-api-key: "placeholder"
+        mcpo-git-sync-auth: "placeholder"
     - apiVersion: v1
       kind: ConfigMap
       metadata:
