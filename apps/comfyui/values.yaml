@@ -28,7 +28,7 @@ app-template:
               nvidia.com/gpu: 1
           probes:
             liveness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 httpGet:
@@ -37,7 +37,7 @@ app-template:
                 initialDelaySeconds: 30
                 periodSeconds: 10
             readiness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 httpGet:
@@ -45,6 +45,9 @@ app-template:
                   port: 8188
                 initialDelaySeconds: 10
                 periodSeconds: 10
+            startup:
+              enabled: false
+              custom: true
   service:
     main:
       ports:
