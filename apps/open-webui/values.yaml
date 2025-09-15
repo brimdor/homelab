@@ -173,7 +173,7 @@ open-webui:
                     value: "false"
                   # run this hook after a successful sync so mcpo is signaled to reload
                   - name: GITSYNC_EXECHOOK_COMMAND
-                    value: "kill -HUP 1"
+                    value: "sh -c 'kill -HUP 1'"
                   - name: GITSYNC_EXECHOOK_TIMEOUT
                     value: "5s"
                   - name: GITSYNC_EXECHOOK_BACKOFF
