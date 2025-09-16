@@ -13,21 +13,6 @@ Sim AI:
       - https://github.com/simstudioai/sim/blob/main/helm/sim/templates/deployment-app.yaml
   Chart Files:
     - apps/sim
-Weaviate:
-  Documentation:
-    - https://docs.weaviate.io/academy/deployment/k8s/setup_weaviate
-    - https://docs.weaviate.io/deploy/installation-guides/k8s-installation
-    - https://github.com/weaviate/weaviate-helm
-  Chart Files:
-    - apps/weaviate
-Elysia:
-  Documentation:
-    - https://github.com/weaviate/elysia
-    - https://elysia.weaviate.io
-    - https://weaviate.io/blog/elysia-agentic-rag
-    - https://weaviate.github.io/elysia
-  Chart Files:
-    - apps/elysia
 LiveKit:
   Documentation:
     - https://cloud.livekit.io
@@ -42,4 +27,13 @@ OpenCode:
   Documentation:
     - https://github.com/sst/opencode
     - https://opencode.ai
-    - 
+ByteBot:
+  Documentation:
+    - https://github.com/bytebot-ai/bytebot
+    - https://bytebot.ai
+    - https://docs.bytebot.ai/deployment/helm
+  Chart Files:
+    - Install process with Helm Charts
+      - https://docs.bytebot.ai/deployment/helm
+  Notes:
+    - This definitely has it's own helm charts and helm setup process. Refer to the docs above.
