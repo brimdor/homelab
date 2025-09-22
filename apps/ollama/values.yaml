@@ -12,10 +12,10 @@ ollama:
     repository: ollama/ollama
 
     # -- Docker pull policy
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
 
     # -- Docker image tag, overrides the image tag whose default is the chart appVersion.
-    tag: "0.12.0"
+    tag: "latest"
 
   # -- Docker registry secret names as an array
   imagePullSecrets: []
