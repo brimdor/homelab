@@ -9,7 +9,8 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            NEXT_PUBLIC_API_URL: "https://ollama.eaglepass.io"
+            NEXT_PUBLIC_API_URL: http://ollama.ollama.svc.cluster.local:11434
+            NODE_ENV: production
           probes:
             liveness:
               enabled: false
