@@ -9,10 +9,10 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            TZ: "America/Chicago"
-            NEXT_PUBLIC_API_URL: "http://ollama.ollama.svc.cluster.local:11434"
-            LOG_LEVEL: "debug"
-            DEBUG: "true"
+            # TZ: "America/Chicago"
+            NEXT_PUBLIC_API_URL: "https://ollama.eaglepass.io"
+            # LOG_LEVEL: "debug"
+            # DEBUG: "true"
           probes:
             liveness:
               enabled: false
