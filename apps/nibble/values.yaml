@@ -13,7 +13,6 @@ app-template:
             NEXT_PUBLIC_API_URL: "https://ollama.eaglepass.io"
             LOG_LEVEL: "debug"
             DEBUG: "true"
-            # HOSTNAME: "nibble"
           probes:
             liveness:
               enabled: false
