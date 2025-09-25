@@ -11,6 +11,8 @@ app-template:
           env:
             TZ: "America/Chicago"
             NEXT_PUBLIC_API_URL: "http://ollama.ollama.svc.cluster.local:11434"
+            LOG_LEVEL: "debug"
+            DEBUG: "true"
           probes:
             liveness:
               enabled: false
