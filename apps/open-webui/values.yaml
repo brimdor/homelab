@@ -3,7 +3,7 @@ open-webui:
   ollama:
     enabled: false
   pipelines:
-    enabled: false
+    enabled: true
   resources:
     limits:
       cpu: 2
