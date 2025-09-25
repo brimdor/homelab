@@ -11,6 +11,7 @@ app-template:
           env:
             # TZ: "America/Chicago"
             NEXT_PUBLIC_API_URL: "https://ollama.eaglepass.io"
+            NODE_OPTIONS: "--dns-result-order=ipv4first"
             # LOG_LEVEL: "debug"
             # DEBUG: "true"
           probes:
