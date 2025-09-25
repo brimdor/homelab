@@ -110,7 +110,7 @@ app-template:
     labels: {}
   persistence:
     data:
-      enabled: false
+      enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 5Gi
@@ -121,7 +121,7 @@ app-template:
           main:
             - path: /var/cache/searxng
     etc:
-      enabled: false
+      enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 1Gi
