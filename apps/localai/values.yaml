@@ -5,13 +5,15 @@ local-ai:
   # Deployment image override
   deployment:
     image:
-      repository: quay.io/go-skynet/local-ai
+      # repository: quay.io/go-skynet/local-ai
+      # tag: master-gpu-nvidia-cuda-12
+      repository: localai/localai
       tag: master-gpu-nvidia-cuda-12
     pullPolicy: Always
 
     # Env variables mapped from docker run example
     env:
-      LOCALAI_LOG_LEVEL: "debug"
+      # LOCALAI_LOG_LEVEL: "debug"
       LOCALAI_SINGLE_ACTIVE_BACKEND: "true"
       LOCALAI_PARALLEL_REQUESTS: "false"
       LOCALAI_WATCHDOG_IDLE: "true"
@@ -27,7 +29,7 @@ local-ai:
       LOCAL_AI_MODELS_PATH: "/models"
       LOCALAI_IMAGE_PATH: "/tmp/generated/images"
     # MODELS_PATH is injected automatically by template from modelsPath below
-    BACKENDS_PATH: /backends
+      BACKENDS_PATH: /backends
 
     # Secrets via 1Password operator
     # Add secretEnv items that reference Kubernetes Secrets created by 1Password operator
