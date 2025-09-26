@@ -5,10 +5,10 @@ local-ai:
   # Deployment image override
   deployment:
     image:
-      # repository: quay.io/go-skynet/local-ai
-      # tag: master-gpu-nvidia-cuda-12
-      repository: localai/localai
+      repository: quay.io/go-skynet/local-ai
       tag: master-gpu-nvidia-cuda-12
+      # repository: localai/localai
+      # tag: master-gpu-nvidia-cuda-12
     pullPolicy: Always
 
     # Env variables mapped from docker run example
