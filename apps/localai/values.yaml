@@ -13,7 +13,7 @@ local-ai:
 
     # Env variables mapped from docker run example
     env:
-      # LOCALAI_LOG_LEVEL: "debug"
+      LOCALAI_LOG_LEVEL: "debug"
       LOCALAI_SINGLE_ACTIVE_BACKEND: "true"
       LOCALAI_PARALLEL_REQUESTS: "false"
       LOCALAI_WATCHDOG_IDLE: "true"
