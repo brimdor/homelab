@@ -54,13 +54,13 @@ local-ai:
       enabled: true
       accessModes:
         - ReadWriteOnce
-      size: 100Gi
+      size: 50Gi
       globalMount: /models
     backends:
       enabled: true
       accessModes:
         - ReadWriteOnce
-      size: 100Gi
+      size: 50Gi
       globalMount: /backends
     sec-backends:
       enabled: true
