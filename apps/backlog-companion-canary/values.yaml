@@ -58,6 +58,6 @@ opSecret:
     secretName: "jwt-secret"
     key: "jwt_secret"
 
-# nfs:
-#   server: 10.0.50.3
-#   path: /mnt/user/backlog_companion_database
+nfs:
+  server: 10.0.50.3
+  path: /mnt/user/backlog_companion_database-canary
