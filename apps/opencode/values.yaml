@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-4.2.0/charts/other/app-template/values.schema.json
+
+global:
+  nameOverride: opencode
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    containers:
+       opencode:
+         image:
+           repository: brimdor/opencode-runner
+           tag: latest
+           pullPolicy: Always
+         entrypoint: ["/entrypoint.sh"]
+         ports:
+           api:
+             port: 4096
+           http:
+             port: 7681
+         probes:
+           liveness:
+             enabled: true
+             type: http
+             http:
+               path: /doc
+               port: api
+           readiness:
+             enabled: true
+             type: http
+             http:
+               path: /doc
+               port: api
+         env:
+           TZ: "Etc/UTC"
+         # resources:
+         #   requests:
+         #     cpu: 100m
+         #     memory: 256Mi
+
+service:
+   web:
+     controller: main
+     ports:
+       http:
+         port: 7681
+   api:
+     controller: main
+     ports:
+       api:
+         port: 4096
+
+ingress:
+  web:
+    enabled: true
+    className: nginx          # set to your ingressClass
+    annotations: {}
+     hosts:
+       - host: opencode.eaglepass.io
+         paths:
+           - path: /
+             pathType: Prefix
+             service:
+               identifier: web
+               port: http
+     tls:
+       - hosts: ["opencode.eaglepass.io"]
+         secretName: opencode-web-tls
+  api:
+    enabled: false
+    className: nginx
+    annotations: {}
+     hosts:
+       - host: api.opencode.eaglepass.io
+         paths:
+           - path: /
+             pathType: Prefix
+             service:
+               identifier: api
+               port: api
+     tls:
+       - hosts: ["api.opencode.eaglepass.io"]
+         secretName: opencode-api-tls
+
+persistence:
+  workspace:
+    enabled: true
+    # type: persistentVolumeClaim
+    # size: 20Gi
+    # accessMode: ReadWriteOnce
+    # globalMounts:
+    #   - path: /workspace
+    type: nfs
+    server: 10.0.50.3
+    path: /mnt/user/opencode-brimdor
+    advancedMounts:
+      main:
+        main:
+          - path: /workspace
+  sshconfig:
+    enabled: false
+    type: persistentVolumeClaim
+    size: 1Gi
+    accessMode: ReadWriteOnce
+    globalMounts:
+      - path: /config   # used by linuxserver/openssh-server
+
+# Optional: Pod security context
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    runAsUser: 1000
+    runAsGroup: 1000
