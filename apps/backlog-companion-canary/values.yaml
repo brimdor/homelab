@@ -1,7 +1,8 @@
+# Default values for backlog-companion Helm chart
 image:
-  database: brimdor/backlog_database:alpha-canary
-  backend: brimdor/backlog_backend:alpha-canary
-  frontend: brimdor/backlog_frontend:alpha-canary
+  database: brimdor/backlog_database:canary
+  backend: brimdor/backlog_backend:canary
+  frontend: brimdor/backlog_frontend:canary
 
 ingress:
   enabled: true
@@ -9,7 +10,7 @@ ingress:
   tls:
     - hosts:
         - backlog-canary.eaglepass.io
-      secretName: backlog-canary-companion-tls
+      secretName: backlog-companion-tls
   hosts:
     - host: backlog-canary.eaglepass.io
       paths:
@@ -23,6 +24,7 @@ env:
   DB_HOST: localhost
   DB_PORT: 3306
   VITE_API_BASE_URL: http://localhost:3000
+  ADMIN_MODE: true
 
 opSecret:
   MYSQL_ROOT_PASSWORD:
@@ -56,6 +58,6 @@ opSecret:
     secretName: "jwt-secret"
     key: "jwt_secret"
 
-nfs:
-  server: 10.0.50.3
-  path: /mnt/user/backlog_canary_database
+# nfs:
+#   server: 10.0.50.3
+#   path: /mnt/user/backlog_companion_database

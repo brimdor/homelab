@@ -1,4 +1,4 @@
 apiVersion: v2
-name: backlog-canary
+name: backlog-companion-canary
 version: 0.1.0
 description: A Helm chart for running database, backend, and frontend in a single Pod

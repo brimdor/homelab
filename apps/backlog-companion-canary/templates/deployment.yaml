@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backlog-canary
+  name: backlog-companion
   labels:
-    app: backlog-canary
-    app.kubernetes.io/instance: backlog-canary
-    app.kubernetes.io/name: backlog-canary
+    app: backlog-companion
+    app.kubernetes.io/instance: backlog-companion
+    app.kubernetes.io/name: backlog-companion
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backlog-canary
+      app: backlog-companion
   template:
     metadata:
       labels:
-        app: backlog-canary
-        app.kubernetes.io/instance: backlog-canary
-        app.kubernetes.io/name: backlog-canary
+        app: backlog-companion
+        app.kubernetes.io/instance: backlog-companion
+        app.kubernetes.io/name: backlog-companion
     spec:
       containers:
         - name: database
@@ -45,6 +45,9 @@ spec:
                   key: "{{ .Values.opSecret.MYSQL_PASSWORD.key }}"
           ports:
             - containerPort: 3306
+          volumeMounts:
+            - name: db-nfs
+              mountPath: /var/lib/mysql
           readinessProbe:
             exec:
               command:
@@ -116,3 +119,9 @@ spec:
               port: 80
             initialDelaySeconds: 10
             periodSeconds: 10
+
+      volumes:
+        - name: db-nfs
+          nfs:
+            server: {{ .Values.nfs.server | quote }}
+            path: {{ .Values.nfs.path | quote }}
