@@ -84,7 +84,7 @@ app-template:
           secretName: opencode-api-tls
 
   persistence:
-    workspace:
+    main:
       enabled: true
       type: nfs
       server: 10.0.50.3
