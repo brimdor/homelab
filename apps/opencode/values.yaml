@@ -17,19 +17,19 @@ app-template:
               port: 4096
             http:
               port: 7681
-          probes:
-            liveness:
-              enabled: true
-              type: http
-              http:
-                path: /doc
-                port: api
-            readiness:
-              enabled: true
-              type: http
-              http:
-                path: /doc
-                port: api
+          # probes:
+          #   liveness:
+          #     enabled: true
+          #     type: http
+          #     http:
+          #       path: /doc
+          #       port: api
+          #   readiness:
+          #     enabled: true
+          #     type: http
+          #     http:
+          #       path: /doc
+          #       port: api
           env:
             TZ: "America/Chicago"
           # resources:
