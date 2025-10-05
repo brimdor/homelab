@@ -40,7 +40,7 @@ controllers:
         #     memory: 256Mi
 
 service:
-  web:
+  main:
     controller: main
     ports:
       http:
