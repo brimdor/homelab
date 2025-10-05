@@ -12,10 +12,11 @@ app-template:
             tag: latest
             pullPolicy: Always
           ports:
-            api:
-              port: 4096
-            http:
-              port: 7681
+            # CHANGED: was an object; now list per schema
+            - name: api
+              containerPort: 4096
+            - name: http
+              containerPort: 7681
           # probes:
           #   liveness:
           #     enabled: true
@@ -60,7 +61,7 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                identifier: web
+                identifier: main   # CHANGED: was 'web'
                 port: http
       tls:
         - hosts: ["opencode.eaglepass.io"]
@@ -68,7 +69,7 @@ app-template:
     api:
       enabled: false
       className: nginx
-      annotations: 
+      annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: api.opencode.eaglepass.io
@@ -85,11 +86,6 @@ app-template:
   persistence:
     workspace:
       enabled: true
-      # type: persistentVolumeClaim
-      # size: 20Gi
-      # accessMode: ReadWriteOnce
-      # globalMounts:
-      #   - path: /workspace
       type: nfs
       server: 10.0.50.3
       path: /mnt/user/opencode-brimdor
@@ -103,9 +99,8 @@ app-template:
       size: 1Gi
       accessMode: ReadWriteOnce
       globalMounts:
-        - path: /config   # used by linuxserver/openssh-server
+        - path: /config
 
-  # Optional: Pod security context
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
