@@ -7,39 +7,35 @@ app-template:
     main:
       containers:
         main:
-          type: deployment
-          replicas: 1
-          containers:
-            opencode:
-              image:
-                repository: brimdor/opencode-runner
-                tag: latest
-                pullPolicy: Always
-              entrypoint: ["/entrypoint.sh"]
-              ports:
-                api:
-                  port: 4096
-                http:
-                  port: 7681
-              probes:
-                liveness:
-                  enabled: true
-                  type: http
-                  http:
-                    path: /doc
-                    port: api
-                readiness:
-                  enabled: true
-                  type: http
-                  http:
-                    path: /doc
-                    port: api
-              env:
-                TZ: "America/Chicago"
-              # resources:
-              #   requests:
-              #     cpu: 100m
-              #     memory: 256Mi
+          image:
+            repository: brimdor/opencode-runner
+            tag: latest
+            pullPolicy: Always
+          entrypoint: ["/entrypoint.sh"]
+          ports:
+            api:
+              port: 4096
+            http:
+              port: 7681
+          probes:
+            liveness:
+              enabled: true
+              type: http
+              http:
+                path: /doc
+                port: api
+            readiness:
+              enabled: true
+              type: http
+              http:
+                path: /doc
+                port: api
+          env:
+            TZ: "America/Chicago"
+          # resources:
+          #   requests:
+          #     cpu: 100m
+          #     memory: 256Mi
 
   service:
     main:
