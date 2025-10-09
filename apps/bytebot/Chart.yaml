@@ -1,12 +1,9 @@
 apiVersion: v2
 name: bytebot
-description: A Helm chart to deploy Bytebot in the homelab using the upstream distribution.
-home: https://bytebot.ai/
-sources:
-  - https://github.com/bytebot-ai/bytebot
+description: Bytebot deployment for the homelab using the bjw-s app-template.
 type: application
 version: 0.1.0
 dependencies:
-  - name: bytebot
-    version: ">=0.1.0"
-    repository: https://bytebot-ai.github.io/helm-charts
+  - name: app-template
+    version: 4.2.0
+    repository: https://bjw-s-labs.github.io/helm-charts
