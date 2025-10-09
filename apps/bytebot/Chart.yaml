@@ -1,0 +1,12 @@
+apiVersion: v2
+name: bytebot
+description: A Helm chart to deploy Bytebot in the homelab using the upstream distribution.
+home: https://bytebot.ai/
+sources:
+  - https://github.com/bytebot-ai/bytebot
+type: application
+version: 0.1.0
+dependencies:
+  - name: bytebot
+    version: ">=0.1.0"
+    repository: https://bytebot-ai.github.io/helm-charts

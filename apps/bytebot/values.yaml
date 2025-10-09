@@ -1,0 +1,45 @@
+bytebot:
+  replicaCount: 1
+  image:
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 3000
+  extraEnvVars:
+    - name: NEXTAUTH_URL
+      value: https://bytebot.eaglepass.io
+    - name: BYTEBOT_PUBLIC_URL
+      value: https://bytebot.eaglepass.io
+    - name: BYTEBOT_ENABLE_SIGNUP
+      value: "false"
+    - name: BYTEBOT_LLM_PROVIDER
+      value: ollama
+    - name: OLLAMA_BASE_URL
+      value: http://ollama.ollama.svc.cluster.local:11434
+    - name: BYTEBOT_DEFAULT_MODEL
+      value: gpt-oss:20b
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: &host bytebot.eaglepass.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - *host
+        secretName: bytebot-tls
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
