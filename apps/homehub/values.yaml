@@ -44,6 +44,7 @@ app-template:
   configMaps:
     config:
       enabled: true
+      nameOverride: homehub-config
       data:
         config.yml: |-
           instance_name: "Nelson Home Hub"
@@ -129,14 +130,10 @@ app-template:
       enabled: true
       type: configMap
       name: homehub-config
-      items:
-        - key: config.yml
-          path: config.yml
-      advancedMounts:
-        main:
-          main:
-            - path: /app/config.yml
-              subPath: config.yml
+      readOnly: true
+      globalMounts:
+        - path: /app/config.yml
+          subPath: config.yml
     data:
       enabled: true
       accessMode: ReadWriteOnce
