@@ -68,9 +68,9 @@ app-template:
         - hosts:
             - *host
           secretName: homehub-tls-certificate
-  # defaultPodOptions:
-  #   securityContext:
-  #     runAsNonRoot: true
-  #     runAsUser: 1000
-  #     runAsGroup: 1000
-  #     fsGroup: 1000
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
