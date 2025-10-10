@@ -72,7 +72,30 @@ app-template:
   persistence:
     data:
       enabled: true
-      type: emptyDir
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
+    uploads:
+      enabled: true
+      advancedMounts:
+        main:
+          main:
+            - path: /app/uploads
+    media:
+      enabled: true
+      advancedMounts:
+        main:
+          main:
+            - path: /app/media
+    pdfs:
+      enabled: true
+      advancedMounts:
+        main:
+          main:
+            - path: /app/pdfs
+    data:
+      enabled: true
       advancedMounts:
         main:
           main:
