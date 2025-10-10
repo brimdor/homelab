@@ -128,7 +128,7 @@ app-template:
     config:
       enabled: true
       type: configMap
-      name: homehub-config
+      identifier: config
       globalMounts:
         - path: /app/config.yml
           subPath: config.yml
