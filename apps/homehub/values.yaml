@@ -46,9 +46,9 @@ app-template:
       enabled: true
       data:
         config.yml: |-
-          instance_name: "Nelson Home Hub"
-          password: "1234"
-          admin_name: "Administrator"
+          instance_name: "Nelson Hub"
+          password: "487153"
+          admin_name: "Admin"
           feature_toggles:
             shopping_list: true
             media_downloader: true
@@ -86,16 +86,17 @@ app-template:
                 label: Family
                 color: "#2563eb"
           theme:
-            primary_color: "#1d4ed8"
-            secondary_color: "#a0aec0"
-            background_color: "#f7fafc"
-            card_background_color: "#fff"
-            text_color: "#333"
-            sidebar_background_color: "#2563eb"
-            sidebar_text_color: "#ffffff"
+            primary_color: "#8B5CF6"
+            secondary_color: "#9CA3AF"
+            background_color: "#F3F4F6"
+            card_background_color: "#FFFFFF"
+            text_color: "#1F2937"
+            sidebar_background_color: "#7C3AED"
+            sidebar_text_color: "#FFFFFF"
             sidebar_link_color: "rgba(255,255,255,0.95)"
-            sidebar_link_border_color: "rgba(255,255,255,0.18)"
-            sidebar_active_color: "#3b82f6"
+            sidebar_link_border_color: "rgba(255,255,255,0.20)"
+            sidebar_active_color: "#22C55E"
+
   service:
     main:
       controller: main
