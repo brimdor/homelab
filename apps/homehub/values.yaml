@@ -44,7 +44,6 @@ app-template:
   configMaps:
     config:
       enabled: true
-      name: homehub-config
       data:
         config.yml: |-
           instance_name: "Nelson Home Hub"
