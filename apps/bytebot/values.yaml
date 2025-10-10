@@ -8,8 +8,8 @@ app-template:
       containers:
         main:
           image:
-            repository: docker.io/bytebotai/bytebot
-            tag: latest
+            repository: docker.io/bytebotai/bytebot-ui
+            tag: edge
             pullPolicy: Always
           env:
             NEXTAUTH_URL: https://bytebot.eaglepass.io
@@ -17,7 +17,7 @@ app-template:
             BYTEBOT_ENABLE_SIGNUP: "false"
             BYTEBOT_LLM_PROVIDER: ollama
             OLLAMA_BASE_URL: http://ollama.ollama.svc.cluster.local:11434
-            BYTEBOT_DEFAULT_MODEL: llama3
+            BYTEBOT_DEFAULT_MODEL: gpt-oss:20b
             BYTEBOT_AGENT_URL: http://bytebot-agent.bytebot.svc.cluster.local:7000
             BYTEBOT_DESKTOP_URL: http://bytebot-desktop.bytebot.svc.cluster.local:7681
             DATABASE_URL: postgresql://bytebot:bytebot-dev@bytebot-postgresql.bytebot.svc.cluster.local:5432/bytebot
@@ -38,14 +38,14 @@ app-template:
         agent:
           image:
             repository: ghcr.io/bytebot-ai/bytebot-agent
-            tag: latest
+            tag: edge
             pullPolicy: Always
           env:
             BYTEBOT_AGENT_HOST: 0.0.0.0
             BYTEBOT_AGENT_PORT: "7000"
             BYTEBOT_LLM_PROVIDER: ollama
             OLLAMA_BASE_URL: http://ollama.ollama.svc.cluster.local:11434
-            BYTEBOT_DEFAULT_MODEL: llama3
+            BYTEBOT_DEFAULT_MODEL: gpt-oss:20b
             DATABASE_URL: postgresql://bytebot:bytebot-dev@bytebot-postgresql.bytebot.svc.cluster.local:5432/bytebot
           resources:
             requests:
@@ -64,7 +64,7 @@ app-template:
         desktop:
           image:
             repository: ghcr.io/bytebot-ai/bytebot-desktop
-            tag: latest
+            tag: edge
             pullPolicy: Always
           env:
             BYTEBOT_DESKTOP_HOST: 0.0.0.0
@@ -72,7 +72,7 @@ app-template:
             BYTEBOT_AGENT_URL: http://bytebot-agent.bytebot.svc.cluster.local:7000
             BYTEBOT_LLM_PROVIDER: ollama
             OLLAMA_BASE_URL: http://ollama.ollama.svc.cluster.local:11434
-            BYTEBOT_DEFAULT_MODEL: llama3
+            BYTEBOT_DEFAULT_MODEL: gpt-oss:20b
           resources:
             requests:
               cpu: 250m
@@ -90,8 +90,8 @@ app-template:
       containers:
         postgresql:
           image:
-            repository: docker.io/library/postgres
-            tag: "16"
+            repository: postgres
+            tag: "16-alpine"
             pullPolicy: IfNotPresent
           env:
             POSTGRES_DB: bytebot
