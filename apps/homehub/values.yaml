@@ -125,6 +125,13 @@ app-template:
             - *host
           secretName: homehub-tls-certificate
   persistence:
+    config:
+      enabled: true
+      type: configMap
+      name: homehub-config
+      globalMounts:
+        - path: /app/config.yml
+          subPath: config.yml
     data:
       enabled: true
       accessMode: ReadWriteOnce
