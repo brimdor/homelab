@@ -130,7 +130,6 @@ app-template:
       enabled: true
       type: configMap
       name: homehub-config
-      readOnly: true
       globalMounts:
         - path: /app/config.yml
           subPath: config.yml
