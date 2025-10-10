@@ -37,7 +37,7 @@ app-template:
       containers:
         agent:
           image:
-            repository: docker.io/bytebotai/bytebot-agent
+            repository: ghcr.io/bytebot-ai/bytebot-agent
             tag: latest
             pullPolicy: Always
           env:
@@ -63,7 +63,7 @@ app-template:
       containers:
         desktop:
           image:
-            repository: docker.io/bytebotai/bytebot-desktop
+            repository: ghcr.io/bytebot-ai/bytebot-desktop
             tag: latest
             pullPolicy: Always
           env:
