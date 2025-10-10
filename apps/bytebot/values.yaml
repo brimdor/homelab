@@ -8,7 +8,7 @@ app-template:
       containers:
         main:
           image:
-            repository: docker.io/bytebotai/bytebot-ui
+            repository: ghcr.io/bytebot-ai/bytebot-ui
             tag: edge
             pullPolicy: Always
           env:
