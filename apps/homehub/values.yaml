@@ -9,9 +9,9 @@ app-template:
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
-          envFrom:
-            - secretRef:
-                name: homehub-secrets
+          # envFrom:
+          #   - secretRef:
+          #       name: homehub-secrets
           ports:
             - name: http
               containerPort: 3000
