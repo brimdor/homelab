@@ -1,184 +1,478 @@
-# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/yl6nfhwrz64scr5grkrwuyjwyy"
+      operator.1password.io/item-name: "secrets"
+
   controllers:
     main:
+      type: deployment
+      replicas: 2
+      strategy: RollingUpdate
       containers:
         main:
           image:
             repository: ghcr.io/simstudioai/simstudio
             tag: latest
+            pullPolicy: Always
           env:
-            TZ: "America/Chicago"
-            # Core URLs (override in your values if needed)
-            NEXT_PUBLIC_APP_URL: "https://sim.eaglepass.io"
-            BETTER_AUTH_URL: "https://sim.eaglepass.io"
-            SOCKET_SERVER_URL: "https://sim-ws.eaglepass.io"
-            NEXT_PUBLIC_SOCKET_URL: "https://sim-ws.eaglepass.io"
-            NODE_ENV: "production"
-            NEXT_TELEMETRY_DISABLED: "1"
-            NEXT_PUBLIC_BRAND_NAME: "Sim City"
-            NEXT_PUBLIC_BRAND_LOGO_URL: ""
-            NEXT_PUBLIC_BRAND_FAVICON_URL: ""
-            NEXT_PUBLIC_CUSTOM_CSS_URL: ""
-            NEXT_PUBLIC_SUPPORT_EMAIL: "help@sim.ai"
-            NEXT_PUBLIC_DOCUMENTATION_URL: ""
-            NEXT_PUBLIC_TERMS_URL: ""
-            NEXT_PUBLIC_PRIVACY_URL: ""
-            ALLOWED_LOGIN_EMAILS: ""
-            ALLOWED_LOGIN_DOMAINS: ""
-            OLLAMA_URL: "http://localai-local-ai.localai.svc.cluster.local:8080"
-            BETTER_AUTH_SECRET:
+            - name: TZ
+              value: America/Chicago
+            - name: NODE_ENV
+              value: production
+            - name: NEXT_PUBLIC_APP_URL
+              value: https://sim.eaglepass.io
+            - name: BETTER_AUTH_URL
+              value: https://sim.eaglepass.io
+            - name: SOCKET_SERVER_URL
+              value: http://sim-realtime:3002
+            - name: NEXT_PUBLIC_SOCKET_URL
+              value: https://sim.eaglepass.io/socket
+            - name: BETTER_AUTH_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: "secrets"
-                  key: "better-auth-secret"
-            ENCRYPTION_KEY:
+                  name: secrets
+                  key: better-auth-secret
+            - name: ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
-                  name: "secrets"
-                  key: "encryption-key"
-            # Optional third-party API keys
-    # OPENAI_API_KEY:
-    #   valueFrom:
-    #     secretKeyRef:
-    #       name: "secrets"
-    #       key: "openai-api-key"
-            # ANTHROPIC_API_KEY_1:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "anthropic-api-key-1"
-            # MISTRAL_API_KEY:
-    #   valueFrom:
-    #     secretKeyRef:
-    #       name: "secrets"
-    #       key: "mistral-api-key"
-            # ELEVENLABS_API_KEY:
-    #   valueFrom:
-    #     secretKeyRef:
-    #       name: "secrets"
-    #       key: "elevenlabs-api-key"
-            # External database connection string (via 1Password)
-            DATABASE_URL:
+                  name: secrets
+                  key: encryption-key
+            - name: INTERNAL_API_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: "secrets"
-                  key: "database-url"
-          # resources:
-          #   requests:
-          #     cpu: 500m
-          #     memory: 1024Mi
-          #   limits:
-          #     cpu: 2000m
-          #     memory: 4Gi
+                  name: secrets
+                  key: internal-api-secret
+            - name: API_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: api-encryption-key
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-db
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@sim-postgres.sim.svc.cluster.local:5432/$(POSTGRES_DB)
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: cron-secret
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+            limits:
+              cpu: 2000m
+              memory: 8Gi
           probes:
             liveness:
               enabled: true
-              custom: true
+              type: HTTP
+              port: http
+              path: /
               spec:
-                httpGet:
-                  path: /
-                  port: 3000
-                initialDelaySeconds: 20
+                initialDelaySeconds: 30
                 periodSeconds: 30
             readiness:
               enabled: true
-              custom: true
+              type: HTTP
+              port: http
+              path: /
               spec:
-                httpGet:
-                  path: /
-                  port: 3000
                 initialDelaySeconds: 10
-                periodSeconds: 30
-    # Service ports for main are defined at top-level service.main
+                periodSeconds: 15
+            startup:
+              enabled: true
+              type: HTTP
+              port: http
+              path: /
+              spec:
+                failureThreshold: 30
+                periodSeconds: 10
+
+    postgres:
+      type: statefulset
+      replicas: 1
+      initContainers:
+        fix-perms:
+          image:
+            repository: alpine
+            tag: 3.20
+          securityContext:
+            runAsUser: 999
+            runAsNonRoot: true
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - |
+              set -e
+              mkdir -p /var/lib/postgresql/data/pgdata
+              mkdir -p /var/run/postgresql
+              chmod 775 /var/run/postgresql
+      containers:
+        main:
+          image:
+            repository: pgvector/pgvector
+            tag: pg17
+            pullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            TZ: America/Chicago
+            PGDATA: /var/lib/postgresql/data/pgdata
+            POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-db
+            POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-user
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-password
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          probes:
+            liveness:
+              enabled: true
+              type: TCP
+              port: postgres
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 20
+            readiness:
+              enabled: true
+              type: TCP
+              port: postgres
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+            startup:
+              enabled: true
+              type: TCP
+              port: postgres
+              spec:
+                failureThreshold: 30
+                periodSeconds: 5
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          runAsGroup: 999
+          fsGroup: 999
+          fsGroupChangePolicy: "OnRootMismatch"
+
     realtime:
       type: deployment
+      replicas: 2
+      strategy: RollingUpdate
       containers:
-        realtime:
+        main:
           image:
             repository: ghcr.io/simstudioai/realtime
             tag: latest
+            pullPolicy: Always
           env:
-            TZ: "America/Chicago"
-            NEXT_PUBLIC_APP_URL: "https://sim.eaglepass.io"
-            BETTER_AUTH_URL: "https://sim.eaglepass.io"
-            NEXT_PUBLIC_SOCKET_URL: "https://sim-ws.eaglepass.io"
-            NODE_ENV: "production"
-            BETTER_AUTH_SECRET:
+            - name: TZ
+              value: America/Chicago
+            - name: NODE_ENV
+              value: production
+            - name: NEXT_PUBLIC_APP_URL
+              value: https://sim.eaglepass.io
+            - name: BETTER_AUTH_URL
+              value: https://sim.eaglepass.io
+            - name: BETTER_AUTH_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: "secrets"
-                  key: "better-auth-secret"
-          # resources:
-          #   requests:
-          #     cpu: 250m
-          #     memory: 512Mi
-          #   limits:
-          #     cpu: 1000m
-          #     memory: 2Gi
+                  name: secrets
+                  key: better-auth-secret
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-db
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@sim-postgres.sim.svc.cluster.local:5432/$(POSTGRES_DB)
+          ports:
+            - name: socket
+              containerPort: 3002
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 4Gi
           probes:
             liveness:
               enabled: true
-              custom: true
+              type: HTTP
+              port: socket
+              path: /health
               spec:
-                httpGet:
-                  path: /health
-                  port: 3002
-                initialDelaySeconds: 20
+                initialDelaySeconds: 30
                 periodSeconds: 30
             readiness:
               enabled: true
-              custom: true
+              type: HTTP
+              port: socket
+              path: /health
               spec:
-                httpGet:
-                  path: /health
-                  port: 3002
                 initialDelaySeconds: 10
-                periodSeconds: 30
-    # Service ports for realtime are defined at top-level service.realtime
+                periodSeconds: 15
+            startup:
+              enabled: true
+              type: HTTP
+              port: socket
+              path: /health
+              spec:
+                failureThreshold: 30
+                periodSeconds: 10
+
+    scheduleExecution:
+      type: cronjob
+      cronjob:
+        schedule: "*/1 * * * *"
+        concurrencyPolicy: Forbid
+        successfulJobsHistory: 3
+        failedJobsHistory: 1
+      pod:
+        restartPolicy: OnFailure
+      containers:
+        main:
+          image:
+            repository: curlimages/curl
+            tag: 8.5.0
+            pullPolicy: IfNotPresent
+          env:
+            SERVICE_URL: http://sim-main:3000
+            CRON_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: cron-secret
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - |
+              set -euo pipefail
+              for i in $(seq 1 3); do
+                if curl -fsS --retry 2 --retry-delay 5 --max-time 60 \
+                  -H "Authorization: Bearer ${CRON_SECRET}" \
+                  "${SERVICE_URL}/api/schedules/execute"; then
+                  exit 0
+                fi
+                sleep 10
+              done
+              exit 1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+
+    # gmailWebhookPoll:
+    #   type: cronjob
+    #   cronjob:
+    #     schedule: "*/1 * * * *"
+    #     concurrencyPolicy: Forbid
+    #     successfulJobsHistory: 3
+    #     failedJobsHistory: 1
+    #   pod:
+    #     restartPolicy: OnFailure
+    #   containers:
+    #     main:
+    #       image:
+    #         repository: curlimages/curl
+    #         tag: 8.5.0
+    #         pullPolicy: IfNotPresent
+    #       env:
+    #         SERVICE_URL: http://sim-main:3000
+    #         CRON_SECRET:
+    #           valueFrom:
+    #             secretKeyRef:
+    #               name: secrets
+    #               key: cron-secret
+    #       command:
+    #         - /bin/sh
+    #       args:
+    #         - -c
+    #         - |
+    #           set -euo pipefail
+    #           for i in $(seq 1 3); do
+    #             if curl -fsS --retry 2 --retry-delay 5 --max-time 60 \
+    #               -H "Authorization: Bearer ${CRON_SECRET}" \
+    #               "${SERVICE_URL}/api/webhooks/poll/gmail"; then
+    #               exit 0
+    #             fi
+    #             sleep 10
+    #           done
+    #           exit 1
+    #       resources:
+    #         requests:
+    #           cpu: 50m
+    #           memory: 64Mi
+    #         limits:
+    #           cpu: 100m
+    #           memory: 128Mi
+
+    # outlookWebhookPoll:
+    #   type: cronjob
+    #   cronjob:
+    #     schedule: "*/1 * * * *"
+    #     concurrencyPolicy: Forbid
+    #     successfulJobsHistory: 3
+    #     failedJobsHistory: 1
+    #   pod:
+    #     restartPolicy: OnFailure
+    #   containers:
+    #     main:
+    #       image:
+    #         repository: curlimages/curl
+    #         tag: 8.5.0
+    #         pullPolicy: IfNotPresent
+    #       env:
+    #         SERVICE_URL: http://sim-main:3000
+    #         CRON_SECRET:
+    #           valueFrom:
+    #             secretKeyRef:
+    #               name: secrets
+    #               key: cron-secret
+    #       command:
+    #         - /bin/sh
+    #       args:
+    #         - -c
+    #         - |
+    #           set -euo pipefail
+    #           for i in $(seq 1 3); do
+    #             if curl -fsS --retry 2 --retry-delay 5 --max-time 60 \
+    #               -H "Authorization: Bearer ${CRON_SECRET}" \
+    #               "${SERVICE_URL}/api/webhooks/poll/outlook"; then
+    #               exit 0
+    #             fi
+    #             sleep 10
+    #           done
+    #           exit 1
+    #       resources:
+    #         requests:
+    #           cpu: 50m
+    #           memory: 64Mi
+    #         limits:
+    #           cpu: 100m
+    #           memory: 128Mi
+
   service:
     main:
+      controller: main
+      primary: true
       ports:
         http:
           port: 3000
           protocol: HTTP
+          targetPort: http
     realtime:
       controller: realtime
       ports:
-        ws:
+        socket:
           port: 3002
-          protocol: HTTP
+          protocol: TCP
+          targetPort: socket
+    postgres:
+      controller: postgres
+      ports:
+        postgres:
+          port: 5432
+          protocol: TCP
+          targetPort: postgres
+
   ingress:
     main:
       enabled: true
       className: nginx
       annotations:
-        cert-manager.io/cluster-issuer: letsencrypt-prod
+        cert-manager.io/cluster-issuer: letsencrypt-production
       hosts:
-        - host: &Host sim.eaglepass.io
+        - host: sim.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
                 name: main
-                port: http
-        - host: &WsHost sim-ws.eaglepass.io
-          paths:
-            - path: /
+                port: 3000
+            - path: /socket
               pathType: Prefix
               service:
                 name: realtime
-                port: ws
+                port: 3002
       tls:
         - hosts:
-            - *Host
-            - *WsHost
-          secretName: sim-tls-certificate
-  persistence: {}
-  defaultPodOptions:
-    securityContext:
-      # runAsNonRoot: true
-      fsGroup: 1000
-    annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/foakqd7jlq22quglukjm2k5ddq"
-      operator.1password.io/item-name: "secrets"
+            - sim.eaglepass.io
+          secretName: sim-tls
+
+  persistence:
+    postgres-data:
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        postgres:
+          main:
+            - path: /var/lib/postgresql/data
+          fix-perms:
+            - path: /var/lib/postgresql/data
+    pg-run:
+      type: emptyDir
+      advancedMounts:
+        postgres:
+          main:
+            - path: /var/run/postgresql
+          fix-perms:
+            - path: /var/run/postgresql
