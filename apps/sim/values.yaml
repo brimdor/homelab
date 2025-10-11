@@ -172,11 +172,11 @@ app-template:
               spec:
                 failureThreshold: 30
                 periodSeconds: 5
-      pod:
-        securityContext:
-          runAsNonRoot: false
-          fsGroup: 999
-          fsGroupChangePolicy: "OnRootMismatch"
+      # pod:
+      #   securityContext:
+      #     runAsNonRoot: false
+      #     fsGroup: 999
+      #     fsGroupChangePolicy: "OnRootMismatch"
 
     realtime:
       type: deployment
