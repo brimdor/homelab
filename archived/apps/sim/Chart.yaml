@@ -1,12 +1,7 @@
 apiVersion: v2
 name: sim
 version: 0.0.0
-annotations:
-  category: ai
-# Sub-chart dependency: bjw-s app-template
-# https://github.com/bjw-s-labs/helm-charts
-# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 dependencies:
   - name: app-template
-    version: 2.6.0
+    version: 4.3.0
     repository: https://bjw-s-labs.github.io/helm-charts
