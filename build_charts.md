@@ -1,3 +1,37 @@
+# build_charts.md
+
+This document provides complete, reliable instructions for an average AI model to generate **exactly two files** for a given open-source application sourced from GitHub, ready to deploy immediately in the homelab:
+
+- `apps/<app-name>/Chart.yaml`
+- `apps/<app-name>/values.yaml`
+
+The model must **sub-chart** either the application’s **official Helm chart** (preferred, when current and well-maintained) **or** the **bjw-s common** chart. No other files are permitted.
+
+---
+
+## Reference URLs (authoritative lookups & latest versions)
+
+- **bjw-s Helm Charts (common library & releases):** https://github.com/bjw-s-labs/helm-charts  
+  - Common chart values: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml  
+  - Common chart schema: https://github.com/bjw-s-labs/helm-charts/tree/main/charts/library/common  
+- **ArtifactHub (official/app charts discovery):** https://artifacthub.io/  
+- **1Password Kubernetes Operator:** https://github.com/1Password/onepassword-operator  
+- **Helm Chart dependencies (syntax & lock):** https://helm.sh/docs/topics/charts/#chart-dependencies  
+- **Kubernetes Ingress (spec & keys):** https://kubernetes.io/docs/concepts/services-networking/ingress/  
+
+Use these URLs to confirm **current versions**, valid **values keys**, and **schema expectations** before finalizing output.
+
+---
+
+## Inputs (Provided to the Model)
+
+- **App (official name)**
+- **Repo (GitHub URL)**
+
+The model derives everything else from this document and the app’s repository.
+
+---
+
 ## Produce only (Required Output)
 
 Generate **exactly** these files and nothing else:
@@ -20,18 +54,18 @@ Both must be fully valid YAML, with no placeholders and deployment-ready.
 ## Source Selection Algorithm
 
 1. **Discover official chart**
-   - Search the app’s docs, GitHub, and ArtifactHub.
+   - Search the app’s docs, GitHub, and **ArtifactHub** (https://artifacthub.io/).
    - If a current, reputable **official (or primary)** chart exists → **use it** as a dependency in `Chart.yaml`.
 2. **Otherwise use bjw-s common**
-   - Depend on **bjw-s common** library chart to define the workload via values.
+   - Depend on **bjw-s common** library chart (https://github.com/bjw-s-labs/helm-charts) to define the workload via values.
 
-> The chosen source dictates the valid keys and structure in `values.yaml`. Always conform to the selected chart’s schema.
+> The chosen source dictates the valid keys and structure in `values.yaml`. Always conform to the selected chart’s schema (consult the chart’s README/values on ArtifactHub or GitHub).
 
 ---
 
 ## Secrets, Environment, and 1Password Operator (Mandatory)
 
-- **All sensitive values are sourced via 1Password Operator.** Never commit secrets in plain text.
+- **All sensitive values are sourced via 1Password Operator** (https://github.com/1Password/onepassword-operator). Never commit secrets in plain text.
 
 ### 1) Pod Annotations (controller/pod template)
 Add **both** annotations exactly in this format (replace IDs with real values):
@@ -99,7 +133,7 @@ data:  # single-word key describing the data
   - Path `/` with `Prefix` (unless app requires sub-path).
   - TLS per cluster policy (e.g., cert-manager) if applicable.
 
-> Official charts and bjw-s common have different keys—use the correct schema for ingress.
+> Official charts and bjw-s common have different keys—use the correct schema for ingress. See Kubernetes Ingress spec: https://kubernetes.io/docs/concepts/services-networking/ingress/
 
 ---
 
@@ -114,13 +148,13 @@ data:  # single-word key describing the data
 ## Official Chart Workflow
 
 1. **Chart.yaml**
-   - Add a dependency with `name`, `repository`, and a **specific** `version` of the official chart.
+   - Add a dependency with `name`, `repository`, and a **specific** `version` of the official chart (follow Helm deps: https://helm.sh/docs/topics/charts/#chart-dependencies).
 2. **values.yaml**
    - Configure **only** keys that exist in that chart’s values schema (image, env, service, ingress, persistence).
    - For secrets, prefer native `existingSecret`/secretRef fields if provided; otherwise use pod annotations plus `secretKeyRef` pattern.
    - Disable bundled extras (e.g., embedded DB) if not required.
 
-> Always validate keys against the official chart’s current documentation.
+> Always validate keys against the official chart’s current documentation (ArtifactHub → chart page → README/values).
 
 ---
 
@@ -133,6 +167,10 @@ data:  # single-word key describing the data
   - `service.main` (ports, type)
   - `ingress.main` (host, paths, class, TLS)
   - `persistence.data` (NFS or PVC)
+
+Consult bjw-s common values/schema for valid keys:  
+- Values: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml  
+- Schema: https://github.com/bjw-s-labs/helm-charts/tree/main/charts/library/common
 
 **Derive from the repo:** use docs and `docker-compose` to determine image, env, ports, and mounts. Translate compose volumes/env to Helm values.
 
@@ -172,4 +210,3 @@ data:  # single-word key describing the data
 - Do **not** print secrets; only references.  
 - Do **not** include templates, examples, or extra files.  
 - Keep comments minimal and strictly useful to deployment/maintenance.
-
