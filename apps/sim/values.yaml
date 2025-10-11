@@ -7,9 +7,8 @@ app-template:
   controllers:
     main:
       type: deployment
-      replicas: 1
-      strategy:
-        type: RollingUpdate
+      replicas: 2
+      strategy: RollingUpdate
       containers:
         main:
           image:
@@ -67,25 +66,28 @@ app-template:
           probes:
             liveness:
               enabled: true
-              type: http
+              type: HTTP
               port: http
               path: /
-              initialDelaySeconds: 30
-              periodSeconds: 30
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 30
             readiness:
               enabled: true
-              type: http
+              type: HTTP
               port: http
               path: /
-              initialDelaySeconds: 10
-              periodSeconds: 15
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 15
             startup:
               enabled: true
-              type: http
+              type: HTTP
               port: http
               path: /
-              failureThreshold: 30
-              periodSeconds: 10
+              spec:
+                failureThreshold: 30
+                periodSeconds: 10
 
     postgres:
       type: statefulset
@@ -132,22 +134,25 @@ app-template:
           probes:
             liveness:
               enabled: true
-              type: tcp
+              type: TCP
               port: postgres
-              initialDelaySeconds: 10
-              periodSeconds: 20
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 20
             readiness:
               enabled: true
-              type: tcp
+              type: TCP
               port: postgres
-              initialDelaySeconds: 5
-              periodSeconds: 10
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
             startup:
               enabled: true
-              type: tcp
+              type: TCP
               port: postgres
-              failureThreshold: 30
-              periodSeconds: 5
+              spec:
+                failureThreshold: 30
+                periodSeconds: 5
       pod:
         securityContext:
           runAsNonRoot: true
@@ -157,8 +162,7 @@ app-template:
     realtime:
       type: deployment
       replicas: 2
-      strategy:
-        type: RollingUpdate
+      strategy: RollingUpdate
       containers:
         main:
           image:
@@ -194,33 +198,36 @@ app-template:
           probes:
             liveness:
               enabled: true
-              type: http
+              type: HTTP
               port: socket
               path: /health
-              initialDelaySeconds: 30
-              periodSeconds: 30
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 30
             readiness:
               enabled: true
-              type: http
+              type: HTTP
               port: socket
               path: /health
-              initialDelaySeconds: 10
-              periodSeconds: 15
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 15
             startup:
               enabled: true
-              type: http
+              type: HTTP
               port: socket
               path: /health
-              failureThreshold: 30
-              periodSeconds: 10
+              spec:
+                failureThreshold: 30
+                periodSeconds: 10
 
     scheduleExecution:
       type: cronjob
       cronjob:
         schedule: "*/1 * * * *"
         concurrencyPolicy: Forbid
-        successfulJobsHistoryLimit: 3
-        failedJobsHistoryLimit: 1
+        successfulJobsHistory: 3
+        failedJobsHistory: 1
       pod:
         restartPolicy: OnFailure
       containers:
@@ -264,8 +271,8 @@ app-template:
       cronjob:
         schedule: "*/1 * * * *"
         concurrencyPolicy: Forbid
-        successfulJobsHistoryLimit: 3
-        failedJobsHistoryLimit: 1
+        successfulJobsHistory: 3
+        failedJobsHistory: 1
       pod:
         restartPolicy: OnFailure
       containers:
@@ -309,8 +316,8 @@ app-template:
       cronjob:
         schedule: "*/1 * * * *"
         concurrencyPolicy: Forbid
-        successfulJobsHistoryLimit: 3
-        failedJobsHistoryLimit: 1
+        successfulJobsHistory: 3
+        failedJobsHistory: 1
       pod:
         restartPolicy: OnFailure
       containers:
@@ -386,12 +393,12 @@ app-template:
               pathType: Prefix
               service:
                 name: main
-                port: http
+                port: 3000
             - path: /socket
               pathType: Prefix
               service:
                 name: realtime
-                port: socket
+                port: 3002
       tls:
         - hosts:
             - sim.eaglepass.io
