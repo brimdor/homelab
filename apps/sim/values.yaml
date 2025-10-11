@@ -191,7 +191,7 @@ app-template:
                 periodSeconds: 5
       pod:
         securityContext:
-          runAsNonRoot: true
+          runAsNonRoot: false
           fsGroup: 999
           fsGroupChangePolicy: "OnRootMismatch"
 
