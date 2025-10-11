@@ -7,7 +7,7 @@ app-template:
   controllers:
     main:
       type: deployment
-      replicas: 2
+      replicas: 1
       strategy:
         type: RollingUpdate
       containers:
