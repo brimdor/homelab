@@ -39,7 +39,7 @@ resources:
 env:
   PUID: "99"
   GUID: "100"
-  TZ: "Etc/UTC"
+  TZ: "America/Chicago"
 
 opSecret:
   vault: "4uaua4a45yuhnwhehp5bwylmti"

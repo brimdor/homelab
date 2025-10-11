@@ -1,0 +1,10 @@
+apiVersion: v2
+name: sim
+description: Helm chart for deploying the Sim workflow automation platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: common
+    version: 4.3.0
+    repository: https://bjw-s.github.io/helm-charts/
