@@ -16,38 +16,56 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            TZ: America/Chicago
-            NODE_ENV: production
-            NEXT_PUBLIC_APP_URL: https://sim.eaglepass.io
-            BETTER_AUTH_URL: https://sim.eaglepass.io
-            SOCKET_SERVER_URL: http://sim-realtime:3002
-            NEXT_PUBLIC_SOCKET_URL: https://sim.eaglepass.io/socket
-            BETTER_AUTH_SECRET:
+            - name: TZ
+              value: America/Chicago
+            - name: NODE_ENV
+              value: production
+            - name: NEXT_PUBLIC_APP_URL
+              value: https://sim.eaglepass.io
+            - name: BETTER_AUTH_URL
+              value: https://sim.eaglepass.io
+            - name: SOCKET_SERVER_URL
+              value: http://sim-realtime:3002
+            - name: NEXT_PUBLIC_SOCKET_URL
+              value: https://sim.eaglepass.io/socket
+            - name: BETTER_AUTH_SECRET
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: better-auth-secret
-            ENCRYPTION_KEY:
+            - name: ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: encryption-key
-            INTERNAL_API_SECRET:
+            - name: INTERNAL_API_SECRET
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: internal-api-secret
-            API_ENCRYPTION_KEY:
+            - name: API_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: api-encryption-key
-            DATABASE_URL:
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: database-url
-            CRON_SECRET:
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-db
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@sim-postgres.sim.svc.cluster.local:5432/$(POSTGRES_DB)
+            - name: CRON_SECRET
               valueFrom:
                 secretKeyRef:
                   name: secrets
@@ -170,20 +188,36 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            TZ: America/Chicago
-            NODE_ENV: production
-            NEXT_PUBLIC_APP_URL: https://sim.eaglepass.io
-            BETTER_AUTH_URL: https://sim.eaglepass.io
-            BETTER_AUTH_SECRET:
+            - name: TZ
+              value: America/Chicago
+            - name: NODE_ENV
+              value: production
+            - name: NEXT_PUBLIC_APP_URL
+              value: https://sim.eaglepass.io
+            - name: BETTER_AUTH_URL
+              value: https://sim.eaglepass.io
+            - name: BETTER_AUTH_SECRET
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: better-auth-secret
-            DATABASE_URL:
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: database-url
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: postgres-db
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@sim-postgres.sim.svc.cluster.local:5432/$(POSTGRES_DB)
           ports:
             - name: socket
               containerPort: 3002
