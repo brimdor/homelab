@@ -42,8 +42,8 @@ open-webui:
       value: "ollama"
     - name: AUDIO_STT_ENGINE
       value: "openai"
-    - name: MCPO_URL
-      value: "http://mcpo.open-webui.svc.cluster.local:8081"
+    # - name: MCPO_URL
+    #   value: "http://mcpo.open-webui.svc.cluster.local:8081"
 
   # Load all keys from the Secret that 1Password Operator populates
   extraEnvFrom:
