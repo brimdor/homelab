@@ -1,16 +1,12 @@
-# https://github.com/open-webui/helm-charts/blob/main/charts/open-webui/values.yaml
 open-webui:
   ollama:
     enabled: false
   pipelines:
     enabled: true
   resources:
-    limits:
-      cpu: 2
-      memory: 4Gi
-    requests:
-      cpu: 1500m
-      memory: 2Gi
+    limits: { cpu: 2, memory: 4Gi }
+    requests: { cpu: "1500m", memory: 2Gi }
+
   ingress:
     enabled: true
     class: nginx
@@ -20,91 +16,79 @@ open-webui:
       cert-manager.io/cluster-issuer: letsencrypt-prod
     host: &openwebuihost ai.eaglepass.io
     tls: true
+
+  # restart the Open WebUI pod when 1P updates the Secret
+  podAnnotations:
+    operator.1password.io/auto-restart: "true"
+
   extraEnvVars:
     - name: ENABLE_LOGIN_FORM
       value: "true"
     - name: WEBUI_URL
-      value: *openwebuihost
+      value: "https://ai.eaglepass.io"
     - name: BYPASS_MODEL_ACCESS_CONTROL
       value: "false"
     - name: OLLAMA_BASE_URL
       value: "http://ollama.ollama.svc.cluster.local:11434"
     - name: WEBUI_SECRET_KEY
       valueFrom:
-        secretKeyRef:
-          name: secrets
-          key: webui-secret-key
+        secretKeyRef: { name: secrets, key: webui-secret-key }
     - name: OPENAI_API_KEY
       valueFrom:
-        secretKeyRef:
-          name: secrets
-          key: openai-api-key
-    # New environment variables for RAG and Audio STT engines
+        secretKeyRef: { name: secrets, key: openai-api-key }
     - name: RAG_EMBEDDING_ENGINE
       value: "ollama"
     - name: AUDIO_STT_ENGINE
       value: "openai"
-    # Configure Open WebUI to call mcpo automatically
     - name: MCPO_URL
       value: "http://mcpo.open-webui.svc.cluster.local:8081"
     - name: MCPO_API_KEY
       valueFrom:
-        secretKeyRef:
-          name: secrets
-          key: mcpo-api-key
-  podAnnotations:
-    # operator.1password.io/auto-restart: "true"
-    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-    operator.1password.io/item-name: "secrets"
+        secretKeyRef: { name: secrets, key: mcpo-api-key }
+
   extraResources:
+    # 1Password-managed Secret (empty; Operator fills it)
     - apiVersion: v1
       kind: Secret
       metadata:
         name: secrets
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-          operator.1password.io/item-name: "secrets"
+          # optional: if you prefer naming over path, use item-name + vault instead
+          # operator.1password.io/item-name: "secrets"
+          # operator.1password.io/vault:   "My Vault"
       type: Opaque
-      # stringData:
-      #   webui-secret-key: "placeholder"
-      #   openai-api-key: "placeholder"
-      #   mcpo-api-key: "placeholder"
+      data: {}   # leave empty; Operator will populate keys
+
     # mcpo Service (internal)
     - apiVersion: v1
       kind: Service
       metadata:
         name: mcpo
-        labels:
-          app.kubernetes.io/name: mcpo
+        labels: { app.kubernetes.io/name: mcpo }
       spec:
         type: ClusterIP
-        selector:
-          app.kubernetes.io/name: mcpo
+        selector: { app.kubernetes.io/name: mcpo }
         ports:
           - name: http
             port: 8081
             targetPort: 8081
-    # mcpo Deployment with git-sync sidecar for hot-reloading config.json from GitHub
+
+    # mcpo Deployment with git-sync sidecar
     - apiVersion: apps/v1
       kind: Deployment
       metadata:
         name: mcpo
-        labels:
-          app.kubernetes.io/name: mcpo
+        labels: { app.kubernetes.io/name: mcpo }
       spec:
         replicas: 1
         selector:
-          matchLabels:
-            app.kubernetes.io/name: mcpo
+          matchLabels: { app.kubernetes.io/name: mcpo }
         template:
           metadata:
-            labels:
-              app.kubernetes.io/name: mcpo
-            # annotations:
-              # operator.1password.io/auto-restart: "true"
+            labels: { app.kubernetes.io/name: mcpo }
           spec:
-            securityContext:
-              runAsNonRoot: false
+            securityContext: { runAsNonRoot: false }
             shareProcessNamespace: true
             initContainers:
               - name: wait-mcpo-secret
@@ -114,11 +98,10 @@ open-webui:
                   - |
                     set -eu
                     FILE=/var/secret/mcpo-api-key
-                    # If the file is missing, it may be created shortly after pod start
                     for i in $(seq 1 120); do
                       if [ -f "$FILE" ]; then
                         VAL=$(cat "$FILE")
-                        if [ -n "$VAL" ] && [ "$VAL" != "placeholder" ]; then
+                        if [ -n "$VAL" ]; then
                           echo "mcpo-api-key populated"; exit 0
                         fi
                         echo "waiting for mcpo-api-key to be populated..."
@@ -135,23 +118,14 @@ open-webui:
               - name: mcpo
                 image: ghcr.io/open-webui/mcpo:main
                 imagePullPolicy: Always
-                args:
-                  - "--config"
-                  - "/config/repo/config.json"
-                  - "--host"
-                  - "0.0.0.0"
-                  - "--port"
-                  - "8081"
-                  - "--hot-reload"
+                args: ["--config","/config/repo/config.json","--host","0.0.0.0","--port","8081","--hot-reload"]
                 ports:
                   - name: http
                     containerPort: 8081
                 env:
                   - name: MCPO_API_KEY
                     valueFrom:
-                      secretKeyRef:
-                        name: secrets
-                        key: mcpo-api-key
+                      secretKeyRef: { name: secrets, key: mcpo-api-key }
                 volumeMounts:
                   - name: mcpo-config
                     mountPath: /config
@@ -159,18 +133,12 @@ open-webui:
                 image: registry.k8s.io/git-sync/git-sync:v4.5.0
                 imagePullPolicy: IfNotPresent
                 env:
-                  - name: GITSYNC_REPO
-                    value: "https://github.com/brimdor/mcp-servers"
-                  - name: GITSYNC_BRANCH
-                    value: "main"
-                  - name: GITSYNC_ROOT
-                    value: "/config"
-                  - name: GITSYNC_LINK
-                    value: "repo"
-                  - name: GITSYNC_PERIOD
-                    value: "30s" # polling interval
-                  - name: GITSYNC_ONE_TIME
-                    value: "false"
+                  - { name: GITSYNC_REPO,   value: "https://github.com/brimdor/mcp-servers" }
+                  - { name: GITSYNC_BRANCH, value: "main" }
+                  - { name: GITSYNC_ROOT,   value: "/config" }
+                  - { name: GITSYNC_LINK,   value: "repo" }
+                  - { name: GITSYNC_PERIOD, value: "30s" }
+                  - { name: GITSYNC_ONE_TIME, value: "false" }
                 volumeMounts:
                   - name: mcpo-config
                     mountPath: /config
@@ -184,22 +152,20 @@ open-webui:
                   items:
                     - key: mcpo-api-key
                       path: mcpo-api-key
+
   image:
     repository: ghcr.io/open-webui/open-webui
     tag: "latest"
     pullPolicy: "Always"
+
   persistence:
     enabled: true
     existingClaim: openwebui-nfs-pvc
     additionalVolumes:
       - name: embedded-models
-        persistentVolumeClaim:
-          claimName: openwebui-embedded-models-pvc
+        persistentVolumeClaim: { claimName: openwebui-embedded-models-pvc }
       - name: openwebui-data
-        persistentVolumeClaim:
-          claimName: openwebui-data-pvc
+        persistentVolumeClaim: { claimName: openwebui-data-pvc }
     additionalVolumeMounts:
-      - name: embedded-models
-        mountPath: /app/embedded-models
-      - name: openwebui-data
-        mountPath: /app/backend/data
+      - { name: embedded-models,  mountPath: /app/embedded-models }
+      - { name: openwebui-data,   mountPath: /app/backend/data }
