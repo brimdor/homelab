@@ -57,18 +57,18 @@ open-webui:
     operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
     operator.1password.io/item-name: "secrets"
   extraResources:
-    # - apiVersion: v1
-    #   kind: Secret
-    #   metadata:
-    #     name: secrets
-    #     annotations:
-    #       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-    #       operator.1password.io/item-name: "secrets"
-    #   type: Opaque
-    #   stringData:
-    #     webui-secret-key: "placeholder"
-    #     openai-api-key: "placeholder"
-    #     mcpo-api-key: "placeholder"
+    - apiVersion: v1
+      kind: Secret
+      metadata:
+        name: secrets
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+          operator.1password.io/item-name: "secrets"
+      type: Opaque
+      # stringData:
+      #   webui-secret-key: "placeholder"
+      #   openai-api-key: "placeholder"
+      #   mcpo-api-key: "placeholder"
     # mcpo Service (internal)
     - apiVersion: v1
       kind: Service
