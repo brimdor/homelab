@@ -1,11 +1,12 @@
 open-webui:
   ollama:
     enabled: false
+  # Point OWUI at your external Ollama
+  ollamaUrls:
+    - "http://ollama.ollama.svc.cluster.local:11434"
+
   pipelines:
     enabled: true
-  resources:
-    limits: { cpu: 2, memory: 4Gi }
-    requests: { cpu: "1500m", memory: 2Gi }
 
   ingress:
     enabled: true
@@ -17,48 +18,53 @@ open-webui:
     host: &openwebuihost ai.eaglepass.io
     tls: true
 
-  # restart the Open WebUI pod when 1P updates the Secret
-  podAnnotations:
-    operator.1password.io/auto-restart: "true"
+  # Import all sensitive env from a Secret (chart-supported)
+  extraEnvFrom:
+    - secretRef:
+        name: secrets
 
+  # Non-secret env stays in extraEnvVars
   extraEnvVars:
     - name: ENABLE_LOGIN_FORM
       value: "true"
     - name: WEBUI_URL
-      value: "https://ai.eaglepass.io"
+      value: *openwebuihost
     - name: BYPASS_MODEL_ACCESS_CONTROL
       value: "false"
     - name: OLLAMA_BASE_URL
       value: "http://ollama.ollama.svc.cluster.local:11434"
-    - name: WEBUI_SECRET_KEY
-      valueFrom:
-        secretKeyRef: { name: secrets, key: webui-secret-key }
-    - name: OPENAI_API_KEY
-      valueFrom:
-        secretKeyRef: { name: secrets, key: openai-api-key }
+    # RAG embeddings via Ollama endpoint
     - name: RAG_EMBEDDING_ENGINE
       value: "ollama"
+    - name: RAG_OLLAMA_BASE_URL
+      value: "http://ollama.ollama.svc.cluster.local:11434"
+    # OpenAI STT uses OPENAI_API_KEY from the Secret
     - name: AUDIO_STT_ENGINE
       value: "openai"
+    # MCPO integration
     - name: MCPO_URL
       value: "http://mcpo.open-webui.svc.cluster.local:8081"
-    - name: MCPO_API_KEY
-      valueFrom:
-        secretKeyRef: { name: secrets, key: mcpo-api-key }
+
+  podAnnotations:
+    operator.1password.io/auto-restart: "true"
+    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+    operator.1password.io/item-name: "secrets"
 
   extraResources:
-    # 1Password-managed Secret (empty; Operator fills it)
+    # Secret synced by 1Password Operator; values overwritten by the operator
     - apiVersion: v1
       kind: Secret
       metadata:
         name: secrets
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-          # optional: if you prefer naming over path, use item-name + vault instead
-          # operator.1password.io/item-name: "secrets"
-          # operator.1password.io/vault:   "My Vault"
+          operator.1password.io/item-name: "secrets"
       type: Opaque
-      data: {}   # leave empty; Operator will populate keys
+      stringData:
+        # keys must match env names consumed via extraEnvFrom
+        WEBUI_SECRET_KEY: "placeholder"
+        OPENAI_API_KEY: "placeholder"
+        MCPO_API_KEY: "placeholder"
 
     # mcpo Service (internal)
     - apiVersion: v1
@@ -88,8 +94,8 @@ open-webui:
           metadata:
             labels: { app.kubernetes.io/name: mcpo }
           spec:
-            securityContext: { runAsNonRoot: false }
-            shareProcessNamespace: true
+            securityContext:
+              runAsNonRoot: false
             initContainers:
               - name: wait-mcpo-secret
                 image: busybox:1.36
@@ -97,20 +103,14 @@ open-webui:
                 args:
                   - |
                     set -eu
-                    FILE=/var/secret/mcpo-api-key
+                    FILE=/var/secret/MCPO_API_KEY
                     for i in $(seq 1 120); do
-                      if [ -f "$FILE" ]; then
-                        VAL=$(cat "$FILE")
-                        if [ -n "$VAL" ]; then
-                          echo "mcpo-api-key populated"; exit 0
-                        fi
-                        echo "waiting for mcpo-api-key to be populated..."
-                      else
-                        echo "waiting for secret volume..."
+                      if [ -f "$FILE" ] && [ -s "$FILE" ] && [ "$(cat "$FILE")" != "placeholder" ]; then
+                        exit 0
                       fi
                       sleep 5
                     done
-                    echo "mcpo-api-key was not populated in time" >&2; exit 1
+                    echo "MCPO_API_KEY not populated" >&2; exit 1
                 volumeMounts:
                   - name: mcpo-secret
                     mountPath: /var/secret
@@ -119,19 +119,18 @@ open-webui:
                 image: ghcr.io/open-webui/mcpo:main
                 imagePullPolicy: Always
                 args: ["--config","/config/repo/config.json","--host","0.0.0.0","--port","8081","--hot-reload"]
-                ports:
-                  - name: http
-                    containerPort: 8081
-                env:
-                  - name: MCPO_API_KEY
-                    valueFrom:
-                      secretKeyRef: { name: secrets, key: mcpo-api-key }
+                ports: [{ name: http, containerPort: 8081 }]
+                envFrom:
+                  - secretRef: { name: secrets }
                 volumeMounts:
                   - name: mcpo-config
                     mountPath: /config
+                readinessProbe:
+                  httpGet: { path: /health, port: 8081 }
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
               - name: git-sync
                 image: registry.k8s.io/git-sync/git-sync:v4.5.0
-                imagePullPolicy: IfNotPresent
                 env:
                   - { name: GITSYNC_REPO,   value: "https://github.com/brimdor/mcp-servers" }
                   - { name: GITSYNC_BRANCH, value: "main" }
@@ -150,8 +149,8 @@ open-webui:
                   secretName: secrets
                   optional: true
                   items:
-                    - key: mcpo-api-key
-                      path: mcpo-api-key
+                    - key: MCPO_API_KEY
+                      path: MCPO_API_KEY
 
   image:
     repository: ghcr.io/open-webui/open-webui
@@ -167,5 +166,5 @@ open-webui:
       - name: openwebui-data
         persistentVolumeClaim: { claimName: openwebui-data-pvc }
     additionalVolumeMounts:
-      - { name: embedded-models,  mountPath: /app/embedded-models }
-      - { name: openwebui-data,   mountPath: /app/backend/data }
+      - { name: embedded-models, mountPath: /app/embedded-models }
+      - { name: openwebui-data, mountPath: /app/backend/data }
