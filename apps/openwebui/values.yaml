@@ -2,9 +2,6 @@
 app-template:
   controllers:
     main:
-      annotations:
-        operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4uaua4a45yuhnwhehp5bwylmti"
-        operator.1password.io/item-name: "secrets"
       containers:
         main:
           nameOverride: main
@@ -73,5 +70,5 @@ app-template:
             - path: /app/backend/data
   defaultPodOptions:
     annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/c5krkheantm42ss5tgpg5gsxeq"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4uaua4a45yuhnwhehp5bwylmti"
       operator.1password.io/item-name: "secrets"
