@@ -4,7 +4,7 @@ app-template:
     main:
       containers:
         main:
-          name: main
+          nameOverride: main
           image:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
