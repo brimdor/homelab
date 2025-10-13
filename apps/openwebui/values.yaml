@@ -1,0 +1,65 @@
+#https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          name: main
+          image:
+            repository: ghcr.io/open-webui/open-webui
+            tag: latest
+            pullPolicy: Always
+          env:
+            PUID: "99"
+            PGID: "100"
+            TZ: "America/Chicago"
+            ENABLE_LOGIN_FORM: "true"
+            WEBUI_URL: "https://ai.eaglepass.io"
+            BYPASS_MODEL_ACCESS_CONTROL: "false"
+            OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
+            RAG_EMBEDDING_ENGINE: "ollama"
+            AUDIO_STT_ENGINE: "openai"
+            # MCPO_URL: "http://mcpo.open-webui.svc.cluster.local:8081"
+          resources:
+            limits:
+              cpu: 2
+              memory: "4096Mi"
+            requests:
+              cpu: 1.5
+              memory: "2048Mi"
+  service:
+    main:
+      primary: true
+      ports:
+        http:
+          port: 6379
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host ai.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: ai-tls-certificate
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/openwebui-test
+      advancedMounts:
+        main:
+          main:
+            - path: /app/backend/data
