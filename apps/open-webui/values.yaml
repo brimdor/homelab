@@ -53,20 +53,22 @@ open-webui:
           name: secrets
           key: mcpo-api-key
   podAnnotations:
-    operator.1password.io/auto-restart: "true"
+    # operator.1password.io/auto-restart: "true"
+    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+    operator.1password.io/item-name: "secrets"
   extraResources:
-    - apiVersion: v1
-      kind: Secret
-      metadata:
-        name: secrets
-        annotations:
-          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-          operator.1password.io/item-name: "secrets"
-      type: Opaque
-      stringData:
-        webui-secret-key: "placeholder"
-        openai-api-key: "placeholder"
-        mcpo-api-key: "placeholder"
+    # - apiVersion: v1
+    #   kind: Secret
+    #   metadata:
+    #     name: secrets
+    #     annotations:
+    #       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+    #       operator.1password.io/item-name: "secrets"
+    #   type: Opaque
+    #   stringData:
+    #     webui-secret-key: "placeholder"
+    #     openai-api-key: "placeholder"
+    #     mcpo-api-key: "placeholder"
     # mcpo Service (internal)
     - apiVersion: v1
       kind: Service
@@ -98,10 +100,8 @@ open-webui:
           metadata:
             labels:
               app.kubernetes.io/name: mcpo
-            annotations:
-              operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
-              operator.1password.io/item-name: "secrets"
-              operator.1password.io/auto-restart: "true"
+            # annotations:
+              # operator.1password.io/auto-restart: "true"
           spec:
             securityContext:
               runAsNonRoot: false
