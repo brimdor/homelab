@@ -25,6 +25,13 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "webui-secret-key"
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
           resources:
             limits:
               cpu: 2
@@ -63,7 +70,7 @@ app-template:
     data:
       type: nfs
       server: 10.0.50.3
-      path: /mnt/user/openwebui-test
+      path: /mnt/user/openwebui
       advancedMounts:
         main:
           main:
