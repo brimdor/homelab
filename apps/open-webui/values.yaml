@@ -52,7 +52,7 @@ open-webui:
         secretKeyRef:
           name: secrets
           key: mcpo-api-key
-  podAnnotations:
+  annotations:
     operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
     operator.1password.io/item-name: "secrets"
     operator.1password.io/auto-restart: "true"
