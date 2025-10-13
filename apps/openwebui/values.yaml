@@ -14,7 +14,7 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             ENABLE_LOGIN_FORM: "true"
-            WEBUI_URL: "https://ai.eaglepass.io"
+            WEBUI_URL: "https://open.eaglepass.io"
             BYPASS_MODEL_ACCESS_CONTROL: "false"
             OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
             RAG_EMBEDDING_ENGINE: "ollama"
@@ -55,7 +55,7 @@ app-template:
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: &Host ai.eaglepass.io
+        - host: &Host open.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -65,7 +65,7 @@ app-template:
       tls:
         - hosts:
             - *Host
-          secretName: ai-tls-certificate
+          secretName: open-tls-certificate
   persistence:
     data:
       type: nfs
