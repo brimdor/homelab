@@ -3,7 +3,7 @@ app-template:
     main:
       pod:
         annotations:
-          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/hvv5przqv6t5oxl7m6kzslfody"
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
           operator.1password.io/item-name: "secrets"
       containers:
         main:
@@ -21,7 +21,7 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: MCPO_API_KEY
+                  key: mcpo-api-key
             UV_CACHE_DIR: /config/.cache/uv
             UV_DATA_DIR: /config/.local/share/uv
             UV_TOOL_DIR: /config/.local/share/uv/tools
