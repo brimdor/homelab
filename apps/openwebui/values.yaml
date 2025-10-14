@@ -44,7 +44,7 @@ app-template:
       primary: true
       ports:
         http:
-          port: 6379
+          port: 3000
           protocol: HTTP
   ingress:
     main:
