@@ -9,6 +9,9 @@ app-template:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
             pullPolicy: Always
+          updateStrategy:
+            type: RollingUpdate
+            
           env:
             PUID: "99"
             PGID: "100"
