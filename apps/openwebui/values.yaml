@@ -5,8 +5,7 @@ app-template:
       containers:
         main:
           nameOverride: main
-          strategy:
-            type: RollingUpdate
+          strategy: RollingUpdate
           image:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
