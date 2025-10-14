@@ -9,8 +9,8 @@ app-template:
         main:
           image:
             repository: ghcr.io/open-webui/mcpo
-            tag: 0.0.17
-            pullPolicy: IfNotPresent
+            tag: main
+            pullPolicy: Always
           env:
             TZ: "America/Chicago"
             HOME: /config
@@ -100,26 +100,26 @@ app-template:
         http:
           port: 8000
           targetPort: http
-  ingress:
-    main:
-      enabled: true
-      className: nginx
-      annotations:
-        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: &host mcpo.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                identifier: main
-                port: http
-      tls:
-        - hosts:
-            - *host
-          secretName: mcpo-tls-certificate
+  # ingress:
+  #   main:
+  #     enabled: true
+  #     className: nginx
+  #     annotations:
+  #       external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+  #       external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+  #       cert-manager.io/cluster-issuer: letsencrypt-prod
+  #     hosts:
+  #       - host: &host mcpo.eaglepass.io
+  #         paths:
+  #           - path: /
+  #             pathType: Prefix
+  #             service:
+  #               identifier: main
+  #               port: http
+  #     tls:
+  #       - hosts:
+  #           - *host
+  #         secretName: mcpo-tls-certificate
   persistence:
     data:
       enabled: true
