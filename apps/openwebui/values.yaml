@@ -23,7 +23,6 @@ app-template:
             RAG_EMBEDDING_ENGINE: "ollama"
             AUDIO_STT_ENGINE: "openai"
             ENABLE_SIGNUP_PASSWORD_CONFIRMATION: "true"
-            CUSTOM_NAME: "EaglePass AI"
             USER_AGENT: "OpenWebUI-eaglepass (+https://open.eaglepass.io)"
             # MCPO_URL: "http://mcpo.open-webui.svc.cluster.local:8081"
             WEBUI_SECRET_KEY:
