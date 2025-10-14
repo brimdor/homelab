@@ -1,0 +1,9 @@
+apiVersion: v2
+name: mcpo
+description: Helm chart for deploying mcpo via bjw-s app-template
+type: application
+version: 0.1.0
+dependencies:
+  - name: app-template
+    version: 4.3.0
+    repository: https://bjw-s-labs.github.io/helm-charts

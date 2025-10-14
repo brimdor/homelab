@@ -1,0 +1,130 @@
+app-template:
+  controllers:
+    main:
+      pod:
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+          operator.1password.io/item-name: "secrets"
+      containers:
+        main:
+          image:
+            repository: ghcr.io/open-webui/mcpo
+            tag: 0.0.17
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+            MCPO_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mcpo-api-key
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - mcpo --host 0.0.0.0 --port 8000 --api-key "$MCPO_API_KEY" --config /config/config.json --hot-reload
+          ports:
+            - name: http
+              containerPort: 8000
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /docs
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 15
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /docs
+                  port: http
+                initialDelaySeconds: 15
+                periodSeconds: 15
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /docs
+                  port: http
+                failureThreshold: 60
+                periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      initContainers:
+        bootstrap-config:
+          image:
+            repository: alpine
+            tag: "3.20"
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              if [ ! -f /config/config.json ]; then
+                cat <<'EOC' > /config/config.json
+              {
+                "mcpServers": {
+                  "time": {
+                    "command": "uvx",
+                    "args": ["mcp-server-time", "--local-timezone=America/Chicago"]
+                  }
+                }
+              }
+              EOC
+              fi
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 8000
+          targetPort: http
+  # ingress:
+  #   main:
+  #     enabled: true
+  #     className: nginx
+  #     annotations:
+  #       external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+  #       external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+  #       cert-manager.io/cluster-issuer: letsencrypt-prod
+  #     hosts:
+  #       - host: &host mcpo.eaglepass.io
+  #         paths:
+  #           - path: /
+  #             pathType: Prefix
+  #             service:
+  #               identifier: main
+  #               port: http
+  #     tls:
+  #       - hosts:
+  #           - *host
+  #         secretName: mcpo-tls-certificate
+  persistence:
+    data:
+      enabled: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/mcpo
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+          bootstrap-config:
+            - path: /config
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
