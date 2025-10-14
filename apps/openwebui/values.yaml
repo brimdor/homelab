@@ -2,6 +2,8 @@
 app-template:
   controllers:
     main:
+      strategy:
+        type: RollingUpdate
       containers:
         main:
           nameOverride: main
@@ -9,8 +11,6 @@ app-template:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
             pullPolicy: Always
-          strategy:
-            type: RollingUpdate
           env:
             PUID: "99"
             PGID: "100"
