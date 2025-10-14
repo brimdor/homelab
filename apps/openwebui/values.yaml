@@ -9,7 +9,7 @@ app-template:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
             pullPolicy: Always
-          updateStrategy:
+          strategy:
             type: RollingUpdate
             
           env:
