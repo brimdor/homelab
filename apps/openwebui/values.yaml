@@ -2,11 +2,11 @@
 app-template:
   controllers:
     main:
-      strategy:
-        type: RollingUpdate
       containers:
         main:
           nameOverride: main
+          strategy:
+            type: RollingUpdate
           image:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
