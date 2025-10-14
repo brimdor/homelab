@@ -3,22 +3,28 @@ app-template:
     main:
       pod:
         annotations:
-          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/hvv5przqv6t5oxl7m6kzslfody"
           operator.1password.io/item-name: "secrets"
       containers:
         main:
           image:
             repository: ghcr.io/open-webui/mcpo
-            tag: main
-            pullPolicy: Always
+            tag: 0.0.17
+            pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
+            HOME: /config
+            XDG_CACHE_HOME: /config/.cache
+            XDG_CONFIG_HOME: /config/.config
+            XDG_DATA_HOME: /config/.local/share
             MCPO_API_KEY:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: mcpo-api-key
+                  key: MCPO_API_KEY
             UV_CACHE_DIR: /config/.cache/uv
+            UV_DATA_DIR: /config/.local/share/uv
+            UV_TOOL_DIR: /config/.local/share/uv/tools
           command:
             - /bin/sh
             - -c
@@ -73,6 +79,8 @@ app-template:
           args:
             - |
               mkdir -p /config/.cache/uv
+              mkdir -p /config/.config
+              mkdir -p /config/.local/share/uv/tools
               if [ ! -f /config/config.json ]; then
                 cat <<'EOC' > /config/config.json
               {
@@ -92,26 +100,26 @@ app-template:
         http:
           port: 8000
           targetPort: http
-  # ingress:
-  #   main:
-  #     enabled: true
-  #     className: nginx
-  #     annotations:
-  #       external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
-  #       external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-  #       cert-manager.io/cluster-issuer: letsencrypt-prod
-  #     hosts:
-  #       - host: &host mcpo.eaglepass.io
-  #         paths:
-  #           - path: /
-  #             pathType: Prefix
-  #             service:
-  #               identifier: main
-  #               port: http
-  #     tls:
-  #       - hosts:
-  #           - *host
-  #         secretName: mcpo-tls-certificate
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host mcpo.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: mcpo-tls-certificate
   persistence:
     data:
       enabled: true
