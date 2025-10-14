@@ -19,6 +19,10 @@ app-template:
             OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
             RAG_EMBEDDING_ENGINE: "ollama"
             AUDIO_STT_ENGINE: "openai"
+            ENABLE_SIGNUP_PASSWORD_CONFIRMATION: "true"
+            CUSTOM_NAME: "EaglePass AI"
+            JWT_EXPIRES_IN: "2d"
+            ENABLE_OAUTH_SIGNUP: "true"
             # MCPO_URL: "http://mcpo.open-webui.svc.cluster.local:8081"
             WEBUI_SECRET_KEY:
               valueFrom:
