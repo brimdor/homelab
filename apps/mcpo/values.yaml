@@ -9,8 +9,8 @@ app-template:
         main:
           image:
             repository: ghcr.io/open-webui/mcpo
-            tag: 0.0.17
-            pullPolicy: IfNotPresent
+            tag: main
+            pullPolicy: Always
           env:
             TZ: "America/Chicago"
             MCPO_API_KEY:
