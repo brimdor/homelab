@@ -2,10 +2,10 @@
 app-template:
   controllers:
     main:
+      strategy: RollingUpdate
       containers:
         main:
           nameOverride: main
-          strategy: RollingUpdate
           image:
             repository: ghcr.io/open-webui/open-webui
             tag: latest
