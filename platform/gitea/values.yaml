@@ -20,7 +20,7 @@ gitea:
       server:
         LANDING_PAGE: explore
         ROOT_URL: https://git.eaglepass.io
-        OFFLINE_MODE: true
+        # OFFLINE_MODE: true
       repository:
         DISABLED_REPO_UNITS: repo.wiki,repo.projects,repo.packages
         DISABLE_STARS: true
@@ -31,8 +31,8 @@ gitea:
       # oauth2_client:
       #   ENABLE_AUTO_REGISTRATION: true
       #   USERNAME: userid
-      service.explore:
-        DISABLE_USERS_PAGE: true
+      # service.explore:
+      #   DISABLE_USERS_PAGE: true
       actions:
         ENABLED: false
       webhook:
