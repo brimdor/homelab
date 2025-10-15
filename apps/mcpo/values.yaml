@@ -41,11 +41,10 @@ app-template:
             - |
               # ensure workspace exists and is writable
               mkdir -p /data
-              # install the filesystem MCP server at runtime
-              npm i -g @cyanheads/filesystem-mcp-server
-              # run over Streamable HTTP; allow operating within /data only
-              # Server reads transport/host/port/origins/auth from env above.
-              filesystem-mcp-server --root /data
+              # install the filesystem MCP server into /data (writable by uid 1000)
+              npm install --prefix /data @cyanheads/filesystem-mcp-server
+              # run the installed binary
+              /data/node_modules/.bin/filesystem-mcp-server --root /data
 
           ports:
             - name: http
