@@ -39,12 +39,8 @@ app-template:
             - -lc
           args:
             - |
-              # ensure workspace exists and is writable
               mkdir -p /data
-              # install the filesystem MCP server into /data (writable by uid 1000)
-              npm install --prefix /data @cyanheads/filesystem-mcp-server
-              # run via node (no bin script found, so execute main entry point)
-              node /data/node_modules/@cyanheads/filesystem-mcp-server/build/index.js --root /data
+              npx -y @cyanheads/filesystem-mcp-server --root /data
 
           ports:
             - name: http
