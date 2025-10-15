@@ -44,4 +44,4 @@ gitea:
     enabled: false
   valkey-cluster:
     cluster:
-        nodes: 6
+        nodes: 3
