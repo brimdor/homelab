@@ -66,12 +66,12 @@ app-template:
           env:
             TZ: "America/Chicago"
             MCP_TRANSPORT_TYPE: "stdio"
-            BRAVE_API_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: brave-api-key
-                  optional: true
+            # BRAVE_API_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: brave-api-key
+            #       optional: true
           command: ["/bin/sh", "-c"]
           args:
             - |
