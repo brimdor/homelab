@@ -40,8 +40,6 @@ gitea:
     postgresql:
       image:
         tag: "16.6.0-debian-12-r2"
-    postgresql-ha:
-      enabled: false
     valkey-cluster:
       cluster:
         nodes: 6
