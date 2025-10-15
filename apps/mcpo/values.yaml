@@ -55,21 +55,21 @@ app-template:
             # Streamable HTTP servers usually have no GET /health route.
             # Use TCP probes for liveness/readiness.
             liveness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 tcpSocket: { port: http }
                 initialDelaySeconds: 15
                 periodSeconds: 15
             readiness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 tcpSocket: { port: http }
                 initialDelaySeconds: 5
                 periodSeconds: 10
             startup:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 tcpSocket: { port: http }
