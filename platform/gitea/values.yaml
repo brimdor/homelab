@@ -4,6 +4,8 @@ gitea:
     className: nginx
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
+      hajimari.io/appName: Gitea
+      hajimari.io/icon: git
     hosts:
       - host: &host git.eaglepass.io
         paths:
@@ -20,28 +22,14 @@ gitea:
       server:
         LANDING_PAGE: explore
         ROOT_URL: https://git.eaglepass.io
-        # OFFLINE_MODE: true
-      repository:
-        DISABLED_REPO_UNITS: repo.wiki,repo.projects,repo.packages
-        DISABLE_STARS: true
-        DEFAULT_BRANCH: master
-      # TODO it's not reading the username from Dex correctly for now, related issues:
-      # https://github.com/go-gitea/gitea/issues/25725
-      # https://github.com/go-gitea/gitea/issues/24957
-      # oauth2_client:
-      #   ENABLE_AUTO_REGISTRATION: true
-      #   USERNAME: userid
-      # service.explore:
-      #   DISABLE_USERS_PAGE: true
-      actions:
-        ENABLED: false
       webhook:
         ALLOWED_HOST_LIST: private
   postgresql:
+    enabled: true
     image:
       tag: "16.6.0-debian-12-r2"
   postgresql-ha:
     enabled: false
   valkey-cluster:
     cluster:
-        nodes: 3
+      nodes: 6
