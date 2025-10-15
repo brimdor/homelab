@@ -88,6 +88,22 @@ app-template:
                   "time": {
                     "command": "uvx",
                     "args": ["mcp-server-time", "--local-timezone=$TZ"]
+                  },
+                  "filesystem": {
+                    "command": "uvx",
+                    "args": ["mcp-server-filesystem", "/config"]
+                  },
+                  "fetch": {
+                    "command": "uvx",
+                    "args": ["mcp-server-fetch"]
+                  },
+                  "shell": {
+                    "command": "uvx",
+                    "args": ["mcp-server-shell"]
+                  },
+                  "git": {
+                    "command": "uvx",
+                    "args": ["mcp-server-git"]
                   }
                 }
               }
