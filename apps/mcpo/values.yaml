@@ -6,6 +6,114 @@ app-template:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
           operator.1password.io/item-name: "secrets"
       containers:
+        # Filesystem MCP Server
+        filesystem:
+          image:
+            repository: node
+            tag: "20-alpine"
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            MCP_TRANSPORT_TYPE: "stdio"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              npx -y @modelcontextprotocol/server-filesystem /data
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+
+        # SQLite MCP Server
+        sqlite:
+          image:
+            repository: node
+            tag: "20-alpine"
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            MCP_TRANSPORT_TYPE: "stdio"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              npx -y @modelcontextprotocol/server-sqlite --db-path /data/database.db
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+
+        # Memory MCP Server (persistent key-value store)
+        memory:
+          image:
+            repository: node
+            tag: "20-alpine"
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            MCP_TRANSPORT_TYPE: "stdio"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              npx -y @modelcontextprotocol/server-memory
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+
+        # Brave Search MCP Server (requires API key)
+        brave-search:
+          image:
+            repository: node
+            tag: "20-alpine"
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            MCP_TRANSPORT_TYPE: "stdio"
+            BRAVE_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: brave-api-key
+                  optional: true
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ -n "$BRAVE_API_KEY" ]; then
+                npx -y @modelcontextprotocol/server-brave-search
+              else
+                echo "Brave API key not set, sleeping..."
+                sleep infinity
+              fi
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+
+        # GitHub MCP Server (requires token)
+        github:
+          image:
+            repository: node
+            tag: "20-alpine"
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            MCP_TRANSPORT_TYPE: "stdio"
+            GITHUB_PERSONAL_ACCESS_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-token
+                  optional: true
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
+                npx -y @modelcontextprotocol/server-github
+              else
+                echo "GitHub token not set, sleeping..."
+                sleep infinity
+              fi
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 200m, memory: 256Mi }
+
+        # Main HTTP proxy/aggregator (mcpo)
         main:
           image:
             repository: node
@@ -14,57 +122,47 @@ app-template:
           env:
             TZ: "America/Chicago"
             NODE_ENV: "production"
-
-            # Streamable HTTP transport config
             MCP_TRANSPORT_TYPE: "http"
             MCP_HTTP_HOST: "0.0.0.0"
             MCP_HTTP_PORT: "8000"
-
-            # CORS / Origin hardening: set to your Open WebUI URL(s)
-            # Comma-separate if you have more than one UI allowed.
             MCP_ALLOWED_ORIGINS: "https://open.eaglepass.io"
-
-            # JWT auth for the MCP server (fetched from 1Password)
             MCP_AUTH_SECRET_KEY:
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: mcp-auth-secret-key
-                  
-            # Optional logging
             MCP_LOG_LEVEL: "info"
 
-          command:
-            - /bin/sh
-            - -lc
+          command: ["/bin/sh", "-lc"]
           args:
             - |
               mkdir -p /data
-              npx -y @cyanheads/filesystem-mcp-server --root /data
+              # Install mcpo to aggregate all the stdio MCP servers
+              npm install --prefix /data mcpo
+              # Run mcpo with all available servers
+              node /data/node_modules/mcpo/dist/index.js
 
           ports:
             - name: http
               containerPort: 8000
 
           probes:
-            # Streamable HTTP servers usually have no GET /health route.
-            # Use TCP probes for liveness/readiness.
             liveness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 tcpSocket: { port: http }
                 initialDelaySeconds: 15
                 periodSeconds: 15
             readiness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 tcpSocket: { port: http }
                 initialDelaySeconds: 5
                 periodSeconds: 10
             startup:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 tcpSocket: { port: http }
@@ -106,9 +204,15 @@ app-template:
       enabled: true
       type: nfs
       server: 10.0.50.3
-      path: /mnt/user/mcpo   # reuse your NFS share for workspace
+      path: /mnt/user/mcpo
       advancedMounts:
         main:
+          filesystem:
+            - path: /data
+          sqlite:
+            - path: /data
+          memory:
+            - path: /data
           main:
             - path: /data
 
