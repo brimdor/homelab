@@ -24,10 +24,14 @@ gitea:
         ROOT_URL: https://git.eaglepass.io
       webhook:
         ALLOWED_HOST_LIST: private
+  persistence:
+    storageClass: standard-rwo
   postgresql:
     enabled: true
     image:
       tag: "16.6.0-debian-12-r2"
+    persistence:
+      storageClass: standard-rwo
   postgresql-ha:
     enabled: false
   valkey-cluster:
