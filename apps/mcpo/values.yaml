@@ -6,173 +6,93 @@ app-template:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
           operator.1password.io/item-name: "secrets"
       containers:
-        # Filesystem MCP Server
-        filesystem:
-          image:
-            repository: node
-            tag: "20-alpine"
-            pullPolicy: Always
-          env:
-            TZ: "America/Chicago"
-            MCP_TRANSPORT_TYPE: "stdio"
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              npx -y @modelcontextprotocol/server-filesystem /data
-          resources:
-            requests: { cpu: 50m, memory: 128Mi }
-            limits:   { cpu: 200m, memory: 256Mi }
-
-        # SQLite MCP Server
-        sqlite:
-          image:
-            repository: node
-            tag: "20-alpine"
-            pullPolicy: Always
-          env:
-            TZ: "America/Chicago"
-            MCP_TRANSPORT_TYPE: "stdio"
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              npx -y @modelcontextprotocol/server-sqlite --db-path /data/database.db
-          resources:
-            requests: { cpu: 50m, memory: 128Mi }
-            limits:   { cpu: 200m, memory: 256Mi }
-
-        # Memory MCP Server (persistent key-value store)
-        memory:
-          image:
-            repository: node
-            tag: "20-alpine"
-            pullPolicy: Always
-          env:
-            TZ: "America/Chicago"
-            MCP_TRANSPORT_TYPE: "stdio"
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              npx -y @modelcontextprotocol/server-memory
-          resources:
-            requests: { cpu: 50m, memory: 128Mi }
-            limits:   { cpu: 200m, memory: 256Mi }
-
-        # Brave Search MCP Server (requires API key)
-        brave-search:
-          image:
-            repository: node
-            tag: "20-alpine"
-            pullPolicy: Always
-          env:
-            TZ: "America/Chicago"
-            MCP_TRANSPORT_TYPE: "stdio"
-            # BRAVE_API_KEY:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: secrets
-            #       key: brave-api-key
-            #       optional: true
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              if [ -n "$BRAVE_API_KEY" ]; then
-                npx -y @modelcontextprotocol/server-brave-search
-              else
-                echo "Brave API key not set, sleeping..."
-                sleep infinity
-              fi
-          resources:
-            requests: { cpu: 50m, memory: 128Mi }
-            limits:   { cpu: 200m, memory: 256Mi }
-
-        # GitHub MCP Server (requires token)
-        github:
-          image:
-            repository: node
-            tag: "20-alpine"
-            pullPolicy: Always
-          env:
-            TZ: "America/Chicago"
-            MCP_TRANSPORT_TYPE: "stdio"
-            # GITHUB_PERSONAL_ACCESS_TOKEN:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: secrets
-            #       key: github-token
-            #       optional: true
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              if [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
-                npx -y @modelcontextprotocol/server-github
-              else
-                echo "GitHub token not set, sleeping..."
-                sleep infinity
-              fi
-          resources:
-            requests: { cpu: 50m, memory: 128Mi }
-            limits:   { cpu: 200m, memory: 256Mi }
-
-        # Main HTTP proxy/aggregator (mcpo)
         main:
           image:
-            repository: node
-            tag: "20-alpine"
+            repository: ghcr.io/open-webui/mcpo
+            tag: main
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
-            NODE_ENV: "production"
-            MCP_TRANSPORT_TYPE: "http"
-            MCP_HTTP_HOST: "0.0.0.0"
-            MCP_HTTP_PORT: "8000"
-            MCP_ALLOWED_ORIGINS: "https://open.eaglepass.io"
-            MCP_AUTH_SECRET_KEY:
+            HOME: /config
+            XDG_CACHE_HOME: /config/.cache
+            XDG_CONFIG_HOME: /config/.config
+            XDG_DATA_HOME: /config/.local/share
+            MCPO_API_KEY:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: mcp-auth-secret-key
-            MCP_LOG_LEVEL: "info"
-
-          command: ["/bin/sh", "-lc"]
+                  key: mcpo-api-key
+            UV_CACHE_DIR: /config/.cache/uv
+            UV_DATA_DIR: /config/.local/share/uv
+            UV_TOOL_DIR: /config/.local/share/uv/tools
+          command:
+            - /bin/sh
+            - -c
           args:
-            - |
-              mkdir -p /data
-              # Install mcpo to aggregate all the stdio MCP servers
-              npm install --prefix /data mcpo
-              # Run mcpo with all available servers
-              node /data/node_modules/mcpo/dist/index.js
-
+            - mcpo --host 0.0.0.0 --port 8000 --api-key "$MCPO_API_KEY" --config /config/config.json --hot-reload
           ports:
             - name: http
               containerPort: 8000
-
           probes:
             liveness:
               enabled: true
               custom: true
               spec:
-                tcpSocket: { port: http }
-                initialDelaySeconds: 15
+                httpGet:
+                  path: /docs
+                  port: http
+                initialDelaySeconds: 30
                 periodSeconds: 15
             readiness:
               enabled: true
               custom: true
               spec:
-                tcpSocket: { port: http }
-                initialDelaySeconds: 5
-                periodSeconds: 10
+                httpGet:
+                  path: /docs
+                  port: http
+                initialDelaySeconds: 15
+                periodSeconds: 15
             startup:
               enabled: true
               custom: true
               spec:
-                tcpSocket: { port: http }
+                httpGet:
+                  path: /docs
+                  port: http
                 failureThreshold: 60
-                periodSeconds: 2
-
+                periodSeconds: 5
           resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits:   { cpu: 500m, memory: 512Mi }
-
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      initContainers:
+        bootstrap-config:
+          image:
+            repository: alpine
+            tag: "3.20"
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              mkdir -p /config/.cache/uv
+              mkdir -p /config/.config
+              mkdir -p /config/.local/share/uv/tools
+              if [ ! -f /config/config.json ]; then
+                cat <<'EOC' > /config/config.json
+              {
+                "mcpServers": {
+                  "time": {
+                    "command": "uvx",
+                    "args": ["mcp-server-time", "--local-timezone=$TZ"]
+                  }
+                }
+              }
+              EOC
+              fi
   service:
     main:
       controller: main
@@ -180,12 +100,13 @@ app-template:
         http:
           port: 8000
           targetPort: http
-
   ingress:
     main:
       enabled: true
       className: nginx
       annotations:
+        # external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: &host mcpo.eaglepass.io
@@ -196,9 +117,9 @@ app-template:
                 identifier: main
                 port: http
       tls:
-        - hosts: [ *host ]
+        - hosts:
+            - *host
           secretName: mcpo-tls-certificate
-
   persistence:
     data:
       enabled: true
@@ -207,15 +128,10 @@ app-template:
       path: /mnt/user/mcpo
       advancedMounts:
         main:
-          filesystem:
-            - path: /data
-          sqlite:
-            - path: /data
-          memory:
-            - path: /data
           main:
-            - path: /data
-
+            - path: /config
+          bootstrap-config:
+            - path: /config
   defaultPodOptions:
     securityContext:
       runAsNonRoot: true
