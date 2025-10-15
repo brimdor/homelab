@@ -6,6 +6,7 @@ This document provides complete, reliable instructions for an average AI model t
 - `apps/<app-name>/values.yaml`
 
 The model must **sub-chart** either the application’s **official Helm chart** (preferred, when current and well-maintained) **or** the **bjw-s common** chart. No other files are permitted.
+Always use the latest versions of the official helm chart or the bjw-s common chart.
 
 ---
 
