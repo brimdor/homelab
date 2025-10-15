@@ -8,91 +8,78 @@ app-template:
       containers:
         main:
           image:
-            repository: ghcr.io/open-webui/mcpo
-            tag: main
+            repository: node
+            tag: "20-alpine"
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
-            HOME: /config
-            XDG_CACHE_HOME: /config/.cache
-            XDG_CONFIG_HOME: /config/.config
-            XDG_DATA_HOME: /config/.local/share
-            MCPO_API_KEY:
+            NODE_ENV: "production"
+
+            # Streamable HTTP transport config
+            MCP_TRANSPORT_TYPE: "http"
+            MCP_HTTP_HOST: "0.0.0.0"
+            MCP_HTTP_PORT: "8000"
+
+            # CORS / Origin hardening: set to your Open WebUI URL(s)
+            # Comma-separate if you have more than one UI allowed.
+            MCP_ALLOWED_ORIGINS: "https://open.eaglepass.io"
+
+            # JWT auth for the MCP server (fetched from 1Password)
+            MCP_AUTH_SECRET_KEY:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: mcpo-api-key
-            UV_CACHE_DIR: /config/.cache/uv
-            UV_DATA_DIR: /config/.local/share/uv
-            UV_TOOL_DIR: /config/.local/share/uv/tools
+                  key: mcp-auth-secret-key
+                  
+            # Optional logging
+            MCP_LOG_LEVEL: "info"
+
           command:
             - /bin/sh
-            - -c
+            - -lc
           args:
-            - mcpo --host 0.0.0.0 --port 8000 --api-key "$MCPO_API_KEY" --config /config/config.json --hot-reload
+            - |
+              # ensure workspace exists and is writable
+              mkdir -p /data
+              # install the filesystem MCP server at runtime
+              npm i -g @cyanheads/filesystem-mcp-server
+              # run over Streamable HTTP; allow operating within /data only
+              # Server reads transport/host/port/origins/auth from env above.
+              filesystem-mcp-server --root /data
+
           ports:
             - name: http
               containerPort: 8000
+
           probes:
+            # Streamable HTTP servers usually have no GET /health route.
+            # Use TCP probes for liveness/readiness.
             liveness:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /docs
-                  port: http
-                initialDelaySeconds: 30
+                tcpSocket: { port: http }
+                initialDelaySeconds: 15
                 periodSeconds: 15
             readiness:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /docs
-                  port: http
-                initialDelaySeconds: 15
-                periodSeconds: 15
+                tcpSocket: { port: http }
+                initialDelaySeconds: 5
+                periodSeconds: 10
             startup:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /docs
-                  port: http
+                tcpSocket: { port: http }
                 failureThreshold: 60
-                periodSeconds: 5
+                periodSeconds: 2
+
           resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-      initContainers:
-        bootstrap-config:
-          image:
-            repository: alpine
-            tag: "3.20"
-          command:
-            - /bin/sh
-            - -c
-          args:
-            - |
-              mkdir -p /config/.cache/uv
-              mkdir -p /config/.config
-              mkdir -p /config/.local/share/uv/tools
-              if [ ! -f /config/config.json ]; then
-                cat <<'EOC' > /config/config.json
-              {
-                "mcpServers": {
-                  "time": {
-                    "command": "uvx",
-                    "args": ["mcp-server-time", "--local-timezone=$TZ"]
-                  }
-                }
-              }
-              EOC
-              fi
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
+
   service:
     main:
       controller: main
@@ -100,13 +87,12 @@ app-template:
         http:
           port: 8000
           targetPort: http
+
   ingress:
     main:
       enabled: true
       className: nginx
       annotations:
-        # external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
-        # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: &host mcpo.eaglepass.io
@@ -117,21 +103,20 @@ app-template:
                 identifier: main
                 port: http
       tls:
-        - hosts:
-            - *host
+        - hosts: [ *host ]
           secretName: mcpo-tls-certificate
+
   persistence:
     data:
       enabled: true
       type: nfs
       server: 10.0.50.3
-      path: /mnt/user/mcpo
+      path: /mnt/user/mcpo   # reuse your NFS share for workspace
       advancedMounts:
         main:
           main:
-            - path: /config
-          bootstrap-config:
-            - path: /config
+            - path: /data
+
   defaultPodOptions:
     securityContext:
       runAsNonRoot: true
