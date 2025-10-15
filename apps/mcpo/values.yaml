@@ -94,12 +94,12 @@ app-template:
           env:
             TZ: "America/Chicago"
             MCP_TRANSPORT_TYPE: "stdio"
-            GITHUB_PERSONAL_ACCESS_TOKEN:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: github-token
-                  optional: true
+            # GITHUB_PERSONAL_ACCESS_TOKEN:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: github-token
+            #       optional: true
           command: ["/bin/sh", "-c"]
           args:
             - |
