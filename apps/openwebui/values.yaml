@@ -3,7 +3,7 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 4
+      replicas: 1
       containers:
         main:
           nameOverride: main
