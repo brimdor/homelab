@@ -43,8 +43,8 @@ app-template:
               mkdir -p /data
               # install the filesystem MCP server into /data (writable by uid 1000)
               npm install --prefix /data @cyanheads/filesystem-mcp-server
-              # run the installed binary
-              /data/node_modules/.bin/filesystem-mcp-server --root /data
+              # run via node (no bin script found, so execute main entry point)
+              node /data/node_modules/@cyanheads/filesystem-mcp-server/build/index.js --root /data
 
           ports:
             - name: http
