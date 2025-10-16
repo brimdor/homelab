@@ -4,11 +4,6 @@ app-template:
       type: statefulset
       containers:
         main:
-          command: ["/bin/sh","-lc"]
-          args:
-            - >
-              /sbin/kanidmd database reindex -c /data/server.toml &&
-              exec /sbin/kanidmd server -c /data/server.toml
           image:
             repository: docker.io/kanidm/server
             tag: 1.4.0
