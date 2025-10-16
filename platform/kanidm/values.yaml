@@ -21,10 +21,9 @@ app-template:
         server.toml: |
           bindaddress = "[::]:443"
           ldapbindaddress = "[::]:636"
-          # trust_x_forward_for = false
           db_path = "/data/kanidm.db"
-          tls_chain = "/data/ca.crt"
-          tls_key = "/data/tls.key"
+          tls_chain = "/data/tls.crt"      # ← use server cert chain
+          tls_key   = "/data/tls.key"
           domain = "auth.eaglepass.io"
           origin = "https://auth.eaglepass.io"
   service:
@@ -65,6 +64,18 @@ app-template:
       globalMounts:
         - path: /data/server.toml
           subPath: server.toml
+    tls:
+      enabled: true
+      type: secret
+      name: kanidm-tls-certificate        # secret must contain tls.crt and tls.key
+      defaultMode: 0440                   # readable by group
+      globalMounts:
+        - path: /data/tls.crt
+          subPath: tls.crt
+          readOnly: true
+        - path: /data/tls.key
+          subPath: tls.key
+          readOnly: true
     tls:
       enabled: true
       type: secret
