@@ -7,6 +7,23 @@ app-template:
           image:
             repository: docker.io/kanidm/server
             tag: 1.4.0
+      initContainers:
+        reindex:
+          image: docker.io/kanidm/server:1.4.0
+          imagePullPolicy: IfNotPresent
+          command: ["/sbin/kanidmd","database","reindex","-c","/data/server.toml"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /data/server.toml
+              subPath: server.toml
+            - name: tls
+              mountPath: /data/ca.crt
+              subPath: ca.crt
+            - name: tls
+              mountPath: /data/tls.key
+              subPath: tls.key
       statefulset:
         volumeClaimTemplates:
           - name: data
@@ -53,7 +70,7 @@ app-template:
               service:
                 name: main
                 port: https
-      tls:
+      tls:c
         - hosts:
             - *host
           secretName: kanidm-tls-certificate
