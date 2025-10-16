@@ -9,7 +9,9 @@ app-template:
             tag: 1.4.0
       initContainers:
         reindex:
-          image: docker.io/kanidm/server:1.4.0
+          image:
+            repository: docker.io/kanidm/server
+            tag: 1.4.0
           imagePullPolicy: IfNotPresent
           command: ["/sbin/kanidmd","database","reindex","-c","/data/server.toml"]
           volumeMounts:
