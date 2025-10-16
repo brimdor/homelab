@@ -47,12 +47,20 @@ app-template:
           domain = "auth.eaglepass.io"
           origin = "https://auth.eaglepass.io"
 
-  # mount the server cert+key (secret must have tls.crt and tls.key)
   persistence:
-    tlsCert:
+    config:
+      enabled: true
+      type: configMap
+      name: kanidm-config
+      globalMounts:
+        - path: /data/server.toml
+          subPath: server.toml
+          readOnly: true
+
+    tls-cert:                 # ✅ lowercase, becomes volume name
       enabled: true
       type: secret
-      name: kanidm-tls-certificate
+      name: kanidm-tls-certificate   # must contain tls.crt and tls.key
       defaultMode: 0440
       globalMounts:
         - path: /data/tls.crt
@@ -62,8 +70,7 @@ app-template:
           subPath: tls.key
           readOnly: true
 
-    # optional: mount CA bundle separately (no key here)
-    tlsCA:
+    tls-ca:                   # ✅ lowercase, separate from tls-cert
       enabled: true
       type: secret
       name: kanidm-selfsigned-certificate
