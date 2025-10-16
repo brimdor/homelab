@@ -53,7 +53,7 @@ app-template:
               service:
                 name: main
                 port: https
-      tls:c
+      tls:
         - hosts:
             - *host
           secretName: kanidm-tls-certificate
