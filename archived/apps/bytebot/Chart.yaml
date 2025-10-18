@@ -1,9 +1,0 @@
-apiVersion: v2
-name: bytebot
-description: Bytebot deployment for the homelab using the bjw-s app-template chart as a dependency.
-type: application
-version: 0.5.0
-dependencies:
-  - name: app-template
-    version: 4.3.0
-    repository: https://bjw-s-labs.github.io/helm-charts
