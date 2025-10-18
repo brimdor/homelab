@@ -20,7 +20,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: backup
-              image: alpine:3.20
+              image: alpine:3.22
               {{- with .Values.backups.podResources }}
               resources:
 {{ toYaml . | nindent 16 }}
