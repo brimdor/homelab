@@ -1,5 +1,4 @@
 # build_charts.md
-
 This document provides complete, reliable instructions for an average AI model to generate **exactly two files** for a given open-source application sourced from GitHub, ready to deploy immediately in the homelab:
 
 - `apps/<app-name>/Chart.yaml`
