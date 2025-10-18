@@ -1,0 +1,40 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: iib0011/omni-tools
+            tag: "0.6.0"
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+  service:
+    main:
+      primary: true
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: omni-tools.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - omni-tools.eaglepass.io
+          secretName: omni-tools-tls-certificate
