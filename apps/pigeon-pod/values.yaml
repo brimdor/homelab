@@ -1,0 +1,62 @@
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: ghcr.io/aizhimou/pigeon-pod
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            PIGEON_BASE_URL: "https://pigeon-pod.eaglepass.io"
+            PIGEON_AUDIO_FILE_PATH: "/data/audio/"
+            SPRING_DATASOURCE_URL: "jdbc:sqlite:/data/pigeon-pod.db"
+          ports:
+            - name: http
+              containerPort: 8080
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 8080
+          targetPort: http
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        # external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host pigeon-pod.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: pigeon-pod-tls-certificate
+  persistence:
+    data:
+      enabled: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/pigeon-pod
+      advancedMounts:
+        main:
+          main:
+            - path: /data
