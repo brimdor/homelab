@@ -206,10 +206,6 @@ app-template:
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
-        nginx.ingress.kubernetes.io/configuration-snippet: |
-          add_header X-Frame-Options "DENY" always;
-          add_header X-Content-Type-Options "nosniff" always;
-          add_header Referrer-Policy "no-referrer" always;
       hosts:
         - host: &host backlog.eaglepass.io
           paths:
@@ -232,10 +228,6 @@ app-template:
         nginx.ingress.kubernetes.io/use-regex: "true"
         nginx.ingress.kubernetes.io/rewrite-target: "/$2"
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
-        nginx.ingress.kubernetes.io/configuration-snippet: |
-          add_header X-Frame-Options "DENY" always;
-          add_header X-Content-Type-Options "nosniff" always;
-          add_header Referrer-Policy "no-referrer" always;
       hosts:
         - host: *host
           paths:
