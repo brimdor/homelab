@@ -1,22 +1,40 @@
 app-template:
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
+      operator.1password.io/item-name: "secrets"
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 999
+      fsGroupChangePolicy: OnRootMismatch
   controllers:
-    main:
-      pod:
-        annotations:
-          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
-          operator.1password.io/item-name: "secrets"
+    frontend:
       containers:
         main:
           image:
-            repository: brimdor/backlog-companion
+            repository: brimdor/backlog_frontend
             tag: canary
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
-            HOST_URL: "https://backlog-companion.eaglepass.io"
-            VITE_API_BASE_URL: "https://backlog-companion.eaglepass.io/api"
+            HOST_URL: "https://backlog.eaglepass.io"
+            VITE_API_BASE_URL: "https://backlog.eaglepass.io/api"
+          ports:
+            - name: http
+              containerPort: 4173
+              protocol: HTTP
+    backend:
+      containers:
+        main:
+          image:
+            repository: brimdor/backlog_backend
+            tag: canary
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+            HOST_URL: "https://backlog.eaglepass.io"
             ADMIN_MODE: "true"
-            DB_HOST: "localhost"
+            DB_HOST: "backlog-companion-database"
             DB_PORT: "3306"
             DB_USER:
               valueFrom:
@@ -33,11 +51,11 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database
-            MYSQL_ROOT_PASSWORD:
+            MYSQL_USER:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: root-password
+                  key: db-user
             MYSQL_PASSWORD:
               valueFrom:
                 secretKeyRef:
@@ -48,11 +66,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database
-            MYSQL_USER:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: db-user
             JWT_SECRET:
               valueFrom:
                 secretKeyRef:
@@ -74,25 +87,66 @@ app-template:
                   name: secrets
                   key: google-client-secret
           ports:
-            - name: http
-              containerPort: 4173
-              protocol: TCP
             - name: api
               containerPort: 3000
+              protocol: HTTP
+    database:
+      type: statefulset
+      containers:
+        main:
+          image:
+            repository: brimdor/backlog_database
+            tag: canary
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+            MYSQL_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: root-password
+            MYSQL_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-password
+            MYSQL_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database
+            MYSQL_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-user
+          ports:
+            - name: mysql
+              containerPort: 3306
               protocol: TCP
   service:
-    main:
-      controller: main
+    frontend:
+      controller: frontend
       primary: true
       ports:
         http:
           port: 4173
           protocol: HTTP
           targetPort: http
+    backend:
+      controller: backend
+      ports:
         api:
           port: 3000
           protocol: HTTP
           targetPort: api
+    database:
+      controller: database
+      ports:
+        mysql:
+          port: 3306
+          protocol: TCP
+          targetPort: mysql
   ingress:
     main:
       enabled: true
@@ -102,13 +156,18 @@ app-template:
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: &host backlog-companion.eaglepass.io
+        - host: &host backlog.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
-                identifier: main
+                identifier: frontend
                 port: http
+            - path: /api
+              pathType: Prefix
+              service:
+                identifier: backend
+                port: api
       tls:
         - hosts:
             - *host
@@ -119,11 +178,6 @@ app-template:
       server: 10.0.50.3
       path: /mnt/user/backlog_companion_database
       advancedMounts:
-        main:
+        database:
           main:
             - path: /var/lib/mysql
-  defaultPodOptions:
-    securityContext:
-      runAsNonRoot: false
-      fsGroup: 999
-      fsGroupChangePolicy: OnRootMismatch
