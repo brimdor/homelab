@@ -1,63 +1,129 @@
-# Default values for backlog-companion Helm chart
-image:
-  database: brimdor/backlog_database:alpha
-  backend: brimdor/backlog_backend:alpha
-  frontend: brimdor/backlog_frontend:alpha
-
-ingress:
-  enabled: true
-  className: nginx
-  tls:
-    - hosts:
-        - backlog.eaglepass.io
-      secretName: backlog-companion-tls
-  hosts:
-    - host: backlog.eaglepass.io
-      paths:
-        - path: /
-          pathType: Prefix
-  clusterIssuer: letsencrypt-prod
-  externalDnsTarget: "homelab-tunnel.eaglepass.io"
-
-env:
-  HOST_URL: https://backlog.eaglepass.io
-  DB_HOST: localhost
-  DB_PORT: 3306
-  VITE_API_BASE_URL: http://localhost:3000
-  ADMIN_MODE: true
-
-opSecret:
-  MYSQL_ROOT_PASSWORD:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "3g3cuf6gowcxdhtlteivplc27u"
-    secretName: "mysql-root-password"
-    key: "root_password"
-  MYSQL_DATABASE:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "3g3cuf6gowcxdhtlteivplc27u"
-    secretName: "mysql-database"
-    key: "database"
-  MYSQL_USER:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "3g3cuf6gowcxdhtlteivplc27u"
-    secretName: "mysql-user"
-    key: "db_user"
-  MYSQL_PASSWORD:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "3g3cuf6gowcxdhtlteivplc27u"
-    secretName: "mysql-password"
-    key: "db_password"
-  ENCRYPTION_KEY:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "3g3cuf6gowcxdhtlteivplc27u"
-    secretName: "encryption-key"
-    key: "encryption_key"
-  JWT_SECRET:
-    vault: "4uaua4a45yuhnwhehp5bwylmti"
-    item: "3g3cuf6gowcxdhtlteivplc27u"
-    secretName: "jwt-secret"
-    key: "jwt_secret"
-
-nfs:
-  server: 10.0.50.3
-  path: /mnt/user/backlog_companion_database
+app-template:
+  controllers:
+    main:
+      pod:
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
+          operator.1password.io/item-name: "secrets"
+      containers:
+        main:
+          image:
+            repository: brimdor/backlog-companion
+            tag: canary
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+            HOST_URL: "https://backlog-companion.eaglepass.io"
+            VITE_API_BASE_URL: "https://backlog-companion.eaglepass.io/api"
+            ADMIN_MODE: "true"
+            DB_HOST: "localhost"
+            DB_PORT: "3306"
+            DB_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-user
+            DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-password
+            DB_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database
+            MYSQL_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: root-password
+            MYSQL_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-password
+            MYSQL_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database
+            MYSQL_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-user
+            JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: jwt-secret
+            ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: encryption-key
+            GOOGLE_CLIENT_ID:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: google-client-id
+            GOOGLE_CLIENT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: google-client-secret
+          ports:
+            - name: http
+              containerPort: 4173
+              protocol: HTTP
+            - name: api
+              containerPort: 3000
+              protocol: HTTP
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 4173
+          protocol: HTTP
+          targetPort: http
+        api:
+          port: 3000
+          protocol: HTTP
+          targetPort: api
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host backlog-companion.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: backlog-companion-tls
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/backlog_companion_database
+      advancedMounts:
+        main:
+          main:
+            - path: /var/lib/mysql
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 999
+      fsGroupChangePolicy: OnRootMismatch

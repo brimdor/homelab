@@ -1,18 +1,18 @@
 # Default values for backlog-companion Helm chart
 image:
-  database: brimdor/backlog_database:canary
-  backend: brimdor/backlog_backend:canary
-  frontend: brimdor/backlog_frontend:canary
+  database: brimdor/backlog_database:alpha
+  backend: brimdor/backlog_backend:alpha
+  frontend: brimdor/backlog_frontend:alpha
 
 ingress:
   enabled: true
   className: nginx
   tls:
     - hosts:
-        - backlog-canary.eaglepass.io
+        - backlog.eaglepass.io
       secretName: backlog-companion-tls
   hosts:
-    - host: backlog-canary.eaglepass.io
+    - host: backlog.eaglepass.io
       paths:
         - path: /
           pathType: Prefix
@@ -20,7 +20,7 @@ ingress:
   externalDnsTarget: "homelab-tunnel.eaglepass.io"
 
 env:
-  HOST_URL: https://backlog-canary.eaglepass.io
+  HOST_URL: https://backlog.eaglepass.io
   DB_HOST: localhost
   DB_PORT: 3306
   VITE_API_BASE_URL: http://localhost:3000
@@ -60,4 +60,4 @@ opSecret:
 
 nfs:
   server: 10.0.50.3
-  path: /mnt/user/backlog_companion_database-canary
+  path: /mnt/user/backlog_companion_database
