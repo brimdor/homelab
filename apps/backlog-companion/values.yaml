@@ -209,6 +209,9 @@ app-template:
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/configuration-snippet: |
+          # Ensure HTML entrypoint isn't cached at the edge; assets get their own rule below
+          add_header Cache-Control "no-cache, no-store, must-revalidate" always;
       hosts:
         - host: &host backlog.eaglepass.io
           paths:
@@ -239,6 +242,28 @@ app-template:
               service:
                 identifier: backend
                 port: api
+      tls:
+        - hosts:
+            - *host
+          secretName: backlog-companion-tls
+    assets:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        # Strong caching for static assets; immutable because filenames are content-hashed
+        nginx.ingress.kubernetes.io/configuration-snippet: |
+          add_header Cache-Control "public, max-age=31536000, immutable" always;
+      hosts:
+        - host: *host
+          paths:
+            - path: /assets/
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
       tls:
         - hosts:
             - *host
