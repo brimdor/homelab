@@ -23,6 +23,25 @@ app-template:
             - name: http
               containerPort: 80
               protocol: TCP
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 15
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 5
+                periodSeconds: 10
     backend:
       containers:
         main:
@@ -34,7 +53,7 @@ app-template:
             TZ: "America/Chicago"
             HOST_URL: "https://backlog.eaglepass.io"
             ADMIN_MODE: "true"
-            DB_HOST: "backlog-companion-canary-database.backlog-companion-canary.svc.cluster.local"
+            DB_HOST: "backlog-companion-database.backlog-companion.svc.cluster.local"
             DB_PORT: "3306"
             DB_USER:
               valueFrom:
@@ -90,6 +109,35 @@ app-template:
             - name: api
               containerPort: 3000
               protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: api
+                initialDelaySeconds: 20
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: api
+                initialDelaySeconds: 5
+                periodSeconds: 10
     database:
       type: statefulset
       containers:
@@ -157,8 +205,11 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
-        nginx.ingress.kubernetes.io/use-regex: "true"
-        nginx.ingress.kubernetes.io/rewrite-target: "/$2"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/configuration-snippet: |
+          add_header X-Frame-Options "DENY" always;
+          add_header X-Content-Type-Options "nosniff" always;
+          add_header Referrer-Policy "no-referrer" always;
       hosts:
         - host: &host backlog.eaglepass.io
           paths:
@@ -167,6 +218,27 @@ app-template:
               service:
                 identifier: main
                 port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: backlog-companion-tls
+    api:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/use-regex: "true"
+        nginx.ingress.kubernetes.io/rewrite-target: "/$2"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/configuration-snippet: |
+          add_header X-Frame-Options "DENY" always;
+          add_header X-Content-Type-Options "nosniff" always;
+          add_header Referrer-Policy "no-referrer" always;
+      hosts:
+        - host: *host
+          paths:
             - path: /api(/|$)(.*)
               pathType: ImplementationSpecific
               service:
@@ -185,3 +257,37 @@ app-template:
         database:
           main:
             - path: /var/lib/mysql
+  networkpolicies:
+    backend:
+      controller: backend
+      policyTypes: ["Ingress", "Egress"]
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector: {}
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: ingress-nginx
+            ports:
+              - port: 3000
+                protocol: TCP
+        egress:
+          - to:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/controller: database
+            ports:
+              - port: 3306
+                protocol: TCP
+    database:
+      controller: database
+      policyTypes: ["Ingress"]
+      rules:
+        ingress:
+          - from:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/controller: backend
+            ports:
+              - port: 3306
+                protocol: TCP
