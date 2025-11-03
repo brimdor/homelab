@@ -22,7 +22,7 @@ app-template:
           ports:
             - name: http
               containerPort: 4173
-              protocol: HTTP
+              protocol: TCP
     backend:
       containers:
         main:
@@ -89,7 +89,7 @@ app-template:
           ports:
             - name: api
               containerPort: 3000
-              protocol: HTTP
+              protocol: TCP
     database:
       type: statefulset
       containers:
@@ -161,12 +161,12 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                identifier: main
+                name: main
                 port: http
             - path: /api
               pathType: Prefix
               service:
-                identifier: backend
+                name: backend
                 port: api
       tls:
         - hosts:
