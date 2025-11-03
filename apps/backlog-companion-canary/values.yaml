@@ -8,7 +8,7 @@ app-template:
       fsGroup: 999
       fsGroupChangePolicy: OnRootMismatch
   controllers:
-    frontend:
+    main:
       containers:
         main:
           image:
@@ -125,8 +125,8 @@ app-template:
               containerPort: 3306
               protocol: TCP
   service:
-    frontend:
-      controller: frontend
+    main:
+      controller: main
       primary: true
       ports:
         http:
@@ -161,7 +161,7 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                identifier: frontend
+                identifier: main
                 port: http
             - path: /api
               pathType: Prefix
