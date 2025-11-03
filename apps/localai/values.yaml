@@ -14,6 +14,8 @@ local-ai:
     # Env variables mapped from docker run example
     env:
       LOCALAI_LOG_LEVEL: "debug"
+      LOCALAI_P2P: "true"
+      LOCALAI_FEDERATED: "true"
       # NGPULayers: "32"
       LOCALAI_SINGLE_ACTIVE_BACKEND: "true"
       LOCALAI_PARALLEL_REQUESTS: "false"
