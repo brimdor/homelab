@@ -76,10 +76,10 @@ app-template:
           ports:
             - name: http
               containerPort: 4173
-              protocol: HTTP
+              protocol: TCP
             - name: api
               containerPort: 3000
-              protocol: HTTP
+              protocol: TCP
   service:
     main:
       controller: main
