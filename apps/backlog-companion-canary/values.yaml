@@ -21,7 +21,7 @@ app-template:
             VITE_API_BASE_URL: "https://backlog.eaglepass.io/api"
           ports:
             - name: http
-              containerPort: 4173
+              containerPort: 80
               protocol: TCP
     backend:
       containers:
@@ -157,6 +157,8 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/use-regex: "true"
+        nginx.ingress.kubernetes.io/rewrite-target: "/$2"
       hosts:
         - host: &host backlog.eaglepass.io
           paths:
@@ -165,8 +167,8 @@ app-template:
               service:
                 identifier: main
                 port: http
-            - path: /api
-              pathType: Prefix
+            - path: /api(/|$)(.*)
+              pathType: ImplementationSpecific
               service:
                 identifier: backend
                 port: api
