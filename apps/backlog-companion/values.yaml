@@ -176,7 +176,7 @@ app-template:
       primary: true
       ports:
         http:
-          port: 4173
+          port: 80
           protocol: TCP
           appProtocol: http
           targetPort: http
