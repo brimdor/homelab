@@ -18,7 +18,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             HOST_URL: "https://backlog.eaglepass.io"
-            VITE_API_BASE_URL: "https://backlog.eaglepass.io/api"
+            VITE_API_BASE_URL: ""
             GOOGLE_CLIENT_ID:
               valueFrom:
                 secretKeyRef:
@@ -228,14 +228,12 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
-        nginx.ingress.kubernetes.io/use-regex: "true"
-        nginx.ingress.kubernetes.io/rewrite-target: "/$2"
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
       hosts:
         - host: *host
           paths:
-            - path: /api(/|$)(.*)
-              pathType: ImplementationSpecific
+            - path: /api
+              pathType: Prefix
               service:
                 identifier: backend
                 port: api
