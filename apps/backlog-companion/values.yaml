@@ -124,20 +124,18 @@ app-template:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /
+                tcpSocket:
                   port: api
-                initialDelaySeconds: 20
-                periodSeconds: 10
+                initialDelaySeconds: 30
+                periodSeconds: 15
             readiness:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /
+                tcpSocket:
                   port: api
-                initialDelaySeconds: 5
-                periodSeconds: 10
+                initialDelaySeconds: 15
+                periodSeconds: 15
     database:
       type: statefulset
       containers:
@@ -270,6 +268,15 @@ app-template:
                     app.kubernetes.io/controller: database
             ports:
               - port: 3306
+                protocol: TCP
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: kube-system
+            ports:
+              - port: 53
+                protocol: UDP
+              - port: 53
                 protocol: TCP
     database:
       controller: database
