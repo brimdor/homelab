@@ -60,6 +60,8 @@ app-template:
             ADMIN_MODE: "true"
             DB_HOST: "backlog-companion-database.backlog-companion.svc.cluster.local"
             DB_PORT: "3306"
+            GOOGLE_ISSUERS: "https://accounts.google.com,accounts.google.com"
+            GOOGLE_AUTH_RETRY_LIMIT: 3
             DB_USER:
               valueFrom:
                 secretKeyRef:
