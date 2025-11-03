@@ -1,0 +1,11 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Helm diff backlog-companion",
+			"type": "shell",
+			"command": "./tools/helm-diff apps/backlog-companion",
+			"args": []
+		}
+	]
+}
