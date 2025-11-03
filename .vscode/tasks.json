@@ -6,6 +6,17 @@
 			"type": "shell",
 			"command": "./tools/helm-diff apps/backlog-companion",
 			"args": []
+		},
+		{
+			"label": "Helm diff backlog-companion",
+			"type": "shell",
+			"command": "./tools/helm-diff apps/backlog-companion",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
 		}
 	]
 }
