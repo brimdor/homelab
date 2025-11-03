@@ -131,14 +131,16 @@ app-template:
       ports:
         http:
           port: 4173
-          protocol: HTTP
+          protocol: TCP
+          appProtocol: http
           targetPort: http
     backend:
       controller: backend
       ports:
         api:
           port: 3000
-          protocol: HTTP
+          protocol: TCP
+          appProtocol: http
           targetPort: api
     database:
       controller: database
@@ -161,12 +163,12 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: main
+                identifier: main
                 port: http
             - path: /api
               pathType: Prefix
               service:
-                name: backend
+                identifier: backend
                 port: api
       tls:
         - hosts:
