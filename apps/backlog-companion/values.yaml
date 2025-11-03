@@ -14,7 +14,7 @@ app-template:
           image:
             repository: brimdor/backlog_frontend
             tag: canary
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: "America/Chicago"
             HOST_URL: "https://backlog.eaglepass.io"
@@ -53,7 +53,7 @@ app-template:
           image:
             repository: brimdor/backlog_backend
             tag: canary
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: "America/Chicago"
             HOST_URL: "https://backlog.eaglepass.io"
@@ -148,7 +148,7 @@ app-template:
           image:
             repository: brimdor/backlog_database
             tag: canary
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: "America/Chicago"
             MYSQL_ROOT_PASSWORD:
