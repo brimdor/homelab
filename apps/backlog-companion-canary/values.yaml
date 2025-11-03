@@ -34,7 +34,7 @@ app-template:
             TZ: "America/Chicago"
             HOST_URL: "https://backlog.eaglepass.io"
             ADMIN_MODE: "true"
-            DB_HOST: "backlog-companion-database.backlog-companion-canary.svc.cluster.local"
+            DB_HOST: "backlog-companion-canary-database.backlog-companion-canary.svc.cluster.local"
             DB_PORT: "3306"
             DB_USER:
               valueFrom:
