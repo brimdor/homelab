@@ -16,7 +16,6 @@ app-template:
             PUID: "99"
             PGID: "100"
             DOCKER_MODS: linuxserver/mods:universal-git
-            DASHBOARD: selkies-dashboard
             CUSTOM_USER:
               valueFrom:
                 secretKeyRef:
