@@ -62,7 +62,7 @@ app-template:
       enabled: true
       type: nfs
       server: 10.0.50.3
-      path: /mnt/user/obsidian/vaults
+      path: /mnt/user/obsidian
       advancedMounts:
         main:
           main:
