@@ -16,6 +16,7 @@ app-template:
             PUID: "99"
             PGID: "100"
             DOCKER_MODS: linuxserver/mods:universal-git
+            SELKIES_ENCODER: "jpeg"
             CUSTOM_USER:
               valueFrom:
                 secretKeyRef:
@@ -75,3 +76,10 @@ app-template:
         main:
           main:
             - path: /config
+    shared-memory:
+      enabled: true
+      type: emptyDir
+      medium: Memory
+      sizeLimit: 4Gi
+      globalMounts:
+        - path: /dev/shm
