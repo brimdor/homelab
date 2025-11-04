@@ -4,16 +4,16 @@ This document provides complete, reliable instructions for an average AI model t
 - `apps/<app-name>/Chart.yaml`
 - `apps/<app-name>/values.yaml`
 
-The model must **sub-chart** either the application’s **official Helm chart** (preferred, when current and well-maintained) **or** the **bjw-s common** chart. No other files are permitted.  
-- Always use the latest versions of the official helm chart or the bjw-s common chart. Unless a specific Chart version is given.
+The model must **sub-chart** either the application’s **official Helm chart** (preferred, when current and well-maintained) **or** the **bjw-s app-template** chart. No other files are permitted.  
+- Always use the latest versions of the official helm chart or the bjw-s app-template chart. Unless a specific Chart version is given.
 
 ---
 
 ## Reference URLs (authoritative lookups & latest versions)
 
-- **bjw-s Helm Charts (common library & releases):** https://github.com/bjw-s-labs/helm-charts  
-  - Common chart values: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml  
-  - Common chart schema: https://github.com/bjw-s-labs/helm-charts/tree/main/charts/library/common  
+- **bjw-s Helm Charts (app-template library & releases):** https://github.com/bjw-s-labs/helm-charts  
+  - app-template chart values: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml  
+  - app-template chart schema: https://github.com/bjw-s-labs/helm-charts/tree/main/charts/library/common  
 - **ArtifactHub (official/app charts discovery):** https://artifacthub.io/  
 - **1Password Kubernetes Operator:** https://github.com/1Password/onepassword-operator  
 - **Helm Chart dependencies (syntax & lock):** https://helm.sh/docs/topics/charts/#chart-dependencies  
@@ -56,8 +56,8 @@ Both must be fully valid YAML, with no placeholders and deployment-ready.
 1. **Discover official chart**
    - Search the app’s docs, GitHub, and **ArtifactHub** (https://artifacthub.io/).
    - If a current, reputable **official (or primary)** chart exists → **use it** as a dependency in `Chart.yaml`.
-2. **Otherwise use bjw-s common**
-   - Depend on **bjw-s common** library chart (https://github.com/bjw-s-labs/helm-charts) to define the workload via values.
+2. **Otherwise use bjw-s app-template**
+   - Depend on **bjw-s app-template** library chart (https://github.com/bjw-s-labs/helm-charts) to define the workload via values.
 
 > The chosen source dictates the valid keys and structure in `values.yaml`. Always conform to the selected chart’s schema (consult the chart’s README/values on ArtifactHub or GitHub).
 
@@ -133,7 +133,7 @@ data:  # single-word key describing the data
   - Path `/` with `Prefix` (unless app requires sub-path).
   - TLS per cluster policy (e.g., cert-manager) if applicable.
 
-> Official charts and bjw-s common have different keys—use the correct schema for ingress. See Kubernetes Ingress spec: https://kubernetes.io/docs/concepts/services-networking/ingress/
+> Official charts and bjw-s app-template have different keys—use the correct schema for ingress. See Kubernetes Ingress spec: https://kubernetes.io/docs/concepts/services-networking/ingress/
 
 ---
 
@@ -158,7 +158,7 @@ data:  # single-word key describing the data
 
 ---
 
-## bjw-s Common Workflow
+## bjw-s app-template Workflow
 
 - The first **controller**, **container**, and **service** must be named **`main`**.
 - The first **PVC** must be named **`data`**.
@@ -168,7 +168,7 @@ data:  # single-word key describing the data
   - `ingress.main` (host, paths, class, TLS)
   - `persistence.data` (NFS or PVC)
 
-Consult bjw-s common values/schema for valid keys:  
+Consult bjw-s app-template values/schema for valid keys:  
 - Values: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml  
 - Schema: https://github.com/bjw-s-labs/helm-charts/tree/main/charts/library/common
 
@@ -193,7 +193,7 @@ Consult bjw-s common values/schema for valid keys:
    - `apps/<app-name>/Chart.yaml`  
    - `apps/<app-name>/values.yaml`
 2. **Chart name** equals `<app-name>` (lowercase, hyphenated if needed). `apiVersion: v2`, `type: application`, sensible `version` (e.g., `0.1.0`).
-3. **Dependency chosen correctly**: official chart (with explicit version) **or** bjw-s common library (current, appropriate version).
+3. **Dependency chosen correctly**: official chart (with explicit version) **or** bjw-s app-template library (current, appropriate version).
 4. **Secrets:** 1Password annotations present; **all sensitive env** use `secretKeyRef` to `secrets`; key names match 1Password fields.
 5. **Storage:** NFS and/or PVC configured to match the app’s documented data paths; **`data`** is the first PVC (bjw-s).
 6. **Ingress:** enabled only when applicable; host set to `<app-name>.eaglepass.io`; class and TLS configured per cluster.
