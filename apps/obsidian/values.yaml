@@ -29,7 +29,7 @@ app-template:
                   key: password
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 8082
             - name: https
               containerPort: 8443
   service:
