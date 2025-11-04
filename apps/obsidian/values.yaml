@@ -3,7 +3,7 @@ app-template:
     main:
       pod:
         annotations:
-          operator.1password.io/item-path: "vaults/homelab/items/obsidian-remote"
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2ortihqm434zoylzxr5pag7bba"
           operator.1password.io/item-name: "secrets"
       containers:
         main:
