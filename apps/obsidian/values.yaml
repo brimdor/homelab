@@ -27,21 +27,21 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: password
-          ports:
-            - name: http
-              containerPort: 8080
-            - name: https
-              containerPort: 8443
+          # ports:
+          #   - name: http
+          #     containerPort: 8080
+          #   - name: https
+          #     containerPort: 8443
   service:
     main:
-      controller: main
+      primary: true
       ports:
         http:
           port: 8080
-          targetPort: http
-        https:
-          port: 8443
-          targetPort: https
+          protocol: HTTP
+        # https:
+        #   port: 8443
+        #   protocol: HTTP
   ingress:
     main:
       enabled: true
@@ -51,7 +51,7 @@ app-template:
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: obsidian.eaglepass.io
+        - host: &host obsidian.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -61,7 +61,7 @@ app-template:
       tls:
         - secretName: obsidian-tls
           hosts:
-            - obsidian.eaglepass.io
+            - *host
   persistence:
     data:
       enabled: true
