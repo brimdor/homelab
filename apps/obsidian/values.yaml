@@ -78,24 +78,24 @@ app-template:
         main:
           create-dirs:
             - path: /mnt/user/obsidian
-    data:
-      enabled: true
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/obsidian/config
-      advancedMounts:
-        main:
-          main:
-            - path: /config
-    vaults:
-      enabled: true
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/obsidian/vaults
-      advancedMounts:
-        main:
-          main:
-            - path: /vaults
+    # data:
+    #   enabled: true
+    #   type: nfs
+    #   server: 10.0.50.3
+    #   path: /mnt/user/obsidian
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /config
+    # vaults:
+    #   enabled: true
+    #   type: nfs
+    #   server: 10.0.50.3
+    #   path: /mnt/user/obsidian
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /vaults
     shared-memory:
       enabled: true
       type: emptyDir
