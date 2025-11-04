@@ -8,7 +8,7 @@ app-template:
       containers:
         main:
           image:
-            repository: lscr.io/linuxserver/obsidian:latest
+            repository: lscr.io/linuxserver/obsidian
             tag: latest
             pullPolicy: Always
           env:
