@@ -38,10 +38,10 @@ app-template:
       ports:
         http:
           port: 3000
-          targetPort: http
+          protocol: HTTP
         https:
           port: 3001
-          targetPort: https
+          protocol: HTTP
   ingress:
     main:
       enabled: true
