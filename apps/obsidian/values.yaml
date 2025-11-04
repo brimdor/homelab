@@ -5,6 +5,12 @@ app-template:
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2ortihqm434zoylzxr5pag7bba"
           operator.1password.io/item-name: "secrets"
+      initContainers:
+        create-dirs:
+          image:
+            repository: busybox
+            tag: latest
+          command: ['sh', '-c', 'mkdir -p /mnt/user/obsidian/config /mnt/user/obsidian/vaults']
       containers:
         main:
           image:
@@ -16,7 +22,7 @@ app-template:
             PUID: "1000"
             PGID: "1000"
             DOCKER_MODS: linuxserver/mods:universal-git
-            DASHBOARD: "selkies-dashboard"
+            DASHBOARD: selkies-dashboard
             CUSTOM_USER:
               valueFrom:
                 secretKeyRef:
@@ -27,27 +33,27 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: password
-          # ports:
-          #   - name: http
-          #     containerPort: 8080
-          #   - name: https
-          #     containerPort: 8443
+          ports:
+            - name: http
+              containerPort: 3000
+            - name: https
+              containerPort: 3001
   service:
     main:
-      primary: true
+      controller: main
       ports:
         http:
-          port: 8080
-          protocol: HTTP
-        # https:
-        #   port: 8443
-        #   protocol: HTTP
+          port: 3000
+          targetPort: http
+        https:
+          port: 3001
+          targetPort: https
   ingress:
     main:
       enabled: true
       className: nginx
       annotations:
-        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
@@ -63,21 +69,37 @@ app-template:
           hosts:
             - *host
   persistence:
-    data:
+    obsidian-share:
       enabled: true
       type: nfs
       server: 10.0.50.3
       path: /mnt/user/obsidian
       advancedMounts:
         main:
-          main:
-            - path: /vaults
-    config:
+          create-dirs:
+            - path: /mnt/user/obsidian
+    data:
       enabled: true
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 5Gi
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/obsidian/config
       advancedMounts:
         main:
           main:
             - path: /config
+    vaults:
+      enabled: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/obsidian/vaults
+      advancedMounts:
+        main:
+          main:
+            - path: /vaults
+    shared-memory:
+      enabled: true
+      type: emptyDir
+      medium: Memory
+      sizeLimit: 1Gi
+      globalMounts:
+        - path: /dev/shm
