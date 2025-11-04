@@ -85,6 +85,7 @@ env:
         name: "secrets"
         key: "<key-name>"
 ```
+- "key" value must always be alpha-lowercase and hyphens only
 - **Non-secret env** (e.g., `TZ`, `PUID`, `PGID`) may be literal values.
 
 > Ensure every required configuration/env the app needs is present—derived from docs and any `docker-compose` in the repo.
