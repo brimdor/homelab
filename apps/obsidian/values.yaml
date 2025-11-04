@@ -27,11 +27,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: password
-          # ports:
-          #   - name: http
-          #     containerPort: 3000
-          #   - name: https
-          #     containerPort: 3001
   service:
     main:
       controller: main
@@ -62,22 +57,13 @@ app-template:
         - secretName: obsidian-tls
           hosts:
             - *host
-  # persistence:
-  #   data:
-  #     enabled: true
-  #     type: nfs
-  #     server: 10.0.50.3
-  #     path: /mnt/user/obsidian
-  #     advancedMounts:
-  #       main:
-  #         main:
-  #           - path: /config
-  #   vaults:
-  #     enabled: true
-  #     type: nfs
-  #     server: 10.0.50.3
-  #     path: /mnt/user/obsidian
-  #     advancedMounts:
-  #       main:
-  #         main:
-  #           - path: /vaults
+  persistence:
+    data:
+      enabled: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/obsidian
+      advancedMounts:
+        main:
+          main:
+            - path: /config
