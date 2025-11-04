@@ -5,12 +5,6 @@ app-template:
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2ortihqm434zoylzxr5pag7bba"
           operator.1password.io/item-name: "secrets"
-      initContainers:
-        create-dirs:
-          image:
-            repository: busybox
-            tag: latest
-          command: ['sh', '-c', 'mkdir -p /mnt/user/obsidian/config /mnt/user/obsidian/vaults']
       containers:
         main:
           image:
@@ -69,15 +63,6 @@ app-template:
           hosts:
             - *host
   persistence:
-    obsidian-share:
-      enabled: true
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/obsidian
-      advancedMounts:
-        main:
-          create-dirs:
-            - path: /mnt/user/obsidian
     # data:
     #   enabled: true
     #   type: nfs
@@ -96,10 +81,3 @@ app-template:
     #     main:
     #       main:
     #         - path: /vaults
-    shared-memory:
-      enabled: true
-      type: emptyDir
-      medium: Memory
-      sizeLimit: 1Gi
-      globalMounts:
-        - path: /dev/shm
