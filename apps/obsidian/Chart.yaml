@@ -1,0 +1,10 @@
+apiVersion: v2
+name: obsidian
+description: HomeLab packaging for the obsidian-remote container using the bjw-s app-template chart
+type: application
+version: 0.1.0
+appVersion: "latest"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/
