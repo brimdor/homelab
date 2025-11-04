@@ -13,8 +13,8 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
-            PUID: "1000"
-            PGID: "1000"
+            PUID: "99"
+            PGID: "100"
             DOCKER_MODS: linuxserver/mods:universal-git
             DASHBOARD: selkies-dashboard
             CUSTOM_USER:
@@ -27,11 +27,11 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: password
-          ports:
-            - name: http
-              containerPort: 3000
-            - name: https
-              containerPort: 3001
+          # ports:
+          #   - name: http
+          #     containerPort: 3000
+          #   - name: https
+          #     containerPort: 3001
   service:
     main:
       controller: main
