@@ -69,9 +69,9 @@ app-template:
             - path: /notes
     config:
       enabled: true
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 5Gi
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/obsidian-config
       advancedMounts:
         main:
           main:
