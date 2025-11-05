@@ -24,6 +24,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: google-client-id
+            CORS_ORIGIN: "https://backlog.eaglepass.io"
           ports:
             - name: http
               containerPort: 80
@@ -60,8 +61,14 @@ app-template:
             ADMIN_MODE: "true"
             DB_HOST: "backlog-companion-database.backlog-companion.svc.cluster.local"
             DB_PORT: "3306"
-            GOOGLE_ISSUERS: "https://accounts.google.com,accounts.google.com"
+            GOOGLE_ISSUERS: "https://accounts.google.com,https://sessions.google.com"
+            GOOGLE_ALLOWED_AUDIENCES:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: google-client-id
             GOOGLE_AUTH_RETRY_LIMIT: 3
+            GOOGLE_VERIFY_TIMEOUT_MS: "15000"
             DB_USER:
               valueFrom:
                 secretKeyRef:
@@ -102,6 +109,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: encryption-key
+            LOG_LEVEL: "info"
             GOOGLE_CLIENT_ID:
               valueFrom:
                 secretKeyRef:
