@@ -58,7 +58,7 @@ app-template:
           env:
             TZ: "America/Chicago"
             HOST_URL: "https://backlog.eaglepass.io"
-            ADMIN_MODE: "true"
+            ADMIN_MODE: "false"
             DB_HOST: "backlog-companion-database.backlog-companion.svc.cluster.local"
             DB_PORT: "3306"
             GOOGLE_ISSUERS: "https://accounts.google.com,https://sessions.google.com"
