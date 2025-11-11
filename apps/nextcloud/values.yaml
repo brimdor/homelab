@@ -10,8 +10,8 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            PUID: "1000"
-            PGID: "1000"
+            PUID: "99"
+            PGID: "100"
             TZ: "America/Chicago"
             PHP_UPLOAD_LIMIT: "16G"
             NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.eaglepass.io"
