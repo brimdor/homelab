@@ -13,6 +13,7 @@ app-template:
             PUID: "1000"
             PGID: "1000"
             TZ: "America/Chicago"
+            PHP_UPLOAD_LIMIT: "16G"
             NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.eaglepass.io"
             MYSQL_HOST: "nextcloud-mariadb.nextcloud.svc.cluster.local"
             MYSQL_DATABASE: "nextcloud"
