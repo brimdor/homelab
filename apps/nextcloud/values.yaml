@@ -14,16 +14,8 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.eaglepass.io"
-            MYSQL_HOST:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-host"
-            MYSQL_DATABASE:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-database"
+            MYSQL_HOST: "mariadb"
+            MYSQL_DATABASE: "nextcloud"
             MYSQL_USER:
               valueFrom:
                 secretKeyRef:
@@ -96,5 +88,5 @@ app-template:
             - path: /config
   defaultPodOptions:
     annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2ortihqm434zoylzxr5pag7bba"
       operator.1password.io/item-name: "secrets"
