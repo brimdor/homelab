@@ -14,7 +14,7 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.eaglepass.io"
-            MYSQL_HOST: "mariadb"
+            MYSQL_HOST: "nextcloud-mariadb.nextcloud.svc.cluster.local"
             MYSQL_DATABASE: "nextcloud"
             MYSQL_USER:
               valueFrom:
@@ -37,6 +37,35 @@ app-template:
               enabled: false
             startup:
               enabled: false
+    mariadb:
+      type: statefulset
+      containers:
+        main:
+          image:
+            repository: mariadb
+            tag: "10.11"
+            pullPolicy: Always
+          env:
+            MYSQL_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "mysql-root-password"
+            MYSQL_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "mysql-password"
+            MYSQL_DATABASE: "nextcloud"
+            MYSQL_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "mysql-username"
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
   service:
     main:
       controller: main
@@ -46,6 +75,13 @@ app-template:
           port: 443
           targetPort: https
           protocol: HTTPS
+    mariadb:
+      controller: mariadb
+      ports:
+        mysql:
+          port: 3306
+          protocol: TCP
+          targetPort: mysql
   ingress:
     main:
       enabled: true
