@@ -8,7 +8,7 @@ app-template:
           image:
             repository: lscr.io/linuxserver/nextcloud
             tag: latest
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             PUID: "99"
             PGID: "100"
