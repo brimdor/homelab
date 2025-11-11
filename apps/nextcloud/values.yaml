@@ -1,0 +1,100 @@
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/nextcloud
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            PUID: "99"
+            PGID: "100"
+            TZ: "America/Chicago"
+            NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.eaglepass.io"
+            MYSQL_HOST:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "mysql-host"
+            MYSQL_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "mysql-database"
+            MYSQL_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "mysql-username"
+            MYSQL_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "mysql-password"
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        https:
+          port: 443
+          targetPort: https
+          protocol: HTTPS
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host nextcloud.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: https
+      tls:
+        - hosts:
+            - *host
+          secretName: nextcloud-tls-certificate
+  persistence:
+    data:
+      enabled: true
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/nextcloud/data
+      advancedMounts:
+        main:
+          main:
+            - path: /data
+    config:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      retain: true
+      advancedMounts:
+        main:
+          main:
+            - path: /config
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
+      operator.1password.io/item-name: "secrets"
