@@ -10,8 +10,8 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            PUID: "99"
-            PGID: "100"
+            PUID: "1000"
+            PGID: "1000"
             TZ: "America/Chicago"
             NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.eaglepass.io"
             MYSQL_HOST: "nextcloud-mariadb.nextcloud.svc.cluster.local"
