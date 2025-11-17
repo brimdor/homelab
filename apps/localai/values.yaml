@@ -33,6 +33,7 @@ local-ai:
       LOCALAI_IMAGE_PATH: "/tmp/generated/images"
     # MODELS_PATH is injected automatically by template from modelsPath below
       BACKENDS_PATH: /backends
+      LOCALAI_UPLOAD_LIMIT: "1000"
 
     # Secrets via 1Password operator
     # Add secretEnv items that reference Kubernetes Secrets created by 1Password operator
