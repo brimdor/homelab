@@ -13,8 +13,8 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
-            PUID: "99"
-            PGID: "100"
+            PUID: "1000"
+            PGID: "1000"
             DOCKER_MODS: linuxserver/mods:universal-git
             SELKIES_ENCODER: "jpeg"
             CUSTOM_USER:
