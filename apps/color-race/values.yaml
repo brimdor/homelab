@@ -1,0 +1,46 @@
+app-template:
+  # defaultPodOptions:
+  #   annotations:
+  #     operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/color-race"
+  #     operator.1password.io/item-name: "secrets"
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: docker.io/brimdor/color-race
+            tag: canary
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host color-race.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - secretName: color-race-tls
+          hosts:
+            - *host
