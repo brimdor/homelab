@@ -50,8 +50,8 @@ local-ai:
   #     memory: "8Gi"
   #     nvidia.com/gpu: 1
     limits:
-    #   cpu: "4"
-    #   memory: "8Gi"
+      cpu: "2"
+      memory: "4Gi"
       nvidia.com/gpu: 1
 
   # Persistent storage for models and outputs
