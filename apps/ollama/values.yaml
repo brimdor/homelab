@@ -192,8 +192,8 @@ ollama:
 
     # -- Ingress annotations
     annotations:
-      external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      # external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+      # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
     # -- Hosts to create ingress for
