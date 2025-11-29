@@ -72,7 +72,7 @@ app-template:
         bootstrap-config:
           image:
             repository: alpine
-            tag: "3.20"
+            tag: "3.22"
           command:
             - /bin/sh
             - -c
