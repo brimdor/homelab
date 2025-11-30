@@ -83,12 +83,13 @@ app-template:
           secretName: humbleai-tls
   persistence:
     data:
-      accessMode: ReadWriteOnce
-      size: 5Gi
+      type: nfs
+      server: 10.0.50.3
+      path: /mnt/user/humbleai
       advancedMounts:
         main:
           main:
-            - path: /app/server
+            - path:  /app/server
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
