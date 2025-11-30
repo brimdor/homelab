@@ -67,14 +67,12 @@ app-template:
             - humbleai.eaglepass.io
   persistence:
     data:
-      enabled: true
-      type: pvc
       accessMode: ReadWriteOnce
       size: 5Gi
       advancedMounts:
         main:
           main:
-            - path: /app/server
+            - path:
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
