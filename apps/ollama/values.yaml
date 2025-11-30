@@ -308,6 +308,8 @@ ollama:
       value: "all"
     - name: NVIDIA_DRIVER_CAPABILITIES
       value: "all"
+    - name: OLLAMA_ORIGINS
+      value: ""
 
   # -- Additionl environment variables from external sources (like ConfigMap)
   extraEnvFrom: []
