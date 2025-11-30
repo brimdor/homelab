@@ -4,7 +4,7 @@ app-template:
       containers:
         main:
           image:
-            repository: ghcr.io/brimdor/humbleai
+            repository: docker.io/brimdor/humbleai
             tag: latest
             pullPolicy: Always
           env:
