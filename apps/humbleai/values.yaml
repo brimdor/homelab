@@ -65,14 +65,14 @@ app-template:
       tls:
         - hosts:
             - humbleai.eaglepass.io
-  persistence:
-    data:
-      accessMode: ReadWriteOnce
-      size: 5Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /app/server/humbleai.db
+  # persistence:
+  #   data:
+  #     accessMode: ReadWriteOnce
+  #     size: 5Gi
+  #     advancedMounts:
+  #       main:
+  #         main:
+  #           - path: /app/server/humbleai.db
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
