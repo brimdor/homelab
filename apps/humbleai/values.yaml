@@ -72,7 +72,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path:
+            - path: /app/server/humbleai.db
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
