@@ -54,17 +54,22 @@ app-template:
     main:
       enabled: true
       className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: humbleai.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: 8080
+                identifier: main
+                port: http
       tls:
         - hosts:
             - humbleai.eaglepass.io
+          secretName: humbleai-tls
   persistence:
     data:
       accessMode: ReadWriteOnce
