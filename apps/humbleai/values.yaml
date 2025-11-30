@@ -89,7 +89,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path:  /app/server
+            - path:  /app/server/data
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
