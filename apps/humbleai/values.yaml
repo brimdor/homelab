@@ -1,79 +1,80 @@
-controllers:
-  main:
-    podAnnotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
-      operator.1password.io/item-name: "secrets"
-    containers:
-      main:
-        image:
-          repository: ghcr.io/brimdor/humbleai
-          tag: 1.0.0
-          pullPolicy: Always
-        env:
-          TZ: America/Chicago
-          GOOGLE_CLIENT_SECRET:
-            valueFrom:
-              secretKeyRef:
-                name: secrets
-                key: google-client-secret
-          OPENAI_ENCRYPTION_KEY:
-            valueFrom:
-              secretKeyRef:
-                name: secrets
-                key: openai-encryption-key
-          GOOGLE_CLIENT_ID:
-            valueFrom:
-              secretKeyRef:
-                name: secrets
-                key: google-client-id
-        probes:
-          liveness:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: http
-              initialDelaySeconds: 30
-              periodSeconds: 10
-          readiness:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: http
-              initialDelaySeconds: 5
-              periodSeconds: 10
-service:
-  main:
-    controller: main
-    ports:
-      http:
-        port: 8080
-        protocol: HTTP
-ingress:
-  main:
-    enabled: true
-    className: nginx
-    hosts:
-      - host: humbleai.eaglepass.io
-        paths:
-          - path: /
-            pathType: Prefix
-            service:
-              name: main
-              port: http
-    tls:
-      - hosts:
-          - humbleai.eaglepass.io
-persistence:
-  data:
-    enabled: true
-    type: pvc
-    accessMode: ReadWriteOnce
-    size: 5Gi
-    advancedMounts:
-      main:
+app-template:
+  controllers:
+    main:
+      podAnnotations:
+        operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
+        operator.1password.io/item-name: "secrets"
+      containers:
         main:
-          - path: /app/server
+          image:
+            repository: ghcr.io/brimdor/humbleai
+            tag: 1.0.0
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            GOOGLE_CLIENT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: google-client-secret
+            OPENAI_ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: openai-encryption-key
+            GOOGLE_CLIENT_ID:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: google-client-id
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 5
+                periodSeconds: 10
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 8080
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      hosts:
+        - host: humbleai.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                name: main
+                port: http
+      tls:
+        - hosts:
+            - humbleai.eaglepass.io
+  persistence:
+    data:
+      enabled: true
+      type: pvc
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /app/server
