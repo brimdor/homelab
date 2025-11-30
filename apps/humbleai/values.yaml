@@ -50,6 +50,12 @@ app-template:
         http:
           port: 3000
           protocol: HTTP
+    api:
+      controller: main
+      ports:
+        http:
+          port: 3001
+          protocol: HTTP
   ingress:
     main:
       enabled: true
@@ -61,6 +67,11 @@ app-template:
       hosts:
         - host: humbleai.eaglepass.io
           paths:
+            - path: /api
+              pathType: Prefix
+              service:
+                identifier: api
+                port: http
             - path: /
               pathType: Prefix
               service:
