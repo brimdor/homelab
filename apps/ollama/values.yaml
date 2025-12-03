@@ -84,6 +84,7 @@ ollama:
         - gpt-oss:20b
         - gpt-oss:120b-cloud
         - mxbai-embed-large:latest
+        - ministral-3:8b
 
       # -- List of models to load in memory at container startup
       # run:
