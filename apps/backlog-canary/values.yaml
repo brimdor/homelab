@@ -270,15 +270,15 @@ app-template:
         - hosts:
             - *host
           secretName: backlog-canary-tls
-  persistence:
-    # data:
-    #   type: nfs
-    #   server: 10.0.50.3
-    #   path: /mnt/user/backlog_companion_database
-    #   advancedMounts:
-    #     database:
-    #       main:
-    #         - path: /var/lib/mysql
+  # persistence:
+  #   data:
+  #     type: nfs
+  #     server: 10.0.50.3
+  #     path: /mnt/user/backlog_companion_database
+  #     advancedMounts:
+  #       database:
+  #         main:
+  #           - path: /var/lib/mysql
   networkpolicies:
     backend:
       controller: backend
