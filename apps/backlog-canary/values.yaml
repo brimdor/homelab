@@ -17,8 +17,8 @@ app-template:
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
-            HOST_URL: "https://backlog.eaglepass.io"
-            VITE_API_BASE_URL: "https://backlog.eaglepass.io/api"
+            HOST_URL: "https://backlog-canary.eaglepass.io"
+            VITE_API_BASE_URL: "https://backlog-canary.eaglepass.io/api"
             GOOGLE_CLIENT_ID:
               valueFrom:
                 secretKeyRef:
@@ -57,7 +57,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
-            HOST_URL: "https://backlog.eaglepass.io"
+            HOST_URL: "https://backlog-canary.eaglepass.io"
             ADMIN_MODE: "false"
             DB_HOST: "backlog-canary-database.backlog-canary.svc.cluster.local"
             DB_PORT: "3306"
