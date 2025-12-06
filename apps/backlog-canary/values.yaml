@@ -59,7 +59,7 @@ app-template:
             TZ: "America/Chicago"
             HOST_URL: "https://backlog.eaglepass.io"
             ADMIN_MODE: "false"
-            DB_HOST: "backlog-companion-database.backlog-companion.svc.cluster.local"
+            DB_HOST: "backlog-canary-database.backlog-canary.svc.cluster.local"
             DB_PORT: "3306"
             GOOGLE_ISSUERS: "https://accounts.google.com,https://sessions.google.com"
             GOOGLE_ALLOWED_AUDIENCES:
