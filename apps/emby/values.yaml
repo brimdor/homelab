@@ -7,7 +7,7 @@ app-template:
           name: main
           image:
             repository: lscr.io/linuxserver/emby
-            tag: latest
+            tag: beta
           env:
             PUID: "99"
             PGID: "100"
