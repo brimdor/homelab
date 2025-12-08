@@ -6,6 +6,11 @@ rook-ceph-cluster:
     enabled: true
     createPrometheusRules: true
   cephClusterSpec:
+    placement:
+      all:
+        tolerations:
+          - key: dedicated
+            operator: Exists
     mon:
       count: 3
     mgr:
