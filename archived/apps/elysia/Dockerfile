@@ -1,7 +1,7 @@
 # Dockerfile for Elysia (installed via pip from GitHub)
 # Based on instructions in https://github.com/weaviate/elysia
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Metadata
 LABEL org.opencontainers.image.title="elysia"
