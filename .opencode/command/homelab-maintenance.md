@@ -23,25 +23,6 @@ This workflow performs a comprehensive service verification and validation acros
 - **Primary Repo**: https://git.eaglepass.io/ops/homelab
 - **Fallback Repo**: https://github.com/brimdor/homelab (auto-synced from primary)
 
-## Gitea API Configuration
-For automated issue creation and management:
-- **API Base URL**: `https://git.eaglepass.io/api/v1`
-- **API Token**: `522ccc57123cc4fb8455bbb4cff66ba39dc1c3b3`
-- **Token Scopes**: `write:issue`, `read:issue`, `write:repository`, `read:repository`
-
-### Example API Usage
-```bash
-# Create an issue
-curl -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues" \
-  -H "Authorization: token 522ccc57123cc4fb8455bbb4cff66ba39dc1c3b3" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Issue Title","body":"Issue description"}'
-
-# List issues
-curl -X GET "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues" \
-  -H "Authorization: token 522ccc57123cc4fb8455bbb4cff66ba39dc1c3b3"
-```
-
 ## Prerequisites
 
 ### 1. Ensure Local Tools Are Up-to-Date
