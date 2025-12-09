@@ -1,6 +1,20 @@
 rook-ceph:
   monitoring:
     enabled: true
+  csi:
+    pluginTolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+    provisionerTolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+  discover:
+    tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
 rook-ceph-cluster:
   monitoring:
     enabled: true
