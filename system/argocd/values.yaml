@@ -38,7 +38,7 @@ argocd-apps:
       namespace: argocd
       generators:
         - git:
-            repoURL: &repoURL https://github.com/brimdor/homelab
+            repoURL: &repoURL http://gitea-http.gitea:3000/ops/homelab
             revision: &revision master
             directories:
               - path: system/*
