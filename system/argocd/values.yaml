@@ -72,10 +72,10 @@ argocd-apps:
                 - /spec/data/3/remoteRef/metadataPolicy
             - group: apps
               kind: StatefulSet
-              jsonPointers:
-                - /spec/persistentVolumeClaimRetentionPolicy
-                - /spec/volumeClaimTemplates/0/status
-                - /spec/template/spec/containers/0/resources
+              jqPathExpressions:
+                - .spec.persistentVolumeClaimRetentionPolicy
+                - .spec.volumeClaimTemplates
+                - .spec.template.spec.containers[].resources
           syncPolicy:
             automated:
               prune: true
