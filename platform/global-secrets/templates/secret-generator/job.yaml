@@ -17,7 +17,7 @@ spec:
             - -c
           args:
             - |
-              go get .
+              go mod download
               go run .
           volumeMounts:
             - name: source
