@@ -11,6 +11,7 @@ argo-cd:
         jsonPointers:
           - /status
       resource.customizations.useOpenLibs.apps_StatefulSet: true
+      resource.customizations.useOpenLibs.snapshot.storage.k8s.io_VolumeSnapshotClass: true
       exec.enabled: "true"
   server:
     ingress:
