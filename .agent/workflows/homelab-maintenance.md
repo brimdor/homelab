@@ -160,3 +160,97 @@ If any updates or issues are found, create a comprehensive report:
 - Document any manual interventions required
 - Keep the homelab running smoothly with minimal disruption
 - Consider maintenance windows for critical updates
+
+## MCP Tool Integration (Primary Method)
+Use the available **Gitea** and **GitHub** MCP tools for all repository interactions. These are safer, more robust, and preferred over direct API calls.
+
+### Priority Order
+1. **Gitea MCP**: Use for all operations on the primary repository (`ops/homelab`).
+2. **GitHub MCP**: Use as a fallback for GitHub-hosted mirrors or if Gitea MCP is unavailable.
+3. **API Fallback**: Use raw `curl` commands (detailed below) **ONLY** if MCP tools are non-functional.
+
+### Common MCP Operations
+- **List Issues**: Use `list_issues` (Gitea) or `mcp_list_issues` (GitHub).
+- **Create Issue**: Use `create_issue` (Gitea) or `mcp_create_issue` (GitHub).
+- **Add Comment**: Use `add_issue_comment` (Gitea/GitHub).
+- **List PRs**: Use `list_pull_requests` (Gitea) or `mcp_list_pull_requests` (GitHub).
+- **Get Repo Info**: Use `get_repository` (Gitea) or `mcp_search_repositories` (GitHub).
+
+---
+
+## Gitea API Fallback (Emergency Only)
+
+> [!WARNING]
+> only use the following API commands if the MCP tools above are failing or unavailable.
+
+For automated repo, issue, and PR operations without MCP, use the Gitea API with the stored token.
+
+### Token Location
+```bash
+# Token files are stored at:
+~/.config/gitea/.env        # For bash/zsh
+~/.config/gitea/gitea.fish  # For fish shell
+
+# Load token in fish shell:
+source ~/.config/gitea/gitea.fish
+
+# Load token in bash/zsh:
+source ~/.config/gitea/.env
+
+# Environment variables available after sourcing:
+# GITEA_TOKEN - API access token
+# GITEA_URL   - Base URL (https://git.eaglepass.io)
+```
+
+### API Base URL
+```
+https://git.eaglepass.io/api/v1
+```
+
+### Common API Operations
+
+#### List Issues
+```bash
+curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues" \
+  -H "Authorization: token $GITEA_TOKEN"
+```
+
+#### Create Issue
+```bash
+curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues" \
+  -H "Authorization: token $GITEA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "[Maintenance Report] YYYY-MM-DD - Title", "body": "Report content"}'
+```
+
+#### Add Comment to Issue
+```bash
+curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/{issue_number}/comments" \
+  -H "Authorization: token $GITEA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"body": "Comment text"}'
+```
+
+#### List Pull Requests
+```bash
+curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls" \
+  -H "Authorization: token $GITEA_TOKEN"
+```
+
+#### Get Repository Info
+```bash
+curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab" \
+  -H "Authorization: token $GITEA_TOKEN"
+```
+
+#### Using with JSON Files
+For large comment/issue bodies, save JSON to a file and use:
+```bash
+curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/1/comments" \
+  -H "Authorization: token $GITEA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @/path/to/comment.json
+```
+
+### API Documentation
+Full API documentation: https://git.eaglepass.io/api/swagger
