@@ -10,6 +10,7 @@ argo-cd:
       resource.customizations.ignoreResourceUpdates.all: |
         jsonPointers:
           - /status
+      resource.customizations.useOpenLibs.apps_StatefulSet: true
       exec.enabled: "true"
   server:
     ingress:
