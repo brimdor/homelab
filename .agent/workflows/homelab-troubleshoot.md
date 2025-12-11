@@ -6,6 +6,22 @@ sync_locations:
 sync_note: IMPORTANT - This file must be kept in sync across both locations. When making changes, update BOTH files.
 ---
 
+## User Input
+
+```text
+$ARGUMENTS
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+The text the user typed after the command **is** their priority input - it may specify:
+- The specific issue or symptom to troubleshoot
+- A specific service, pod, or namespace having problems
+- Error messages or symptoms observed
+- Any special instructions or constraints
+
+---
+
 # Homelab Troubleshooting Workflow
 
 ## Overview
@@ -368,8 +384,3 @@ curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab" \
 
 ### API Documentation
 Full API documentation: https://git.eaglepass.io/api/swagger
-
-## Troubleshooting Task
-Please resolve the following issue:
-
-$ARGUMENTS
