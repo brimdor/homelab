@@ -8,7 +8,13 @@ description: Commit current changes with a comprehensive commit message, push to
 $ARGUMENTS
 ```
 
-You **MAY** consider the user input if provided (e.g., additional context for commit message). Otherwise, proceed automatically.
+You **MUST** consider the user input before proceeding (if not empty).
+
+The text the user typed after the command **is** their priority input - it may specify:
+- A specific commit message or summary to use
+- Additional context for the commit message
+- Whether to skip PR creation or merge steps
+- Any special instructions or constraints
 
 ---
 

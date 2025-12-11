@@ -6,6 +6,22 @@ sync_locations:
 sync_note: IMPORTANT - This file must be kept in sync across both locations. When making changes, update BOTH files.
 ---
 
+## User Input
+
+```text
+$ARGUMENTS
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+The text the user typed after the command **is** their priority input - it may specify:
+- The specific issue or symptom to troubleshoot
+- A specific service, pod, or namespace having problems
+- Error messages or symptoms observed
+- Any special instructions or constraints
+
+---
+
 # Homelab Troubleshooting Workflow
 
 ## Overview
@@ -284,7 +300,87 @@ When troubleshooting, collect:
 3. Document findings if significant
 4. Consider creating an issue for recurring problems at https://git.eaglepass.io/ops/homelab/issues
 
-## Troubleshooting Task
-Please resolve the following issue:
+## MCP Tool Integration (Primary Method)
+Use the available **Gitea** and **GitHub** MCP tools for all repository interactions. These are safer, more robust, and preferred over direct API calls.
 
-$ARGUMENTS
+### Priority Order
+1. **Gitea MCP**: Use for all operations on the primary repository (`ops/homelab`).
+2. **GitHub MCP**: Use as a fallback for GitHub-hosted mirrors or if Gitea MCP is unavailable.
+3. **API Fallback**: Use raw `curl` commands (detailed below) **ONLY** if MCP tools are non-functional.
+
+### Common MCP Operations
+- **List Issues**: Use `list_issues` (Gitea) or `mcp_list_issues` (GitHub).
+- **Create Issue**: Use `create_issue` (Gitea) or `mcp_create_issue` (GitHub).
+- **Add Comment**: Use `add_issue_comment` (Gitea/GitHub).
+- **List PRs**: Use `list_pull_requests` (Gitea) or `mcp_list_pull_requests` (GitHub).
+- **Get Repo Info**: Use `get_repository` (Gitea) or `mcp_search_repositories` (GitHub).
+
+---
+
+## Gitea API Fallback (Emergency Only)
+
+> [!WARNING]
+> Only use the following API commands if the MCP tools above are failing or unavailable.
+
+For automated repo, issue, and PR operations without MCP, use the Gitea API with the stored token.
+
+### Token Location
+```bash
+# Token files are stored at:
+~/.config/gitea/.env        # For bash/zsh
+~/.config/gitea/gitea.fish  # For fish shell
+
+# Load token in fish shell:
+source ~/.config/gitea/gitea.fish
+
+# Load token in bash/zsh:
+source ~/.config/gitea/.env
+
+# Environment variables available after sourcing:
+# GITEA_TOKEN - API access token
+# GITEA_URL   - Base URL (https://git.eaglepass.io)
+```
+
+### API Base URL
+```
+https://git.eaglepass.io/api/v1
+```
+
+### Common API Operations
+
+#### List Issues
+```bash
+curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues" \
+  -H "Authorization: token $GITEA_TOKEN"
+```
+
+#### Create Issue
+```bash
+curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues" \
+  -H "Authorization: token $GITEA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Issue Title", "body": "Issue description"}'
+```
+
+#### Add Comment to Issue
+```bash
+curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/{issue_number}/comments" \
+  -H "Authorization: token $GITEA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"body": "Comment text"}'
+```
+
+#### List Pull Requests
+```bash
+curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls" \
+  -H "Authorization: token $GITEA_TOKEN"
+```
+
+#### Get Repository Info
+```bash
+curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab" \
+  -H "Authorization: token $GITEA_TOKEN"
+```
+
+### API Documentation
+Full API documentation: https://git.eaglepass.io/api/swagger
