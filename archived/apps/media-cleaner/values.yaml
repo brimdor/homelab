@@ -1,0 +1,92 @@
+# values.yaml for media-cleaner Helm chart using bjw-s app-template
+# Discord bot for Emby media voting and cleaning
+# See https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      annotations:
+        operator.1password.io/item-path: "vaults/<vaultID>/items/<itemID>"
+        operator.1password.io/item-name: "secrets"
+      containers:
+        main:
+          image:
+            repository: brimdor/media-cleaner
+            tag: latest
+            pullPolicy: Always
+          env:
+            # Required: Emby configuration
+            EMBY_BASE_URL: "https://emby.eaglepass.io"
+            # Required: 1Password secrets
+            DISCORD_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "discord-token"
+            EMBY_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "emby-api-key"
+            # Logging
+            LOG_LEVEL: "INFO"
+            PYTHONUNBUFFERED: "1"
+            # Database path (persisted volume)
+            DB_PATH: "/app/data/media_cleaner.db"
+            # Bot configuration
+            BOT_ROLE: "BotAdmin"
+            TOTAL_MOVIES: "10"
+            TOTAL_SHOWS: "10"
+            VOTE_THRESHOLD: "3"
+            VOTING_SESSION_LENGTH: "2"
+            VOTING_CRON: "0 8 * * *"
+            # Radarr integration (optional - uses internal k8s service)
+            RADARR_BASE_URL: "http://radarr.radarr.svc.cluster.local:7878"
+            RADARR_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "radarr-api-key"
+            RADARR_DRY_RUN: "false"
+            # Sonarr integration (optional - uses internal k8s service)
+            SONARR_BASE_URL: "http://sonarr.sonarr.svc.cluster.local:8989"
+            SONARR_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "sonarr-api-key"
+            SONARR_DRY_RUN: "false"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - pgrep
+                    - -f
+                    - python
+                initialDelaySeconds: 10
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 3
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+  # No service needed - Discord bot has no exposed ports
+  service:
+    main:
+      enabled: false
+  # No ingress needed - Discord bot has no web interface
+  ingress:
+    main:
+      enabled: false
+  # Persistence for SQLite database
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
