@@ -1,0 +1,8 @@
+apiVersion: v2
+name: media-cleaner
+version: 0.1.0
+description: A Helm chart for deploying media-cleaner Discord bot using bjw-s app-template
+dependencies:
+  - name: app-template
+    version: 4.5.0
+    repository: https://bjw-s-labs.github.io/helm-charts
