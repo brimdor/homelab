@@ -1,0 +1,70 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+app-template:
+  controllers:
+    qdrant:
+      type: statefulset
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: qdrant/qdrant
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 6333
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 6333
+                initialDelaySeconds: 5
+                periodSeconds: 5
+                timeoutSeconds: 3
+                failureThreshold: 6
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 6333
+                initialDelaySeconds: 5
+                periodSeconds: 5
+                timeoutSeconds: 3
+                failureThreshold: 30
+
+  service:
+    main:
+      controller: qdrant
+      primary: true
+      ports:
+        http:
+          port: 6333
+          protocol: HTTP
+        grpc:
+          port: 6334
+          protocol: HTTP
+
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        qdrant:
+          main:
+            - path: /qdrant/storage
