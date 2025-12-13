@@ -21,7 +21,7 @@ app-template:
             OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
             RAG_EMBEDDING_ENGINE: "ollama"
             VECTOR_DB: "qdrant"
-            QDRANT_HOST: "http://qdrant.default.svc.cluster.local:6333"
+            QDRANT_URI: "http://qdrant.qdrant.svc.cluster.local:6333"
             ENABLE_OLLAMA_API: "false"
             AUDIO_STT_ENGINE: "openai"
             ENABLE_SIGNUP_PASSWORD_CONFIRMATION: "false"
