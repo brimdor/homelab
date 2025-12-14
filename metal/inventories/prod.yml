@@ -9,21 +9,21 @@ metal:
       hosts:
         charmander:
           {
-            ansible_host: 10.0.50.121,
+            # ansible_host: 10.0.50.121,
             mac: "00:23:24:b0:ff:03",
             disk: sda,
             network_interface: eno1,
           }
         squirtle:
           {
-            ansible_host: 10.0.50.122,
+            # ansible_host: 10.0.50.122,
             mac: "00:23:24:e2:1f:a1",
             disk: sda,
             network_interface: eno1,
           }
         bulbasaur:
           {
-            ansible_host: 10.0.50.123,
+            # ansible_host: 10.0.50.123,
             mac: "00:23:24:e2:0d:ea",
             disk: sda,
             network_interface: eno1,
@@ -32,42 +32,42 @@ metal:
       hosts:
         pikachu:
           {
-            ansible_host: 10.0.50.124,
+            # ansible_host: 10.0.50.124,
             mac: "e0:4f:43:24:0b:53",
             disk: sda,
             network_interface: eno1,
           }
         chikorita:
           {
-            ansible_host: 10.0.50.125,
+            # ansible_host: 10.0.50.125,
             mac: "6c:4b:90:60:29:c4",
             disk: sda,
             network_interface: eno1,
           }
         cyndaquil:
           {
-            ansible_host: 10.0.50.126,
+            # ansible_host: 10.0.50.126,
             mac: "6c:4b:90:5f:8e:43",
             disk: sda,
             network_interface: eno1,
           }
         totodile:
           {
-            ansible_host: 10.0.50.127,
+            # ansible_host: 10.0.50.127,
             mac: "6c:4b:90:5b:a3:56",
             disk: sda,
             network_interface: eno1,
           }
         growlithe:
           {
-            ansible_host: 10.0.50.128,
+            # ansible_host: 10.0.50.128,
             mac: "6c:4b:90:5b:6e:6d",
             disk: sda,
             network_interface: eno1
           }
         arcanine:
           {
-            ansible_host: 10.0.50.129,
+            # ansible_host: 10.0.50.129,
             mac: "4c:cc:6a:3d:e5:3f",
             disk: sda,
             network_interface: eno1,
@@ -77,7 +77,7 @@ metal:
           }
         sprigatito:
           {
-            ansible_host: 10.0.50.130,
+            # ansible_host: 10.0.50.130,
             mac: "4c:cc:6a:34:dc:6d",
             disk: sda,
             network_interface: eno1,
