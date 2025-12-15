@@ -25,3 +25,8 @@
 - Helm charts: lowercase with hyphens (e.g., `external-dns`, `cert-manager`)
 - Ansible roles: lowercase with underscores (e.g., `automatic_upgrade`)
 - Test functions: `Test<Feature>` (e.g., `TestSmoke`, `TestToolsVersions`)
+
+## Key Patterns
+- Secrets: Use ExternalSecrets with 1Password backend, never commit plaintext secrets
+- Ingress: All services use ingress-nginx with cert-manager TLS certificates
+- GitOps: All changes deploy via ArgoCD from this repo's `master` branch
