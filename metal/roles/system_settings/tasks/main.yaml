@@ -1,3 +1,24 @@
 - name: Adjust Timezone
   community.general.timezone:
     name: America/Chicago
+
+- name: Enable ICMP Echo (ping)
+  ansible.posix.sysctl:
+    name: net.ipv4.icmp_echo_ignore_all
+    value: "0"
+    state: present
+    reload: true
+
+- name: Ensure ICMP is allowed in firewalld
+  ansible.posix.firewalld:
+    icmp_block: echo-request
+    state: disabled
+    permanent: true
+    immediate: true
+  ignore_errors: true
+
+- name: Ensure ICMP is allowed in UFW
+  community.general.ufw:
+    rule: allow
+    proto: icmp
+  ignore_errors: true
