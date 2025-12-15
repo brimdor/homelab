@@ -8,6 +8,7 @@ app-template:
           image:
             repository: lscr.io/linuxserver/emby
             tag: beta
+            pullPolicy: Always
           env:
             PUID: "99"
             PGID: "100"
