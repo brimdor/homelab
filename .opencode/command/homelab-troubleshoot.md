@@ -34,6 +34,22 @@ This workflow guides troubleshooting of issues across the Homelab Kubernetes inf
 > 
 > When updating this file, **always copy changes to both locations**.
 
+> [!CAUTION]
+> **Acceptance Criteria**: Troubleshooting is NOT complete until **ALL layers are GREEN** with **ZERO issues**:
+> - **Metal Layer**: All nodes `Ready`, no resource pressure
+> - **System Layer**: Ceph `HEALTH_OK` (no warnings, no errors), all kube-system pods `Running`
+> - **Platform Layer**: All ArgoCD applications `Synced` AND `Healthy`
+> - **Apps Layer**: All application pods `Running`, no `CrashLoopBackOff`, no `Error` states
+> - **Overall Status**: GREEN across all layers
+>
+> **ZERO tolerance for issues of ANY severity level:**
+> - No CRITICAL issues
+> - No HIGH priority issues
+> - No MEDIUM priority issues
+> - No LOW priority issues
+>
+> **Partial success is NOT acceptable.** A single warning (e.g., Ceph `HEALTH_WARN`), a single unhealthy app, or even a low-priority issue means troubleshooting must continue until fully resolved.
+
 ## References
 - **Documentation**: https://homelab.eaglepass.io
 - **Primary Repo**: https://git.eaglepass.io/ops/homelab
@@ -299,6 +315,84 @@ When troubleshooting, collect:
 2. Verify the solution
 3. Document findings if significant
 4. Consider creating an issue for recurring problems at https://git.eaglepass.io/ops/homelab/issues
+
+### Step 5: Validate ALL Layers Are GREEN
+
+> [!CAUTION]
+> **Do NOT consider troubleshooting complete until ALL checks pass.**
+
+Run the following validation checks and ensure **every single one** returns GREEN status:
+
+#### Metal Layer Validation
+```bash
+# All nodes must be Ready (no NotReady, no SchedulingDisabled)
+kubectl get nodes
+# Expected: All nodes show STATUS=Ready
+
+# No resource pressure on any node
+kubectl describe nodes | grep -E "Pressure|Taint"
+# Expected: No MemoryPressure, DiskPressure, or PIDPressure
+```
+
+#### System Layer Validation
+```bash
+# Ceph must be HEALTH_OK (not HEALTH_WARN, not HEALTH_ERR)
+kubectl -n rook-ceph exec -it deploy/rook-ceph-tools -- ceph health
+# Expected: HEALTH_OK (anything else = NOT GREEN)
+
+# Detailed Ceph check - must have no warnings
+kubectl -n rook-ceph exec -it deploy/rook-ceph-tools -- ceph health detail
+# Expected: No output (empty = healthy)
+
+# All kube-system pods Running
+kubectl get pods -n kube-system | grep -v "Running\|Completed"
+# Expected: No output (all pods Running or Completed)
+```
+
+#### Platform Layer Validation
+```bash
+# ALL ArgoCD applications must be Synced AND Healthy
+kubectl get applications -n argocd | grep -v "Synced.*Healthy"
+# Expected: Only the header line (all apps Synced/Healthy)
+
+# Specific check for any OutOfSync or Degraded apps
+kubectl get applications -n argocd -o json | jq -r '.items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy") | .metadata.name'
+# Expected: No output
+```
+
+#### Apps Layer Validation
+```bash
+# No pods in error states across all namespaces
+kubectl get pods -A | grep -E "Error|CrashLoopBackOff|ImagePullBackOff|Pending|Failed"
+# Expected: No output (or only expected transient states)
+
+# Check for recent warning events
+kubectl get events -A --field-selector type=Warning --sort-by='.lastTimestamp' | tail -20
+# Expected: No recent critical warnings
+```
+
+#### GREEN Status Criteria Summary
+
+| Layer | Check | GREEN Criteria | RED Criteria |
+|-------|-------|----------------|--------------|
+| **Metal** | `kubectl get nodes` | All `Ready` | Any `NotReady` |
+| **System** | `ceph health` | `HEALTH_OK` | `HEALTH_WARN` or `HEALTH_ERR` |
+| **System** | kube-system pods | All `Running` | Any `CrashLoopBackOff`, `Error` |
+| **Platform** | ArgoCD apps | All `Synced` + `Healthy` | Any `OutOfSync` or `Degraded` |
+| **Apps** | All pods | All `Running` | Any `Error`, `CrashLoopBackOff` |
+
+> [!WARNING]
+> **Zero Issue Tolerance**: ALL issues must be resolved regardless of severity:
+> | Severity | Action Required |
+> |----------|-----------------|
+> | CRITICAL | Resolve immediately |
+> | HIGH | Resolve before completion |
+> | MEDIUM | Resolve before completion |
+> | LOW | Resolve before completion |
+>
+> There is no "acceptable" level of issues. Even LOW priority items block successful completion.
+
+**If ANY check fails or ANY issue remains (from LOW to CRITICAL), troubleshooting MUST continue.** Do not close issues or report success until all layers are GREEN and all issues are resolved.
 
 ## MCP Tool Integration (Primary Method)
 Use the available **Gitea** and **GitHub** MCP tools for all repository interactions. These are safer, more robust, and preferred over direct API calls.
