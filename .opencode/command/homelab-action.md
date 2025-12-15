@@ -37,6 +37,18 @@ This workflow iterates on all action items in the latest maintenance-labeled Git
 >
 > When updating this file, **always copy changes to all locations**.
 
+> [!CAUTION]
+> **FOUNDATIONAL RULES APPLY** - See `_foundational-rules.md`
+>
+> This workflow follows the **Homelab Foundational Rules**. These rules are NON-NEGOTIABLE:
+> - **Rule 1**: Work is NOT complete until ALL layers are GREEN
+> - **Rule 2**: Zero tolerance for issues of ANY severity (CRITICAL through LOW)
+> - **Rule 3**: NO pause, NO stop, NO quit until complete
+> - **Rule 4**: Continuous validation after every action
+> - **Rule 5**: All action items must be executed and verified
+>
+> **The ONLY exit condition is ALL GREEN status across all layers with ZERO remaining issues.**
+
 > [!IMPORTANT]
 > **Do NOT add comments to issues.** Comments are reserved for humans only.
 > Always **edit the original issue body** to mark items as completed and update status.
@@ -311,6 +323,133 @@ After merging PRs or closing issues, verify:
 - Verify after each action
 - Update issue with progress
 - Pause if unexpected behavior occurs
+
+### 2.4 Renovate PR Processing Protocol
+
+> [!CAUTION]
+> **Renovate PRs MUST be processed one at a time.**
+> Each merge requires GREEN status validation before proceeding to the next.
+> If any layer goes YELLOW or RED, troubleshoot until GREEN before continuing.
+
+#### 2.4.1 Merge Order (Safest to Riskiest)
+
+Process Renovate PRs in this order to minimize risk:
+
+| Order | Category | Examples | Risk Level |
+|:-----:|----------|----------|:----------:|
+| 1 | Non-major bundles | "update all non-major dependencies" | LOW |
+| 2 | Platform services | kured, cloudflared, renovate | LOW |
+| 3 | Monitoring | grafana, prometheus, loki | MEDIUM |
+| 4 | Core infrastructure | argocd, external-secrets, cert-manager | HIGH |
+| 5 | App templates | app-template, common libraries | MEDIUM |
+| 6 | Databases | postgres, mariadb, mongodb, redis | CRITICAL |
+
+#### 2.4.2 One-at-a-Time Merge Loop
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│            RENOVATE PR PROCESSING LOOP                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌──────────────┐                                          │
+│   │ Select next  │                                          │
+│   │ PR (by order)│                                          │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │  Merge PR    │                                          │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │ Wait for     │                                          │
+│   │ ArgoCD sync  │  (max 5 min)                             │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐     ┌──────────────┐                     │
+│   │ Check ALL    │ NO  │ Troubleshoot │                     │
+│   │ layers GREEN?├────►│ until GREEN  │                     │
+│   └──────┬───────┘     └──────┬───────┘                     │
+│          │ YES                │                             │
+│          ↓                    │                             │
+│   ┌──────────────┐           │                              │
+│   │ Update issue │◄──────────┘                              │
+│   │ (mark done)  │                                          │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │ More PRs?    │ YES ──► [Loop back to Select next PR]    │
+│   └──────┬───────┘                                          │
+│          │ NO                                               │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │ ALL DONE     │                                          │
+│   └──────────────┘                                          │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 2.4.3 Per-Merge Validation
+
+After EACH Renovate PR merge, verify ALL layers:
+
+```bash
+# Quick validation - ALL must pass before next merge
+kubectl get nodes | grep -v "Ready"                           # Empty = GREEN
+kubectl get pods -n kube-system | grep -v "Running\|Completed" # Empty = GREEN
+kubectl get applications -n argocd | grep -v "Synced.*Healthy" # Empty = GREEN
+kubectl exec -n rook-ceph deploy/rook-ceph-tools -- ceph health # HEALTH_OK = GREEN
+kubectl get pods -A --no-headers | grep -v "Running\|Completed" # Empty = GREEN
+```
+
+**If any check fails:**
+1. **STOP** - Do NOT merge next PR
+2. **Investigate** - Check logs, events, describe resources
+3. **Fix** - Apply remediation
+4. **Validate** - Re-run all checks
+5. **Only proceed** when ALL GREEN
+
+#### 2.4.4 Merge Command
+
+```bash
+source ~/.config/gitea/.env
+
+# For each Renovate PR (one at a time):
+PR_NUM=XX  # Set to current PR number
+
+# 1. Merge the PR
+curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/${PR_NUM}/merge" \
+  -H "Authorization: token $GITEA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"Do": "merge", "delete_branch_after_merge": true}'
+
+# 2. Wait for ArgoCD to detect and sync (30-60 seconds)
+sleep 60
+
+# 3. Run validation checks (see 2.4.3)
+
+# 4. Only after GREEN, proceed to next PR
+```
+
+#### 2.4.5 Troubleshooting Between Merges
+
+If status is YELLOW or RED after a merge:
+
+| Status | Action |
+|:------:|--------|
+| **Pod CrashLoopBackOff** | Check logs, may need config fix or rollback |
+| **ArgoCD OutOfSync** | Force refresh and sync, check for conflicts |
+| **Ceph HEALTH_WARN** | Check `ceph health detail`, may self-resolve |
+| **Node NotReady** | Check kubelet logs, may need pod eviction |
+
+**Rollback if needed:**
+```bash
+# Revert the last merge commit
+git revert HEAD --no-edit
+git push
+
+# Wait for ArgoCD to sync back to previous state
+sleep 60
+```
 
 ---
 
@@ -699,9 +838,395 @@ argocd app list --refresh
 
 ---
 
-## Phase 5: Escalation Procedures
+## Phase 5: Major Version Upgrade Safety Procedures
 
-### 5.1 When to Escalate
+> [!CAUTION]
+> **Major version upgrades** (e.g., v1 → v2, v8 → v9) often contain breaking changes.
+> These require additional safety measures beyond standard action execution.
+
+### 5.1 Pre-Upgrade Assessment
+
+Before ANY major version upgrade:
+
+**1. Review Release Notes & Breaking Changes**
+```bash
+# Check the upstream release notes for breaking changes
+# Document all breaking changes in the maintenance issue
+# Identify affected configurations, CRDs, or APIs
+```
+
+**Questions to answer:**
+- [ ] Are there API/CRD schema changes?
+- [ ] Are there deprecated features being removed?
+- [ ] Are there configuration file format changes?
+- [ ] Are there data migration requirements?
+- [ ] Is there a recommended upgrade path (e.g., v7 → v8 → v9)?
+
+**2. Dependency Check**
+```bash
+# Identify all components that depend on the upgrade target
+kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}: {range .spec.containers[*]}{.image}{"\n"}{end}{end}' | grep <component>
+```
+
+**3. Create Rollback Plan**
+Document the exact rollback procedure:
+- Current version (for git revert target)
+- Backup locations
+- Rollback commands
+- Estimated rollback time
+
+### 5.2 Major Version Upgrade Categories
+
+| Category | Examples | Risk Level | Required Prep |
+|----------|----------|------------|---------------|
+| **Databases** | PostgreSQL, MariaDB, MongoDB, Redis | CRITICAL | Full backup, dump verification, staged rollout |
+| **GitOps/Core** | ArgoCD, External-Secrets, Cert-Manager | HIGH | CRD backup, sync pause, staged validation |
+| **Monitoring** | Prometheus, Grafana, AlertManager | MEDIUM | Dashboard backup, alert rule export |
+| **Application** | App-Template, individual apps | LOW-MEDIUM | Config review, dependency check |
+| **Infrastructure** | Terraform providers, Go modules | LOW | State backup, plan review |
+
+### 5.3 Staged Upgrade Process
+
+For HIGH/CRITICAL risk upgrades, use this staged approach:
+
+```
+[Stage 1: Prepare]     → Document, backup, validate rollback
+[Stage 2: Dry Run]     → helm template, terraform plan, review diffs
+[Stage 3: Canary]      → Upgrade in test/dev if available
+[Stage 4: Execute]     → Upgrade with monitoring
+[Stage 5: Validate]    → Full health check, functionality test
+[Stage 6: Stabilize]   → Monitor for 30+ minutes before next upgrade
+```
+
+### 5.4 Post-Upgrade Validation Gates
+
+**Gate 1: Basic Health (Immediate)**
+```bash
+# Component is running
+kubectl get pods -n <namespace> -l app=<component>
+
+# No error logs
+kubectl logs -n <namespace> deploy/<component> --tail=50 | grep -i error
+```
+
+**Gate 2: Functional Health (Within 5 minutes)**
+```bash
+# ArgoCD: All apps still synced
+kubectl get applications -n argocd | grep -v "Synced.*Healthy"
+
+# Secrets: All ExternalSecrets synced
+kubectl get externalsecrets -A | grep -v "SecretSynced"
+
+# Ceph: Still healthy
+kubectl exec -n rook-ceph deploy/rook-ceph-tools -- ceph health
+```
+
+**Gate 3: Extended Validation (Within 30 minutes)**
+- No new alerts firing
+- No degraded services reported
+- User-facing endpoints responding correctly
+- Log error rates stable
+
+---
+
+## Phase 6: Database Upgrade Protocols
+
+> [!DANGER]
+> **Database upgrades carry the highest risk of data loss.**
+> NEVER proceed without verified, restorable backups.
+
+### 6.1 Database Upgrade Pre-Flight Checklist
+
+Before upgrading ANY database (PostgreSQL, MariaDB, MongoDB, Redis, Valkey):
+
+**Step 1: Verify Current State**
+```bash
+# Identify the database pod
+kubectl get pods -A | grep -E "(postgres|mariadb|mongodb|redis|valkey)"
+
+# Check current version
+kubectl exec -n <namespace> <pod> -- <version_command>
+# PostgreSQL: psql --version
+# MariaDB: mariadb --version
+# MongoDB: mongod --version
+# Redis/Valkey: redis-server --version
+```
+
+**Step 2: Create Full Backup**
+```bash
+# PostgreSQL
+kubectl exec -n <namespace> <pod> -- pg_dumpall -U postgres > /tmp/postgres_backup_$(date +%Y%m%d_%H%M%S).sql
+
+# MariaDB
+kubectl exec -n <namespace> <pod> -- mysqldump -u root --all-databases > /tmp/mariadb_backup_$(date +%Y%m%d_%H%M%S).sql
+
+# MongoDB
+kubectl exec -n <namespace> <pod> -- mongodump --out=/tmp/mongo_backup_$(date +%Y%m%d_%H%M%S)
+
+# Redis (if persistence enabled)
+kubectl exec -n <namespace> <pod> -- redis-cli BGSAVE
+kubectl cp <namespace>/<pod>:/data/dump.rdb /tmp/redis_backup_$(date +%Y%m%d_%H%M%S).rdb
+```
+
+**Step 3: Verify Backup Integrity**
+```bash
+# Copy backup to local machine
+kubectl cp <namespace>/<pod>:/tmp/<backup_file> ./backups/<backup_file>
+
+# Verify backup file is not empty and has expected size
+ls -lh ./backups/<backup_file>
+
+# For SQL dumps, verify structure
+head -100 ./backups/<backup_file>
+tail -10 ./backups/<backup_file>
+```
+
+**Step 4: Document Recovery Procedure**
+```markdown
+## Recovery Procedure for <database>
+
+1. Scale down dependent applications:
+   kubectl scale deploy/<app> -n <namespace> --replicas=0
+
+2. Restore from backup:
+   kubectl exec -n <namespace> <pod> -- <restore_command> < /path/to/backup
+
+3. Verify data integrity:
+   kubectl exec -n <namespace> <pod> -- <verify_command>
+
+4. Scale up applications:
+   kubectl scale deploy/<app> -n <namespace> --replicas=1
+```
+
+### 6.2 Database Upgrade Execution
+
+**Sequence for database upgrades:**
+
+```
+1. [STOP]      Scale down all applications using the database
+2. [BACKUP]   Create and verify full backup (see 6.1)
+3. [SNAPSHOT] Create PVC snapshot if available
+4. [UPGRADE]  Apply the version upgrade
+5. [WAIT]     Wait for pod to be Running (may take 5-10 min for migrations)
+6. [VERIFY]   Connect and verify data integrity
+7. [START]    Scale up applications one at a time
+8. [VALIDATE] Verify applications function correctly
+```
+
+**Database upgrade command template:**
+```bash
+# Before upgrade - identify dependent apps
+DEPS=$(kubectl get pods -A -o json | jq -r '.items[] | select(.spec.containers[].env[]?.value | contains("<db-service>")) | .metadata.namespace + "/" + .metadata.name')
+
+# Scale down dependents
+for dep in $DEPS; do
+  NS=$(echo $dep | cut -d'/' -f1)
+  NAME=$(echo $dep | cut -d'/' -f2)
+  kubectl scale deploy/$NAME -n $NS --replicas=0 --timeout=60s
+done
+
+# Now safe to upgrade database
+# ... apply helm upgrade or update image ...
+
+# After upgrade verification, scale back up
+for dep in $DEPS; do
+  NS=$(echo $dep | cut -d'/' -f1)
+  NAME=$(echo $dep | cut -d'/' -f2)
+  kubectl scale deploy/$NAME -n $NS --replicas=1
+done
+```
+
+### 6.3 Database-Specific Upgrade Notes
+
+#### PostgreSQL (v17 → v18, v18+)
+- **CRITICAL**: Check for removed/changed system catalogs
+- Run `pg_upgrade` compatibility check if doing in-place upgrade
+- Major versions may require `pg_dump`/`pg_restore` cycle
+- Verify extensions compatibility (e.g., TimescaleDB, PostGIS)
+
+#### MariaDB (v11 → v12)
+- Check for deprecated SQL modes
+- Verify character set and collation compatibility
+- Review `my.cnf` for deprecated options
+- May require `mysql_upgrade` after version bump
+
+#### MongoDB (v7 → v8)
+- Check feature compatibility version (FCV)
+- May require `setFeatureCompatibilityVersion` before upgrade
+- Review aggregation pipeline changes
+- Check index compatibility
+
+#### Redis/Valkey (v7 → v8, v8 → v9)
+- Verify RDB/AOF format compatibility
+- Check for deprecated commands
+- Review cluster mode changes if applicable
+- Persistence format may change
+
+### 6.4 Database Upgrade Failure Recovery
+
+If a database upgrade fails:
+
+```bash
+# 1. Check pod status and logs
+kubectl describe pod -n <namespace> <pod>
+kubectl logs -n <namespace> <pod> --previous
+
+# 2. If pod is CrashLoopBackOff, check for:
+#    - Migration failures
+#    - Incompatible data format
+#    - Missing permissions
+
+# 3. Rollback to previous version
+git revert <commit>  # If using GitOps
+# OR manually edit helm values to previous version
+
+# 4. If data corruption suspected:
+#    - DO NOT start the old version on corrupted data
+#    - Restore from backup first
+kubectl exec -n <namespace> <pod> -- <restore_command> < /path/to/backup
+
+# 5. Verify recovery
+kubectl exec -n <namespace> <pod> -- <verify_command>
+```
+
+---
+
+## Phase 7: Breaking Change Validation Checklist
+
+### 7.1 Pre-Merge Validation for Major Updates
+
+Before merging ANY PR with major version bumps:
+
+**1. CRD/API Changes**
+```bash
+# Check for CRD changes
+kubectl get crds | grep <component>
+kubectl get crd <crd-name> -o yaml > /tmp/crd_before.yaml
+# After update:
+kubectl get crd <crd-name> -o yaml > /tmp/crd_after.yaml
+diff /tmp/crd_before.yaml /tmp/crd_after.yaml
+```
+
+**2. Configuration Schema Changes**
+```bash
+# Helm: Compare values schema
+helm show values <chart> --version <old> > /tmp/values_old.yaml
+helm show values <chart> --version <new> > /tmp/values_new.yaml
+diff /tmp/values_old.yaml /tmp/values_new.yaml
+```
+
+**3. Secret/ConfigMap Format Changes**
+- Review if secret formats have changed
+- Check for renamed keys
+- Verify ExternalSecrets templates are compatible
+
+### 7.2 Component-Specific Validation
+
+#### ArgoCD (v8 → v9)
+- [ ] All Application resources still valid
+- [ ] ApplicationSets still generating correctly
+- [ ] Sync waves and hooks still function
+- [ ] RBAC policies still applied
+- [ ] SSO/OIDC still working
+- [ ] Notifications still firing
+
+#### External-Secrets (v0.x → v1.x)
+- [ ] All ExternalSecret resources sync
+- [ ] ClusterSecretStore connections valid
+- [ ] Secret refresh intervals working
+- [ ] Template functions still compatible
+
+#### Kube-Prometheus-Stack (major versions)
+- [ ] All Prometheus rules loaded
+- [ ] AlertManager config valid
+- [ ] ServiceMonitors discovered
+- [ ] Grafana datasources connected
+- [ ] Custom dashboards loading
+
+#### Grafana (v9 → v10)
+- [ ] All dashboards render
+- [ ] Datasources connected
+- [ ] Alerting rules migrated
+- [ ] User authentication working
+- [ ] Plugins compatible
+
+### 7.3 Post-Merge Validation Script
+
+Run this script after any major version upgrade:
+
+```bash
+#!/bin/bash
+# post_upgrade_validation.sh
+
+COMPONENT=$1
+NAMESPACE=$2
+
+echo "=== Post-Upgrade Validation for $COMPONENT ==="
+
+# Check pod status
+echo "[1/5] Pod Status:"
+kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=$COMPONENT
+
+# Check for errors in logs
+echo "[2/5] Recent Errors:"
+kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=$COMPONENT --tail=100 2>/dev/null | grep -i -E "(error|fatal|panic)" | head -20
+
+# Check events
+echo "[3/5] Recent Events:"
+kubectl get events -n $NAMESPACE --sort-by='.lastTimestamp' | grep $COMPONENT | tail -10
+
+# Check ArgoCD sync status
+echo "[4/5] ArgoCD Status:"
+kubectl get applications -n argocd | grep $COMPONENT
+
+# Check service endpoints
+echo "[5/5] Service Endpoints:"
+kubectl get endpoints -n $NAMESPACE | grep $COMPONENT
+
+echo "=== Validation Complete ==="
+```
+
+### 7.4 Staged Rollout for Critical Updates
+
+For CRITICAL updates (databases, ArgoCD, external-secrets), use staged rollout:
+
+**Stage 1: Pre-Flight (T-60 minutes)**
+- [ ] All backups verified
+- [ ] Rollback procedure documented
+- [ ] Monitoring dashboards open
+- [ ] Team notified (if applicable)
+
+**Stage 2: Upgrade Window Start (T-0)**
+- [ ] Final backup snapshot taken
+- [ ] Dependent services scaled down (if required)
+- [ ] Upgrade PR merged
+- [ ] ArgoCD sync initiated
+
+**Stage 3: Immediate Validation (T+5 minutes)**
+- [ ] Pod is Running
+- [ ] No CrashLoopBackOff
+- [ ] Basic health endpoint responding
+
+**Stage 4: Functional Validation (T+15 minutes)**
+- [ ] All dependent services started
+- [ ] End-to-end functionality verified
+- [ ] No error rate increase
+
+**Stage 5: Extended Monitoring (T+60 minutes)**
+- [ ] No new alerts
+- [ ] Performance metrics stable
+- [ ] User reports (if any) addressed
+
+**Stage 6: Upgrade Complete (T+24 hours)**
+- [ ] No issues reported
+- [ ] Documentation updated
+- [ ] Issue closed
+
+---
+
+## Phase 8: Escalation Procedures
+
+### 8.1 When to Escalate
 Escalate to human intervention when:
 
 - Action requires physical hardware access
@@ -712,7 +1237,7 @@ Escalate to human intervention when:
 - Root cause cannot be determined
 - Action has been attempted 3+ times without success
 
-### 5.2 Escalation Actions
+### 8.2 Escalation Actions
 
 1. **Document the issue** clearly in the Gitea issue
 2. **Add `needs-human` label** if available
@@ -720,7 +1245,7 @@ Escalate to human intervention when:
 4. **Preserve logs and state** for debugging
 5. **Summarize findings** for human review
 
-### 5.3 Safe States
+### 8.3 Safe States
 If unable to proceed, ensure the cluster is in a safe state:
 
 - Ceph `noout` flag set (prevents data movement)

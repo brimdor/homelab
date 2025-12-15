@@ -37,6 +37,18 @@ This workflow performs a comprehensive analysis of the entire Homelab infrastruc
 >
 > When updating this file, **always copy changes to all locations**.
 
+> [!CAUTION]
+> **FOUNDATIONAL RULES APPLY** - See `_foundational-rules.md`
+>
+> This workflow follows the **Homelab Foundational Rules**. These rules are NON-NEGOTIABLE:
+> - **Rule 1**: Work is NOT complete until ALL layers are GREEN (or issues are tracked for action)
+> - **Rule 2**: Zero tolerance - all findings must be documented and tracked
+> - **Rule 3**: NO pause, NO stop, NO quit until recon is complete
+> - **Rule 4**: Continuous validation during analysis
+> - **Rule 5**: Report must be comprehensive with all layers analyzed
+>
+> **Recon is complete when ALL layers are analyzed, ALL findings documented, and issue tracking is updated.**
+
 > [!IMPORTANT]
 > **Do NOT add comments to issues.** Comments are reserved for humans only.
 > Always **edit the original issue body** to merge new data into the existing content.
@@ -206,6 +218,10 @@ curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls?state=open" \
 Or use MCP tools:
 - Use `gitea_list_repo_pull_requests` with `state: open`
 
+**Identify PR Source**:
+- **Renovate PRs**: Author is `renovate[bot]`, `gitea_admin`, or title starts with `chore(deps):`
+- **User PRs**: All other PRs (manual changes, feature PRs, fixes)
+
 #### 3.6.3 Categorize Findings
 
 For each issue/PR found, categorize by:
@@ -234,7 +250,12 @@ Add a new section to the report template for Gitea state:
 ```markdown
 ## Gitea Repository State
 
-### Open Pull Requests (Non-Maintenance)
+### Open Pull Requests - Renovate (Automated)
+| PR | Title | Age | Status | Action Needed |
+|----|-------|-----|--------|---------------|
+| #X | chore(deps): [Component] | Xd | mergeable | Merge via /homelab-action |
+
+### Open Pull Requests - User (Manual)
 | PR | Title | Author | Age | Status | Action Needed |
 |----|-------|--------|-----|--------|---------------|
 | #X | [Title] | [user] | Xd | [mergeable/conflict] | [Review/Merge/Close] |
@@ -245,8 +266,9 @@ Add a new section to the report template for Gitea state:
 | #X | [Title] | [labels] | Xd | [H/M/L] | [Investigate/Fix/Close] |
 
 ### Summary
-- **Open PRs requiring action**: X
-- **Open Issues requiring action**: X
+- **Renovate PRs**: X (process via /homelab-action)
+- **User PRs**: X (require manual review)
+- **Open Issues**: X
 - **Oldest unresolved item**: #X (X days)
 ```
 
@@ -254,17 +276,34 @@ Add a new section to the report template for Gitea state:
 
 All actionable items discovered should be **added to the maintenance issue** during Phase 5. This centralizes all work items in a single tracking location.
 
+**Separate Renovate PRs from User PRs** for clarity:
+
 Format for adding to maintenance issue:
 ```markdown
 ## Gitea Action Items
 
-### Pull Requests to Process
-- [ ] PR #X: [Title] - [Action: Merge/Review/Close]
-- [ ] PR #Y: [Title] - [Action: Merge/Review/Close]
+### Renovate PRs (Automated - Process via /homelab-action)
+These PRs are processed automatically one-at-a-time with GREEN validation between each.
+
+| PR | Component | Type | Priority |
+|----|-----------|------|:--------:|
+| #X | [component] | non-major | LOW |
+| #Y | [component] | major | MEDIUM |
+| #Z | [database] | major | HIGH |
+
+**Merge Order** (safest to riskiest):
+1. Non-major dependency bundles
+2. Platform services (kured, cloudflared)
+3. Monitoring (grafana, prometheus)
+4. Core infrastructure (argocd, external-secrets)
+5. App templates and libraries
+6. Databases (postgres, mariadb, mongodb) - LAST, require backups
+
+### User PRs (Manual Review Required)
+- [ ] PR #X: [Title] - [Action: Review/Merge/Close]
 
 ### Issues to Address
 - [ ] Issue #X: [Title] - [Action: Investigate/Fix/Close]
-- [ ] Issue #Y: [Title] - [Action: Investigate/Fix/Close]
 ```
 
 ---

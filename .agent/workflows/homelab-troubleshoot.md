@@ -35,6 +35,18 @@ This workflow guides troubleshooting of issues across the Homelab Kubernetes inf
 > When updating this file, **always copy changes to both locations**.
 
 > [!CAUTION]
+> **FOUNDATIONAL RULES APPLY** - See `_foundational-rules.md`
+>
+> This workflow follows the **Homelab Foundational Rules**. These rules are NON-NEGOTIABLE:
+> - **Rule 1**: Work is NOT complete until ALL layers are GREEN
+> - **Rule 2**: Zero tolerance for issues of ANY severity (CRITICAL through LOW)
+> - **Rule 3**: NO pause, NO stop, NO quit until complete
+> - **Rule 4**: Continuous validation after every action
+> - **Rule 5**: Exhaustive completion criteria must be met
+>
+> **The ONLY exit condition is ALL GREEN status across all layers.**
+
+> [!CAUTION]
 > **Acceptance Criteria**: Troubleshooting is NOT complete until **ALL layers are GREEN** with **ZERO issues**:
 > - **Metal Layer**: All nodes `Ready`, no resource pressure
 > - **System Layer**: Ceph `HEALTH_OK` (no warnings, no errors), all kube-system pods `Running`

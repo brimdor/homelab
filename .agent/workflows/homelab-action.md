@@ -37,6 +37,18 @@ This workflow iterates on all action items in the latest maintenance-labeled Git
 >
 > When updating this file, **always copy changes to all locations**.
 
+> [!CAUTION]
+> **FOUNDATIONAL RULES APPLY** - See `_foundational-rules.md`
+>
+> This workflow follows the **Homelab Foundational Rules**. These rules are NON-NEGOTIABLE:
+> - **Rule 1**: Work is NOT complete until ALL layers are GREEN
+> - **Rule 2**: Zero tolerance for issues of ANY severity (CRITICAL through LOW)
+> - **Rule 3**: NO pause, NO stop, NO quit until complete
+> - **Rule 4**: Continuous validation after every action
+> - **Rule 5**: All action items must be executed and verified
+>
+> **The ONLY exit condition is ALL GREEN status across all layers with ZERO remaining issues.**
+
 > [!IMPORTANT]
 > **Do NOT add comments to issues.** Comments are reserved for humans only.
 > Always **edit the original issue body** to mark items as completed and update status.
@@ -311,6 +323,133 @@ After merging PRs or closing issues, verify:
 - Verify after each action
 - Update issue with progress
 - Pause if unexpected behavior occurs
+
+### 2.4 Renovate PR Processing Protocol
+
+> [!CAUTION]
+> **Renovate PRs MUST be processed one at a time.**
+> Each merge requires GREEN status validation before proceeding to the next.
+> If any layer goes YELLOW or RED, troubleshoot until GREEN before continuing.
+
+#### 2.4.1 Merge Order (Safest to Riskiest)
+
+Process Renovate PRs in this order to minimize risk:
+
+| Order | Category | Examples | Risk Level |
+|:-----:|----------|----------|:----------:|
+| 1 | Non-major bundles | "update all non-major dependencies" | LOW |
+| 2 | Platform services | kured, cloudflared, renovate | LOW |
+| 3 | Monitoring | grafana, prometheus, loki | MEDIUM |
+| 4 | Core infrastructure | argocd, external-secrets, cert-manager | HIGH |
+| 5 | App templates | app-template, common libraries | MEDIUM |
+| 6 | Databases | postgres, mariadb, mongodb, redis | CRITICAL |
+
+#### 2.4.2 One-at-a-Time Merge Loop
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│            RENOVATE PR PROCESSING LOOP                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌──────────────┐                                          │
+│   │ Select next  │                                          │
+│   │ PR (by order)│                                          │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │  Merge PR    │                                          │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │ Wait for     │                                          │
+│   │ ArgoCD sync  │  (max 5 min)                             │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐     ┌──────────────┐                     │
+│   │ Check ALL    │ NO  │ Troubleshoot │                     │
+│   │ layers GREEN?├────►│ until GREEN  │                     │
+│   └──────┬───────┘     └──────┬───────┘                     │
+│          │ YES                │                             │
+│          ↓                    │                             │
+│   ┌──────────────┐           │                              │
+│   │ Update issue │◄──────────┘                              │
+│   │ (mark done)  │                                          │
+│   └──────┬───────┘                                          │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │ More PRs?    │ YES ──► [Loop back to Select next PR]    │
+│   └──────┬───────┘                                          │
+│          │ NO                                               │
+│          ↓                                                  │
+│   ┌──────────────┐                                          │
+│   │ ALL DONE     │                                          │
+│   └──────────────┘                                          │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 2.4.3 Per-Merge Validation
+
+After EACH Renovate PR merge, verify ALL layers:
+
+```bash
+# Quick validation - ALL must pass before next merge
+kubectl get nodes | grep -v "Ready"                           # Empty = GREEN
+kubectl get pods -n kube-system | grep -v "Running\|Completed" # Empty = GREEN
+kubectl get applications -n argocd | grep -v "Synced.*Healthy" # Empty = GREEN
+kubectl exec -n rook-ceph deploy/rook-ceph-tools -- ceph health # HEALTH_OK = GREEN
+kubectl get pods -A --no-headers | grep -v "Running\|Completed" # Empty = GREEN
+```
+
+**If any check fails:**
+1. **STOP** - Do NOT merge next PR
+2. **Investigate** - Check logs, events, describe resources
+3. **Fix** - Apply remediation
+4. **Validate** - Re-run all checks
+5. **Only proceed** when ALL GREEN
+
+#### 2.4.4 Merge Command
+
+```bash
+source ~/.config/gitea/.env
+
+# For each Renovate PR (one at a time):
+PR_NUM=XX  # Set to current PR number
+
+# 1. Merge the PR
+curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/${PR_NUM}/merge" \
+  -H "Authorization: token $GITEA_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"Do": "merge", "delete_branch_after_merge": true}'
+
+# 2. Wait for ArgoCD to detect and sync (30-60 seconds)
+sleep 60
+
+# 3. Run validation checks (see 2.4.3)
+
+# 4. Only after GREEN, proceed to next PR
+```
+
+#### 2.4.5 Troubleshooting Between Merges
+
+If status is YELLOW or RED after a merge:
+
+| Status | Action |
+|:------:|--------|
+| **Pod CrashLoopBackOff** | Check logs, may need config fix or rollback |
+| **ArgoCD OutOfSync** | Force refresh and sync, check for conflicts |
+| **Ceph HEALTH_WARN** | Check `ceph health detail`, may self-resolve |
+| **Node NotReady** | Check kubelet logs, may need pod eviction |
+
+**Rollback if needed:**
+```bash
+# Revert the last merge commit
+git revert HEAD --no-edit
+git push
+
+# Wait for ArgoCD to sync back to previous state
+sleep 60
+```
 
 ---
 
