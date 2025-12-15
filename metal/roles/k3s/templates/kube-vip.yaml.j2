@@ -14,11 +14,11 @@ spec:
           value: {{ control_plane_endpoint }}
         - name: vip_arp
           value: "true"
+        - name: port
+          value: "6443"
         - name: cp_enable
           value: "true"
         - name: vip_leaderelection
-          value: "true"
-        - name: lb_enable
           value: "true"
       securityContext:
         capabilities:

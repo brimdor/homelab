@@ -76,7 +76,7 @@ app-template:
   persistence:
     data:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/openwebui
       advancedMounts:
         main:

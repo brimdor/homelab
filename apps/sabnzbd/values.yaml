@@ -136,7 +136,7 @@ app-template:
             - path: /config
     nfs-intermediate:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/sabnzbd_inter
       advancedMounts:
         main:
@@ -144,7 +144,7 @@ app-template:
             - path: /incomplete-downloads
     nfs-backups:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/sabnzbd_backups
       advancedMounts:
         main:
@@ -154,7 +154,7 @@ app-template:
             - path: /backups
     nfs-downloads:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/downloads
       advancedMounts:
         main:
@@ -162,7 +162,7 @@ app-template:
             - path: /downloads
     nfs-apps:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/apps
       advancedMounts:
         main:
