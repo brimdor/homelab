@@ -17,6 +17,7 @@ app-template:
           image:
             repository: alpine
             tag: latest
+            pullPolicy: Always
           name: fix-host
           command:
             - /bin/sh
@@ -44,6 +45,7 @@ app-template:
           image:
             repository: alpine
             tag: latest
+            pullPolicy: Always
           command:
             - /bin/sh
             - -c
