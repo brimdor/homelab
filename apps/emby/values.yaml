@@ -120,7 +120,7 @@ app-template:
             - path: /emby/transcode
     nfs-restore:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/emby_backups
       advancedMounts:
         main:
@@ -130,7 +130,7 @@ app-template:
           #   - path: /backups
     nfs-movies:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/movies
       advancedMounts:
         main:
@@ -138,7 +138,7 @@ app-template:
             - path: /data/movies
     nfs-tv:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/tv
       advancedMounts:
         main:
@@ -146,7 +146,7 @@ app-template:
             - path: /data/tv
     nfs-music:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/music
       advancedMounts:
         main:
