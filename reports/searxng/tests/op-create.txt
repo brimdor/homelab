@@ -1,1 +1,0 @@
-1Password item 'searxng Secrets' created in vault 'Server'.

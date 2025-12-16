@@ -1,1 +1,0 @@
-Automated attempt to run helm template encountered shell auto-correction prompts (zsh correcting yq->jq). Need clean non-interactive helm invocation environment. Chart cleanup done; pending successful render.

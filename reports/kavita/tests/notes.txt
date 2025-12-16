@@ -1,1 +1,0 @@
-Helm template produced no output - likely because templates rely on dependency and only secret + others exist. Need to ensure dependency chart renders by referencing app-template correctly.

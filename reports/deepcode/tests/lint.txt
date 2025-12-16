@@ -1,5 +1,0 @@
-==> Linting /home/coder/homelab/apps/deepcode
-[INFO] Chart.yaml: icon is recommended
-[ERROR] templates/: template: deepcode/charts/app-template/templates/common.yaml:14:3: executing "deepcode/charts/app-template/templates/common.yaml" at <include "bjw-s.common.loader.generate" .>: error calling include: template: deepcode/charts/app-template/charts/common/templates/loader/_generate.tpl:8:6: executing "bjw-s.common.loader.generate" at <include "bjw-s.common.render.controllers" .>: error calling include: template: deepcode/charts/app-template/charts/common/templates/render/_controllers.tpl:24:12: executing "bjw-s.common.render.controllers" at <include "bjw-s.common.lib.deployment.validate" (dict "rootContext" $ "object" $deploymentObject)>: error calling include: template: deepcode/charts/app-template/charts/common/templates/lib/deployment/_validate.tpl:8:14: executing "bjw-s.common.lib.deployment.validate" at <ne $deploymentValues.strategy "Recreate">: error calling ne: incompatible types for comparison
-
-Error: 1 chart(s) linted, 1 chart(s) failed
