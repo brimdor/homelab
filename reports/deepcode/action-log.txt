@@ -1,8 +1,0 @@
-2025-09-03 00:00Z - Created DeepCode Helm chart skeleton (Chart.yaml, values.yaml) using bjw-s app-template v2.6.0.
-2025-09-03 00:00Z - Added values.schema.json with validation for service, ingress, persistence, and backups knobs.
-2025-09-03 00:00Z - Added Dockerfile and build_push.sh for docker.io/brimdor/deepcode:latest.
-2025-09-03 00:00Z - Added tools/deepcode-op-create.sh for 1Password Operator secret item creation.
-2025-09-03 00:00Z - Initialized reports/deepcode/tests/ directory for lint and render artifacts.
-2025-09-03 00:05Z - Pulled bjw-s app-template 2.6.0 dependency and ran helm lint (INFO: icon recommended; WARNING: resolved after deps build).
-2025-09-03 00:07Z - Rendered templates for scenarios: service-only, ingress+TLS, persistence+backups, and secrets via 1Password. Saved under reports/deepcode/tests/.
-2025-09-04 00:00Z - Fixed ingress service.port type for app-template 4.2.0: apps/deepcode/values.yaml ingress.main.hosts[0].paths[0].service.port changed from string "http" to integer 8501 to satisfy schema (Invalid type error during helm template). Added note to rerun helm lint/template.

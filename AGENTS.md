@@ -2,31 +2,23 @@
 
 ## Build/Test Commands
 - `make test` - Run all Go tests | `make smoke-test` - Run smoke tests only
-- `make -C test filter=<TestName>` - Run single test (e.g., `filter=Smoke`, `filter=ToolsVersions`)
-- `pre-commit run --all-files` - Run all linters (yamllint, shellcheck, helm lint, terraform fmt)
-- `make git-hooks` - Install pre-commit hooks
+- `make -C test filter=<TestName>` - Run single test (e.g., `filter=Smoke`)
+- `pre-commit run --all-files` - Run all linters | `make git-hooks` - Install hooks
 
 ## Project Structure
-- **metal/** - Ansible for bare metal provisioning (K3s cluster)
-- **system/** - Core infrastructure (ArgoCD, cert-manager, ingress-nginx, monitoring)
-- **platform/** - Platform services (Gitea, Grafana, Kanidm)
-- **apps/** - User applications (Helm charts)
-- **external/** - Terraform for Cloudflare DNS/tunnels
-- **test/** - Go integration tests using terratest
+- **metal/** - Ansible bare metal provisioning (K3s) | **system/** - Core infra (ArgoCD, certs, ingress)
+- **platform/** - Services (Gitea, Grafana, Kanidm) | **apps/** - User Helm charts
+- **external/** - Terraform for Cloudflare | **test/** - Go tests (terratest)
+- **.agent/workflows/** - Homelab workflows (`homelab-recon`, `homelab-action`, `homelab-troubleshoot`)
+- **.agent/rules/foundational-rules.md** - MANDATORY rules for all homelab workflows
 
 ## Code Style
-- **YAML**: Must pass yamllint (no line-length limit), files end with newline
-- **Shell**: Must have shebangs, pass shellcheck
-- **Terraform**: Use `terraform fmt` formatting
-- **Helm**: Charts must pass `helm lint`
-- **Go**: Standard Go formatting for tests
-
-## Naming Conventions
-- Helm charts: lowercase with hyphens (e.g., `external-dns`, `cert-manager`)
-- Ansible roles: lowercase with underscores (e.g., `automatic_upgrade`)
-- Test functions: `Test<Feature>` (e.g., `TestSmoke`, `TestToolsVersions`)
+- **YAML**: yamllint (no line-length limit), end with newline, document-start disabled
+- **Shell**: Must have shebangs, pass shellcheck | **Helm**: Must pass `helm lint`
+- **Terraform**: Use `terraform fmt` | **Go**: Standard `gofmt` for tests
 
 ## Key Patterns
-- Secrets: Use ExternalSecrets with 1Password backend, never commit plaintext secrets
-- Ingress: All services use ingress-nginx with cert-manager TLS certificates
-- GitOps: All changes deploy via ArgoCD from this repo's `master` branch
+- **Secrets**: ExternalSecrets with 1Password backend - never commit plaintext
+- **Ingress**: ingress-nginx with cert-manager TLS | **GitOps**: ArgoCD from `master` branch
+- **Naming**: Charts = `lowercase-hyphens`, Ansible = `lowercase_underscores`, Tests = `Test<Feature>`
+- **API**: Gitea token at `~/.config/gitea/.env`, use `GITEA_URL`/`GITEA_TOKEN` for API calls

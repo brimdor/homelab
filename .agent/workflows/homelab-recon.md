@@ -276,34 +276,120 @@ Add a new section to the report template for Gitea state:
 
 All actionable items discovered should be **added to the maintenance issue** during Phase 5. This centralizes all work items in a single tracking location.
 
-**Separate Renovate PRs from User PRs** for clarity:
+> [!IMPORTANT]
+> **Cross-Issue Action Items**: Open issues (non-maintenance) that require action MUST be included as action items in the maintenance issue. The maintenance issue serves as the **single source of truth** for all pending work.
+
+**Aggregate ALL Action Items**:
+1. **From Pull Requests**: Both Renovate (automated) and User (manual) PRs
+2. **From Open Issues**: Any non-maintenance issue requiring action
+3. **From Recon Findings**: Issues discovered during health checks
+
+**Separate Renovate PRs from User PRs** for clarity.
+
+#### 3.6.7 Unified Priority Matrix
+
+All action items in the maintenance issue MUST follow this priority system:
+
+| Priority | Criteria | Examples | Processing Order |
+|:--------:|----------|----------|:----------------:|
+| **P0 (Critical)** | Breaks functionality, security risk, data loss | RED status items, CVEs, failing services | IMMEDIATE |
+| **P1 (High)** | Degraded performance, YELLOW warnings | High resource usage, expiring certs | Same day |
+| **P2 (Medium)** | Pending updates, non-critical features | Major version updates, feature requests | Within 3 days |
+| **P3 (Low)** | Minor improvements, non-major deps | Patch updates, documentation | When convenient |
+
+**Priority Assignment Rules**:
+- Issues with `status:red` label → **P0**
+- Issues with `status:yellow` label → **P1**
+- Issues from bug reports or security → **P1-P2**
+- Renovate major updates → **P2**
+- Renovate non-major updates → **P3**
+- Feature requests → **P2-P3**
+
+#### 3.6.8 Health Validation After Each Change
+
+> [!CAUTION]
+> **Mandatory Health Check**: After processing EACH action item, validate that Overall Status remains GREEN. If status degrades to YELLOW or RED, STOP and troubleshoot before proceeding.
+
+**Validation Protocol**:
+1. Complete one action item (merge PR, apply fix, etc.)
+2. Wait for ArgoCD sync (if applicable)
+3. Run abbreviated health check:
+   - `kubectl get nodes` - All Ready
+   - `kubectl get pods -A | grep -v Running | grep -v Completed` - No unexpected states
+   - ArgoCD sync status - All Synced/Healthy
+4. If GREEN → Proceed to next item
+5. If YELLOW/RED → Troubleshoot via `/homelab-troubleshoot` until GREEN
 
 Format for adding to maintenance issue:
 ```markdown
-## Gitea Action Items
+## Execution Sequence
 
-### Renovate PRs (Automated - Process via /homelab-action)
+> [!CAUTION]
+> **Execute in order. Validate GREEN after EACH step before proceeding.**
+
+| Step | Priority | Item | Type | Layer | Est. Downtime | Rollback |
+|:----:|:--------:|------|------|:-----:|:-------------:|----------|
+| 1 | P0 | #X | Fix | Metal | 0 min | [Plan] |
+| 2 | P1 | #Y | Update | System | 0 min | [Plan] |
+| 3 | P2 | #Z | Merge PR | Platform | 0 min | Revert commit |
+| ... | ... | ... | ... | ... | ... | ... |
+
+**Processing Rules**:
+1. Complete all P0 items before P1
+2. Within same priority: Metal → System → Platform → Apps
+3. Database changes always LAST within each priority level
+4. If status degrades: STOP → Troubleshoot → Restore GREEN → Continue
+
+---
+
+## Unified Action Items (Prioritized)
+
+> [!IMPORTANT]
+> Process items in priority order. After EACH item, validate GREEN status before proceeding.
+
+### P0 - Critical (Immediate)
+- [ ] [Type] #X: [Title] - Layer: [Metal/System/Platform/Apps] - [Action Required]
+
+### P1 - High (Same Day)
+- [ ] [Type] #X: [Title] - Layer: [Metal/System/Platform/Apps] - [Action Required]
+
+### P2 - Medium (Within 3 Days)
+| Item | Title | Type | Layer | Action | Notes |
+|------|-------|------|:-----:|--------|-------|
+| #X | [Title] | PR/Issue | [Layer] | [Action] | [Notes] |
+
+### P3 - Low (When Convenient)
+
+#### Renovate PRs (Process via /homelab-action)
 These PRs are processed automatically one-at-a-time with GREEN validation between each.
 
-| PR | Component | Type | Priority |
-|----|-----------|------|:--------:|
-| #X | [component] | non-major | LOW |
-| #Y | [component] | major | MEDIUM |
-| #Z | [database] | major | HIGH |
+| PR | Component | Type | Layer | Priority |
+|----|-----------|------|:-----:|:--------:|
+| #X | [component] | non-major | Apps | P3 |
+| #Y | [component] | major | Platform | P2 |
+| #Z | [database] | major | Apps | P2 |
 
 **Merge Order** (safest to riskiest):
-1. Non-major dependency bundles
-2. Platform services (kured, cloudflared)
-3. Monitoring (grafana, prometheus)
+1. Non-major dependency bundles (any layer)
+2. Platform services (kured, cloudflared, external-dns)
+3. Monitoring (grafana, prometheus, loki)
 4. Core infrastructure (argocd, external-secrets)
-5. App templates and libraries
-6. Databases (postgres, mariadb, mongodb) - LAST, require backups
+5. App templates and libraries (bjw-s common)
+6. Application updates (by namespace)
+7. Databases (postgres, mariadb, mongodb) - **ALWAYS LAST**
 
-### User PRs (Manual Review Required)
-- [ ] PR #X: [Title] - [Action: Review/Merge/Close]
+#### User PRs (Manual Review Required)
+- [ ] PR #X: [Title] - P[0-3] - Layer: [Layer] - [Action: Review/Merge/Close]
 
-### Issues to Address
-- [ ] Issue #X: [Title] - [Action: Investigate/Fix/Close]
+#### Issues from Open Tickets
+- [ ] Issue #X: [Title] - P[0-3] - Layer: [Layer] - [Action: Investigate/Fix/Close]
+
+---
+
+## Change Log
+| Timestamp | Step | Item | Result | Status After |
+|-----------|:----:|------|--------|:------------:|
+| [ISO datetime] | 1 | #X | [Merged/Fixed/Closed] | [GREEN/YELLOW/RED] |
 ```
 
 ---
@@ -368,29 +454,66 @@ reports/status-report-YYYY-MM-DD-2.md
 
 ---
 
-## Available Updates
+## Maintenance Order of Operations
 
-| Component | Current | Available | Priority | Notes |
-|-----------|---------|-----------|:--------:|-------|
-| [name] | [ver] | [ver] | [H/M/L] | [notes] |
+> [!IMPORTANT]
+> **Execute in sequence.** Each step depends on prior steps completing successfully with GREEN health status.
 
----
+### Dependency Hierarchy
+```mermaid
+graph TD
+    P0[P0 Critical - Fix Immediately] --> P1[P1 High - Same Day]
+    P1 --> P2[P2 Medium - Within 3 Days]
+    P2 --> P3[P3 Low - When Convenient]
+    
+    subgraph "Layer Order"
+        Metal --> System --> Platform --> Apps
+    end
+```
 
-## Update Plan
+### Execution Sequence
 
-### Order of Operations
-1. [ ] [Update step 1] - Estimated downtime: [X min]
-2. [ ] [Update step 2] - Estimated downtime: [X min]
+| Step | Priority | Item | Type | Est. Downtime | Dependencies | Rollback Plan |
+|:----:|:--------:|------|------|:-------------:|--------------|---------------|
+| 1 | P0 | [Item] | [Fix/Update] | 0 min | None | [Plan] |
+| 2 | P1 | [Item] | [Fix/Update] | 0 min | Step 1 | [Plan] |
+| ... | ... | ... | ... | ... | ... | ... |
 
-### Pre-Update Checklist
+### Zero-Downtime Guidelines
+
+**Layer-Specific Processing**:
+1. **Metal Layer** - Process FIRST (system-level issues affect everything)
+2. **System Layer** - Process SECOND (Kubernetes core)
+3. **Platform Layer** - Process THIRD (middleware/infrastructure)
+4. **Apps Layer** - Process LAST (user-facing services)
+
+**Update Batching Rules**:
+- **Batch non-disruptive changes** (patches, minor versions) together
+- **Isolate disruptive changes** (major versions, database migrations)
+- **Never update databases and their consumers simultaneously**
+
+**Safe Update Order** (within same priority):
+1. Non-major dependency patches (bundled)
+2. Platform services (kured, cloudflared, external-dns)
+3. Monitoring stack (grafana, prometheus, loki)
+4. Security infrastructure (cert-manager, dex, kanidm)
+5. Core infrastructure (argocd, external-secrets, sealed-secrets)
+6. App template libraries (bjw-s common)
+7. Application updates (by namespace)
+8. Database updates - **ALWAYS LAST** (postgres, mariadb, mongodb)
+
+### Pre-Maintenance Checklist
 - [ ] Backup verification complete
-- [ ] Maintenance window scheduled: ________
-- [ ] Rollback procedures documented
+- [ ] ArgoCD sync status: All Synced/Healthy
+- [ ] Health status: GREEN across all layers
+- [ ] Rollback procedures documented for risky items
+- [ ] Maintenance window communicated (if applicable)
 
-### Post-Update Validation
-- [ ] All services healthy
-- [ ] Endpoints responding
-- [ ] Logs reviewed
+### Post-Action Validation (After EACH Step)
+- [ ] `kubectl get nodes` - All Ready
+- [ ] `kubectl get pods -A` - No CrashLoopBackOff/Error
+- [ ] ArgoCD - All applications Synced/Healthy
+- [ ] Status: GREEN confirmed before next step
 
 ---
 
@@ -457,6 +580,14 @@ reports/status-report-YYYY-MM-DD-2.md
 
 After generating the report, **update or create a maintenance issue** in Gitea to track findings.
 
+> [!IMPORTANT]
+> **Single Source of Truth**: The maintenance issue aggregates ALL actionable items from:
+> - Recon findings (status issues, security concerns, updates)
+> - Open PRs (Renovate and User)
+> - Open non-maintenance Issues requiring action
+>
+> Each item must have an assigned **priority (P0-P3)** and health validation after completion.
+
 ### 5.1 Issue Management Steps
 
 1. **Search for existing open maintenance issue**:
@@ -482,15 +613,38 @@ After generating the report, **update or create a maintenance issue** in Gitea t
      - `status:yellow` - Warnings present
      - `status:red` - Critical issues
 
-### 5.2 Merging Data into Existing Issues
+### 5.2 Cross-Issue Action Item Aggregation
+
+When creating/updating the maintenance issue, **explicitly reference all open issues** that require action:
+
+1. **Query all open issues** (excluding maintenance-labeled issues)
+2. **For each actionable issue**:
+   - Add as a checkbox item under the appropriate priority section
+   - Reference by issue number: `Issue #X: [Title]`
+   - Assign priority based on labels/content (see Section 3.6.7)
+   - Specify action required (Investigate, Fix, Close, etc.)
+3. **Link to original issues** for context - do NOT duplicate full content
+4. **Track completion** in the Change Log section
+
+**Example Cross-Reference**:
+```markdown
+#### Issues from Open Tickets
+- [ ] Issue #15: GPU not detected on Sprigatito - P1 - Investigate/Fix
+- [ ] Issue #23: Emby transcoding slow - P2 - Investigate
+- [ ] Issue #31: Add new monitoring dashboard - P3 - Feature Request
+```
+
+### 5.3 Merging Data into Existing Issues
 
 When updating an existing issue, follow these guidelines:
 
 1. **Preserve existing structure** - Keep the overall format of the existing issue
 2. **Update status tables** - Replace old status data with current findings
 3. **Keep action items** - Preserve checkboxes and scheduled items from humans
-4. **Update timestamps** - Change "Last updated" to current date/time
-5. **Reference report file** - Add link to `reports/status-report-YYYY-MM-DD.md`
+4. **Add new action items** - Integrate newly discovered items into priority sections
+5. **Update timestamps** - Change "Last updated" to current date/time
+6. **Reference report file** - Add link to `reports/status-report-YYYY-MM-DD.md`
+7. **Update Change Log** - Record any changes made since last update
 
 ---
 
@@ -620,9 +774,15 @@ Full API documentation: https://git.eaglepass.io/api/swagger
 - [ ] Phase 2: All layers (Metal, System, Platform, Apps) analyzed
 - [ ] Phase 3: Services verified, security audited, updates discovered
 - [ ] Phase 3.6: Gitea Issues & PRs analyzed (non-maintenance items identified)
+- [ ] Phase 3.6.7: All items prioritized using P0-P3 matrix
 - [ ] Phase 4: Report generated and saved to `reports/`
-- [ ] Phase 5: Gitea issue created or updated (including Gitea action items)
+- [ ] Phase 5.1: Gitea maintenance issue created or updated
+- [ ] Phase 5.2: ALL open issues aggregated as action items (cross-issue referencing)
+- [ ] Phase 5.3: Existing data merged, timestamps and changelog updated
 - [ ] Phase 6: Summary provided to user
+
+> [!CAUTION]
+> **Post-Action Health Validation**: When `/homelab-action` processes items from this maintenance issue, it MUST validate GREEN status after each change. See Section 3.6.8 for the validation protocol.
 
 ---
 
