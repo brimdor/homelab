@@ -83,9 +83,9 @@ spec:
             - name: PROVISIONER_NAME
               value: cluster.local/nfs-client-provisioner
             - name: NFS_SERVER
-              value: "10.0.50.3"                 # <--- Adjust
+              value: {{ .Values.mcbackup.persistence.nfs.server | quote }}
             - name: NFS_PATH
-              value: "/mnt/user/minecraft-worlds" # <--- Adjust
+              value: {{ .Values.mcbackup.persistence.nfs.path | quote }}
           volumeMounts:
             - name: nfs-client-root
               mountPath: /persistentvolumes
@@ -94,8 +94,8 @@ spec:
       volumes:
         - name: nfs-client-root
           nfs:
-            server: "10.0.50.3"                   # <--- Same as above
-            path: "/mnt/user/minecraft-worlds"    # <--- Same as above
+            server: {{ .Values.mcbackup.persistence.nfs.server | quote }}
+            path: {{ .Values.mcbackup.persistence.nfs.path | quote }}
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
