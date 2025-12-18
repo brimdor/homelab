@@ -86,6 +86,7 @@ ollama:
         - mxbai-embed-large:latest
         - ministral-3:8b
         - nomic-embed-text:latest
+        - llama-guard3:1b
 
       # -- List of models to load in memory at container startup
       # run:
