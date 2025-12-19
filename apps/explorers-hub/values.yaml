@@ -5,6 +5,7 @@ app-template:
         main:
           image:
             repository: docker.io/brimdor/explorers
+            tag: latest
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
