@@ -1,9 +1,9 @@
 ---
 description: Execute all action items from maintenance issues until all infrastructure layers are GREEN
 sync_locations:
-  - ~/.gemini/antigravity/global_workflows/homelab-action.md
-  - ~/.config/opencode/command/homelab-action.md
+  - .agent/workflows/homelab-action.md
   - .opencode/command/homelab-action.md
+  - .gemini/commands/homelab-action.toml
 sync_note: IMPORTANT - This file must be kept in sync across all locations. When making changes, update ALL files.
 ---
 
@@ -30,10 +30,9 @@ This workflow iterates on all action items in the latest maintenance-labeled Git
 
 > [!IMPORTANT]
 > **Sync Requirement**: This workflow exists in multiple locations that must stay synchronized:
-> - `~/Documents/GitHub/homelab/.agent/workflows/homelab-action.md` (Primary/Source)
-> - `~/.gemini/antigravity/global_workflows/homelab-action.md` (Antigravity)
-> - `~/.config/opencode/command/homelab-action.md` (OpenCode Global)
-> - `.opencode/command/homelab-action.md` (Workspace)
+> - `.agent/workflows/homelab-action.md`
+> - `.opencode/command/homelab-action.md`
+> - `.gemini/commands/homelab-action.toml`
 >
 > When updating this file, **always copy changes to all locations**.
 

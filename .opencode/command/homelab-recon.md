@@ -1,9 +1,9 @@
 ---
 description: Comprehensive analysis, health check, and maintenance report for the entire Homelab
 sync_locations:
-  - ~/.gemini/antigravity/global_workflows/homelab-recon.md
-  - ~/.config/opencode/command/homelab-recon.md
+  - .agent/workflows/homelab-recon.md
   - .opencode/command/homelab-recon.md
+  - .gemini/commands/homelab-recon.toml
 sync_note: IMPORTANT - This file must be kept in sync across all locations. When making changes, update ALL files.
 ---
 
@@ -30,10 +30,9 @@ This workflow performs a comprehensive analysis of the entire Homelab infrastruc
 
 > [!IMPORTANT]
 > **Sync Requirement**: This workflow exists in multiple locations that must stay synchronized:
-> - `~/Documents/GitHub/homelab/.agent/workflows/homelab-recon.md` (Primary/Source)
-> - `~/.gemini/antigravity/global_workflows/homelab-recon.md` (Antigravity)
-> - `~/.config/opencode/command/homelab-recon.md` (OpenCode Global)
-> - `.opencode/command/homelab-recon.md` (Workspace)
+> - `.agent/workflows/homelab-recon.md`
+> - `.opencode/command/homelab-recon.md`
+> - `.gemini/commands/homelab-recon.toml`
 >
 > When updating this file, **always copy changes to all locations**.
 

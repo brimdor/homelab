@@ -1,9 +1,10 @@
 ---
 description: Troubleshoot issues across the Homelab Kubernetes cluster
 sync_locations:
-  - ~/.gemini/antigravity/global_workflows/homelab-troubleshoot.md
-  - ~/.config/opencode/command/homelab-troubleshoot.md
-sync_note: IMPORTANT - This file must be kept in sync across both locations. When making changes, update BOTH files.
+  - .agent/workflows/homelab-troubleshoot.md
+  - .opencode/command/homelab-troubleshoot.md
+  - .gemini/commands/homelab-troubleshoot.toml
+sync_note: IMPORTANT - This file must be kept in sync across all locations. When making changes, update ALL files.
 ---
 
 ## User Input
@@ -28,11 +29,12 @@ The text the user typed after the command **is** their priority input - it may s
 This workflow guides troubleshooting of issues across the Homelab Kubernetes infrastructure.
 
 > [!IMPORTANT]
-> **Sync Requirement**: This workflow exists in two locations that must stay synchronized:
-> - `~/.gemini/antigravity/global_workflows/homelab-troubleshoot.md` (Antigravity)
-> - `~/.config/opencode/command/homelab-troubleshoot.md` (Opencode)
+> **Sync Requirement**: This workflow exists in multiple locations that must stay synchronized:
+> - `.agent/workflows/homelab-troubleshoot.md`
+> - `.opencode/command/homelab-troubleshoot.md`
+> - `.gemini/commands/homelab-troubleshoot.toml`
 > 
-> When updating this file, **always copy changes to both locations**.
+> When updating this file, **always copy changes to all locations**.
 
 > [!CAUTION]
 > **FOUNDATIONAL RULES APPLY** - See `_foundational-rules.md`
