@@ -4,8 +4,7 @@ app-template:
       containers:
         main:
           image:
-            repository: docker.io/brimdor/explorer
-            tag: latest
+            repository: docker.io/brimdor/explorers
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
