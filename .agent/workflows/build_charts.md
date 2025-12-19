@@ -1,5 +1,10 @@
 ---
 description: Workflow to generate deployment-ready Helm charts for homelab apps
+sync_locations:
+  - .agent/workflows/build_charts.md
+  - .opencode/command/build_charts.md
+  - .gemini/commands/build_charts.toml
+sync_note: IMPORTANT - This file must be kept in sync across all locations. When making changes, update ALL files.
 ---
 
 ## User Input
@@ -20,6 +25,14 @@ The text the user typed after the command **is** the primary input:
 
 ## Overview
 This workflow defines the rigorous process to generate **exactly two files** (`Chart.yaml` and `values.yaml`) for a given open-source application. It follows a Spec-Driven Development approach to ensure reliability, security, and immediate deployability in the homelab.
+
+> [!IMPORTANT]
+> **Sync Requirement**: This workflow exists in multiple locations that must stay synchronized:
+> - `.agent/workflows/build_charts.md`
+> - `.opencode/command/build_charts.md`
+> - `.gemini/commands/build_charts.toml`
+>
+> When updating this file, **always copy changes to all locations**.
 
 ## Reference URLs (Authoritative)
 
