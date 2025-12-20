@@ -103,8 +103,8 @@ app-template:
           secretName: emby-tls-certificate
   persistence:
     data:
-      # accessMode: ReadWriteOnce
-      # size: 20Gi
+      accessMode: ReadWriteOnce
+      size: 40Gi
       existingClaim: emby-original-data
       advancedMounts:
         main:
