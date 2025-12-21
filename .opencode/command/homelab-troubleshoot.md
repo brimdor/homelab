@@ -65,14 +65,14 @@ Before starting, verify all local tools are current and functional.
 ### 2. Access Priority
 - **Primary**: Use the local system for all work
 - **Controller Fallback**: Only use when local access to Kubernetes cluster is unavailable
-  - SSH: `ssh brimdor@10.0.50.120`
+  - SSH: `ssh brimdor@10.0.40.10`
   - Homelab files: `~/homelab`
 
 ### 3. Controller Access (Fallback Only)
 If local access is unavailable:
 ```bash
 # Connect to controller
-ssh brimdor@10.0.50.120
+ssh brimdor@10.0.40.10
 
 # Navigate to homelab directory
 cd ~/homelab
@@ -412,6 +412,49 @@ Use the available **Gitea** and **GitHub** MCP tools for all repository interact
 - **Get Repo Info**: Use `get_repository` (Gitea) or `mcp_search_repositories` (GitHub).
 
 ---
+
+## 1Password Secret Management
+
+Use the 1Password CLI (`op`) to manage application secrets directly from the terminal.
+
+### Vault Information
+- **Vault Name**: `Server`
+- **Item Naming Convention**: `<app-name> Secrets`
+- **Category**: `Database`
+
+### Check Existing Secrets
+```bash
+# Check if secrets exist for an app
+op item get --vault "Server" "<app-name> Secrets"
+```
+
+### Create or Update Secrets
+Use this command block to create or update secrets for an application. Replace `<app-name>` and define the secret variables before running.
+
+```bash
+# Configure the secret details
+app_name="<app-name>"
+
+# Build the payload (edit labels and values as needed)
+payload=$(cat <<JSON
+{
+  "title": "${app_name} Secrets",
+  "category": "DATABASE",
+  "fields": [
+    {"label": "api-key", "value": "secret-value-1", "type": "CONCEALED"},
+    {"label": "another-secret", "value": "secret-value-2", "type": "CONCEALED"}
+  ]
+}
+JSON
+)
+
+# Create or Update in 'Server' vault
+if op item get --vault "Server" "${app_name} Secrets" >/dev/null 2>&1; then
+  echo "$payload" | op item edit --vault "Server" "${app_name} Secrets" -
+else
+  echo "$payload" | op item create --vault "Server" -
+fi
+```
 
 ## Gitea API Fallback (Emergency Only)
 
