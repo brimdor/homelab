@@ -14,19 +14,22 @@ app-template:
             PGID: "100"
             TZ: "America/Chicago"
             PHP_UPLOAD_LIMIT: "16G"
-            NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.eaglepass.io"
-            MYSQL_HOST: "nextcloud-mariadb.nextcloud.svc.cluster.local"
-            MYSQL_DATABASE: "nextcloud"
-            MYSQL_USER:
+            POSTGRES_HOST: "postgres.postgres.svc.cluster.local"
+            POSTGRES_DB:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "mysql-username"
-            MYSQL_PASSWORD:
+                  key: "postgres-db"
+            POSTGRES_USER:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
-                  key: "mysql-password"
+                  key: "postgres-user"
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-password"
           ports:
             - name: https
               containerPort: 443
@@ -38,35 +41,6 @@ app-template:
               enabled: false
             startup:
               enabled: false
-    mariadb:
-      type: statefulset
-      containers:
-        main:
-          image:
-            repository: mariadb
-            tag: "10.11"
-            pullPolicy: Always
-          env:
-            MYSQL_ROOT_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-root-password"
-            MYSQL_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-password"
-            MYSQL_DATABASE: "nextcloud"
-            MYSQL_USER:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-username"
-          ports:
-            - name: mysql
-              containerPort: 3306
-              protocol: TCP
   service:
     main:
       controller: main
@@ -76,13 +50,6 @@ app-template:
           port: 443
           targetPort: https
           protocol: HTTPS
-    mariadb:
-      controller: mariadb
-      ports:
-        mysql:
-          port: 3306
-          protocol: TCP
-          targetPort: mysql
   ingress:
     main:
       enabled: true
@@ -125,5 +92,5 @@ app-template:
             - path: /config
   defaultPodOptions:
     annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/42sitmujslmsq6p5gofykgecqi"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/c5krkheantm42ss5tgpg5gsxeq"
       operator.1password.io/item-name: "secrets"
