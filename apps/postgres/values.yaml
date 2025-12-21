@@ -127,7 +127,7 @@ app-template:
   persistence:
     db-data:
       accessMode: ReadWriteOnce
-      size: 10Gi
+      size: 20Gi
       advancedMounts:
         main:
           main:
@@ -144,7 +144,7 @@ app-template:
             - path: /work
     nfs-backups:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/postgres_backups
       advancedMounts:
         main:
