@@ -189,6 +189,8 @@ app-template:
             - path: /var/lib/mysql
 
   defaultPodOptions:
+    securityContext:
+      fsGroup: 999
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
