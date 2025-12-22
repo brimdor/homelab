@@ -59,7 +59,7 @@ postgresql:
     extraVolumes:
       - name: nfs-backups
         nfs:
-          server: 10.0.50.3
+          server: 10.0.40.3
           path: /mnt/user/n8n_backups
     extraVolumeMounts:
       - name: nfs-backups
@@ -120,7 +120,7 @@ main:
   volumes:
     - name: nfs-backups
       nfs:
-        server: 10.0.50.3
+        server: 10.0.40.3
         path: /mnt/user/n8n_backups
   volumeMounts:
     - name: nfs-backups

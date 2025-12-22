@@ -48,7 +48,7 @@
    ```
    | Port | Device | Current IP | Cable Color/Label |
    |------|--------|------------|-------------------|
-   | 1    | UNRAID | 10.0.50.3  | Blue              |
+   | 1    | UNRAID | 10.0.40.3  | Blue              |
    | 2    | ash    | 10.0.50.120| Yellow            |
    ...etc
    ```
@@ -70,7 +70,7 @@
 1. **Check Twingate connector status on UNRAID**
    ```bash
    # SSH into UNRAID or access console
-   ssh root@10.0.50.3
+   ssh root@10.0.40.3
    
    # Check Docker containers
    docker ps | grep twingate
@@ -155,7 +155,7 @@
    
    declare -A hosts=(
      ["OPNSense"]="10.0.0.1"
-     ["UNRAID"]="10.0.50.3"
+     ["UNRAID"]="10.0.40.3"
      ["ash (K8s Controller)"]="10.0.50.120"
      ["charmander"]="10.0.50.121"
      ["squirtle"]="10.0.50.122"

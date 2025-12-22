@@ -40,7 +40,7 @@ Implementation tasks (perform all autonomously):
        - Key naming rules: lowercase, hyphenated, matching env mapping wording (e.g., ROOT_PASSWORD → root-password)
    - Backups (optional CronJob):
      - enabled
-     - nfs.server: 10.0.50.3
+     - nfs.server: 10.0.40.3
      - nfs.path: "/replace/with/valid/nfs/path" (placeholder default)
      - schedule: "*/15 * * * *" (default)
      - retentionDays: 7 (default)

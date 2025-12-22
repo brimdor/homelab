@@ -32,7 +32,7 @@ Autonomous tasks to perform:
    - envFromSecret: name "secrets".
    - config: configMap-backed non-sensitive settings (e.g., settingsYaml multi-line string).
    - persistence: enabled (default false), existingClaim, storageClass, accessModes, size; first PVC named "data".
-   - backups: enabled (default false), schedule default "*/15 * * * *", retentionDays default 7, nfs.server "10.0.50.3", nfs.path default "/exports/backups/searxng"; configure CronJob only when persistence.enabled is true.
+   - backups: enabled (default false), schedule default "*/15 * * * *", retentionDays default 7, nfs.server "10.0.40.3", nfs.path default "/exports/backups/searxng"; configure CronJob only when persistence.enabled is true.
    - resources, probes, podAnnotations/podLabels, securityContext, nodeSelector, tolerations, affinity.
 3) Secrets via 1Password Operator (no hardcoded secrets):
    - Create/expect a Kubernetes Secret named "secrets" annotated exactly with:
@@ -58,7 +58,7 @@ Autonomous tasks to perform:
 7) Persistence (optional):
    - Default disabled. If enabled, create a PVC named "data" using configurable size/accessModes/storageClass/existingClaim.
 8) Backups (optional; only if persistence.enabled):
-   - Create an NFS-based CronJob using server 10.0.50.3 and a configurable path defaulting to /exports/backups/searxng.
+   - Create an NFS-based CronJob using server 10.0.40.3 and a configurable path defaulting to /exports/backups/searxng.
    - Schedule default every 15 minutes; retentionDays default 7.
 9) Image usage:
    - Use existing upstream image (no Dockerfile; do not run build_push.sh).

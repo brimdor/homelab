@@ -28,7 +28,7 @@ Tasks (execute all):
    - persistence.data (enabled, size, accessModes, storageClass, existingClaim, retain, mountPath=/config)
    - secretEnv list (each item: name, key) for mapping env vars to 1Password secret keys
    - config.configMap (enabled, data map), extraEnv, extraEnvFrom
-   - backups (enabled=false, schedule default */15 * * * *, retentionDays=7, nfs.server=10.0.50.3, nfs.path=/exports/backups/kavita/CHANGE-ME, nfs.mountPath=/backup, image (specify minimal e.g. alpine), resources, history limits)
+   - backups (enabled=false, schedule default */15 * * * *, retentionDays=7, nfs.server=10.0.40.3, nfs.path=/exports/backups/kavita/CHANGE-ME, nfs.mountPath=/backup, image (specify minimal e.g. alpine), resources, history limits)
    - probes (liveness, readiness, startup) configurable
    - resources (requests/limits)
    - securityContext/podSecurityContext (runAsUser, runAsGroup, fsGroup, readOnlyRootFilesystem)
@@ -72,7 +72,7 @@ Key Conventions to Honor:
 - Secret name "secrets".
 - Lowercase hyphenated secret keys (e.g., admin-password).
 - Domain host default: kavita.eaglepass.io (configurable).
-- NFS backup server fixed value default 10.0.50.3 but path customizable.
+- NFS backup server fixed value default 10.0.40.3 but path customizable.
 
 Completion Definition:
 - Chart files, schema, values, templates, and scripts exist and validate.

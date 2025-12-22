@@ -58,7 +58,7 @@ backups:
   enabled: true
   schedule: "*/15 * * * *"
   nfs:
-    server: 10.0.50.3
+    server: 10.0.40.3
     path: /export/path/elysia
   retentionDays: 7
 ```

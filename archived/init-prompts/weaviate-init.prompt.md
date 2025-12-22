@@ -94,7 +94,7 @@ Persistence:
 
 
 Backups:
-- NFS Server: 10.0.50.3
+- NFS Server: 10.0.40.3
 - Placeholder path in values.yaml for user customization
 - Implement as CronJobs within Helm Chart
 - Schedule default: every 15 minutes (configurable via values.yaml)
@@ -149,7 +149,7 @@ Decision Matrix:
 - For Ingress:
   - Use networking.k8s.io/v1 and values-driven host rules for eaglepass.io; ensure annotations and TLS can be set from values.yaml per modern patterns.
 - For Backups:
-  - Define NFS server 10.0.50.3, placeholder path, schedule default (15 min), retention default (7 days), all configurable.
+  - Define NFS server 10.0.40.3, placeholder path, schedule default (15 min), retention default (7 days), all configurable.
 - Include a logging section instructing to append human-readable action notes and test artifacts to the reports/<app-name>/ paths.
 - Provide explicit full paths from plan-create/projects.yaml for any documentation and chart files referenced.
 - Do not propose a directory structure; focus only on the plan and references.

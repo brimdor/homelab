@@ -33,7 +33,7 @@ Secrets via 1Password Operator (required if secrets are needed):
 
 Backups (only if needed by Sim AI):
 - Use a Kubernetes CronJob in the chart; default schedule */15 * * * * and 7 days retention.
-- Store backups on NFS server 10.0.50.3. Use a placeholder path in values.yaml and note the operator must change it.
+- Store backups on NFS server 10.0.40.3. Use a placeholder path in values.yaml and note the operator must change it.
 - All backup settings must be configurable via values.yaml.
 
 Image build/push (only if needed):
@@ -66,7 +66,7 @@ Tasks to perform:
 
 5) Implement the Helm chart per selected type:
    - Sub-Chart: only Chart.yaml and values.yaml; use upstream chart’s schema; if using bjw-s as library, enforce controllers.main, containers.main, and persistence.data.
-   - bjw-s Chart: conform to bjw-s values and schema links above. Implement image, env/envFrom, service, ingress (external only), persistence (if needed), resources, probes, securityContext (non-root), and optionally backups via CronJob with defaults and NFS 10.0.50.3 placeholder path.
+   - bjw-s Chart: conform to bjw-s values and schema links above. Implement image, env/envFrom, service, ingress (external only), persistence (if needed), resources, probes, securityContext (non-root), and optionally backups via CronJob with defaults and NFS 10.0.40.3 placeholder path.
 
 6) Validate:
    - helm lint and helm template runs with representative overrides.

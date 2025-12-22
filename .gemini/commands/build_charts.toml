@@ -117,7 +117,7 @@ Select based on data type:
 
 -   **Type A: NFS (Long-term/Large Data)**
     -   Use for NAS persistence.
-    -   Server: `10.0.50.3`
+    -   Server: `10.0.40.3`
     -   Path: `/mnt/user/<app-name>`
 -   **Type B: PVC (Fast Local/Cache)**
     -   Use `ReadWriteOnce`.

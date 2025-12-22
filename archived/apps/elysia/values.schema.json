@@ -6,8 +6,12 @@
     "app-template": {
       "type": "object",
       "properties": {
-        "controllers": {"type": "object"},
-        "service": {"type": "object"},
+        "controllers": {
+          "type": "object"
+        },
+        "service": {
+          "type": "object"
+        },
         "ingress": {
           "type": "object",
           "properties": {
@@ -30,47 +34,90 @@
             }
           }
         },
-        "persistence": {"type": "object"},
-        "configMaps": {"type": "object"}
+        "persistence": {
+          "type": "object"
+        },
+        "configMaps": {
+          "type": "object"
+        }
       }
     },
     "backups": {
       "type": "object",
       "properties": {
-        "enabled": {"type": "boolean", "default": false},
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
         "schedule": {
           "type": "string",
           "description": "Cron expression (@yearly etc.) or standard 5-field cron allowing ranges, lists, steps (e.g. */15 * * * * )",
           "pattern": "^(@(yearly|annually|monthly|weekly|daily|hourly|reboot)|([\\*/0-9,-]+\\s+){4}[\\*/0-9,-]+)$",
           "default": "*/15 * * * *"
         },
-        "retentionDays": {"type": "integer", "minimum": 1, "default": 7},
+        "retentionDays": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
         "nfs": {
           "type": "object",
           "properties": {
-            "server": {"type": "string", "default": "10.0.50.3"},
-            "path": {"type": "string", "default": "/export/path/elysia"}
+            "server": {
+              "type": "string",
+              "default": "10.0.40.3"
+            },
+            "path": {
+              "type": "string",
+              "default": "/export/path/elysia"
+            }
           },
-          "required": ["server", "path"]
+          "required": [
+            "server",
+            "path"
+          ]
         },
         "image": {
           "type": "object",
           "properties": {
-            "repository": {"type": "string"},
-            "tag": {"type": "string"},
-            "pullPolicy": {"type": "string"}
+            "repository": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "pullPolicy": {
+              "type": "string"
+            }
           },
-          "required": ["repository", "tag"]
+          "required": [
+            "repository",
+            "tag"
+          ]
         },
-        "resources": {"type": "object"},
-        "successfulJobsHistoryLimit": {"type": "integer", "minimum": 0},
-        "failedJobsHistoryLimit": {"type": "integer", "minimum": 0}
+        "resources": {
+          "type": "object"
+        },
+        "successfulJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
-      "required": ["enabled", "schedule", "retentionDays"]
+      "required": [
+        "enabled",
+        "schedule",
+        "retentionDays"
+      ]
     },
     "extraResources": {
       "type": "array",
-      "items": {"type": "object"}
+      "items": {
+        "type": "object"
+      }
     }
   }
 }

@@ -84,7 +84,7 @@ Values.yaml configurability (reference Helm values/schema behavior for enforceme
   - schedule: "*/15 * * * *" (default, configurable)
   - retentionDays: 7 (default, configurable)
   - nfs:
-    - server: "10.0.50.3" (fixed per homelab convention)
+    - server: "10.0.40.3" (fixed per homelab convention)
     - path: "/exports/backups/searxng" (placeholder; must be configurable)
   - job resources and annotations configurable
 - serviceMonitor/metrics (optional): configurable if metrics endpoints are exposed
@@ -130,7 +130,7 @@ Persistence:
 
 Backups:
 - Only applicable if persistence.enabled = true.
-- NFS server: 10.0.50.3 (required by homelab convention).
+- NFS server: 10.0.40.3 (required by homelab convention).
 - Placeholder path default in values.yaml (e.g., /exports/backups/searxng); operator must change it.
 - Implement a CronJob to snapshot/copy relevant data to NFS.
 - Cron schedule configurable (default: every 15 minutes).

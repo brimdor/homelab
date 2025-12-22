@@ -14,7 +14,7 @@ app-template:
             PROVIDER: "github"
             GITHUB_USERNAME: "brimdor"
             GITHUB_EMAIL: "chrisnelsonx@gmail.com"
-            DOCKER_HOST: "ssh://root@10.0.50.3"
+            DOCKER_HOST: "ssh://root@10.0.40.3"
             CHEZMOI_REPO: "https://github.com/pixelpaladins/dotfiles.git"
             CHEZMOI_BRANCH: "brimdor"
             OP_CONNECT_VAULT: "server"
@@ -120,7 +120,7 @@ app-template:
             - path: /home/coder
     nfs:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/code-backups
       advancedMounts:
         main:

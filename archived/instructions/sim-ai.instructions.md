@@ -18,7 +18,7 @@ Context and non-negotiables:
 - Secrets must be managed exclusively via 1Password Operator with valueFrom secretKeyRef, lowercase-hyphen keys, and required annotations.
 - Ingress is for external access only; Service is for internal access; both must be configurable via values.yaml, and follow homelab conventions.
 - Persistence must be via PVCs if needed and configurable via values.yaml.
-- Backups (if needed) must be implemented via CronJobs with default schedule */15 * * * * and 7-day retention, storing to NFS server 10.0.50.3 with a placeholder path in values.yaml.
+- Backups (if needed) must be implemented via CronJobs with default schedule */15 * * * * and 7-day retention, storing to NFS server 10.0.40.3 with a placeholder path in values.yaml.
 - Do not output code in this plan. You will create the files/changes during execution, not as part of this plan text.
 - Example apps to reference for conventions: /home/coder/homelab/apps/n8n, /home/coder/homelab/apps/emby, /home/coder/homelab/apps/localai
 
@@ -109,7 +109,7 @@ Workflow steps (execute in order):
     - Defaults:
       - Schedule: */15 * * * *
       - Retention: 7 days
-    - Store on NFS server 10.0.50.3; use a placeholder path in values.yaml (e.g., /path/to/replace) and instruct the operator to change it.
+    - Store on NFS server 10.0.40.3; use a placeholder path in values.yaml (e.g., /path/to/replace) and instruct the operator to change it.
     - Ensure the entire backup configuration is configurable via values.yaml.
 
 6) Services and Ingress rules
