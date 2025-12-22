@@ -301,7 +301,7 @@ app-template:
             - path: /work
     nfs-backups:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/n8n_backups
       advancedMounts:
         main:
@@ -316,7 +316,7 @@ app-template:
             - path: /mnt/backup
     ebooks:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/ebooks
       advancedMounts:
         main:

@@ -92,7 +92,7 @@ Tasks (perform all steps without asking questions)
   backups.enabled=true
   backups.schedule="*/15 * * * *"
   backups.retentionDays=7
-  backups.nfs.server="10.0.50.3"
+  backups.nfs.server="10.0.40.3"
   backups.nfs.path="/path/to/backups/weaviate" (placeholder; make configurable)
 - Ensure safe operation and compatibility with rollouts.
 
@@ -120,5 +120,5 @@ Success Criteria
 - The Sub-Chart deploys via Argo CD.
 - Service and optional Ingress function with TLS when configured.
 - Data persists via PVC "data".
-- Backups run to NFS 10.0.50.3 at the configured path on schedule with retention applied.
+- Backups run to NFS 10.0.40.3 at the configured path on schedule with retention applied.
 - All secrets are injected via 1Password Operator using the specified annotations

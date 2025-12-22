@@ -82,7 +82,7 @@ Persistence (if Weaviate requires persistent data)
 
 Backups (CronJobs)
 - Implement CronJobs to back up the "data" PVC to NFS
-- NFS server: 10.0.50.3
+- NFS server: 10.0.40.3
 - Placeholder path in values.yaml for user customization (e.g., /mnt/nfs/backups/weaviate)
 - Default schedule: every 15 minutes (*/15 * * * *)
 - Default retention: 7 days
@@ -90,7 +90,7 @@ Backups (CronJobs)
   backups.enabled
   backups.schedule (default "*/15 * * * *")
   backups.retentionDays (default 7)
-  backups.nfs.server (default "10.0.50.3")
+  backups.nfs.server (default "10.0.40.3")
   backups.nfs.path (default "/path/to/backups/weaviate", placeholder)
   backups.labels, backups.annotations (optional)
   backups.podResources (optional)
@@ -152,7 +152,7 @@ Values.yaml Expectations (configurable; schema-validated)
   data.existingClaim, data.storageClass, data.accessModes, data.size
 - backups:
   enabled, schedule (default "*/15 * * * *"), retentionDays (default 7)
-  nfs.server="10.0.50.3", nfs.path="/path/to/backups/weaviate" (placeholder)
+  nfs.server="10.0.40.3", nfs.path="/path/to/backups/weaviate" (placeholder)
 - optional:
   resources, nodeSelector, tolerations, affinity
 - Conform to Helm values/schema behavior:

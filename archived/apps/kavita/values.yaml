@@ -122,7 +122,7 @@ app-template:
         #     - path: /config
     library:
       type: nfs
-      server: 10.0.50.3
+      server: 10.0.40.3
       path: /mnt/user/ebooks
       advancedMounts:
         main:
@@ -130,7 +130,7 @@ app-template:
             - path: /nfs/library
     # backup-target:
     #   type: nfs
-    #   server: 10.0.50.3
+    #   server: 10.0.40.3
     #   path: /mnt/user/kavita_backups
     #   advancedMounts:
     #     backup:

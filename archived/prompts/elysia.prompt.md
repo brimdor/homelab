@@ -26,7 +26,7 @@ Tasks (perform in order):
 3. Include persistence.data (enabled true by default), with mountPath, size (10Gi default), accessModes, storageClass, existingClaim overrides.
 4. Implement ingress.main (enabled by default) with host default elysia.eaglepass.io, TLS configurable, annotations map, path "/" mapping to service main port. Use networking.k8s.io/v1 format.
 5. Implement service.main with ClusterIP default, port 8080 (http), allow port override, additional ports list.
-6. Implement backups (disabled by default) using a CronJob (cronjobs.backup) referencing NFS server 10.0.50.3 and placeholder path /export/path/elysia; schedule default */15 * * * *; retentionDays default 7; all configurable.
+6. Implement backups (disabled by default) using a CronJob (cronjobs.backup) referencing NFS server 10.0.40.3 and placeholder path /export/path/elysia; schedule default */15 * * * *; retentionDays default 7; all configurable.
 7. Add optional configMaps.app-config (disabled by default) for non-sensitive configuration.
 8. Integrate 1Password Operator:
    - Provide a Secret manifest or OnePasswordItem reference pattern with annotations:

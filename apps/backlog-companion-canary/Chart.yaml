@@ -1,0 +1,9 @@
+apiVersion: v2
+name: backlog-companion-canary
+description: Helm chart for deploying backlog-companion-canary via the bjw-s app-template library chart
+type: application
+version: 0.1.0
+dependencies:
+  - name: app-template
+    version: 4.5.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

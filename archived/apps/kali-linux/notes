@@ -8,7 +8,7 @@ from values.yaml
 #   nfs:
 #     enabled: "true"
 #     name: "config"
-#     server: "10.0.50.3"
+#     server: "10.0.40.3"
 #     path: "/mnt/user/ubuntu-mate-config"
 
 from deployment.yaml

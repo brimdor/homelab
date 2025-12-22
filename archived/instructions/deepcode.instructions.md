@@ -55,7 +55,7 @@ Kubernetes Objects to Include (per Conditions; all values-driven via values.yaml
     - Populate with custom key/value pairs matching the hyphenated naming convention.
 - Backups (optional, only if needed):
   - Implement a CronJob managed by the chart (values-driven) to back up persistent data to NFS.
-  - NFS server: 10.0.50.3
+  - NFS server: 10.0.40.3
   - NFS path: placeholder path set in values.yaml; instruct users to modify it.
   - Configurable via values.yaml: enabled, schedule (default: */15 * * * *), retentionDays (default: 7), target NFS path, resource limits/requests, job history limits, securityContext, and destination subpath naming.
   - Ensure backup job mounts the PVC and writes to NFS; include a retention policy (e.g., prune files older than retentionDays).
@@ -104,7 +104,7 @@ values.yaml Requirements (configure all via values and validate via schema; cite
 - Backups:
   - enabled (bool)
   - nfs:
-    - server: "10.0.50.3"
+    - server: "10.0.40.3"
     - path: "/replace/with/valid/nfs/path"  # placeholder; instruct user to change
   - schedule: "*/15 * * * *"
   - retentionDays: 7

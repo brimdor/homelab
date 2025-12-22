@@ -45,7 +45,7 @@ Produce a bjw-s style chart (Chart.yaml + values.yaml + templates leveraging com
 - ConfigMap: Optional for advanced non-sensitive overrides (e.g., appsettings-like config). Provide mechanism but disabled by default.
 - Secret: Yes, produced by 1Password Operator -> Kubernetes Secret named "secrets" (referenced by pod env valueFrom). Potential keys: database-url (if external DB used later), api-key, admin-password (example placeholders only—do not hardcode).
 - CronJob (Backups): Yes if enabled in values. Default enabled=false; when enabled: schedule "*/15 * * * *", retention 7 days. Writes to NFS mount.
-- Volume for Backups: NFS volume (server 10.0.50.3, path configurable placeholder: /exports/backups/kavita CHANGE-ME).
+- Volume for Backups: NFS volume (server 10.0.40.3, path configurable placeholder: /exports/backups/kavita CHANGE-ME).
 - RBAC: Only if needed for backup job (if listing pods or accessing API not required—omit unless required).
 - ServiceAccount: Configurable toggle (enabled: false by default) for least privilege.
 
@@ -90,7 +90,7 @@ All below must be keys in values.yaml to allow override:
 - backups:
   enabled (false)
   nfs:
-    server: 10.0.50.3
+    server: 10.0.40.3
     path: /exports/backups/kavita/CHANGE-ME
     mountPath: /backup
   schedule: "*/15 * * * *"
