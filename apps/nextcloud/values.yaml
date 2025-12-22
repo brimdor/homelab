@@ -14,6 +14,10 @@ app-template:
               value: "America/Chicago"
             - name: PHP_MEMORY_LIMIT
               value: "1024M"
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
           resources:
             requests:
               cpu: 100m
@@ -42,8 +46,8 @@ app-template:
       ports:
         https:
           port: 443
-          targetPort: https
-          protocol: HTTPS
+          targetPort: 443
+          protocol: TCP
   ingress:
     main:
       enabled: true
