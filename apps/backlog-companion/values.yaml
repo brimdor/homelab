@@ -13,7 +13,7 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: root_password
+                  key: root-password
             MYSQL_DATABASE:
               valueFrom:
                 secretKeyRef:
@@ -23,12 +23,12 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: db_user
+                  key: db-user
             MYSQL_PASSWORD:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: db_password
+                  key: db-password
           probes:
             liveness:
               enabled: true
@@ -69,12 +69,12 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: db_user
+                  key: db-user
             DB_PASSWORD:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: db_password
+                  key: db-password
             DB_NAME:
               valueFrom:
                 secretKeyRef:
@@ -84,12 +84,12 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: jwt_secret
+                  key: jwt-secret
             ENCRYPTION_KEY:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: encryption_key
+                  key: encryption-key
           probes:
             liveness:
               enabled: true
@@ -180,9 +180,9 @@ app-template:
 
   persistence:
     data:
-      type: nfs
-      server: 10.0.50.3
-      path: /mnt/user/backlog_companion_database
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
       advancedMounts:
         main:
           database:

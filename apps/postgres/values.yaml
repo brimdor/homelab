@@ -103,9 +103,8 @@ app-template:
                 cp "$latest_dump" /work/db.dump
                 printf '%s\n' \
                   '#!/bin/sh' \
-                  'set -e' \
                   'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
-                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump' \
+                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump || echo "[INITDB] pg_restore completed with warnings (non-fatal)"' \
                   'echo "[INITDB] Restore complete."' \
                   > /work/10-restore.sh
                 chmod +x /work/10-restore.sh
