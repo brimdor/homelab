@@ -22,6 +22,8 @@ app-template:
             DISPLAY_WIDTH: "1920"
             DISPLAY_HEIGHT: "1080"
             DISPLAY_REFRESH: "60"
+            # Shared runtime dir for Wolf socket (accessible by spawned Docker containers)
+            XDG_RUNTIME_DIR: "/var/run/wolf"
           securityContext:
             privileged: true
           resources:
@@ -120,3 +122,12 @@ app-template:
           main:
             - path: /run/udev
               readOnly: true
+
+    # Shared runtime directory for Wolf socket - accessible by both Wolf pod and spawned Docker containers
+    wolf-runtime:
+      type: hostPath
+      hostPath: /var/run/wolf
+      advancedMounts:
+        main:
+          main:
+            - path: /var/run/wolf
