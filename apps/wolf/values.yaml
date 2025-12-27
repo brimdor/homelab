@@ -13,8 +13,8 @@ app-template:
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
-            PUID: "1000"
-            PGID: "1000"
+            PUID: "99"
+            PGID: "100"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
           securityContext:
