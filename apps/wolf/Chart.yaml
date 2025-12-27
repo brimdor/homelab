@@ -1,0 +1,10 @@
+apiVersion: v2
+name: wolf
+description: Wolf streaming server for Moonlight - stream games from Docker containers
+type: application
+version: 0.1.0
+appVersion: "stable"
+dependencies:
+  - name: app-template
+    version: 4.5.0
+    repository: https://bjw-s-labs.github.io/helm-charts
