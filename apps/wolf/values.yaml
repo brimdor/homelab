@@ -1,0 +1,116 @@
+# Wolf - Games on Whales streaming server for Moonlight clients
+# https://games-on-whales.github.io/wolf/stable/
+# Schema: https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+
+app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: ghcr.io/games-on-whales/wolf
+            tag: stable
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            PUID: "1000"
+            PGID: "1000"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+          securityContext:
+            privileged: true
+          resources:
+            limits:
+              # nvidia.com/gpu: 1
+              memory: "16Gi"
+            requests:
+              memory: "4Gi"
+
+  # Wolf requires host network for optimal Moonlight streaming (ports 47984-48010)
+  # Streaming goes directly via Moonlight protocol - no Cloudflare
+  defaultPodOptions:
+    hostNetwork: true
+    dnsPolicy: ClusterFirstWithHostNet
+    tolerations:
+      - key: "dedicated"
+        value: "arcanine"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - "arcanine"
+    runtimeClassName: nvidia
+
+  # Wolf web UI for PIN pairing and setup (through Cloudflare)
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 47989
+          protocol: HTTP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host wolf.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: wolf-tls-certificate
+
+  persistence:
+    # Wolf configuration directory
+    config:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/wolf
+      advancedMounts:
+        main:
+          main:
+            - path: /etc/wolf
+
+    # Docker socket for spawning child containers (Steam, RetroArch, etc.)
+    docker-socket:
+      type: hostPath
+      hostPath: /var/run/docker.sock
+      advancedMounts:
+        main:
+          main:
+            - path: /var/run/docker.sock
+
+    # Device access for GPU rendering
+    dev:
+      type: hostPath
+      hostPath: /dev
+      advancedMounts:
+        main:
+          main:
+            - path: /dev
+
+    # Udev rules for device hotplug events
+    udev:
+      type: hostPath
+      hostPath: /run/udev
+      advancedMounts:
+        main:
+          main:
+            - path: /run/udev
+              readOnly: true
