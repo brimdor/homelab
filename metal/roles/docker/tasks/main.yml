@@ -5,6 +5,18 @@
       - docker-compose
     state: present
 
+- name: Install nvidia-container-toolkit for GPU nodes
+  dnf:
+    name:
+      - nvidia-container-toolkit
+    state: present
+  when: gpu_type is defined
+
+- name: Configure Docker with nvidia runtime
+  command: nvidia-ctk runtime configure --runtime=docker
+  when: gpu_type is defined
+  notify: Restart Docker
+
 - name: Enable and start Docker service
   systemd:
     name: docker
