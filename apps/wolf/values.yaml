@@ -26,7 +26,7 @@ app-template:
             privileged: true
           resources:
             limits:
-              # nvidia.com/gpu: 1
+              # GPU accessed via runtimeClassName: nvidia (matches ollama pattern)
               memory: "16Gi"
             requests:
               memory: "4Gi"
