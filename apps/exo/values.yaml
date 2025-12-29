@@ -29,7 +29,7 @@ app-template:
             EXO_DISCOVERY_MODE: "dns"
             EXO_DNS_HOSTNAME: "exo-headless.exo.svc.cluster.local"
             EXO_DNS_PORT: "52414"
-            EXO_DNS_POLL_INTERVAL: "5"
+            EXO_DNS_POLL_INTERVAL: "30"
             # Fixed libp2p port for peer-to-peer communication (required for DNS discovery)
             EXO_LIBP2P_PORT: "52414"
           probes:
