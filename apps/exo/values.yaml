@@ -28,8 +28,10 @@ app-template:
             # This enables pods to discover each other via headless service DNS
             EXO_DISCOVERY_MODE: "dns"
             EXO_DNS_HOSTNAME: "exo-headless.exo.svc.cluster.local"
-            EXO_DNS_PORT: "52415"
+            EXO_DNS_PORT: "52414"
             EXO_DNS_POLL_INTERVAL: "5"
+            # Fixed libp2p port for peer-to-peer communication (required for DNS discovery)
+            EXO_LIBP2P_PORT: "52414"
           probes:
             liveness:
               enabled: true
@@ -80,6 +82,9 @@ app-template:
       ports:
         http:
           port: 52415
+          protocol: TCP
+        libp2p:
+          port: 52414
           protocol: TCP
 
   ingress:
