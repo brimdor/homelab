@@ -45,4 +45,4 @@ ENV EXO_DATA_DIR=/data/models
 
 # Default command - can be overridden with discovery args
 ENTRYPOINT ["uv", "run", "exo"]
-CMD ["--listen-port", "52415"]
+CMD ["--api-port", "52415"]
