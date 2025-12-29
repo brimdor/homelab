@@ -6,7 +6,7 @@ app-template:
   controllers:
     main:
       # Adjust replicas to match your node count for multi-device AI cluster
-      replicas: 4
+      replicas: 1
       strategy: RollingUpdate
       containers:
         main:
