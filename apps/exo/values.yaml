@@ -12,13 +12,13 @@ app-template:
         main:
           image:
             # Build and push your own image using the Dockerfile in this directory
-            # docker build -t your-registry/exo:latest .
-            # docker push your-registry/exo:latest
+            # docker build -t brimdor/exo:latest .
+            # docker push brimdor/exo:latest
             repository: docker.io/brimdor/exo
             tag: latest
             pullPolicy: Always
           args:
-            - "--listen-port"
+            - "--api-port"
             - "52415"
             # Manual peer discovery for Kubernetes
             # Pods will be discovered via headless service DNS
@@ -114,8 +114,6 @@ app-template:
 
   defaultPodOptions:
     annotations:
-      # operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/exo"
-      # operator.1password.io/item-name: "secrets"
     # Ensure each pod runs on a different node for distributed AI cluster
     affinity:
       podAntiAffinity:
