@@ -6,7 +6,7 @@ app-template:
   controllers:
     main:
       # Adjust replicas to match your node count for multi-device AI cluster
-      replicas: 1
+      replicas: 4
       strategy: RollingUpdate
       containers:
         main:
@@ -20,15 +20,16 @@ app-template:
           args:
             - "--api-port"
             - "52415"
-            # Manual peer discovery for Kubernetes
-            # Pods will be discovered via headless service DNS
-            # Add --peer flag as needed or use the EXO_PEER env var
           env:
             TZ: "America/Chicago"
             PUID: "1000"
             PGID: "1000"
-            # Peer discovery will happen via headless service:
-            # exo-headless.exo.svc.cluster.local
+            # DNS-based peer discovery for Kubernetes
+            # This enables pods to discover each other via headless service DNS
+            EXO_DISCOVERY_MODE: "dns"
+            EXO_DNS_HOSTNAME: "exo-headless.exo.svc.cluster.local"
+            EXO_DNS_PORT: "52415"
+            EXO_DNS_POLL_INTERVAL: "5"
           probes:
             liveness:
               enabled: true
