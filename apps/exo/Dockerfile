@@ -1,5 +1,9 @@
 # Exo Dockerfile - Run your own AI cluster
-# Build: docker build -t docker.io/brimdor/exo:latest .
+# Build from exo source directory:
+#   docker build -t docker.io/brimdor/exo:latest \
+#     -f /path/to/homelab/apps/exo/Dockerfile \
+#     /path/to/exo
+#
 # Based on exo-explore/exo installation instructions
 
 FROM python:3.12-slim
@@ -24,8 +28,8 @@ RUN rustup toolchain install nightly
 
 WORKDIR /app
 
-# Clone exo (for building from scratch without local source)
-RUN git clone https://github.com/exo-explore/exo.git .
+# Copy local exo source (build context should be exo source directory)
+COPY . .
 
 # Build dashboard
 WORKDIR /app/dashboard
