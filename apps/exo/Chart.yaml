@@ -1,0 +1,13 @@
+apiVersion: v2
+name: exo
+description: Run your own AI cluster at home with everyday devices - distributed across multiple nodes
+home: https://github.com/exo-explore/exo
+icon: https://raw.githubusercontent.com/exo-explore/exo/main/dashboard/public/favicon.png
+sources:
+  - https://github.com/exo-explore/exo
+type: application
+version: 0.1.0
+dependencies:
+  - name: app-template
+    version: 4.5.0
+    repository: https://bjw-s-labs.github.io/helm-charts
