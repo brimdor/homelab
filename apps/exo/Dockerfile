@@ -37,6 +37,10 @@ RUN npm install && npm run build
 
 WORKDIR /app
 
+# Install Python dependencies at build time (not runtime!)
+# This prevents slow startup from downloading packages on every pod start
+RUN uv sync
+
 # Create data directory for models
 RUN mkdir -p /data/models
 
