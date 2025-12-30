@@ -43,7 +43,7 @@ persistence:
   data:
     enabled: true
     type: persistentVolumeClaim
-    storageClass: longhorn
+    storageClass: rook-ceph-block
     accessMode: ReadWriteOnce
     size: 10Gi
     globalMounts:
