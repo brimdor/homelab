@@ -87,6 +87,7 @@ ollama:
         - ministral-3:8b
         - nomic-embed-text:latest
         - llama-guard3:1b
+        - qwen3-coder:32b
 
       # -- List of models to load in memory at container startup
       # run:

@@ -26,9 +26,6 @@ app-template:
             AUDIO_STT_ENGINE: "openai"
             ENABLE_SIGNUP_PASSWORD_CONFIRMATION: "false"
             USER_AGENT: "OpenWebUI-eaglepass (+https://open.eaglepass.io)"
-            # Exo distributed AI cluster as OpenAI-compatible backend
-            OPENAI_API_BASE_URLS: "http://exo-main.exo.svc.cluster.local:52415/v1"
-            OPENAI_API_KEYS: "not-needed"
             # MCPO_URL: "http://mcpo.open-webui.svc.cluster.local:8081"
             WEBUI_SECRET_KEY:
               valueFrom:
