@@ -81,8 +81,8 @@ ollama:
       #  - llama2
       #  - mistral
       pull:
-        - mxbai-embed-large:latest
-        - nomic-embed-text:latest
+        # - mxbai-embed-large:latest
+        # - nomic-embed-text:latest
 
       # -- List of models to load in memory at container startup
       # run:
