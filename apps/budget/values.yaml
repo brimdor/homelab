@@ -76,6 +76,10 @@ app-template:
           backend:
             - path: /app/data
   defaultPodOptions:
+    hostAliases:
+      - ip: "127.0.0.1"
+        hostnames:
+          - backend
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/tmzoa76bdsgccyagmdxiug7vru"
       operator.1password.io/item-name: "secrets"
