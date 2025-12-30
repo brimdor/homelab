@@ -8,14 +8,21 @@
 
 FROM python:3.13-slim
 
-# Install system dependencies
+# Install system dependencies (GCC 12 required for MLX CPU JIT compatibility)
+# GCC 14 causes: "redeclaration of C++ built-in type '_Float128'" errors
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
-    build-essential \
+    g++-12 \
+    gcc-12 \
+    make \
+    libc6-dev \
     nodejs \
     npm \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100 \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 \
+    && update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-12 100
 
 # Install uv (Python package manager)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
