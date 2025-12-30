@@ -83,7 +83,6 @@ ollama:
       pull:
         - mxbai-embed-large:latest
         - nomic-embed-text:latest
-        - qwen3-coder:32b
 
       # -- List of models to load in memory at container startup
       # run:
