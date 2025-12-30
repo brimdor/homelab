@@ -13,6 +13,7 @@ app-template:
             OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
             CHAT_MODEL_provider: "ollama"
             CHAT_MODEL_model: "qwen3-coder:32b"
+            ALLOWED_ORIGINS: "https://agent-zero.eaglepass.io"
             # Ensure you run `ollama pull qwen3-coder:32b` on your Ollama server
       pod:
         annotations:
