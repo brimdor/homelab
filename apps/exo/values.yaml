@@ -1,12 +1,19 @@
 # Exo - Distributed AI Cluster
 # https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 # Using app-template v4.5.0 schema
+#
+# IMPORTANT:
+# - Exo only serves the WebUI/API on the elected Master node.
+# - If you load-balance the WebUI across replicas, non-master pods return 403 and
+#   Kubernetes probes will continuously restart them.
+# - This chart runs a single "master" pod (forced master, API enabled) and a
+#   separate worker pool (API disabled).
 
 app-template:
   controllers:
+    # "main" acts as the Exo master: WebUI, API, scheduling, orchestration.
     main:
-      # Adjust replicas to match your node count for multi-device AI cluster
-      replicas: 4
+      replicas: 1
       strategy: RollingUpdate
       containers:
         main:
@@ -18,6 +25,7 @@ app-template:
             tag: latest
             pullPolicy: Always
           args:
+            - "--force-master"
             - "--api-port"
             - "52415"
           env:
@@ -25,13 +33,14 @@ app-template:
             PUID: "1000"
             PGID: "1000"
             # DNS-based peer discovery for Kubernetes
-            # This enables pods to discover each other via headless service DNS
             EXO_DISCOVERY_MODE: "dns"
             EXO_DNS_HOSTNAME: "exo-headless.exo.svc.cluster.local"
             EXO_DNS_PORT: "52414"
             EXO_DNS_POLL_INTERVAL: "30"
             # Fixed libp2p port for peer-to-peer communication (required for DNS discovery)
             EXO_LIBP2P_PORT: "52414"
+            # Persist/download models on shared storage
+            EXO_MODELS_DIR: "/data/models"
           probes:
             liveness:
               enabled: true
@@ -67,25 +76,46 @@ app-template:
                 timeoutSeconds: 5
                 failureThreshold: 30
 
+    # Worker pool: contributes resources for inference; no WebUI/API.
+    worker:
+      # Adjust replicas to match your node count / desired capacity.
+      replicas: 4
+      strategy: RollingUpdate
+      containers:
+        main:
+          image:
+            repository: docker.io/brimdor/exo
+            tag: latest
+            pullPolicy: Always
+          args:
+            - "--no-api"
+          env:
+            TZ: "America/Chicago"
+            PUID: "1000"
+            PGID: "1000"
+            EXO_DISCOVERY_MODE: "dns"
+            EXO_DNS_HOSTNAME: "exo-headless.exo.svc.cluster.local"
+            EXO_DNS_PORT: "52414"
+            EXO_DNS_POLL_INTERVAL: "30"
+            EXO_LIBP2P_PORT: "52414"
+            # Persist/download models on shared storage
+            EXO_MODELS_DIR: "/data/models"
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+
   service:
+    # WebUI/API entrypoint: only targets the forced-master pod.
     main:
       controller: main
       ports:
         http:
           port: 52415
           protocol: HTTP
-    # Headless service for peer discovery via DNS
-    headless:
-      controller: main
-      type: ClusterIP
-      clusterIP: None
-      ports:
-        http:
-          port: 52415
-          protocol: TCP
-        libp2p:
-          port: 52414
-          protocol: TCP
 
   ingress:
     main:
@@ -117,6 +147,34 @@ app-template:
         main:
           main:
             - path: /data/models
+        worker:
+          main:
+            - path: /data/models
+
+  # Headless service for DNS-based peer discovery.
+  # This MUST include both master and worker pods.
+  rawResources:
+    headless:
+      forceRename: exo-headless
+      apiVersion: v1
+      kind: Service
+      spec:
+        spec:
+          type: ClusterIP
+          clusterIP: None
+          publishNotReadyAddresses: true
+          selector:
+            app.kubernetes.io/instance: exo
+            app.kubernetes.io/name: exo
+          ports:
+            - name: http
+              port: 52415
+              targetPort: 52415
+              protocol: TCP
+            - name: libp2p
+              port: 52414
+              targetPort: 52414
+              protocol: TCP
 
   defaultPodOptions:
     annotations:
