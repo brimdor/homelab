@@ -44,7 +44,7 @@ app-template:
     data:
       enabled: true
       type: persistentVolumeClaim
-      storageClass: rook-ceph-block
+      storageClass: standard-rwo
       accessMode: ReadWriteOnce
       size: 10Gi
       globalMounts:
