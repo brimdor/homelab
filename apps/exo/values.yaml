@@ -24,6 +24,10 @@ app-template:
             repository: docker.io/brimdor/exo
             tag: latest
             pullPolicy: Always
+          command:
+            - "/app/.venv/bin/python"
+            - "-c"
+            - "from exo.main import main; main()"
           args:
             - "--force-master"
             - "--api-port"
@@ -87,6 +91,10 @@ app-template:
             repository: docker.io/brimdor/exo
             tag: latest
             pullPolicy: Always
+          command:
+            - "/app/.venv/bin/python"
+            - "-c"
+            - "from exo.main import main; main()"
           args:
             - "--no-api"
           env:
