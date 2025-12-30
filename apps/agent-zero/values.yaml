@@ -1,0 +1,50 @@
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      main:
+        image:
+          repository: agent0ai/agent-zero
+          tag: latest
+        env:
+          TZ: America/Chicago
+          OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
+          CHAT_MODEL_provider: "ollama"
+          CHAT_MODEL_model: "qwen3-coder:32b"
+          # Ensure you run `ollama pull qwen3-coder:32b` on your Ollama server
+    pod:
+      annotations:
+        operator.1password.io/item-path: "vaults/homelab/items/agent-zero"
+        operator.1password.io/item-name: "secrets"
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 80
+
+ingress:
+  main:
+    className: nginx
+    hosts:
+      - host: agent-zero.eaglepass.io
+        paths:
+          - path: /
+            service:
+              identifier: main
+              port: http
+    tls:
+      - hosts:
+          - agent-zero.eaglepass.io
+
+persistence:
+  data:
+    enabled: true
+    type: persistentVolumeClaim
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    globalMounts:
+      - path: /a0/usr
