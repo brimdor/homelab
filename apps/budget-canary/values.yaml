@@ -1,0 +1,81 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      containers:
+        frontend:
+          image:
+            repository: docker.io/brimdor/budget-frontend
+            tag: canary
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+        backend:
+          image:
+            repository: docker.io/brimdor/budget-backend
+            tag: canary
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            PORT: "3001"
+            NODE_ENV: production
+            SESSION_MAX_AGE: "1800000"
+            BCRYPT_ROUNDS: "12"
+            SESSION_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: session-secret
+            ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: encryption-key
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+    backend:
+      controller: main
+      ports:
+        https:
+          port: 3001
+          protocol: HTTPS
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+      hosts:
+        - host: budget-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - budget-canary.eaglepass.io
+          secretName: budget-canary-tls
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/budget-canary
+      advancedMounts:
+        main:
+          backend:
+            - path: /app/data
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/tmzoa76bdsgccyagmdxiug7vru"
+      operator.1password.io/item-name: "secrets"
