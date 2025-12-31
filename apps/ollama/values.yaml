@@ -80,10 +80,14 @@ ollama:
       # pull:
       #  - llama2
       #  - mistral
-      pull: []
-        # Models pulled manually to avoid postStart hook timeout:
-        # kubectl exec -n ollama deploy/ollama -- ollama pull qwen3-coder:30b
-        # Note: Existing models are already on PVC (gpt-oss, nomic-embed-text, etc.)
+      pull:
+        - gpt-oss:20b
+        - gpt-oss:120b-cloud
+        - mxbai-embed-large:latest
+        - ministral-3:8b
+        - nomic-embed-text:latest
+        - llama-guard3:1b
+        - qwen3-coder:30b
 
       # -- List of models to load in memory at container startup
       # run:
