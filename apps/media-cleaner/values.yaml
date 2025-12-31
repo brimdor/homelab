@@ -61,7 +61,7 @@ app-template:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 1Gi
-      storageClass: longhorn
+      storageClass: standard-rwo
       advancedMounts:
         main:
           main:
