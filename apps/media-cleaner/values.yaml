@@ -6,7 +6,7 @@ app-template:
       containers:
         main:
           image:
-            repository: registry.eaglepass.io/media-cleaner
+            repository: zot.zot.svc.cluster.local:5000/media-cleaner
             tag: latest
             pullPolicy: Always
           env:
