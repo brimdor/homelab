@@ -44,6 +44,8 @@ app-template:
   ingress:
     main:
       className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: agent-zero.eaglepass.io
           paths:
