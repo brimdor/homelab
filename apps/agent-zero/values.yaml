@@ -50,6 +50,7 @@ app-template:
         - host: agent-zero.eaglepass.io
           paths:
             - path: /
+              pathType: Prefix
               service:
                 identifier: main
                 port: http
