@@ -56,6 +56,7 @@ app-template:
       tls:
         - hosts:
             - agent-zero.eaglepass.io
+          secretName: agent-zero-tls
 
   persistence:
     data:
