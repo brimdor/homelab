@@ -1,69 +1,71 @@
-controllers:
-  main:
-    annotations:
-      reloader.stakater.com/auto: "true"
-    containers:
-      main:
-        image:
-          repository: ghcr.io/brimdor/media-cleaner
-          tag: latest
-          pullPolicy: Always
-        env:
-          TZ: America/Chicago
-          LOG_LEVEL: INFO
-          ENABLE_LOGGING: "true"
-          DB_PATH: /app/data/media_cleaner.db
-          # URL overrides for k8s internal networking
-          RADARR_BASE_URL: http://radarr.radarr.svc.cluster.local:7878
-          SONARR_BASE_URL: http://sonarr.sonarr.svc.cluster.local:8989
-          EMBY_BASE_URL: https://emby.eaglepass.io
-          # Defaults
-          BOT_ROLE: BotAdmin
-          TOTAL_MOVIES: "10"
-          TOTAL_SHOWS: "10"
-          VOTE_THRESHOLD: "3"
-          VOTING_SESSION_LENGTH: "2"
-          VOTING_CRON: "0 8 * * *"
-        envFrom:
-          - secretRef:
-              name: media-cleaner-secret
+app-template:
+  controllers:
+    main:
+      annotations:
+        reloader.stakater.com/auto: "true"
+      containers:
+        main:
+          image:
+            repository: ghcr.io/brimdor/media-cleaner
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            LOG_LEVEL: INFO
+            ENABLE_LOGGING: "true"
+            DB_PATH: /app/data/media_cleaner.db
+            # URL overrides for k8s internal networking
+            RADARR_BASE_URL: http://radarr.radarr.svc.cluster.local:7878
+            SONARR_BASE_URL: http://sonarr.sonarr.svc.cluster.local:8989
+            EMBY_BASE_URL: https://emby.eaglepass.io
+            # Defaults
+            BOT_ROLE: BotAdmin
+            TOTAL_MOVIES: "10"
+            TOTAL_SHOWS: "10"
+            VOTE_THRESHOLD: "3"
+            VOTING_SESSION_LENGTH: "2"
+            VOTING_CRON: "0 8 * * *"
+            # Secrets from 1Password
+            DISCORD_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: media-cleaner-secrets
+                  key: DISCORD_TOKEN
+            EMBY_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: media-cleaner-secrets
+                  key: EMBY_API_KEY
+            RADARR_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: media-cleaner-secrets
+                  key: RADARR_API_KEY
+            SONARR_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: media-cleaner-secrets
+                  key: SONARR_API_KEY
+      pod:
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/snog6pcxi4osyh5cpem66mbzee"
+          operator.1password.io/item-name: "media-cleaner-secrets"
 
-service:
-  main:
-    enabled: false
+  service:
+    main:
+      enabled: false
+      controller: main
 
-persistence:
-  data:
-    enabled: true
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 1Gi
-    storageClass: longhorn
-    globalMounts:
-      - path: /app/data
-
-serviceAccount:
-  create: true
-  name: "media-cleaner"
-
-externalsecrets:
-  media-cleaner:
-    secretStore: one-password
-    targetSecret: media-cleaner-secret
+  persistence:
     data:
-      - secretKey: DISCORD_TOKEN
-        remoteRef:
-          key: media-cleaner
-          property: DISCORD_TOKEN
-      - secretKey: EMBY_API_KEY
-        remoteRef:
-          key: media-cleaner
-          property: EMBY_API_KEY
-      - secretKey: RADARR_API_KEY
-        remoteRef:
-          key: media-cleaner
-          property: RADARR_API_KEY
-      - secretKey: SONARR_API_KEY
-        remoteRef:
-          key: media-cleaner
-          property: SONARR_API_KEY
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      storageClass: longhorn
+      globalMounts:
+        - path: /app/data
+
+  serviceAccount:
+    create: true
+    name: "media-cleaner"
