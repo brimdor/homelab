@@ -10,11 +10,25 @@ app-template:
             tag: latest
           env:
             TZ: America/Chicago
+            # Ollama Base URL
             OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
-            CHAT_MODEL_provider: "ollama"
-            CHAT_MODEL_model: "qwen3-coder:32b"
+            # Chat Model Configuration
+            CHAT_MODEL_PROVIDER: "ollama"
+            CHAT_MODEL_NAME: "qwen3-coder:32b"
+            CHAT_MODEL_API_URL: "http://ollama.ollama.svc.cluster.local:11434"
+            # Utility Model Configuration (for memory organization, summarization)
+            UTILITY_MODEL_PROVIDER: "ollama"
+            UTILITY_MODEL_NAME: "qwen3-coder:32b"
+            UTILITY_MODEL_API_URL: "http://ollama.ollama.svc.cluster.local:11434"
+            # Embedding Model Configuration (for RAG/memory)
+            EMBEDDING_MODEL_PROVIDER: "ollama"
+            EMBEDDING_MODEL_NAME: "nomic-embed-text:latest"
+            EMBEDDING_MODEL_API_URL: "http://ollama.ollama.svc.cluster.local:11434"
+            # Allowed Origins for CORS
             ALLOWED_ORIGINS: "https://agent-zero.eaglepass.io"
-            # Ensure you run `ollama pull qwen3-coder:32b` on your Ollama server
+            # NOTE: Ensure models are pulled on Ollama:
+            #   ollama pull qwen3-coder:32b
+            #   ollama pull nomic-embed-text:latest
       pod:
         annotations:
           operator.1password.io/item-path: "vaults/homelab/items/agent-zero"
@@ -43,10 +57,10 @@ app-template:
 
   persistence:
     data:
-      enabled: true
-      type: persistentVolumeClaim
-      storageClass: standard-rwo
-      accessMode: ReadWriteOnce
-      size: 10Gi
-      globalMounts:
-        - path: /a0/usr
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/agent-zero
+      advancedMounts:
+        main:
+          main:
+            - path: /a0/usr
