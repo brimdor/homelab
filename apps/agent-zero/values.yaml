@@ -14,11 +14,11 @@ app-template:
             OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
             # Chat Model Configuration
             CHAT_MODEL_PROVIDER: "ollama"
-            CHAT_MODEL_NAME: "qwen3-coder:32b"
+            CHAT_MODEL_NAME: "qwen3-coder:30b"
             CHAT_MODEL_API_URL: "http://ollama.ollama.svc.cluster.local:11434"
             # Utility Model Configuration (for memory organization, summarization)
             UTILITY_MODEL_PROVIDER: "ollama"
-            UTILITY_MODEL_NAME: "qwen3-coder:32b"
+            UTILITY_MODEL_NAME: "qwen3-coder:30b"
             UTILITY_MODEL_API_URL: "http://ollama.ollama.svc.cluster.local:11434"
             # Embedding Model Configuration (for RAG/memory)
             EMBEDDING_MODEL_PROVIDER: "ollama"
@@ -27,7 +27,7 @@ app-template:
             # Allowed Origins for CORS
             ALLOWED_ORIGINS: "https://agent-zero.eaglepass.io"
             # NOTE: Ensure models are pulled on Ollama:
-            #   ollama pull qwen3-coder:32b
+            #   ollama pull qwen3-coder:30b
             #   ollama pull nomic-embed-text:latest
       pod:
         annotations:
