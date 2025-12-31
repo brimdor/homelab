@@ -58,13 +58,14 @@ app-template:
 
   persistence:
     data:
-      enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 1Gi
       storageClass: longhorn
-      globalMounts:
-        - path: /app/data
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
 
   serviceAccount:
     create: true
