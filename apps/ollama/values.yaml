@@ -87,7 +87,8 @@ ollama:
         - ministral-3:8b
         - nomic-embed-text:latest
         - llama-guard3:1b
-        - qwen3-coder:32b
+        # Note: qwen3-coder:30b (~18GB) excluded from startup pull - too large, pull manually:
+        # kubectl exec -n ollama deploy/ollama -- ollama pull qwen3-coder:30b
 
       # -- List of models to load in memory at container startup
       # run:
