@@ -6,7 +6,7 @@ app-template:
       containers:
         main:
           image:
-            repository: 10.0.20.11:32309/media-cleaner
+            repository: registry.eaglepass.io/media-cleaner
             tag: latest
             pullPolicy: Always
           env:
