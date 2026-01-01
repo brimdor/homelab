@@ -67,8 +67,3 @@ app-template:
         main:
           main:
             - path: /app/data
-
-  serviceAccount:
-    main:
-      enabled: true
-      name: media-cleaner
