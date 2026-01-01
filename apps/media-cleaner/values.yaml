@@ -69,5 +69,6 @@ app-template:
             - path: /app/data
 
   serviceAccount:
-    create: true
-    name: "media-cleaner"
+    main:
+      enabled: true
+      identifier: media-cleaner

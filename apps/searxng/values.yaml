@@ -95,8 +95,8 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: http
+                identifier: main
+                port: 8080
       tls:
         - hosts:
             - searxng.eaglepass.io
@@ -114,8 +114,6 @@ app-template:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 5Gi
-      storageClass: ""
-      existingClaim: ""
       advancedMounts:
         main:
           main:
@@ -125,8 +123,6 @@ app-template:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 1Gi
-      storageClass: ""
-      existingClaim: ""
       advancedMounts:
         main:
           main:
@@ -160,8 +156,6 @@ app-template:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 5Gi
-      storageClass: ""
-      existingClaim: ""
       advancedMounts:
         redis:
           main:
