@@ -4,7 +4,6 @@ app-template:
     main:
       containers:
         main:
-          name: main
           image:
             repository: lscr.io/linuxserver/emby
             tag: beta
@@ -87,15 +86,15 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: http
+                identifier: main
+                port: 8096
         - host: &emby-healthHost emby-health.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: http2
+                identifier: main
+                port: 8920
       tls:
         - hosts:
             - *embyHost
@@ -103,8 +102,7 @@ app-template:
           secretName: emby-tls-certificate
   persistence:
     data:
-      accessMode: ReadWriteOnce
-      size: 40Gi
+      type: persistentVolumeClaim
       existingClaim: emby-original-data
       advancedMounts:
         main:

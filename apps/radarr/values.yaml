@@ -90,16 +90,15 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: http
+                identifier: main
+                port: 7878
       tls:
         - hosts:
             - radarr.eaglepass.io
           secretName: radarr-tls-certificate
   persistence:
     data:
-      # accessMode: ReadWriteOnce
-      # size: 10Gi
+      type: persistentVolumeClaim
       existingClaim: radarr-original-data
       advancedMounts:
         main:
