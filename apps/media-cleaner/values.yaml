@@ -71,4 +71,4 @@ app-template:
   serviceAccount:
     main:
       enabled: true
-      identifier: media-cleaner
+      name: media-cleaner

@@ -92,8 +92,8 @@ app-template:
             - path: /
               pathType: Prefix
               service:
-                name: main
-                port: http
+                identifier: main
+                port: 8989
       tls:
         - hosts:
             - sonarr.eaglepass.io
