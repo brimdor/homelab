@@ -62,6 +62,8 @@
       dest: "{{ k3s_config_file }}"
     - src: k3s.service.j2
       dest: "{{ k3s_service_file }}"
+    - src: registries.yaml.j2
+      dest: /etc/rancher/k3s/registries.yaml
 
 - name: Copy kube-vip manifests
   when: "'masters' in group_names"
