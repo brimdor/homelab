@@ -1,8 +1,7 @@
 app-template:
   controllers:
     main:
-      # DISABLED: Waiting for k3s restart to enable HTTP registry (see registries.yaml)
-      replicas: 0
+      replicas: 1
       annotations:
         reloader.stakater.com/auto: "true"
       containers:
