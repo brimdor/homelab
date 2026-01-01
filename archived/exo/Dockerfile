@@ -6,7 +6,7 @@
 #
 # Based on exo-explore/exo installation instructions
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Install system dependencies (GCC 12 required for MLX CPU JIT compatibility)
 # GCC 14 causes: "redeclaration of C++ built-in type '_Float128'" errors
