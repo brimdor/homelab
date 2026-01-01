@@ -1,12 +1,14 @@
 app-template:
   controllers:
     main:
+      # DISABLED: Waiting for k3s restart to enable HTTP registry (see registries.yaml)
+      replicas: 0
       annotations:
         reloader.stakater.com/auto: "true"
       containers:
         main:
           image:
-            repository: registry.eaglepass.io/media-cleaner
+            repository: 10.0.20.11:32309/media-cleaner
             tag: latest
             pullPolicy: Always
           env:
