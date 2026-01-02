@@ -81,15 +81,15 @@ ollama:
       #  - llama2
       #  - mistral
       pull:
-        - gpt-oss:20b
-        - gpt-oss:120b-cloud
-        - mxbai-embed-large:latest
-        - ministral-3:8b
+        # - gpt-oss:20b
+        # - gpt-oss:120b-cloud
+        # - mxbai-embed-large:latest
+        # - ministral-3:8b
         - nomic-embed-text:latest
-        - llama-guard3:1b
-        - qwen3-coder:30b
-        - devstral-small-2:24b
-        - magristral:24b
+        # - llama-guard3:1b
+        # - qwen3-coder:30b
+        # - devstral-small-2:24b
+        # - magristral:24b
         
       # -- List of models to load in memory at container startup
       # run:
