@@ -311,6 +311,8 @@ ollama:
       value: "all"
     - name: NVIDIA_DRIVER_CAPABILITIES
       value: "all"
+    - name: OLLAMA_NUM_CTX
+      value: "65536"
     # - name: OLLAMA_ORIGINS
     #   value: "*"
 
