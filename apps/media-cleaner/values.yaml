@@ -24,7 +24,7 @@ app-template:
             TOTAL_MOVIES: "10"
             TOTAL_SHOWS: "10"
             VOTE_THRESHOLD: "1"
-            VOTING_SESSION_LENGTH: "2"
+            VOTING_SESSION_LENGTH: "8"
             # VOTING_CRON: "0 8 * * *"
             # Secrets from 1Password
             DISCORD_TOKEN:
