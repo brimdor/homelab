@@ -46,12 +46,12 @@ local-ai:
   # Resources suitable for GPU workloads (adjust as needed)
   resources:
     requests:
-      cpu: "2"
-      memory: "16Gi"
+      cpu: "1"
+      memory: "4Gi"
       # nvidia.com/gpu: 1
     limits:
-      cpu: "3"
-      memory: "24Gi"
+      cpu: "2"
+      memory: "8Gi"
       # nvidia.com/gpu: 1
 
   # Persistent storage for models and outputs
