@@ -21,11 +21,11 @@ app-template:
             EMBY_BASE_URL: https://emby.eaglepass.io
             # Defaults
             BOT_ROLE: BotAdmin
-            TOTAL_MOVIES: "10"
-            TOTAL_SHOWS: "10"
+            TOTAL_MOVIES: "20"
+            TOTAL_SHOWS: "20"
             VOTE_THRESHOLD: "1"
             VOTING_SESSION_LENGTH: "8"
-            # VOTING_CRON: "0 8 * * *"
+            VOTING_CRON: "0 8 * * *"
             # Secrets from 1Password
             DISCORD_TOKEN:
               valueFrom:
