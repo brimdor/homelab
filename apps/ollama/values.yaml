@@ -186,31 +186,31 @@ ollama:
     labels: {}
 
   # Configure the ingress resource that allows you to access the
-  # ingress:
+  ingress:
   #   # -- Enable ingress resource
-  #   enabled: true
+    enabled: true
 
   #   # -- Ingress class name
-  #   className: nginx
+    className: nginx
 
   #   # -- Ingress annotations
-  #   annotations:
+    annotations:
   #     # external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
   #     # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-  #     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
   #   # -- Hosts to create ingress for
-  #   hosts:
-  #     - host: &host ollama.eaglepass.io
-  #       paths:
-  #         - path: /
-  #           pathType: Prefix
+    hosts:
+      - host: &host ollama.eaglepass.io
+        paths:
+          - path: /
+            pathType: Prefix
     
   #   # -- TLS configuration
-  #   tls:
-  #     - secretName: ollama-tls
-  #       hosts:
-  #         - *host
+    tls:
+      - secretName: ollama-tls
+        hosts:
+          - *host
 
 
   # Configure resource requests and limits
