@@ -23,9 +23,9 @@ app-template:
             BOT_ROLE: BotAdmin
             TOTAL_MOVIES: "10"
             TOTAL_SHOWS: "10"
-            VOTE_THRESHOLD: "3"
+            VOTE_THRESHOLD: "1"
             VOTING_SESSION_LENGTH: "2"
-            VOTING_CRON: "0 8 * * *"
+            # VOTING_CRON: "0 8 * * *"
             # Secrets from 1Password
             DISCORD_TOKEN:
               valueFrom:
