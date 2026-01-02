@@ -88,6 +88,7 @@ ollama:
         - nomic-embed-text:latest
         - llama-guard3:1b
         - qwen3-coder:30b
+        - mixtral:8x7b
 
       # -- List of models to load in memory at container startup
       # run:
