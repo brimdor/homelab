@@ -215,14 +215,14 @@ ollama:
 
   # Configure resource requests and limits
   # ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  # resources:
-  #   # -- CPU and memory resource requests and limits
-  #   limits:
-  #     cpu: 2
-  #     memory: 24Gi
-  #   requests:
-  #     cpu: 2
-  #     memory: 8Gi
+  resources:
+    # -- CPU and memory resource requests and limits
+    limits:
+      cpu: 4
+      memory: 32Gi
+    requests:
+      cpu: 3
+      memory: 24Gi
 
   # Configure extra options for liveness probe
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
