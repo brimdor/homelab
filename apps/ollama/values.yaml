@@ -81,15 +81,15 @@ ollama:
       #  - llama2
       #  - mistral
       pull:
-        # - gpt-oss:20b
-        # - gpt-oss:120b-cloud
-        # - mxbai-embed-large:latest
-        # - ministral-3:8b
+        - gpt-oss:20b
+        - gpt-oss:120b-cloud
+        - mxbai-embed-large:latest
+        - ministral-3:8b
         - nomic-embed-text:latest
-        # - llama-guard3:1b
-        # - qwen3-coder:30b
-        # - devstral-small-2:24b
-        # - magristral:24b
+        - llama-guard3:1b
+        - qwen3-coder:30b
+        - devstral-small-2:24b
+        - magristral:24b
         
       # -- List of models to load in memory at container startup
       # run:
@@ -433,20 +433,44 @@ ollama:
   hostNetwork: false
 
   # -- Extra K8s manifests to deploy
-  extraObjects: []
-  #  - apiVersion: v1
-  #    kind: PersistentVolume
-  #    metadata:
-  #      name: aws-efs
-  #    data:
-  #      key: "value"
-  #  - apiVersion: scheduling.k8s.io/v1
-  #    kind: PriorityClass
-  #    metadata:
-  #      name: high-priority
-  #    value: 1000000
-  #    globalDefault: false
-  #    description: "This priority class should be used for XYZ service pods only."
+  extraObjects: 
+    - apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: ollama-model-puller
+        namespace: ollama
+        annotations:
+          "helm.sh/hook": post-install,post-upgrade
+          "helm.sh/hook-delete-policy": before-hook-creation
+      spec:
+        template:
+          spec:
+            containers:
+              - name: model-puller
+                image: ollama/ollama:latest
+                command: ["/bin/sh", "-c"]
+                args:
+                  - |
+                    echo "Waiting for Ollama service at $OLLAMA_HOST..."
+                    # Simple wait loop for service readiness
+                    until ollama list > /dev/null 2>&1; do 
+                      echo "Waiting for ollama..."
+                      sleep 5
+                    done
+                    echo "Service ready. Starting pulls..."
+                    
+                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest ministral-3:8b llama-guard3:1b qwen3-coder:30b devstral-small-2:24b magristral:24b"
+                    
+                    for model in $models; do
+                      echo "Pulling $model..."
+                      ollama pull $model
+                    done
+                    
+                    echo "All models requested."
+                env:
+                  - name: OLLAMA_HOST
+                    value: "http://ollama:11434"
+            restartPolicy: OnFailure
 
   # Test connection pods
   tests:
