@@ -372,6 +372,10 @@ kubectl get applications -n argocd | grep -v "Synced.*Healthy"
 # Specific check for any OutOfSync or Degraded apps
 kubectl get applications -n argocd -o json | jq -r '.items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy") | .metadata.name'
 # Expected: No output
+
+# Check that Last Sync was Successful (Sync OK)
+kubectl get applications -n argocd -o json | jq -r '.items[] | select(.status.operationState.phase != "Succeeded") | .metadata.name'
+# Expected: No output
 ```
 
 #### Apps Layer Validation
