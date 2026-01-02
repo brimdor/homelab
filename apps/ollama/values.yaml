@@ -89,6 +89,7 @@ ollama:
         - llama-guard3:1b
         - qwen3-coder:30b
         - devstral-small-2:24b
+        - magristral:24b
         
       # -- List of models to load in memory at container startup
       # run:
