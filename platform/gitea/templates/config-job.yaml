@@ -1,3 +1,4 @@
+{{- if .Values.configJob.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -5,6 +6,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   backoffLimit: 10
   template:
@@ -41,3 +44,4 @@ spec:
         - name: source
           configMap:
             name: gitea-config-source
+{{- end }}

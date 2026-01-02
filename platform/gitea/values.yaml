@@ -1,3 +1,8 @@
+# Initial config job for creating orgs/repos - disable after first setup
+# (uses basic auth which conflicts with 2FA on admin account)
+configJob:
+  enabled: false
+
 gitea:
   ingress:
     enabled: true
