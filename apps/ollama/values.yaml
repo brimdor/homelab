@@ -404,10 +404,10 @@ ollama:
   # How to replace existing pods
   updateStrategy:
     # -- Deployment strategy can be "Recreate" or "RollingUpdate". Default is Recreate
-    type: "RollingUpdate"
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: "Recreate"
+    # rollingUpdate:
+    #   maxSurge: 1
+    #   maxUnavailable: 0
 
   # -- Topology Spread Constraints for pod assignment
   topologySpreadConstraints: {}
