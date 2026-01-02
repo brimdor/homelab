@@ -48,11 +48,11 @@ local-ai:
     requests:
       cpu: "2"
       memory: "16Gi"
-      nvidia.com/gpu: 1
+      # nvidia.com/gpu: 1
     limits:
       cpu: "3"
       memory: "24Gi"
-      nvidia.com/gpu: 1
+      # nvidia.com/gpu: 1
 
   # Persistent storage for models and outputs
   persistence:
