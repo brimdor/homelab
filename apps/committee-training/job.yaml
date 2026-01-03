@@ -1,0 +1,249 @@
+# Committee Training Kubernetes Job
+# Runs on Arcanine node (RTX 3090, 24GB VRAM)
+# 
+# Usage:
+#   kubectl apply -f job.yaml
+#   kubectl logs -f job/committee-pretrain -n committee-training
+#
+# To resume training:
+#   Update RESUME_FROM_CHECKPOINT and re-apply
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: committee-training
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: committee-checkpoints
+  namespace: committee-training
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: committee-code
+  namespace: committee-training
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: committee-training-config
+  namespace: committee-training
+data:
+  # Training phase: pretrain, code, instruct, specialist, consensus
+  TRAINING_PHASE: "pretrain"
+  # Number of training steps (0 = use config default)
+  MAX_STEPS: "0"
+  # Resume from checkpoint (empty = start fresh)
+  RESUME_FROM_CHECKPOINT: ""
+  # Enable debug mode (fewer steps, more logging)
+  DEBUG_MODE: "false"
+  # WandB project name (optional)
+  WANDB_PROJECT: "committee-1.5b"
+  # Disable WandB for offline training
+  WANDB_MODE: "offline"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: committee-pretrain
+  namespace: committee-training
+  labels:
+    app: committee-training
+    phase: pretrain
+spec:
+  # Don't restart on failure - we want to inspect logs
+  backoffLimit: 0
+  # Keep job for 7 days after completion for log inspection
+  ttlSecondsAfterFinished: 604800
+  template:
+    metadata:
+      labels:
+        app: committee-training
+        phase: pretrain
+    spec:
+      # Required for Arcanine node with GPU
+      runtimeClassName: nvidia
+      
+      # Toleration for Arcanine taint
+      tolerations:
+        - key: "dedicated"
+          value: "arcanine"
+          effect: "NoSchedule"
+      
+      # Schedule on Arcanine node
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - "arcanine"
+      
+      restartPolicy: Never
+      
+      # Init container to clone/update Committee repo
+      initContainers:
+        - name: clone-repo
+          image: alpine/git:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ -d /code/committee/.git ]; then
+                echo "Repository exists, pulling latest..."
+                cd /code/committee
+                git fetch origin
+                git checkout 003-committee-training-v2
+                git pull origin 003-committee-training-v2
+              else
+                echo "Cloning repository..."
+                git clone --branch 003-committee-training-v2 \
+                  https://github.com/brimdor/committee.git /code/committee
+              fi
+              echo "Repository ready."
+              ls -la /code/committee/
+          volumeMounts:
+            - name: code
+              mountPath: /code
+      
+      containers:
+        - name: trainer
+          image: pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+          
+          # GPU resources
+          resources:
+            limits:
+              memory: 48Gi
+              cpu: "8"
+            requests:
+              memory: 32Gi
+              cpu: "4"
+          
+          env:
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "all"
+            - name: CUDA_DEVICE_ORDER
+              value: "PCI_BUS_ID"
+            # HuggingFace cache inside checkpoint volume
+            - name: HF_HOME
+              value: "/checkpoints/hf_cache"
+            - name: TRANSFORMERS_CACHE
+              value: "/checkpoints/hf_cache"
+            # From ConfigMap
+            - name: TRAINING_PHASE
+              valueFrom:
+                configMapKeyRef:
+                  name: committee-training-config
+                  key: TRAINING_PHASE
+            - name: MAX_STEPS
+              valueFrom:
+                configMapKeyRef:
+                  name: committee-training-config
+                  key: MAX_STEPS
+            - name: RESUME_FROM_CHECKPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: committee-training-config
+                  key: RESUME_FROM_CHECKPOINT
+            - name: DEBUG_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: committee-training-config
+                  key: DEBUG_MODE
+            - name: WANDB_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: committee-training-config
+                  key: WANDB_MODE
+            - name: WANDB_PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: committee-training-config
+                  key: WANDB_PROJECT
+          
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              
+              echo "============================================"
+              echo "Committee Model Training - Homelab Cluster"
+              echo "============================================"
+              echo "Node: $(hostname)"
+              echo "Phase: $TRAINING_PHASE"
+              echo "Debug: $DEBUG_MODE"
+              echo ""
+              
+              # Check GPU
+              python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0)}')"
+              nvidia-smi
+              echo ""
+              
+              # Install dependencies
+              echo "Installing dependencies..."
+              cd /code/committee/training
+              pip install -q -r requirements.txt
+              pip install -q flash-attn --no-build-isolation || echo "Flash attention not available, continuing..."
+              
+              # Set PYTHONPATH
+              export PYTHONPATH="/code/committee/training/src:$PYTHONPATH"
+              
+              # Build training command
+              TRAIN_CMD="python scripts/train.py --phase $TRAINING_PHASE --output-dir /checkpoints"
+              
+              if [ "$DEBUG_MODE" = "true" ]; then
+                TRAIN_CMD="$TRAIN_CMD --debug --max-steps 100"
+              fi
+              
+              if [ -n "$RESUME_FROM_CHECKPOINT" ]; then
+                TRAIN_CMD="$TRAIN_CMD --resume $RESUME_FROM_CHECKPOINT"
+              fi
+              
+              if [ "$MAX_STEPS" != "0" ] && [ -n "$MAX_STEPS" ]; then
+                TRAIN_CMD="$TRAIN_CMD --max-steps $MAX_STEPS"
+              fi
+              
+              echo "Running: $TRAIN_CMD"
+              echo "============================================"
+              
+              $TRAIN_CMD
+              
+              echo ""
+              echo "============================================"
+              echo "Training complete!"
+              echo "Checkpoints saved to: /checkpoints"
+              ls -la /checkpoints/
+              echo "============================================"
+          
+          volumeMounts:
+            - name: code
+              mountPath: /code
+            - name: checkpoints
+              mountPath: /checkpoints
+      
+      volumes:
+        - name: code
+          persistentVolumeClaim:
+            claimName: committee-code
+        - name: checkpoints
+          persistentVolumeClaim:
+            claimName: committee-checkpoints
