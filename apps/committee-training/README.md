@@ -69,11 +69,31 @@ ls /checkpoints/
 | `./manage.sh start` | Start new training job |
 | `./manage.sh start --debug` | Run 100 steps only (test) |
 | `./manage.sh start --phase pretrain` | Specify training phase |
-| `./manage.sh status` | Check job/pod status |
+| `./manage.sh status` | Check job/pod status + service status |
 | `./manage.sh logs` | Follow training logs |
-| `./manage.sh stop` | Stop current job |
+| `./manage.sh stop` | Stop job and restore services |
 | `./manage.sh resume PATH` | Resume from checkpoint |
 | `./manage.sh shell` | Open shell in trainer pod |
+| `./manage.sh restore-services` | Manually restore Ollama/LocalAI |
+
+## Automatic Resource Management
+
+Arcanine runs both inference services (Ollama, LocalAI) and training jobs, but cannot run them simultaneously due to GPU/CPU/memory constraints.
+
+**The script automatically handles this:**
+
+1. **On `start` or `resume`**: Scales down Ollama and LocalAI to 0 replicas
+2. **On `stop`**: Restores Ollama and LocalAI to 1 replica
+
+This means:
+- You don't need to manually manage services
+- Ollama/LocalAI will be unavailable during training
+- Services are automatically restored when training stops
+
+If something goes wrong, you can manually restore services:
+```bash
+./manage.sh restore-services
+```
 
 ## Training Phases
 

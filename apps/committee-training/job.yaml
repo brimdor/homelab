@@ -99,26 +99,27 @@ spec:
       
       restartPolicy: Never
       
-      # Init container to clone/update Committee repo
+      # Init container to verify code is synced
       initContainers:
-        - name: clone-repo
-          image: alpine/git:latest
+        - name: verify-code
+          image: busybox:latest
           command: ["/bin/sh", "-c"]
           args:
             - |
-              if [ -d /code/committee/.git ]; then
-                echo "Repository exists, pulling latest..."
-                cd /code/committee
-                git fetch origin
-                git checkout 003-committee-training-v2
-                git pull origin 003-committee-training-v2
-              else
-                echo "Cloning repository..."
-                git clone --branch 003-committee-training-v2 \
-                  https://github.com/brimdor/committee.git /code/committee
+              echo "Verifying training code is synced..."
+              if [ ! -f /code/committee/training/scripts/train.py ]; then
+                echo "ERROR: Training code not found!"
+                echo "Please run './manage.sh sync' first to copy code to the cluster."
+                echo ""
+                echo "Contents of /code:"
+                ls -la /code/ || echo "(empty)"
+                exit 1
               fi
-              echo "Repository ready."
+              echo "Training code found."
               ls -la /code/committee/
+              echo ""
+              echo "Training directory:"
+              ls -la /code/committee/training/
           volumeMounts:
             - name: code
               mountPath: /code
@@ -198,17 +199,20 @@ spec:
               nvidia-smi
               echo ""
               
-              # Install dependencies
+              # Install dependencies (training-only, no build tools needed)
               echo "Installing dependencies..."
               cd /code/committee/training
-              pip install -q -r requirements.txt
+              pip install -q -r requirements-training.txt
               pip install -q flash-attn --no-build-isolation || echo "Flash attention not available, continuing..."
               
               # Set PYTHONPATH
               export PYTHONPATH="/code/committee/training/src:$PYTHONPATH"
               
-              # Build training command
-              TRAIN_CMD="python scripts/train.py --phase $TRAINING_PHASE --output-dir /checkpoints"
+              # Change to the committee root directory for correct config paths
+              cd /code/committee
+              
+              # Build training command (run from training directory)
+              TRAIN_CMD="python training/scripts/train.py --phase $TRAINING_PHASE --output-dir /checkpoints"
               
               if [ "$DEBUG_MODE" = "true" ]; then
                 TRAIN_CMD="$TRAIN_CMD --debug --max-steps 100"
