@@ -1,7 +1,7 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      # strategy: RollingUpdate
       replicas: 1
       annotations:
         reloader.stakater.com/auto: "true"
