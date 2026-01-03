@@ -109,13 +109,28 @@ If something goes wrong, you can manually restore services:
 
 ```
 homelab/apps/committee-training/
-├── Dockerfile          # Training container image
-├── job.yaml           # Kubernetes Job + PVCs + ConfigMap
-├── manage.sh          # Management script
-└── README.md          # This file
+├── Dockerfile              # Training container image
+├── pvcs.yaml              # Namespace + PVCs (created once by manage.sh sync)
+├── job-only.yaml           # ConfigMap + Job (no PVCs, for repeated runs)
+├── job.yaml.backup         # Old job manifest (kept for reference)
+├── manage.sh              # Management script
+├── README.md              # This file
+└── TROUBLESHOOTING.md      # Common issues and fixes
 ```
 
-The job manifest includes:
+**Important**: Use `manage.sh` to orchestrate training - it handles file creation correctly.
+
+### Training Files
+
+| File | Purpose | Managed By |
+|-------|----------|-------------|
+| `pvcs.yaml` | Namespace and PVCs (created once) | `manage.sh sync` |
+| `job-only.yaml` | ConfigMap and Job (reusable) | `manage.sh start` |
+| `job.yaml.backup` | Old manifest (reference) | Manual only |
+| `manage.sh` | All orchestration logic | Manual |
+| `Dockerfile` | Container image | Manual |
+
+The job manifest (`job-only.yaml`) includes:
 - **Namespace**: `committee-training`
 - **PVC**: `committee-checkpoints` (100GB) - Persists checkpoints
 - **PVC**: `committee-code` (10GB) - Cloned repository
@@ -129,7 +144,7 @@ The job uses tolerations and node affinity to schedule on Arcanine:
 ```yaml
 tolerations:
   - key: "dedicated"
-    value: "arcanine"
+    operator: "Exists"      # More flexible matching
     effect: "NoSchedule"
 
 affinity:
@@ -142,6 +157,8 @@ affinity:
               values:
                 - "arcanine"
 ```
+
+**Note**: Arcanine has taint `dedicated=arcanine:NoSchedule`. The toleration with `operator: "Exists"` matches the taint by key+effect without requiring exact value.
 
 ## Storage
 
@@ -174,6 +191,8 @@ Training logs include:
 ## Troubleshooting
 
 ### Pod stuck in Pending
+
+**See also**: `TROUBLESHOOTING.md` for detailed error analysis and fixes.
 
 Check if Arcanine node is available:
 ```bash
