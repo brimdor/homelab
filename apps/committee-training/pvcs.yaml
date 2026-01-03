@@ -1,0 +1,34 @@
+# Committee Training PVCs and Namespace
+# These resources are created once by manage.sh sync
+# They persist across job runs and should NOT be included in job.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: committee-training
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: committee-checkpoints
+  namespace: committee-training
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: committee-code
+  namespace: committee-training
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 10Gi

@@ -374,22 +374,19 @@ cmd_start() {
     sleep 3
     
     # Ensure namespace exists
-    kubectl create namespace $NAMESPACE --dry-run=client -o yaml 2>/dev/null | kubectl apply -f - 2>/dev/null || true
-    
-    # Apply PVCs and ConfigMap (ignore errors for already-existing resources)
-    log_info "Ensuring PVCs and ConfigMap exist..."
-    kubectl apply -f "$SCRIPT_DIR/job.yaml" -l 'app!=committee-training' 2>/dev/null || true
-    
+    kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+    # Apply PVCs first (pvcs.yaml) - handles already-existing PVCs gracefully
+    log_info "Ensuring PVCs exist..."
+    kubectl apply -f "$SCRIPT_DIR/pvcs.yaml" 2>/dev/null || true
+
+    # Apply ConfigMap and Job (job-only.yaml doesn't include PVCs)
+    log_info "Ensuring ConfigMap and Job exist..."
+    kubectl apply -f "$SCRIPT_DIR/job-only.yaml" 2>/dev/null || true
+
     # Update config with current settings
     update_configmap "$phase" "$debug" ""
-    
-    # Create the job fresh (using create to avoid immutability issues)
-    log_info "Creating training job..."
-    # Extract just the Job resource and create it
-    kubectl get -f "$SCRIPT_DIR/job.yaml" -o yaml 2>/dev/null | \
-        kubectl apply -f - --selector='app=committee-training' 2>/dev/null || \
-        kubectl apply -f "$SCRIPT_DIR/job.yaml" 2>/dev/null
-    
+
     log_success "Job created. Waiting for pod to start..."
     
     # Wait for pod
