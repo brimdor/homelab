@@ -9,4 +9,4 @@ book/
 *.tgz
 *kubeconfig.yaml
 Chart.lock
-n8n-charts-examples/*
+n8n-charts-examples/*.opencode
