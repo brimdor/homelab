@@ -26,6 +26,7 @@ app-template:
             VOTE_THRESHOLD: "1"
             VOTING_SESSION_LENGTH: "8"
             VOTING_CRON: "0 8 * * *"
+            VOTING_CHANNEL_ID: "1456147140052127958"
             # Secrets from 1Password
             DISCORD_TOKEN:
               valueFrom:
