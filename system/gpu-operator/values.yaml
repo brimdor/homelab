@@ -36,6 +36,10 @@ daemonsets:
       operator: Equal
       value: sprigatito
       effect: NoSchedule
+    - key: dedicated
+      operator: Equal
+      value: arcanine
+      effect: NoSchedule
   # configuration for controlling update strategy("OnDelete" or "RollingUpdate") of GPU Operands
   # note that driver Daemonset is always set with OnDelete to avoid unintended disruptions
   updateStrategy: "RollingUpdate"
@@ -511,6 +515,10 @@ node-feature-discovery:
       - key: dedicated
         operator: Equal
         value: sprigatito
+        effect: NoSchedule
+      - key: dedicated
+        operator: Equal
+        value: arcanine
         effect: NoSchedule
     config:
       sources:
