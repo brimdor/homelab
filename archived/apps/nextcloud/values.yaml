@@ -44,7 +44,7 @@ app-template:
         main:
           image:
             repository: mariadb
-            tag: "10.11"
+            tag: "12.1"
             pullPolicy: Always
           env:
             MYSQL_ROOT_PASSWORD:
