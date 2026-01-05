@@ -151,7 +151,7 @@ app-template:
         db-backup:
           image:
             repository: postgres
-            tag: "17.7-bookworm"
+            tag: "18.1-bookworm"
           env:
             TZ: "America/Chicago"
             MAX_BACKUPS: "15"
