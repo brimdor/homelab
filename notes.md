@@ -138,4 +138,4 @@ kubectl -n argocd patch applicationset root \
   ssh root@<node-ip>
   wipefs -a /dev/sda3
 
-  to check system stats - inxi
+  to check system stats - inxi 
