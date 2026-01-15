@@ -2,7 +2,7 @@
 # Builds training environment for Committee 1.5B model from scratch
 # Targets: NVIDIA GPUs (RTX 3090 on Arcanine node)
 
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
 
 # Set working directory
 WORKDIR /workspace
