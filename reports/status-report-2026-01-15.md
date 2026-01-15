@@ -1,6 +1,6 @@
 # Homelab Status Report - 2026-01-15
 
-**Generated**: 2026-01-15 12:09 CST  
+**Generated**: 2026-01-15 13:55 CST (Updated)  
 **Overall Status**: 🟢 **GREEN**
 
 ---
@@ -13,7 +13,7 @@ All cluster layers are operating nominally. No critical issues detected.
 |-------|:------:|---------|
 | **Metal** | 🟢 | 10/10 nodes Ready |
 | **System** | 🟢 | kube-system healthy, Ceph HEALTH_OK |
-| **Platform** | 🟢 | 44/44 ArgoCD apps Synced+Healthy |
+| **Platform** | 🟢 | 43/43 ArgoCD apps Synced+Healthy |
 | **Apps** | 🟢 | All pods Running or Completed |
 
 ---
@@ -24,16 +24,16 @@ All cluster layers are operating nominally. No critical issues detected.
 
 | Node | Status | CPU | Memory | Role |
 |------|:------:|----:|-------:|------|
-| arcanine | Ready | 44% | 20% | worker |
-| bulbasaur | Ready | 19% | 36% | control-plane |
-| charmander | Ready | 41% | 30% | control-plane |
-| chikorita | Ready | 12% | 20% | worker |
+| arcanine | Ready | 45% | 19% | worker |
+| bulbasaur | Ready | 19% | 39% | control-plane |
+| charmander | Ready | 39% | 32% | control-plane |
+| chikorita | Ready | 11% | 14% | worker |
 | cyndaquil | Ready | 10% | 27% | worker |
-| growlithe | Ready | 12% | 29% | worker |
-| pikachu | Ready | 12% | 23% | worker |
+| growlithe | Ready | 11% | 29% | worker |
+| pikachu | Ready | 13% | 25% | worker |
 | sprigatito | Ready | 6% | 28% | worker |
-| squirtle | Ready | 20% | 38% | control-plane |
-| totodile | Ready | 11% | 33% | worker |
+| squirtle | Ready | 16% | 25% | control-plane |
+| totodile | Ready | 13% | 39% | worker |
 
 **Cluster Version**: K3s v1.33.6+k3s1  
 **Kernel**: 6.11.9-100.fc39.x86_64  
@@ -43,81 +43,66 @@ All cluster layers are operating nominally. No critical issues detected.
 
 #### Ceph Storage
 - **Status**: HEALTH_OK
-- **Muted Alerts**: `BLUESTORE_SLOW_OP_ALERT`, `DB_DEVICE_STALLED_READ_ALERT` (18m)
+- **Muted Alerts**: `DB_DEVICE_STALLED_READ_ALERT` (auto-expiring)
 - **OSDs**: 7 up, 7 in
-- **Storage**: 1.2 TiB / 3.4 TiB used (35.69%)
+- **Storage**: 1.2 TiB / 3.4 TiB used (~35%)
 - **Monitors**: 3 daemons (quorum f,h,j)
 - **MDS**: 1/1 daemons up, 1 hot standby
 - **PGs**: 177 active+clean
 
 #### kube-system
 - All pods Running or Completed
+- Cilium CNI healthy (10 pods + operator)
+- CoreDNS, Hubble, kube-vip, Metrics Server operational
 
 ### Platform Layer (GitOps)
 
-All 44 ArgoCD applications are **Synced** and **Healthy**:
+All 43 ArgoCD applications are **Synced** and **Healthy**:
 argocd, backlog, backlog-canary, budget, budget-canary, cert-manager, cloudflared, connect, dex, doplarr, emby, explorers-hub, external-dns, external-secrets, family-games-host, family-games-rules, gitea, global-secrets, gpu-operator, grafana, humbleai, humbleai-canary, ingress-nginx, kanidm, kured, localai, loki, monitoring-system, n8n, nextcloud, ollama, openwebui, postgres, qdrant, radarr, renovate, rook-ceph, sabnzbd, searxng, sonarr, volsync-system, wolf, woodpecker, zot
 
 ### Apps Layer
 
 - All pods in Running or Completed state
-- All 27 certificates valid and Ready
-- All ExternalSecrets synced
+- All certificates valid and Ready
+- 7 ExternalSecrets synced
 
 ---
 
 ## Warning Events (Non-Critical)
-
-Recent warning events observed:
 
 | Node | Event | Description |
 |------|-------|-------------|
 | sprigatito | InvalidDiskCapacity | invalid capacity 0 on image filesystem |
 | pikachu | InvalidDiskCapacity | invalid capacity 0 on image filesystem |
 | chikorita | InvalidDiskCapacity | invalid capacity 0 on image filesystem |
-| totodile | InvalidDiskCapacity | invalid capacity 0 on image filesystem |
-| arcanine | InvalidDiskCapacity | invalid capacity 0 on image filesystem |
+| growlithe | InvalidDiskCapacity | invalid capacity 0 on image filesystem |
 
 > [!NOTE]
-> These are intermittent kubelet reporting events and do not indicate actual disk issues. The nodes are all Ready and functioning normally.
+> These are intermittent kubelet reporting events and do not indicate actual disk issues.
 
 ---
 
 ## Repository Status
 
-### Open Pull Requests (9 total)
-
-All from Renovate Bot for dependency updates:
-
-| PR | Title | Type | Age | Risk |
-|---:|-------|------|-----|:----:|
-| #36 | chore(deps): update terraform cloudflare to v5 | major | 13d | High |
-| #38 | chore(deps): update all minor/patch | minor/patch | varies | Low |
-
-**Notable Major Update (PR #36)**:
-- Cloudflare Terraform provider: `4.52.0 → 5.15.0` (MAJOR)
-- Kubernetes Terraform provider: `2.38.0 → 3.0.0` (MAJOR)
-- Affects: `external/modules/cloudflare/versions.tf`, `external/modules/extra-secrets/versions.tf`, `external/modules/ntfy/versions.tf`, `external/versions.tf`
+### Open Pull Requests
+**None** - All PRs merged
 
 ### Open Issues
 
-No open maintenance issues found.
+| # | Title | Type |
+|---|-------|------|
+| 4 | Dependency Dashboard | Renovate auto-managed |
 
 ---
 
 ## Action Items
 
-### P2 - Medium Priority
+**No action items** - All layers GREEN, no open PRs.
 
-1. **Review and merge Renovate PRs** (9 open)
-   - Review breaking changes in PR #36 (Terraform Cloudflare v5, Kubernetes v3)
-   - Merge minor/patch updates from PR #38
+### Informational Only (P3)
 
-### P3 - Low Priority
-
-2. **Investigate InvalidDiskCapacity warnings**
-   - Verify kubelet disk reporting on affected nodes
-   - Consider silencing if confirmed benign
+1. **InvalidDiskCapacity warnings** - Benign kubelet metrics, no action needed
+2. **Ceph muted alert** - DB_DEVICE_STALLED on OSD.0 under observation, auto-expiring mute
 
 ---
 
