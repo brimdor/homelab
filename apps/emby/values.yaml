@@ -17,11 +17,13 @@ app-template:
             FFMPEG_HWACCEL: "cuda"
           resources:
             limits:
-              cpu: 2
-              memory: "8192Mi"
+              cpu: 3.5
+              memory: "24576Mi"
+              nvidia.com/gpu: 1
             requests:
-              cpu: 1.5
-              memory: "4096Mi"
+              cpu: 2
+              memory: "16384Mi"
+              nvidia.com/gpu: 1
       # initContainers:
       #   restore:
       #     name: restore
