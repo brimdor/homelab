@@ -47,7 +47,7 @@ app-template:
         main:
           image:
             repository: valkey/valkey
-            tag: 8-alpine
+            tag: 9-alpine
             pullPolicy: Always
           command:
             - sh
