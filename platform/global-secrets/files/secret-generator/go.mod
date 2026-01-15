@@ -2,7 +2,7 @@ module git.eaglepass.io/khuedoan/homelab/platform/secret-generator
 
 go 1.25.0
 
-toolchain go1.25.5
+toolchain go1.25.6
 
 require (
 	github.com/sethvargo/go-password v0.3.1
