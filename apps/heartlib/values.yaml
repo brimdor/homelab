@@ -1,0 +1,131 @@
+# HeartLib - Music Foundation Model
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: heartlib
+          image:
+            repository: registry.eaglepass.io/heartlib
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            MODEL_PATH: "/models"
+            OUTPUT_PATH: "/output"
+            # HuggingFace cache for model downloads
+            HF_HOME: "/models/.cache"
+            TRANSFORMERS_CACHE: "/models/.cache"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 7860
+                initialDelaySeconds: 120
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 7860
+                initialDelaySeconds: 60
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 3
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 7860
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 30
+          resources:
+            requests:
+              cpu: 2
+              memory: 8Gi
+            limits:
+              cpu: 8
+              memory: 32Gi
+
+  # NVIDIA runtime for GPU access
+  defaultPodOptions:
+    runtimeClassName: nvidia
+    tolerations:
+      - key: "dedicated"
+        value: "arcanine"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - arcanine
+
+  service:
+    main:
+      primary: true
+      ports:
+        http:
+          port: 7860
+          protocol: HTTP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host heartlib.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: 7860
+      tls:
+        - hosts:
+            - *Host
+          secretName: heartlib-tls-certificate
+
+  persistence:
+    # Model checkpoints storage (NFS)
+    models:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/heartlib/models
+      advancedMounts:
+        main:
+          main:
+            - path: /models
+    # Output storage for generated audio
+    output:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/heartlib/output
+      advancedMounts:
+        main:
+          main:
+            - path: /output
