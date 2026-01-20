@@ -22,6 +22,12 @@ app-template:
             # HuggingFace cache for model downloads
             HF_HOME: "/models/.cache"
             TRANSFORMERS_CACHE: "/models/.cache"
+            # Discord bot token from 1Password
+            TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "discord-token"
           probes:
             liveness:
               enabled: true
@@ -67,6 +73,9 @@ app-template:
   # NVIDIA runtime for GPU access
   defaultPodOptions:
     runtimeClassName: nvidia
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/uwmxq6h7s642okkobdlr64og3q"
+      operator.1password.io/item-name: "secrets"
     tolerations:
       - key: "dedicated"
         value: "arcanine"
