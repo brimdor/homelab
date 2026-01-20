@@ -225,7 +225,7 @@ ollama:
       cpu: 6
       memory: 40Gi
     requests:
-      cpu: 4
+      cpu: 2
       memory: 32Gi
 
   # Configure extra options for liveness probe
