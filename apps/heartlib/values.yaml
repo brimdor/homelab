@@ -62,7 +62,7 @@ app-template:
               memory: 8Gi
             limits:
               cpu: 8
-              memory: 32Gi
+              memory: 16Gi
 
   # NVIDIA runtime for GPU access
   defaultPodOptions:
