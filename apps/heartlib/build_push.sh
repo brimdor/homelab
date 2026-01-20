@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build and push heartlib to the local registry
-REGISTRY="registry.eaglepass.io"
+# Build and push heartlib to local registry
+REGISTRY="10.0.20.11:32309"
 IMAGE_NAME="heartlib"
 TAG="${1:-latest}"
 
