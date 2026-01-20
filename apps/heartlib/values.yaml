@@ -10,7 +10,7 @@ app-template:
         main:
           nameOverride: heartlib
           image:
-            repository: 10.0.20.11:32309/heartlib
+            repository: registry.eaglepass.io/heartlib
             tag: latest
             pullPolicy: Always
           env:
