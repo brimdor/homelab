@@ -5,7 +5,9 @@ app-template:
   controllers:
     main:
       strategy: Recreate
-      replicas: 1
+      # DISABLED: Gradio library bug - TypeError in utils.py when parsing component schemas
+      # See issue for tracking: heartlib container needs to be rebuilt with compatible gradio version
+      replicas: 0
       containers:
         main:
           nameOverride: heartlib
