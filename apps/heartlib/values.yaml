@@ -15,6 +15,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
+            GRADIO_SERVER_NAME: "0.0.0.0"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             MODEL_PATH: "/models"
