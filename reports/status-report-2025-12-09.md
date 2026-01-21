@@ -10,7 +10,7 @@
 
 | Layer | Status | Key Findings |
 |-------|:------:|--------------|
-| **Metal** | GREEN | - Controller (10.0.50.120) reachable via SSH<br>- All 10 nodes Ready<br>- CPU: 3-16%, Memory: 10-37%<br>- No disk pressure, no memory pressure |
+| **Metal** | GREEN | - Controller (10.0.20.10) reachable via SSH<br>- All 10 nodes Ready<br>- CPU: 3-16%, Memory: 10-37%<br>- No disk pressure, no memory pressure |
 | **System** | YELLOW | - k3s v1.28.3+k3s2 (5 versions behind current)<br>- Cilium CNI healthy on all 10 nodes<br>- Ceph HEALTH_WARN: 629 crashes, mon g low disk, noout set<br>- 7/9 OSDs up, 5 in cluster |
 | **Platform** | GREEN | - 32/32 ArgoCD apps Synced & Healthy<br>- Ingress-nginx running (1 pod)<br>- All 17 certificates valid (until 2026)<br>- Monitoring stack operational |
 | **Apps** | GREEN | - 183 pods total, all Running/Completed<br>- All user services responsive<br>- No failed or crashlooping pods |

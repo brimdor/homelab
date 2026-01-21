@@ -22,7 +22,7 @@
 ### Access Status: PARTIAL
 - Kubernetes API: Accessible (K3s v1.33.6+k3s1)
 - Gitea API: Accessible (user: gitea_admin)
-- SSH to Controller: TIMEOUT (workstation to 10.0.50.120)
+- SSH to Controller: TIMEOUT (workstation to 10.0.20.10)
   - Impact: Cannot use controller fallback
   - Workaround: All commands executed from workstation
 
@@ -290,7 +290,7 @@ HEALTH_WARN 1 OSD(s) experiencing slow operations in BlueStore; 1 OSD(s) experie
 3. **Resolve PR Conflicts**: Trigger Renovate rebase on conflicted PRs
 
 ### Low Priority (P3)
-4. **Controller SSH Access**: Investigate why 10.0.50.120 is not accessible
+4. **Controller SSH Access**: Investigate why 10.0.20.10 is not accessible
 5. **Clean up Dependency Dashboard**: Review issue #4
 
 ---

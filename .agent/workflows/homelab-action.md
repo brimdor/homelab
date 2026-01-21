@@ -100,7 +100,7 @@ Locating maintenance spec and validating access...
 kubectl cluster-info
 
 # Verify controller access (fallback)
-ssh -o ConnectTimeout=5 brimdor@10.0.50.120 "echo 'Controller accessible'"
+ssh -o ConnectTimeout=5 brimdor@10.0.20.10 "echo 'Controller accessible'"
 
 # Verify Gitea API access
 source ~/.config/gitea/.env
@@ -111,7 +111,7 @@ curl -s "https://git.eaglepass.io/api/v1/user" -H "Authorization: token $GITEA_T
 | System | Check | Status |
 |--------|-------|:------:|
 | Kubernetes | `kubectl cluster-info` | |
-| Controller | SSH to 10.0.50.120 | |
+| Controller | SSH to 10.0.20.10 | |
 | Gitea API | Token validation | |
 
 If any access check fails: STOP and report which access is unavailable.

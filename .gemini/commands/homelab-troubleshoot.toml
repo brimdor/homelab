@@ -77,14 +77,14 @@ Before starting, verify all local tools are current and functional.
 ### 2. Access Priority
 - **Primary**: Use the local system for all work
 - **Controller Fallback**: Only use when local access to Kubernetes cluster is unavailable
-  - SSH: `ssh brimdor@10.0.50.120`
+  - SSH: `ssh brimdor@10.0.20.10`
   - Homelab files: `~/homelab`
 
 ### 3. Controller Access (Fallback Only)
 If local access is unavailable:
 ```bash
 # Connect to controller
-ssh brimdor@10.0.50.120
+ssh brimdor@10.0.20.10
 
 # Navigate to homelab directory
 cd ~/homelab

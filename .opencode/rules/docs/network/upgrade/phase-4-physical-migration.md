@@ -138,7 +138,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    # Verify current cluster state
    kubectl get nodes -o wide
    
-   # ash should show current IP 10.0.50.120 and "Ready" status
+   # ash should show current IP 10.0.20.10 and "Ready" status
    ```
 
 2. **Perform the migration**
@@ -155,7 +155,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Edit ~/.kube/config
    # Change server URL from old IP to new:
-   # OLD: server: https://10.0.50.120:6443
+   # OLD: server: https://10.0.20.10:6443
    # NEW: server: https://10.0.20.10:6443
    ```
 

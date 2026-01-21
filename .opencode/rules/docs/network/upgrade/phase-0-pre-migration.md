@@ -49,7 +49,7 @@
    | Port | Device | Current IP | Cable Color/Label |
    |------|--------|------------|-------------------|
    | 1    | UNRAID | 10.0.40.3  | Blue              |
-   | 2    | ash    | 10.0.50.120| Yellow            |
+   | 2    | ash    | 10.0.20.10| Yellow            |
    ...etc
    ```
 
@@ -156,7 +156,7 @@
    declare -A hosts=(
      ["OPNSense"]="10.0.0.1"
      ["UNRAID"]="10.0.40.3"
-     ["ash (K8s Controller)"]="10.0.50.120"
+     ["ash (K8s Controller)"]="10.0.20.10"
      ["charmander"]="10.0.50.121"
      ["squirtle"]="10.0.50.122"
      ["bulbasaur"]="10.0.50.123"
