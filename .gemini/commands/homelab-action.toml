@@ -77,7 +77,7 @@ Before starting, confirm access to all required systems:
 kubectl cluster-info
 
 # Verify controller access
-ssh -o ConnectTimeout=5 brimdor@10.0.50.120 "echo 'Controller accessible'"
+ssh -o ConnectTimeout=5 brimdor@10.0.20.10 "echo 'Controller accessible'"
 
 # Verify Gitea API access
 source ~/.config/gitea/.env
@@ -197,7 +197,7 @@ kubectl delete pod <pod_name> -n <namespace>
 **SSH to Node** (via Controller):
 ```bash
 # Step 1: SSH to Controller
-ssh brimdor@10.0.50.120
+ssh brimdor@10.0.20.10
 
 # Step 2: Start tools container
 cd ~/homelab && make tools

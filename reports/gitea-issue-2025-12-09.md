@@ -24,7 +24,7 @@ Significant improvement from earlier critical status. All 10 Kubernetes nodes op
 ## Current Status by Layer
 
 ### 🟢 Metal Layer - GREEN
-- ✅ Controller (10.0.50.120) reachable, uptime 2d 4h 43m
+- ✅ Controller (10.0.20.10) reachable, uptime 2d 4h 43m
 - ✅ All 10 nodes online and Ready
 - ✅ Resource usage healthy (CPU 2-16%, RAM 5-34%)
 - ✅ Highest load: charmander (16% CPU, 34% RAM)

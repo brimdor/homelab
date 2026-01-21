@@ -91,7 +91,7 @@ If any contract requirement is missing, treat it as a **blocking recon failure**
 ### 1.1 Access Priority
 - **Primary**: use workstation access for Kubernetes and repos
 - **Controller fallback**: only when workstation-to-cluster is unavailable
-  - SSH: `ssh brimdor@10.0.50.120`
+  - SSH: `ssh brimdor@10.0.20.10`
   - Tools container: `cd ~/homelab && make tools`
 
 ### 1.2 Validate Access (must succeed)
@@ -100,7 +100,7 @@ If any contract requirement is missing, treat it as a **blocking recon failure**
 kubectl cluster-info
 kubectl version --short
 
-ssh -o ConnectTimeout=5 brimdor@10.0.50.120 "echo 'Controller accessible'"
+ssh -o ConnectTimeout=5 brimdor@10.0.20.10 "echo 'Controller accessible'"
 
 source ~/.config/gitea/.env
 curl -s "https://git.eaglepass.io/api/v1/user" -H "Authorization: token $GITEA_TOKEN" | jq -r '.login'
