@@ -153,7 +153,7 @@ app-template:
         main:
           main:
             - path: /data/music
-    nfs-movies_custom:
+    nfs-movies-custom:
       type: nfs
       server: 10.0.40.3
       path: /mnt/user/movies_custom
@@ -161,7 +161,7 @@ app-template:
         main:
           main:
             - path: /data/movies_custom
-    nfs-tv_custom:
+    nfs-tv-custom:
       type: nfs
       server: 10.0.40.3
       path: /mnt/user/tv_custom
