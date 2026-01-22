@@ -1,7 +1,7 @@
 # HeartLib - Music Foundation Model Container
 # Multi-stage build for optimized image size
 
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
+FROM nvidia/cuda:13.1.1-devel-ubuntu22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir -e .
 RUN pip install --no-cache-dir gradio==4.44.0
 
 # Runtime stage
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvidia/cuda:13.1.1-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
