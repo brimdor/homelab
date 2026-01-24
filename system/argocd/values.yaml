@@ -78,6 +78,16 @@ argocd-apps:
                 - .spec.persistentVolumeClaimRetentionPolicy
                 - .spec.volumeClaimTemplates
                 - .spec.template.spec.containers[].resources
+            - group: ceph.rook.io
+              kind: CephCluster
+              jqPathExpressions:
+                - .spec.csi
+                - .spec.monitoring
+            - group: apiextensions.k8s.io
+              kind: CustomResourceDefinition
+              jqPathExpressions:
+                - .spec.conversion
+                - .status
           syncPolicy:
             automated:
               prune: true
