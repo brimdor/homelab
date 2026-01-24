@@ -20,6 +20,8 @@ rook-ceph-cluster:
     enabled: true
     createPrometheusRules: true
   cephClusterSpec:
+    cephVersion:
+      imagePullPolicy: IfNotPresent
     placement:
       all:
         tolerations:
