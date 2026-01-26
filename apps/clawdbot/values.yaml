@@ -44,13 +44,14 @@ app-template:
 
         ollama-proxy:
           image:
-            repository: docker.io/alpine/socat
-            tag: "1.8.0.0-r0"
+            repository: docker.io/library/alpine
+            tag: "3.20"
             pullPolicy: IfNotPresent
           command:
             - sh
             - -lc
             - |
+              apk add --no-cache socat >/dev/null
               exec socat -d -d TCP-LISTEN:11434,bind=127.0.0.1,fork,reuseaddr TCP:ollama.ollama.svc.cluster.local:11434
 
   defaultPodOptions:
