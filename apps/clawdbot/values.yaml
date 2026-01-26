@@ -9,7 +9,8 @@ app-template:
             repository: 10.0.20.11:32309/clawdbot
             tag: latest
             pullPolicy: Always
-          args: ["gateway"]
+          command: ["/bin/sh", "-c", "sleep 3600"]
+          # args: ["gateway"]
           env:
             - name: TZ
               value: America/Chicago
