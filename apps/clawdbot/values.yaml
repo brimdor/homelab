@@ -93,7 +93,7 @@ app-template:
   configMaps:
     bootstrap:
       enabled: true
-      forceRename: true
+      forceRename: clawdbot-bootstrap
       data:
         bootstrap.sh: |
           #!/bin/sh
