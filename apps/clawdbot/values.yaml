@@ -9,7 +9,7 @@ app-template:
             repository: 10.0.20.11:32309/clawdbot
             tag: latest
             pullPolicy: Always
-          command: ["node", "dist/index.js", "gateway"]
+          command: ["node", "dist/index.js", "gateway", "--allow-unconfigured"]
           env:
             - name: TZ
               value: America/Chicago
