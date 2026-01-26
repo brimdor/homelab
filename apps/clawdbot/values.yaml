@@ -39,7 +39,9 @@ app-template:
     main:
       className: nginx
       annotations:
-        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
       hosts:
         - host: clawdbot.eaglepass.io
           paths:
@@ -48,6 +50,7 @@ app-template:
                 identifier: main
                 port: http
       tls:
+        - secretName: clawdbot-tls
         - hosts:
             - clawdbot.eaglepass.io
         
