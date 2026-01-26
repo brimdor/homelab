@@ -3,13 +3,26 @@ app-template:
     main:
       annotations:
         reloader.stakater.com/auto: "true"
+      initContainers:
+        fix-permissions:
+          image:
+            repository: docker.io/library/busybox
+            tag: "1.36.1"
+            pullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - |
+              chown -R 1000:1000 /home/node/.clawdbot /home/node/clawd || true
+          securityContext:
+            runAsUser: 0
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/clawdbot
             tag: latest
             pullPolicy: Always
-          command: ["sh", "-lc", "/bootstrap/bootstrap.sh"]
+          command: ["sh", "-lc", "sh /bootstrap/bootstrap.sh"]
           env:
             - name: TZ
               value: America/Chicago
