@@ -444,10 +444,13 @@ ollama:
         namespace: ollama
         annotations:
           "helm.sh/hook": post-install,post-upgrade
-          "helm.sh/hook-delete-policy": before-hook-creation
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
       spec:
+        backoffLimit: 0
+        activeDeadlineSeconds: 43200
         template:
           spec:
+            restartPolicy: Never
             containers:
               - name: model-puller
                 image: ollama/ollama:latest
@@ -472,15 +475,36 @@ ollama:
 
                     echo "Service ready. Starting pulls..."
 
-                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K"
+                    pull_with_retry() {
+                      model="$1"
+                      attempts=5
+                      delay=15
+
+                      i=1
+                      while true; do
+                        echo "Pulling $model (attempt ${i}/${attempts})..."
+                        if ollama pull "$model"; then
+                          return 0
+                        fi
+
+                        if [ "$i" -ge "$attempts" ]; then
+                          echo "Failed to pull $model after ${attempts} attempts" >&2
+                          return 1
+                        fi
+
+                        i=$((i + 1))
+                        sleep "$delay"
+                      done
+                    }
+
+                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest huggingface.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K"
                     for model in $models; do
-                      echo "Pulling $model..."
-                      ollama pull "$model"
+                      pull_with_retry "$model"
                     done
 
                     echo "Creating qwen3-14b-agent..."
                     cat <<'EOF' > /tmp/qwen3-14b-agent
-                    FROM hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
+                    FROM huggingface.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
                     PARAMETER num_ctx 131072
                     PARAMETER flash_attn true
                     PARAMETER repeat_penalty 1.5
@@ -494,7 +518,7 @@ ollama:
                 env:
                   - name: OLLAMA_HOST
                     value: "http://ollama:11434"
-            restartPolicy: OnFailure
+
 
   # Test connection pods
   tests:
