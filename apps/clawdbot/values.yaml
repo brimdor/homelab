@@ -11,14 +11,11 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
-          envFrom:
-            - secretRef:
-                name: clawdbot-secret
-      pod:
-        annotations:
-          operator.1password.io/item-path: "vaults/Kubernetes/items/clawdbot"
-          operator.1password.io/item-name: "clawdbot-secret"
-
+            DISCORD_TOKEN:
+              envFrom:
+                - secretRef:
+                  name: secrets
+                  key: discord-token
   service:
     main:
       controller: main
@@ -59,3 +56,8 @@ app-template:
       size: 5Gi
       globalMounts:
         - path: /home/node/clawd
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
+      operator.1password.io/item-name: "secrets"
