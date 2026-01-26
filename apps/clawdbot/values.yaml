@@ -35,12 +35,14 @@ app-template:
         - host: clawdbot.eaglepass.io
           paths:
             - path: /
+              pathType: Prefix
               service:
                 identifier: main
                 port: http
       tls:
         - hosts:
             - clawdbot.eaglepass.io
+          secretName: clawdbot-tls-certificate
         
   persistence:
     config:
