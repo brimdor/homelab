@@ -159,6 +159,9 @@ app-template:
           node dist/index.js config set gateway.bind lan
           node dist/index.js config set gateway.auth.mode password
           node dist/index.js config unset gateway.auth.token || true
+          # Control UI: allow password auth without device pairing.
+          node dist/index.js config set gateway.controlUi.allowInsecureAuth true
+          node dist/index.js config set gateway.controlUi.dangerouslyDisableDeviceAuth true
           node dist/index.js config set --json gateway.port 18789
 
           exec node dist/index.js gateway \
