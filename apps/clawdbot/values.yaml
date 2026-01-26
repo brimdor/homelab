@@ -36,6 +36,11 @@ app-template:
                 secretKeyRef:
                   name: clawdbot-secret
                   key: gateway-token
+            - name: CLAWDBOT_GATEWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clawdbot-secret
+                  key: gateway-password
 
   defaultPodOptions:
     securityContext:
@@ -127,8 +132,8 @@ app-template:
               --workspace "$WORKSPACE_DIR" \
               --gateway-port 18789 \
               --gateway-bind lan \
-              --gateway-auth token \
-              --gateway-token "${CLAWDBOT_GATEWAY_TOKEN:?missing}" \
+              --gateway-auth password \
+              --gateway-password "${CLAWDBOT_GATEWAY_PASSWORD:?missing}" \
               --skip-daemon \
               --skip-ui \
               --skip-health \
@@ -139,10 +144,12 @@ app-template:
           # Enforce desired settings every start.
           node dist/index.js config set gateway.mode local
           node dist/index.js config set gateway.bind lan
-          node dist/index.js config set gateway.auth.mode token
+          node dist/index.js config set gateway.auth.mode password
+          node dist/index.js config unset gateway.auth.token || true
           node dist/index.js config set --json gateway.port 18789
 
           exec node dist/index.js gateway \
             --port 18789 \
             --bind lan \
-            --token "${CLAWDBOT_GATEWAY_TOKEN:?missing}"
+            --auth password \
+            --password "${CLAWDBOT_GATEWAY_PASSWORD:?missing}"
