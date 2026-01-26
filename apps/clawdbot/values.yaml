@@ -1,0 +1,56 @@
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      main:
+        image:
+          repository: 10.0.20.11:32309/clawdbot
+          tag: latest
+          pullPolicy: Always
+        env:
+          TZ: America/Chicago
+        envFrom:
+          - secretRef:
+              name: clawdbot-secret
+    pod:
+      annotations:
+        operator.1password.io/item-path: "vaults/Kubernetes/items/clawdbot"
+        operator.1password.io/item-name: "clawdbot-secret"
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 18789
+
+ingress:
+  main:
+    className: nginx
+    hosts:
+      - host: clawdbot.eaglepass.io
+        paths:
+          - path: /
+            service:
+              identifier: main
+              port: http
+    tls:
+      - hosts:
+          - clawdbot.eaglepass.io
+
+persistence:
+  config:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    globalMounts:
+      - path: /home/node/.clawdbot
+  data:
+    enabled: true
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    globalMounts:
+      - path: /home/node/clawd
