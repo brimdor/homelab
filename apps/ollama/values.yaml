@@ -509,7 +509,6 @@ ollama:
                     cat <<'EOF' > /tmp/qwen2.5-14b-agent
                     FROM huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q6_K
                     PARAMETER num_ctx 131072
-                    PARAMETER flash_attn true
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
                     EOF
