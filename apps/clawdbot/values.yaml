@@ -169,8 +169,17 @@ app-template:
           fi
 
           # Ensure auth profile store exists and enables Ollama provider discovery.
-          AUTH_DIR="$STATE_DIR/agents/main"
+          # Note: Clawdbot's default agentDir is "$STATE_DIR/agents/main/agent".
+          AUTH_DIR_OLD="$STATE_DIR/agents/main"
+          AUTH_DIR="$STATE_DIR/agents/main/agent"
+          AUTH_STORE_OLD="$AUTH_DIR_OLD/auth-profiles.json"
           AUTH_STORE="$AUTH_DIR/auth-profiles.json"
+
+          if [ ! -f "$AUTH_STORE" ] && [ -f "$AUTH_STORE_OLD" ]; then
+            mkdir -p "$AUTH_DIR"
+            cp "$AUTH_STORE_OLD" "$AUTH_STORE"
+          fi
+
           if [ ! -f "$AUTH_STORE" ]; then
             mkdir -p "$AUTH_DIR"
             cat > "$AUTH_STORE" <<'JSON'
