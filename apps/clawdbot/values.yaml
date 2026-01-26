@@ -3,31 +3,13 @@ app-template:
     main:
       annotations:
         reloader.stakater.com/auto: "true"
-      initContainers:
-        fix-permissions:
-          image:
-            repository: docker.io/library/busybox
-            tag: "1.36.1"
-            pullPolicy: IfNotPresent
-          command:
-            - sh
-            - -lc
-            - |
-              chown -R 1000:1000 /home/node/.clawdbot /home/node/clawd
-          securityContext:
-            runAsUser: 0
-          volumeMounts:
-            - name: config
-              mountPath: /home/node/.clawdbot
-            - name: data
-              mountPath: /home/node/clawd
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/clawdbot
             tag: latest
             pullPolicy: Always
-          command: ["node", "dist/index.js", "gateway", "--allow-unconfigured", "--bind", "lan"]
+          command: ["sh", "-lc", "/bootstrap/bootstrap.sh"]
           env:
             - name: TZ
               value: America/Chicago
@@ -41,10 +23,16 @@ app-template:
                 secretKeyRef:
                   name: clawdbot-secret
                   key: gateway-token
-      pod:
-        annotations:
-          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
-          operator.1password.io/item-name: "clawdbot-secret"
+
+  defaultPodOptions:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
+      operator.1password.io/item-name: "clawdbot-secret"
 
   service:
     main:
@@ -88,3 +76,46 @@ app-template:
       size: 5Gi
       globalMounts:
         - path: /home/node/clawd
+
+    bootstrap:
+      enabled: true
+      type: configMap
+      name: clawdbot-bootstrap
+      items:
+        - key: bootstrap.sh
+          path: bootstrap.sh
+      advancedMounts:
+        main:
+          main:
+            - path: /bootstrap/bootstrap.sh
+              subPath: bootstrap.sh
+
+  configMaps:
+    bootstrap:
+      enabled: true
+      data:
+        bootstrap.sh: |
+          #!/bin/sh
+          set -eu
+
+          STATE_DIR="${CLAWDBOT_STATE_DIR:-/home/node/.clawdbot}"
+          WORKSPACE_DIR="${CLAWDBOT_WORKSPACE_DIR:-/home/node/clawd}"
+
+          mkdir -p "$STATE_DIR" "$WORKSPACE_DIR" \
+            "$STATE_DIR/cron" "$WORKSPACE_DIR/canvas"
+
+          # Initialize config/workspace if missing.
+          if [ ! -f "$STATE_DIR/clawdbot.json" ]; then
+            node dist/index.js setup --non-interactive --mode local --workspace "$WORKSPACE_DIR"
+          fi
+
+          # Enforce desired settings every start.
+          node dist/index.js config set gateway.mode local
+          node dist/index.js config set gateway.bind lan
+          node dist/index.js config set gateway.auth.mode token
+          node dist/index.js config set --json gateway.port 18789
+
+          exec node dist/index.js gateway \
+            --port 18789 \
+            --bind lan \
+            --token "${CLAWDBOT_GATEWAY_TOKEN:?missing}"
