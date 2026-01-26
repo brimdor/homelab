@@ -18,6 +18,11 @@ app-template:
                 secretKeyRef:
                   name: clawdbot-secret
                   key: discord-token
+            - name: CLAWDBOT_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: clawdbot-secret
+                  key: gateway-token
       pod:
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
