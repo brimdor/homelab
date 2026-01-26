@@ -113,11 +113,15 @@ app-template:
       items:
         - key: auth.js
           path: auth.js
+        - key: index.html
+          path: index.html
       advancedMounts:
         main:
           main:
             - path: /app/dist/gateway/auth.js
               subPath: auth.js
+            - path: /app/dist/control-ui/index.html
+              subPath: index.html
 
   configMaps:
     bootstrap:
@@ -171,6 +175,45 @@ app-template:
       enabled: true
       forceRename: clawdbot-patches
       data:
+        index.html: |
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>Clawdbot Control</title>
+              <meta name="color-scheme" content="dark light" />
+              <link rel="icon" href="./favicon.ico" sizes="any" />
+              <script>
+                (function () {
+                  try {
+                    var url = new URL(window.location.href);
+                    var t = url.searchParams.get("token");
+                    if (!t) return;
+                    var key = "clawdbot.control.settings.v1";
+                    var cfg = {};
+                    var raw = localStorage.getItem(key);
+                    if (raw) {
+                      try {
+                        cfg = JSON.parse(raw) || {};
+                      } catch (_) {
+                        cfg = {};
+                      }
+                    }
+                    cfg.token = t;
+                    localStorage.setItem(key, JSON.stringify(cfg));
+                    url.searchParams.delete("token");
+                    window.history.replaceState({}, "", url.toString());
+                  } catch (_) {}
+                })();
+              </script>
+              <script type="module" crossorigin src="./assets/index-BCK1V83p.js"></script>
+              <link rel="stylesheet" crossorigin href="./assets/index-CjW_qQ45.css">
+            </head>
+            <body>
+              <clawdbot-app></clawdbot-app>
+            </body>
+          </html>
         auth.js: |
           import { timingSafeEqual } from "node:crypto";
           import { readTailscaleWhoisIdentity } from "../infra/tailscale.js";
