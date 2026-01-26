@@ -85,10 +85,9 @@ ollama:
         # - gpt-oss:120b-cloud
         # - mxbai-embed-large:latest
         # - ministral-3:8b
-        - nomic-embed-text:latest
+        # - nomic-embed-text:latest
         # - llama-guard3:1b
         # - qwen3-coder:30b
-        - hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
         # - devstral-small-2:24b
         # - magristral:24b
         
@@ -467,7 +466,7 @@ ollama:
                     done
                     echo "Service ready. Starting pulls..."
                     
-                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest ministral-3:8b llama-guard3:1b qwen3-coder:30b devstral-small-2:24b magistral:24b"
+                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K"
                     
                     for model in $models; do
                       echo "Pulling $model..."
