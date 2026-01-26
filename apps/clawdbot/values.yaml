@@ -9,7 +9,7 @@ app-template:
             repository: 10.0.20.11:32309/clawdbot
             tag: latest
             pullPolicy: Always
-          command: ["clawdbot", "gateway"]
+          args: ["gateway"]
           env:
             - name: TZ
               value: America/Chicago
