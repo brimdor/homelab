@@ -10,12 +10,18 @@ app-template:
             tag: latest
             pullPolicy: Always
           env:
-            TZ: America/Chicago
-            DISCORD_TOKEN:
-              envFrom:
-                - secretRef:
-                  name: secrets
+            - name: TZ
+              value: America/Chicago
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: clawdbot-secret
                   key: discord-token
+      pod:
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
+          operator.1password.io/item-name: "clawdbot Secrets"
+
   service:
     main:
       controller: main
@@ -32,14 +38,12 @@ app-template:
         - host: clawdbot.eaglepass.io
           paths:
             - path: /
-              pathType: Prefix
               service:
                 identifier: main
                 port: http
       tls:
         - hosts:
             - clawdbot.eaglepass.io
-          secretName: clawdbot-tls-certificate
         
   persistence:
     config:
@@ -56,8 +60,3 @@ app-template:
       size: 5Gi
       globalMounts:
         - path: /home/node/clawd
-
-  defaultPodOptions:
-    annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
-      operator.1password.io/item-name: "secrets"
