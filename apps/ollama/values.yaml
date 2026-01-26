@@ -442,9 +442,6 @@ ollama:
       metadata:
         name: ollama-model-puller
         namespace: ollama
-        annotations:
-          "helm.sh/hook": post-install,post-upgrade
-          "helm.sh/hook-delete-policy": before-hook-creation
       spec:
         template:
           spec:
