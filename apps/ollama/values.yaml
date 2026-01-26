@@ -438,68 +438,63 @@ ollama:
   # -- Extra K8s manifests to deploy
   extraObjects:
     - apiVersion: batch/v1
-      kind: CronJob
+      kind: Job
       metadata:
         name: ollama-model-puller
         namespace: ollama
+        annotations:
+          "helm.sh/hook": post-install,post-upgrade
+          "helm.sh/hook-delete-policy": before-hook-creation
       spec:
-        # Run off-hours to avoid saturating the cluster's WAN.
-        schedule: "0 3 * * *"
-        concurrencyPolicy: Forbid
-        successfulJobsHistoryLimit: 1
-        failedJobsHistoryLimit: 1
-        jobTemplate:
+        template:
           spec:
-            ttlSecondsAfterFinished: 3600
-            template:
-              spec:
-                containers:
-                  - name: model-puller
-                    image: ollama/ollama:latest
-                    command: ["/bin/sh", "-c"]
-                    args:
-                      - |
-                        set -eu
+            containers:
+              - name: model-puller
+                image: ollama/ollama:latest
+                command: ["/bin/sh", "-c"]
+                args:
+                  - |
+                    set -eu
 
-                        echo "Waiting for Ollama service at $OLLAMA_HOST..."
-                        start="$(date +%s)"
-                        timeout_secs=1200
+                    echo "Waiting for Ollama service at $OLLAMA_HOST..."
+                    start="$(date +%s)"
+                    timeout_secs=1200
 
-                        while ! ollama list > /dev/null 2>&1; do
-                          now="$(date +%s)"
-                          if [ $((now - start)) -gt "$timeout_secs" ]; then
-                            echo "Timed out waiting for ollama after ${timeout_secs}s" >&2
-                            exit 1
-                          fi
-                          echo "Waiting for ollama..."
-                          sleep 10
-                        done
+                    while ! ollama list > /dev/null 2>&1; do
+                      now="$(date +%s)"
+                      if [ $((now - start)) -gt "$timeout_secs" ]; then
+                        echo "Timed out waiting for ollama after ${timeout_secs}s" >&2
+                        exit 1
+                      fi
+                      echo "Waiting for ollama..."
+                      sleep 10
+                    done
 
-                        echo "Service ready. Starting pulls..."
+                    echo "Service ready. Starting pulls..."
 
-                        models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K"
-                        for model in $models; do
-                          echo "Pulling $model..."
-                          ollama pull "$model"
-                        done
+                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K"
+                    for model in $models; do
+                      echo "Pulling $model..."
+                      ollama pull "$model"
+                    done
 
-                        echo "Creating qwen3-14b-agent..."
-                        cat <<'EOF' > /tmp/qwen3-14b-agent
-                        FROM hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
-                        PARAMETER num_ctx 131072
-                        PARAMETER flash_attn true
-                        PARAMETER repeat_penalty 1.5
-                        SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
-                        EOF
+                    echo "Creating qwen3-14b-agent..."
+                    cat <<'EOF' > /tmp/qwen3-14b-agent
+                    FROM hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
+                    PARAMETER num_ctx 131072
+                    PARAMETER flash_attn true
+                    PARAMETER repeat_penalty 1.5
+                    SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
+                    EOF
 
-                        ollama rm qwen3-14b-agent >/dev/null 2>&1 || true
-                        ollama create qwen3-14b-agent -f /tmp/qwen3-14b-agent
+                    ollama rm qwen3-14b-agent >/dev/null 2>&1 || true
+                    ollama create qwen3-14b-agent -f /tmp/qwen3-14b-agent
 
-                        echo "All models requested."
-                    env:
-                      - name: OLLAMA_HOST
-                        value: "http://ollama:11434"
-                restartPolicy: OnFailure
+                    echo "All models requested."
+                env:
+                  - name: OLLAMA_HOST
+                    value: "http://ollama:11434"
+            restartPolicy: OnFailure
 
   # Test connection pods
   tests:
