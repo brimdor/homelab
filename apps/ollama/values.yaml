@@ -108,14 +108,10 @@ ollama:
       #    template: |
       #      FROM llama3.1
       #      PARAMETER num_ctx 32768
-      create:
-        - name: qwen3-14b-agent
-          template: |
-            FROM hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
-            PARAMETER num_ctx 131072
-            PARAMETER flash_attn true
-            PARAMETER repeat_penalty 1.5
-            SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
+      # NOTE: Avoid using the chart's built-in `create` lifecycle hook.
+      # It runs as a `postStart` hook inside the main ollama pod, and any
+      # transient failure will crashloop the deployment.
+      create: []
 
       # -- Automatically remove models present on the disk but not specified in the values file
       clean: false
@@ -474,6 +470,18 @@ ollama:
                     done
                     
                     echo "All models requested."
+
+                    echo "Creating qwen3-14b-agent..."
+                    cat <<'EOF' > /tmp/qwen3-14b-agent
+                    FROM hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
+                    PARAMETER num_ctx 131072
+                    PARAMETER flash_attn true
+                    PARAMETER repeat_penalty 1.5
+                    SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
+                    EOF
+
+                    ollama rm qwen3-14b-agent >/dev/null 2>&1 || true
+                    ollama create qwen3-14b-agent -f /tmp/qwen3-14b-agent
                 env:
                   - name: OLLAMA_HOST
                     value: "http://ollama:11434"
