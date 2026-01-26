@@ -3,13 +3,31 @@ app-template:
     main:
       annotations:
         reloader.stakater.com/auto: "true"
+      initContainers:
+        fix-permissions:
+          image:
+            repository: docker.io/library/busybox
+            tag: "1.36.1"
+            pullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - |
+              chown -R 1000:1000 /home/node/.clawdbot /home/node/clawd
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: config
+              mountPath: /home/node/.clawdbot
+            - name: data
+              mountPath: /home/node/clawd
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/clawdbot
             tag: latest
             pullPolicy: Always
-          command: ["node", "dist/index.js", "gateway", "--allow-unconfigured"]
+          command: ["node", "dist/index.js", "gateway", "--allow-unconfigured", "--bind", "lan"]
           env:
             - name: TZ
               value: America/Chicago
