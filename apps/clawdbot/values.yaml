@@ -111,14 +111,19 @@ app-template:
       enabled: true
       type: configMap
       name: clawdbot-bootstrap
+      defaultMode: 0755
       items:
         - key: bootstrap.sh
           path: bootstrap.sh
+        - key: clawdbot
+          path: clawdbot
       advancedMounts:
         main:
           main:
             - path: /bootstrap/bootstrap.sh
               subPath: bootstrap.sh
+            - path: /usr/local/bin/clawdbot
+              subPath: clawdbot
 
     patches:
       enabled: true
@@ -138,6 +143,10 @@ app-template:
       enabled: true
       forceRename: clawdbot-bootstrap
       data:
+        clawdbot: |
+          #!/bin/sh
+          set -eu
+          exec node /app/dist/index.js "$@"
         bootstrap.sh: |
           #!/bin/sh
           set -eu
