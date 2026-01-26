@@ -1,0 +1,17 @@
+apiVersion: v2
+name: ollama
+description: Get up and running with large language models locally.
+home: https://ollama.com/
+icon: https://ollama.com/public/ollama.png
+sources:
+- https://github.com/ollama/ollama
+- https://github.com/otwld/ollama-helm
+type: application
+version: 1.32.0
+dependencies:
+- name: ollama
+  repository: https://otwld.github.io/ollama-helm
+  version: 1.38.0
+  tags:
+    - ollama
+    - open-webui
