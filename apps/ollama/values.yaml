@@ -88,6 +88,7 @@ ollama:
         - nomic-embed-text:latest
         # - llama-guard3:1b
         # - qwen3-coder:30b
+        - qwen3:14b
         # - devstral-small-2:24b
         # - magristral:24b
         
@@ -199,8 +200,6 @@ ollama:
     annotations:
       external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
       external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-  #     # external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-  #     # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
   #   # -- Hosts to create ingress for
