@@ -88,7 +88,7 @@ ollama:
         - nomic-embed-text:latest
         # - llama-guard3:1b
         # - qwen3-coder:30b
-        - qwen3:14b
+        - hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
         # - devstral-small-2:24b
         # - magristral:24b
         
@@ -109,7 +109,14 @@ ollama:
       #    template: |
       #      FROM llama3.1
       #      PARAMETER num_ctx 32768
-      create: []
+      create:
+        - name: qwen3-14b-agent
+          template: |
+            FROM hf.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
+            PARAMETER num_ctx 131072
+            PARAMETER flash_attn true
+            PARAMETER repeat_penalty 1.5
+            SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
 
       # -- Automatically remove models present on the disk but not specified in the values file
       clean: false
