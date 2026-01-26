@@ -42,6 +42,17 @@ app-template:
                   name: clawdbot-secret
                   key: gateway-password
 
+        ollama-proxy:
+          image:
+            repository: docker.io/alpine/socat
+            tag: "1.8.0.0-r0"
+            pullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - |
+              exec socat -d -d TCP-LISTEN:11434,bind=127.0.0.1,fork,reuseaddr TCP:ollama.ollama.svc.cluster.local:11434
+
   defaultPodOptions:
     securityContext:
       runAsUser: 1000
@@ -154,6 +165,28 @@ app-template:
               --skip-skills
           fi
 
+          # Ensure auth profile store exists and enables Ollama provider discovery.
+          AUTH_DIR="$STATE_DIR/agents/main"
+          AUTH_STORE="$AUTH_DIR/auth-profiles.json"
+          if [ ! -f "$AUTH_STORE" ]; then
+            mkdir -p "$AUTH_DIR"
+            cat > "$AUTH_STORE" <<'JSON'
+          {
+            "version": 1,
+            "profiles": {
+              "ollama:default": {
+                "type": "api_key",
+                "provider": "ollama",
+                "key": "local"
+              }
+            },
+            "order": {
+              "ollama": ["ollama:default"]
+            }
+          }
+          JSON
+          fi
+
           # Enforce desired settings every start.
           node dist/index.js config set gateway.mode local
           node dist/index.js config set gateway.bind lan
@@ -163,6 +196,9 @@ app-template:
           node dist/index.js config set gateway.controlUi.allowInsecureAuth true
           node dist/index.js config set gateway.controlUi.dangerouslyDisableDeviceAuth true
           node dist/index.js config set --json gateway.port 18789
+
+          # Default agent model: Ollama Echo (served by cluster Ollama via localhost proxy).
+          node dist/index.js config set agents.defaults.model.primary "ollama/Echo:latest"
 
           exec node dist/index.js gateway \
             --port 18789 \
