@@ -47,6 +47,8 @@ app-template:
             repository: docker.io/library/alpine
             tag: "3.20"
             pullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
           command:
             - sh
             - -lc
