@@ -497,22 +497,22 @@ ollama:
                       done
                     }
 
-                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest huggingface.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K"
+                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q6_K"
                     for model in $models; do
                       pull_with_retry "$model"
                     done
 
-                    echo "Creating qwen3-14b-agent..."
-                    cat <<'EOF' > /tmp/qwen3-14b-agent
-                    FROM huggingface.co/bartowski/Qwen3-14B-Instruct-GGUF:Q6_K
+                    echo "Creating qwen2.5-14b-agent..."
+                    cat <<'EOF' > /tmp/qwen2.5-14b-agent
+                    FROM huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q6_K
                     PARAMETER num_ctx 131072
                     PARAMETER flash_attn true
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
                     EOF
 
-                    ollama rm qwen3-14b-agent >/dev/null 2>&1 || true
-                    ollama create qwen3-14b-agent -f /tmp/qwen3-14b-agent
+                    ollama rm qwen2.5-14b-agent >/dev/null 2>&1 || true
+                    ollama create qwen2.5-14b-agent -f /tmp/qwen2.5-14b-agent
 
                     echo "All models requested."
                 env:
