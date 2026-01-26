@@ -120,7 +120,22 @@ app-template:
 
           # Initialize config/workspace if missing.
           if [ ! -f "$STATE_DIR/clawdbot.json" ]; then
-            node dist/index.js setup --non-interactive --mode local --workspace "$WORKSPACE_DIR"
+            node dist/index.js onboard \
+              --non-interactive \
+              --accept-risk \
+              --flow manual \
+              --mode local \
+              --auth-choice skip \
+              --workspace "$WORKSPACE_DIR" \
+              --gateway-port 18789 \
+              --gateway-bind lan \
+              --gateway-auth token \
+              --gateway-token "${CLAWDBOT_GATEWAY_TOKEN:?missing}" \
+              --skip-daemon \
+              --skip-ui \
+              --skip-health \
+              --skip-channels \
+              --skip-skills
           fi
 
           # Enforce desired settings every start.
