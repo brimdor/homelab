@@ -325,11 +325,11 @@ app-template:
           node dist/index.js config set --json gateway.port 18789
 
           # Discord: use env token (avoid persisting secrets in config) and allow guild channels.
-          node dist/index.js config set channels.discord.enabled true
-          node dist/index.js config set channels.discord.configWrites false
-          node dist/index.js config unset channels.discord.token || true
-          node dist/index.js config set channels.discord.groupPolicy open
-          node dist/index.js config set --json channels.discord.guilds '{"*": {"requireMention": true, "channels": {"*": {"requireMention": true, "enabled": true}}}}'
+          clawdbot config set channels.discord.enabled true
+          clawdbot config set channels.discord.configWrites false
+          clawdbot config unset channels.discord.token || true
+          clawdbot config set channels.discord.groupPolicy open
+          clawdbot config set --json channels.discord.guilds "{\"*\":{\"requireMention\":true,\"channels\":{\"*\":{\"requireMention\":true,\"enabled\":true}}}}"
 
           # Default agent model: Ollama Echo (served by cluster Ollama via localhost proxy).
           node dist/index.js config set agents.defaults.model.primary "ollama/Echo:latest"
