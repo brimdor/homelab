@@ -351,6 +351,15 @@ app-template:
           const DEFAULT_OPTIONS = {
               applyDefaults: false,
           };
+          function resolveSystemTimeZone() {
+              try {
+                  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  return typeof tz === "string" && tz.trim() ? tz.trim() : null;
+              }
+              catch {
+                  return null;
+              }
+          }
           function isRecord(value) {
               return typeof value === "object" && value !== null && !Array.isArray(value);
           }
@@ -359,6 +368,7 @@ app-template:
               const kind = typeof schedule.kind === "string" ? schedule.kind : undefined;
               const atMsRaw = schedule.atMs;
               const atRaw = schedule.at;
+              const tzRaw = schedule.tz;
               // Note: We intentionally DO NOT parse 'at' string here if kind='at'
               // because we want to preserve the string+tz for the runtime to handle dynamically
               // or for the tool to pass it through.
@@ -377,6 +387,15 @@ app-template:
                       next.kind = "every";
                   else if (typeof schedule.expr === "string")
                       next.kind = "cron";
+              }
+              // If an 'at' schedule is provided without a timezone, default to the runtime TZ
+              // so later inspection/debugging is unambiguous.
+              const effectiveKind = kind ?? next.kind;
+              if (effectiveKind === "at" && typeof atRaw === "string" && !(typeof tzRaw === "string" && tzRaw.trim())) {
+                  const sysTz = resolveSystemTimeZone();
+                  if (sysTz) {
+                      next.tz = sysTz;
+                  }
               }
               if (typeof schedule.atMs !== "number" && parsedAtMs !== null) {
                   next.atMs = parsedAtMs;
@@ -731,6 +750,15 @@ app-template:
           const ISO_TZ_RE = /(Z|[+-]\d{2}:?\d{2})$/i;
           const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
           const ISO_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T/;
+          function resolveSystemTimeZone() {
+              try {
+                  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  return typeof tz === "string" && tz.trim() ? tz.trim() : null;
+              }
+              catch {
+                  return null;
+              }
+          }
           function normalizeUtcIso(raw) {
               if (ISO_TZ_RE.test(raw))
                   return raw;
@@ -771,10 +799,13 @@ app-template:
                   const parsed = Date.parse(raw);
                   return Number.isFinite(parsed) ? parsed : null;
               }
-              // If no timezone provided, default to UTC interpretation (legacy behavior)
-              // OR should we default to System Local?
-              // Existing behavior: normalizeUtcIso appends 'Z'.
-              if (!timeZone) {
+              // If no timezone is provided, interpret in the runtime's local timezone
+              // (matches the cron tool docs: tz is optional).
+              const tz = typeof timeZone === "string" && timeZone.trim()
+                  ? timeZone.trim()
+                  : resolveSystemTimeZone();
+              if (!tz) {
+                  // Fallback to legacy UTC interpretation if we can't resolve a system timezone.
                   return parseAbsoluteTimeMs(raw);
               }
               try {
@@ -799,7 +830,7 @@ app-template:
                   // Format guess in target TimeZone.
                   // Calculate difference between Formatted and Expected.
                   // Adjust guess.
-                  return solveTimestampForZone(naiveDate, timeZone);
+                  return solveTimestampForZone(naiveDate, tz);
               }
               catch (e) {
                   return null;
