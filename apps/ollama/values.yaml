@@ -111,7 +111,13 @@ ollama:
       # NOTE: Avoid using the chart's built-in `create` lifecycle hook.
       # It runs as a `postStart` hook inside the main ollama pod, and any
       # transient failure will crashloop the deployment.
-      create: []
+      create:
+        - name: Echo
+          template: |
+            FROM qwen3:14b
+            PARAMETER num_ctx 131072
+            PARAMETER repeat_penalty 1.5
+            SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
 
       # -- Automatically remove models present on the disk but not specified in the values file
       clean: false
@@ -500,21 +506,12 @@ ollama:
                       done
                     }
 
-                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q6_K"
+                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest qwen3:14b"
                     for model in $models; do
                       pull_with_retry "$model"
                     done
 
-                    echo "Creating qwen2.5-14b-agent..."
-                    cat <<'EOF' > /tmp/qwen2.5-14b-agent
-                    FROM huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q6_K
-                    PARAMETER num_ctx 131072
-                    PARAMETER repeat_penalty 1.5
-                    SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
-                    EOF
 
-                    ollama rm qwen2.5-14b-agent >/dev/null 2>&1 || true
-                    ollama create qwen2.5-14b-agent -f /tmp/qwen2.5-14b-agent
 
                     echo "All models requested. Sleeping indefinitely..."
                     sleep infinity
