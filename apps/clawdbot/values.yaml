@@ -503,6 +503,119 @@ app-template:
           const REMINDER_CONTEXT_PER_MESSAGE_MAX = 220;
           const REMINDER_CONTEXT_TOTAL_MAX = 700;
           const REMINDER_CONTEXT_MARKER = "\n\nRecent context:\n";
+          const RELATIVE_MIN_DELAY_MS = 1;
+          function resolveSystemTimeZone() {
+              try {
+                  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  return typeof tz === "string" && tz.trim() ? tz.trim() : undefined;
+              }
+              catch {
+                  return undefined;
+              }
+          }
+          function getPartsInZone(date, timeZone) {
+              try {
+                  const formatter = new Intl.DateTimeFormat("en-US", {
+                      timeZone,
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                  });
+                  const parts = formatter.formatToParts(date);
+                  const map = {};
+                  for (const p of parts) {
+                      if (p.type !== "literal") {
+                          map[p.type] = p.value;
+                      }
+                  }
+                  return {
+                      year: map.year,
+                      month: map.month,
+                      day: map.day,
+                      hour: map.hour,
+                      minute: map.minute,
+                      second: map.second,
+                  };
+              }
+              catch {
+                  return null;
+              }
+          }
+          function formatAtInZone(ms, timeZone) {
+              const tz = (typeof timeZone === "string" && timeZone.trim()) ? timeZone.trim() : resolveSystemTimeZone();
+              if (!tz) {
+                  // ISO without milliseconds for stability
+                  return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+              }
+              const parts = getPartsInZone(new Date(ms), tz);
+              if (!parts) {
+                  return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+              }
+              // `parseTimeWithZone` accepts space-separated input; we include seconds for better precision.
+              return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+          }
+          function coerceAtSchedule(schedule) {
+              if (!schedule || typeof schedule !== "object") {
+                  return schedule;
+              }
+              const kind = typeof schedule.kind === "string" ? schedule.kind : "";
+              if (kind === "at") {
+                  const at = typeof schedule.at === "string" ? schedule.at.trim() : "";
+                  const tz = typeof schedule.tz === "string" ? schedule.tz.trim() : "";
+                  const hasAtMs = typeof schedule.atMs === "number" && Number.isFinite(schedule.atMs);
+                  // Prefer `at` (+ optional tz) over `atMs` to avoid agent-computed timestamp drift.
+                  if (at) {
+                      const next = { ...schedule };
+                      if (!tz) {
+                          const sysTz = resolveSystemTimeZone();
+                          if (sysTz) {
+                              next.tz = sysTz;
+                          }
+                      }
+                      if ("atMs" in next) {
+                          delete next.atMs;
+                      }
+                      return next;
+                  }
+                  // Reject atMs-only schedules. Agents must use `at` or relative fields.
+                  if (hasAtMs) {
+                      throw new Error("cron.add/update: schedule.kind='at' must provide schedule.at (preferred) or relative schedule.afterMinutes/afterMs; atMs-only is not accepted");
+                  }
+              }
+              // Relative one-shot schedule: translate to kind='at' with an unambiguous `at` string.
+              const afterMinutes = typeof schedule.afterMinutes === "number" && Number.isFinite(schedule.afterMinutes)
+                  ? schedule.afterMinutes
+                  : null;
+              const afterMs = typeof schedule.afterMs === "number" && Number.isFinite(schedule.afterMs)
+                  ? schedule.afterMs
+                  : null;
+              if (afterMinutes !== null || afterMs !== null) {
+                  const delayMs = afterMs !== null
+                      ? afterMs
+                      : afterMinutes !== null
+                          ? afterMinutes * 60 * 1000
+                          : 0;
+                  const safeDelay = Math.max(RELATIVE_MIN_DELAY_MS, Math.floor(delayMs));
+                  const now = Date.now();
+                  const target = now + safeDelay;
+                  const tz = typeof schedule.tz === "string" && schedule.tz.trim()
+                      ? schedule.tz.trim()
+                      : resolveSystemTimeZone();
+                  const next = {
+                      kind: "at",
+                      at: formatAtInZone(target, tz),
+                  };
+                  if (tz) {
+                      next.tz = tz;
+                  }
+                  return next;
+              }
+              return schedule;
+          }
           // Flattened schema: runtime validates per-action requirements.
           const CronToolSchema = Type.Object({
               action: stringEnum(CRON_ACTIONS),
@@ -623,9 +736,12 @@ app-template:
           }
           
           SCHEDULE TYPES (schedule.kind):
-          - "at": One-shot at specific time. Provide "at" (ISO string or "YYYY-MM-DD HH:mm") and optional "tz" (Timezone).
+          - "at": One-shot at specific time. Provide "at" (ISO string or "YYYY-MM-DD HH:mm[:ss]") and optional "tz" (Timezone).
             { "kind": "at", "at": "2026-01-27 12:25", "tz": "America/Chicago" }
-            (Legacy: { "kind": "at", "atMs": <unix-ms-timestamp> })
+            IMPORTANT: atMs-only schedules are rejected to avoid agent-computed timestamp drift.
+          - Relative one-shot (preferred for "in X minutes"): provide "afterMinutes" or "afterMs" (cron tool will convert to an absolute "at").
+            { "afterMinutes": 2 }
+            { "afterMs": 120000 }
           - "every": Recurring interval
             { "kind": "every", "everyMs": <interval-ms>, "anchorMs": <optional-start-ms> }
           - "cron": Cron expression
@@ -667,6 +783,9 @@ app-template:
                                   throw new Error("job required");
                               }
                               const job = normalizeCronJobCreate(params.job) ?? params.job;
+                              if (job && typeof job === "object" && "schedule" in job) {
+                                  job.schedule = coerceAtSchedule(job.schedule);
+                              }
                               if (job && typeof job === "object" && !("agentId" in job)) {
                                   const cfg = loadConfig();
                                   const agentId = opts?.agentSessionKey
@@ -707,6 +826,9 @@ app-template:
                                   throw new Error("patch required");
                               }
                               const patch = normalizeCronJobPatch(params.patch) ?? params.patch;
+                              if (patch && typeof patch === "object" && "schedule" in patch) {
+                                  patch.schedule = coerceAtSchedule(patch.schedule);
+                              }
                               return jsonResult(await callGatewayTool("cron.update", gatewayOpts, {
                                   id,
                                   patch,

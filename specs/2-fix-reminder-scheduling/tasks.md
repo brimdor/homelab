@@ -14,6 +14,7 @@
 - [x] T004 [US1] Add parsing tests for absolute local times (test/clawdbot_cron_time_test.go)
 - [x] T005 [US1] Add parsing tests for explicit offset/Z inputs (test/clawdbot_cron_time_test.go)
 - [x] T006 [US1] Add near-midnight day-boundary test cases (test/clawdbot_cron_time_test.go)
+- [x] T011 [US1] Add tests for cron-tool schedule coercion (test/clawdbot_cron_tool_test.go)
 
 ## Phase 4: User Story 2 - Create Accurate Relative-Time Reminder (P1)
 
