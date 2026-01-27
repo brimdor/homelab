@@ -208,11 +208,31 @@ app-template:
       items:
         - key: auth.js
           path: auth.js
+        - key: normalize.js
+          path: normalize.js
+        - key: cron-tool.js
+          path: cron-tool.js
+        - key: parse.js
+          path: parse.js
+        - key: schedule.js
+          path: schedule.js
+        - key: jobs.js
+          path: jobs.js
       advancedMounts:
         main:
           main:
             - path: /app/dist/gateway/auth.js
               subPath: auth.js
+            - path: /app/dist/cron/normalize.js
+              subPath: normalize.js
+            - path: /app/dist/agents/tools/cron-tool.js
+              subPath: cron-tool.js
+            - path: /app/dist/cron/parse.js
+              subPath: parse.js
+            - path: /app/dist/cron/schedule.js
+              subPath: schedule.js
+            - path: /app/dist/cron/service/jobs.js
+              subPath: jobs.js
 
   configMaps:
     bootstrap:
@@ -323,6 +343,731 @@ app-template:
       enabled: true
       forceRename: clawdbot-patches
       data:
+        normalize.js: |
+          import { sanitizeAgentId } from "../routing/session-key.js";
+          import { parseAbsoluteTimeMs } from "./parse.js";
+          import { migrateLegacyCronPayload } from "./payload-migration.js";
+          const DEFAULT_OPTIONS = {
+              applyDefaults: false,
+          };
+          function isRecord(value) {
+              return typeof value === "object" && value !== null && !Array.isArray(value);
+          }
+          function coerceSchedule(schedule) {
+              const next = { ...schedule };
+              const kind = typeof schedule.kind === "string" ? schedule.kind : undefined;
+              const atMsRaw = schedule.atMs;
+              const atRaw = schedule.at;
+              // Note: We intentionally DO NOT parse 'at' string here if kind='at'
+              // because we want to preserve the string+tz for the runtime to handle dynamically
+              // or for the tool to pass it through.
+              // However, existing logic tries to convert everything to atMs if possible.
+              // We will keep 'atMs' priority, but allow 'at' + 'tz' to pass through if atMs is missing.
+              const parsedAtMs = typeof atMsRaw === "string"
+                  ? parseAbsoluteTimeMs(atMsRaw)
+                  : null; // Don't auto-parse 'at' string here, let parseAbsoluteTimeMs handle it later or keep it as string
+              if (!kind) {
+                  if (typeof schedule.atMs === "number" ||
+                      typeof schedule.atMs === "string")
+                      next.kind = "at";
+                  else if (typeof schedule.at === "string")
+                      next.kind = "at";
+                  else if (typeof schedule.everyMs === "number")
+                      next.kind = "every";
+                  else if (typeof schedule.expr === "string")
+                      next.kind = "cron";
+              }
+              if (typeof schedule.atMs !== "number" && parsedAtMs !== null) {
+                  next.atMs = parsedAtMs;
+              }
+              // If we have 'at' string and NO 'atMs', we keep 'at'.
+              // We also keep 'tz' if present.
+              // Clean up: if we have valid atMs, we might strictly prefer that, 
+              // but for debugging/visibility it's nice to keep 'at' string if it was provided.
+              // The original code deleted 'at'.
+              // if ("at" in next) delete next.at; <--- Removed this deletion
+              return next;
+          }
+          function coercePayload(payload) {
+              const next = { ...payload };
+              // Back-compat: older configs used `provider` for delivery channel.
+              migrateLegacyCronPayload(next);
+              return next;
+          }
+          function unwrapJob(raw) {
+              if (isRecord(raw.data))
+                  return raw.data;
+              if (isRecord(raw.job))
+                  return raw.job;
+              return raw;
+          }
+          export function normalizeCronJobInput(raw, options = DEFAULT_OPTIONS) {
+              if (!isRecord(raw))
+                  return null;
+              const base = unwrapJob(raw);
+              const next = { ...base };
+              if ("agentId" in base) {
+                  const agentId = base.agentId;
+                  if (agentId === null) {
+                      next.agentId = null;
+                  }
+                  else if (typeof agentId === "string") {
+                      const trimmed = agentId.trim();
+                      if (trimmed)
+                          next.agentId = sanitizeAgentId(trimmed);
+                      else
+                          delete next.agentId;
+                  }
+              }
+              if ("enabled" in base) {
+                  const enabled = base.enabled;
+                  if (typeof enabled === "boolean") {
+                      next.enabled = enabled;
+                  }
+                  else if (typeof enabled === "string") {
+                      const trimmed = enabled.trim().toLowerCase();
+                      if (trimmed === "true")
+                          next.enabled = true;
+                      if (trimmed === "false")
+                          next.enabled = false;
+                  }
+              }
+              if (isRecord(base.schedule)) {
+                  next.schedule = coerceSchedule(base.schedule);
+              }
+              if (isRecord(base.payload)) {
+                  next.payload = coercePayload(base.payload);
+              }
+              if (options.applyDefaults) {
+                  if (!next.wakeMode)
+                      next.wakeMode = "next-heartbeat";
+                  if (!next.sessionTarget && isRecord(next.payload)) {
+                      const kind = typeof next.payload.kind === "string" ? next.payload.kind : "";
+                      if (kind === "systemEvent")
+                          next.sessionTarget = "main";
+                      if (kind === "agentTurn")
+                          next.sessionTarget = "isolated";
+                  }
+              }
+              return next;
+          }
+          export function normalizeCronJobCreate(raw, options) {
+              return normalizeCronJobInput(raw, {
+                  applyDefaults: true,
+                  ...options,
+              });
+          }
+          export function normalizeCronJobPatch(raw, options) {
+              return normalizeCronJobInput(raw, {
+                  applyDefaults: false,
+                  ...options,
+              });
+          }
+        cron-tool.js: |
+          import { Type } from "@sinclair/typebox";
+          import { normalizeCronJobCreate, normalizeCronJobPatch } from "../../cron/normalize.js";
+          import { loadConfig } from "../../config/config.js";
+          import { truncateUtf16Safe } from "../../utils.js";
+          import { optionalStringEnum, stringEnum } from "../schema/typebox.js";
+          import { resolveSessionAgentId } from "../agent-scope.js";
+          import { jsonResult, readStringParam } from "./common.js";
+          import { callGatewayTool } from "./gateway.js";
+          import { resolveInternalSessionKey, resolveMainSessionAlias } from "./sessions-helpers.js";
+          // NOTE: We use Type.Object({}, { additionalProperties: true }) for job/patch
+          // instead of CronAddParamsSchema/CronJobPatchSchema because the gateway schemas
+          // contain nested unions. Tool schemas need to stay provider-friendly, so we
+          // accept "any object" here and validate at runtime.
+          const CRON_ACTIONS = ["status", "list", "add", "update", "remove", "run", "runs", "wake"];
+          const CRON_WAKE_MODES = ["now", "next-heartbeat"];
+          const REMINDER_CONTEXT_MESSAGES_MAX = 10;
+          const REMINDER_CONTEXT_PER_MESSAGE_MAX = 220;
+          const REMINDER_CONTEXT_TOTAL_MAX = 700;
+          const REMINDER_CONTEXT_MARKER = "\n\nRecent context:\n";
+          // Flattened schema: runtime validates per-action requirements.
+          const CronToolSchema = Type.Object({
+              action: stringEnum(CRON_ACTIONS),
+              gatewayUrl: Type.Optional(Type.String()),
+              gatewayToken: Type.Optional(Type.String()),
+              timeoutMs: Type.Optional(Type.Number()),
+              includeDisabled: Type.Optional(Type.Boolean()),
+              job: Type.Optional(Type.Object({}, { additionalProperties: true })),
+              jobId: Type.Optional(Type.String()),
+              id: Type.Optional(Type.String()),
+              patch: Type.Optional(Type.Object({}, { additionalProperties: true })),
+              text: Type.Optional(Type.String()),
+              mode: optionalStringEnum(CRON_WAKE_MODES),
+              contextMessages: Type.Optional(Type.Number({ minimum: 0, maximum: REMINDER_CONTEXT_MESSAGES_MAX })),
+          });
+          function stripExistingContext(text) {
+              const index = text.indexOf(REMINDER_CONTEXT_MARKER);
+              if (index === -1)
+                  return text;
+              return text.slice(0, index).trim();
+          }
+          function truncateText(input, maxLen) {
+              if (input.length <= maxLen)
+                  return input;
+              const truncated = truncateUtf16Safe(input, Math.max(0, maxLen - 3)).trimEnd();
+              return `${truncated}...`;
+          }
+          function normalizeContextText(raw) {
+              return raw.replace(/\s+/g, " ").trim();
+          }
+          function extractMessageText(message) {
+              const role = typeof message.role === "string" ? message.role : "";
+              if (role !== "user" && role !== "assistant")
+                  return null;
+              const content = message.content;
+              if (typeof content === "string") {
+                  const normalized = normalizeContextText(content);
+                  return normalized ? { role, text: normalized } : null;
+              }
+              if (!Array.isArray(content))
+                  return null;
+              const chunks = [];
+              for (const block of content) {
+                  if (!block || typeof block !== "object")
+                      continue;
+                  if (block.type !== "text")
+                      continue;
+                  const text = block.text;
+                  if (typeof text === "string" && text.trim()) {
+                      chunks.push(text);
+                  }
+              }
+              const joined = normalizeContextText(chunks.join(" "));
+              return joined ? { role, text: joined } : null;
+          }
+          async function buildReminderContextLines(params) {
+              const maxMessages = Math.min(REMINDER_CONTEXT_MESSAGES_MAX, Math.max(0, Math.floor(params.contextMessages)));
+              if (maxMessages <= 0)
+                  return [];
+              const sessionKey = params.agentSessionKey?.trim();
+              if (!sessionKey)
+                  return [];
+              const cfg = loadConfig();
+              const { mainKey, alias } = resolveMainSessionAlias(cfg);
+              const resolvedKey = resolveInternalSessionKey({ key: sessionKey, alias, mainKey });
+              try {
+                  const res = (await callGatewayTool("chat.history", params.gatewayOpts, {
+                      sessionKey: resolvedKey,
+                      limit: maxMessages,
+                  }));
+                  const messages = Array.isArray(res?.messages) ? res.messages : [];
+                  const parsed = messages
+                      .map((msg) => extractMessageText(msg))
+                      .filter((msg) => Boolean(msg));
+                  const recent = parsed.slice(-maxMessages);
+                  if (recent.length === 0)
+                      return [];
+                  const lines = [];
+                  let total = 0;
+                  for (const entry of recent) {
+                      const label = entry.role === "user" ? "User" : "Assistant";
+                      const text = truncateText(entry.text, REMINDER_CONTEXT_PER_MESSAGE_MAX);
+                      const line = `- ${label}: ${text}`;
+                      total += line.length;
+                      if (total > REMINDER_CONTEXT_TOTAL_MAX)
+                          break;
+                      lines.push(line);
+                  }
+                  return lines;
+              }
+              catch {
+                  return [];
+              }
+          }
+          export function createCronTool(opts) {
+              return {
+                  label: "Cron",
+                  name: "cron",
+                  description: `Manage Gateway cron jobs (status/list/add/update/remove/run/runs) and send wake events.
+          
+          ACTIONS:
+          - status: Check cron scheduler status
+          - list: List jobs (use includeDisabled:true to include disabled)
+          - add: Create job (requires job object, see schema below)
+          - update: Modify job (requires jobId + patch object)
+          - remove: Delete job (requires jobId)
+          - run: Trigger job immediately (requires jobId)
+          - runs: Get job run history (requires jobId)
+          - wake: Send wake event (requires text, optional mode)
+          
+          JOB SCHEMA (for add action):
+          {
+            "name": "string (optional)",
+            "schedule": { ... },      // Required: when to run
+            "payload": { ... },       // Required: what to execute
+            "sessionTarget": "main" | "isolated",  // Required
+            "enabled": true | false   // Optional, default true
+          }
+          
+          SCHEDULE TYPES (schedule.kind):
+          - "at": One-shot at specific time. Provide "at" (ISO string or "YYYY-MM-DD HH:mm") and optional "tz" (Timezone).
+            { "kind": "at", "at": "2026-01-27 12:25", "tz": "America/Chicago" }
+            (Legacy: { "kind": "at", "atMs": <unix-ms-timestamp> })
+          - "every": Recurring interval
+            { "kind": "every", "everyMs": <interval-ms>, "anchorMs": <optional-start-ms> }
+          - "cron": Cron expression
+            { "kind": "cron", "expr": "<cron-expression>", "tz": "<optional-timezone>" }
+          
+          PAYLOAD TYPES (payload.kind):
+          - "systemEvent": Injects text as system event into session
+            { "kind": "systemEvent", "text": "<message>" }
+          - "agentTurn": Runs agent with message (isolated sessions only)
+            { "kind": "agentTurn", "message": "<prompt>", "model": "<optional>", "thinking": "<optional>", "timeoutSeconds": <optional>, "deliver": <optional-bool>, "channel": "<optional>", "to": "<optional>", "bestEffortDeliver": <optional-bool> }
+          
+          CRITICAL CONSTRAINTS:
+          - sessionTarget="main" REQUIRES payload.kind="systemEvent"
+          - sessionTarget="isolated" REQUIRES payload.kind="agentTurn"
+          
+          WAKE MODES (for wake action):
+          - "next-heartbeat" (default): Wake on next heartbeat
+          - "now": Wake immediately
+          
+          Use jobId as the canonical identifier; id is accepted for compatibility. Use contextMessages (0-10) to add previous messages as context to the job text.`,
+                  parameters: CronToolSchema,
+                  execute: async (_toolCallId, args) => {
+                      const params = args;
+                      const action = readStringParam(params, "action", { required: true });
+                      const gatewayOpts = {
+                          gatewayUrl: readStringParam(params, "gatewayUrl", { trim: false }),
+                          gatewayToken: readStringParam(params, "gatewayToken", { trim: false }),
+                          timeoutMs: typeof params.timeoutMs === "number" ? params.timeoutMs : undefined,
+                      };
+                      switch (action) {
+                          case "status":
+                              return jsonResult(await callGatewayTool("cron.status", gatewayOpts, {}));
+                          case "list":
+                              return jsonResult(await callGatewayTool("cron.list", gatewayOpts, {
+                                  includeDisabled: Boolean(params.includeDisabled),
+                              }));
+                          case "add": {
+                              if (!params.job || typeof params.job !== "object") {
+                                  throw new Error("job required");
+                              }
+                              const job = normalizeCronJobCreate(params.job) ?? params.job;
+                              if (job && typeof job === "object" && !("agentId" in job)) {
+                                  const cfg = loadConfig();
+                                  const agentId = opts?.agentSessionKey
+                                      ? resolveSessionAgentId({ sessionKey: opts.agentSessionKey, config: cfg })
+                                      : undefined;
+                                  if (agentId) {
+                                      job.agentId = agentId;
+                                  }
+                              }
+                              const contextMessages = typeof params.contextMessages === "number" && Number.isFinite(params.contextMessages)
+                                  ? params.contextMessages
+                                  : 0;
+                              if (job &&
+                                  typeof job === "object" &&
+                                  "payload" in job &&
+                                  job.payload?.kind === "systemEvent") {
+                                  const payload = job.payload;
+                                  if (typeof payload.text === "string" && payload.text.trim()) {
+                                      const contextLines = await buildReminderContextLines({
+                                          agentSessionKey: opts?.agentSessionKey,
+                                          gatewayOpts,
+                                          contextMessages,
+                                      });
+                                      if (contextLines.length > 0) {
+                                          const baseText = stripExistingContext(payload.text);
+                                          payload.text = `${baseText}${REMINDER_CONTEXT_MARKER}${contextLines.join("\n")}`;
+                                      }
+                                  }
+                              }
+                              return jsonResult(await callGatewayTool("cron.add", gatewayOpts, job));
+                          }
+                          case "update": {
+                              const id = readStringParam(params, "jobId") ?? readStringParam(params, "id");
+                              if (!id) {
+                                  throw new Error("jobId required (id accepted for backward compatibility)");
+                              }
+                              if (!params.patch || typeof params.patch !== "object") {
+                                  throw new Error("patch required");
+                              }
+                              const patch = normalizeCronJobPatch(params.patch) ?? params.patch;
+                              return jsonResult(await callGatewayTool("cron.update", gatewayOpts, {
+                                  id,
+                                  patch,
+                              }));
+                          }
+                          case "remove": {
+                              const id = readStringParam(params, "jobId") ?? readStringParam(params, "id");
+                              if (!id) {
+                                  throw new Error("jobId required (id accepted for backward compatibility)");
+                              }
+                              return jsonResult(await callGatewayTool("cron.remove", gatewayOpts, { id }));
+                          }
+                          case "run": {
+                              const id = readStringParam(params, "jobId") ?? readStringParam(params, "id");
+                              if (!id) {
+                                  throw new Error("jobId required (id accepted for backward compatibility)");
+                              }
+                              return jsonResult(await callGatewayTool("cron.run", gatewayOpts, { id }));
+                          }
+                          case "runs": {
+                              const id = readStringParam(params, "jobId") ?? readStringParam(params, "id");
+                              if (!id) {
+                                  throw new Error("jobId required (id accepted for backward compatibility)");
+                              }
+                              return jsonResult(await callGatewayTool("cron.runs", gatewayOpts, { id }));
+                          }
+                          case "wake": {
+                              const text = readStringParam(params, "text", { required: true });
+                              const mode = params.mode === "now" || params.mode === "next-heartbeat"
+                                  ? params.mode
+                                  : "next-heartbeat";
+                              return jsonResult(await callGatewayTool("wake", gatewayOpts, { mode, text }, { expectFinal: false }));
+                          }
+                          default:
+                              throw new Error(`Unknown action: ${action}`);
+                      }
+                  },
+              };
+          }
+        parse.js: |
+          const ISO_TZ_RE = /(Z|[+-]\d{2}:?\d{2})$/i;
+          const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+          const ISO_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T/;
+          function normalizeUtcIso(raw) {
+              if (ISO_TZ_RE.test(raw))
+                  return raw;
+              if (ISO_DATE_RE.test(raw))
+                  return `${raw}T00:00:00Z`;
+              if (ISO_DATE_TIME_RE.test(raw))
+                  return `${raw}Z`;
+              return raw;
+          }
+          export function parseAbsoluteTimeMs(input) {
+              const raw = input.trim();
+              if (!raw)
+                  return null;
+              if (/^\d+$/.test(raw)) {
+                  const n = Number(raw);
+                  if (Number.isFinite(n) && n > 0)
+                      return Math.floor(n);
+              }
+              const parsed = Date.parse(normalizeUtcIso(raw));
+              return Number.isFinite(parsed) ? parsed : null;
+          }
+          /**
+           * Parses a date string interpreted in a specific timezone.
+           * Returns the absolute UTC timestamp.
+           */
+          export function parseTimeWithZone(input, timeZone) {
+              const raw = input.trim();
+              if (!raw)
+                  return null;
+              // If input is purely numeric, treat as absolute timestamp (ms)
+              if (/^\d+$/.test(raw)) {
+                  const n = Number(raw);
+                  if (Number.isFinite(n) && n > 0)
+                      return Math.floor(n);
+              }
+              // If explicitly UTC/Offset based, respect it.
+              if (ISO_TZ_RE.test(raw)) {
+                  const parsed = Date.parse(raw);
+                  return Number.isFinite(parsed) ? parsed : null;
+              }
+              // If no timezone provided, default to UTC interpretation (legacy behavior)
+              // OR should we default to System Local?
+              // Existing behavior: normalizeUtcIso appends 'Z'.
+              if (!timeZone) {
+                  return parseAbsoluteTimeMs(raw);
+              }
+              try {
+                  // 1. Construct a "naive" date assuming the input string represents UTC time.
+                  // We clean the string to ensure it's parseable as ISO (replacing space with T if needed).
+                  const clean = raw.replace(" ", "T");
+                  const naiveISO = clean.includes("T") ? clean : `${clean}T00:00:00`;
+                  // Naive UTC timestamp (e.g. 12:00 -> 12:00 UTC)
+                  const naiveDate = new Date(`${naiveISO}Z`);
+                  if (Number.isNaN(naiveDate.getTime()))
+                      return null;
+                  // 2. Find the offset of the target timezone at this "naive" time.
+                  // We want to find T such that T in TimeZone looks like `raw`.
+                  // Let's use the Intl API to find the offset.
+                  // Actually, finding the exact timestamp that maps to a string in a TZ is hard because of DST gaps/overlaps.
+                  // But for most cases:
+                  // T_utc = T_naive + Offset
+                  // We can use a brute-force approach with Intl.DateTimeFormat since we don't have Moment/Luxon.
+                  // Or we can rely on the system environment if possible, but we can't switch env vars.
+                  // Iterative approach:
+                  // Start with guess = naiveDate.getTime()
+                  // Format guess in target TimeZone.
+                  // Calculate difference between Formatted and Expected.
+                  // Adjust guess.
+                  return solveTimestampForZone(naiveDate, timeZone);
+              }
+              catch (e) {
+                  return null;
+              }
+          }
+          function solveTimestampForZone(targetPartsDate, timeZone) {
+              // targetPartsDate is e.g. 12:25 UTC. We want the timestamp that IS 12:25 in `timeZone`.
+              // If `timeZone` is -06:00, then 12:25 in that zone is 18:25 UTC.
+              // So we expect result > targetPartsDate.getTime().
+              // Initial guess: treat naive as UTC.
+              let guess = targetPartsDate.getTime();
+              // Refine guess.
+              for (let i = 0; i < 3; i++) {
+                  const d = new Date(guess);
+                  // Get the components of 'guess' in the target timezone
+                  const parts = getPartsInZone(d, timeZone);
+                  if (!parts)
+                      break;
+                  // Reconstruct what "time" this guess represents in the target zone
+                  // We use UTC methods to build a date from the zoned parts, effectively getting the "naive" time of the guess.
+                  const guessInZoneNaive = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second, parts.millisecond);
+                  const diff = targetPartsDate.getTime() - guessInZoneNaive;
+                  if (Math.abs(diff) < 1000)
+                      return guess; // Close enough
+                  guess += diff;
+              }
+              return guess;
+          }
+          function getPartsInZone(date, timeZone) {
+              try {
+                  const formatter = new Intl.DateTimeFormat("en-US", {
+                      timeZone,
+                      year: "numeric", month: "numeric", day: "numeric",
+                      hour: "numeric", minute: "numeric", second: "numeric",
+                      hour12: false,
+                      fractionalSecondDigits: 3
+                  });
+                  const parts = formatter.formatToParts(date);
+                  const map = {};
+                  for (const p of parts) {
+                      if (p.type !== "literal")
+                          map[p.type] = parseInt(p.value, 10);
+                  }
+                  return {
+                      year: map.year,
+                      month: map.month,
+                      day: map.day,
+                      hour: map.hour,
+                      minute: map.minute,
+                      second: map.second,
+                      millisecond: map.fractionalSecond ?? 0
+                  };
+              }
+              catch {
+                  return null;
+              }
+          }
+        schedule.js: |
+          import { Cron } from "croner";
+          import { parseTimeWithZone } from "./parse.js";
+          export function computeNextRunAtMs(schedule, nowMs) {
+              if (schedule.kind === "at") {
+                  let target = null;
+                  if ("atMs" in schedule && typeof schedule.atMs === "number") {
+                      target = schedule.atMs;
+                  }
+                  else if ("at" in schedule && typeof schedule.at === "string") {
+                      target = parseTimeWithZone(schedule.at, schedule.tz);
+                  }
+                  if (target === null || !Number.isFinite(target))
+                      return undefined;
+                  return target > nowMs ? target : undefined;
+              }
+              if (schedule.kind === "every") {
+                  const everyMs = Math.max(1, Math.floor(schedule.everyMs));
+                  const anchor = Math.max(0, Math.floor(schedule.anchorMs ?? nowMs));
+                  if (nowMs < anchor)
+                      return anchor;
+                  const elapsed = nowMs - anchor;
+                  const steps = Math.max(1, Math.floor((elapsed + everyMs - 1) / everyMs));
+                  return anchor + steps * everyMs;
+              }
+              const expr = schedule.expr.trim();
+              if (!expr)
+                  return undefined;
+              const cron = new Cron(expr, {
+                  timezone: schedule.tz?.trim() || undefined,
+                  catch: false,
+              });
+              const next = cron.nextRun(new Date(nowMs));
+              return next ? next.getTime() : undefined;
+          }
+        jobs.js: |
+          import crypto from "node:crypto";
+          import { computeNextRunAtMs } from "../schedule.js";
+          import { normalizeOptionalAgentId, normalizeOptionalText, normalizePayloadToSystemText, normalizeRequiredName, } from "./normalize.js";
+          const STUCK_RUN_MS = 2 * 60 * 60 * 1000;
+          export function assertSupportedJobSpec(job) {
+              if (job.sessionTarget === "main" && job.payload.kind !== "systemEvent") {
+                  throw new Error('main cron jobs require payload.kind="systemEvent"');
+              }
+              if (job.sessionTarget === "isolated" && job.payload.kind !== "agentTurn") {
+                  throw new Error('isolated cron jobs require payload.kind="agentTurn"');
+              }
+          }
+          export function findJobOrThrow(state, id) {
+              const job = state.store?.jobs.find((j) => j.id === id);
+              if (!job)
+                  throw new Error(`unknown cron job id: ${id}`);
+              return job;
+          }
+          export function computeJobNextRunAtMs(job, nowMs) {
+              if (!job.enabled)
+                  return undefined;
+              if (job.schedule.kind === "at") {
+                  // One-shot jobs stay due until they successfully finish.
+                  if (job.state.lastStatus === "ok" && job.state.lastRunAtMs)
+                      return undefined;
+                  if ("atMs" in job.schedule) {
+                      return job.schedule.atMs;
+                  }
+              }
+              return computeNextRunAtMs(job.schedule, nowMs);
+          }
+          export function recomputeNextRuns(state) {
+              if (!state.store)
+                  return;
+              const now = state.deps.nowMs();
+              for (const job of state.store.jobs) {
+                  if (!job.state)
+                      job.state = {};
+                  if (!job.enabled) {
+                      job.state.nextRunAtMs = undefined;
+                      job.state.runningAtMs = undefined;
+                      continue;
+                  }
+                  const runningAt = job.state.runningAtMs;
+                  if (typeof runningAt === "number" && now - runningAt > STUCK_RUN_MS) {
+                      state.deps.log.warn({ jobId: job.id, runningAtMs: runningAt }, "cron: clearing stuck running marker");
+                      job.state.runningAtMs = undefined;
+                  }
+                  job.state.nextRunAtMs = computeJobNextRunAtMs(job, now);
+              }
+          }
+          export function nextWakeAtMs(state) {
+              const jobs = state.store?.jobs ?? [];
+              const enabled = jobs.filter((j) => j.enabled && typeof j.state.nextRunAtMs === "number");
+              if (enabled.length === 0)
+                  return undefined;
+              return enabled.reduce((min, j) => Math.min(min, j.state.nextRunAtMs), enabled[0].state.nextRunAtMs);
+          }
+          export function createJob(state, input) {
+              const now = state.deps.nowMs();
+              const id = crypto.randomUUID();
+              const job = {
+                  id,
+                  agentId: normalizeOptionalAgentId(input.agentId),
+                  name: normalizeRequiredName(input.name),
+                  description: normalizeOptionalText(input.description),
+                  enabled: input.enabled !== false,
+                  deleteAfterRun: input.deleteAfterRun,
+                  createdAtMs: now,
+                  updatedAtMs: now,
+                  schedule: input.schedule,
+                  sessionTarget: input.sessionTarget,
+                  wakeMode: input.wakeMode,
+                  payload: input.payload,
+                  isolation: input.isolation,
+                  state: {
+                      ...input.state,
+                  },
+              };
+              assertSupportedJobSpec(job);
+              job.state.nextRunAtMs = computeJobNextRunAtMs(job, now);
+              return job;
+          }
+          export function applyJobPatch(job, patch) {
+              if ("name" in patch)
+                  job.name = normalizeRequiredName(patch.name);
+              if ("description" in patch)
+                  job.description = normalizeOptionalText(patch.description);
+              if (typeof patch.enabled === "boolean")
+                  job.enabled = patch.enabled;
+              if (typeof patch.deleteAfterRun === "boolean")
+                  job.deleteAfterRun = patch.deleteAfterRun;
+              if (patch.schedule)
+                  job.schedule = patch.schedule;
+              if (patch.sessionTarget)
+                  job.sessionTarget = patch.sessionTarget;
+              if (patch.wakeMode)
+                  job.wakeMode = patch.wakeMode;
+              if (patch.payload)
+                  job.payload = mergeCronPayload(job.payload, patch.payload);
+              if (patch.isolation)
+                  job.isolation = patch.isolation;
+              if (patch.state)
+                  job.state = { ...job.state, ...patch.state };
+              if ("agentId" in patch) {
+                  job.agentId = normalizeOptionalAgentId(patch.agentId);
+              }
+              assertSupportedJobSpec(job);
+          }
+          function mergeCronPayload(existing, patch) {
+              if (patch.kind !== existing.kind) {
+                  return buildPayloadFromPatch(patch);
+              }
+              if (patch.kind === "systemEvent") {
+                  if (existing.kind !== "systemEvent") {
+                      return buildPayloadFromPatch(patch);
+                  }
+                  const text = typeof patch.text === "string" ? patch.text : existing.text;
+                  return { kind: "systemEvent", text };
+              }
+              if (existing.kind !== "agentTurn") {
+                  return buildPayloadFromPatch(patch);
+              }
+              const next = { ...existing };
+              if (typeof patch.message === "string")
+                  next.message = patch.message;
+              if (typeof patch.model === "string")
+                  next.model = patch.model;
+              if (typeof patch.thinking === "string")
+                  next.thinking = patch.thinking;
+              if (typeof patch.timeoutSeconds === "number")
+                  next.timeoutSeconds = patch.timeoutSeconds;
+              if (typeof patch.deliver === "boolean")
+                  next.deliver = patch.deliver;
+              if (typeof patch.channel === "string")
+                  next.channel = patch.channel;
+              if (typeof patch.to === "string")
+                  next.to = patch.to;
+              if (typeof patch.bestEffortDeliver === "boolean") {
+                  next.bestEffortDeliver = patch.bestEffortDeliver;
+              }
+              return next;
+          }
+          function buildPayloadFromPatch(patch) {
+              if (patch.kind === "systemEvent") {
+                  if (typeof patch.text !== "string" || patch.text.length === 0) {
+                      throw new Error('cron.update payload.kind="systemEvent" requires text');
+                  }
+                  return { kind: "systemEvent", text: patch.text };
+              }
+              if (typeof patch.message !== "string" || patch.message.length === 0) {
+                  throw new Error('cron.update payload.kind="agentTurn" requires message');
+              }
+              return {
+                  kind: "agentTurn",
+                  message: patch.message,
+                  model: patch.model,
+                  thinking: patch.thinking,
+                  timeoutSeconds: patch.timeoutSeconds,
+                  deliver: patch.deliver,
+                  channel: patch.channel,
+                  to: patch.to,
+                  bestEffortDeliver: patch.bestEffortDeliver,
+              };
+          }
+          export function isJobDue(job, nowMs, opts) {
+              if (opts.forced)
+                  return true;
+              return job.enabled && typeof job.state.nextRunAtMs === "number" && nowMs >= job.state.nextRunAtMs;
+          }
+          export function resolveJobPayloadTextForMain(job) {
+              if (job.payload.kind !== "systemEvent")
+                  return undefined;
+              const text = normalizePayloadToSystemText(job.payload);
+              return text.trim() ? text : undefined;
+          }
         auth.js: |
           import { timingSafeEqual } from "node:crypto";
           import { readTailscaleWhoisIdentity } from "../infra/tailscale.js";
