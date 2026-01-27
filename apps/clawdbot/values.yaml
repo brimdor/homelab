@@ -90,6 +90,7 @@ app-template:
             - -lc
             - |
               set -eu
+              mkdir -p /tools/bin
               npm config set fund false >/dev/null 2>&1 || true
               npm config set update-notifier false >/dev/null 2>&1 || true
               npm config set prefix /tools/npm
