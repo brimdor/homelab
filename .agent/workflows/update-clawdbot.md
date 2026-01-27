@@ -41,9 +41,15 @@ Updates the Clawdbot application by synchronizing with the upstream repository, 
 
 ## Phase 2: Build & Push
 
-1.  **Execute Build Script**:
+1.  **Update Configuration**:
+    -   Verify `apps/clawdbot/values.yaml` contains all necessary `patches` (ConfigMap injections) for any custom logic.
+    -   Ensure `image.repository` in `values.yaml` points to `10.0.20.11:32309/clawdbot`.
+
+2.  **Execute Build Script**:
     -   Run: `apps/clawdbot/scripts/build.sh`
-    -   **Note**: The build script checks for `apps/clawdbot/Dockerfile`. If found, it copies it to the source directory before building. This ensures our image customizations persist.
+    -   **Action**: Builds the image using `apps/clawdbot/Dockerfile` (if present) or upstream.
+    -   **Push**: Pushes to local registry `registry.eaglepass.io/clawdbot:latest`.
+    -   **Note**: The build script automatically handles copying the custom Dockerfile to the source repo.
 
 ---
 

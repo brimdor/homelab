@@ -32,9 +32,12 @@ sync_note: Governance for application lifecycle and code modifications.
 
 ## Rule 2: Image Ownership
 
-**We own the container images running in the cluster.**
+**We own specific container images stored in our local registry.**
 
-- **Self-Built Images**: For core applications (like Clawdbot), we build our own container images.
+- **Registry**: `registry.eaglepass.io` (Internal) / `10.0.20.11:32309` (Cluster Pull).
+- **Self-Built Images**: We build and own images for core applications (like Clawdbot) that require deep customization. These are pushed to `registry.eaglepass.io`.
+- **Upstream Images**: For standard applications, we use official upstream images (e.g., from Docker Hub). We do NOT own these.
+
 - **Build Scripts**: Build logic resides in `apps/<app-name>/scripts/build.sh` within the homelab repository.
 - **Dockerfile Management**: If we need a custom Dockerfile, it lives in the homelab repository or is generated during the build process. Do not rely on the upstream Dockerfile remaining compatible with our needs.
 
