@@ -329,7 +329,7 @@ app-template:
           clawdbot config set channels.discord.configWrites false
           clawdbot config unset channels.discord.token || true
           clawdbot config set channels.discord.groupPolicy open
-          clawdbot config set --json channels.discord.guilds "{\"*\":{\"requireMention\":true,\"channels\":{\"*\":{\"requireMention\":true,\"enabled\":true}}}}"
+          clawdbot config set --json channels.discord.guilds '{"*":{"requireMention":true,"channels":{"*":{"requireMention":true,"enabled":true}}}}'
 
           # Default agent model: Ollama Echo (served by cluster Ollama via localhost proxy).
           node dist/index.js config set agents.defaults.model.primary "ollama/Echo:latest"
