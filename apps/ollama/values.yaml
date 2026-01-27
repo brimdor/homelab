@@ -114,7 +114,7 @@ ollama:
       create:
         - name: Echo
           template: |
-            FROM qwen3:14b
+            FROM qwen3:8b
             PARAMETER num_ctx 131072
             PARAMETER repeat_penalty 1.5
             SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
@@ -506,7 +506,7 @@ ollama:
                       done
                     }
 
-                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest qwen3:14b"
+                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest qwen3:8b"
                     for model in $models; do
                       pull_with_retry "$model"
                     done
