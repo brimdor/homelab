@@ -34,6 +34,7 @@ app-template:
               update-ca-certificates >/dev/null 2>&1 || true
 
               mkdir -p /tools/bin /tmp/tools
+              chmod 2775 /tools/bin || true
 
               arch="$(dpkg --print-architecture)"
               case "$arch" in
@@ -76,6 +77,27 @@ app-template:
 
               # Clean up
               rm -rf /tmp/tools
+          securityContext:
+            runAsUser: 0
+
+        node-tools-installer:
+          image:
+            repository: 10.0.20.11:32309/clawdbot
+            tag: latest
+            pullPolicy: Always
+          command:
+            - sh
+            - -lc
+            - |
+              set -eu
+              npm config set fund false >/dev/null 2>&1 || true
+              npm config set update-notifier false >/dev/null 2>&1 || true
+              npm config set prefix /tools/npm
+
+              npm install -g clawdhub mcporter >/dev/null
+
+              ln -sf /tools/npm/bin/clawdhub /tools/bin/clawdhub
+              ln -sf /tools/npm/bin/mcporter /tools/bin/mcporter
           securityContext:
             runAsUser: 0
       containers:
