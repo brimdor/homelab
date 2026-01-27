@@ -79,31 +79,6 @@ app-template:
               rm -rf /tmp/tools
           securityContext:
             runAsUser: 0
-
-        node-tools-installer:
-          image:
-            repository: 10.0.20.11:32309/clawdbot
-            tag: latest
-            pullPolicy: Always
-          command:
-            - sh
-            - -lc
-            - |
-              set -eu
-              mkdir -p /tools/bin
-              npm config set fund false >/dev/null 2>&1 || true
-              npm config set update-notifier false >/dev/null 2>&1 || true
-              npm config set prefix /tools/npm
-
-              npm install -g clawdhub mcporter >/dev/null
-
-              # clawdhub imports undici (not always installed as dependency)
-              npm install --prefix /tools/npm/lib/node_modules/clawdhub undici >/dev/null || true
-
-              ln -sf /tools/npm/bin/clawdhub /tools/bin/clawdhub
-              ln -sf /tools/npm/bin/mcporter /tools/bin/mcporter
-          securityContext:
-            runAsUser: 0
       containers:
         main:
           image:
@@ -115,7 +90,7 @@ app-template:
             - name: TZ
               value: America/Chicago
             - name: PATH
-              value: /tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+              value: /tools/bin:/home/node/.linuxbrew/bin:/home/node/.linuxbrew/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             - name: DISCORD_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -324,15 +299,19 @@ app-template:
           node dist/index.js config set gateway.controlUi.dangerouslyDisableDeviceAuth true
           node dist/index.js config set --json gateway.port 18789
 
-          # Discord: use env token (avoid persisting secrets in config) and allow guild channels.
-          clawdbot config set channels.discord.enabled true
-          clawdbot config set channels.discord.configWrites false
-          clawdbot config unset channels.discord.token || true
-          clawdbot config set channels.discord.groupPolicy open
-          clawdbot config set --json channels.discord.guilds '{"*":{"requireMention":true,"channels":{"*":{"requireMention":true,"enabled":true}}}}'
+           # Discord: use env token (avoid persisting secrets in config) and allow guild channels.
+           clawdbot config set channels.discord.enabled true
+           clawdbot config set channels.discord.configWrites false
+           clawdbot config unset channels.discord.token || true
+           clawdbot config set channels.discord.groupPolicy open
+           clawdbot config set --json channels.discord.guilds '{"*":{"requireMention":true,"channels":{"*":{"requireMention":true,"enabled":true}}}}'
 
-          # Default agent model: Ollama Echo (served by cluster Ollama via localhost proxy).
-          node dist/index.js config set agents.defaults.model.primary "ollama/Echo:latest"
+           # Hooks: disable by default (hooks.enabled requires hooks.token).
+           node dist/index.js config set --json hooks.enabled false
+           node dist/index.js config unset hooks.token || true
+
+           # Default agent model: Ollama Echo (served by cluster Ollama via localhost proxy).
+           node dist/index.js config set agents.defaults.model.primary "ollama/Echo:latest"
 
           exec node dist/index.js gateway \
             --port 18789 \
