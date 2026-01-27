@@ -97,6 +97,9 @@ app-template:
 
               npm install -g clawdhub mcporter >/dev/null
 
+              # clawdhub imports undici (not always installed as dependency)
+              npm install --prefix /tools/npm/lib/node_modules/clawdhub undici >/dev/null || true
+
               ln -sf /tools/npm/bin/clawdhub /tools/bin/clawdhub
               ln -sf /tools/npm/bin/mcporter /tools/bin/mcporter
           securityContext:
