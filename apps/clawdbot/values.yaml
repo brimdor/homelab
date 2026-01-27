@@ -157,6 +157,11 @@ app-template:
           mkdir -p "$STATE_DIR" "$WORKSPACE_DIR" \
             "$STATE_DIR/cron" "$WORKSPACE_DIR/canvas"
 
+          # Doctor: keep state directory private and ensure OAuth dir exists.
+          chmod 700 "$STATE_DIR" || true
+          mkdir -p "$STATE_DIR/credentials"
+          chmod 700 "$STATE_DIR/credentials" || true
+
           # Initialize config/workspace if missing.
           if [ ! -f "$STATE_DIR/clawdbot.json" ]; then
             node dist/index.js onboard \
