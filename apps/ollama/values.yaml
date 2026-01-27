@@ -111,13 +111,7 @@ ollama:
       # NOTE: Avoid using the chart's built-in `create` lifecycle hook.
       # It runs as a `postStart` hook inside the main ollama pod, and any
       # transient failure will crashloop the deployment.
-      create:
-        - name: Echo
-          template: |
-            FROM qwen3:8b
-            PARAMETER num_ctx 131072
-            PARAMETER repeat_penalty 1.5
-            SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
+      create: []
 
       # -- Automatically remove models present on the disk but not specified in the values file
       clean: false
@@ -512,6 +506,20 @@ ollama:
                     done
 
 
+
+                    echo "Creating Echo model..."
+                    cat <<EOF > Modelfile.Echo
+                    FROM qwen3:8b
+                    PARAMETER num_ctx 131072
+                    PARAMETER repeat_penalty 1.5
+                    SYSTEM "You are an autonomous agent. Reason in <think> tags before acting."
+                    EOF
+
+                    if ollama create Echo -f Modelfile.Echo; then
+                        echo "Successfully created Echo model"
+                    else
+                        echo "Failed to create Echo model" >&2
+                    fi
 
                     echo "All models requested. Sleeping indefinitely..."
                     sleep infinity
