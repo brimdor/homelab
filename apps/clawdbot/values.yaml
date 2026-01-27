@@ -116,6 +116,11 @@ app-template:
               value: America/Chicago
             - name: PATH
               value: /tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+            - name: DISCORD_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: clawdbot-secret
+                  key: discord-token
             - name: DISCORD_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -318,6 +323,13 @@ app-template:
           node dist/index.js config set gateway.controlUi.allowInsecureAuth true
           node dist/index.js config set gateway.controlUi.dangerouslyDisableDeviceAuth true
           node dist/index.js config set --json gateway.port 18789
+
+          # Discord: use env token (avoid persisting secrets in config) and allow guild channels.
+          node dist/index.js config set channels.discord.enabled true
+          node dist/index.js config set channels.discord.configWrites false
+          node dist/index.js config unset channels.discord.token || true
+          node dist/index.js config set channels.discord.groupPolicy open
+          node dist/index.js config set --json channels.discord.guilds '{"*": {"requireMention": true, "channels": {"*": {"requireMention": true, "enabled": true}}}}'
 
           # Default agent model: Ollama Echo (served by cluster Ollama via localhost proxy).
           node dist/index.js config set agents.defaults.model.primary "ollama/Echo:latest"
