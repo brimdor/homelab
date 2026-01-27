@@ -16,6 +16,71 @@ app-template:
               chown -R 1000:1000 /home/node/.clawdbot /home/node/clawd || true
           securityContext:
             runAsUser: 0
+
+        tools-installer:
+          image:
+            repository: docker.io/library/debian
+            tag: "12-slim"
+            pullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - |
+              set -eu
+              export DEBIAN_FRONTEND=noninteractive
+
+              apt-get update -y >/dev/null
+              apt-get install -y --no-install-recommends ca-certificates curl unzip tar gzip >/dev/null
+              update-ca-certificates >/dev/null 2>&1 || true
+
+              mkdir -p /tools/bin /tmp/tools
+
+              arch="$(dpkg --print-architecture)"
+              case "$arch" in
+                amd64)
+                  OP_URL="https://cache.agilebits.com/dist/1P/op2/pkg/v2.27.0/op_linux_amd64_v2.27.0.zip"
+                  GH_URL="https://github.com/cli/cli/releases/download/v2.53.0/gh_2.53.0_linux_amd64.tar.gz"
+                  JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64"
+                  RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-x86_64-unknown-linux-musl.tar.gz"
+                  ;;
+                arm64)
+                  OP_URL="https://cache.agilebits.com/dist/1P/op2/pkg/v2.27.0/op_linux_arm64_v2.27.0.zip"
+                  GH_URL="https://github.com/cli/cli/releases/download/v2.53.0/gh_2.53.0_linux_arm64.tar.gz"
+                  JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-arm64"
+                  RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-aarch64-unknown-linux-musl.tar.gz"
+                  ;;
+                *)
+                  echo "unsupported arch: $arch" >&2
+                  exit 1
+                  ;;
+              esac
+
+              # 1Password CLI (op)
+              curl -fsSL "$OP_URL" -o /tmp/tools/op.zip
+              unzip -q /tmp/tools/op.zip -d /tmp/tools/op
+              install -m 0755 /tmp/tools/op/op /tools/bin/op
+
+              # GitHub CLI (gh)
+              curl -fsSL "$GH_URL" -o /tmp/tools/gh.tgz
+              tar -xzf /tmp/tools/gh.tgz -C /tmp/tools
+              install -m 0755 /tmp/tools/gh_*/bin/gh /tools/bin/gh
+
+              # jq
+              curl -fsSL "$JQ_URL" -o /tools/bin/jq
+              chmod 0755 /tools/bin/jq
+
+              # ripgrep (rg)
+              curl -fsSL "$RG_URL" -o /tmp/tools/rg.tgz
+              tar -xzf /tmp/tools/rg.tgz -C /tmp/tools
+              install -m 0755 /tmp/tools/ripgrep-*/rg /tools/bin/rg
+
+              # Clean up
+              rm -rf /tmp/tools
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
       containers:
         main:
           image:
@@ -26,6 +91,8 @@ app-template:
           env:
             - name: TZ
               value: America/Chicago
+            - name: PATH
+              value: /tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             - name: DISCORD_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -106,6 +173,12 @@ app-template:
       size: 5Gi
       globalMounts:
         - path: /home/node/clawd
+
+    tools:
+      enabled: true
+      type: emptyDir
+      globalMounts:
+        - path: /tools
 
     bootstrap:
       enabled: true
