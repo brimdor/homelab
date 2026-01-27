@@ -11,6 +11,7 @@
 - **external/** - Terraform for Cloudflare | **test/** - Go tests (terratest)
 - **.agent/workflows/** - Homelab workflows (`homelab-recon`, `homelab-action`, `homelab-troubleshoot`)
 - **.agent/rules/foundational-rules.md** - MANDATORY rules for all homelab workflows
+- **.agent/rules/HOMELAB_applications.md** - Application governance & Clawdbot protocol
 
 ## Code Style
 - **YAML**: yamllint (no line-length limit), end with newline, document-start disabled

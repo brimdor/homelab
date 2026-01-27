@@ -5,6 +5,9 @@ set -e
 REPO_DIR="$HOME/Documents/Github/clawdbot"
 IMAGE_NAME="registry.eaglepass.io/clawdbot"
 TAG="latest"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
+CUSTOM_DOCKERFILE="$APP_DIR/Dockerfile"
 
 # Check if repo exists
 if [ ! -d "$REPO_DIR" ]; then
@@ -13,6 +16,15 @@ if [ ! -d "$REPO_DIR" ]; then
 fi
 
 echo "Building Clawdbot image..."
+
+# Handle custom Dockerfile
+if [ -f "$CUSTOM_DOCKERFILE" ]; then
+    echo "Applying custom Dockerfile from $CUSTOM_DOCKERFILE..."
+    cp "$CUSTOM_DOCKERFILE" "$REPO_DIR/Dockerfile"
+else
+    echo "Using upstream Dockerfile..."
+fi
+
 cd "$REPO_DIR"
 
 # Build the image using the repository's Dockerfile
