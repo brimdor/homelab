@@ -78,9 +78,6 @@ app-template:
               rm -rf /tmp/tools
           securityContext:
             runAsUser: 0
-          volumeMounts:
-            - name: tools
-              mountPath: /tools
       containers:
         main:
           image:
