@@ -2,8 +2,8 @@
 set -e
 
 # Configuration
-REPO_DIR="$HOME/Documents/Github/clawdbot"
-IMAGE_NAME="registry.eaglepass.io/clawdbot"
+REPO_DIR="$HOME/Documents/Github/moltbot"
+IMAGE_NAME="registry.eaglepass.io/moltbot"
 TAG="latest"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(dirname "$SCRIPT_DIR")"
@@ -15,7 +15,7 @@ if [ ! -d "$REPO_DIR" ]; then
     exit 1
 fi
 
-echo "Building Clawdbot image..."
+echo "Building Moltbot image..."
 
 # Handle custom Dockerfile
 if [ -f "$CUSTOM_DOCKERFILE" ]; then

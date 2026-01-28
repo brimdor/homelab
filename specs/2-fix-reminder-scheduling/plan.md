@@ -6,14 +6,14 @@
 
 ## Technical Context
 
-- **Project Type**: Homelab GitOps repo; Clawdbot deployed via Helm chart at `apps/clawdbot/`
-- **Relevant Runtime**: Node.js (Clawdbot gateway)
-- **Patch Mechanism**: ConfigMap injection defined in `apps/clawdbot/values.yaml` under `patches.data` (overlays files in `/app/dist/...`)
+- **Project Type**: Homelab GitOps repo; Moltbot deployed via Helm chart at `apps/moltbot/`
+- **Relevant Runtime**: Node.js (Moltbot gateway)
+- **Patch Mechanism**: ConfigMap injection defined in `apps/moltbot/values.yaml` under `patches.data` (overlays files in `/app/dist/...`)
 - **Timezone Source**: Runtime `TZ` env var (`America/Chicago`)
 
 ## Problem Summary
 
-Clawdbot reminder scheduling produces cron jobs with a later day/time than requested. The cron tool documentation indicates that `schedule.kind="at"` supports ISO strings or `YYYY-MM-DD HH:mm` and an optional `tz`. When `tz` is omitted, the current parsing path interprets date/time strings as UTC, causing timezone/day shifts.
+Moltbot reminder scheduling produces cron jobs with a later day/time than requested. The cron tool documentation indicates that `schedule.kind="at"` supports ISO strings or `YYYY-MM-DD HH:mm` and an optional `tz`. When `tz` is omitted, the current parsing path interprets date/time strings as UTC, causing timezone/day shifts.
 
 ## Approach
 
@@ -27,7 +27,7 @@ Clawdbot reminder scheduling produces cron jobs with a later day/time than reque
 
 ## Files to Change
 
-- `apps/clawdbot/values.yaml` (update `parse.js` patch)
+- `apps/moltbot/values.yaml` (update `parse.js` patch)
 - `test/` (add a lightweight validation test for the parsing behavior)
 
 ## Constitution Check
@@ -38,5 +38,5 @@ Clawdbot reminder scheduling produces cron jobs with a later day/time than reque
 
 ## Risks / Constraints
 
-- Upstream Clawdbot is the source of truth; this repo can only patch via Helm/config injection.
+- Upstream Moltbot is the source of truth; this repo can only patch via Helm/config injection.
 - Node/Intl timezone behavior depends on ICU data and `TZ`; tests must avoid assumptions beyond `America/Chicago`.

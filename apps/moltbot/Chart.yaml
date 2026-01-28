@@ -1,5 +1,5 @@
 apiVersion: v2
-name: clawdbot
+name: moltbot
 version: 0.1.0
 type: application
 dependencies:

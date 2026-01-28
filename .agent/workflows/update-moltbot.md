@@ -1,12 +1,12 @@
 ---
-description: Workflow to update Clawdbot (pull upstream, build image, restart)
+description: Workflow to update Moltbot (pull upstream, build image, restart)
 sync_locations:
-  - .agent/workflows/update-clawdbot.md
-  - .opencode/command/update-clawdbot.md
-  - ~/.gemini/antigravity/global_workflows/update-clawdbot.md
-  - ~/.opencode/command/update-clawdbot.md
-  - ~/.agent/workflows/update-clawdbot.md
-sync_note: Manages the Clawdbot update lifecycle according to Homelab Application Rules.
+  - .agent/workflows/update-moltbot.md
+  - .opencode/command/update-moltbot.md
+  - ~/.gemini/antigravity/global_workflows/update-moltbot.md
+  - ~/.opencode/command/update-moltbot.md
+  - ~/.agent/workflows/update-moltbot.md
+sync_note: Manages the Moltbot update lifecycle according to Homelab Application Rules.
 ---
 
 > [!CAUTION]
@@ -14,22 +14,22 @@ sync_note: Manages the Clawdbot update lifecycle according to Homelab Applicatio
 > The workflow is NOT complete until ALL layers are GREEN with ZERO issues.
 > Do NOT stop, pause, or quit until the work is complete.
 
-# Update Clawdbot
+# Update Moltbot
 
 ## Overview
-Updates the Clawdbot application by synchronizing with the upstream repository, rebuilding the container image (applying any local Dockerfile overrides), and restarting the deployment.
+Updates the Moltbot application by synchronizing with the upstream repository, rebuilding the container image (applying any local Dockerfile overrides), and restarting the deployment.
 
 **Protocol**:
-- **Source**: Upstream (`github.com/clawdbot/clawdbot`) is the source of truth.
+- **Source**: Upstream (`github.com/moltbot/moltbot`) is the source of truth.
 - **Modifications**: All logic changes are applied via `patches` in `values.yaml`, NOT by modifying source files.
-- **Image**: Built locally. A custom `Dockerfile` in `apps/clawdbot/` (if present) overrides the upstream one.
+- **Image**: Built locally. A custom `Dockerfile` in `apps/moltbot/` (if present) overrides the upstream one.
 
 ---
 
 ## Phase 1: Upstream Synchronization
 
 1.  **Verify Repository**:
-    -   Target: `~/Documents/Github/clawdbot`
+    -   Target: `~/Documents/Github/moltbot`
     -   Action: Ensure directory exists.
 
 2.  **Reset to Upstream**:
@@ -44,13 +44,13 @@ Updates the Clawdbot application by synchronizing with the upstream repository, 
 ## Phase 2: Build & Push
 
 1.  **Update Configuration**:
-    -   Verify `apps/clawdbot/values.yaml` contains all necessary `patches` (ConfigMap injections) for any custom logic.
-    -   Ensure `image.repository` in `values.yaml` points to `10.0.20.11:32309/clawdbot`.
+    -   Verify `apps/moltbot/values.yaml` contains all necessary `patches` (ConfigMap injections) for any custom logic.
+    -   Ensure `image.repository` in `values.yaml` points to `10.0.20.11:32309/moltbot`.
 
 2.  **Execute Build Script**:
-    -   Run: `apps/clawdbot/scripts/build.sh`
-    -   **Action**: Builds the image using `apps/clawdbot/Dockerfile` (if present) or upstream.
-    -   **Push**: Pushes to local registry `registry.eaglepass.io/clawdbot:latest`.
+    -   Run: `apps/moltbot/scripts/build.sh`
+    -   **Action**: Builds the image using `apps/moltbot/Dockerfile` (if present) or upstream.
+    -   **Push**: Pushes to local registry `registry.eaglepass.io/moltbot:latest`.
     -   **Note**: The build script automatically handles copying the custom Dockerfile to the source repo.
 
 ---
@@ -58,11 +58,11 @@ Updates the Clawdbot application by synchronizing with the upstream repository, 
 ## Phase 3: Deployment Update
 
 1.  **Restart Application**:
-    -   Command: `kubectl rollout restart deployment clawdbot -n clawdbot`
-    -   Validation: Wait for rollout to complete (`kubectl rollout status deployment/clawdbot -n clawdbot`).
+    -   Command: `kubectl rollout restart deployment moltbot -n moltbot`
+    -   Validation: Wait for rollout to complete (`kubectl rollout status deployment/moltbot -n moltbot`).
 
 2.  **Verify Pod Startup**:
-    -   Wait for Pod Running: `kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=clawdbot -n clawdbot --timeout=60s`
+    -   Wait for Pod Running: `kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=moltbot -n moltbot --timeout=60s`
 
 ---
 
@@ -71,11 +71,11 @@ Updates the Clawdbot application by synchronizing with the upstream repository, 
 **Objective**: Confirm the new image is running, stable, and error-free.
 
 1.  **Health Check**:
-    -   Status: `kubectl get pods -n clawdbot` (Expect: `1/1` Ready, `Running`, `0` Restarts)
-    -   Endpoint: `curl -I https://clawdbot.eaglepass.io` (Expect: HTTP 200/401/403 - reachable)
+    -   Status: `kubectl get pods -n moltbot` (Expect: `1/1` Ready, `Running`, `0` Restarts)
+    -   Endpoint: `curl -I https://moltbot.eaglepass.io` (Expect: HTTP 200/401/403 - reachable)
 
 2.  **Log Analysis**:
-    -   Fetch logs: `kubectl logs -n clawdbot -l app.kubernetes.io/name=clawdbot --tail=100`
+    -   Fetch logs: `kubectl logs -n moltbot -l app.kubernetes.io/name=moltbot --tail=100`
     -   **Check**: Scan for `Error`, `Exception`, `Fatal`, or `SyntaxError`.
     -   **Verify Patches**: If patches were applied (e.g., timezone fix), grep logs for confirmation if available, or verify functionality.
 
@@ -83,7 +83,7 @@ Updates the Clawdbot application by synchronizing with the upstream repository, 
     -   Metal: Nodes Ready?
     -   System: Ceph Healthy?
     -   Platform: ArgoCD Synced/Healthy?
-    -   Apps: Clawdbot Running?
+    -   Apps: Moltbot Running?
 
 4.  **Completion**:
     -   Only mark complete when ALL status checks are GREEN and logs are clean.
