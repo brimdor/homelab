@@ -486,6 +486,7 @@ app-template:
         cron-tool.js: |
           import { Type } from "@sinclair/typebox";
           import { normalizeCronJobCreate, normalizeCronJobPatch } from "../../cron/normalize.js";
+          import { parseTimeWithZone } from "../../cron/parse.js";
           import { loadConfig } from "../../config/config.js";
           import { truncateUtf16Safe } from "../../utils.js";
           import { optionalStringEnum, stringEnum } from "../schema/typebox.js";
@@ -558,7 +559,29 @@ app-template:
               // `parseTimeWithZone` accepts space-separated input; we include seconds for better precision.
               return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
           }
-          function coerceAtSchedule(schedule) {
+          function extractTimerMinutes(payloadText) {
+              if (typeof payloadText !== "string")
+                  return null;
+              // Common timer confirmation phrasing.
+              // Examples:
+              // - "Your 2-minute timer has ended!"
+              // - "Your 10 minute timer has ended!"
+              // - "in 2 minutes" (fallback)
+              const m1 = payloadText.match(/\b(\d{1,4})\s*-?\s*minute\s+timer\b/i);
+              if (m1 && m1[1]) {
+                  const n = Number(m1[1]);
+                  if (Number.isFinite(n) && n > 0)
+                      return Math.floor(n);
+              }
+              const m2 = payloadText.match(/\bin\s+(\d{1,4})\s+minutes?\b/i);
+              if (m2 && m2[1]) {
+                  const n = Number(m2[1]);
+                  if (Number.isFinite(n) && n > 0)
+                      return Math.floor(n);
+              }
+              return null;
+          }
+          function coerceAtSchedule(schedule, payloadText) {
               if (!schedule || typeof schedule !== "object") {
                   return schedule;
               }
@@ -567,23 +590,26 @@ app-template:
                   const at = typeof schedule.at === "string" ? schedule.at.trim() : "";
                   const tz = typeof schedule.tz === "string" ? schedule.tz.trim() : "";
                   const hasAtMs = typeof schedule.atMs === "number" && Number.isFinite(schedule.atMs);
-                  // Prefer `at` (+ optional tz) over `atMs` to avoid agent-computed timestamp drift.
-                  if (at) {
-                      const next = { ...schedule };
-                      if (!tz) {
-                          const sysTz = resolveSystemTimeZone();
-                          if (sysTz) {
-                              next.tz = sysTz;
-                          }
-                      }
-                      if ("atMs" in next) {
-                          delete next.atMs;
-                      }
-                      return next;
+                  // If the payload clearly indicates a relative timer, compute atMs here.
+                  // This avoids model timestamp math drift and keeps "in X minutes" reliable.
+                  const timerMinutes = extractTimerMinutes(payloadText);
+                  if (!at && timerMinutes !== null) {
+                      const safeDelay = Math.max(RELATIVE_MIN_DELAY_MS, timerMinutes * 60 * 1000);
+                      return { kind: "at", atMs: Date.now() + safeDelay };
                   }
-                  // Reject atMs-only schedules. Agents must use `at` or relative fields.
+                  // Gateway schema requires atMs; if caller provides an 'at' string (preferred),
+                  // we convert it to atMs here so the model doesn't have to do timestamp math.
+                  if (at) {
+                      const sysTz = tz || resolveSystemTimeZone();
+                      const atMs = parseTimeWithZone(at, sysTz);
+                      if (typeof atMs !== "number" || !Number.isFinite(atMs)) {
+                          throw new Error("cron.add/update: unable to parse schedule.at into atMs");
+                      }
+                      return { kind: "at", atMs };
+                  }
+                  // If caller already sent atMs, pass through.
                   if (hasAtMs) {
-                      throw new Error("cron.add/update: schedule.kind='at' must provide schedule.at (preferred) or relative schedule.afterMinutes/afterMs; atMs-only is not accepted");
+                      return { kind: "at", atMs: schedule.atMs };
                   }
               }
               // Relative one-shot schedule: translate to kind='at' with an unambiguous `at` string.
@@ -602,17 +628,8 @@ app-template:
                   const safeDelay = Math.max(RELATIVE_MIN_DELAY_MS, Math.floor(delayMs));
                   const now = Date.now();
                   const target = now + safeDelay;
-                  const tz = typeof schedule.tz === "string" && schedule.tz.trim()
-                      ? schedule.tz.trim()
-                      : resolveSystemTimeZone();
-                  const next = {
-                      kind: "at",
-                      at: formatAtInZone(target, tz),
-                  };
-                  if (tz) {
-                      next.tz = tz;
-                  }
-                  return next;
+                  // Return gateway-compatible schema.
+                  return { kind: "at", atMs: target };
               }
               return schedule;
           }
@@ -736,10 +753,13 @@ app-template:
           }
           
           SCHEDULE TYPES (schedule.kind):
-          - "at": One-shot at specific time. Provide "at" (ISO string or "YYYY-MM-DD HH:mm[:ss]") and optional "tz" (Timezone).
+          - "at": One-shot at specific time.
+            Preferred input:
             { "kind": "at", "at": "2026-01-27 12:25", "tz": "America/Chicago" }
-            IMPORTANT: atMs-only schedules are rejected to avoid agent-computed timestamp drift.
-          - Relative one-shot (preferred for "in X minutes"): provide "afterMinutes" or "afterMs" (cron tool will convert to an absolute "at").
+            The cron tool converts this to gateway-required { kind:"at", atMs:<unix-ms> }.
+            Legacy/advanced:
+            { "kind": "at", "atMs": <unix-ms-timestamp> }
+          - Relative one-shot (preferred for "in X minutes"): provide "afterMinutes" or "afterMs" (cron tool will convert to gateway-required atMs).
             { "afterMinutes": 2 }
             { "afterMs": 120000 }
           - "every": Recurring interval
@@ -784,7 +804,8 @@ app-template:
                               }
                               const job = normalizeCronJobCreate(params.job) ?? params.job;
                               if (job && typeof job === "object" && "schedule" in job) {
-                                  job.schedule = coerceAtSchedule(job.schedule);
+                                  const payloadText = job.payload?.kind === "systemEvent" ? job.payload.text : undefined;
+                                  job.schedule = coerceAtSchedule(job.schedule, payloadText);
                               }
                               if (job && typeof job === "object" && !("agentId" in job)) {
                                   const cfg = loadConfig();
