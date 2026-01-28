@@ -2,7 +2,7 @@
 
 This feature does not introduce new persisted entities in the homelab repo.
 
-Relevant existing Clawdbot concepts (patched behavior only):
+Relevant existing Moltbot concepts (patched behavior only):
 
 - **Cron Job Schedule**
   - `kind`: `at` | `every` | `cron`

@@ -13,7 +13,7 @@ app-template:
             - sh
             - -lc
             - |
-              chown -R 1000:1000 /home/node/.clawdbot /home/node/clawd || true
+              chown -R 1000:1000 /home/node/.moltbot /home/node/clawd || true
           securityContext:
             runAsUser: 0
 
@@ -82,7 +82,7 @@ app-template:
       containers:
         main:
           image:
-            repository: 10.0.20.11:32309/clawdbot
+            repository: 10.0.20.11:32309/moltbot
             tag: latest
             pullPolicy: Always
           command: ["sh", "-lc", "sh /bootstrap/bootstrap.sh"]
@@ -94,22 +94,22 @@ app-template:
             - name: DISCORD_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: clawdbot-secret
+                  name: moltbot-secret
                   key: discord-token
             - name: DISCORD_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: clawdbot-secret
+                  name: moltbot-secret
                   key: discord-token
-            - name: CLAWDBOT_GATEWAY_TOKEN
+            - name: MOLTBOT_GATEWAY_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: clawdbot-secret
+                  name: moltbot-secret
                   key: gateway-token
-            - name: CLAWDBOT_GATEWAY_PASSWORD
+            - name: MOLTBOT_GATEWAY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: clawdbot-secret
+                  name: moltbot-secret
                   key: gateway-password
 
         ollama-proxy:
@@ -134,7 +134,7 @@ app-template:
       fsGroupChangePolicy: OnRootMismatch
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
-      operator.1password.io/item-name: "clawdbot-secret"
+      operator.1password.io/item-name: "moltbot-secret"
 
   service:
     main:
@@ -149,7 +149,7 @@ app-template:
       annotations:
         cert-manager.io/cluster-issuer: "letsencrypt-prod"
       hosts:
-        - host: &host clawdbot.eaglepass.io
+        - host: &host moltbot.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -159,7 +159,7 @@ app-template:
       tls:
         - hosts:
             - *host
-          secretName: clawdbot-tls-certificate
+          secretName: moltbot-tls-certificate
         
   persistence:
     config:
@@ -168,7 +168,7 @@ app-template:
       accessMode: ReadWriteOnce
       size: 1Gi
       globalMounts:
-        - path: /home/node/.clawdbot
+        - path: /home/node/.moltbot
     data:
       enabled: true
       type: persistentVolumeClaim
@@ -186,25 +186,25 @@ app-template:
     bootstrap:
       enabled: true
       type: configMap
-      name: clawdbot-bootstrap
+      name: moltbot-bootstrap
       defaultMode: 0755
       items:
         - key: bootstrap.sh
           path: bootstrap.sh
-        - key: clawdbot
-          path: clawdbot
+        - key: moltbot
+          path: moltbot
       advancedMounts:
         main:
           main:
             - path: /bootstrap/bootstrap.sh
               subPath: bootstrap.sh
-            - path: /usr/local/bin/clawdbot
-              subPath: clawdbot
+            - path: /usr/local/bin/moltbot
+              subPath: moltbot
 
     patches:
       enabled: true
       type: configMap
-      name: clawdbot-patches
+      name: moltbot-patches
       items:
         - key: auth.js
           path: auth.js
@@ -237,9 +237,9 @@ app-template:
   configMaps:
     bootstrap:
       enabled: true
-      forceRename: clawdbot-bootstrap
+      forceRename: moltbot-bootstrap
       data:
-        clawdbot: |
+        moltbot: |
           #!/bin/sh
           set -eu
           exec node /app/dist/index.js "$@"
@@ -247,8 +247,8 @@ app-template:
           #!/bin/sh
           set -eu
 
-          STATE_DIR="${CLAWDBOT_STATE_DIR:-/home/node/.clawdbot}"
-          WORKSPACE_DIR="${CLAWDBOT_WORKSPACE_DIR:-/home/node/clawd}"
+          STATE_DIR="${MOLTBOT_STATE_DIR:-/home/node/.moltbot}"
+          WORKSPACE_DIR="${MOLTBOT_WORKSPACE_DIR:-/home/node/clawd}"
 
           mkdir -p "$STATE_DIR" "$WORKSPACE_DIR" \
             "$STATE_DIR/cron" "$WORKSPACE_DIR/canvas"
@@ -259,7 +259,7 @@ app-template:
           chmod 700 "$STATE_DIR/credentials" || true
 
           # Initialize config/workspace if missing.
-          if [ ! -f "$STATE_DIR/clawdbot.json" ]; then
+          if [ ! -f "$STATE_DIR/moltbot.json" ]; then
             node dist/index.js onboard \
               --non-interactive \
               --accept-risk \
@@ -270,7 +270,7 @@ app-template:
               --gateway-port 18789 \
               --gateway-bind lan \
               --gateway-auth password \
-              --gateway-password "${CLAWDBOT_GATEWAY_PASSWORD:?missing}" \
+              --gateway-password "${MOLTBOT_GATEWAY_PASSWORD:?missing}" \
               --skip-daemon \
               --skip-ui \
               --skip-health \
@@ -279,7 +279,7 @@ app-template:
           fi
 
           # Ensure auth profile store exists and enables Ollama provider discovery.
-          # Note: Clawdbot's default agentDir is "$STATE_DIR/agents/main/agent".
+          # Note: Moltbot's default agentDir is "$STATE_DIR/agents/main/agent".
           AUTH_DIR_OLD="$STATE_DIR/agents/main"
           AUTH_DIR="$STATE_DIR/agents/main/agent"
           AUTH_STORE_OLD="$AUTH_DIR_OLD/auth-profiles.json"
@@ -321,11 +321,11 @@ app-template:
           node dist/index.js config set --json gateway.port 18789
 
            # Discord: use env token (avoid persisting secrets in config) and allow guild channels.
-           clawdbot config set channels.discord.enabled true
-           clawdbot config set channels.discord.configWrites false
-           clawdbot config unset channels.discord.token || true
-           clawdbot config set channels.discord.groupPolicy open
-           clawdbot config set --json channels.discord.guilds '{"*":{"requireMention":true,"channels":{"*":{"requireMention":true,"enabled":true}}}}'
+           moltbot config set channels.discord.enabled true
+           moltbot config set channels.discord.configWrites false
+           moltbot config unset channels.discord.token || true
+           moltbot config set channels.discord.groupPolicy open
+           moltbot config set --json channels.discord.guilds '{"*":{"requireMention":true,"channels":{"*":{"requireMention":true,"enabled":true}}}}'
 
            # Hooks: disable by default (hooks.enabled requires hooks.token).
            node dist/index.js config set --json hooks.enabled false
@@ -338,11 +338,11 @@ app-template:
             --port 18789 \
             --bind lan \
             --auth password \
-            --password "${CLAWDBOT_GATEWAY_PASSWORD:?missing}"
+            --password "${MOLTBOT_GATEWAY_PASSWORD:?missing}"
 
     patches:
       enabled: true
-      forceRename: clawdbot-patches
+      forceRename: moltbot-patches
       data:
         normalize.js: |
           import { sanitizeAgentId } from "../routing/session-key.js";
@@ -1373,8 +1373,8 @@ app-template:
           export function resolveGatewayAuth(params) {
               const authConfig = params.authConfig ?? {};
               const env = params.env ?? process.env;
-              const token = authConfig.token ?? env.CLAWDBOT_GATEWAY_TOKEN ?? undefined;
-              const password = authConfig.password ?? env.CLAWDBOT_GATEWAY_PASSWORD ?? undefined;
+              const token = authConfig.token ?? env.MOLTBOT_GATEWAY_TOKEN ?? undefined;
+              const password = authConfig.password ?? env.MOLTBOT_GATEWAY_PASSWORD ?? undefined;
               const mode = authConfig.mode ?? (password ? "password" : "token");
               const allowTailscale = authConfig.allowTailscale ?? (params.tailscaleMode === "serve" && mode !== "password");
               return {
@@ -1388,7 +1388,7 @@ app-template:
               if (auth.mode === "token" && !auth.token) {
                   if (auth.allowTailscale)
                       return;
-                  throw new Error("gateway auth mode is token, but no token was configured (set gateway.auth.token or CLAWDBOT_GATEWAY_TOKEN)");
+                  throw new Error("gateway auth mode is token, but no token was configured (set gateway.auth.token or MOLTBOT_GATEWAY_TOKEN)");
               }
               if (auth.mode === "password" && !auth.password) {
                   throw new Error("gateway auth mode is password, but no password was configured");

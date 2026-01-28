@@ -33,16 +33,16 @@
 
 | Test | Result |
 |------|--------|
-| `TestClawdbotParseTimeWithZone_DefaultsToSystemTZ` | PASS |
+| `TestMoltbotParseTimeWithZone_DefaultsToSystemTZ` | PASS |
 
 Command:
 
 ```bash
-make -C test filter=TestClawdbotParseTimeWithZone_DefaultsToSystemTZ
+make -C test filter=TestMoltbotParseTimeWithZone_DefaultsToSystemTZ
 ```
 
 Notes:
-- This test executes the patched `parse.js` logic embedded in `apps/clawdbot/values.yaml` using the local `node` binary.
+- This test executes the patched `parse.js` logic embedded in `apps/moltbot/values.yaml` using the local `node` binary.
 
 ---
 

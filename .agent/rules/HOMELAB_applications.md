@@ -35,7 +35,7 @@ sync_note: Governance for application lifecycle and code modifications.
 **We own specific container images stored in our local registry.**
 
 - **Registry**: `registry.eaglepass.io` (Internal) / `10.0.20.11:32309` (Cluster Pull).
-- **Self-Built Images**: We build and own images for core applications (like Clawdbot) that require deep customization. These are pushed to `registry.eaglepass.io`.
+- **Self-Built Images**: We build and own images for core applications (like Moltbot) that require deep customization. These are pushed to `registry.eaglepass.io`.
 - **Upstream Images**: For standard applications, we use official upstream images (e.g., from Docker Hub). We do NOT own these.
 
 - **Build Scripts**: Build logic resides in `apps/<app-name>/scripts/build.sh` within the homelab repository.
@@ -43,11 +43,11 @@ sync_note: Governance for application lifecycle and code modifications.
 
 ---
 
-## Rule 3: The "Patch-Over" Strategy (Clawdbot Protocol)
+## Rule 3: The "Patch-Over" Strategy (Moltbot Protocol)
 
 **Code changes MUST be injected at runtime, not committed to source.**
 
-When we need to modify the behavior of an external application (like fixing a bug in Clawdbot):
+When we need to modify the behavior of an external application (like fixing a bug in Moltbot):
 
 1.  **Analyze Source**: Clone the upstream repo locally to understand the code.
 2.  **Develop Fix**: Create the fix locally and verify it (e.g., via unit tests).
@@ -80,12 +80,12 @@ Standard structure for `apps/<app-name>/`:
 
 ---
 
-## Example: Clawdbot
+## Example: Moltbot
 
-**Context**: Clawdbot is an external agent framework. We run it as a comprehensive homelab assistant.
+**Context**: Moltbot is an external agent framework. We run it as a comprehensive homelab assistant.
 
-- **Source**: External repo (locally at `~/Documents/Github/clawdbot`).
-- **Image**: Built via `apps/clawdbot/scripts/build.sh`.
+- **Source**: External repo (locally at `~/Documents/Github/moltbot`).
+- **Image**: Built via `apps/moltbot/scripts/build.sh`.
 - **Modifications**: 
-    - **Forbidden**: Editing `src/...` in the clawdbot repo and committing it there.
+    - **Forbidden**: Editing `src/...` in the moltbot repo and committing it there.
     - **Required**: Editing `values.yaml` in the homelab repo to mount patched JS files into `/app/dist/...`.
