@@ -41,7 +41,57 @@ $ sed -n '1,5p' ~/.config/gitea/.env
 # Gitea configuration - please add GITEA_TOKEN
 ```
 
-Result: Gitea API access NOT available from workstation (token missing). Repo evidence + maintenance issue update/create are BLOCKED.
+Result: Gitea API write access NOT available from workstation (token missing). Read-only repo evidence (issues/PRs) is accessible anonymously; maintenance issue update/create is BLOCKED.
+
+### Gitea Repo Evidence (Unauthenticated Read)
+
+```text
+$ curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls?state=open&limit=50" | jq -r '.[] | "#\(.number) | \(.title) | author=\(.user.login) | created=\(.created_at) | mergeable=\(.mergeable)"'
+#52 | chore(deps): update docker.io/library/debian docker tag to v13 | author=gitea_admin | created=2026-01-27T15:02:51Z | mergeable=false
+#51 | chore(deps): update quay.io/ceph/ceph docker tag to v20 | author=gitea_admin | created=2026-01-25T15:02:27Z | mergeable=true
+#50 | chore(deps): update all non-major dependencies | author=gitea_admin | created=2026-01-25T15:02:25Z | mergeable=false
+```
+
+```text
+$ curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues?state=open&limit=50" | jq -r '.[] | "#\(.number) | \(.title) | isPR=\(.pull_request!=null) | labels=\((.labels|map(.name)|join(\",\")))"'
+#52 | chore(deps): update docker.io/library/debian docker tag to v13 | isPR=true | labels=
+#51 | chore(deps): update quay.io/ceph/ceph docker tag to v20 | isPR=true | labels=
+#50 | chore(deps): update all non-major dependencies | isPR=true | labels=
+#44 | [Maintenance] 2026-01-21 - Homelab | isPR=false | labels=maintenance
+#4 | Dependency Dashboard | isPR=false | labels=
+```
+
+## Current Blocking Findings
+
+### Apps / ArgoCD: `moltbot` Degraded
+
+```text
+$ kubectl -n argocd get applications | grep -v "Synced.*Healthy" || true
+moltbot             Synced        Degraded
+```
+
+```text
+$ kubectl get pods -A --no-headers | grep -E "CrashLoopBackOff|Error|ImagePullBackOff|Pending" || true
+moltbot             moltbot-59bcd567d6-gsqzk                                          1/2   ImagePullBackOff   0                35m
+```
+
+```text
+$ kubectl describe pod -n moltbot moltbot-59bcd567d6-gsqzk | sed -n '1,40p'
+...
+Image:         10.0.20.11:32309/moltbot:latest
+State:          Waiting
+  Reason:       ImagePullBackOff
+...
+Failed to pull image "10.0.20.11:32309/moltbot:latest" ... 10.0.20.11:32309/moltbot:latest: not found
+```
+
+```text
+$ kubectl -n zot get pods -o wide
+zot-0   1/1  Running  ...  IP=10.0.7.144  NODE=bulbasaur
+
+$ kubectl -n zot get svc -o wide
+zot  NodePort  10.43.60.181  5000:32309/TCP
+```
 
 ## Script-Based Recon
 
