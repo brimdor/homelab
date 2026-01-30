@@ -1,0 +1,283 @@
+{
+  "date": "2026-01-29",
+  "status": {
+    "overall": "YELLOW",
+    "source_report": "reports/status-report-2026-01-29.md",
+    "assigned_to": "gitea_admin"
+  },
+  "cluster": {
+    "k3s_version": "v1.33.6+k3s1",
+    "node_count": 10,
+    "argocd_apps_total": 40,
+    "ceph_status": "HEALTH_OK"
+  },
+  "layers": {
+    "metal": {
+      "status": "GREEN",
+      "summary": "10/10 nodes Ready on k3s v1.33.6+k3s1."
+    },
+    "network": {
+      "status": "YELLOW",
+      "summary": "ICMP to gateways/controller blocked from workstation; TCP to OPNSense/controller/NAS OK. recon scripts need bc + ICMP assumptions revisited."
+    },
+    "storage_nas": {
+      "status": "GREEN",
+      "summary": "Unraid 10.0.40.3 reachable via TCP (445/2049/80 open; HTTP 302). ICMP blocked (expected)."
+    },
+    "system": {
+      "status": "GREEN",
+      "summary": "kube-system healthy (Cilium running). Rook/Ceph HEALTH_OK."
+    },
+    "platform": {
+      "status": "GREEN",
+      "summary": "ArgoCD apps all Synced/Healthy. Ingress/certs/external-secrets present with no failing objects in snapshot."
+    },
+    "apps": {
+      "status": "GREEN",
+      "summary": "No CrashLoopBackOff/Error/ImagePullBackOff/Pending pods detected in snapshot."
+    }
+  },
+  "non_running_pods": [],
+  "repo_inventory": {
+    "open_renovate_prs": [50, 51, 52],
+    "open_user_prs": [],
+    "open_issues": [4]
+  },
+  "proposed_changes": [
+    {
+      "id": "R1",
+      "type": "Dependency Update (Renovate PR)",
+      "layer": "System",
+      "priority": "P1",
+      "impact": "High",
+      "downtime": "Possible (rolling)",
+      "summary": "PR #51: bump Ceph image tag to v20 in system/rook-ceph/values.yaml.",
+      "dependencies": ["A1"]
+    },
+    {
+      "id": "R2",
+      "type": "Dependency Update (Renovate PR)",
+      "layer": "Mixed",
+      "priority": "P2",
+      "impact": "Medium",
+      "downtime": "Unlikely",
+      "summary": "PR #50: renovate non-major updates across multiple charts/values (system/platform/apps).",
+      "dependencies": ["A1"]
+    },
+    {
+      "id": "R3",
+      "type": "Dependency Update (Renovate PR)",
+      "layer": "Apps",
+      "priority": "P2",
+      "impact": "Medium",
+      "downtime": "Unlikely",
+      "summary": "PR #52: bump Debian image tag to v13 for moltbot values.",
+      "dependencies": ["A1", "C2"]
+    },
+    {
+      "id": "T1",
+      "type": "Tooling / Observability",
+      "layer": "Network",
+      "priority": "P3",
+      "impact": "Low",
+      "downtime": "None",
+      "summary": "Fix recon helper scripts: kubectl version flag mismatch, recon.sh jq arg overflow, network/nas scripts depend on bc + ICMP.",
+      "dependencies": []
+    }
+  ],
+  "action_items": [
+    {
+      "id": "A1",
+      "phase": "A",
+      "priority": "P0",
+      "layer": "System",
+      "title": "Preflight: run cluster health gate and record baseline",
+      "goal": "Confirm cluster is GREEN before applying any changes.",
+      "commands": "kubectl get nodes -o wide && kubectl get pods -n kube-system --no-headers | grep -v 'Running\\|Completed' || true; kubectl get applications -n argocd | grep -v 'Synced.*Healthy' || true; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health; kubectl get pods -A --no-headers | grep -v 'Running\\|Completed' || true",
+      "expected": "All nodes Ready; no non-running kube-system pods; no OutOfSync/Unhealthy ArgoCD apps; ceph health returns HEALTH_OK; no non-running pods cluster-wide.",
+      "if_fails": "Capture: kubectl get events -A --sort-by=.lastTimestamp | tail -200; then deep-dive failing namespace/pods with kubectl describe/logs.",
+      "rollback": "N/A"
+    },
+    {
+      "id": "A2",
+      "phase": "A",
+      "priority": "P0",
+      "layer": "Repo",
+      "title": "Preflight: snapshot open PRs/issues and mergeability",
+      "goal": "Ensure renovate queue and blockers are documented before any merges.",
+      "commands": "set -a; source ~/.config/gitea/.env; set +a; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls?state=open -H 'Authorization: token '$GITEA_TOKEN | jq -r '.[] | \\\"PR #\\\\(.number) mergeable=\\\\(.mergeable) head=\\\\(.head.ref) base=\\\\(.base.ref) title=\\\\(.title)\\\"'; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/issues?state=open -H 'Authorization: token '$GITEA_TOKEN | jq -r '.[] | select(.pull_request == null) | \\\"Issue #\\\\(.number): \\\\(.title)\\\"'",
+      "expected": "Open PRs include #50/#51/#52; open non-maintenance issue includes #4 (Dependency Dashboard).",
+      "if_fails": "Verify token export: set -a; source ~/.config/gitea/.env; set +a; env | grep '^GITEA_TOKEN='; then retry.",
+      "rollback": "N/A"
+    },
+    {
+      "id": "B0",
+      "phase": "C",
+      "priority": "P1",
+      "layer": "System",
+      "title": "Collect release notes + compatibility context for PR #51 (Ceph v20)",
+      "goal": "Ensure any major-version Ceph change has explicit compatibility notes before merge.",
+      "commands": "kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph version; set -a; source ~/.config/gitea/.env; set +a; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/51/files -H 'Authorization: token '$GITEA_TOKEN | jq -r '.[] | .filename'; echo 'Release notes refs:'; echo 'Ceph releases: https://docs.ceph.com/en/latest/releases/'; echo 'Rook release notes: https://rook.io/docs/rook/latest/ReleaseNotes/'; echo 'Rook Ceph version matrix: https://rook.io/docs/rook/latest/Getting-Started/intro/#ceph-versions-supported'",
+      "expected": "If PR implies a major Ceph version bump, notes include supported rook/ceph combination and a maintenance window requirement.",
+      "if_fails": "If URLs are inaccessible, capture the exact image/tag change from the PR diff and defer merge until notes are available.",
+      "rollback": "N/A"
+    },
+    {
+      "id": "B1",
+      "phase": "C",
+      "priority": "P1",
+      "layer": "System",
+      "title": "Review PR #51 (Ceph v20) for compatibility + rollout constraints",
+      "goal": "Decide whether Ceph v20 image bump is safe to apply now.",
+      "commands": "set -a; source ~/.config/gitea/.env; set +a; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/51 -H 'Authorization: token '$GITEA_TOKEN | jq '{number:.number,title:.title,mergeable:.mergeable,head:.head.ref,base:.base.ref,changed_files:.changed_files}'; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/51/files -H 'Authorization: token '$GITEA_TOKEN | jq -r '.[] | .filename'; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph version",
+      "expected": "If this is a major Ceph version bump, execution requires a defined maintenance window and explicit rollback plan; otherwise proceed to merge task.",
+      "if_fails": "If rook-ceph-tools exec fails, capture rook-ceph pod status and operator logs; defer PR merge until tool access restored.",
+      "rollback": "N/A"
+    },
+    {
+      "id": "B2",
+      "phase": "C",
+      "priority": "P1",
+      "layer": "System",
+      "title": "If approved: merge PR #51 into master and run post-change validation",
+      "goal": "Apply the Ceph image tag bump via GitOps and validate Ceph + cluster health.",
+      "commands": "git fetch origin && git checkout master && git pull --ff-only && git merge --no-ff origin/renovate/quay.io-ceph-ceph-20.x -m 'merge renovate PR #51 (ceph v20)' && git push origin master && kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health && kubectl get applications -n argocd | grep -v 'Synced.*Healthy' || true",
+      "expected": "Merge succeeds; ArgoCD remains Synced/Healthy; ceph health stays HEALTH_OK.",
+      "if_fails": "Stop: do not merge further PRs. Capture ArgoCD app and rook-ceph operator events/logs; identify rollback commit SHA.",
+      "rollback": "git revert -m 1 <merge_commit_sha> && git push origin master (then wait for ArgoCD to resync)."
+    },
+    {
+      "id": "B3",
+      "phase": "C",
+      "priority": "P1",
+      "layer": "System",
+      "title": "Staged verification: rook-ceph post-merge rollout health checks",
+      "goal": "Treat Ceph-related changes as high-risk; verify rollouts and Ceph health before proceeding to other changes.",
+      "commands": "kubectl -n argocd get application rook-ceph -o wide || true; kubectl -n rook-ceph get pods -o wide; kubectl -n rook-ceph rollout status deploy/rook-ceph-operator --timeout=10m || true; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph status; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health detail",
+      "expected": "No rook-ceph components stuck Pending/CrashLoop; ceph status shows active+clean PGs; ceph health remains HEALTH_OK.",
+      "if_fails": "Freeze: do not merge additional PRs. Collect rook-ceph operator logs and Ceph crash list; execute rollback from B2 if needed.",
+      "rollback": "Use B2 rollback if change caused regression."
+    },
+    {
+      "id": "C1",
+      "phase": "D",
+      "priority": "P2",
+      "layer": "Repo",
+      "title": "Review PR #50 (non-major dependency updates) scope + risk",
+      "goal": "Confirm updates are truly non-breaking across touched charts/values.",
+      "commands": "set -a; source ~/.config/gitea/.env; set +a; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/50 -H 'Authorization: token '$GITEA_TOKEN | jq '{number:.number,title:.title,mergeable:.mergeable,head:.head.ref,base:.base.ref,changed_files:.changed_files}'; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/50/files -H 'Authorization: token '$GITEA_TOKEN | jq -r '.[] | .filename'",
+      "expected": "Document impacted layers (system/platform/apps) and identify any upgrades needing release-note review.",
+      "if_fails": "If API fails, retry after exporting token; if still failing, perform review on controller with known-good network path.",
+      "rollback": "N/A"
+    },
+    {
+      "id": "C2",
+      "phase": "D",
+      "priority": "P2",
+      "layer": "Apps",
+      "title": "Decision gate: verify moltbot desired state before PR #52 merge",
+      "goal": "Avoid applying a dependency bump to an app that is intentionally removed or paused.",
+      "commands": "kubectl get applications -n argocd | grep -i moltbot || true; kubectl get ns moltbot || true; kubectl get ingress -n moltbot || true",
+      "expected": "If moltbot is intentionally removed, close PR #52 (or convert to archived path) instead of merging. If still desired, proceed to review/merge with staged validation.",
+      "if_fails": "If namespaces/resources are stuck Terminating, capture finalizers and events; plan cleanup task (do not force delete without rollback).",
+      "rollback": "N/A"
+    },
+    {
+      "id": "C4",
+      "phase": "D",
+      "priority": "P2",
+      "layer": "Apps",
+      "title": "Review PR #52 (Debian v13) change + breaking-risk notes",
+      "goal": "Decide whether Debian v13 bump is safe for moltbot and document breakpoints.",
+      "commands": "set -a; source ~/.config/gitea/.env; set +a; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/52 -H 'Authorization: token '$GITEA_TOKEN | jq '{number:.number,title:.title,mergeable:.mergeable,head:.head.ref,base:.base.ref,changed_files:.changed_files}'; curl -s https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/52/files -H 'Authorization: token '$GITEA_TOKEN | jq -r '.[] | .filename'; echo 'Release notes refs:'; echo 'Debian 13 release: https://www.debian.org/releases/13/'",
+      "expected": "If moltbot remains deployed, risk review notes cover base image major upgrade implications; otherwise proceed to close task.",
+      "if_fails": "If API fails, retry after exporting token; if still failing, fetch diff via git remote branch on controller.",
+      "rollback": "N/A"
+    },
+    {
+      "id": "C5",
+      "phase": "D",
+      "priority": "P2",
+      "layer": "Apps",
+      "title": "If approved: merge PR #52 into master and validate moltbot rollout",
+      "goal": "Apply Debian v13 bump for moltbot and confirm it remains healthy (only if moltbot is still desired).",
+      "commands": "git fetch origin && git checkout master && git pull --ff-only && git merge --no-ff origin/renovate/docker.io-library-debian-13.x -m 'merge renovate PR #52 (debian v13)' && git push origin master && kubectl get applications -n argocd | grep -i moltbot || true && kubectl get pods -n moltbot -o wide || true",
+      "expected": "Merge succeeds; if moltbot is deployed, its pods run and ArgoCD app stays Healthy."
+      ,"if_fails": "If moltbot app/pods fail, stop further changes; capture: kubectl describe pod/logs in moltbot namespace; revert merge if required."
+      ,"rollback": "git revert -m 1 <merge_commit_sha> && git push origin master."
+    },
+    {
+      "id": "C7",
+      "phase": "D",
+      "priority": "P2",
+      "layer": "Apps",
+      "title": "Staged verification: moltbot rollout checks (if deployed)",
+      "goal": "Verify the workload is stable after a base-image major bump before continuing other work.",
+      "commands": "kubectl -n moltbot get deploy,sts -o name 2>/dev/null || true; kubectl -n moltbot rollout status deployment --timeout=10m 2>/dev/null || true; kubectl -n moltbot rollout status statefulset --timeout=10m 2>/dev/null || true; kubectl -n moltbot get pods -o wide 2>/dev/null || true",
+      "expected": "If moltbot exists: rollouts complete and pods remain Running with no CrashLoopBackOff.",
+      "if_fails": "Stop: do not merge further PRs. Use C5 rollback if the merge introduced the regression.",
+      "rollback": "Use C5 rollback if needed."
+    },
+    {
+      "id": "C6",
+      "phase": "D",
+      "priority": "P2",
+      "layer": "Repo",
+      "title": "If moltbot retired: close PR #52 (do not merge)",
+      "goal": "Keep renovate queue clean when the workload is intentionally removed."
+      ,"commands": "set -a; source ~/.config/gitea/.env; set +a; curl -s -X PATCH https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/52 -H 'Authorization: token '$GITEA_TOKEN -H 'Content-Type: application/json' -d '{\"state\":\"closed\"}' | jq -r '.state'"
+      ,"expected": "Issue/PR #52 transitions to closed."
+      ,"if_fails": "If PATCH is rejected, close PR #52 via Gitea UI and record the reason in the maintenance issue change log."
+      ,"rollback": "Re-open via Gitea UI if closed in error."
+    },
+    {
+      "id": "C3",
+      "phase": "D",
+      "priority": "P2",
+      "layer": "Mixed",
+      "title": "If approved: merge PR #50 into master and run post-change validation",
+      "goal": "Apply renovate non-major updates and confirm GitOps + workloads stay GREEN.",
+      "commands": "git fetch origin && git checkout master && git pull --ff-only && git merge --no-ff origin/renovate/all-minor-patch -m 'merge renovate PR #50 (non-major deps)' && git push origin master && kubectl get applications -n argocd | grep -v 'Synced.*Healthy' || true && kubectl get pods -A --no-headers | grep -E 'CrashLoopBackOff|Error|ImagePullBackOff|Pending' || true",
+      "expected": "Merge succeeds; no ArgoCD app becomes OutOfSync/Degraded; no new failing pods appear.",
+      "if_fails": "Stop and capture: kubectl get events -A --sort-by=.lastTimestamp | tail -200; then deep-dive failing pods with describe/logs.",
+      "rollback": "git revert -m 1 <merge_commit_sha> && git push origin master."
+    },
+    {
+      "id": "E1",
+      "phase": "E",
+      "priority": "P3",
+      "layer": "Network",
+      "title": "Fix recon helper scripts (bc dependency + ICMP assumptions)",
+      "goal": "Make future recon results accurate from the workstation environment.",
+      "commands": "command -v bc || echo 'missing bc'; command -v nc || echo 'missing nc'; sed -n '1,220p' ~/.config/opencode/scripts/homelab-network-check.sh; sed -n '1,220p' ~/.config/opencode/scripts/homelab-nas-check.sh",
+      "expected": "Document concrete changes needed: remove bc dependency (use awk), prefer TCP checks for Controller/NAS, do not treat ICMP failures as unreachable for known-ICMP-blocked targets.",
+      "if_fails": "If files missing or permissions blocked, rerun on controller or wherever opencode scripts are installed.",
+      "rollback": "N/A (tooling only)"
+    },
+    {
+      "id": "E2",
+      "phase": "E",
+      "priority": "P3",
+      "layer": "Network",
+      "title": "Network/NAS validation (manual TCP checks per spec)",
+      "goal": "Confirm critical endpoints are reachable even when ICMP is filtered."
+      ,"commands": "for t in '10.0.0.1 443' '10.0.0.1 22' '10.0.20.10 22' '10.0.40.3 445' '10.0.40.3 2049' '10.0.40.3 80'; do h=$(echo $t | awk '{print $1}'); p=$(echo $t | awk '{print $2}'); timeout 5 bash -c \"echo >/dev/tcp/$h/$p\" && echo OPEN $h:$p || echo CLOSED $h:$p; done; curl -s -o /dev/null -w '%{http_code}\n' http://10.0.40.3"
+      ,"expected": "All critical ports report OPEN; Unraid web returns HTTP 302/200."
+      ,"if_fails": "Escalate to network layer troubleshooting: verify host routing/VLAN access; compare results from controller vs workstation."
+      ,"rollback": "N/A"
+    },
+    {
+      "id": "F1",
+      "phase": "F",
+      "priority": "P0",
+      "layer": "System",
+      "title": "Final validation: confirm all layers GREEN",
+      "goal": "End-state verification after all applied changes.",
+      "commands": "kubectl get nodes | grep -v Ready || true; kubectl get pods -n kube-system | grep -v 'Running\\|Completed' || true; kubectl get applications -n argocd | grep -v 'Synced.*Healthy' || true; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health; kubectl get pods -A --no-headers | grep -v 'Running\\|Completed' || true",
+      "expected": "All greps return no output; ceph health returns HEALTH_OK.",
+      "if_fails": "Stop and open focused troubleshooting tasks per failing layer; do not proceed with additional merges/changes.",
+      "rollback": "N/A"
+    }
+  ],
+  "change_log": []
+}
