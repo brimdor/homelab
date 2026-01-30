@@ -15,9 +15,9 @@ kured:
   configuration:
     rebootSentinelCommand: sh -c "/usr/local/bin/rebooter.sh"
     period: 5m
-    rebootDays: [su, mo, tu, we, th, fr, sa]
-    startTime: 0:00
-    endTime: 23:59
+    rebootDays: [mo, we, fr]
+    startTime: 1:45
+    endTime: 5:00
     timeZone: America/Chicago
 
   initContainers:
