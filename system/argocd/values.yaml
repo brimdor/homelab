@@ -101,4 +101,5 @@ argocd-apps:
             syncOptions:
               - CreateNamespace=true
               - ApplyOutOfSyncOnly=true
+              - ServerSideApply=true
               - RespectIgnoreDifferences=true
