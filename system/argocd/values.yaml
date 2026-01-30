@@ -42,7 +42,11 @@ argocd-apps:
             revision: &revision master
             directories:
               - path: system/*
+              - path: system/monitoring-system
+                exclude: true
               - path: platform/*
+              - path: platform/external-secrets
+                exclude: true
               - path: apps/*
       template:
         metadata:
@@ -102,4 +106,74 @@ argocd-apps:
               - CreateNamespace=true
               - ApplyOutOfSyncOnly=true
               - ServerSideApply=true
+              - RespectIgnoreDifferences=true
+
+    root-crd-replace:
+      namespace: argocd
+      generators:
+        - git:
+            repoURL: *repoURL
+            revision: *revision
+            directories:
+              - path: platform/external-secrets
+              - path: system/monitoring-system
+      template:
+        metadata:
+          name: '{{path.basename}}'
+        spec:
+          destination:
+            name: in-cluster
+            namespace: '{{path.basename}}'
+          project: default  # TODO
+          source:
+            repoURL: *repoURL
+            path: '{{path}}'
+            targetRevision: *revision
+          ignoreDifferences:
+            - group: external-secrets.io
+              kind: ExternalSecret
+              jsonPointers:
+                - /spec/data/0/remoteRef/conversionStrategy
+                - /spec/data/0/remoteRef/decodingStrategy
+                - /spec/data/0/remoteRef/metadataPolicy
+                - /spec/data/1/remoteRef/conversionStrategy
+                - /spec/data/1/remoteRef/decodingStrategy
+                - /spec/data/1/remoteRef/metadataPolicy
+                - /spec/data/2/remoteRef/conversionStrategy
+                - /spec/data/2/remoteRef/decodingStrategy
+                - /spec/data/2/remoteRef/metadataPolicy
+                - /spec/data/3/remoteRef/conversionStrategy
+                - /spec/data/3/remoteRef/decodingStrategy
+                - /spec/data/3/remoteRef/metadataPolicy
+            - group: apps
+              kind: StatefulSet
+              jqPathExpressions:
+                - .spec.persistentVolumeClaimRetentionPolicy
+                - .spec.volumeClaimTemplates
+                - .spec.template.spec.containers[].resources
+            - group: ceph.rook.io
+              kind: CephCluster
+              jqPathExpressions:
+                - .spec.csi
+                - .spec.monitoring
+            - group: apiextensions.k8s.io
+              kind: CustomResourceDefinition
+              jqPathExpressions:
+                - .spec.conversion
+                - .status
+          syncPolicy:
+            automated:
+              prune: true
+              selfHeal: true
+            retry:
+              limit: 10
+              backoff:
+                duration: 1m
+                factor: 2
+                maxDuration: 16m
+            syncOptions:
+              - CreateNamespace=true
+              - ApplyOutOfSyncOnly=true
+              - ServerSideApply=true
+              - Replace=true
               - RespectIgnoreDifferences=true
