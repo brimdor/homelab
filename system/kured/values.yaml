@@ -1,4 +1,17 @@
 kured:
+  # Tolerations to ensure kured runs on all nodes including those with dedicated taints
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/master
+      effect: NoSchedule
+    - key: dedicated
+      operator: Exists
+      effect: NoSchedule
+
+  # Ensure no node affinity exclusions - kured should run on ALL nodes
+  affinity: {}
+
   configuration:
     rebootSentinelCommand: sh -c "/usr/local/bin/rebooter.sh"
     period: 5m
