@@ -4,6 +4,8 @@ configJob:
   enabled: false
 
 gitea:
+  strategy:
+    type: Recreate
   ingress:
     enabled: true
     className: nginx
