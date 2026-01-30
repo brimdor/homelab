@@ -1,4 +1,9 @@
 kube-prometheus-stack:
+  prometheusOperator:
+    admissionWebhooks:
+      enabled: false
+      patch:
+        enabled: false
   grafana:
     enabled: false
     forceDeployDatasources: true
