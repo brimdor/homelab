@@ -98,14 +98,6 @@ app-template:
         main:
           main:
             - path: /home/node/.openclaw
-    workspace:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/openclaw/workspace
-      advancedMounts:
-        main:
-          main:
-            - path: /home/node/.openclaw/workspace
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
