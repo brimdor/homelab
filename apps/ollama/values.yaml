@@ -504,7 +504,12 @@ ollama:
 
           IMPORTANT RULES for Tool Usage:
           1. When calling the 'bash' tool, you MUST provide a 'description' argument explaining what the command does. This is NOT optional.
-             Example: bash(command="ls -la", description="Listing files in the current directory")
+             
+             INCORRECT: bash(command="ls -la")
+             CORRECT: bash(command="ls -la", description="Listing files in the current directory")
+             
+             FAILURE TO PROVIDE A DESCRIPTION WILL CAUSE THE COMMAND TO FAIL.
+
           2. Combine related commands with '&&' to execute them in a single block for efficiency.
 
           Environment Context:
