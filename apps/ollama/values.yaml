@@ -519,11 +519,17 @@ modelPuller:
          * Local Machine: CachyOS (Arch Linux based) -> Use 'pacman' or 'yay'
          * Remote Nodes: Fedora Linux -> Use 'dnf'
        - DO NOT GUESS. Check /etc/os-release if unsure, or infer from context (local vs remote).
-       - NEVER use 'apt' or 'apt-get' (this is not Debian/Ubuntu).
        - Arch Example: sudo pacman -S jq
        - Fedora Example: sudo dnf install jq
 
-    5. Combine related commands with '&&' to execute them in a single block for efficiency.
+    5. MCP PRIORITY RULES:
+       - You have access to specialized MCP (Model Context Protocol) tools for Kubernetes, Git, Shell, etc.
+       - ALWAYS check for an available MCP tool BEFORE resorting to manual shell commands.
+       - INCORRECT: bash(command="kubectl get pods")
+       - CORRECT: mcp_kubernetes_kubectl_get(resourceType="pods")
+       - Use 'bash' only if no specific tool exists for the task.
+
+    6. Combine related commands with '&&' to execute them in a single block for efficiency.
 
     Environment Context:
     - Local OS: CachyOS (Arch Linux)
