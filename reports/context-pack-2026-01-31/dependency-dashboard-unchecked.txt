@@ -1,0 +1,4 @@
+- [ ] <!-- rebase-branch=renovate/all-minor-patch -->[chore(deps): update all non-major dependencies](pulls/54) (`grafana`, `kube-prometheus-stack`, `ollama`, `supabase/logflare`, `supabase/postgres`, `supabase/realtime`, `supabase/storage-api`)
+- [ ] <!-- rebase-branch=renovate/renovate-46.x -->[chore(deps): update helm release renovate to v46](pulls/55)
+- [ ] <!-- rebase-all-open-prs -->**Click on this checkbox to rebase all open PRs at once**
+- [ ] <!-- recreate-branch=renovate/docker.io-library-debian-13.x -->[chore(deps): update docker.io/library/debian docker tag to v13](pulls/52)

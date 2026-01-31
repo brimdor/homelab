@@ -1,0 +1,37 @@
+== homelab-nas-check.sh (verbose) ==
+2026-01-31T12:48:57-06:00
+Starting NAS health check...
+Timestamp: 2026-01-31T12:48:57-06:00
+Target: 10.0.40.3
+====================================
+  Homelab NAS (Unraid) Health Check
+====================================
+
+>> Testing NAS Reachability...
+Testing NAS reachability...
+
+>> Testing Web Interface...
+Testing Unraid web interface...
+
+>> Testing Network Ports...
+Testing NAS ports...
+
+>> Testing SMB Shares...
+Testing SMB shares...
+  Testing share: media
+  Testing share: backups
+  Testing share: appdata
+  Testing share: isos
+
+>> Testing NFS Exports...
+Testing NFS exports...
+
+====================================
+[1;33m⚠ NAS STATUS: YELLOW[0m
+  Warnings: 6
+    - SMB_media: Share not visible (may require auth)
+    - SMB_backups: Share not visible (may require auth)
+    - SMB_appdata: Share not visible (may require auth)
+    - SMB_isos: Share not visible (may require auth)
+    - NFS_media: Export not found
+    - NFS_backups: Export not found

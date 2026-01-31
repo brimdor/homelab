@@ -1,0 +1,3 @@
+== logs pod ==/Problem (previous, tail 200) ==
+2026-01-31T12:50:00-06:00
+error: error from server (NotFound): namespaces "==" not found in namespace "=="

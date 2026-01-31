@@ -1,0 +1,436 @@
+== recon.sh (json) ==
+2026-01-31T12:47:20-06:00
+{
+  "timestamp": "2026-01-31T18:47:20Z",
+  "cluster": {
+    "nodes": [
+      {
+        "name": "arcanine",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "8",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "65767076Ki",
+          "nvidia.com/gpu": "1",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "bulbasaur",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16256540Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "charmander",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "24489272Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "chikorita",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32749008Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "cyndaquil",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16258532Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "growlithe",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32748916Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "pikachu",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16256540Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "sprigatito",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32788004Ki",
+          "nvidia.com/gpu": "1",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "squirtle",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16256228Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "totodile",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16258376Ki",
+          "pods": "110"
+        }
+      }
+    ],
+    "unhealthy_pods": [],
+    "apps": [
+      {
+        "name": "argocd",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "backlog",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "backlog-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "budget",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "budget-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "cert-manager",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "cloudflared",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "connect",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "dex",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "doplarr",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "emby",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "explorers-hub",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "external-dns",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "external-secrets",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "gitea",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "global-secrets",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "gpu-operator",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "grafana",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "humbleai",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "humbleai-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "ingress-nginx",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "kanidm",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "kured",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "loki",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "monitoring-system",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "n8n",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "nextcloud",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "ollama",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "openclaw",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "openwebui",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "postgres",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "qdrant",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "radarr",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "renovate",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "rook-ceph",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "sabnzbd",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "searxng",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "sonarr",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "volsync-system",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "woodpecker",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "zot",
+        "health": "Healthy",
+        "sync": "Synced"
+      }
+    ],
+    "ceph": {
+      "fsid": "13c20377-d801-43f9-aebd-59f62df5dad1",
+      "health": {
+        "status": "HEALTH_OK",
+        "checks": {},
+        "mutes": []
+      },
+      "election_epoch": 4624,
+      "quorum": [
+        0,
+        1,
+        2
+      ],
+      "quorum_names": [
+        "f",
+        "h",
+        "j"
+      ],
+      "quorum_age": 3012,
+      "monmap": {
+        "epoch": 19,
+        "min_mon_release_name": "tentacle",
+        "num_mons": 3
+      },
+      "osdmap": {
+        "epoch": 11082,
+        "num_osds": 7,
+        "num_up_osds": 7,
+        "osd_up_since": 1769878890,
+        "num_in_osds": 7,
+        "osd_in_since": 1769619068,
+        "num_remapped_pgs": 0
+      },
+      "pgmap": {
+        "pgs_by_state": [
+          {
+            "state_name": "active+clean",
+            "count": 177
+          }
+        ],
+        "num_pgs": 177,
+        "num_pools": 4,
+        "num_objects": 157540,
+        "data_bytes": 655517726796,
+        "bytes_used": 1314260926464,
+        "bytes_avail": 2424317616128,
+        "bytes_total": 3738578542592,
+        "read_bytes_sec": 852,
+        "write_bytes_sec": 21151,
+        "read_op_per_sec": 2,
+        "write_op_per_sec": 2
+      },
+      "fsmap": {
+        "epoch": 20141,
+        "btime": "2026-01-30T15:12:39:850008+0000",
+        "id": 1,
+        "up": 1,
+        "in": 1,
+        "max": 1,
+        "by_rank": [
+          {
+            "filesystem_id": 1,
+            "rank": 0,
+            "name": "standard-rwx-b",
+            "status": "up:active",
+            "gid": 156634264
+          },
+          {
+            "filesystem_id": 1,
+            "rank": 0,
+            "name": "standard-rwx-a",
+            "status": "up:standby-replay",
+            "gid": 156653525
+          }
+        ],
+        "up:standby": 0
+      },
+      "mgrmap": {
+        "available": true,
+        "num_standbys": 1,
+        "modules": [
+          "dashboard",
+          "iostat",
+          "nfs",
+          "restful"
+        ],
+        "services": {
+          "dashboard": "http://10.0.2.22:7000/"
+        }
+      },
+      "servicemap": {
+        "epoch": 112928,
+        "modified": "2026-01-31T18:43:42.405236+0000",
+        "services": {}
+      },
+      "progress_events": {}
+    }
+  }
+}

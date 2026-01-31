@@ -1,0 +1,26 @@
+== homelab-network-check.sh (json) ==
+2026-01-31T12:47:47-06:00
+{
+  "timestamp": "2026-01-31T12:48:20-06:00",
+  "overall_status": "RED",
+  "warnings": 5,
+  "errors": 1,
+  "checks": [
+    {"check": "OPNSense", "status": "GREEN", "message": "Reachable (ICMP blocked/disabled; TCP port 443 open)", "latency_ms": ""}
+    ,{"check": "Controller", "status": "GREEN", "message": "Reachable (ICMP blocked/disabled; TCP port 22 open)", "latency_ms": ""}
+    ,{"check": "NAS", "status": "GREEN", "message": "Reachable (ICMP blocked/disabled; TCP port 445 open)", "latency_ms": ""}
+    ,{"check": "OPNSENSE_PORT_443", "status": "GREEN", "message": "Port 443 open", "latency_ms": ""}
+    ,{"check": "CONTROLLER_PORT_22", "status": "GREEN", "message": "Port 22 open", "latency_ms": ""}
+    ,{"check": "VLAN40_STORAGE", "status": "YELLOW", "message": "Unreachable (ICMP)", "latency_ms": ""}
+    ,{"check": "VLAN10_MGMT", "status": "YELLOW", "message": "Unreachable (ICMP)", "latency_ms": ""}
+    ,{"check": "VLAN30_CLUSTER_EXTRA", "status": "YELLOW", "message": "Unreachable (ICMP)", "latency_ms": ""}
+    ,{"check": "VLAN20_CLUSTER_PROD", "status": "YELLOW", "message": "Unreachable (ICMP)", "latency_ms": ""}
+    ,{"check": "VLAN50_IOT", "status": "YELLOW", "message": "Unreachable (ICMP)", "latency_ms": ""}
+    ,{"check": "VLAN_GATEWAYS", "status": "RED", "message": "5 VLAN gateways unreachable", "latency_ms": ""}
+    ,{"check": "INTERNET_1.1.1.1", "status": "GREEN", "message": "OK (8.505ms, 0% loss)", "latency_ms": "8.505"}
+    ,{"check": "INTERNET_8.8.8.8", "status": "GREEN", "message": "OK (8.971ms, 0% loss)", "latency_ms": "8.971"}
+    ,{"check": "DNS_CLOUDFLARE", "status": "GREEN", "message": "Resolved google.com via 1.1.1.1", "latency_ms": ""}
+    ,{"check": "DNS_GOOGLE", "status": "GREEN", "message": "Resolved google.com via 8.8.8.8", "latency_ms": ""}
+    ,{"check": "INTERNET_HTTPS", "status": "GREEN", "message": "HTTP OK (301)", "latency_ms": "26"}
+  ]
+}

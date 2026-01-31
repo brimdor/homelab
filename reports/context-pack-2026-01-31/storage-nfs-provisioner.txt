@@ -1,0 +1,9 @@
+== nfs provisioner env/volumes ==
+2026-01-31T12:54:48-06:00
+deployment: nfs-client-provisioner-nfs-subdir-external-provisioner
+PROVISIONER_NAME=cluster.local/nfs-client-provisioner-nfs-subdir-external-provisioner
+NFS_SERVER=10.0.40.3
+NFS_PATH=/mnt/user/heartlib
+
+nfs volumes (server path):
+nfs-subdir-external-provisioner-root: 10.0.40.3 /mnt/user/heartlib

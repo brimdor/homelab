@@ -1,0 +1,24 @@
+== homelab-nas-check.sh (json) ==
+2026-01-31T12:48:52-06:00
+{
+  "timestamp": "2026-01-31T12:48:57-06:00",
+  "target": "10.0.40.3",
+  "overall_status": "YELLOW",
+  "warnings": 6,
+  "errors": 0,
+  "checks": [
+    {"check": "NAS_REACHABLE", "status": "GREEN", "message": "Reachable via TCP (SMB:445)", "value": "SMB:445"}
+    ,{"check": "UNRAID_WEB", "status": "GREEN", "message": "Web interface accessible", "value": ""}
+    ,{"check": "PORT_HTTP", "status": "GREEN", "message": "Port 80 open", "value": ""}
+    ,{"check": "PORT_HTTPS", "status": "GREEN", "message": "Port 443 open", "value": ""}
+    ,{"check": "PORT_SMB", "status": "GREEN", "message": "Port 445 open", "value": ""}
+    ,{"check": "PORT_NFS-RPC", "status": "GREEN", "message": "Port 111 open", "value": ""}
+    ,{"check": "PORT_NFS", "status": "GREEN", "message": "Port 2049 open", "value": ""}
+    ,{"check": "SMB_media", "status": "YELLOW", "message": "Share not visible (may require auth)", "value": ""}
+    ,{"check": "SMB_backups", "status": "YELLOW", "message": "Share not visible (may require auth)", "value": ""}
+    ,{"check": "SMB_appdata", "status": "YELLOW", "message": "Share not visible (may require auth)", "value": ""}
+    ,{"check": "SMB_isos", "status": "YELLOW", "message": "Share not visible (may require auth)", "value": ""}
+    ,{"check": "NFS_media", "status": "YELLOW", "message": "Export not found", "value": ""}
+    ,{"check": "NFS_backups", "status": "YELLOW", "message": "Export not found", "value": ""}
+  ]
+}
