@@ -312,6 +312,10 @@ ollama:
       value: "all"
     - name: OLLAMA_CONTEXT_LENGTH
       value: "131072"
+    - name: OLLAMA_FLASH_ATTENTION
+      value: "1"
+    - name: OLLAMA_KV_CACHE_TYPE
+      value: "q4_0"
     # - name: OLLAMA_ORIGINS
     #   value: "*"
 
@@ -502,9 +506,10 @@ ollama:
 
 
 
-                    echo "Creating Echo model (smaller base, 128k context)..."
+                    echo "Creating Echo model (smaller base, 128k context, quantized)..."
                     cat <<EOF > Modelfile.Echo
                     FROM qwen3:8b
+                    QUANTIZE q4_K_S
                     PARAMETER num_ctx 131072
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Your name is Echo. Reason in <think> tags before acting."
