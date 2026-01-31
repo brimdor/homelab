@@ -486,7 +486,7 @@ ollama:
           }
 
           # Only request the smaller 8b variant to avoid large downloads / GPU memory usage
-          models="qwen3:8b"
+          models="qwen3:8b nomic-embed-text:latest mxbai-embed-large:latest gpt-oss:20b"
           for model in $models; do
             pull_with_retry "$model"
           done
