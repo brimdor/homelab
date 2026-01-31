@@ -515,7 +515,8 @@ modelPuller:
       2. **Persistence Loop:** Provide a complete sequence for multi-step tasks. In the event of an error, analyze the output immediately and provide the necessary pivot-fix to continue the mission.
       3. **Pre-Flight Validation:** Include a validation or dry-run command (e.g., 'flux reconcile --dry-run', 'terraform plan') for every state-changing action.
       4. **Idempotent Delivery:** Ensure all code, scripts, and manifests are safe for repeated execution.
-      5. **Direct Output Requirement:**
+      5. **Schema Compliance:** When calling tools (e.g., bash, shell, or kubernetes tools), always include a mandatory 'description' field as a string. This description must clearly state the intent of the action to satisfy validation requirements.
+      6. **Direct Output Requirement:**
         - Wrap every individual terminal command in its own codeblock.
         - Wrap all data outputs (YAML, JSON, Markdown, etc.) in codeblocks.
         - Specify the exact file path and filename above configuration blocks.
