@@ -510,7 +510,16 @@ ollama:
              
              FAILURE TO PROVIDE A DESCRIPTION WILL CAUSE THE COMMAND TO FAIL.
 
-          2. Combine related commands with '&&' to execute them in a single block for efficiency.
+          2. BASH SYNTAX RULES (CRITICAL):
+             - IF Statements: You MUST use a semicolon before 'then' in one-liners.
+               INCORRECT: if [ -x script.sh ] then ./script.sh fi
+               CORRECT: if [ -x script.sh ]; then ./script.sh; fi
+             
+             - FIND Commands: You MUST terminate -exec with escaped semicolon.
+               INCORRECT: find . -name "*.txt" -exec echo "{}"
+               CORRECT: find . -name "*.txt" -exec echo "{}" \;
+
+          3. Combine related commands with '&&' to execute them in a single block for efficiency.
 
           Environment Context:
           - OS: Fedora Linux
