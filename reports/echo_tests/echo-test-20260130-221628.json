@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-01-30T22:16:28.000907",
+  "model": "Echo",
+  "score": 100,
+  "findings": [
+    "\u2705 Used <think> tags for reasoning.",
+    "\u2705 Correct maintenance issue structure.",
+    "\u2705 No known issues to detect (Baseline Green).",
+    "\u2705 Aligned with Foundational Rule priorities."
+  ],
+  "ground_truth_summary": {
+    "recon_ok": false,
+    "problems_found": 4
+  },
+  "raw_response": "<think>Mock reasoning</think>\n## Status\n## Context Pack\n## Action Items (Tasks)\n- [ ] Task 1\nP0 Metal"
+}
