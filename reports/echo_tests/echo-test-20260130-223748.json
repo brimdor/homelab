@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-01-30T22:37:48.460793",
+  "model": "Echo",
+  "score": 60,
+  "findings": [
+    "\u274c Failed to use <think> tags.",
+    "\u274c Missing sections: {'## Status', '## Action Items (Tasks)', '## Context Pack'}",
+    "\u2705 No known issues to detect (Baseline Green).",
+    "\u2705 Aligned with Foundational Rule priorities."
+  ],
+  "ground_truth_summary": {
+    "recon_ok": false,
+    "problems_found": 4
+  },
+  "raw_response": "**Summary**  \nCritical error in recon.sh script: `/usr/bin/jq: Argument list too long` on line 62.  \n\n**Impact**  \nThe recon script fails to execute, preventing critical system diagnostics and endpoint testing.  \n\n**Root Cause**  \nThe `jq` command is being passed an excessively long argument list, exceeding its command-line length limit.  \n\n**Action Items**  \n**P0 - System**  \n- **Task**: Adjust the `recon.sh` script to handle large argument lists for `jq`.  \n  - Use `jq` with a file input instead of inline data (e.g., redirect output to a temporary file).  \n  - Validate script logic to avoid unnecessary data aggregation in command-line arguments.  \n\n**P1 - Platform**  \n- **Task**: Review and harden script execution policies to prevent similar issues in the future.  \n  - Implement input sanitization and argument length checks for all scripts.  \n  - Document constraints for third-party tools like `jq` in the homelab configuration.  \n\n**P2 - Apps**  \n- **Task**: Revalidate all dependent tools (e.g., `jq`) for compatibility with homelab workflows.  \n  - Ensure all scripts use modern, robust parsing methods instead of legacy command-line arguments.  \n\n**P3 - Metal**  \n- **Task**: Confirm hardware resources (CPU, memory) are sufficient for script execution.  \n  - Monitor system load during script runs to identify potential bottlenecks.  \n\n**Status**  \n- **Network**: GREEN (no errors detected).  \n- **Recon**: RED (script failure).  \n- **System**: RED (script error).  \n- **Platform**: RED (script vulnerability).  \n- **Apps**: GREEN (no errors).  \n- **Metal**: GREEN (no issues).  \n\n---  \n**Note**: Prioritize P0 immediately to restore recon functionality."
+}
