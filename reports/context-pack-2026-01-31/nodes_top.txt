@@ -1,0 +1,11 @@
+NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+arcanine     553m         6%       5220Mi          8%          
+bulbasaur    934m         23%      6941Mi          43%         
+charmander   900m         22%      4891Mi          20%         
+chikorita    338m         8%       3442Mi          10%         
+cyndaquil    378m         9%       4169Mi          26%         
+growlithe    631m         15%      6619Mi          20%         
+pikachu      176m         4%       3180Mi          20%         
+sprigatito   205m         5%       6834Mi          21%         
+squirtle     822m         20%      4768Mi          30%         
+totodile     433m         10%      2897Mi          18%         

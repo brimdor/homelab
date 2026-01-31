@@ -1,0 +1,4 @@
+--- NAS Reachability (10.0.40.3) ---
+SMB (445): /usr/bin/bash: line 13: nc: command not found
+NFS (2049): /usr/bin/bash: line 15: nc: command not found
+Web (80): 302

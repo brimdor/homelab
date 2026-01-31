@@ -1,0 +1,4 @@
+HEALTH_WARN 2 OSD(s) experiencing stalled read in db device of BlueFS
+[WRN] DB_DEVICE_STALLED_READ_ALERT: 2 OSD(s) experiencing stalled read in db device of BlueFS
+     osd.2 observed stalled read indications in DB device
+     osd.4 observed stalled read indications in DB device
