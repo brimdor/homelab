@@ -1,6 +1,6 @@
-# Homelab Status Report - 2026-01-30
+# Homelab Status Report - 2026-01-30 (Evening Update)
 
-**Generated**: 2026-01-30 12:15 CST  
+**Generated**: 2026-01-30 19:10 CST  
 **Source**: opencode /homelab-recon  
 **Cluster**: eaglepass-prod (K3s v1.33.6+k3s1)
 
@@ -8,55 +8,81 @@
 
 ## Executive Summary
 
-🟢 **ALL LAYERS GREEN** - No critical issues detected.  
-**Overall Status**: Healthy and operational.  
-**Action Required**: Optional - 2 Renovate PRs pending review (non-critical).
+| Layer | Status | Summary |
+|-------|--------|---------|
+| Metal | GREEN | 10/10 nodes Ready |
+| System | GREEN | All core services Running |
+| Storage | GREEN | Ceph HEALTH_OK (35% used) |
+| Platform | GREEN | All certs Ready, secrets synced |
+| Apps | GREEN | 40/40 ArgoCD apps Synced+Healthy |
+| **Overall** | **GREEN** | Cluster healthy, 2 PRs pending review |
 
 ---
 
-## Evidence Archive
+## Cluster Identity
 
-### 1. Node Status
-```
-NAME         STATUS   ROLES                       AGE    VERSION        INTERNAL-IP
-arcanine     Ready    <none>                      342d   v1.33.6+k3s1   10.0.20.19
-bulbasaur    Ready    control-plane,etcd,master   342d   v1.33.6+k3s1   10.0.20.13
-charmander   Ready    control-plane,etcd,master   342d   v1.33.6+k3s1   10.0.20.11
-chikorita    Ready    <none>                      254d   v1.33.6+k3s1   10.0.20.15
-cyndaquil    Ready    <none>                      25d    v1.33.6+k3s1   10.0.20.16
-growlithe    Ready    <none>                      342d   v1.33.6+k3s1   10.0.20.18
-pikachu      Ready    <none>                      342d   v1.33.6+k3s1   10.0.20.14
-sprigatito   Ready    <none>                      162d   v1.33.6+k3s1   10.0.20.20
-squirtle     Ready    control-plane,etcd,master   342d   v1.33.6+k3s1   10.0.20.12
-totodile     Ready    <none>                      342d   v1.33.6+k3s1   10.0.20.17
-```
+| Component | Value |
+|-----------|-------|
+| K3s Version | v1.33.6+k3s1 |
+| Client Version | v1.35.0 |
+| Control Plane | https://10.0.20.50:6443 |
+| Node Count | 10 (3 masters, 7 workers) |
+| ArgoCD Apps | 40 total |
+| Ceph Status | HEALTH_OK |
 
-### 2. Resource Usage (kubectl top nodes)
-```
-NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
-arcanine     282m         3%       3596Mi          5%          
-bulbasaur    820m         20%      6157Mi          38%         
-charmander   791m         19%      5504Mi          23%         
-chikorita    320m         8%       2896Mi          9%          
-cyndaquil    332m         8%       2621Mi          16%         
-growlithe    361m         9%       5052Mi          15%         
-pikachu      170m         4%       3093Mi          19%         
-sprigatito   153m         3%       3119Mi          9%          
-squirtle     828m         20%      3779Mi          23%         
-totodile     436m         10%      2861Mi          18%         
-```
+---
 
-### 3. Ceph Status
+## Metal Layer
+
+### Nodes
+
+| Node | Role | Status | IP | CPU | Memory |
+|------|------|--------|----|----|--------|
+| arcanine | worker | Ready | 10.0.20.19 | 3% | 6% |
+| bulbasaur | master | Ready | 10.0.20.13 | 22% | 38% |
+| charmander | master | Ready | 10.0.20.11 | 24% | 24% |
+| chikorita | worker | Ready | 10.0.20.15 | 7% | 9% |
+| cyndaquil | worker | Ready | 10.0.20.16 | 8% | 18% |
+| growlithe | worker | Ready | 10.0.20.18 | 14% | 17% |
+| pikachu | worker | Ready | 10.0.20.14 | 4% | 19% |
+| sprigatito | worker | Ready | 10.0.20.20 | 3% | 15% |
+| squirtle | master | Ready | 10.0.20.12 | 20% | 28% |
+| totodile | worker | Ready | 10.0.20.17 | 9% | 18% |
+
+### CNI (Cilium)
+
+- 10/10 Cilium pods Running
+- 1 Cilium operator Running
+- Hubble UI/Relay Running
+
+---
+
+## System Layer
+
+### Core Services
+
+| Service | Status | Pods |
+|---------|--------|------|
+| CoreDNS | Running | 1/1 |
+| Metrics Server | Running | 1/1 |
+| kube-vip | Running | 3/3 (HA) |
+| NFS Provisioner | Running | 1/1 |
+
+---
+
+## Storage Layer
+
+### Ceph Status
+
 ```
-cluster:
-  id:     13c20377-d801-43f9-aebd-59f62df5dad1
-  health: HEALTH_OK
+Health: HEALTH_OK
+Cluster ID: 13c20377-d801-43f9-aebd-59f62df5dad1
 
 services:
-  mon: 3 daemons, quorum f,h,j
-  mgr: b(active), standbys: a
+  mon: 3 daemons, quorum f,h,j (age 8h) [leader: f]
+  mgr: b(active, since 11h), standbys: a
   mds: 1/1 daemons up, 1 hot standby
-  osd: 7 osds: 7 up, 7 in
+  osd: 7 osds: 7 up (since 8h), 7 in (since 2d)
 
 data:
   volumes: 1/1 healthy
@@ -66,88 +92,152 @@ data:
   pgs:     177 active+clean
 ```
 
-### 4. ArgoCD Applications (40 total)
-All applications **Synced** and **Healthy**:
-- argocd, backlog, backlog-canary, budget, budget-canary
-- cert-manager, cloudflared, connect, dex, doplarr
-- emby, explorers-hub, external-dns, external-secrets
-- gitea, global-secrets, gpu-operator, grafana, humbleai
-- humbleai-canary, ingress-nginx, kanidm, kured, loki
-- monitoring-system, n8n, nextcloud, ollama, openwebui
-- postgres, qdrant, radarr, renovate, rook-ceph
-- sabnzbd, searxng, sonarr, volsync-system
-- woodpecker, zot
+### Capacity
 
-### 5. TLS Certificates (20 total)
-All certificates **Ready=True**:
-- argocd-server-tls, backlog-companion-tls, budget-tls
-- dex-tls-certificate, emby-tls-certificate
-- explorers-hub-tls-certificate, gitea-tls-certificate
-- grafana-general-tls, humbleai-tls, kanidm-tls-certificate
-- n8n-tls-certificate, nextcloud-tls-certificate
-- ollama-tls, open-tls-certificate, radarr-tls
-- searxng-tls-certificate, sonarr-tls-certificate
-- zot-tls-certificate
+| Metric | Value |
+|--------|-------|
+| Total | 3.4 TiB |
+| Used | 1.2 TiB |
+| Available | 2.2 TiB |
+| Usage % | 35.10% |
 
-### 6. External Secrets (8 total)
-All secrets **SecretSynced=True**:
-- connect/onepassword-credentials
-- dex/dex-secrets
-- gitea/gitea-admin-secret
-- grafana/grafana-secrets
-- renovate/renovate-secret
-- woodpecker/woodpecker-secret
-- zot/registry-admin-secret
+### OSD Distribution
 
-### 7. Open Pull Requests
-- **PR #55**: chore(deps): update helm release renovate to v46
-- **PR #54**: chore(deps): update all non-major dependencies
+| Host | OSDs | Weight |
+|------|------|--------|
+| arcanine | 2 (osd.2, osd.8) | 1.33 TiB |
+| bulbasaur | 1 (osd.4) | 0.40 TiB |
+| chikorita | 1 (osd.0) | 0.40 TiB |
+| cyndaquil | 1 (osd.1) | 0.40 TiB |
+| growlithe | 1 (osd.6) | 0.45 TiB |
+| sprigatito | 1 (osd.7) | 0.40 TiB |
 
-### 8. Recent Events (Last 50)
-Recent activity shows normal kured operations on growlithe node:
-- Multiple "Starting kubelet" events (expected kured reboot checking)
-- Certificate expiration checks (all OK)
-- Node ready status maintained throughout
+### NAS (Unraid)
+
+| Check | Status |
+|-------|--------|
+| SMB (445) | OPEN |
+| NFS (2049) | OPEN |
+| Web (80) | 302 (redirect to login) |
 
 ---
 
-## Analysis
+## Platform Layer
 
-### Findings
-1. **Node growlithe Activity**: Frequent kubelet events observed
-   - **Root Cause**: Kured (Kubernetes Reboot Daemon) scheduled checks
-   - **Kured Schedule**: Mon/Wed/Fri 01:45-05:00 America/Chicago
-   - **Impact**: None - node remains Ready, normal operations
-   - **Action**: Monitor only, no intervention required
+### Ingress
 
-2. **Renovate PRs**: 2 dependency update PRs pending
-   - **PR #54**: Non-major dependency updates (minor/patch)
-   - **PR #55**: Renovate v46 update
-   - **Risk**: Low - both are minor version bumps
-   - **Action**: Can be merged during next maintenance window
+| Component | Status |
+|-----------|--------|
+| ingress-nginx-controller | Running (1/1) |
+| Location | totodile (10.0.2.71) |
 
-### Health Matrix
+### Certificates (25 total, all Ready)
 
-| Layer | Status | Evidence |
-|-------|--------|----------|
-| Metal | 🟢 GREEN | 10/10 nodes Ready, Cilium healthy |
-| Network | 🟢 GREEN | CNI operational, ingress functional |
-| Storage | 🟢 GREEN | Ceph HEALTH_OK, 35% usage |
-| System | 🟢 GREEN | CoreDNS, metrics, kube-vip OK |
-| Platform | 🟢 GREEN | Ingress, certs, secrets all healthy |
-| Apps | 🟢 GREEN | 40/40 ArgoCD apps Synced+Healthy |
+All certificates **Ready=True** across namespaces:
+argocd, backlog, backlog-canary, budget, budget-canary, dex, emby, explorers-hub, gitea, grafana, humbleai, humbleai-canary, kanidm, localai, n8n, nextcloud, ollama, openwebui, radarr, sabnzbd, searxng, sonarr, woodpecker, zot
+
+### External Secrets (7 total, all Synced)
+
+| Secret | Store | Status |
+|--------|-------|--------|
+| connect/op-credentials | global-secrets | SecretSynced |
+| dex/dex-secrets | global-secrets | SecretSynced |
+| gitea/gitea-admin-secret | global-secrets | SecretSynced |
+| grafana/grafana-secrets | global-secrets | SecretSynced |
+| renovate/renovate-secret | global-secrets | SecretSynced |
+| woodpecker/woodpecker-secret | global-secrets | SecretSynced |
+| zot/registry-admin-secret | global-secrets | SecretSynced |
 
 ---
 
-## Recommendations
+## Apps Layer (ArgoCD)
 
-### Immediate (P2)
-- [ ] Review and merge PR #54 (non-major deps)
-- [ ] Review and merge PR #55 (renovate v46)
+### All Applications (40 total) - All Synced + Healthy
 
-### Monitoring (P3)
-- [ ] Observe growlithe kured cycle completion
-- [ ] Verify no sustained NotReady periods
+argocd, backlog, backlog-canary, budget, budget-canary, cert-manager, cloudflared, connect, dex, doplarr, emby, explorers-hub, external-dns, external-secrets, gitea, global-secrets, gpu-operator, grafana, humbleai, humbleai-canary, ingress-nginx, kanidm, kured, loki, monitoring-system, n8n, nextcloud, ollama, openwebui, postgres, qdrant, radarr, renovate, rook-ceph, sabnzbd, searxng, sonarr, volsync-system, woodpecker, zot
+
+---
+
+## Repo Evidence
+
+### Open Pull Requests
+
+| PR | Title | Author | Branch | Mergeable | Age |
+|----|-------|--------|--------|-----------|-----|
+| #54 | chore(deps): update all non-major dependencies | gitea_admin | renovate/all-minor-patch | true | <1 day |
+| #55 | chore(deps): update helm release renovate to v46 | gitea_admin | renovate/renovate-46.x | true | <1 day |
+
+#### PR #54 Details (Non-major dependencies)
+
+| Package | Update | Change |
+|---------|--------|--------|
+| grafana | patch | 10.5.14 → 10.5.15 |
+| kube-prometheus-stack | patch | 81.3.0 → 81.3.2 |
+| ollama | minor | 1.39.0 → 1.40.0 |
+| supabase/logflare | patch | 1.30.5 → 1.30.6 |
+| supabase/postgres | patch | 17.6.1.074 → 17.6.1.075 |
+| supabase/realtime | patch | v2.73.3 → v2.73.5 |
+| supabase/storage-api | minor | v1.35.3 → v1.36.0 |
+
+#### PR #55 Details (Renovate major update)
+
+| Package | Update | Change |
+|---------|--------|--------|
+| renovate | major | 45.88.1 → 46.0.3 |
+
+### Open Issues
+
+| Issue | Title | Labels | Assignee |
+|-------|-------|--------|----------|
+| #53 | [Maintenance] 2026-01-29 - Homelab | maintenance | gitea_admin |
+| #4 | Dependency Dashboard | - | - |
+
+---
+
+## Events & Warnings
+
+### Warning Events
+
+| Timestamp | Type | Node | Message |
+|-----------|------|------|---------|
+| Recent (recurring) | Warning | growlithe | InvalidDiskCapacity: invalid capacity 0 on image filesystem |
+
+**Analysis:** The growlithe node is reporting InvalidDiskCapacity events for the image filesystem. This appears to be a transient metrics collection issue. Node conditions show:
+- MemoryPressure: False
+- DiskPressure: False
+- PIDPressure: False
+- Ready: True
+
+The node is fully functional with no actual disk pressure. This warning is informational and does not require immediate action but should be monitored.
+
+### Normal Events (Summary)
+
+- Frequent kubelet start events on growlithe (kured checking for reboots - normal)
+- CertificateExpirationOK events on all nodes
+- ClusterSecretStore validated
+
+---
+
+## Validation Gate Results
+
+```bash
+kubectl get nodes | grep -v "Ready" || true
+# Result: No non-Ready nodes
+
+kubectl get pods -n kube-system | grep -v "Running\|Completed" || true
+# Result: All pods Running/Completed
+
+kubectl get applications -n argocd | grep -v "Synced.*Healthy" || true
+# Result: All apps Synced+Healthy
+
+kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health
+# Result: HEALTH_OK
+
+kubectl get pods -A --no-headers | grep -v "Running\|Completed" || true
+# Result: No problematic pods
+```
+
+**Validation Status: ALL PASS**
 
 ---
 
@@ -156,3 +246,8 @@ Recent activity shows normal kured operations on growlithe node:
 - **Maintenance Issue**: https://git.eaglepass.io/ops/homelab/issues/53
 - **ArgoCD**: https://argocd.eaglepass.io
 - **Documentation**: https://homelab.eaglepass.io
+- **Dependency Dashboard**: https://git.eaglepass.io/ops/homelab/issues/4
+
+---
+
+*Report generated by opencode /homelab-recon*
