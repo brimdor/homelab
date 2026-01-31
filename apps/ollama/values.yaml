@@ -311,7 +311,7 @@ ollama:
     - name: NVIDIA_DRIVER_CAPABILITIES
       value: "all"
     - name: OLLAMA_CONTEXT_LENGTH
-      value: "32768"
+      value: "131072"
     # - name: OLLAMA_ORIGINS
     #   value: "*"
 
@@ -502,10 +502,10 @@ ollama:
 
 
 
-                    echo "Creating Echo model (smaller base, reduced context)..."
+                    echo "Creating Echo model (smaller base, 128k context)..."
                     cat <<EOF > Modelfile.Echo
                     FROM qwen3:8b
-                    PARAMETER num_ctx 32768
+                    PARAMETER num_ctx 131072
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Your name is Echo. Reason in <think> tags before acting."
                     EOF
