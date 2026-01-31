@@ -80,22 +80,16 @@ ollama:
       # pull:
       #  - llama2
       #  - mistral
+      # Limit pulled models to a small 8b variant to avoid GPU OOM
       pull:
-        # - gpt-oss:20b
-        # - gpt-oss:120b-cloud
-        # - mxbai-embed-large:latest
-        # - ministral-3:8b
-        # - nomic-embed-text:latest
-        # - llama-guard3:1b
-        # - qwen3-coder:30b
-        # - devstral-small-2:24b
-        # - magristral:24b
-        
+        - qwen3:8b
       # -- List of models to load in memory at container startup
       # run:
       #  - llama2
       #  - mistral
-      run: []
+      # Load only the Echo model (created from a small 8b base) to keep memory low
+      run:
+        - Echo
 
       # -- List of models to create at container startup, there are two options
       # 1. Create a raw model
@@ -500,17 +494,18 @@ ollama:
                       done
                     }
 
-                    models="gpt-oss:20b gpt-oss:120b-cloud mxbai-embed-large:latest nomic-embed-text:latest qwen3:8b qwen3-vl:8b"
+                    # Only request the smaller 8b variant to avoid large downloads / GPU memory usage
+                    models="qwen3:8b"
                     for model in $models; do
                       pull_with_retry "$model"
                     done
 
 
 
-                    echo "Creating Echo model..."
+                    echo "Creating Echo model (smaller base, reduced context)..."
                     cat <<EOF > Modelfile.Echo
-                    FROM qwen3-vl:8b
-                    PARAMETER num_ctx 131072
+                    FROM qwen3:8b
+                    PARAMETER num_ctx 32768
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Your name is Echo. Reason in <think> tags before acting."
                     EOF
