@@ -82,14 +82,14 @@ ollama:
       #  - mistral
       # Limit pulled models to a small 8b variant to avoid GPU OOM
       pull:
-        - qwen3:8b
+        # - qwen3:8b
       # -- List of models to load in memory at container startup
       # run:
       #  - llama2
       #  - mistral
       # Load only the Echo model (created from a small 8b base) to keep memory low
       run:
-        - Echo
+        # - Echo
 
       # -- List of models to create at container startup, there are two options
       # 1. Create a raw model
@@ -499,7 +499,7 @@ ollama:
                     }
 
                     # Only request the smaller 8b variant to avoid large downloads / GPU memory usage
-                    models="qwen3-vl:8b"
+                    models="qwen3:8b"
                     for model in $models; do
                       pull_with_retry "$model"
                     done
@@ -508,7 +508,7 @@ ollama:
 
                     echo "Creating Echo model (smaller base, 128k context, fixed reasoning)..."
                     cat <<EOF > Modelfile.Echo
-                    FROM qwen3-vl:8b
+                    FROM qwen3:8b
                     PARAMETER num_ctx 131072
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Your name is Echo."
