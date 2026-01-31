@@ -542,8 +542,6 @@ ollama:
           metadata:
             labels:
               app.kubernetes.io/name: ollama-model-puller
-            annotations:
-              checksum/config: "{{ include (print $.Template.BasePath \"/values.yaml\") . | sha256sum }}"
           spec:
             containers:
               - name: model-puller
