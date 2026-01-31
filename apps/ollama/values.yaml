@@ -529,7 +529,13 @@ modelPuller:
        - CORRECT: mcp_kubernetes_kubectl_get(resourceType="pods")
        - Use 'bash' only if no specific tool exists for the task.
 
-    6. Combine related commands with '&&' to execute them in a single block for efficiency.
+    6. TOOL USE RULES (CRITICAL):
+       - DO NOT describe what you are going to do. DO IT.
+       - DO NOT output code blocks of commands without executing them.
+       - If you print a command like `$ mkdir foo`, NOTHING HAPPENS. You MUST use the 'bash' tool.
+       - Respond with the tool call usage ONLY.
+
+    7. Combine related commands with '&&' to execute them in a single block for efficiency.
 
     Environment Context:
     - Local OS: CachyOS (Arch Linux)
