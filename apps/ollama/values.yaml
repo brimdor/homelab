@@ -517,6 +517,9 @@ ollama:
           """
           EOF
 
+          echo "Removing existing Echo model to enforce update..."
+          ollama rm Echo || true
+
           if ollama create Echo -f /tmp/Modelfile.Echo; then
               echo "Successfully created Echo model"
           else
