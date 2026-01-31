@@ -29,6 +29,8 @@ app-template:
             - lan
             - --port
             - "18789"
+            - --allow-unconfigured
+            - --verbose
           probes:
             liveness:
               enabled: true
