@@ -509,7 +509,7 @@ ollama:
 
                     echo "Creating Echo model..."
                     cat <<EOF > Modelfile.Echo
-                    FROM qwen3:8b
+                    FROM qwen3-vl:8b
                     PARAMETER num_ctx 131072
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Your name is Echo. Reason in <think> tags before acting."
