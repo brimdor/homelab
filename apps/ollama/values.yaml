@@ -506,13 +506,13 @@ ollama:
 
 
 
-                    echo "Creating Echo model (smaller base, 128k context, quantized)..."
+                    echo "Creating Echo model (smaller base, 128k context, quantized, fixed reasoning)..."
                     cat <<EOF > Modelfile.Echo
                     FROM qwen3:8b
                     QUANTIZE q4_K_S
                     PARAMETER num_ctx 131072
                     PARAMETER repeat_penalty 1.5
-                    SYSTEM "You are an autonomous agent. Your name is Echo. Reason in <think> tags before acting."
+                    SYSTEM "You are an autonomous agent. Your name is Echo. You MUST always reason in <think> tags before providing your final answer."
                     EOF
 
                     if ollama create Echo -f Modelfile.Echo; then
