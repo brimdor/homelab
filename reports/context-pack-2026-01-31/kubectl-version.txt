@@ -1,0 +1,5 @@
+== kubectl version --short ==
+2026-01-31T12:46:57-06:00
+error: unknown flag: --short
+See 'kubectl version --help' for usage.
+

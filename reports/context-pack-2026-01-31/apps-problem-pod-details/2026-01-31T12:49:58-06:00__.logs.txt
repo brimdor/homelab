@@ -1,0 +1,8 @@
+== logs pod 2026-01-31T12:49:58-06:00/ (tail 200) ==
+2026-01-31T12:50:00-06:00
+error: You must provide one or more resources by argument or filename.
+Example resource specifications include:
+   '-f rsrc.yaml'
+   '--filename=rsrc.json'
+   '<resource> <name>'
+   '<resource>'

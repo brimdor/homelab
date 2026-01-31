@@ -1,0 +1,3 @@
+== describe pod ==/Problem ==
+2026-01-31T12:49:59-06:00
+Error from server (NotFound): namespaces "==" not found

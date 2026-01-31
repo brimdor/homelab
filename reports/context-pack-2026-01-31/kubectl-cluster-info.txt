@@ -1,0 +1,8 @@
+== kubectl cluster-info ==
+2026-01-31T12:46:57-06:00
+Kubernetes control plane is running at https://10.0.20.50:6443
+CoreDNS is running at https://10.0.20.50:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+Metrics-server is running at https://10.0.20.50:6443/api/v1/namespaces/kube-system/services/https:metrics-server:https/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+

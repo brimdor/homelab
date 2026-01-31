@@ -1,0 +1,15 @@
+ID   CLASS  WEIGHT   TYPE NAME            STATUS  REWEIGHT  PRI-AFF
+ -1         3.40022  root default                                  
+ -5         1.33429      host arcanine                             
+  2    ssd  0.86850          osd.2            up   1.00000  1.00000
+  8    ssd  0.46579          osd.8            up   1.00000  1.00000
+ -7         0.40279      host bulbasaur                            
+  4    ssd  0.40279          osd.4            up   1.00000  1.00000
+ -3         0.40279      host chikorita                            
+  0    ssd  0.40279          osd.0            up   1.00000  1.00000
+ -9         0.40279      host cyndaquil                            
+  1    ssd  0.40279          osd.1            up   1.00000  1.00000
+-11         0.45479      host growlithe                            
+  6    ssd  0.45479          osd.6            up   1.00000  1.00000
+-13         0.40279      host sprigatito                           
+  7    ssd  0.40279          osd.7            up   1.00000  1.00000

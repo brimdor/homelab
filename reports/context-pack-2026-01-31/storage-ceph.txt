@@ -1,0 +1,134 @@
+== rook-ceph pods -o wide ==
+2026-01-31T12:49:46-06:00
+NAME                                                       READY   STATUS      RESTARTS       AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+ceph-csi-controller-manager-5dc6b7cf95-f9wxn               1/1     Running     1 (34h ago)    34h     10.0.5.65    charmander   <none>           <none>
+rook-ceph-conversion-webhook-5b888b9f5d-c6prp              1/1     Running     0              34h     10.0.6.207   squirtle     <none>           <none>
+rook-ceph-crashcollector-arcanine-5d9d65b756-jxxr7         1/1     Running     0              26h     10.0.4.231   arcanine     <none>           <none>
+rook-ceph-crashcollector-bulbasaur-5479587f64-2rw84        1/1     Running     0              34h     10.0.7.18    bulbasaur    <none>           <none>
+rook-ceph-crashcollector-charmander-6f8fdff966-l7vmc       1/1     Running     0              34h     10.0.5.238   charmander   <none>           <none>
+rook-ceph-crashcollector-chikorita-659f47b6f7-zdjws        1/1     Running     0              27h     10.0.0.85    chikorita    <none>           <none>
+rook-ceph-crashcollector-cyndaquil-5dbddfb65c-wswgv        1/1     Running     1 (26h ago)    26h     10.0.3.31    cyndaquil    <none>           <none>
+rook-ceph-crashcollector-growlithe-7576697d66-khtw8        1/1     Running     0              34h     10.0.1.60    growlithe    <none>           <none>
+rook-ceph-crashcollector-sprigatito-846c5596b7-rqtcn       1/1     Running     0              26h     10.0.9.3     sprigatito   <none>           <none>
+rook-ceph-crashcollector-totodile-6bfdd9dc5c-knd27         1/1     Running     0              28h     10.0.2.144   totodile     <none>           <none>
+rook-ceph-exporter-arcanine-5c744855c5-6pcw2               1/1     Running     0              26h     10.0.4.212   arcanine     <none>           <none>
+rook-ceph-exporter-bulbasaur-78bd56d849-8zlf8              1/1     Running     0              34h     10.0.7.192   bulbasaur    <none>           <none>
+rook-ceph-exporter-charmander-78d478b4d5-55r96             1/1     Running     0              34h     10.0.5.51    charmander   <none>           <none>
+rook-ceph-exporter-chikorita-6479bb6484-wn62p              1/1     Running     0              27h     10.0.0.233   chikorita    <none>           <none>
+rook-ceph-exporter-cyndaquil-6597d4d54d-x8pqk              1/1     Running     1 (26h ago)    26h     10.0.3.238   cyndaquil    <none>           <none>
+rook-ceph-exporter-growlithe-5d5799d76c-8ltc7              1/1     Running     0              34h     10.0.1.78    growlithe    <none>           <none>
+rook-ceph-exporter-sprigatito-bb57879c6-kdtpw              1/1     Running     0              26h     10.0.9.149   sprigatito   <none>           <none>
+rook-ceph-exporter-totodile-76d7b4d56b-c57mt               1/1     Running     0              28h     10.0.2.152   totodile     <none>           <none>
+rook-ceph-mds-standard-rwx-a-6bd6586df-lm4q2               1/1     Running     0              27h     10.0.2.220   totodile     <none>           <none>
+rook-ceph-mds-standard-rwx-b-779b85d79c-8rzwb              1/1     Running     0              34h     10.0.5.161   charmander   <none>           <none>
+rook-ceph-mgr-a-58d8898ccb-gkd2z                           2/2     Running     0              34h     10.0.5.88    charmander   <none>           <none>
+rook-ceph-mgr-b-66cb475bb6-fpwpf                           2/2     Running     0              28h     10.0.2.22    totodile     <none>           <none>
+rook-ceph-mon-f-5cc966c797-kkngq                           1/1     Running     0              34h     10.0.7.123   bulbasaur    <none>           <none>
+rook-ceph-mon-h-5ccccdb9bc-jml47                           1/1     Running     0              34h     10.0.5.104   charmander   <none>           <none>
+rook-ceph-mon-j-746c974688-x4746                           1/1     Running     1 (26h ago)    26h     10.0.3.118   cyndaquil    <none>           <none>
+rook-ceph-operator-fd5bd8dff-fwg2s                         1/1     Running     0              34h     10.0.6.128   squirtle     <none>           <none>
+rook-ceph-osd-0-759886b475-p52fv                           1/1     Running     0              27h     10.0.0.72    chikorita    <none>           <none>
+rook-ceph-osd-1-6d8c5776bc-t9dt6                           1/1     Running     1 (26h ago)    26h     10.0.3.4     cyndaquil    <none>           <none>
+rook-ceph-osd-2-65c544f9b9-dqxqf                           1/1     Running     0              109m    10.0.4.111   arcanine     <none>           <none>
+rook-ceph-osd-4-68899c7d97-ml94x                           1/1     Running     0              109m    10.0.7.131   bulbasaur    <none>           <none>
+rook-ceph-osd-6-84797665c5-z8lhf                           1/1     Running     0              34h     10.0.1.122   growlithe    <none>           <none>
+rook-ceph-osd-7-7f4d84c6d6-5vbts                           1/1     Running     0              26h     10.0.9.190   sprigatito   <none>           <none>
+rook-ceph-osd-8-5b654b7fd6-4z757                           1/1     Running     0              26h     10.0.4.220   arcanine     <none>           <none>
+rook-ceph-osd-prepare-bulbasaur-6jxzb                      0/1     Completed   0              34h     <none>       bulbasaur    <none>           <none>
+rook-ceph-osd-prepare-charmander-tvdbj                     0/1     Completed   0              34h     10.0.5.165   charmander   <none>           <none>
+rook-ceph-osd-prepare-growlithe-sp9dz                      0/1     Completed   0              34h     10.0.1.161   growlithe    <none>           <none>
+rook-ceph-osd-prepare-squirtle-7vqmz                       0/1     Completed   0              34h     10.0.6.179   squirtle     <none>           <none>
+rook-ceph-osd-prepare-totodile-8xptt                       0/1     Completed   0              34h     10.0.2.107   totodile     <none>           <none>
+rook-ceph-snapshot-controller-7dd476c4f9-7zk64             1/1     Running     0              34h     10.0.1.47    growlithe    <none>           <none>
+rook-ceph-tools-658fd4db6f-v5d92                           1/1     Running     0              27h     10.0.2.193   totodile     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-ctrlplugin-c4dc99579-44lwt   5/5     Running     0              34h     10.0.7.20    bulbasaur    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-ctrlplugin-c4dc99579-fff88   5/5     Running     0              26h     10.0.0.198   chikorita    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-76n4p             2/2     Running     41 (25h ago)   7d3h    10.0.20.14   pikachu      <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-8ksjd             2/2     Running     20 (34h ago)   7d3h    10.0.20.11   charmander   <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-fkbgp             2/2     Running     32 (26h ago)   7d3h    10.0.20.16   cyndaquil    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-g7lg6             2/2     Running     4 (34h ago)    2d23h   10.0.20.18   growlithe    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-jd8ls             2/2     Running     16 (34h ago)   7d3h    10.0.20.13   bulbasaur    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-kbgmg             2/2     Running     44 (34h ago)   7d3h    10.0.20.17   totodile     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-qd5mh             2/2     Running     11 (27h ago)   7d3h    10.0.20.15   chikorita    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-wtkt4             2/2     Running     24 (26h ago)   7d3h    10.0.20.19   arcanine     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-xmllg             2/2     Running     16 (34h ago)   7d3h    10.0.20.12   squirtle     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-z87qn             2/2     Running     8 (26h ago)    7d3h    10.0.20.20   sprigatito   <none>           <none>
+rook-ceph.rbd.csi.ceph.com-ctrlplugin-5f745fd754-jqpqj     5/5     Running     0              26h     10.0.0.43    chikorita    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-ctrlplugin-5f745fd754-rrbcd     5/5     Running     0              34h     10.0.6.2     squirtle     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-2f4hm                2/2     Running     8 (26h ago)    7d3h    10.0.20.20   sprigatito   <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-8kbsv                2/2     Running     20 (26h ago)   5d15h   10.0.20.19   arcanine     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-9tqz8                2/2     Running     4 (34h ago)    2d23h   10.0.20.18   growlithe    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-cg6w5                2/2     Running     41 (34h ago)   7d3h    10.0.20.17   totodile     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-cx6dd                2/2     Running     40 (25h ago)   7d3h    10.0.20.14   pikachu      <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-frbtp                2/2     Running     13 (27h ago)   7d3h    10.0.20.15   chikorita    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-hlqmn                2/2     Running     16 (34h ago)   7d3h    10.0.20.12   squirtle     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-qq6d4                2/2     Running     20 (34h ago)   7d3h    10.0.20.11   charmander   <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-vpgch                2/2     Running     16 (34h ago)   7d3h    10.0.20.13   bulbasaur    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-x5gzh                2/2     Running     32 (26h ago)   7d3h    10.0.20.16   cyndaquil    <none>           <none>
+
+== ceph health ==
+2026-01-31T12:49:46-06:00
+HEALTH_OK
+
+== ceph status ==
+2026-01-31T12:49:47-06:00
+  cluster:
+    id:     13c20377-d801-43f9-aebd-59f62df5dad1
+    health: HEALTH_OK
+ 
+  services:
+    mon: 3 daemons, quorum f,h,j (age 52m) [leader: f]
+    mgr: b(active, since 28h), standbys: a
+    mds: 1/1 daemons up, 1 hot standby
+    osd: 7 osds: 7 up (since 108m), 7 in (since 3d)
+ 
+  data:
+    volumes: 1/1 healthy
+    pools:   4 pools, 177 pgs
+    objects: 157.54k objects, 610 GiB
+    usage:   1.2 TiB used, 2.2 TiB / 3.4 TiB avail
+    pgs:     177 active+clean
+ 
+  io:
+    client:   852 B/s rd, 21 KiB/s wr, 1 op/s rd, 2 op/s wr
+ 
+
+== ceph health detail ==
+2026-01-31T12:49:49-06:00
+HEALTH_OK
+
+== ceph df ==
+2026-01-31T12:49:50-06:00
+--- RAW STORAGE ---
+CLASS     SIZE    AVAIL     USED  RAW USED  %RAW USED
+ssd    3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.15
+TOTAL  3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.15
+ 
+--- POOLS ---
+POOL                   ID  PGS   STORED  OBJECTS     USED  %USED  MAX AVAIL
+standard-rwo            1  128  609 GiB  157.50k  1.2 TiB  39.56    930 GiB
+standard-rwx-metadata   2   16   19 MiB       28   37 MiB      0    930 GiB
+standard-rwx-data0      3   32  1.0 KiB        0  2.1 KiB      0    930 GiB
+.mgr                    4    1   31 MiB        9   92 MiB      0    620 GiB
+
+== ceph osd tree ==
+2026-01-31T12:49:52-06:00
+ID   CLASS  WEIGHT   TYPE NAME            STATUS  REWEIGHT  PRI-AFF
+ -1         3.40022  root default                                  
+ -5         1.33429      host arcanine                             
+  2    ssd  0.86850          osd.2            up   1.00000  1.00000
+  8    ssd  0.46579          osd.8            up   1.00000  1.00000
+ -7         0.40279      host bulbasaur                            
+  4    ssd  0.40279          osd.4            up   1.00000  1.00000
+ -3         0.40279      host chikorita                            
+  0    ssd  0.40279          osd.0            up   1.00000  1.00000
+ -9         0.40279      host cyndaquil                            
+  1    ssd  0.40279          osd.1            up   1.00000  1.00000
+-11         0.45479      host growlithe                            
+  6    ssd  0.45479          osd.6            up   1.00000  1.00000
+-13         0.40279      host sprigatito                           
+  7    ssd  0.40279          osd.7            up   1.00000  1.00000
+
+== ceph pg stat ==
+2026-01-31T12:49:53-06:00
+177 pgs: 177 active+clean; 610 GiB data, 1.2 TiB used, 2.2 TiB / 3.4 TiB avail; 852 B/s rd, 21 KiB/s wr, 4 op/s
