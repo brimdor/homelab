@@ -16,6 +16,7 @@ app-template:
             TERM: "xterm-256color"
             OPENCLAW_GATEWAY_BIND: "lan"
             OPENCLAW_GATEWAY_PORT: "18789"
+            OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
