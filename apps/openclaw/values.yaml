@@ -16,7 +16,6 @@ app-template:
             TERM: "xterm-256color"
             OPENCLAW_GATEWAY_BIND: "lan"
             OPENCLAW_GATEWAY_PORT: "18789"
-            OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
@@ -40,7 +39,7 @@ app-template:
                 httpGet:
                   path: /health
                   port: 18789
-                initialDelaySeconds: 30
+                initialDelaySeconds: 45
                 periodSeconds: 10
             readiness:
               enabled: true
@@ -49,7 +48,7 @@ app-template:
                 httpGet:
                   path: /health
                   port: 18789
-                initialDelaySeconds: 10
+                initialDelaySeconds: 30
                 periodSeconds: 10
             startup:
               enabled: false
@@ -92,7 +91,29 @@ app-template:
         - hosts:
             - *Host
           secretName: openclaw-tls-certificate
+  configMaps:
+    config:
+      enabled: true
+      data:
+        openclaw.json: |
+          {
+            "gateway": {
+              "bind": "lan",
+              "port": 18789,
+              "mode": "local",
+              "trustedProxies": ["10.0.2.71"]
+            }
+          }
   persistence:
+    config:
+      type: configMap
+      name: openclaw-config
+      advancedMounts:
+        main:
+          main:
+            - path: /home/node/.openclaw/openclaw.json
+              subPath: openclaw.json
+              readOnly: true
     data:
       type: nfs
       server: 10.0.40.3
