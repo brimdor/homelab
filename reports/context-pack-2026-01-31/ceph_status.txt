@@ -1,0 +1,21 @@
+  cluster:
+    id:     13c20377-d801-43f9-aebd-59f62df5dad1
+    health: HEALTH_WARN
+            2 OSD(s) experiencing stalled read in db device of BlueFS
+ 
+  services:
+    mon: 3 daemons, quorum f,h,j (age 15h) [leader: f]
+    mgr: b(active, since 27h), standbys: a
+    mds: 1/1 daemons up, 1 hot standby
+    osd: 7 osds: 7 up (since 24h), 7 in (since 3d)
+ 
+  data:
+    volumes: 1/1 healthy
+    pools:   4 pools, 177 pgs
+    objects: 157.54k objects, 610 GiB
+    usage:   1.2 TiB used, 2.2 TiB / 3.4 TiB avail
+    pgs:     177 active+clean
+ 
+  io:
+    client:   852 B/s rd, 962 KiB/s wr, 1 op/s rd, 82 op/s wr
+ 

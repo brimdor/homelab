@@ -1,0 +1,14 @@
+# Recon Tasks (2026-01-31)
+- [x] Phase 1.0: Initialize Run
+- [x] Phase 1.1-1.2: Establish/Validate Access
+- [x] Phase 1.3: Baseline Health
+- [x] Phase 1.4: Network Evidence
+- [x] Phase 1.5: Storage/NAS Evidence
+- [x] Phase 1.6: System/Core Evidence
+- [x] Phase 1.7: Ceph Storage Evidence
+- [x] Phase 1.8: Platform Evidence
+- [x] Phase 1.9: Apps Evidence
+- [x] Phase 1.10: Repo Evidence
+- [x] Phase 2-5: Synthesis and Task Generation
+- [x] Phase 6: Automated Self-Audit
+- [x] Phase 8: Handoff

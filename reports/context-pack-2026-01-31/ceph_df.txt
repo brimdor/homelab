@@ -1,0 +1,11 @@
+--- RAW STORAGE ---
+CLASS     SIZE    AVAIL     USED  RAW USED  %RAW USED
+ssd    3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.17
+TOTAL  3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.17
+ 
+--- POOLS ---
+POOL                   ID  PGS   STORED  OBJECTS     USED  %USED  MAX AVAIL
+standard-rwo            1  128  609 GiB  157.50k  1.2 TiB  39.54    931 GiB
+standard-rwx-metadata   2   16   19 MiB       28   37 MiB      0    931 GiB
+standard-rwx-data0      3   32    125 B        0    250 B      0    931 GiB
+.mgr                    4    1   31 MiB        9   92 MiB      0    621 GiB

@@ -1,0 +1,11 @@
+NAME         STATUS   ROLES                       AGE    VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                        KERNEL-VERSION           CONTAINER-RUNTIME
+arcanine     Ready    <none>                      343d   v1.33.6+k3s1   10.0.20.19    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+bulbasaur    Ready    control-plane,etcd,master   343d   v1.33.6+k3s1   10.0.20.13    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+charmander   Ready    control-plane,etcd,master   343d   v1.33.6+k3s1   10.0.20.11    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+chikorita    Ready    <none>                      255d   v1.33.6+k3s1   10.0.20.15    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+cyndaquil    Ready    <none>                      26d    v1.33.6+k3s1   10.0.20.16    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+growlithe    Ready    <none>                      343d   v1.33.6+k3s1   10.0.20.18    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+pikachu      Ready    <none>                      343d   v1.33.6+k3s1   10.0.20.14    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+sprigatito   Ready    <none>                      163d   v1.33.6+k3s1   10.0.20.20    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+squirtle     Ready    control-plane,etcd,master   343d   v1.33.6+k3s1   10.0.20.12    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+totodile     Ready    <none>                      343d   v1.33.6+k3s1   10.0.20.17    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
