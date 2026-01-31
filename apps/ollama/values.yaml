@@ -434,148 +434,109 @@ ollama:
   hostNetwork: false
 
   # -- Extra K8s manifests to deploy
-  extraObjects:
-    - apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: ollama-model-puller-script
-        namespace: ollama
-        annotations:
-          argocd.argoproj.io/sync-wave: "5"
-      data:
-        pull-models.sh: |
-          #!/bin/sh
-          set -eu
+  # -- Extra K8s manifests to deploy
+  extraObjects: []
 
-          echo "Waiting for Ollama service at $OLLAMA_HOST..."
-          start="$(date +%s)"
-          timeout_secs=1200
+modelPuller:
+  script: |
+    #!/bin/sh
+    set -eu
 
-          while ! ollama list > /dev/null 2>&1; do
-            now="$(date +%s)"
-            if [ $((now - start)) -gt "$timeout_secs" ]; then
-              echo "Timed out waiting for ollama after ${timeout_secs}s" >&2
-              exit 1
-            fi
-            echo "Waiting for ollama..."
-            sleep 10
-          done
+    echo "Waiting for Ollama service at $OLLAMA_HOST..."
+    start="$(date +%s)"
+    timeout_secs=1200
 
-          echo "Service ready. Starting pulls..."
+    while ! ollama list > /dev/null 2>&1; do
+      now="$(date +%s)"
+      if [ $((now - start)) -gt "$timeout_secs" ]; then
+        echo "Timed out waiting for ollama after ${timeout_secs}s" >&2
+        exit 1
+      fi
+      echo "Waiting for ollama..."
+      sleep 10
+    done
 
-          pull_with_retry() {
-            model="$1"
-            attempts=5
-            delay=15
+    echo "Service ready. Starting pulls..."
 
-            i=1
-            while true; do
-              echo "Pulling $model (attempt ${i}/${attempts})..."
-              if ollama pull "$model"; then
-                return 0
-              fi
+    pull_with_retry() {
+      model="$1"
+      attempts=5
+      delay=15
 
-              if [ "$i" -ge "$attempts" ]; then
-                echo "Failed to pull $model after ${attempts} attempts" >&2
-                return 1
-              fi
+      i=1
+      while true; do
+        echo "Pulling $model (attempt ${i}/${attempts})..."
+        if ollama pull "$model"; then
+          return 0
+        fi
 
-              i=$((i + 1))
-              sleep "$delay"
-            done
-          }
+        if [ "$i" -ge "$attempts" ]; then
+          echo "Failed to pull $model after ${attempts} attempts" >&2
+          return 1
+        fi
 
-          # Only request the smaller 8b variant to avoid large downloads / GPU memory usage
-          models="qwen3:8b nomic-embed-text:latest mxbai-embed-large:latest gpt-oss:20b"
-          for model in $models; do
-            pull_with_retry "$model"
-          done
+        i=$((i + 1))
+        sleep "$delay"
+      done
+    }
 
-          echo "Creating Echo model (smaller base, 128k context, fixed reasoning)..."
-          cat <<EOF > /tmp/Modelfile.Echo
-          FROM qwen3:8b
-          PARAMETER num_ctx 131072
-          PARAMETER repeat_penalty 1.5
-          SYSTEM """You are Echo, an autonomous specialized System Administration Agent for a Homelab environment running Kubernetes on Fedora.
+    # Only request the smaller 8b variant to avoid large downloads / GPU memory usage
+    models="qwen3:8b nomic-embed-text:latest mxbai-embed-large:latest gpt-oss:20b"
+    for model in $models; do
+      pull_with_retry "$model"
+    done
 
-          Your Capabilities:
-          1. You have access to a 'bash' tool to execute commands.
-          2. You can read files, check status, and perform maintenance.
+    echo "Creating Echo model (smaller base, 128k context, fixed reasoning)..."
+    cat <<EOF > /tmp/Modelfile.Echo
+    FROM qwen3:8b
+    PARAMETER num_ctx 131072
+    PARAMETER repeat_penalty 1.5
+    SYSTEM """You are Echo, an autonomous specialized System Administration Agent for a Homelab environment running Kubernetes on Fedora.
 
-          IMPORTANT RULES for Tool Usage:
-          1. When calling the 'bash' tool, you MUST provide a 'description' argument explaining what the command does. This is NOT optional.
-             
-             INCORRECT: bash(command="ls -la")
-             CORRECT: bash(command="ls -la", description="Listing files in the current directory")
-             
-             FAILURE TO PROVIDE A DESCRIPTION WILL CAUSE THE COMMAND TO FAIL.
+    Your Capabilities:
+    1. You have access to a 'bash' tool to execute commands.
+    2. You can read files, check status, and perform maintenance.
 
-          2. BASH SYNTAX RULES (CRITICAL):
-             - IF Statements: You MUST use a semicolon before 'then' in one-liners.
-               INCORRECT: if [ -x script.sh ] then ./script.sh fi
-               CORRECT: if [ -x script.sh ]; then ./script.sh; fi
-             
-             - FIND Commands: You MUST terminate -exec with escaped semicolon.
-               INCORRECT: find . -name "*.txt" -exec echo "{}"
-               CORRECT: find . -name "*.txt" -exec echo "{}" \;
+    IMPORTANT RULES for Tool Usage:
+    1. When calling the 'bash' tool, you MUST provide a 'description' argument explaining what the command does. This is NOT optional.
+       
+       INCORRECT: bash(command="ls -la")
+       CORRECT: bash(command="ls -la", description="Listing files in the current directory")
+       
+       FAILURE TO PROVIDE A DESCRIPTION WILL CAUSE THE COMMAND TO FAIL.
 
-          3. Combine related commands with '&&' to execute them in a single block for efficiency.
+    2. BASH SYNTAX RULES (CRITICAL):
+       - IF Statements: You MUST use a semicolon before 'then' in one-liners.
+         INCORRECT: if [ -x script.sh ] then ./script.sh fi
+         CORRECT: if [ -x script.sh ]; then ./script.sh; fi
+       
+       - FIND Commands: You MUST terminate -exec with escaped semicolon.
+         INCORRECT: find . -name "*.txt" -exec echo "{}"
+         CORRECT: find . -name "*.txt" -exec echo "{}" \;
 
-          Environment Context:
-          - OS: Fedora Linux
-          - Platform: Kubernetes
-          - Storage: Rook Ceph
-          - GitOps: ArgoCD
-          - Repo Path: /home/brimdor/Documents/Github/homelab
-          - User: brimdor
-          """
-          EOF
+    3. Combine related commands with '&&' to execute them in a single block for efficiency.
 
-          echo "Removing existing Echo model to enforce update..."
-          ollama rm Echo || true
+    Environment Context:
+    - OS: Fedora Linux
+    - Platform: Kubernetes
+    - Storage: Rook Ceph
+    - GitOps: ArgoCD
+    - Repo Path: /home/brimdor/Documents/Github/homelab
+    - User: brimdor
+    """
+    EOF
 
-          if ollama create Echo -f /tmp/Modelfile.Echo; then
-              echo "Successfully created Echo model"
-          else
-              echo "Failed to create Echo model" >&2
-          fi
+    echo "Removing existing Echo model to enforce update..."
+    ollama rm Echo || true
 
-          echo "All models requested. Sleeping indefinitely..."
-          sleep infinity
+    if ollama create Echo -f /tmp/Modelfile.Echo; then
+        echo "Successfully created Echo model"
+    else
+        echo "Failed to create Echo model" >&2
+    fi
 
-    - apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: ollama-model-puller
-        namespace: ollama
-        annotations:
-          argocd.argoproj.io/sync-wave: "5"
-      spec:
-        replicas: 1
-        selector:
-          matchLabels:
-            app.kubernetes.io/name: ollama-model-puller
-        template:
-          metadata:
-            labels:
-              app.kubernetes.io/name: ollama-model-puller
-          spec:
-            containers:
-              - name: model-puller
-                image: ollama/ollama:latest
-                command: ["/bin/sh", "/scripts/pull-models.sh"]
-                env:
-                  - name: OLLAMA_HOST
-                    value: "http://ollama:11434"
-                volumeMounts:
-                  - name: script-volume
-                    mountPath: /scripts
-            volumes:
-              - name: script-volume
-                configMap:
-                  name: ollama-model-puller-script
-                  defaultMode: 0755
-
+    echo "All models requested. Sleeping indefinitely..."
+    sleep infinity
 
   # Test connection pods
   tests:
