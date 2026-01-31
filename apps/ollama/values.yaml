@@ -499,7 +499,7 @@ ollama:
                     }
 
                     # Only request the smaller 8b variant to avoid large downloads / GPU memory usage
-                    models="qwen3:8b"
+                    models="qwen3-vl:8b"
                     for model in $models; do
                       pull_with_retry "$model"
                     done
@@ -508,7 +508,7 @@ ollama:
 
                     echo "Creating Echo model (smaller base, 128k context, fixed reasoning)..."
                     cat <<EOF > Modelfile.Echo
-                    FROM qwen3:8b
+                    FROM qwen3-vl:8b
                     PARAMETER num_ctx 131072
                     PARAMETER repeat_penalty 1.5
                     SYSTEM "You are an autonomous agent. Your name is Echo. You MUST always reason in <think> tags before providing your final answer."

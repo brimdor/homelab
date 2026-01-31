@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-01-30T22:40:58.004596",
+  "model": "Echo",
+  "score": 60,
+  "findings": [
+    "\u274c Failed to use <think> tags.",
+    "\u274c Missing sections: {'## Action Items (Tasks)', '## Status', '## Context Pack'}",
+    "\u2705 No known issues to detect (Baseline Green).",
+    "\u2705 Aligned with Foundational Rule priorities."
+  ],
+  "ground_truth_summary": {
+    "recon_ok": false,
+    "problems_found": 4
+  },
+  "raw_response": "{\n  \"timestamp\": \"2026-01-30T22:40:45.319259\",\n  \"action_items\": [\n    {\n      \"priority\": \"P0\",\n      \"category\": \"Platform\",\n      \"description\": \"Ceph Health Warning: 2 OSDs experiencing stalled read in BlueFS db device (HEALTH_WARN). Immediate action required to prevent data integrity issues.\",\n      \"details\": {\n        \"source\": \"recon/ceph/health\",\n        \"severity\": \"HEALTH_WARN\",\n        \"summary\": \"DB_DEVICE_STALLED_READ_ALERT\",\n        \"count\": 2,\n        \"timestamp\": \"2026-01-31T04:40:08Z\"\n      }\n    },\n    {\n      \"priority\": \"P1\",\n      \"category\": \"System\",\n      \"description\": \"Network Health Check failed: Critical endpoints/vlan gateways/internet connectivity tests not completed. Verify network infrastructure and connectivity.\",\n      \"details\": {\n        \"source\": \"network/raw\",\n        \"error\": \"Error: ====================================\\n  Homelab Network Health Check\\n====================================\\n\\n>> Testing Critical Endpoints...\\n\\n>> Testing VLAN Gateways...\\n\\n>> Testing Internet Connectivity...\\n\\n====================================\\n\"\n      }\n    }\n  ],\n  \"status\": \"YELLOW\"\n}"
+}
