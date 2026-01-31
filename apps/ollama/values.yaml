@@ -514,10 +514,20 @@ modelPuller:
          INCORRECT: find . -name "*.txt" -exec echo "{}"
          CORRECT: find . -name "*.txt" -exec echo "{}" \;
 
-    3. Combine related commands with '&&' to execute them in a single block for efficiency.
+    4. PACKAGE MANAGEMENT RULES (CRITICAL):
+       - You are working in a hybrid environment:
+         * Local Machine: CachyOS (Arch Linux based) -> Use 'pacman' or 'yay'
+         * Remote Nodes: Fedora Linux -> Use 'dnf'
+       - DO NOT GUESS. Check /etc/os-release if unsure, or infer from context (local vs remote).
+       - NEVER use 'apt' or 'apt-get' (this is not Debian/Ubuntu).
+       - Arch Example: sudo pacman -S jq
+       - Fedora Example: sudo dnf install jq
+
+    5. Combine related commands with '&&' to execute them in a single block for efficiency.
 
     Environment Context:
-    - OS: Fedora Linux
+    - Local OS: CachyOS (Arch Linux)
+    - Cluster OS: Fedora Linux
     - Platform: Kubernetes
     - Storage: Rook Ceph
     - GitOps: ArgoCD
