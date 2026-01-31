@@ -1,0 +1,129 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: ghcr.io/openclaw/openclaw
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: "America/Chicago"
+            HOME: "/home/node"
+            TERM: "xterm-256color"
+            OPENCLAW_GATEWAY_BIND: "lan"
+            OPENCLAW_GATEWAY_PORT: "18789"
+            OPENCLAW_GATEWAY_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "gateway-token"
+            # CLAUDE_AI_SESSION_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "openclaw-claude-ai-session-key"
+            # CLAUDE_WEB_SESSION_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "openclaw-claude-web-session-key"
+            # CLAUDE_WEB_COOKIE:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "openclaw-claude-web-cookie"
+          command:
+            - node
+            - dist/index.js
+            - gateway
+            - --bind
+            - lan
+            - --port
+            - "18789"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 18789
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 18789
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 500m
+              memory: "512Mi"
+            limits:
+              cpu: 2
+              memory: "2048Mi"
+  service:
+    main:
+      primary: true
+      ports:
+        http:
+          port: 18789
+          protocol: HTTP
+        bridge:
+          port: 18790
+          protocol: TCP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+        nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+      hosts:
+        - host: &Host openclaw.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: 18789
+      tls:
+        - hosts:
+            - *Host
+          secretName: openclaw-tls-certificate
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/openclaw
+      advancedMounts:
+        main:
+          main:
+            - path: /home/node/.openclaw
+    workspace:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/openclaw/workspace
+      advancedMounts:
+        main:
+          main:
+            - path: /home/node/.openclaw/workspace
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
+      operator.1password.io/item-name: "secrets"
