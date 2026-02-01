@@ -22,6 +22,11 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "gateway-token"
+            OPENCLAW_CHANNELS_DISCORD_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "discord-token"
           command:
             - node
             - dist/index.js
