@@ -46,7 +46,7 @@ app-template:
           command:
             - /bin/sh
             - -c
-            - "mkdir -p /home/node/libs && npm install nostr-tools --no-save --prefix /home/node/libs && ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools && node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
+            - "mkdir -p /home/node/libs && npm install nostr-tools --no-save --prefix /home/node/libs && ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools && chmod -R 777 /home/node/.openclaw && node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
           probes:
             liveness:
               enabled: true
