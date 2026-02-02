@@ -36,6 +36,12 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "discord-application-id"
+            # Nostr private key for DM channel (nsec format)
+            NOSTR_PRIVATE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "nostr-private-key"
           command:
             - /bin/sh
             - -c
@@ -231,6 +237,16 @@ app-template:
                     }
                   }
                 }
+              },
+              "nostr": {
+                "privateKey": "${NOSTR_PRIVATE_KEY}",
+                "dmPolicy": "allowlist",
+                "allowFrom": ["npub1g8ntsc97udpmhs322635vcc8rgcumh795l6mtvps23armcvcwevs3f44f7"],
+                "relays": [
+                  "wss://relay.damus.io",
+                  "wss://relay.primal.net",
+                  "wss://nos.lol"
+                ]
               }
             },
             "gateway": {
@@ -243,7 +259,8 @@ app-template:
             },
              "plugins": {
                "entries": {
-                 "discord": { "enabled": true }
+                 "discord": { "enabled": true },
+                 "nostr": { "enabled": true }
                }
              },
             "auth": {
