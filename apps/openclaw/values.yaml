@@ -10,7 +10,6 @@ app-template:
             repository: ghcr.io/openclaw/openclaw
             tag: latest
             pullPolicy: Always
-          command: ["node", "dist/entry.js"]
           args:
             - gateway
             - --bind
@@ -26,12 +25,12 @@ app-template:
             OPENCLAW_GATEWAY_BIND: "lan"
             OPENCLAW_GATEWAY_PORT: "18789"
             OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
+            PATH: "/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/node/.openclaw/bin"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
                   name: "secrets"
                   key: "gateway-token"
-            PATH: "/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/node/.openclaw/bin"
             OPENCLAW_CHANNELS_DISCORD_TOKEN:
               valueFrom:
                 secretKeyRef:
@@ -42,7 +41,6 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "discord-application-id"
-            # Nostr private key for DM channel (nsec format)
             NOSTR_PRIVATE_KEY:
               valueFrom:
                 secretKeyRef:
@@ -110,30 +108,12 @@ app-template:
             - *Host
           secretName: openclaw-tls-certificate
   persistence:
-    # data:
-    #   type: nfs
-    #   server: 10.0.40.3
-    #   path: /mnt/user/openclaw
-    #   advancedMounts:
-    #     main:
-    #       main:
-    #         - path: /home/node/.openclaw
-
-    searxng-skill:
+    data:
       enabled: true
-      type: configMap
-      name: openclaw-searxng-skill
-      items:
-        - key: SKILL.md
-          path: SKILL.md
-    
-    config:
-      enabled: true
-      type: configMap
-      name: openclaw-config
-      items:
-        - key: openclaw.json
-          path: openclaw.json
+      type: emptyDir
+      # type: nfs
+      # server: 10.0.40.3
+      # path: /mnt/user/openclaw
       advancedMounts:
         main:
           main:
