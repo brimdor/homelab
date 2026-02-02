@@ -120,12 +120,138 @@ app-template:
       items:
         - key: SKILL.md
           path: SKILL.md
+    
+    config:
+      enabled: true
+      type: configMap
+      name: openclaw-config
+      items:
+        - key: openclaw.json
+          path: openclaw.json
       advancedMounts:
         main:
           main:
-            - path: /home/node/.openclaw/skills/searxng
+            - path: /home/node/.openclaw/openclaw.json
+              subPath: openclaw.json
 
   configMaps:
+    config:
+      enabled: true
+      data:
+        openclaw.json: |
+          {
+            "models": {
+              "providers": {
+                "ollama": {
+                  "baseUrl": "http://ollama.ollama.svc.cluster.local:11434/v1",
+                  "apiKey": "ollama",
+                  "api": "openai-completions",
+                  "models": [
+                    {
+                      "id": "Echo:latest",
+                      "name": "Echo Latest",
+                      "reasoning": true,
+                      "input": ["text"],
+                      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                      "contextWindow": 131072,
+                      "maxTokens": 8192
+                    }
+                  ]
+                }
+              }
+            },
+            "agents": {
+              "defaults": {
+                "model": { "primary": "ollama/Echo:latest" },
+                "thinkingDefault": "off",
+                "maxConcurrent": 4,
+                "subagents": { "maxConcurrent": 8 },
+                "workspace": "/home/node/.openclaw/workspace"
+              },
+              "list": [
+                {
+                  "id": "echo",
+                  "model": "ollama/Echo:latest",
+                  "identity": { "name": "Echo", "emoji": "🤖" }
+                }
+              ]
+            },
+            "messages": { "ackReactionScope": "group-mentions" },
+            "commands": { "native": "auto", "nativeSkills": "auto" },
+            "hooks": {
+              "internal": {
+                "enabled": true,
+                "entries": {
+                  "boot-md": { "enabled": true },
+                  "command-logger": { "enabled": true },
+                  "session-memory": { "enabled": true }
+                }
+              }
+            },
+            "channels": {
+              "discord": {
+                "enabled": true,
+                "configWrites": true,
+                "groupPolicy": "allowlist",
+                "actions": {
+                  "reactions": true,
+                  "stickers": true,
+                  "messages": true,
+                  "threads": true,
+                  "pins": true,
+                  "search": true,
+                  "channelInfo": true,
+                  "channels": true
+                },
+                "dm": {
+                  "enabled": true,
+                  "policy": "open",
+                  "allowFrom": ["*"]
+                },
+                "guilds": {
+                  "925834781227368519": {
+                    "channels": {
+                      "1465363798499131566": { "allow": true }
+                    }
+                  }
+                }
+              }
+            },
+            "gateway": {
+              "port": 18789,
+              "mode": "local",
+              "bind": "lan",
+              "trustedProxies": ["10.0.2.71"],
+              "auth": { "mode": "token" },
+              "tailscale": { "mode": "off", "resetOnExit": false }
+            },
+            "plugins": {
+              "entries": {
+                "discord": { "enabled": true }
+              }
+            },
+            "auth": {
+              "profiles": {
+                "openai-codex:default": { "provider": "openai-codex", "mode": "oauth" }
+              }
+            },
+            "skills": {
+              "install": { "nodeManager": "npm" }
+            },
+            "browser": {
+              "enabled": true,
+              "evaluateEnabled": true
+            },
+            "tools": {
+              "web": {
+                "search": {
+                  "enabled": true,
+                  "provider": "brave"
+                }
+              }
+            }
+          }
+
     searxng-skill:
       enabled: true
       data:
