@@ -128,7 +128,8 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /config
+            - path: /config/openclaw.json
+              subPath: openclaw.json
               readOnly: true
 
 
