@@ -51,14 +51,23 @@ app-template:
 
               mkdir -p /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace
               
-              # Disable bundled nostr plugin to force usage of installed plugin
+              # Disable bundled nostr plugin by moving it completely out of extensions path
+              # OpenClaw scans recursively, so renaming to .disabled inside extensions/ is not enough
               if [ -d /app/extensions/nostr ]; then
-                mv /app/extensions/nostr /app/extensions/nostr.bundled.disabled || true
+                mkdir -p /tmp/disabled-plugins
+                mv /app/extensions/nostr /tmp/disabled-plugins/nostr || rm -rf /app/extensions/nostr || true
               fi
               
               # Install Nostr plugin via OpenClaw CLI
               echo "Installing @openclaw/nostr plugin..."
               node dist/entry.js plugins install @openclaw/nostr || echo "Plugin install warning: $?"
+              
+              # Ensure dependencies are installed (fix for missing node_modules)
+              if [ -d /home/node/.openclaw/extensions/nostr ]; then
+                 echo "Installing plugin dependencies..."
+                 cd /home/node/.openclaw/extensions/nostr && npm install --no-save --production || echo "npm install failed"
+                 cd -
+              fi
               
               rm -f /home/node/.openclaw/openclaw.json
               cp /config/openclaw.json /home/node/.openclaw/openclaw.json
