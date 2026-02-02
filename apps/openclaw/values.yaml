@@ -161,6 +161,20 @@ app-template:
             - path: /config/openclaw.json
               subPath: openclaw.json
 
+    nostr-fix:
+      enabled: true
+      type: configMap
+      name: openclaw-nostr-fix
+      items:
+        - key: nostr-bus.ts
+          path: nostr-bus.ts
+      advancedMounts:
+        main:
+          main:
+            - path: /app/extensions/nostr/src/nostr-bus.ts
+              subPath: nostr-bus.ts
+              readOnly: true
+
   configMaps:
     config:
       enabled: true
