@@ -131,6 +131,15 @@ app-template:
               subPath: openclaw.json
               readOnly: true
 
+    # Hides the broken bundled plugin to prevent duplicate ID warnings and ensure the fixed NFS version is used.
+    disable-bundled-nostr:
+      enabled: true
+      type: emptyDir
+      advancedMounts:
+        main:
+          main:
+            - path: /app/extensions/nostr
+
 
   configMaps:
     config:
