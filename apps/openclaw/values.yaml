@@ -71,10 +71,18 @@ app-template:
               # - OpenClaw outbound adapter check (sendMedia required today)
               EXT_ROOT="/home/node/.openclaw/extensions"
               NOSTR_DST="$EXT_ROOT/nostr"
+              # If a persisted override will be used, disable the bundled plugin
+              # to avoid duplicate plugin-id warnings at runtime. This is safe
+              # and reversible (does not edit the image).
+              if [ -d /app/extensions/nostr ] && [ ! -d /app/extensions/nostr.bundled.disabled ]; then
+                echo "Disabling bundled nostr plugin to prefer persisted override"
+                mv /app/extensions/nostr /app/extensions/nostr.bundled.disabled || true
+              fi
+
               if [ ! -f "$NOSTR_DST/.patched-openclaw-nostr-dm" ]; then
                 mkdir -p "$EXT_ROOT"
                 rm -rf "$NOSTR_DST"
-                cp -R /app/extensions/nostr "$NOSTR_DST"
+                cp -R /app/extensions/nostr "$NOSTR_DST" || true
 
                 node - <<'NODE'
               const fs = require('node:fs');
