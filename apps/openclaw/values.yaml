@@ -62,10 +62,12 @@ app-template:
               echo "Installing @openclaw/nostr plugin..."
               node dist/entry.js plugins install @openclaw/nostr || echo "Plugin install warning: $?"
               
-              # Ensure dependencies are installed (fix for missing node_modules)
+              # Ensure dependencies are installed (fix for missing node_modules and workspace issue)
               if [ -d /home/node/.openclaw/extensions/nostr ]; then
-                 echo "Installing plugin dependencies..."
-                 cd /home/node/.openclaw/extensions/nostr && npm install --no-save --production || echo "npm install failed"
+                 echo "Installing plugin dependencies manually..."
+                 cd /home/node/.openclaw/extensions/nostr
+                 # Install specific deps to avoid workspace:* error from npm install
+                 npm install --no-save zod nostr-tools || echo "npm install failed"
                  cd -
               fi
               
