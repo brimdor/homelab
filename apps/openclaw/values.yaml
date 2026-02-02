@@ -38,16 +38,15 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "nostr-private-key"
+            OPENCLAW_CHANNELS_NOSTR_PUBLIC_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "nostr-public-key"
           command:
-            - node
-            - dist/index.js
-            - gateway
-            - --bind
-            - lan
-            - --port
-            - "18789"
-            - --allow-unconfigured
-            - --verbose
+            - /bin/sh
+            - -c
+            - "pnpm add nostr-tools && node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
           probes:
             liveness:
               enabled: true
