@@ -44,6 +44,14 @@ app-template:
               umask 077
 
               mkdir -p /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace
+              
+              # Clean up old nostr extension patches from previous deployments
+              rm -rf /home/node/.openclaw/extensions/nostr
+              # Restore bundled nostr plugin if it was disabled previously
+              if [ -d /app/extensions/nostr.bundled.disabled ]; then
+                mv /app/extensions/nostr.bundled.disabled /app/extensions/nostr || true
+              fi
+              
               rm -f /home/node/.openclaw/openclaw.json
               cp /config/openclaw.json /home/node/.openclaw/openclaw.json
               chmod 600 /home/node/.openclaw/openclaw.json
