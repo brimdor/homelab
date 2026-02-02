@@ -19,7 +19,7 @@ app-template:
             OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
             # Keep config + state on the persisted NFS mount.
             OPENCLAW_STATE_DIR: "/home/node/.openclaw"
-            OPENCLAW_CONFIG_PATH: "/home/node/.openclaw/openclaw.json"
+            OPENCLAW_CONFIG_PATH: "/config/openclaw.json"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
@@ -42,44 +42,7 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "nostr-private-key"
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              umask 077
 
-              mkdir -p /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace
-              
-              # Disable bundled nostr plugin by moving it completely out of extensions path
-              # OpenClaw scans recursively, so renaming to .disabled inside extensions/ is not enough
-              if [ -d /app/extensions/nostr ]; then
-                mkdir -p /tmp/disabled-plugins
-                mv /app/extensions/nostr /tmp/disabled-plugins/nostr || rm -rf /app/extensions/nostr || true
-              fi
-              
-              # Install Nostr plugin via OpenClaw CLI
-              echo "Installing @openclaw/nostr plugin..."
-              node dist/entry.js plugins install @openclaw/nostr || echo "Plugin install warning: $?"
-              
-              # Ensure dependencies are installed (fix for missing node_modules and workspace issue)
-              if [ -d /home/node/.openclaw/extensions/nostr ]; then
-                 echo "Installing plugin dependencies manually..."
-                 cd /home/node/.openclaw/extensions/nostr
-                 # Remove package.json if it contains workspace references that break npm
-                 if [ -f package.json ] && grep -q "workspace:" package.json; then
-                   mv package.json package.json.bak
-                 fi
-                 npm install --no-save zod nostr-tools || echo "npm install failed"
-                 cd -
-              fi
-              
-              rm -f /home/node/.openclaw/openclaw.json
-              cp /config/openclaw.json /home/node/.openclaw/openclaw.json
-              chmod 600 /home/node/.openclaw/openclaw.json
-              chmod 700 /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace || true
-
-              exec node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose
           probes:
             liveness:
               enabled: true
