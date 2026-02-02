@@ -46,7 +46,7 @@ app-template:
           command:
             - /bin/sh
             - -c
-            - "pnpm add nostr-tools && node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
+            - "pnpm add -w nostr-tools && node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
           probes:
             liveness:
               enabled: true
