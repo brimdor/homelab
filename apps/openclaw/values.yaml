@@ -10,6 +10,14 @@ app-template:
             repository: ghcr.io/openclaw/openclaw
             tag: latest
             pullPolicy: Always
+          args:
+            - gateway
+            - --bind
+            - lan
+            - --port
+            - "18789"
+            - --allow-unconfigured
+            - --verbose
           env:
             TZ: "America/Chicago"
             HOME: "/home/node"
