@@ -33,16 +33,16 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "discord-application-id"
-            OPENCLAW_CHANNELS_SIGNAL_ACCOUNT:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "signal-account"
-            OPENCLAW_CHANNELS_SIGNAL_HTTP_URL:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "signal-url"
+            # OPENCLAW_CHANNELS_SIGNAL_ACCOUNT:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "signal-account"
+            # OPENCLAW_CHANNELS_SIGNAL_HTTP_URL:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "signal-url"
           command:
             - node
             - dist/index.js
