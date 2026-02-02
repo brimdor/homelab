@@ -190,6 +190,7 @@ app-template:
             },
             "channels": {
               "discord": {
+                "token": "${OPENCLAW_CHANNELS_DISCORD_TOKEN}",
                 "enabled": true,
                 "configWrites": true,
                 "groupPolicy": "allowlist",
