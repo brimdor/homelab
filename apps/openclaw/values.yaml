@@ -224,6 +224,7 @@ app-template:
               "nostr": {
                 "enabled": true,
                 "privateKey": "${OPENCLAW_CHANNELS_NOSTR_PRIVATE_KEY}",
+                "publicKey": "${OPENCLAW_CHANNELS_NOSTR_PUBLIC_KEY}",
                 "relays": [
                   "wss://relay.damus.io",
                   "wss://relay.primal.net",
