@@ -111,11 +111,9 @@ app-template:
           secretName: openclaw-tls-certificate
   persistence:
     data:
-      enabled: true
-      type: emptyDir
-      # type: nfs
-      # server: 10.0.40.3
-      # path: /mnt/user/openclaw
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/openclaw
       advancedMounts:
         main:
           main:
