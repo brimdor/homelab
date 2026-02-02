@@ -237,7 +237,7 @@ app-template:
             },
             "gateway": {
               "port": 18789,
-              "mode": "cloud",
+              "mode": "local",
               "bind": "lan",
               "trustedProxies": ["10.0.7.72"],
               "auth": {
