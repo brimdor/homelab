@@ -49,7 +49,64 @@ app-template:
           command:
             - /bin/sh
             - -c
-            - "set -e; umask 077; mkdir -p /home/node/libs; npm install nostr-tools --no-save --prefix /home/node/libs; ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools; mkdir -p /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace; rm -f /home/node/.openclaw/openclaw.json; cp /config/openclaw.json /home/node/.openclaw/openclaw.json; chmod 600 /home/node/.openclaw/openclaw.json; chmod 700 /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace || true; node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
+            - |
+              set -e
+              umask 077
+
+              mkdir -p /home/node/libs
+              npm install nostr-tools --no-save --prefix /home/node/libs
+              ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools
+
+              mkdir -p /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace
+              rm -f /home/node/.openclaw/openclaw.json
+              cp /config/openclaw.json /home/node/.openclaw/openclaw.json
+              chmod 600 /home/node/.openclaw/openclaw.json
+              chmod 700 /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace || true
+
+              # Patch bundled nostr plugin into persisted state so we can override
+              # the bundled plugin without editing the container image.
+              #
+              # Fixes:
+              # - nostr-tools SimplePool.subscribeMany signature (filter must be an object)
+              # - OpenClaw outbound adapter check (sendMedia required today)
+              EXT_ROOT="/home/node/.openclaw/extensions"
+              NOSTR_DST="$EXT_ROOT/nostr"
+              if [ ! -f "$NOSTR_DST/.patched-openclaw-nostr-dm" ]; then
+                mkdir -p "$EXT_ROOT"
+                rm -rf "$NOSTR_DST"
+                cp -R /app/extensions/nostr "$NOSTR_DST"
+
+                node - <<'NODE'
+              const fs = require('node:fs');
+
+              function replaceOnce(file, from, to) {
+                const s = fs.readFileSync(file, 'utf8');
+                if (s.includes(to)) return false;
+                if (!s.includes(from)) throw new Error(`pattern not found in ${file}`);
+                fs.writeFileSync(file, s.replace(from, to), 'utf8');
+                return true;
+              }
+
+              // Fix nostr-tools SimplePool.subscribeMany signature (expects a single filter object, not an array).
+              replaceOnce(
+                '/home/node/.openclaw/extensions/nostr/src/nostr-bus.ts',
+                'const sub = pool.subscribeMany(relays, [{ kinds: [4], "#p": [pk], since }], {',
+                'const sub = pool.subscribeMany(relays, { kinds: [4], "#p": [pk], since }, {',
+              );
+
+              // OpenClaw core currently requires outbound.sendMedia even if channel media=false.
+              // Provide a stub that errors clearly if ever invoked.
+              replaceOnce(
+                '/home/node/.openclaw/extensions/nostr/src/channel.ts',
+                '  },\n\n  status:',
+                '    sendMedia: async () => {\n      throw new Error("Nostr channel does not support media");\n    },\n  },\n\n  status:',
+              );
+              NODE
+
+              touch "$NOSTR_DST/.patched-openclaw-nostr-dm"
+              fi
+
+              exec node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose
           probes:
             liveness:
               enabled: true
@@ -245,12 +302,15 @@ app-template:
               "auth": { "mode": "token" },
               "tailscale": { "mode": "off", "resetOnExit": false }
             },
-            "plugins": {
-              "entries": {
-                "discord": { "enabled": true },
-                "nostr": { "enabled": true }
-              }
-            },
+             "plugins": {
+               "load": {
+                 "paths": ["/home/node/.openclaw/extensions/nostr/index.ts"]
+               },
+               "entries": {
+                 "discord": { "enabled": true },
+                 "nostr": { "enabled": true }
+               }
+             },
             "auth": {
               "profiles": {
                 "openai-codex:default": { "provider": "openai-codex", "mode": "oauth" }
