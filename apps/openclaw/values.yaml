@@ -117,6 +117,15 @@ app-template:
       advancedMounts:
         main:
           main:
+            - path: /home/node/.openclaw
+
+    config:
+      enabled: true
+      type: configMap
+      name: openclaw-config
+      advancedMounts:
+        main:
+          main:
             - path: /config
               readOnly: true
 
