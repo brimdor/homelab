@@ -228,7 +228,8 @@ app-template:
                 "enabled": true,
                 "privateKey": "${OPENCLAW_CHANNELS_NOSTR_PRIVATE_KEY}",
                 "publicKey": "${OPENCLAW_CHANNELS_NOSTR_PUBLIC_KEY}",
-                "dmPolicy": "pairing",
+                "dmPolicy": "allowlist",
+                "allowFrom": ["npub1g8ntsc97udpmhs322635vcc8rgcumh795l6mtvps23armcvcwevs3f44f7"],
                 "relays": [
                   "wss://relay.damus.io",
                   "wss://relay.primal.net",
