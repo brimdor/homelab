@@ -33,6 +33,11 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "discord-application-id"
+            OPENCLAW_CHANNELS_NOSTR_PRIVATE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "nostr-private-key"
           command:
             - node
             - dist/index.js
@@ -216,6 +221,15 @@ app-template:
                     }
                   }
                 }
+              },
+              "nostr": {
+                "enabled": true,
+                "privateKey": "${OPENCLAW_CHANNELS_NOSTR_PRIVATE_KEY}",
+                "relays": [
+                  "wss://relay.damus.io",
+                  "wss://relay.primal.net",
+                  "wss://nos.lol"
+                ]
               }
             },
             "gateway": {
@@ -228,7 +242,8 @@ app-template:
             },
             "plugins": {
               "entries": {
-                "discord": { "enabled": true }
+                "discord": { "enabled": true },
+                "nostr": { "enabled": true }
               }
             },
             "auth": {
