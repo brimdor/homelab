@@ -227,15 +227,15 @@ app-template:
                   }
                 }
               },
-              "signal": {
-                "enabled": true,
-                "account": "${OPENCLAW_CHANNELS_SIGNAL_ACCOUNT}",
-                "httpUrl": "${OPENCLAW_CHANNELS_SIGNAL_HTTP_URL}",
-                "dmPolicy": "open",
-                "allowFrom": ["*"],
-                "groupPolicy": "allowlist",
-                "configWrites": true
-              }
+              # "signal": {
+              #   "enabled": true,
+              #   "account": "${OPENCLAW_CHANNELS_SIGNAL_ACCOUNT}",
+              #   "httpUrl": "${OPENCLAW_CHANNELS_SIGNAL_HTTP_URL}",
+              #   "dmPolicy": "open",
+              #   "allowFrom": ["*"],
+              #   "groupPolicy": "allowlist",
+              #   "configWrites": true
+              # }
             },
             "gateway": {
               "port": 18789,
