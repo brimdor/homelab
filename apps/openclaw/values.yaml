@@ -17,6 +17,9 @@ app-template:
             OPENCLAW_GATEWAY_BIND: "lan"
             OPENCLAW_GATEWAY_PORT: "18789"
             OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
+            # Keep config + state on the persisted NFS mount.
+            OPENCLAW_STATE_DIR: "/home/node/.openclaw"
+            OPENCLAW_CONFIG_PATH: "/home/node/.openclaw/openclaw.json"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
@@ -46,7 +49,7 @@ app-template:
           command:
             - /bin/sh
             - -c
-            - "mkdir -p /home/node/libs && npm install nostr-tools --no-save --prefix /home/node/libs && ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools && chmod -R 777 /home/node/.openclaw && node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
+            - "set -e; umask 077; mkdir -p /home/node/libs; npm install nostr-tools --no-save --prefix /home/node/libs; ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools; mkdir -p /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace; rm -f /home/node/.openclaw/openclaw.json; cp /config/openclaw.json /home/node/.openclaw/openclaw.json; chmod 600 /home/node/.openclaw/openclaw.json; chmod 700 /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace || true; node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured --verbose"
           probes:
             liveness:
               enabled: true
@@ -135,7 +138,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /home/node/.openclaw/openclaw.json
+            - path: /config/openclaw.json
               subPath: openclaw.json
 
   configMaps:
@@ -196,7 +199,7 @@ app-template:
               "discord": {
                 "token": "${OPENCLAW_CHANNELS_DISCORD_TOKEN}",
                 "enabled": true,
-                "configWrites": true,
+                "configWrites": false,
                 "groupPolicy": "allowlist",
                 "actions": {
                   "reactions": true,
@@ -225,6 +228,7 @@ app-template:
                 "enabled": true,
                 "privateKey": "${OPENCLAW_CHANNELS_NOSTR_PRIVATE_KEY}",
                 "publicKey": "${OPENCLAW_CHANNELS_NOSTR_PUBLIC_KEY}",
+                "dmPolicy": "pairing",
                 "relays": [
                   "wss://relay.damus.io",
                   "wss://relay.primal.net",
