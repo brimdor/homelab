@@ -26,6 +26,7 @@ app-template:
             OPENCLAW_GATEWAY_PORT: "18789"
             OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
             PATH: "/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/node/.openclaw/bin"
+            NODE_PATH: "/app/node_modules:/home/node/.openclaw/node_modules"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
