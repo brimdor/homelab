@@ -66,7 +66,10 @@ app-template:
               if [ -d /home/node/.openclaw/extensions/nostr ]; then
                  echo "Installing plugin dependencies manually..."
                  cd /home/node/.openclaw/extensions/nostr
-                 # Install specific deps to avoid workspace:* error from npm install
+                 # Remove package.json if it contains workspace references that break npm
+                 if [ -f package.json ] && grep -q "workspace:" package.json; then
+                   mv package.json package.json.bak
+                 fi
                  npm install --no-save zod nostr-tools || echo "npm install failed"
                  cd -
               fi
