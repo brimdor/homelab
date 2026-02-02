@@ -59,8 +59,10 @@ app-template:
               fi
               
               # Install nostr-tools dependency required by the bundled nostr plugin
-              # Install to /app/node_modules so it's available in the module resolution path
-              cd /app && npm install nostr-tools --no-save 2>/dev/null || true
+              # Use a separate directory to avoid workspace: protocol issues in /app/package.json
+              mkdir -p /home/node/libs
+              npm install nostr-tools --no-save --prefix /home/node/libs 2>/dev/null || true
+              ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools 2>/dev/null || true
               
               rm -f /home/node/.openclaw/openclaw.json
               cp /config/openclaw.json /home/node/.openclaw/openclaw.json
