@@ -25,7 +25,7 @@ app-template:
             TERM: "xterm-256color"
             OPENCLAW_GATEWAY_BIND: "lan"
             OPENCLAW_GATEWAY_PORT: "18789"
-            OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
+            OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.0.0/16,10.42.0.0/16"
             PATH: "/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/node/.openclaw/bin"
             OPENCLAW_STATE_DIR: "/home/node/.openclaw"
             OPENCLAW_CONFIG_PATH: "/config/openclaw.json"
@@ -239,8 +239,11 @@ app-template:
               "port": 18789,
               "mode": "local",
               "bind": "lan",
-              "trustedProxies": ["10.0.2.71"],
-              "auth": { "mode": "token" },
+              "trustedProxies": ["10.0.0.0/16", "10.42.0.0/16"],
+              "auth": {
+                "mode": "token",
+                "token": "${OPENCLAW_GATEWAY_TOKEN}"
+              },
               "tailscale": { "mode": "off", "resetOnExit": false }
             },
              "plugins": {
