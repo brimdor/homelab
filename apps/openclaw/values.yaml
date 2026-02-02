@@ -28,6 +28,7 @@ app-template:
             OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.2.71"
             PATH: "/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/node/.openclaw/bin"
             OPENCLAW_STATE_DIR: "/home/node/.openclaw"
+            OPENCLAW_CONFIG_PATH: "/config/openclaw.json"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
@@ -126,7 +127,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /home/node/.openclaw/openclaw.json
+            - path: /config/openclaw.json
               subPath: openclaw.json
               readOnly: true
 
