@@ -58,6 +58,9 @@ app-template:
                 mv /app/extensions/nostr.bundled.disabled /app/extensions/nostr || true
               fi
               
+              # Install nostr-tools dependency required by the bundled nostr plugin
+              npm install nostr-tools --no-save --prefix /app/extensions/nostr
+              
               rm -f /home/node/.openclaw/openclaw.json
               cp /config/openclaw.json /home/node/.openclaw/openclaw.json
               chmod 600 /home/node/.openclaw/openclaw.json
