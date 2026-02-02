@@ -51,18 +51,14 @@ app-template:
 
               mkdir -p /home/node/.openclaw /home/node/.openclaw/credentials /home/node/.openclaw/workspace
               
-              # Clean up old nostr extension patches from previous deployments
-              rm -rf /home/node/.openclaw/extensions/nostr
-              # Restore bundled nostr plugin if it was disabled previously
-              if [ -d /app/extensions/nostr.bundled.disabled ]; then
-                mv /app/extensions/nostr.bundled.disabled /app/extensions/nostr || true
+              # Disable bundled nostr plugin to force usage of installed plugin
+              if [ -d /app/extensions/nostr ]; then
+                mv /app/extensions/nostr /app/extensions/nostr.bundled.disabled || true
               fi
               
-              # Install nostr-tools dependency required by the bundled nostr plugin
-              # Use a separate directory to avoid workspace: protocol issues in /app/package.json
-              mkdir -p /home/node/libs
-              npm install nostr-tools --no-save --prefix /home/node/libs 2>/dev/null || true
-              ln -sf /home/node/libs/node_modules/nostr-tools /app/node_modules/nostr-tools 2>/dev/null || true
+              # Install Nostr plugin via OpenClaw CLI
+              echo "Installing @openclaw/nostr plugin..."
+              node dist/entry.js plugins install @openclaw/nostr || echo "Plugin install warning: $?"
               
               rm -f /home/node/.openclaw/openclaw.json
               cp /config/openclaw.json /home/node/.openclaw/openclaw.json
