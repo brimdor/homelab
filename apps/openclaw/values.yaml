@@ -116,7 +116,7 @@ app-template:
     searxng-skill:
       enabled: true
       type: configMap
-      name: openclaw-searxng-skill
+      name: openclaw
       items:
         - key: SKILL.md
           path: SKILL.md
