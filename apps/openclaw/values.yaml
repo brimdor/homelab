@@ -242,8 +242,9 @@ app-template:
               "trustedProxies": ["10.0.7.72"],
               "controlUi": {
                 "enabled": true,
-                "basePath": "/",
-                "allowInsecureAuth": true
+                "basePath": "",
+                "allowInsecureAuth": true,
+                "dangerouslyDisableDeviceAuth": true
               },
               "auth": {
                 "mode": "token",
