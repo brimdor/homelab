@@ -123,7 +123,7 @@ app-template:
     config:
       enabled: true
       type: configMap
-      name: openclaw-config
+      name: openclaw
       advancedMounts:
         main:
           main:
