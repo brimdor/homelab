@@ -204,6 +204,17 @@ app-template:
           config-check:
             - path: /home/node/.openclaw
 
+    # Hide the incomplete bundled nostr extension (missing node_modules).
+    # The properly installed plugin at /home/node/.openclaw/extensions/nostr is used instead.
+    # See: https://docs.openclaw.ai/channels/nostr
+    disable-bundled-nostr:
+      enabled: true
+      type: emptyDir
+      advancedMounts:
+        main:
+          main:
+            - path: /app/extensions/nostr
+
     # WSS checker code for the wss-watchdog sidecar
     wss-checker-code:
       enabled: true
