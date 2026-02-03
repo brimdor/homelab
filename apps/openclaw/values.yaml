@@ -26,6 +26,7 @@ app-template:
             OPENCLAW_GATEWAY_BIND: "lan"
             OPENCLAW_GATEWAY_PORT: "18789"
             OPENCLAW_GATEWAY_TRUSTED_PROXIES: "10.0.7.72"
+            OPENCLAW_MANAGED_SKILLS: "clawhub:WeAreAllSatoshiN/openclaw-mem"
             PATH: "/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/node/.openclaw/bin"
             OPENCLAW_STATE_DIR: "/home/node/.openclaw"
             OPENCLAW_CONFIG_PATH: "/config/openclaw.json"
@@ -264,7 +265,8 @@ app-template:
               }
             },
             "skills": {
-              "install": { "nodeManager": "npm" }
+              "install": { "nodeManager": "npm" },
+              "managed": ["clawhub:WeAreAllSatoshiN/openclaw-mem"]
             },
             "browser": {
               "enabled": true,
