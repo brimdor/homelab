@@ -279,38 +279,6 @@ app-template:
               }
             }
           }
-
-    searxng-skill:
-      enabled: true
-      data:
-        SKILL.md: |
-          ---
-          name: searxng
-          description: Search the web via the homelab SearXNG instance.
-          ---
-
-          Use this skill when the user asks for web search but the built-in `web_search` tool is not available or has no API key, or when the user explicitly wants results from the homelab SearXNG.
-
-          How to search:
-          1) Form a concise query string from the user's request.
-          2) Fetch JSON results from SearXNG using `web_fetch`:
-
-             - Base URL: https://searxng.eaglepass.io
-             - Endpoint: /search
-             - Query params:
-               - q: <query>
-               - format: json
-
-             Example URL (URL-encode q):
-             https://searxng.eaglepass.io/search?q=<query>&format=json
-
-          3) Parse the JSON and extract the best results (usually 5-8): title, url, and content/snippet.
-          4) Answer with a short synthesis plus a list of citations (each citation should include title + URL).
-          5) If the user asks for details from a specific result, use `web_fetch` on that result URL to retrieve and quote the relevant section.
-
-          Notes:
-          - Prefer `extractMode: "text"` for the SearXNG JSON response.
-          - If the SearXNG request fails, fall back to `web_search` (if configured) or ask the user to confirm an alternative.
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
