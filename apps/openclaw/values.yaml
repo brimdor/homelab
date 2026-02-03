@@ -17,7 +17,6 @@ app-template:
             - lan
             - --port
             - "18789"
-            - --allow-unconfigured
             - --verbose
           env:
             TZ: "America/Chicago"
@@ -29,7 +28,7 @@ app-template:
             OPENCLAW_MANAGED_SKILLS: "clawhub:WeAreAllSatoshiN/openclaw-mem"
             PATH: "/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/node/.openclaw/bin"
             OPENCLAW_STATE_DIR: "/home/node/.openclaw"
-            OPENCLAW_CONFIG_PATH: "/config/openclaw.json"
+            OPENCLAW_CONFIG_PATH: "/home/node/.openclaw/openclaw.json"
             OPENCLAW_GATEWAY_TOKEN:
               valueFrom:
                 secretKeyRef:
@@ -79,6 +78,36 @@ app-template:
             limits:
               cpu: 2
               memory: "2048Mi"
+
+      initContainers:
+        config-check:
+          image:
+            repository: alpine
+            tag: latest
+            pullPolicy: Always
+          env:
+            OPENCLAW_CONFIG_PATH: "/home/node/.openclaw/openclaw.json"
+            OPENCLAW_CONFIG_SHA256: "530ac0bae67facd9a5e4abfe3e125725b49e69f892423f79f02516dddd48d2ba"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              if [ ! -s "${OPENCLAW_CONFIG_PATH}" ]; then
+                echo "[ERROR] Missing OpenClaw config: ${OPENCLAW_CONFIG_PATH}"
+                echo "[ERROR] Populate it on the NFS share backing /home/node/.openclaw (server path: /mnt/user/openclaw/openclaw.json)"
+                exit 1
+              fi
+
+              actual_sha="$(sha256sum "${OPENCLAW_CONFIG_PATH}" | cut -d ' ' -f1)"
+              if [ "${actual_sha}" != "${OPENCLAW_CONFIG_SHA256}" ]; then
+                echo "[ERROR] OpenClaw config checksum mismatch for ${OPENCLAW_CONFIG_PATH}"
+                echo "[ERROR] expected=${OPENCLAW_CONFIG_SHA256} actual=${actual_sha}"
+                exit 1
+              fi
+
+              echo "[INFO] OpenClaw config present and validated: ${OPENCLAW_CONFIG_PATH}"
   service:
     main:
       primary: true
@@ -120,17 +149,8 @@ app-template:
         main:
           main:
             - path: /home/node/.openclaw
-
-    config:
-      enabled: true
-      type: configMap
-      name: openclaw
-      advancedMounts:
-        main:
-          main:
-            - path: /config/openclaw.json
-              subPath: openclaw.json
-              readOnly: true
+          config-check:
+            - path: /home/node/.openclaw
 
     # Hides the broken bundled plugin to prevent duplicate ID warnings and ensure the fixed NFS version is used.
     disable-bundled-nostr:
@@ -142,144 +162,6 @@ app-template:
             - path: /app/extensions/nostr
 
 
-  configMaps:
-    config:
-      enabled: true
-      data:
-        openclaw.json: |
-          {
-            "models": {
-              "providers": {
-                "ollama": {
-                  "baseUrl": "http://ollama.ollama.svc.cluster.local:11434/v1",
-                  "apiKey": "ollama",
-                  "api": "openai-completions",
-                  "models": [
-                    {
-                      "id": "Echo:latest",
-                      "name": "Echo Latest",
-                      "reasoning": true,
-                      "input": ["text"],
-                      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-                      "contextWindow": 131072,
-                      "maxTokens": 8192
-                    }
-                  ]
-                }
-              }
-            },
-            "agents": {
-              "defaults": {
-                "model": { "primary": "ollama/Echo:latest" },
-                "thinkingDefault": "off",
-                "maxConcurrent": 4,
-                "subagents": { "maxConcurrent": 8 },
-                "workspace": "/home/node/.openclaw/workspace"
-              },
-              "list": [
-                {
-                  "id": "echo",
-                  "model": "ollama/Echo:latest",
-                  "identity": { "name": "Echo", "emoji": "🤖" }
-                }
-              ]
-            },
-            "messages": { "ackReactionScope": "group-mentions" },
-            "commands": { "native": "auto", "nativeSkills": "auto" },
-            "hooks": {
-              "internal": {
-                "enabled": true,
-                "entries": {
-                  "boot-md": { "enabled": true },
-                  "command-logger": { "enabled": true },
-                  "session-memory": { "enabled": true }
-                }
-              }
-            },
-            "channels": {
-              "discord": {
-                "token": "${OPENCLAW_CHANNELS_DISCORD_TOKEN}",
-                "enabled": true,
-                "configWrites": false,
-                "groupPolicy": "allowlist",
-                "actions": {
-                  "reactions": true,
-                  "stickers": true,
-                  "messages": true,
-                  "threads": true,
-                  "pins": true,
-                  "search": true,
-                  "channelInfo": true,
-                  "channels": true
-                },
-                "dm": {
-                  "enabled": true,
-                  "policy": "open",
-                  "allowFrom": ["*"]
-                },
-                "guilds": {
-                  "925834781227368519": {
-                    "channels": {
-                      "1465363798499131566": { "allow": true }
-                    }
-                  }
-                }
-              },
-              "nostr": {
-                "privateKey": "${NOSTR_PRIVATE_KEY}",
-                "dmPolicy": "allowlist",
-                "allowFrom": ["npub1g8ntsc97udpmhs322635vcc8rgcumh795l6mtvps23armcvcwevs3f44f7"],
-                "relays": [
-                  "wss://relay.damus.io",
-                  "wss://relay.primal.net",
-                  "wss://nos.lol"
-                ]
-              }
-            },
-            "gateway": {
-              "port": 18789,
-              "mode": "local",
-              "bind": "lan",
-              "trustedProxies": ["10.0.7.72"],
-              "controlUi": {
-                "enabled": true,
-                "basePath": "",
-                "allowInsecureAuth": true,
-                "dangerouslyDisableDeviceAuth": true
-              },
-              "auth": {
-                "mode": "token",
-                "token": "${OPENCLAW_GATEWAY_TOKEN}"
-              },
-              "tailscale": { "mode": "off", "resetOnExit": false }
-            },
-             "plugins": {
-               "entries": {
-                 "discord": { "enabled": true },
-                 "nostr": { "enabled": true }
-               }
-             },
-            "auth": {
-              "profiles": {
-                "openai-codex:default": { "provider": "openai-codex", "mode": "oauth" }
-              }
-            },
-            "skills": {
-              "install": { "nodeManager": "npm" }
-            },
-            "browser": {
-              "enabled": true,
-              "evaluateEnabled": true
-            },
-            "tools": {
-              "web": {
-                "search": {
-                  "enabled": true,
-                  "provider": "brave"
-                }
-              }
-            }
-          }
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
