@@ -79,6 +79,58 @@ app-template:
               cpu: 2
               memory: "2048Mi"
 
+        # Sidecar: WSS watchdog to monitor Nostr relay connectivity
+        # When relays become unreachable, this sidecar's liveness probe fails,
+        # causing Kubernetes to restart the entire pod (including the main container)
+        wss-watchdog:
+          image:
+            repository: node
+            tag: 20-alpine
+            pullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              cp -a /opt/wss-checker /tmp/wss-checker || true
+              cd /tmp/wss-checker || cd /opt/wss-checker
+              npm install --production --silent || true
+              node index.js
+          env:
+            RELAYS: "wss://relay.damus.io,wss://relay.snort.social"
+            CHECK_INTERVAL: "15000"
+            FAIL_THRESHOLD: "2"
+            PORT: "8080"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 8080
+                initialDelaySeconds: 30
+                periodSeconds: 20
+                failureThreshold: 3
+                timeoutSeconds: 5
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 8080
+                initialDelaySeconds: 10
+                periodSeconds: 20
+                failureThreshold: 3
+                timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: "32Mi"
+            limits:
+              cpu: 100m
+              memory: "128Mi"
+
       initContainers:
         config-check:
           image:
@@ -160,6 +212,17 @@ app-template:
         main:
           main:
             - path: /app/extensions/nostr
+
+    # WSS checker code for the wss-watchdog sidecar
+    wss-checker-code:
+      enabled: true
+      type: configMap
+      name: openclaw-wss-checker
+      advancedMounts:
+        main:
+          wss-watchdog:
+            - path: /opt/wss-checker
+              readOnly: true
 
 
   defaultPodOptions:
