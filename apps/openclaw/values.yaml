@@ -265,8 +265,7 @@ app-template:
               }
             },
             "skills": {
-              "install": { "nodeManager": "npm" },
-              "managed": ["clawhub:WeAreAllSatoshiN/openclaw-mem"]
+              "install": { "nodeManager": "npm" }
             },
             "browser": {
               "enabled": true,
