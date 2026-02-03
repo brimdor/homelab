@@ -34,7 +34,7 @@ sync_note: Mandatory governance for Openclaw configuration and verification.
 
 **All application behavior modifications must be performed via configuration files and environment variables.**
 
-- **Config File**: Use `openclaw.json` managed via the `openclaw-config` ConfigMap in `apps/openclaw/values.yaml`.
+- **Config File**: Use `openclaw.json` managed via the file directly in the active pod. NFS Persistence will maintain any changes after pod restarts.
 - **Environment Variables**: Use the `env` section in `apps/openclaw/values.yaml` for pod-level settings.
 - **Traceability**: Every change to the configuration or environment variables MUST include a reference to the relevant section of the [Openclaw Documentation](https://docs.openclaw.ai/).
 
