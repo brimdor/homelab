@@ -204,15 +204,6 @@ app-template:
           config-check:
             - path: /home/node/.openclaw
 
-    # Hides the broken bundled plugin to prevent duplicate ID warnings and ensure the fixed NFS version is used.
-    disable-bundled-nostr:
-      enabled: true
-      type: emptyDir
-      advancedMounts:
-        main:
-          main:
-            - path: /app/extensions/nostr
-
     # WSS checker code for the wss-watchdog sidecar
     wss-checker-code:
       enabled: true
