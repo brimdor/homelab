@@ -4,7 +4,7 @@ app-template:
       containers:
         main:
           image:
-            repository: mephist85/ace-step
+            repository: 10.0.20.11:32309/ace-step
             tag: latest
           env:
             PORT: 7865
