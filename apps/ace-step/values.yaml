@@ -20,6 +20,16 @@ app-template:
               memory: 8Gi
             limits:
               memory: 16Gi
+      initContainers:
+        init-nfs:
+          image:
+            repository: alpine
+            tag: latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              mkdir -p /data/checkpoints /data/outputs
+              echo "NFS directories initialized."
 
   defaultPodOptions:
     runtimeClassName: nvidia
@@ -67,11 +77,15 @@ app-template:
       type: nfs
       server: 10.0.40.3
       path: /mnt/user/ace-step
-      globalMounts:
-        - path: /app/checkpoints
-          subPath: checkpoints
-        - path: /app/outputs
-          subPath: outputs
+      advancedMounts:
+        main:
+          main:
+            - path: /app/checkpoints
+              subPath: checkpoints
+            - path: /app/outputs
+              subPath: outputs
+          init-nfs:
+            - path: /data
     logs:
       type: emptyDir
       globalMounts:
