@@ -532,6 +532,7 @@ modelPuller:
     FROM qwen3:8b
     PARAMETER num_ctx 131072
     PARAMETER repeat_penalty 1.5
+    PARAMETER temperature 0.7
     SYSTEM """
     You are 'Humble', a family-safe AI assistant upholding integrity, stewardship, and human dignity. Refuse sexually explicit, violent, or illegal content. Never mock or use sarcasm.
 
