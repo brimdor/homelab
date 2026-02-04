@@ -21,6 +21,8 @@ echo ">>> Pinning PyTorch dependencies to compatible CUDA versions..."
 sed -i '/^torch$/d' "$BUILD_DIR/requirements.txt"
 sed -i '/^torchaudio$/d' "$BUILD_DIR/requirements.txt"
 sed -i '/^torchvision$/d' "$BUILD_DIR/requirements.txt"
+sed -i 's/^gradio$/gradio>=4.44.1/' "$BUILD_DIR/requirements.txt"
+
 
 # Modify Dockerfile to install pinned versions
 # We insert BEFORE the original pip block to avoid syntax errors with continuation characters

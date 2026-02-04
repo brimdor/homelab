@@ -7,7 +7,7 @@ description: Governance rules for the Openclaw application
 
 > [!IMPORTANT]
 > **These rules ensure Openclaw remains maintainable and aligned with official releases.**
-> All changes MUST reference the official documentation: [https://docs.openclaw.ai/](https://docs.openclaw.ai/).
+> All changes MUST reference the official documentation and work through the native capabilities: [https://docs.openclaw.ai/](https://docs.openclaw.ai/).
 
 ---
 
@@ -16,7 +16,7 @@ description: Governance rules for the Openclaw application
 **We do NOT patch or inject code into Openclaw.**
 
 - **Official Images**: Always use official images from the Openclaw pipeline (`ghcr.io/openclaw/openclaw`).
-- **No Injections**: Unlike the "Moltbot Protocol," Openclaw must NOT receive code injections, runtime patches, or overlay mounts for application logic.
+- **No Injections**: Openclaw must NOT receive code injections, runtime patches, or overlay mounts for application logic.
 - **Maintainability**: This ensures that updates from the official pipeline can be applied without breaking custom logic or requiring patch refactoring.
 
 ---
@@ -27,7 +27,7 @@ description: Governance rules for the Openclaw application
 
 - **Config File**: Use `openclaw.json` managed via the file directly in the active pod. NFS Persistence will maintain any changes after pod restarts.
 - **Environment Variables**: Use the `env` section in `apps/openclaw/values.yaml` for pod-level settings.
-- **Traceability**: Every change to the configuration or environment variables MUST include a reference to the relevant section of the [Openclaw Documentation](https://docs.openclaw.ai/).
+- **Traceability**: Every change to the configuration or environment variables MUST be aligned with [Openclaw Documentation](https://docs.openclaw.ai/). Everything we do, will be handled natively in Openclaw.
 
 ---
 
