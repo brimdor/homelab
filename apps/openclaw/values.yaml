@@ -1,0 +1,101 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+# OpenClaw Docs: https://docs.openclaw.ai/
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: main
+          image:
+            repository: ghcr.io/openclaw/openclaw
+            tag: "2026.2.2"
+            pullPolicy: IfNotPresent
+          command:
+            - node
+            - dist/index.js
+            - gateway
+            - --bind
+            - lan
+            - --port
+            - "18789"
+          env:
+            HOME: "/home/node"
+            TERM: "xterm-256color"
+            TZ: "America/Chicago"
+            OPENCLAW_GATEWAY_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "gateway-token"
+            # Optional: Uncomment if using Claude web session
+            # CLAUDE_AI_SESSION_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "claude-ai-session-key"
+            # CLAUDE_WEB_SESSION_KEY:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "claude-web-session-key"
+            # CLAUDE_WEB_COOKIE:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: "secrets"
+            #       key: "claude-web-cookie"
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+
+  service:
+    main:
+      primary: true
+      ports:
+        gateway:
+          port: 18789
+          protocol: HTTP
+        bridge:
+          port: 18790
+          protocol: HTTP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &Host openclaw.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: 18789
+      tls:
+        - hosts:
+            - *Host
+          secretName: openclaw-tls-certificate
+
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/openclaw
+      advancedMounts:
+        main:
+          main:
+            - path: /home/node/.openclaw
+            - path: /home/node/.openclaw/workspace
+              subPath: workspace
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/2d2xphod42xwz2eoxs3tyyx7je"
+      operator.1password.io/item-name: "secrets"
