@@ -31,8 +31,6 @@ app-template:
             - --port
             - "18789"
             - --allow-unconfigured
-            - --trusted-proxies
-            - "10.0.0.0/16"
           env:
             HOME: "/home/node"
             TERM: "xterm-256color"
