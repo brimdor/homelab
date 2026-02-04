@@ -14,8 +14,7 @@ app-template:
             - sh
             - -c
             - |
-              mkdir -p /data/workspace /data/canvas
-              chown -R 1000:1000 /data
+              mkdir -p /data/workspace /data/canvas /data/cron
       containers:
         main:
           nameOverride: main
