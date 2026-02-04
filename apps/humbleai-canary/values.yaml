@@ -5,7 +5,7 @@ app-template:
       containers:
         main:
           image:
-            repository: docker.io/brimdor/humbleai
+            repository: 10.0.20.11:32309/humbleai
             tag: canary
             pullPolicy: Always
           env:
