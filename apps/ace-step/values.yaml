@@ -20,25 +20,22 @@ app-template:
               memory: 8Gi
             limits:
               memory: 16Gi
-      runtimeClassName: nvidia
-      pod:
-        # annotations:
-        #   # Placeholder Item ID - User must update this unique ID from 1Password
-        #   operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/ace_step_secrets_placeholder"
-        #   operator.1password.io/item-name: "secrets"
-        tolerations:
-          - key: "dedicated"
-            value: "arcanine"
-            effect: "NoSchedule"
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-                - matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - "arcanine"
+
+  defaultPodOptions:
+    runtimeClassName: nvidia
+    tolerations:
+      - key: "dedicated"
+        value: "arcanine"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - "arcanine"
 
   service:
     main:
