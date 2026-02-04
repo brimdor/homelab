@@ -15,6 +15,20 @@ app-template:
             - -c
             - |
               mkdir -p /data/workspace /data/canvas /data/cron
+        # Ensure gateway.trustedProxies is set before the gateway starts so
+        # Openclaw will trust the ingress/proxy that forwards client headers.
+        set-config:
+          image:
+            repository: ghcr.io/openclaw/openclaw
+            tag: "2026.2.2"
+          # run the Openclaw CLI to set the trusted proxies into the
+          # persisted config location (mounted to /home/node/.openclaw).
+          command:
+            - sh
+            - -c
+            - |
+              # adjust the CIDR/IP below to match your ingress/proxy (see logs: fwd=10.0.40.3)
+              node dist/index.js config set --json gateway.trustedProxies '["10.0.40.3"]' || true
       containers:
         main:
           nameOverride: main
