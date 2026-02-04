@@ -481,7 +481,7 @@ modelPuller:
     }
 
     # Only request the smaller 8b variant to avoid large downloads / GPU memory usage
-    models="llama3.2:3b qwen3:8b nomic-embed-text:latest mxbai-embed-large:latest gpt-oss:20b llama-guard3:1b"
+    models="ministral-3:8b llama3.2:3b qwen3:8b nomic-embed-text:latest mxbai-embed-large:latest gpt-oss:20b llama-guard3:1b"
     for model in $models; do
       pull_with_retry "$model"
     done
@@ -529,7 +529,7 @@ modelPuller:
 
     echo "Creating Humble model (family-safe AI)..."
     cat <<'EOF' > /tmp/Modelfile.Humble
-    FROM qwen3:8b
+    FROM llama3.2:3b
     PARAMETER num_ctx 131072
     PARAMETER repeat_penalty 1.5
     PARAMETER temperature 0.7
