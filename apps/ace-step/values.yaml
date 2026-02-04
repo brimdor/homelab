@@ -6,6 +6,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/ace-step
             tag: latest
+            pullPolicy: Always
           env:
             PORT: 7865
             HF_HUB_ENABLE_HF_TRANSFER: 1
