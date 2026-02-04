@@ -5,6 +5,17 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
+      initContainers:
+        init-dirs:
+          image:
+            repository: busybox
+            tag: latest
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data/workspace /data/canvas
+              chown -R 1000:1000 /data
       containers:
         main:
           nameOverride: main
@@ -91,6 +102,8 @@ app-template:
       path: /mnt/user/openclaw
       advancedMounts:
         main:
+          init-dirs:
+            - path: /data
           main:
             - path: /home/node/.openclaw
 
