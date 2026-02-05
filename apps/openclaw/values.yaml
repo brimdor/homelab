@@ -29,22 +29,6 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "gateway-token"
-            # Optional: Uncomment if using Claude web session
-            # CLAUDE_AI_SESSION_KEY:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "claude-ai-session-key"
-            # CLAUDE_WEB_SESSION_KEY:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "claude-web-session-key"
-            # CLAUDE_WEB_COOKIE:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: "secrets"
-            #       key: "claude-web-cookie"
           probes:
             liveness:
               enabled: false
