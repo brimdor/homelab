@@ -4,13 +4,13 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 1
+      pullPolicy: Always
       containers:
         main:
           nameOverride: main
           image:
             repository: ghcr.io/openclaw/openclaw
-            tag: "2026.2.2"
+            tag: "latest"
             pullPolicy: IfNotPresent
           command:
             - node
