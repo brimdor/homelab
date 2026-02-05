@@ -4,6 +4,47 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
+      initContainers:
+        set-config:
+          image:
+            repository: ghcr.io/openclaw/openclaw
+            tag: "latest"
+            pullPolicy: Always
+          command:
+            - /bin/sh
+            - -lc
+          args: |
+            set -euo pipefail
+            node <<'NODE'
+            const fs = require('fs')
+
+            const p = '/home/node/.openclaw/openclaw.json'
+            let j = {}
+
+            try {
+              j = JSON.parse(fs.readFileSync(p, 'utf8'))
+            } catch (e) {
+              j = {}
+            }
+
+            j.gateway = j.gateway || {}
+            j.gateway.mode = j.gateway.mode || 'local'
+            j.gateway.port = j.gateway.port || 18789
+            j.gateway.bind = 'lan'
+            j.gateway.auth = j.gateway.auth || {}
+            j.gateway.auth.mode = j.gateway.auth.mode || 'token'
+            j.gateway.auth.token = '${OPENCLAW_GATEWAY_TOKEN}'
+
+            j.agents = j.agents || {}
+            j.agents.defaults = j.agents.defaults || {}
+            j.agents.defaults.workspace = '/home/node/.openclaw/workspace'
+
+            if (fs.existsSync(p)) {
+              fs.copyFileSync(p, `${p}.pre-helm-init.bak`)
+            }
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n')
+            console.log(`wrote ${p}`)
+            NODE
       containers:
         main:
           nameOverride: main
@@ -67,6 +108,8 @@ app-template:
         main:
           init-dirs:
             - path: /data
+          set-config:
+            - path: /home/node/.openclaw
           main:
             - path: /home/node/.openclaw
 
