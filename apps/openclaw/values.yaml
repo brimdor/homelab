@@ -11,15 +11,6 @@ app-template:
             repository: ghcr.io/openclaw/openclaw
             tag: "latest"
             pullPolicy: Always
-          # command:
-          #   - node
-          #   - dist/index.js
-          #   - gateway
-          #   - --bind
-          #   - lan
-          #   - --port
-          #   - "18789"
-          #   - --allow-unconfigured
           env:
             HOME: "/home/node"
             TERM: "xterm-256color"
