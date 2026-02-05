@@ -5,24 +5,6 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
-      initContainers:
-        init-dirs:
-          image:
-            repository: busybox
-            tag: latest
-          command:
-            - sh
-            - -c
-            - |
-              mkdir -p /data/workspace /data/canvas /data/cron
-        # Ensure gateway.trustedProxies is set before the gateway starts so
-        # Openclaw will trust the ingress/proxy that forwards client headers.
-        set-config:
-          image:
-            repository: ghcr.io/openclaw/openclaw
-            tag: "2026.2.2"
-          # run the Openclaw CLI to set the trusted proxies into the
-          # persisted config location (mounted to /home/node/.openclaw).
       containers:
         main:
           nameOverride: main
