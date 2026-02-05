@@ -4,7 +4,7 @@ set -e
 # Configuration
 REPO_URL="https://github.com/ace-step/ACE-Step.git"
 BUILD_DIR="/tmp/ace-step-build"
-REGISTRY="registry.eaglepass.io"
+REGISTRY="10.0.20.11:32309"
 IMAGE_NAME="ace-step"
 TAG="latest"
 FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${TAG}"
@@ -24,10 +24,13 @@ sed -i '/^torchvision$/d' "$BUILD_DIR/requirements.txt"
 sed -i 's/^gradio$/gradio>=4.44.1/' "$BUILD_DIR/requirements.txt"
 
 
-# Modify Dockerfile to install pinned versions
-# We insert BEFORE the original pip block to avoid syntax errors with continuation characters
+# Robustly pin Gradio and PyTorch inside the Dockerfile
+sed -i '/RUN git clone.*ACE-Step.git ./a RUN sed -i "s/^gradio$/gradio>=4.44.1/" requirements.txt' "$BUILD_DIR/Dockerfile"
+
+# Modify Dockerfile to install pinned versions of Torch before the main requirements to ensure 12.4 compatibility
 # Added --default-timeout=1000 to handle large wheel downloads
-sed -i '/RUN pip3 install --no-cache-dir --upgrade pip/i RUN pip3 install --no-cache-dir --default-timeout=1000 torch==2.5.1+cu124 torchvision==0.20.1+cu124 torchaudio==2.5.1+cu124 gradio>=4.44.1 --extra-index-url https://download.pytorch.org/whl/cu124' "$BUILD_DIR/Dockerfile"
+sed -i '/RUN pip3 install --no-cache-dir --upgrade pip/i RUN pip3 install --no-cache-dir --default-timeout=1000 torch==2.5.1+cu124 torchvision==0.20.1+cu124 torchaudio==2.5.1+cu124 --extra-index-url https://download.pytorch.org/whl/cu124' "$BUILD_DIR/Dockerfile"
+
 
 # Also fix the existing requirements install line to use cu124 to be safe (this targets the original line 40)
 sed -i 's|cu126|cu124|g' "$BUILD_DIR/Dockerfile"
