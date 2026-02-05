@@ -4,22 +4,22 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      pullPolicy: Always
       containers:
         main:
           nameOverride: main
           image:
             repository: ghcr.io/openclaw/openclaw
             tag: "latest"
-          command:
-            - node
-            - dist/index.js
-            - gateway
-            - --bind
-            - lan
-            - --port
-            - "18789"
-            - --allow-unconfigured
+            pullPolicy: Always
+          # command:
+          #   - node
+          #   - dist/index.js
+          #   - gateway
+          #   - --bind
+          #   - lan
+          #   - --port
+          #   - "18789"
+          #   - --allow-unconfigured
           env:
             HOME: "/home/node"
             TERM: "xterm-256color"
