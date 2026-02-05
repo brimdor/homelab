@@ -21,11 +21,11 @@ echo ">>> Pinning PyTorch dependencies to compatible CUDA versions..."
 sed -i '/^torch$/d' "$BUILD_DIR/requirements.txt"
 sed -i '/^torchaudio$/d' "$BUILD_DIR/requirements.txt"
 sed -i '/^torchvision$/d' "$BUILD_DIR/requirements.txt"
-sed -i 's/^gradio$/gradio>=4.44.1/' "$BUILD_DIR/requirements.txt"
+sed -i 's/^gradio$/gradio>=4.44.1,<6.0.0/' "$BUILD_DIR/requirements.txt"
 
 
 # Robustly pin Gradio and PyTorch inside the Dockerfile
-sed -i '/RUN git clone.*ACE-Step.git ./a RUN sed -i "s/^gradio$/gradio>=4.44.1/" requirements.txt' "$BUILD_DIR/Dockerfile"
+sed -i '/RUN git clone.*ACE-Step.git ./a RUN sed -i "s/^gradio$/gradio>=4.44.1,<6.0.0/" requirements.txt' "$BUILD_DIR/Dockerfile"
 
 # Modify Dockerfile to install pinned versions of Torch before the main requirements to ensure 12.4 compatibility
 # Added --default-timeout=1000 to handle large wheel downloads
