@@ -489,7 +489,7 @@ modelPuller:
     echo "Creating Echo model (smaller base, 128k context, fixed reasoning)..."
     cat <<'EOF' > /tmp/Modelfile.Echo
     FROM gpt-oss:20b
-    PARAMETER num_ctx 131072
+    PARAMETER num_ctx 128000
     PARAMETER repeat_penalty 1.5
     SYSTEM """
     You are Echo, a specialized System Administration Agent.
@@ -530,7 +530,7 @@ modelPuller:
     echo "Creating Humble model (family-safe AI)..."
     cat <<'EOF' > /tmp/Modelfile.Humble
     FROM llama3.2:3b
-    PARAMETER num_ctx 131072
+    PARAMETER num_ctx 64000
     PARAMETER repeat_penalty 1.5
     PARAMETER temperature 0.7
     SYSTEM """
