@@ -49,7 +49,7 @@ The network is segmented into VLANs for organization and traffic management. All
 - **Purpose**: Raspberry Pi side projects and extra nodes
 - **Key Devices**:
     - mario: `10.0.30.10`
-    - flareon: `10.0.30.11`
+    - luigi: `10.0.30.11`
     - jolteon: `10.0.30.12`
     - vaporeon: `10.0.30.13`
     - glaceon: `10.0.30.14`

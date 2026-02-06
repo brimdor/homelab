@@ -46,11 +46,11 @@ ssh brimdor@10.0.20.13  # bulbasaur
 ### Raspberry Pis (VLAN 30)
 
 ```bash
-ssh pi@10.0.30.10  # mario
-ssh pi@10.0.30.11  # flareon
-ssh pi@10.0.30.12  # jolteon
-ssh pi@10.0.30.13  # vaporeon
-ssh pi@10.0.30.14  # glaceon
+ssh brimdor@10.0.30.10  # mario
+ssh brimdor@10.0.30.11  # luigi
+ssh brimdor@10.0.30.12  # jolteon
+ssh brimdor@10.0.30.13  # vaporeon
+ssh brimdor@10.0.30.14  # glaceon
 ```
 
 ---

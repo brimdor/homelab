@@ -34,8 +34,8 @@
 
 | Device Name | IP Address | MAC Address | Device Type | Make/Model | Notes |
 |-------------|------------|-------------|-------------|------------|-------|
-| mario | `10.0.30.10` | `DC:A6:32:D3:32:5C` | SBC | Raspberry Pi 4 | Side projects |
-| flareon | `10.0.30.11` | `DC:A6:32:B9:29:CA` | SBC | Raspberry Pi 4 | Side projects |
+| mario | `10.0.30.10` | `DC:A6:32:D3:32:5C` | SBC | Raspberry Pi 4 | Side projects (OpenClaw Echo) |
+| luigi | `10.0.30.11` | `DC:A6:32:B9:29:CA` | SBC | Raspberry Pi 4 | Side projects (OpenClaw Patch) |
 | jolteon | `10.0.30.12` | `DC:A6:32:D3:32:AD` | SBC | Raspberry Pi 4 | Side projects |
 | vaporeon | `10.0.30.13` | `DC:A6:32:D3:31:63` | SBC | Raspberry Pi 4 | Side projects |
 | glaceon | `10.0.30.14` | `DC:A6:32:B9:2A:45` | SBC | Raspberry Pi 4 | Side projects |
@@ -56,7 +56,7 @@
 | 10 | 20 | Access | growlithe | `10.0.20.18` |
 | 11 | 20 | Access | arcanine | `10.0.20.19` |
 | 12 | 30 | Access | mario | `10.0.30.10` |
-| 13 | 30 | Access | flareon | `10.0.30.11` |
+| 13 | 30 | Access | luigi | `10.0.30.11` |
 | 14 | 30 | Access | jolteon | `10.0.30.12` |
 | 15 | 30 | Access | vaporeon | `10.0.30.13` |
 | 16 | 30 | Access | glaceon | `10.0.30.14` |

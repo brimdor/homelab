@@ -265,7 +265,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
 | Pi        | To TPLink Port | Expected IP  |
 |-----------|----------------|--------------|
 | mario     | Port 12        | 10.0.30.10   |
-| flareon   | Port 13        | 10.0.30.11   |
+| luigi     | Port 13        | 10.0.30.11   |
 | jolteon   | Port 14        | 10.0.30.12   |
 | vaporeon  | Port 15        | 10.0.30.13   |
 | glaceon   | Port 16        | 10.0.30.14   |
@@ -289,7 +289,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
 
 **Raspberry Pi Checklist:**
 - [ ] mario → Port 12 → 10.0.30.10
-- [ ] flareon → Port 13 → 10.0.30.11
+- [ ] luigi → Port 13 → 10.0.30.11
 - [ ] jolteon → Port 14 → 10.0.30.12
 - [ ] vaporeon → Port 15 → 10.0.30.13
 - [ ] glaceon → Port 16 → 10.0.30.14
