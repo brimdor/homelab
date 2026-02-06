@@ -17,10 +17,10 @@ app-template:
           command: ["python3", "acestep/gui.py", "--server_name", "0.0.0.0", "--bf16", "true"]
           resources:
             requests:
-              cpu: 2000m
+              cpu: 1800m
               memory: 8Gi
             limits:
-              memory: 16Gi
+              memory: 12Gi
       initContainers:
         init-nfs:
           image:
