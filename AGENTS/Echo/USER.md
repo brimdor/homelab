@@ -6,7 +6,7 @@
 - **What to call them:** Chris
 - **Nostr Public Key:** npub1g8ntsc97udpmhs322635vcc8rgcumh795l6mtvps23armcvcwevs3f44f7
 - **Telegram Username:** @brimdor
-- **Telegram DM chatId:** -8226887535
+- **Telegram DM chatId:** 8226887535
 - **Timezone:** America/Chicago
 - **Notes:** 
 
