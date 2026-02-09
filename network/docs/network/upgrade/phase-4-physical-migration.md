@@ -266,10 +266,10 @@ The migration follows a "critical-first" approach to maintain remote access and 
 |-----------|----------------|--------------|
 | mario     | Port 12        | 10.0.30.10   |
 | luigi     | Port 13        | 10.0.30.11   |
-| jolteon   | Port 14        | 10.0.30.12   |
-| vaporeon  | Port 15        | 10.0.30.13   |
-| glaceon   | Port 16        | 10.0.30.14   |
-| (spare)   | Port 17        | 10.0.30.15   |
+| toad      | Port 14        | 10.0.30.12   |
+| yoshi     | Port 15        | 10.0.30.13   |
+| peach     | Port 16        | 10.0.30.14   |
+| star      | Port 17        | 10.0.30.15   |
 | (spare)   | Port 18        | 10.0.30.16   |
 
 **For each Raspberry Pi:**
@@ -290,9 +290,10 @@ The migration follows a "critical-first" approach to maintain remote access and 
 **Raspberry Pi Checklist:**
 - [ ] mario → Port 12 → 10.0.30.10
 - [ ] luigi → Port 13 → 10.0.30.11
-- [ ] jolteon → Port 14 → 10.0.30.12
-- [ ] vaporeon → Port 15 → 10.0.30.13
-- [ ] glaceon → Port 16 → 10.0.30.14
+- [ ] toad → Port 14 → 10.0.30.12
+- [ ] yoshi → Port 15 → 10.0.30.13
+- [ ] peach → Port 16 → 10.0.30.14
+- [ ] star → Port 17 → 10.0.30.15
 
 ---
 
@@ -349,9 +350,9 @@ The migration follows a "critical-first" approach to maintain remote access and 
 
    **Option B: Keep Linksys for Expansion**
    - If keeping:
-     - [ ] **[HUMAN ACTION]** Connect Linksys uplink to TPLink Port 14 (Reserved)
-     - [ ] **[HUMAN ACTION]** Configure Port 14 as access port for single VLAN (e.g., VLAN 50)
-     - All Linksys-connected devices will be on that single VLAN
+      - [ ] **[HUMAN ACTION]** Connect Linksys uplink to TPLink Port 18 (Reserved)
+      - [ ] **[HUMAN ACTION]** Configure Port 18 as access port for single VLAN (e.g., VLAN 50)
+      - All Linksys-connected devices will be on that single VLAN
    - [ ] **[HUMAN DECISION]** Choose this if more than 24 ports needed
 
 3. **If removing Linksys:**

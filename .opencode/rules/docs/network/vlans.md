@@ -50,9 +50,10 @@ The network is segmented into VLANs for organization and traffic management. All
 - **Key Devices**:
     - mario: `10.0.30.10`
     - luigi: `10.0.30.11`
-    - jolteon: `10.0.30.12`
-    - vaporeon: `10.0.30.13`
-    - glaceon: `10.0.30.14`
+    - toad: `10.0.30.12`
+    - yoshi: `10.0.30.13`
+    - peach: `10.0.30.14`
+    - star: `10.0.30.15`
 - **Switch Ports**: 12-18
 
 ### VLAN 40 - Storage
