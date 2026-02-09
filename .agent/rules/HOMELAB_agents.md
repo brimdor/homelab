@@ -16,7 +16,7 @@ sync_note: OpenClaw agent reference. Update when agent configuration changes.
 
 # OpenClaw Agents
 
-The homelab runs two OpenClaw AI agents on dedicated Raspberry Pi nodes. These agents operate autonomously and communicate via Telegram.
+The homelab runs two OpenClaw AI agents on dedicated Raspberry Pi nodes. These agents operate autonomously and communicate via shared file inboxes for agent-to-agent coordination, while using Telegram for DMs with Chris.
 
 ---
 
@@ -166,48 +166,45 @@ Both agents use `dmPolicy: "pairing"` - unknown senders receive a pairing code.
 ### DM Allowlist
 Both agents allow DMs from `@brimdor` via `channels.telegram.allowFrom`.
 
-### Shared Communication Group
+### Agent-to-Agent Communication (File Inbox)
 
-Echo and Patch communicate directly via a shared Telegram group:
+Echo and Patch communicate via shared file inboxes (Telegram groups are NOT used for agent-to-agent communication).
 
-| Property | Value |
-|----------|-------|
-| **Group Name** | The Grand Council |
-| **Group ID** | `-5238236031` |
-| **Members** | Echo, Patch, Chris |
+#### Shared Inbox Locations
 
-**IMPORTANT**: The correct group ID is `-5238236031` (NOT `-1005238236031` - this is a common error).
+| Agent | Inbox Path | Purpose |
+|-------|------------|---------|
+| **Echo** | `~/.openclaw/workspace/patch-inbox/` | Patch drops maintenance notices here |
+| **Patch** | `~/.openclaw/workspace/echo-inbox/` | Echo drops task requests here |
 
-### Group Configuration
-
-Each agent's `openclaw.json` must have the group configured:
-
-```json
-{
-  "channels": {
-    "telegram": {
-      "groups": {
-        "-5238236031": {
-          "requireMention": true,
-          "allowFrom": ["@brimdor", "@other_bot_handle"]
-        }
-      }
-    }
-  }
-}
+#### File Naming Convention
 ```
+YYYYMMDDTHHMMSSZ-<type>.md
+```
+Examples:
+- `20260209T143000Z-maintenance.md` - Maintenance notice
+- `20260209T150000Z-checklist.md` - Checklist item
+- `20260209T160000Z-status.md` - Status update
 
-**Echo's allowFrom for group**: `["@brimdor", "@patch_repair_bot"]`
-**Patch's allowFrom for group**: `["@brimdor", "@Echo_orchestrator_bot"]`
+#### Communication Protocol
+1. **Writer creates file** with timestamped name
+2. **Reader polls inbox** periodically (or on heartbeat)
+3. **Reader processes file** and moves to `processed/` subdirectory
+4. **Critical items** may also trigger a DM to Chris (`@brimdor`)
 
-### Group Communication Rules
-1. **Require @mention** - Both agents require being mentioned to respond (prevents loops)
-2. **Use for real-time coordination** - When Patch loses SSH connection to Echo
-3. **Keep messages concise** - This is an operational channel
-4. **Mention targets**:
-   - `@Echo_orchestrator_bot` - Get Echo's attention
-   - `@patch_repair_bot` - Get Patch's attention
-   - `@brimdor` - Alert Chris
+#### Inbox File Format
+```markdown
+---
+type: maintenance|checklist|status|alert
+priority: low|normal|high|critical
+from: echo|patch
+timestamp: 2026-02-09T14:30:00Z
+---
+
+# Subject Line
+
+Message content here.
+```
 
 ---
 
@@ -326,19 +323,28 @@ openclaw models status --probe
 
 ## Patch -> Echo Communication
 
-### File-Based (Primary Method)
-Patch can drop notices for Echo in the patch-inbox:
+### File-Based Communication (Primary Method)
+Patch drops notices for Echo in the patch-inbox:
 
 ```bash
 # From Patch's host, write to Echo's inbox
 ssh brimdor@10.0.30.10 "mkdir -p ~/.openclaw/workspace/patch-inbox"
-ssh brimdor@10.0.30.10 "echo 'Maintenance notice content' > ~/.openclaw/workspace/patch-inbox/$(date +%Y%m%dT%H%M%SZ).md"
+ssh brimdor@10.0.30.10 "cat > ~/.openclaw/workspace/patch-inbox/$(date +%Y%m%dT%H%M%SZ)-maintenance.md << 'EOF'
+---
+type: maintenance
+priority: normal
+from: patch
+timestamp: $(date -Iseconds)
+---
+
+# Maintenance Notice
+
+Content here.
+EOF"
 ```
 
-### Telegram (Fallback/Real-Time)
-When SSH/file-based methods fail, use Telegram group `-5238236031`:
-- Patch mentions `@Echo_orchestrator_bot` for Echo's attention
-- Patch mentions `@brimdor` to alert Chris
+### Critical Alerts
+For critical issues requiring immediate human attention, Patch should DM Chris directly via Telegram (`@brimdor`).
 
 ---
 
@@ -368,7 +374,7 @@ ssh brimdor@10.0.30.10 journalctl --user -u openclaw-gateway.service -n 200 --no
 ## Disruptive Actions (Require Coordination)
 
 Before performing disruptive actions on Echo:
-1. Notify Echo via `patch-inbox/` or Telegram group
+1. Notify Echo via `patch-inbox/` file drop
 2. Wait for acknowledgment if possible
 3. Perform the action
 4. Verify restoration
@@ -388,22 +394,16 @@ ssh brimdor@10.0.30.10 systemctl --user restart openclaw-gateway.service
 3. Verify `dmPolicy` and `allowFrom` in config
 4. Run `openclaw doctor --fix` if config issues found
 
-### Agent Not Responding in Groups
-1. Verify group ID is correct (`-5238236031`, not `-1005238236031`)
-2. Check `channels.telegram.groups` has the group listed
-3. Verify `allowFrom` includes the sender's username
-4. Ensure `requireMention: true` and you're @mentioning the bot
+### File Inbox Not Being Processed
+1. Verify inbox directory exists: `ls -la ~/.openclaw/workspace/patch-inbox/`
+2. Check file permissions are correct
+3. Verify agent heartbeat is running and checking inbox
+4. Check for malformed markdown frontmatter in inbox files
 
 ### Gateway Crash Loop
 1. Check logs for "Config invalid" or "Unrecognized key" errors
 2. Run `openclaw doctor --fix` to remove invalid config keys
 3. Restore from backup if needed: `cp ~/.openclaw/openclaw.json.bak-* ~/.openclaw/openclaw.json`
-
-### Telegram "Chat Not Found" Errors
-1. Verify the group ID is correct
-2. Ensure bot is a member of the group
-3. Check bot privacy settings in BotFather (`/setprivacy`)
-4. Verify bot token is correct
 
 ---
 
@@ -419,9 +419,6 @@ ssh brimdor@10.0.30.10 systemctl --user restart openclaw-gateway.service
 | `agents.defaults.model.fallbacks` | Fallback models |
 | `channels.telegram.botToken` | Telegram bot token |
 | `channels.telegram.allowFrom` | DM allowlist |
-| `channels.telegram.groups` | Per-group configuration |
-| `channels.telegram.groups.<id>.allowFrom` | Group-specific allowlist |
-| `channels.telegram.groups.<id>.requireMention` | Mention requirement |
 | `channels.nostr.privateKey` | Nostr private key |
 | `channels.nostr.relays` | Nostr relay list |
 | `gateway.port` | Gateway port (default: 18789) |
@@ -504,7 +501,7 @@ openclaw message send --channel telegram --target <chat_id> --message "text"
 
 ### Telegram Configuration Deep Dive
 
-From the OpenClaw docs, key Telegram settings:
+From the OpenClaw docs, key Telegram settings (DMs only, no groups for agent-to-agent communication):
 
 ```json5
 {
@@ -517,21 +514,7 @@ From the OpenClaw docs, key Telegram settings:
       dmPolicy: "pairing",  // pairing | allowlist | open | disabled
       allowFrom: ["@username", "123456789"],  // DM allowlist
       
-      // Group access control  
-      groupPolicy: "allowlist",  // open | allowlist | disabled
-      groupAllowFrom: ["@username"],  // Group sender allowlist
-      
-      // Per-group configuration
-      groups: {
-        "-5238236031": {
-          requireMention: true,
-          allowFrom: ["@brimdor", "@other_bot"],
-          systemPrompt: "Keep answers brief.",
-        },
-      },
-      
       // Message handling
-      historyLimit: 50,  // Group message context
       textChunkLimit: 4000,  // Outbound chunk size
       streamMode: "partial",  // off | partial | block
       
@@ -554,30 +537,12 @@ From the OpenClaw docs, key Telegram settings:
 - `open`: Allow all inbound DMs (requires `allowFrom: ["*"]`)
 - `disabled`: Ignore all inbound DMs
 
-**Group Policy Options**:
-- `open`: Groups bypass allowlists; mention-gating still applies
-- `allowlist`: Only allow groups/senders matching the configured allowlist
-- `disabled`: Block all group messages
-
-**Per-Group `allowFrom`**: Controls which senders can trigger responses in that specific group.
-
-### Agent-to-Agent Communication
-
-For agents to communicate in a shared Telegram group:
-
-1. **Add group to both configs** with the correct group ID
-2. **Set `requireMention: true`** to prevent infinite loops
-3. **Add each bot to the other's `allowFrom`**:
-   - Echo allows `@patch_repair_bot`
-   - Patch allows `@Echo_orchestrator_bot`
+> **Note**: Agent-to-agent communication uses file inboxes, NOT Telegram groups.
 
 ### Common Configuration Mistakes
 
-1. **Wrong group ID format**: Use `-5238236031` not `-1005238236031` for regular groups
-2. **Invalid config keys**: OpenClaw validates strictly; run `openclaw doctor --fix`
-3. **Missing bot in group**: Bot must be added to group before it can receive messages
-4. **Privacy mode enabled**: In BotFather, run `/setprivacy` -> Disable for group messages
-5. **Old data in session files**: After config changes, old session files may have stale data
+1. **Invalid config keys**: OpenClaw validates strictly; run `openclaw doctor --fix`
+2. **Old data in session files**: After config changes, old session files may have stale data
 
 ### Configuration Validation
 
