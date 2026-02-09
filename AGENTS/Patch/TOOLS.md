@@ -14,13 +14,13 @@ SSH commands for Echo health checks and maintenance:
 
 ```bash
 # Gateway status
-ssh brimdor@10.0.30.10 ~/.npm-global/bin/openclaw gateway status
+ssh brimdor@10.0.30.10 ~/.local/bin/openclaw gateway status
 
 # Channel status with probe
-ssh brimdor@10.0.30.10 ~/.npm-global/bin/openclaw channels status --probe
+ssh brimdor@10.0.30.10 ~/.local/bin/openclaw channels status --probe
 
 # Deep status check
-ssh brimdor@10.0.30.10 ~/.npm-global/bin/openclaw status --deep
+ssh brimdor@10.0.30.10 ~/.local/bin/openclaw status --deep
 
 # Service logs (last 200 lines)
 ssh brimdor@10.0.30.10 journalctl --user -u openclaw-gateway.service -n 200 --no-pager
@@ -30,36 +30,67 @@ ssh brimdor@10.0.30.10 journalctl --user -u openclaw-gateway.service -n 200 --no
 
 Before performing disruptive maintenance on Echo (gateway restart, config changes, channel restarts):
 
-1. Notify Echo via the shared group (`-5238236031`)
-2. If Telegram is down, drop a file to `~/.openclaw/workspace/patch-inbox/`
+1. Drop a notice file to Echo's inbox: `~/.openclaw/workspace/patch-inbox/`
+2. File format: `YYYYMMDDTHHMMSSZ-maintenance.md` with frontmatter
 3. Proceed with the planned action
-4. Report completion in the shared group
+4. Drop a completion notice to Echo's inbox
 
-## Messaging Targets
+## Agent-to-Agent Communication (File Inbox)
 
-When sending messages, the target format is channel-specific.
+Agent coordination with Echo uses **file inboxes** (NOT Telegram groups):
+
+| Agent | Inbox Path | Purpose |
+|-------|------------|---------|
+| **Echo** | `~/.openclaw/workspace/patch-inbox/` | Patch drops maintenance notices here |
+| **Patch** | `~/.openclaw/workspace/echo-inbox/` | Echo drops task requests here |
+
+### Sending a Message to Echo
+
+```bash
+# Create a maintenance notice for Echo
+ssh brimdor@10.0.30.10 "mkdir -p ~/.openclaw/workspace/patch-inbox"
+ssh brimdor@10.0.30.10 "cat > ~/.openclaw/workspace/patch-inbox/$(date +%Y%m%dT%H%M%SZ)-maintenance.md << INNER_EOF
+---
+type: maintenance
+priority: normal
+from: patch
+timestamp: $(date -Iseconds)
+---
+
+# Maintenance Notice
+
+Content here.
+INNER_EOF"
+```
+
+### File Format
+
+```markdown
+---
+type: maintenance|checklist|status|alert
+priority: low|normal|high|critical
+from: echo|patch
+timestamp: 2026-02-09T14:30:00Z
+---
+
+# Subject Line
+
+Message content here.
+```
+
+## Messaging Targets (Telegram DMs Only)
+
+When sending Telegram messages, use DMs only (no group messages for agent coordination):
 
 **Telegram**
 - Heartbeat Channel: `-1003716495578` (Echo's Current Issues Report)
-- Coordination Group: `-5238236031` (Echo + Patch)
+- Chris DM: `@brimdor` (for critical alerts requiring human attention)
 
 **Rules**
 - Do not attempt to send Telegram targets via Nostr (or vice versa).
 - Nostr targets must be `npub...`
 - Telegram targets must be a numeric chatId.
-
-## Agent Communication Channel (Telegram)
-
-Shared group for direct Echo ↔ Patch communication:
-- Group ID: `-5238236031`
-- Echo bot: @Echo_orchestrator_bot
-- Patch bot: @patch_repair_bot
-
-**Rules:**
-- Require @mention to trigger response (prevents loops)
-- Use this channel when Echo needs to be notified of disruptive work
-- Keep messages concise; this is an operational channel
-- **patch-inbox is ONLY used when Telegram is down** — always prefer the shared group for real-time coordination
+- Agent-to-agent coordination uses file inboxes, NOT Telegram groups.
 
 ## Web Search Limits (Brave)
 

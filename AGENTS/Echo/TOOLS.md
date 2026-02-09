@@ -1,58 +1,45 @@
-# TOOLS.md - Echo Local Notes
+# TOOLS.md - Echo
 
-This file is the operator-specific cheat sheet for this gateway.
-Keep it concrete and copy/paste friendly.
+Keep this file copy/paste friendly. Prefer simple, correct actions over clever ones.
 
-## Agents
+## Hosts
 
-- Echo:  10.0.30.10 (this gateway)
-- Patch: 10.0.30.11 (maintenance agent)
+- Echo (mario): `10.0.30.10`
+- Patch (luigi): `10.0.30.11`
 
-## When a Patch Notice Arrives
+## Inboxes (Agent-to-Agent)
 
-Monitor the shared Telegram group (`-5238236031`) for notifications from Patch.
+- Patch -> Echo: `~/.openclaw/workspace/patch-inbox/`
+- Echo -> Patch: `~/.openclaw/workspace/echo-inbox/`
 
-If Patch reports disruptive work:
-1. Pause current tasks
-2. Wait for Patch's "All Clear"
-3. Resume operations
+## Telegram Targets
 
-**Fallback (only if Telegram is down):** Check `~/.openclaw/workspace/patch-inbox/` for maintenance notices.
+- Chris DM: `@brimdor` (username) or chatId `8226887535`
+- Daily News channel: `-1003384005865`
 
-## Messaging Targets
+## Telegram Sending Rules
 
-When sending messages, the target format is channel-specific.
+- Use ONE outbound message per action.
+- No "ack" / "confirm" messages.
+- If there is no deliverable, do not send anything.
 
-**Telegram**
-- Coordination Group: `-5238236031` (Echo + Patch)
-- Daily News Channel: `-1003384005865`
+## Canonical Message Tool Calls
 
-**Nostr**
-- Echo npub: (add if configured)
+DM Chris:
+- channel: `telegram`
+- action: `send`
+- to: `8226887535`
+- message: `<text>`
 
-**Rules**
-- Do not attempt to send Telegram targets via Nostr (or vice versa).
-- Nostr targets must be `npub...`
-- Telegram targets must be a numeric chatId.
+Post to Daily News channel:
+- channel: `telegram`
+- action: `send`
+- to: `-1003384005865`
+- message: `<text>`
 
-## Agent Communication Channel (Telegram)
+## SSH Quick Checks (Echo host)
 
-Shared group for direct Echo ↔ Patch communication:
-- Group ID: `-5238236031`
-- Echo bot: @Echo_orchestrator_bot
-- Patch bot: @patch_repair_bot
-
-**Rules:**
-- Require @mention to trigger response (prevents loops)
-- Use this channel for health coordination with Patch
-- Keep messages concise; this is an operational channel
-
-## Web Search Limits (Brave)
-
-If web_search returns 429 (rate limit), stop retrying; defer and/or batch searches.
-Do not set ui_lang: "en"; use en-US if needed.
-
-## Subagents
-
-- Prioritize creating subagents (via sessions_spawn) for repeated and ongoing tasks.
-- Hand off long-running or periodic work to these subagents to keep the main thread clear.
+```bash
+systemctl --user status openclaw-gateway.service
+journalctl --user -u openclaw-gateway.service -n 200 --no-pager
+```
