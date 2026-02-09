@@ -48,9 +48,10 @@ ssh brimdor@10.0.20.13  # bulbasaur
 ```bash
 ssh brimdor@10.0.30.10  # mario
 ssh brimdor@10.0.30.11  # luigi
-ssh brimdor@10.0.30.12  # jolteon
-ssh brimdor@10.0.30.13  # vaporeon
-ssh brimdor@10.0.30.14  # glaceon
+ssh brimdor@10.0.30.12  # toad
+ssh brimdor@10.0.30.13  # yoshi
+ssh brimdor@10.0.30.14  # peach
+ssh brimdor@10.0.30.15  # star
 ```
 
 ---
