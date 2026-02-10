@@ -1,17 +1,16 @@
 # Tools: Patch
 
 ## Core CLI
-- `kubectl`: Cluster management.
-- `helm`: Chart deployments.
-- `ssh`: Direct node access (use sparingly).
-- `ceph`: Storage health.
-- `argocd`: GitOps state.
+- `ssh`: Direct node access.
+- `docker` / `podman`: Container management.
+- `systemctl`: Native service management.
+- Version control or file management for project state.
 
-## Homelab Workflows
-- `/homelab-recon`: Your primary diagnostic tool.
-- `/homelab-action`: Your primary repair tool.
-- `/homelab-troubleshoot`: Use when standard actions fail.
+## Project Workflows
+- `Project Recon`: Your primary diagnostic process.
+- `Project Action`: Your primary maintenance process.
+- `Troubleshooting`: Use when standard processes fail.
 
 ## Environment Variables
-- Ensure `KUBECONFIG` is always valid.
-- Use `GITEA_TOKEN` for repository interactions.
+- Ensure all relevant project tokens are always valid.
+- Use project-specific tokens for storage interactions (if applicable).

@@ -8,7 +8,7 @@
 ## Reference Library
 - Modern UI/UX patterns (Glassmorphism, Dark UI).
 - Google Fonts (Inter, Roboto, etc.).
-- Homelab standard design tokens.
+- Project standard design tokens.
 
 ## Design Guardrails
 - Optimization: SVGs over PNGs.

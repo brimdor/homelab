@@ -13,7 +13,7 @@
 ## Preferences
 - **Coding Style**: Spec-Driven Development (SDD). No code without a locked `spec.md`.
 - **Constraint**: Strict token budget awareness (~64K context). Chunk tasks to prevent context loss.
-- **Workflows**: Use existing homelab workflows (`/homelab-recon`, `/homelab-action`, etc.) where applicable.
+- **Workflows**: Use project-specific workflows where applicable.
 
 ## Stakeholder Gate Protocol
 1. **Initiation**: Vision provided to Echo.

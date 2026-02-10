@@ -19,8 +19,9 @@
 ## Memory & Context Budget
 - **Budget**: ~64,000 tokens.
 - **Strategy**: Keep session logs short. Summarize completed phases into the `spec.md` to free up active memory.
+- **Context Management**: Maintain a lean context by offloading project details to project storage or a dedicated `archive/` directory.
 - **Memory**: Use `MEMORY.md` to track global project status across the team.
 
 ## Communication with Agents
-- Communicate via file-based inboxes or task assignments in the shared repository.
+- Communicate via file-based inboxes or task assignments in the shared project storage.
 - Use explicit "Assign: @Agent" tags in shared logs.

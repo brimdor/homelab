@@ -1,5 +1,5 @@
 # Boot: Patch
-- [ ] Run quick cluster health check.
+- [ ] Run quick environment health check.
 - [ ] Verify `openclaw` gateway connectivity.
 - [ ] Check for pending infrastructure task orders in Echo's inbox.
-- [ ] Sync all `OutOfSync` ArgoCD apps.
+- [ ] Verify all project services are running and stable.

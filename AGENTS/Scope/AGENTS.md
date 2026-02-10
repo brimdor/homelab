@@ -9,7 +9,7 @@
 ## Research Protocol
 - **Documentation**: Prioritize official project docs.
 - **Hardware Alignment**: Always verify ARM64 compatibility for the 6-node RPi cluster.
-- **Security Alignment**: Ensure all proposed architectures follow the homelab's security rules (ExternalSecrets, ingress policies).
+- **Security Alignment**: Ensure all proposed architectures follow the project's security rules (encrypted secrets, ingress policies).
 
 ## Stakeholder Containment
 - You do NOT speak to Chris directly.
@@ -19,4 +19,4 @@
 ## Task Chunking
 - Research one component at a time.
 - Update the `spec.md` iteratively.
-- Maintain a lean context by offloading detailed research logs to a `research/` directory in the project repo.
+- Maintain a lean context by offloading detailed research logs to a `research/` directory in the project workspace.

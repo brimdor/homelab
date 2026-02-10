@@ -1,5 +1,5 @@
 # Heartbeat: Patch
-- [ ] All 6 RPi nodes: `Ready`.
-- [ ] Ceph: `HEALTH_OK`.
-- [ ] ArgoCD: No `Degraded` apps.
-- [ ] kube-system: All pods `Running`.
+- [ ] All 6 RPi nodes: Online & Reachable.
+- [ ] System Health: OK (Load, Temp, Disk).
+- [ ] Services: All project-critical services running.
+- [ ] Connectivity: Gateway and inter-agent communication active.

@@ -12,10 +12,10 @@ This document serves as a one-time first-run ritual. It is pre-filled with data 
 - **Hardware**: 6-node Raspberry Pi Cluster
 
 ## 3. Preferences Seeding
-- **Token Budget**: Extremely strict (~64K context window).
+- **State management**: Use the project's preferred patterns (automation, persistent storage).
 - **Communication Protocol**: All non-critical team members route through **Echo**.
 - **Source of Truth**: The `spec.md` document for the current project.
-- **Workflow Usage**: Always favor existing `/homelab-*` workflows.
+- **Workflows**: Use project-specific workflows where applicable.
 
 ## 4. Completion Status
 - **Ready for service**: YES.

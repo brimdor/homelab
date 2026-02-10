@@ -15,7 +15,7 @@ This document serves as a one-time first-run ritual. It is pre-filled with data 
 - **Token Budget**: Extremely strict (~64K context window).
 - **Communication Protocol**: All non-critical team members route through **Echo**.
 - **Source of Truth**: The `spec.md` document for the current project.
-- **Workflow Usage**: Always favor existing `/homelab-*` workflows.
+- **Workflow Usage**: Use project-specific workflows where applicable.
 
 ## 4. Completion Status
 - **Ready for service**: YES.
