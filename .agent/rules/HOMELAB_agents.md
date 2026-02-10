@@ -198,6 +198,8 @@ These locations apply to each agent host:
 
 ### Workspace Documents
 
+The Agent Documents for every Agent that is run in OpenClaw by default is located in `~/.openclaw/workspace/`.
+
 Each agent maintains these files in `~/.openclaw/workspace/`:
 
 | File | Purpose |
