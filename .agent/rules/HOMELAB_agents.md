@@ -1,5 +1,5 @@
 ---
-description: OpenClaw AI agents - Echo and Patch configuration, communication, and management
+description: OpenClaw agent team - Echo, Patch, Scope, Forge, Pixel, Vista configuration, communication, and management
 type: reference
 applies_to:
   - homelab-troubleshoot
@@ -14,23 +14,32 @@ sync_locations:
 sync_note: OpenClaw agent reference. Update when agent configuration changes.
 ---
 
-# OpenClaw Agents
+# OpenClaw Agent Team
 
-The homelab runs two OpenClaw AI agents on dedicated Raspberry Pi nodes. These agents operate autonomously and communicate via shared file inboxes for agent-to-agent coordination, while using Telegram for DMs with Chris.
+The homelab runs six OpenClaw AI agents on dedicated Raspberry Pi nodes. They operate as a single team: each agent has a specialty, and the workflow depends on all of them.
+
+Team roles (see `AGENTS/team.html`):
+- **Echo**: Project Manager / Orchestrator
+- **Patch**: SRE / DevOps
+- **Scope**: Research & Architect
+- **Forge**: Engineer
+- **Pixel**: Designer
+- **Vista**: Analyst / QA
+
+Agents communicate with Chris via Telegram DMs and may coordinate via shared file inboxes for agent-to-agent communication.
 
 ---
 
 ## Agent Overview
 
-| Property | Echo | Patch |
-|----------|------|-------|
-| **Purpose** | Primary orchestrator agent | Maintenance and repair agent |
-| **Host** | mario (`10.0.30.10`) | luigi (`10.0.30.11`) |
-| **Identity** | Platform manager, project coordinator | Echo's health monitor and fixer |
-| **Telegram Bot** | `@Echo_orchestrator_bot` | `@patch_repair_bot` |
-| **Primary Model** | `google-antigravity/gemini-3-pro-high` | `github-copilot/gpt-5-mini` |
-| **Theme** | Orchestrator | Orchestrator |
-| **Emoji** | Rocket | Bandage |
+| Agent | Role | Host | Telegram Username |
+|------|------|------|------------------|
+| Echo | Project Manager / Orchestrator | mario (`10.0.30.10`) | `@echo_orchestrator_bot` |
+| Patch | SRE / DevOps | luigi (`10.0.30.11`) | `@patch_repair_bot` |
+| Scope | Research & Architect | toad (`10.0.30.12`) | `@scope_research_bot` |
+| Forge | Engineer | yoshi (`10.0.30.13`) | `@forge_engineer_bot` |
+| Pixel | Designer | peach (`10.0.30.14`) | `@pixel_designer_bot` |
+| Vista | Analyst / QA | star (`10.0.30.15`) | `@vista_analyst_bot` |
 
 ---
 
@@ -47,6 +56,7 @@ Echo is the primary AI orchestrator for the homelab. It handles:
 - **Name**: Echo
 - **Persona**: Persistent, determined, and creative project manager
 - **Human Partner**: Chris (`@brimdor`)
+- **Telegram Username**: `@echo_orchestrator_bot`
 
 ### Host Details
 - **Node**: mario
@@ -69,6 +79,7 @@ Patch monitors Echo's health and performs maintenance when issues are detected:
 - **Name**: Patch
 - **Persona**: Autonomous maintenance agent
 - **Operating Mode**: Autonomous by default; informs Chris only for critical items
+- **Telegram Username**: `@patch_repair_bot`
 
 ### Host Details
 - **Node**: luigi
@@ -92,22 +103,102 @@ Allowed infrastructure changes on Echo (with backups + verification):
 
 ---
 
+## Scope - Research & Architect
+
+### Purpose
+Scope is the research and architecture specialist. It handles:
+- Documentation deep-dives to identify best tools/libraries
+- Technical feasibility and compatibility validation *before* implementation begins
+- Technical blueprints, schemas, and data models for Forge to follow
+
+### Identity
+- **Name**: Scope
+- **Telegram Username**: `@scope_research_bot`
+
+### Host Details
+- **Node**: toad
+- **IP Address**: `10.0.30.12`
+- **VLAN**: 30 (Cluster-Extra)
+- **Hardware**: Raspberry Pi
+
+---
+
+## Forge - Engineer
+
+### Purpose
+Forge is the implementation specialist. It handles:
+- Backend logic and services strictly according to the spec/blueprints
+- Data models and APIs defined by Scope
+- Integration of UI components provided by Pixel
+
+### Identity
+- **Name**: Forge
+- **Telegram Username**: `@forge_engineer_bot`
+
+### Host Details
+- **Node**: yoshi
+- **IP Address**: `10.0.30.13`
+- **VLAN**: 30 (Cluster-Extra)
+- **Hardware**: Raspberry Pi
+
+---
+
+## Pixel - Designer
+
+### Purpose
+Pixel is the UI/UX specialist. It handles:
+- Visual design and interaction requirements
+- Frontend components and assets
+- Hand-off of completed UI work to Forge for integration
+
+### Identity
+- **Name**: Pixel
+- **Telegram Username**: `@pixel_designer_bot`
+
+### Host Details
+- **Node**: peach
+- **IP Address**: `10.0.30.14`
+- **VLAN**: 30 (Cluster-Extra)
+- **Hardware**: Raspberry Pi
+
+---
+
+## Vista - Analyst / QA
+
+### Purpose
+Vista is the validation specialist. It handles:
+- Test case generation from acceptance criteria
+- Validation that implementation is compliant
+- Rejection and remediation loops when requirements are not met
+
+### Identity
+- **Name**: Vista
+- **Telegram Username**: `@vista_analyst_bot`
+
+### Host Details
+- **Node**: star
+- **IP Address**: `10.0.30.15`
+- **VLAN**: 30 (Cluster-Extra)
+- **Hardware**: Raspberry Pi
+
+---
+
 ## File Locations
 
 ### OpenClaw Installation
 
-| Component | Echo (mario) | Patch (luigi) |
-|-----------|--------------|---------------|
-| **Binary** | `~/.local/bin/openclaw` | `~/.npm-global/bin/openclaw` |
-| **Config** | `~/.openclaw/openclaw.json` | `~/.openclaw/openclaw.json` |
-| **Workspace** | `~/.openclaw/workspace/` | `~/.openclaw/workspace/` |
-| **Agent Dir** | `~/.openclaw/agents/main/agent/` | `~/.openclaw/agents/main/agent/` |
-| **Sessions** | `~/.openclaw/agents/main/sessions/` | `~/.openclaw/agents/main/sessions/` |
-| **Logs** | `/tmp/openclaw/openclaw-YYYY-MM-DD.log` | `/tmp/openclaw/openclaw-YYYY-MM-DD.log` |
+These locations apply to each agent host:
+
+- **Config**: `~/.openclaw/openclaw.json`
+- **Workspace**: `~/.openclaw/workspace/`
+- **Agent Dir**: `~/.openclaw/agents/main/agent/`
+- **Sessions**: `~/.openclaw/agents/main/sessions/`
+- **Logs**: `/tmp/openclaw/openclaw-YYYY-MM-DD.log`
+- **Binary**: run `command -v openclaw` (commonly `~/.local/bin/openclaw` or `~/.npm-global/bin/openclaw`)
 
 ### Workspace Documents
 
-Both agents maintain these files in `~/.openclaw/workspace/`:
+Each agent maintains these files in `~/.openclaw/workspace/`:
 
 | File | Purpose |
 |------|---------|
@@ -117,7 +208,7 @@ Both agents maintain these files in `~/.openclaw/workspace/`:
 | `HEARTBEAT.md` | Current status and health information |
 | `IDENTITY.md` | Core identity definition |
 | `SOUL.md` | Personality and behavioral guidelines |
-| `TASKS.md` | Pending work items (Patch only) |
+| `TASKS.md` | Pending work items (role-specific; often Patch) |
 | `USER.md` | User preferences and information |
 | `memory/` | Persistent memory storage directory |
 
@@ -133,7 +224,7 @@ Both agents maintain these files in `~/.openclaw/workspace/`:
 
 ## Systemd Service
 
-Both agents run as user services:
+Each agent runs as a user service:
 
 ```bash
 # Service name
@@ -157,18 +248,22 @@ systemctl --user restart openclaw-gateway.service
 ## Telegram Configuration
 
 ### Bot Tokens
-- **Echo**: Token in `channels.telegram.botToken` (openclaw.json)
-- **Patch**: Token in `channels.telegram.botToken` (openclaw.json)
+- **Echo** (`@echo_orchestrator_bot`): Token in `channels.telegram.botToken` (openclaw.json)
+- **Patch** (`@patch_repair_bot`): Token in `channels.telegram.botToken` (openclaw.json)
+- **Scope** (`@scope_research_bot`): Token in `channels.telegram.botToken` (openclaw.json)
+- **Forge** (`@forge_engineer_bot`): Token in `channels.telegram.botToken` (openclaw.json)
+- **Pixel** (`@pixel_designer_bot`): Token in `channels.telegram.botToken` (openclaw.json)
+- **Vista** (`@vista_analyst_bot`): Token in `channels.telegram.botToken` (openclaw.json)
 
 ### DM Policy
-Both agents use `dmPolicy: "pairing"` - unknown senders receive a pairing code.
+Standard: agents use `dmPolicy: "pairing"` - unknown senders receive a pairing code.
 
 ### DM Allowlist
-Both agents allow DMs from `@brimdor` via `channels.telegram.allowFrom`.
+Standard: agents allow DMs from `@brimdor` via `channels.telegram.allowFrom`.
 
 ### Agent-to-Agent Communication (File Inbox)
 
-Echo and Patch communicate via shared file inboxes (Telegram groups are NOT used for agent-to-agent communication).
+Agents coordinate via shared file inboxes (Telegram groups are NOT used for agent-to-agent communication). The currently defined inbox pairing is Echo <-> Patch.
 
 #### Shared Inbox Locations
 
@@ -197,7 +292,7 @@ Examples:
 ---
 type: maintenance|checklist|status|alert
 priority: low|normal|high|critical
-from: echo|patch
+from: echo|patch|scope|forge|pixel|vista
 timestamp: 2026-02-09T14:30:00Z
 ---
 
@@ -210,7 +305,7 @@ Message content here.
 
 ## Nostr Configuration
 
-Both agents have Nostr enabled with the same relay configuration:
+If Nostr is enabled on an agent, use the same relay configuration:
 
 ```
 wss://relay.damus.io
@@ -228,7 +323,7 @@ Chris's Nostr pubkey: `npub1g8ntsc97udpmhs322635vcc8rgcumh795l6mtvps23armcvcwevs
 
 ## Model Configuration
 
-Both agents connect to the homelab's Ollama instance:
+If an agent uses local models, it connects to the homelab's Ollama instance:
 
 ```json
 {
@@ -253,15 +348,19 @@ Both agents connect to the homelab's Ollama instance:
 ## SSH Access
 
 ```bash
-# SSH to Echo's host (mario)
-ssh brimdor@10.0.30.10
+# SSH to agent hosts
+ssh brimdor@10.0.30.10  # Echo (mario)
+ssh brimdor@10.0.30.11  # Patch (luigi)
+ssh brimdor@10.0.30.12  # Scope (toad)
+ssh brimdor@10.0.30.13  # Forge (yoshi)
+ssh brimdor@10.0.30.14  # Pixel (peach)
+ssh brimdor@10.0.30.15  # Vista (star)
 
-# SSH to Patch's host (luigi)
-ssh brimdor@10.0.30.11
+# Find OpenClaw binary path
+command -v openclaw
 
 # Check OpenClaw status
-~/.local/bin/openclaw gateway status     # Echo
-~/.npm-global/bin/openclaw gateway status # Patch
+openclaw gateway status
 
 # Check channel status with probe
 openclaw channels status --probe

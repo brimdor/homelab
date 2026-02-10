@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Team Architecture: A Spec-Driven Paradigm</title>
+    <style>
+        :root {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #64b5f6;
+            --stakeholder-color: #ffb74d;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        h1, h2, h3 {
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            margin-top: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+        }
+
+        ul {
+            list-style-type: disc;
+            margin-left: 20px;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-card {
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stakeholder-card {
+            border: 2px solid var(--stakeholder-color);
+            background-color: #1a1612;
+        }
+
+        .agent-card h3 {
+            margin-top: 0;
+            margin-bottom: 5px;
+            color: var(--accent-color);
+        }
+
+        .stakeholder-card h3 {
+            color: var(--stakeholder-color);
+        }
+
+        .role-title {
+            color: var(--text-secondary);
+            font-style: italic;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .specialty {
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        .workflow-step {
+            margin-bottom: 1.5rem;
+        }
+
+        .workflow-step strong {
+            color: var(--accent-color);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .workflow-step .stakeholder-action {
+            color: var(--stakeholder-color);
+        }
+        
+        .highlight {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>AI Agent Team Architecture: A Spec-Driven Paradigm</h1>
+
+    <section>
+        <h2>Executive Summary</h2>
+        <p>This white paper outlines the architecture of a specialized 6-agent AI team managed by a single <span class="highlight">Stakeholder</span>. The structure is built to minimize redundancy while maximizing specialized output through a linear, verify-at-each-step workflow. Central to this operation is the <span class="highlight">Spec-Driven Development (SDD) framework</span>, where a single, living <code>spec.md</code> document acts as the ultimate source of truth for all agents.</p>
+        <p>In this paradigm, no code is written, no infrastructure is provisioned, and no design is finalized until it is clearly defined in the specification. This ensures that every action taken by an agent is intentional, verifiable, and directly aligned with the Stakeholder's goals.</p>
+    </section>
+
+    <section>
+        <h2>The Stakeholder & Agent Structure</h2>
+        <p>The team is anchored by the Stakeholder and supported by six highly specialized agents. This separation ensures that the humans provide the "Why" and "What," while the AI handles the "How."</p>
+
+        <div class="agent-card stakeholder-card">
+            <h3>The Stakeholder</h3>
+            <div class="role-title">Role: Visionary & Infrastructure Deity</div>
+            <p><span class="specialty">SDD Specialty & Primary Focus:</span> <strong>The North Star.</strong> Provides the initial project vision, approves the final <code>spec.md</code>, and maintains the physical hardware (RPi) stability.</p>
+            <ul>
+                <li><strong>Vision:</strong> Defines the high-level goals and desired outcomes.</li>
+                <li><strong>Gatekeeper:</strong> Reviews and "Locks" the specification before implementation begins.</li>
+                <li><strong>Support:</strong> Maintains physical power, connectivity, and hardware health for Patch to operate.</li>
+                <li><strong>Sign-off:</strong> Conducts the final validation of the completed product against the original goal.</li>
+            </ul>
+        </div>
+
+        <div class="agent-card">
+            <h3>1. Echo</h3>
+            <div class="role-title">Role: Project Manager / Orchestrator</div>
+            <p><span class="specialty">SDD Specialty & Primary Focus:</span> <strong>Spec Owner.</strong> Orchestrates the entire lifecycle of the <code>spec.md</code>. Ensures every delegated task is anchored to a specific requirement in the spec.</p>
+            <ul>
+                <li>Translates Stakeholder goals into actionable phases and requirements within the spec.</li>
+                <li>Delegates tasks to appropriate agents based on spec sections.</li>
+                <li>Manages the project timeline and acts as the single point of contact for the Stakeholder.</li>
+                <li>Approves all updates or changes to the spec.</li>
+            </ul>
+        </div>
+
+        <div class="agent-card">
+            <h3>2. Patch</h3>
+            <div class="role-title">Role: SRE / DevOps</div>
+            <p><span class="specialty">SDD Specialty & Primary Focus:</span> <strong>Environment Spec.</strong> Manages the infrastructure requirements defined in the spec, ensuring the Raspberry Pi cluster matches the technical constraints.</p>
+            <ul>
+                <li>Translates the "Infrastructure & Environment" section of the spec into reality.</li>
+                <li>Handles deployment pipelines and ensures environment stability.</li>
+                <li>Provisions required services, databases, and dependencies on the hardware.</li>
+                <li>Alerts the Stakeholder if a physical intervention (reboot, cable check) is required.</li>
+            </ul>
+        </div>
+
+        <div class="agent-card">
+            <h3>3. Scope</h3>
+            <div class="role-title">Role: Research & Architect</div>
+            <p><span class="specialty">SDD Specialty & Primary Focus:</span> <strong>Technical Spec Writer.</strong> Populates the "Technical Requirements," "Architecture," and "API" sections of the spec with validated data.</p>
+            <ul>
+                <li>Conducts deep-dives into documentation to find the best tools and libraries.</li>
+                <li>Validates technical feasibility and API compatibility *before* implementation begins.</li>
+                <li>Creates technical blueprints, schemas, and data models for the Engineer to follow.</li>
+                <li>Prevents the team from hitting technical "dead ends" mid-project.</li>
+            </ul>
+        </div>
+
+        <div class="agent-card">
+            <h3>4. Forge</h3>
+            <div class="role-title">Role: Engineer</div>
+            <p><span class="specialty">SDD Specialty & Primary Focus:</span> <strong>Implementation.</strong> Executes backend code strictly according to the definitions provided in the spec by Scope. Their mantra is: "If it's not in the spec, it doesn't get built."</p>
+            <ul>
+                <li>Focuses strictly on writing efficient, clean backend logic and services.</li>
+                <li>Implements data models, API endpoints, and core functionality from the spec's blueprint.</li>
+                <li>Wires up frontend components provided by the Designer.</li>
+                <li>Does not deviate from the spec without explicit approval from Echo.</li>
+            </ul>
+        </div>
+
+        <div class="agent-card">
+            <h3>5. Pixel</h3>
+            <div class="role-title">Role: Designer</div>
+            <p><span class="specialty">SDD Specialty & Primary Focus:</span> <strong>UI/UX Spec.</strong> Defines the visual and interaction requirements within the spec and implements the frontend components to match those definitions.</p>
+            <ul>
+                <li>Translates user requirements into visual designs and user flows.</li>
+                <li>Creates assets, CSS, and frontend components (HTML/JS frame).</li>
+                <li>Ensures the final "look and feel" aligns with the spec's design criteria.</li>
+                <li>Hands off completed frontend code to Forge for integration.</li>
+            </ul>
+        </div>
+
+        <div class="agent-card">
+            <h3>6. Vista</h3>
+            <div class="role-title">Role: Analyst / QA</div>
+            <p><span class="specialty">SDD Specialty & Primary Focus:</span> <strong>Spec Validation.</strong> Generates test cases directly from the <code>spec.md</code>'s "Acceptance Criteria" and validates that the final output is 100% compliant.</p>
+            <ul>
+                <li>Acts as the final gatekeeper before work is considered complete.</li>
+                <li>Compares the implementation against the spec's requirements line-by-line.</li>
+                <li>Has the authority to reject work and send it back for remediation if it fails validation.</li>
+                <li>Ensures the final product solves the Stakeholder's original problem.</li>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <h2>The Spec-Driven Workflow (The Lifecycle)</h2>
+        <p>This workflow highlights the synergy between Stakeholder intent and Agent execution.</p>
+
+        <div class="workflow-step">
+            <strong>Phase 1: Project Initiation (<span class="stakeholder-action">Stakeholder</span> & Echo)</strong>
+            The <span class="stakeholder-action">Stakeholder</span> provides the "North Star" goal. Echo initializes the <code>spec.md</code>. Scope performs research to populate technical architecture and constraints.
+        </div>
+
+        <div class="workflow-step">
+            <strong>Phase 2: Spec Approval Gate (<span class="stakeholder-action">Stakeholder</span>)</strong>
+            The <span class="stakeholder-action">Stakeholder</span> reviews the drafted spec. Once approved, the spec is "locked." No implementation occurs until this signature is secured.
+        </div>
+
+        <div class="workflow-step">
+            <strong>Phase 3: Infrastructure & Build (Patch, Forge, & Pixel)</strong>
+            The agents enter the <strong>Autonomous Zone</strong>. Patch configures the environment while Forge and Pixel build the logic and UI based strictly on the locked spec. The <span class="stakeholder-action">Stakeholder</span> provides passive infrastructure support (hardware monitoring).
+        </div>
+
+        <div class="workflow-step">
+            <strong>Phase 4: Verification (Vista)</strong>
+            Vista tests the build against the "Acceptance Criteria." Any deviations are sent back to Forge/Pixel for remediation. The Stakeholder is not involved in this technical loop.
+        </div>
+
+        <div class="workflow-step">
+            <strong>Phase 5: Final Delivery (<span class="stakeholder-action">Stakeholder</span> & Echo)</strong>
+            Echo notifies the <span class="stakeholder-action">Stakeholder</span> that the project is complete. The <span class="stakeholder-action">Stakeholder</span> performs a final review of the product to ensure it meets the initial vision.
+        </div>
+    </section>
+
+    <section>
+        <h2>Conclusion</h2>
+        <p>By defining the <span class="highlight">Stakeholder</span> as both the initiator and the final validator, this structure ensures the AI team remains focused and effective. The Stakeholder manages the "What," the agents manage the "How," and the <code>spec.md</code> manages the truth.</p>
+    </section>
+
+</div>
+
+</body>
+</html>
