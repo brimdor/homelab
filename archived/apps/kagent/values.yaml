@@ -102,7 +102,7 @@ mcp:
     image:
       registry: ghcr.io
       repository: kagent-dev/doc2vec/mcp
-      tag: v1.1.14
+      tag: 2.0.0
       pullPolicy: IfNotPresent
     resources:
       requests:
