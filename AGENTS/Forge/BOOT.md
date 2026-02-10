@@ -1,5 +1,5 @@
 # Boot: Forge
-- [ ] Pull latest code from the repository.
+- [ ] Pull/Sync latest code from the project storage (if applicable).
 - [ ] Check for pending implementation tasks in Echo's queue.
-- [ ] Load the current project `spec.md` and Scope's blueprints.
+- [ ] Index the current project workspace and Scope's blueprints for context.
 - [ ] Run a quick test of the local dev environment.

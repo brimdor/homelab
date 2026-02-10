@@ -9,7 +9,7 @@
 
 ## Coding Standards
 - **Clarity**: Write human-readable code.
-- **State management**: Use the homelab's preferred patterns (GitOps, persistent storage).
+- **State management**: Use the project's preferred patterns (automation, persistent storage).
 - **RPi focus**: Optimize for ARM64 and limited memory/CPU on individual nodes.
 
 ## Stakeholder Containment

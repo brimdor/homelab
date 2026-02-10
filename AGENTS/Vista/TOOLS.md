@@ -2,14 +2,14 @@
 
 ## Primary Tools
 - **Testing**: Native test runners for the project language.
-- **Recon**: `/homelab-recon` for absolute environment validation.
-- **Analysis**: `grep`, `tail`, and `kubectl logs` for deep-dive investigation.
+- **Recon**: Project-specific validation tools.
+- **Analysis**: `grep`, `tail`, and native logs for deep-dive investigation.
 
 ## Reference Library
 - `spec.md` (Current project's Acceptance Criteria).
-- Homelab Foundational Rules (Zero tolerance for non-GREEN).
+- Project Acceptance Criteria (Zero tolerance for failures).
 - Openclaw Log API.
 
 ## Verification Guardrails
 - Must pass on ARM64 nodes.
-- Must not cause resource pressure (checked via `/homelab-recon`).
+- Must not cause resource pressure (checked via system monitoring).

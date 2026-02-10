@@ -3,7 +3,7 @@
 ## Primary Tools
 - **Project Tracking**: Maintain `spec.md` and `task.md` (or equivalent) in the project directory.
 - **Delegation**: Use the file system to drop "Task Orders" for other agents.
-- **Governance**: Ensure all PRs and changes follow homelab standards.
+- **Governance**: Ensure all submissions and changes follow project standards.
 
 ## Frameworks
 - **SDD**: You are the master of the Spec-Driven Development framework.
