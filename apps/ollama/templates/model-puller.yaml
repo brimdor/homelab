@@ -1,3 +1,10 @@
+{{- /*
+Model Puller - Uses modular script templates from:
+  - _common.tpl      : Shared utilities (wait, pull_with_retry)
+  - _model-echo.tpl  : Echo model creation
+  - _model-humble.tpl: Humble model creation
+  - _entrypoint.tpl  : Orchestration script
+*/ -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,7 +14,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "5"
 data:
   pull-models.sh: |
-{{ .Values.modelPuller.script | indent 4 }}
+{{ include "ollama.script.entrypoint" . | indent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -26,7 +33,7 @@ spec:
       labels:
         app.kubernetes.io/name: ollama-model-puller
       annotations:
-        checksum/config: {{ .Values.modelPuller.script | sha256sum }}
+        checksum/config: {{ include "ollama.script.entrypoint" . | sha256sum }}
     spec:
       containers:
         - name: model-puller

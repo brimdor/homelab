@@ -1,0 +1,99 @@
+// Source: brimdor@10.0.30.10:~/.openclaw/openclaw.json (retrieved 2026-02-09)
+// Note: secrets and personal identifiers are redacted.
+{
+  "meta": {
+    "lastTouchedVersion": "2026.2.9",
+    "lastTouchedAt": "2026-02-09T22:05:57.120Z",
+  },
+  "wizard": {
+    "lastRunAt": "2026-02-09T22:05:57.091Z",
+    "lastRunVersion": "2026.2.9",
+    "lastRunCommand": "configure",
+    "lastRunMode": "local",
+  },
+  "auth": {
+    "profiles": {
+      "google-antigravity:<REDACTED_EMAIL>": {
+        "provider": "google-antigravity",
+        "mode": "oauth",
+        "email": "<REDACTED_EMAIL>",
+      },
+    },
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "google-antigravity/gemini-3-pro-high",
+      },
+      "models": {
+        "google-antigravity/claude-opus-4-6-thinking": {},
+        "google-antigravity/gemini-3-pro-high": {},
+      },
+      "workspace": "/home/brimdor/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard",
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8,
+      },
+    },
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions",
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "botToken": "<REDACTED_TELEGRAM_BOT_TOKEN>",
+      "groupPolicy": "allowlist",
+      "streamMode": "partial",
+    },
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowInsecureAuth": true,
+    },
+    "auth": {
+      "mode": "token",
+      "token": "<REDACTED_GATEWAY_TOKEN>",
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false,
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "calendar.add",
+        "contacts.add",
+        "reminders.add",
+      ],
+    },
+  },
+  "skills": {
+    "install": {
+      "nodeManager": "npm",
+    },
+  },
+  "plugins": {
+    "entries": {
+      "google-antigravity-auth": {
+        "enabled": true,
+      },
+      "telegram": {
+        "enabled": true,
+      },
+    },
+  },
+}

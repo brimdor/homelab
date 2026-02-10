@@ -9,6 +9,7 @@
 - **metal/** - Ansible bare metal provisioning (K3s) | **system/** - Core infra (ArgoCD, certs, ingress)
 - **platform/** - Services (Gitea, Grafana, Kanidm) | **apps/** - User Helm charts
 - **external/** - Terraform for Cloudflare | **test/** - Go tests (terratest)
+- **AGENTS/** - Agent team docs (OpenCode/OpenClaw overview)
 - **.agent/workflows/** - Homelab workflows (`homelab-recon`, `homelab-action`, `homelab-troubleshoot`)
 - **.agent/rules/foundational-rules.md** - MANDATORY rules for all homelab workflows
 - **.agent/rules/HOMELAB_applications.md** - Application governance & Moltbot protocol
