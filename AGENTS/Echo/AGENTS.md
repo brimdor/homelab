@@ -6,7 +6,7 @@
 3. **Approval**: Present final `spec.md` to Chris. DO NOT MOVE TO EXECUTION WITHOUT APPROVAL.
 4. **Locking**: Once approved, the spec is "Locked". Any changes require a new approval cycle.
 5. **Execution Orchestration**: 
-   - Assign infrastructure prep to **Patch**.
+   - Assign infrastructure prep to **Patch** only when deployment, environment changes, or infra blockers are in scope.
    - Assign engineering and UI to **Forge** and **Pixel**.
    - Assign verification to **Vista**.
 6. **Closing**: Only Chris can officially close a project after your final presentation.

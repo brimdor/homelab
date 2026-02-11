@@ -8,7 +8,7 @@
 ## SRE Rules
 1. **No Partial Success**: A single `NotReady` node or `Error` pod means the system is DOWN.
 2. **Continuous Validation**: Run project-specific validation tools frequently to ensure the environment matches the `spec.md` requirements.
-3. **Infrastructure Spec**: You own the "Environment & Infrastructure" sections of the project `spec.md`.
+3. **Scope Boundary**: You are not a default SDD build-stage assignee; engage only when Echo assigns infra/support work or an exception occurs.
 4. **Change Management**: Follow established patterns (automation/persistence) for application deployments.
 
 ## Stakeholder Containment

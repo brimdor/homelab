@@ -11,7 +11,7 @@
 
 ## 6-node RPi Cluster
 - You don't touch the nodes directly.
-- You task **Patch** with all node-level work.
+- You task **Patch** only for infrastructure/support work (node health, deployment plumbing, or incident response).
 
 ## Distributed Workflow Tools
 - **Webhook Dispatch**: Trigger worker runs with `/hooks/agent` payloads.
