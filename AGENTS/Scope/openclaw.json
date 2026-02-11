@@ -1,0 +1,281 @@
+{
+    "meta": {
+        "lastTouchedVersion": "2026.2.9",
+        "lastTouchedAt": "2026-02-10T21:32:35.641Z"
+    },
+    "wizard": {
+        "lastRunAt": "2026-02-10T21:32:35.605Z",
+        "lastRunVersion": "2026.2.9",
+        "lastRunCommand": "configure",
+        "lastRunMode": "local"
+    },
+    "auth": {
+        "profiles": {
+            "google-antigravity:chrisnelsonx@gmail.com": {
+                "provider": "google-antigravity",
+                "mode": "oauth",
+                "email": "chrisnelsonx@gmail.com"
+            },
+            "openai-codex:default": {
+                "provider": "openai-codex",
+                "mode": "oauth"
+            },
+            "minimax-portal:default": {
+                "provider": "minimax-portal",
+                "mode": "oauth"
+            },
+            "google-gemini-cli:chrisnelsonx@gmail.com": {
+                "provider": "google-gemini-cli",
+                "mode": "oauth",
+                "email": "chrisnelsonx@gmail.com"
+            },
+            "qwen-portal:default": {
+                "provider": "qwen-portal",
+                "mode": "oauth"
+            },
+            "github-copilot:github": {
+                "provider": "github-copilot",
+                "mode": "token"
+            }
+        }
+    },
+    "agents": {
+        "defaults": {
+            "model": {
+                "primary": "github-copilot/gpt-5-mini",
+                "fallbacks": [
+                    "google-antigravity/claude-opus-4-6-thinking",
+                    "google-antigravity/gemini-3-pro-high",
+                    "qwen-portal/coder-model",
+                    "qwen-portal/vision-model",
+                    "github-copilot/gpt-4o",
+                    "github-copilot/gpt-5.2",
+                    "openai-codex/gpt-5.3-codex",
+                    "openai-codex/gpt-5.2",
+                    "google-gemini-cli/gemini-3-pro-preview",
+                    "google-gemini-cli/gemini-3-flash-preview",
+                    "google-antigravity/gemini-3-flash",
+                    "minimax-portal/MiniMax-M2.1",
+                    "minimax-portal/MiniMax-M2.1-lightning"
+                ]
+            },
+            "models": {
+                "google-antigravity/claude-opus-4-6-thinking": {
+                    "alias": "opus-4.6-thinking"
+                },
+                "google-antigravity/gemini-3-pro-high": {
+                    "alias": "gemini-3-pro-high"
+                },
+                "qwen-portal/coder-model": {
+                    "alias": "qwen"
+                },
+                "qwen-portal/vision-model": {
+                    "alias": "qwen-vision"
+                },
+                "github-copilot/gpt-5-mini": {
+                    "alias": "gpt-5-mini"
+                },
+                "github-copilot/gpt-5.2": {
+                    "alias": "gpt-5.2"
+                },
+                "openai-codex/gpt-5.3-codex": {
+                    "alias": "gpt-5.3-codex"
+                },
+                "openai-codex/gpt-5.2": {
+                    "alias": "gpt-5.2"
+                },
+                "google-gemini-cli/gemini-3-pro-preview": {
+                    "alias": "gemini-3-pro-preview"
+                },
+                "google-gemini-cli/gemini-3-flash-preview": {
+                    "alias": "gemini-3-flash-preview"
+                },
+                "google-antigravity/gemini-3-flash": {
+                    "alias": "gemini-3-flash"
+                },
+                "minimax-portal/MiniMax-M2.1": {
+                    "alias": "minimax-m2.1"
+                },
+                "minimax-portal/MiniMax-M2.1-lightning": {
+                    "alias": "minimax-m2.1-lightning"
+                },
+                "github-copilot/gpt-4o": {
+                    "alias": "gpt-4o"
+                }
+            },
+            "workspace": "/home/brimdor/.openclaw/workspace",
+            "compaction": {
+                "mode": "safeguard"
+            },
+            "maxConcurrent": 4,
+            "subagents": {
+                "maxConcurrent": 8
+            }
+        },
+        "list": [
+            {
+                "id": "scope",
+                "default": true,
+                "name": "Scope",
+                "identity": {
+                    "name": "Scope"
+                }
+            }
+        ]
+    },
+    "tools": {
+        "web": {
+            "search": {
+                "enabled": true,
+                "apiKey": "__OPENCLAW_REDACTED__"
+            },
+            "fetch": {
+                "enabled": true
+            }
+        }
+    },
+    "messages": {
+        "ackReactionScope": "group-mentions"
+    },
+    "commands": {
+        "native": "auto",
+        "nativeSkills": "auto"
+    },
+    "channels": {
+        "telegram": {
+            "enabled": true,
+            "dmPolicy": "pairing",
+            "botToken": "__OPENCLAW_REDACTED__",
+            "groupPolicy": "allowlist",
+            "streamMode": "partial"
+        }
+    },
+    "gateway": {
+        "port": 18789,
+        "mode": "local",
+        "bind": "lan",
+        "controlUi": {
+            "allowInsecureAuth": true
+        },
+        "auth": {
+            "mode": "token",
+            "token": "__OPENCLAW_REDACTED__"
+        },
+        "tailscale": {
+            "mode": "off",
+            "resetOnExit": false
+        },
+        "nodes": {
+            "denyCommands": [
+                "camera.snap",
+                "camera.clip",
+                "screen.record",
+                "calendar.add",
+                "contacts.add",
+                "reminders.add"
+            ]
+        }
+    },
+    "plugins": {
+        "entries": {
+            "google-antigravity-auth": {
+                "enabled": true
+            },
+            "telegram": {
+                "enabled": true
+            },
+            "minimax-portal-auth": {
+                "enabled": true
+            },
+            "google-gemini-cli-auth": {
+                "enabled": true
+            },
+            "qwen-portal-auth": {
+                "enabled": true
+            }
+        }
+    },
+    "models": {
+        "providers": {
+            "minimax-portal": {
+                "baseUrl": "https://api.minimax.io/anthropic",
+                "apiKey": "__OPENCLAW_REDACTED__",
+                "api": "anthropic-messages",
+                "models": [
+                    {
+                        "id": "MiniMax-M2.1",
+                        "name": "MiniMax M2.1",
+                        "reasoning": false,
+                        "input": [
+                            "text"
+                        ],
+                        "cost": {
+                            "input": 0,
+                            "output": 0,
+                            "cacheRead": 0,
+                            "cacheWrite": 0
+                        },
+                        "contextWindow": 200000,
+                        "maxTokens": 8192
+                    },
+                    {
+                        "id": "MiniMax-M2.1-lightning",
+                        "name": "MiniMax M2.1 Lightning",
+                        "reasoning": false,
+                        "input": [
+                            "text"
+                        ],
+                        "cost": {
+                            "input": 0,
+                            "output": 0,
+                            "cacheRead": 0,
+                            "cacheWrite": 0
+                        },
+                        "contextWindow": 200000,
+                        "maxTokens": 8192
+                    }
+                ]
+            },
+            "qwen-portal": {
+                "baseUrl": "https://portal.qwen.ai/v1",
+                "apiKey": "__OPENCLAW_REDACTED__",
+                "api": "openai-completions",
+                "models": [
+                    {
+                        "id": "coder-model",
+                        "name": "Qwen Coder",
+                        "reasoning": false,
+                        "input": [
+                            "text"
+                        ],
+                        "cost": {
+                            "input": 0,
+                            "output": 0,
+                            "cacheRead": 0,
+                            "cacheWrite": 0
+                        },
+                        "contextWindow": 128000,
+                        "maxTokens": 8192
+                    },
+                    {
+                        "id": "vision-model",
+                        "name": "Qwen Vision",
+                        "reasoning": false,
+                        "input": [
+                            "text",
+                            "image"
+                        ],
+                        "cost": {
+                            "input": 0,
+                            "output": 0,
+                            "cacheRead": 0,
+                            "cacheWrite": 0
+                        },
+                        "contextWindow": 128000,
+                        "maxTokens": 8192
+                    }
+                ]
+            }
+        }
+    }
+}

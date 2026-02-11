@@ -21,3 +21,15 @@
 - Design one view or component at a time.
 - Use the `generate_image` tool for mockup demonstrations if needed.
 - Keep context lean by focusing on a single component sub-directory.
+
+## Shared Project Storage Contract
+- NFS source: `10.0.40.3:/mnt/user/team_projects`
+- Local mount path: `/mnt/projects`
+- Canonical project root: `/mnt/projects/<project-id>/`
+- Project id format: `proj-YYYYMMDD-###`
+
+## Stage Ownership (Pixel)
+- Primary write scope: `ui/`
+- Supporting outputs: `artifacts/`
+- Required completion output: `handoff/<timestamp>-pixel-<stage>-done.json`
+- Do not modify `spec/`, `src/`, or `qa/` unless Echo explicitly assigns remediation.

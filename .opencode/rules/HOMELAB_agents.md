@@ -26,7 +26,7 @@ Team roles (see `AGENTS/team.html`):
 - **Pixel**: Designer
 - **Vista**: Analyst / QA
 
-Agents communicate with Chris via Telegram DMs and may coordinate via shared file inboxes for agent-to-agent communication.
+Agents communicate with Chris via Telegram DMs (primarily through Echo) and coordinate across RPIs through webhook-triggered tasks plus shared NFS project storage.
 
 ---
 
@@ -263,45 +263,71 @@ Standard: agents use `dmPolicy: "pairing"` - unknown senders receive a pairing c
 ### DM Allowlist
 Standard: agents allow DMs from `@brimdor` via `channels.telegram.allowFrom`.
 
-### Agent-to-Agent Communication (File Inbox)
+### Agent-to-Agent Communication (Webhook + Shared NFS)
 
-Agents coordinate via shared file inboxes (Telegram groups are NOT used for agent-to-agent communication). The currently defined inbox pairing is Echo <-> Patch.
+The six agents run on separate RPIs. Native single-gateway multi-agent tools are not the team coordination mechanism here.
 
-#### Shared Inbox Locations
+Coordination model:
+- **Echo starts and ends every project workflow**.
+- **Workers execute only on webhook triggers**.
+- **Project state is shared through NFS-backed files**.
 
-| Agent | Inbox Path | Purpose |
-|-------|------------|---------|
-| **Echo** | `~/.openclaw/workspace/patch-inbox/` | Patch drops maintenance notices here |
-| **Patch** | `~/.openclaw/workspace/echo-inbox/` | Echo drops task requests here |
+#### Shared NFS Project Storage
 
-#### File Naming Convention
-```
-YYYYMMDDTHHMMSSZ-<type>.md
-```
-Examples:
-- `20260209T143000Z-maintenance.md` - Maintenance notice
-- `20260209T150000Z-checklist.md` - Checklist item
-- `20260209T160000Z-status.md` - Status update
+- NFS server: `10.0.40.3`
+- Export: `/mnt/user/team_projects`
+- Local mount on each RPi: `/mnt/projects`
+- Project root format: `/mnt/projects/<project-id>/`
+- Project id pattern: `proj-YYYYMMDD-###`
 
-#### Communication Protocol
-1. **Writer creates file** with timestamped name
-2. **Reader polls inbox** periodically (or on heartbeat)
-3. **Reader processes file** and moves to `processed/` subdirectory
-4. **Critical items** may also trigger a DM to Chris (`@brimdor`)
+Required project structure:
+- `spec/`
+- `handoff/`
+- `src/`
+- `ui/`
+- `qa/`
+- `artifacts/`
+- `.locks/`
 
-#### Inbox File Format
-```markdown
----
-type: maintenance|checklist|status|alert
-priority: low|normal|high|critical
-from: echo|patch|scope|forge|pixel|vista
-timestamp: 2026-02-09T14:30:00Z
----
+#### Webhook Payload Contract (Required)
 
-# Subject Line
+All cross-agent task payloads must include:
+- `requestId`
+- `projectId`
+- `stage`
+- `assignee`
+- `projectRoot`
+- `task`
+- `acceptanceCriteria`
+- `replyTo`
 
-Message content here.
-```
+Recommended fields:
+- `fromAgent`
+- `createdAt`
+- `priority`
+- `dependsOn`
+- `deliver`
+- `timeoutSeconds`
+
+Session key convention:
+- `hook:<projectId>:<assignee>:<stage>`
+
+#### Lock and Handoff Rules
+
+- Stage lock file: `.locks/<project-id>.<stage>.lock`
+- Stage completion marker: `handoff/<timestamp>-<agent>-<stage>-done.json`
+- Next stage cannot start until the completion marker is present.
+
+#### Role Write Boundaries
+
+- Scope writes `spec/`
+- Forge writes `src/`
+- Pixel writes `ui/`
+- Vista writes `qa/`
+- Echo orchestrates and validates handoffs
+- Patch focuses on infra/exception workflows
+
+Agents should not modify another stage's owned folder unless Echo explicitly assigns remediation.
 
 ---
 

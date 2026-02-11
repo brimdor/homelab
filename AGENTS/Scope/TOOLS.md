@@ -14,3 +14,9 @@
 - ARM64 Support: Mandatory.
 - Resource Usage: Must be lean (RPi-friendly).
 - Portability: Must run in the specified project environment.
+
+## Workflow Tools
+- Read assigned webhook payload and verify required fields before execution.
+- Write architecture outputs in `/mnt/projects/<project-id>/spec/`.
+- Write handoff marker in `/mnt/projects/<project-id>/handoff/`.
+- Respect lock file lifecycle in `/mnt/projects/<project-id>/.locks/`.

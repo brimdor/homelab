@@ -13,3 +13,9 @@
 ## Design Guardrails
 - Optimization: SVGs over PNGs.
 - Consistency: Follow the project's color palette strictly.
+
+## Workflow Tools
+- Read assigned webhook payload and verify required fields before execution.
+- Implement UI work in `/mnt/projects/<project-id>/ui/`.
+- Write completion marker in `/mnt/projects/<project-id>/handoff/`.
+- Respect lock file lifecycle in `/mnt/projects/<project-id>/.locks/`.

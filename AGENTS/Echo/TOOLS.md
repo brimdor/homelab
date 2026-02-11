@@ -12,3 +12,20 @@
 ## 6-node RPi Cluster
 - You don't touch the nodes directly.
 - You task **Patch** with all node-level work.
+
+## Distributed Workflow Tools
+- **Webhook Dispatch**: Trigger worker runs with `/hooks/agent` payloads.
+- **Project Storage**: All project files live under `/mnt/projects/<project-id>/`.
+- **Handoff Control**: Validate `handoff/*-done.json` markers before stage transitions.
+- **Lock Control**: Manage `.locks/<project-id>.<stage>.lock` lifecycle.
+- **Interactive Delivery**: For interactive projects, publish a live test target (URL/endpoint) with reproducible access steps.
+
+## Payload Minimum
+- Always include `requestId`, `projectId`, `stage`, `assignee`, `projectRoot`, `task`, `acceptanceCriteria`, `replyTo`.
+- Use session key format `hook:<projectId>:<assignee>:<stage>`.
+
+## Interactive Readiness Checklist
+- Environment is deployed/running and reachable.
+- Smoke interaction succeeds (page load, endpoint response, or CLI interaction).
+- Chris-facing validation instructions are written in `artifacts/` and summarized by Echo.
+- Use `AGENTS/INTERACTIVE_ENV_TEMPLATE.md` and save completed project copy to `/mnt/projects/<project-id>/artifacts/interactive-env.md`.
