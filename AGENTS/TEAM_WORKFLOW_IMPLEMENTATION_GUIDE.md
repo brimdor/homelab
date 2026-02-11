@@ -141,6 +141,12 @@ Rule:
 
 ## Webhook Task Payload Contract
 
+Canonical webhook endpoint usage:
+
+- Echo dispatches worker tasks to each worker host at `POST /hooks/agent`.
+- Worker completion/failure callbacks return to Echo using `replyTo` and `POST /hooks/agent`.
+- `replyTo` must always target Echo's webhook endpoint for the active project.
+
 ### Required Fields
 
 - `requestId`
@@ -148,9 +154,86 @@ Rule:
 - `stage`
 - `assignee`
 - `projectRoot`
+- `specPath`
+- `specLocked`
+- `lockFile`
 - `task`
 - `acceptanceCriteria`
+- `inputs`
+- `outputs`
+- `handoffMarkerExpected`
 - `replyTo`
+
+### Required Worker Callback Fields (to Echo)
+
+- `requestId`
+- `projectId`
+- `stage`
+- `assignee`
+- `status` (`done` or `failed`)
+- `handoffMarker`
+- `projectRoot`
+- `summary`
+- `artifacts`
+- `startedAt`
+- `finishedAt`
+
+### Required Validation Rules (No Deviation)
+
+- Worker must reject payload if `assignee` does not match local agent identity.
+- Worker must reject payload if `projectRoot` is outside `/mnt/projects/<project-id>/`.
+- Worker must reject payload if `outputs` requests writes outside owned stage scope.
+- Echo must not trigger next stage until callback payload validation and handoff marker validation both pass.
+- Echo must fail closed on missing required fields.
+
+### Dispatch Payload Template
+
+```json
+{
+  "requestId": "req-20260211-001",
+  "projectId": "proj-20260211-001",
+  "stage": "scope",
+  "assignee": "Scope",
+  "projectRoot": "/mnt/projects/proj-20260211-001/",
+  "specPath": "spec/spec.md",
+  "specLocked": true,
+  "lockFile": ".locks/proj-20260211-001.scope.lock",
+  "task": "Populate Technical Requirements and API sections",
+  "acceptanceCriteria": [
+    "All API endpoints include method, path, schema",
+    "ARM64 compatibility constraints are explicit"
+  ],
+  "inputs": ["spec/spec.md"],
+  "outputs": ["spec/spec.md", "artifacts/scope-notes.md"],
+  "handoffMarkerExpected": "handoff/20260211T093000Z-scope-spec-done.json",
+  "replyTo": "https://10.0.30.10:18789/hooks/agent",
+  "fromAgent": "Echo",
+  "createdAt": "2026-02-11T09:30:00Z",
+  "priority": "high",
+  "timeoutSeconds": 1800
+}
+```
+
+### Callback Payload Template
+
+```json
+{
+  "requestId": "req-20260211-001",
+  "projectId": "proj-20260211-001",
+  "stage": "scope",
+  "assignee": "Scope",
+  "status": "done",
+  "handoffMarker": "handoff/20260211T094400Z-scope-spec-done.json",
+  "projectRoot": "/mnt/projects/proj-20260211-001/",
+  "summary": "Technical requirements and API sections completed",
+  "artifacts": [
+    "spec/spec.md",
+    "artifacts/scope-research.md"
+  ],
+  "startedAt": "2026-02-11T09:30:15Z",
+  "finishedAt": "2026-02-11T09:44:00Z"
+}
+```
 
 ### Recommended Fields
 
@@ -335,11 +418,12 @@ Interactive delivery directive:
 5. Echo issues first worker task via webhook payload (usually Scope).
 6. Worker writes outputs only in owned locations.
 7. Worker writes completion marker in `handoff/`.
-8. Echo validates handoff marker and acceptance criteria.
-9. Echo triggers next stage.
-10. If project type is interactive, Echo ensures a runnable interactive environment exists and records access details in `artifacts/` (Patch may support only when explicitly assigned infra tasks).
-11. Vista validates completion and writes pass/fail evidence.
-12. Echo sends final stakeholder summary including environment URL/endpoint and test instructions.
+8. Worker posts completion callback to Echo using `replyTo` at `POST /hooks/agent`.
+9. Echo validates callback payload, handoff marker, and acceptance criteria.
+10. Echo triggers next stage.
+11. If project type is interactive, Echo ensures a runnable interactive environment exists and records access details in `artifacts/` (Patch may support only when explicitly assigned infra tasks).
+12. Vista validates completion and writes pass/fail evidence.
+13. Echo sends final stakeholder summary including environment URL/endpoint and test instructions.
 
 ## Runbook: Agent Boot Readiness Check
 
@@ -349,6 +433,33 @@ Each agent should satisfy at startup:
 2. `/mnt/projects` accessible and writable.
 3. Team workflow docs present in workspace.
 4. Agent-specific stage ownership section present in `AGENTS.md`.
+
+## Runbook: Enable Hooks on Every Agent Host
+
+Perform on each host (`10.0.30.10` through `10.0.30.15`):
+
+1. Confirm runtime config includes:
+   - `hooks.enabled: true`
+   - `hooks.token: <agent-specific-shared-secret>`
+   - `hooks.path: "/hooks"`
+   - optional: `hooks.allowedAgentIds: ["<agent-id>"]` only on OpenClaw versions that support it
+2. Restart gateway service.
+3. Verify endpoint authentication:
+   - `POST /hooks/agent` without token returns `401`.
+   - `POST /hooks/agent` with token and minimal valid payload returns `202`.
+4. Validate callback path:
+   - worker callback posts to Echo `replyTo` endpoint and receives `202`.
+5. Record verification evidence in `artifacts/`.
+
+Example probe:
+
+```bash
+curl -sS -o /tmp/hook-response.json -w "%{http_code}\n" \
+  -X POST "http://127.0.0.1:18789/hooks/agent" \
+  -H "Authorization: Bearer ${HOOK_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"hook health probe","agentId":"scope","sessionKey":"hook:health:scope:probe"}'
+```
 
 ## Runbook: Troubleshooting
 
@@ -468,6 +579,14 @@ If required:
 ### Pending/Optional Next Step
 
 - run a live workflow smoke test with a real project id and actual webhook task chain (for example Echo -> Scope -> handoff marker -> Echo validation)
+
+## Anti-Deviation Documentation Checklist
+
+- `AGENTS/TEAM.md` and `AGENTS/<Agent>/TEAM.md` define the same webhook contract and required fields.
+- Echo docs explicitly state callback validation gates before stage transitions.
+- Worker docs explicitly state assignee/root/output validation before work begins.
+- Callback requirements (`status`, `handoffMarker`, `artifacts`, timestamps) are documented in all worker tool docs.
+- Any future workflow change must update team-level contract first, then per-agent mirrors.
 
 ## Canonical Command Snippets
 

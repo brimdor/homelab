@@ -246,6 +246,11 @@
       "streamMode": "partial"
     }
   },
+  "hooks": {
+    "enabled": true,
+    "token": "__OPENCLAW_REDACTED__",
+    "path": "/hooks"
+  },
   "gateway": {
     "port": 18789,
     "mode": "local",
