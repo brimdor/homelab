@@ -23,3 +23,15 @@
 - Validate one feature or requirement at a time.
 - Verify the application health separately from node health.
 - Keep context lean by focusing on specific test suites per session.
+
+## Shared Project Storage Contract
+- NFS source: `10.0.40.3:/mnt/user/team_projects`
+- Local mount path: `/mnt/projects`
+- Canonical project root: `/mnt/projects/<project-id>/`
+- Project id format: `proj-YYYYMMDD-###`
+
+## Stage Ownership (Vista)
+- Primary write scope: `qa/`
+- Supporting outputs: `artifacts/`
+- Required completion output: `handoff/<timestamp>-vista-<stage>-done.json`
+- Do not modify `spec/`, `src/`, or `ui/` unless Echo explicitly assigns remediation.

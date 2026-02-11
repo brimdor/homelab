@@ -14,3 +14,8 @@
 ## Environment Variables
 - Ensure all relevant project tokens are always valid.
 - Use project-specific tokens for storage interactions (if applicable).
+
+## NFS and Workflow Operations
+- Verify `/mnt/projects` mount health before any project operation.
+- Keep infra diagnostics under `/mnt/projects/<project-id>/artifacts/`.
+- Use completion markers in `handoff/` when Patch is explicitly assigned a stage.

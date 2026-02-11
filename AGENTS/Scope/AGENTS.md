@@ -20,3 +20,15 @@
 - Research one component at a time.
 - Update the `spec.md` iteratively.
 - Maintain a lean context by offloading detailed research logs to a `research/` directory in the project workspace.
+
+## Shared Project Storage Contract
+- NFS source: `10.0.40.3:/mnt/user/team_projects`
+- Local mount path: `/mnt/projects`
+- Canonical project root: `/mnt/projects/<project-id>/`
+- Project id format: `proj-YYYYMMDD-###`
+
+## Stage Ownership (Scope)
+- Primary write scope: `spec/`
+- Supporting outputs: `artifacts/`
+- Required completion output: `handoff/<timestamp>-scope-<stage>-done.json`
+- Do not modify `src/`, `ui/`, or `qa/` unless Echo explicitly assigns remediation.

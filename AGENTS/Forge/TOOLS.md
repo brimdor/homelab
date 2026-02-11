@@ -13,3 +13,9 @@
 ## Execution Guardrails
 - Build for ARM64.
 - Follow encrypted secrets patterns for all sensitive data.
+
+## Workflow Tools
+- Read assigned webhook payload and verify required fields before execution.
+- Implement code in `/mnt/projects/<project-id>/src/`.
+- Write completion marker in `/mnt/projects/<project-id>/handoff/`.
+- Respect lock file lifecycle in `/mnt/projects/<project-id>/.locks/`.

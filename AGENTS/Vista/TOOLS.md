@@ -13,3 +13,9 @@
 ## Verification Guardrails
 - Must pass on ARM64 nodes.
 - Must not cause resource pressure (checked via system monitoring).
+
+## Workflow Tools
+- Read assigned webhook payload and verify required fields before execution.
+- Write verification outputs in `/mnt/projects/<project-id>/qa/` and evidence in `artifacts/`.
+- Write completion marker in `/mnt/projects/<project-id>/handoff/`.
+- Respect lock file lifecycle in `/mnt/projects/<project-id>/.locks/`.

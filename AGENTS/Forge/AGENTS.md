@@ -21,3 +21,15 @@
 - Implement one module or API endpoint at a time.
 - Verify each chunk with local tests before moving on.
 - Keep context lean by focusing on one file or small related set of files per session.
+
+## Shared Project Storage Contract
+- NFS source: `10.0.40.3:/mnt/user/team_projects`
+- Local mount path: `/mnt/projects`
+- Canonical project root: `/mnt/projects/<project-id>/`
+- Project id format: `proj-YYYYMMDD-###`
+
+## Stage Ownership (Forge)
+- Primary write scope: `src/`
+- Supporting outputs: `artifacts/`
+- Required completion output: `handoff/<timestamp>-forge-<stage>-done.json`
+- Do not modify `spec/`, `ui/`, or `qa/` unless Echo explicitly assigns remediation.
