@@ -17,6 +17,8 @@
 
 ## Workflow Tools
 - Read assigned webhook payload and verify required fields before execution.
+- On completion or failure, send status callback to `replyTo` with `requestId`, `projectId`, `stage`, `assignee`, `status`, `handoffMarker`, `projectRoot`, `summary`, `artifacts`, `startedAt`, and `finishedAt`.
+- Do not execute if `assignee` does not match Scope, if `projectRoot` is outside `/mnt/projects/`, or if `outputs` includes paths outside Scope ownership.
 - Write architecture outputs in `/mnt/projects/<project-id>/spec/`.
 - Write handoff marker in `/mnt/projects/<project-id>/handoff/`.
 - Respect lock file lifecycle in `/mnt/projects/<project-id>/.locks/`.

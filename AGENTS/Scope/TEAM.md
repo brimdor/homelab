@@ -43,6 +43,11 @@ Patch is exception-oriented and normally reports through Echo.
 
 ## Webhook Payload Contract
 
+Dispatch endpoint for all stage triggers:
+
+- `/hooks/agent`
+- `replyTo` must point to Echo's `/hooks/agent` endpoint for completion callbacks
+
 Every cross-agent task payload must include:
 
 - `requestId`
@@ -50,9 +55,29 @@ Every cross-agent task payload must include:
 - `stage`
 - `assignee`
 - `projectRoot`
+- `specPath`
+- `specLocked`
+- `lockFile`
 - `task`
 - `acceptanceCriteria`
+- `inputs`
+- `outputs`
+- `handoffMarkerExpected`
 - `replyTo`
+
+Worker completion callback payload to Echo must include:
+
+- `requestId`
+- `projectId`
+- `stage`
+- `assignee`
+- `status` (`done` or `failed`)
+- `handoffMarker` (path in `handoff/`)
+- `projectRoot`
+- `summary`
+- `artifacts`
+- `startedAt`
+- `finishedAt`
 
 Recommended fields:
 
@@ -66,6 +91,9 @@ Recommended fields:
 Session key convention:
 
 - `hook:<projectId>:<assignee>:<stage>`
+- Worker must execute only when `assignee` matches the receiving agent identity.
+- `projectRoot` must point to `/mnt/projects/<project-id>/` for all file I/O.
+- Worker must reject payloads with missing required fields or out-of-scope `outputs`.
 
 ## Stage Ownership and Write Boundaries
 
@@ -84,6 +112,7 @@ No agent should modify another stage's owned files unless Echo explicitly assign
 - Lock file pattern: `.locks/<project-id>.<stage>.lock`
 - Completion marker pattern: `handoff/<timestamp>-<agent>-<stage>-done.json`
 - Do not advance to next stage without a completion marker.
+- Echo must not advance stages until callback payload and handoff marker both validate.
 
 ## Communication Protocols
 

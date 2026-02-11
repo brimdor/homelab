@@ -291,15 +291,38 @@ Required project structure:
 
 #### Webhook Payload Contract (Required)
 
+Canonical endpoint usage:
+- Dispatch to worker: `POST /hooks/agent`
+- Worker callback to Echo: `POST /hooks/agent` using `replyTo`
+
 All cross-agent task payloads must include:
 - `requestId`
 - `projectId`
 - `stage`
 - `assignee`
 - `projectRoot`
+- `specPath`
+- `specLocked`
+- `lockFile`
 - `task`
 - `acceptanceCriteria`
+- `inputs`
+- `outputs`
+- `handoffMarkerExpected`
 - `replyTo`
+
+Worker callback payload must include:
+- `requestId`
+- `projectId`
+- `stage`
+- `assignee`
+- `status` (`done` or `failed`)
+- `handoffMarker`
+- `projectRoot`
+- `summary`
+- `artifacts`
+- `startedAt`
+- `finishedAt`
 
 Recommended fields:
 - `fromAgent`
@@ -311,6 +334,12 @@ Recommended fields:
 
 Session key convention:
 - `hook:<projectId>:<assignee>:<stage>`
+
+Validation rules:
+- Worker rejects task if `assignee` does not match local agent.
+- Worker rejects task if `projectRoot` is outside `/mnt/projects/<project-id>/`.
+- Worker rejects task if `outputs` includes paths outside stage ownership.
+- Echo does not advance stage until callback payload and handoff marker both validate.
 
 #### Lock and Handoff Rules
 

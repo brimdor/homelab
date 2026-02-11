@@ -42,9 +42,20 @@ Every cross-agent task must include:
 - `stage`
 - `assignee`
 - `projectRoot`
+- `specPath`
+- `specLocked`
+- `lockFile`
 - `task`
 - `acceptanceCriteria`
+- `inputs`
+- `outputs`
+- `handoffMarkerExpected`
 - `replyTo`
+
+Worker callback to Echo (`replyTo`) must include:
+- `requestId`, `projectId`, `stage`, `assignee`
+- `status` (`done` or `failed`)
+- `handoffMarker`, `projectRoot`, `summary`, `artifacts`, `startedAt`, `finishedAt`
 
 Recommended fields:
 - `fromAgent`, `createdAt`, `priority`, `dependsOn`, `deliver`, `timeoutSeconds`
@@ -56,6 +67,8 @@ Session key convention:
 - You start every project and you close every project.
 - Workers never progress themselves; only you trigger the next stage.
 - Require stage lock + completion marker before moving to next assignee.
+- Require worker callback to `replyTo` (`/hooks/agent` on Echo) before stage transition decisions.
+- Reject any worker callback where `assignee`, `projectRoot`, or `handoffMarker` does not match the active stage contract.
 - Keep human updates concise and send only through Echo.
 
 ## Interactive Environment Directive

@@ -16,6 +16,8 @@
 
 ## Workflow Tools
 - Read assigned webhook payload and verify required fields before execution.
+- On completion or failure, send status callback to `replyTo` with `requestId`, `projectId`, `stage`, `assignee`, `status`, `handoffMarker`, `projectRoot`, `summary`, `artifacts`, `startedAt`, and `finishedAt`.
+- Do not execute if `assignee` does not match Pixel, if `projectRoot` is outside `/mnt/projects/`, or if `outputs` includes paths outside Pixel ownership.
 - Implement UI work in `/mnt/projects/<project-id>/ui/`.
 - Write completion marker in `/mnt/projects/<project-id>/handoff/`.
 - Respect lock file lifecycle in `/mnt/projects/<project-id>/.locks/`.
