@@ -337,7 +337,7 @@ Interactive delivery directive:
 7. Worker writes completion marker in `handoff/`.
 8. Echo validates handoff marker and acceptance criteria.
 9. Echo triggers next stage.
-10. If project type is interactive, Echo (or Patch by Echo assignment) hosts a runnable interactive environment and records access details in `artifacts/`.
+10. If project type is interactive, Echo ensures a runnable interactive environment exists and records access details in `artifacts/` (Patch may support only when explicitly assigned infra tasks).
 11. Vista validates completion and writes pass/fail evidence.
 12. Echo sends final stakeholder summary including environment URL/endpoint and test instructions.
 

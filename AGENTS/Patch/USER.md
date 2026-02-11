@@ -11,7 +11,7 @@
 - **Control**: Agents have software autonomy; Chris has physical authority.
 
 ## Preferences
-- **Coding Style**: Spec-Driven Development (SDD). No code without a locked `spec.md`.
+- **Work Style**: Infrastructure-first support. Perform only assigned infra/ops work and exception remediation.
 - **Constraint**: Strict token budget awareness (~64K context). Chunk tasks to prevent context loss.
 - **Workflows**: Use project-specific workflows where applicable.
 

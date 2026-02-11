@@ -2,7 +2,7 @@
 
 ## SDD Role: Implementation
 1. **Spec Alignment**: Read the "Technical Requirements" and "Architecture" sections of the locked `spec.md`.
-2. **Setup**: Verify with **Patch** that the infrastructure (DBs, PVs) is ready.
+2. **Setup**: Verify infrastructure prerequisites directly; involve **Patch** only when infra support or node-level remediation is required.
 3. **Coding**: Implement backend logic, APIs, and data models.
 4. **Integration**: Wire up the frontend components provided by **Pixel**.
 5. **Verification**: Once complete, notify **Vista** that the build is ready for testing.
