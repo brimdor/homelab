@@ -1,0 +1,11 @@
+NAME           READY   STATUS    RESTARTS       AGE   IP           NODE         NOMINATED NODE   READINESS GATES
+cilium-97b27   1/1     Running   10 (37h ago)   44d   10.0.20.19   arcanine     <none>           <none>
+cilium-bktjp   1/1     Running   7 (37h ago)    44d   10.0.20.20   sprigatito   <none>           <none>
+cilium-c44ng   1/1     Running   25 (37h ago)   44d   10.0.20.14   pikachu      <none>           <none>
+cilium-h7cmt   1/1     Running   14 (36h ago)   44d   10.0.20.17   totodile     <none>           <none>
+cilium-j64nq   1/1     Running   15 (37h ago)   44d   10.0.20.12   squirtle     <none>           <none>
+cilium-nwzq6   1/1     Running   15 (37h ago)   38d   10.0.20.16   cyndaquil    <none>           <none>
+cilium-r8snc   1/1     Running   13 (37h ago)   44d   10.0.20.13   bulbasaur    <none>           <none>
+cilium-rgw2v   1/1     Running   15 (37h ago)   44d   10.0.20.11   charmander   <none>           <none>
+cilium-v5gp5   1/1     Running   7 (37h ago)    15d   10.0.20.18   growlithe    <none>           <none>
+cilium-xwhxf   1/1     Running   13 (37h ago)   44d   10.0.20.15   chikorita    <none>           <none>

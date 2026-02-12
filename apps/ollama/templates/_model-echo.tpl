@@ -19,6 +19,12 @@ PARAMETER repeat_penalty {{ . }}
 {{- with .Values.modelPuller.models.custom.echo.temperature }}
 PARAMETER temperature {{ . }}
 {{- end }}
+{{- with .Values.modelPuller.models.custom.echo.topP }}
+PARAMETER top_p {{ . }}
+{{- end }}
+{{- with .Values.modelPuller.models.custom.echo.topK }}
+PARAMETER top_k {{ . }}
+{{- end }}
 SYSTEM """
 {{ .Values.modelPuller.models.custom.echo.systemPrompt | indent 0 }}
 """

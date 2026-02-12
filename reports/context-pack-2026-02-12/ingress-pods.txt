@@ -1,0 +1,2 @@
+NAME                                       READY   STATUS    RESTARTS   AGE   IP           NODE      NOMINATED NODE   READINESS GATES
+ingress-nginx-controller-8b668c484-ssfrz   1/1     Running   0          37h   10.0.8.186   pikachu   <none>           <none>

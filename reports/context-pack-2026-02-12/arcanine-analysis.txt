@@ -1,0 +1,7 @@
+Arcanine Analysis:
+- Status: Ready (no conditions issues)
+- FreeDiskSpaceFailed WARNING: Failed to GC images, attempted 4.67 GB, 0 eligible
+- Filesystem: 81.82% used (8.14 GB free of 62.4 GB)
+- GPU node (nvidia.com/gpu: 1) - likely has large AI/ML images consuming space
+- 2 Ceph OSDs: osd.2 (0.87 TiB) + osd.8 (0.47 TiB) = 1.33 TiB Ceph storage
+- VERDICT: YELLOW - disk space low, image GC failing, needs investigation
