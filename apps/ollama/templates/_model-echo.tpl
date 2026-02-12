@@ -26,11 +26,13 @@ PARAMETER top_p {{ . }}
 PARAMETER top_k {{ . }}
 {{- end }}
 {{- with .Values.modelPuller.models.custom.echo.reasoningEffort }}
-PARAMETER reasoning_effort {{ . }}
+PARAMETER reasoning {{ . }}
 {{- end }}
-{{- with .Values.modelPuller.models.custom.echo.think }}
-PARAMETER think {{ . }}
+{{- with .Values.modelPuller.models.custom.echo.numPredict }}
+PARAMETER num_predict
 {{- end }}
+PARAMETER stop "<|channel|>analysis"
+PARAMETER stop "<|start|>assistant<|channel|>"
 SYSTEM """
 {{ .Values.modelPuller.models.custom.echo.systemPrompt | indent 0 }}
 """
