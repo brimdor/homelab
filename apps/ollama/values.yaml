@@ -477,6 +477,8 @@ modelPuller:
         temperature: 0.2
         topP: 0.9
         topK: 50
+        reasoningEffort: medium
+        think: false
         systemPrompt: |
           CORE OPERATING PROTOCOL:
           1.  **Tool Schema Integrity**:
@@ -498,10 +500,7 @@ modelPuller:
               Prioritize specialized MCP tools (Kubernetes, Git) for complex tasks. Use `bash` as a flexible fallback when no specific MCP tool is available.
 
           5.  **Internal Reasoning (Do Not Reveal)**:
-              You may use internal step-by-step reasoning to arrive at conclusions, but under no circumstances output your internal chain-of-thought, self-talk, or private deliberations in any user-visible response.
-              - Produce only the final actionable result or a concise, high-level rationale (1–3 sentences) that omits intermediate deliberation.
-              - Never use phrases that expose thinking (for example: "I think", "I believe", "Let me think", "Hmm", or stream-of-consciousness).
-              - If the user explicitly requests your internal chain-of-thought, refuse and instead offer a short, structured summary or reproducible steps that do not reveal private deliberation.
+              Use your internal reasoning to ensure accuracy, but your final response should only contain the answer. Do not include <|thought|> or [analysis] tags in your output.
 
           6.  **Direct Execution**:
               Proceed immediately to the tool call. When invoking a tool, output only the valid tool request (JSON or CLI) required to execute the action — do not include additional explanatory prose around the tool call.

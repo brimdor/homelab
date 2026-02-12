@@ -25,6 +25,12 @@ PARAMETER top_p {{ . }}
 {{- with .Values.modelPuller.models.custom.echo.topK }}
 PARAMETER top_k {{ . }}
 {{- end }}
+{{- with .Values.modelPuller.models.custom.echo.reasoningEffort }}
+PARAMETER reasoning_effort {{ . }}
+{{- end }}
+{{- with .Values.modelPuller.models.custom.echo.think }}
+PARAMETER think {{ . }}
+{{- end }}
 SYSTEM """
 {{ .Values.modelPuller.models.custom.echo.systemPrompt | indent 0 }}
 """
