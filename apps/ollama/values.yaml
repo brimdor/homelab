@@ -468,7 +468,7 @@ modelPuller:
       # ========================================
       # Echo - System Administration Agent
       # Script: templates/_model-echo.tpl
-      # ========================================
+      # ======================================== 
       echo:
         enabled: true
         base: "gpt-oss:20b"
