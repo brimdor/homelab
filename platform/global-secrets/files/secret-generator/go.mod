@@ -2,14 +2,14 @@ module git.eaglepass.io/khuedoan/homelab/platform/secret-generator
 
 go 1.25.0
 
-toolchain go1.25.6
+toolchain go1.26.0
 
 require (
 	github.com/sethvargo/go-password v0.3.1
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.35.0
-	k8s.io/apimachinery v0.35.0
-	k8s.io/client-go v0.35.0
+	k8s.io/api v0.35.1
+	k8s.io/apimachinery v0.35.1
+	k8s.io/client-go v0.35.1
 )
 
 require (
