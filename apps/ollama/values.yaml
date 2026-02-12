@@ -477,8 +477,8 @@ modelPuller:
         temperature: 0.2
         topP: 0.9
         topK: 50
-        reasoningEffort: medium
-        think: false
+        reasoning: medium
+        numPredict: 8000
         systemPrompt: |
           CORE OPERATING PROTOCOL:
           1.  **Tool Schema Integrity**:
