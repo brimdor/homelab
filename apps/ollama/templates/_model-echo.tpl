@@ -29,7 +29,7 @@ PARAMETER top_k {{ . }}
 PARAMETER reasoning {{ . }}
 {{- end }}
 {{- with .Values.modelPuller.models.custom.echo.numPredict }}
-PARAMETER num_predict
+PARAMETER num_predict {{ . }}
 {{- end }}
 PARAMETER stop "<|channel|>analysis"
 PARAMETER stop "<|start|>assistant<|channel|>"
