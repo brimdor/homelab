@@ -1,0 +1,2 @@
+NAME                      READY   STATUS    RESTARTS   AGE    IP          NODE       NOMINATED NODE   READINESS GATES
+grafana-9bd44fd78-hj9hk   3/3     Running   0          109m   10.0.2.61   totodile   <none>           <none>

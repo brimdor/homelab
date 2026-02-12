@@ -1,0 +1,26 @@
+NAMESPACE         NAME                CLASS   HOSTS                                        ADDRESS       PORTS     AGE
+ace-step          ace-step            nginx   ace-step.eaglepass.io                        10.0.20.226   80, 443   6d21h
+argocd            argocd-server       nginx   argocd.eaglepass.io                          10.0.20.226   80, 443   65d
+backlog-canary    backlog-canary      nginx   backlog-canary.eaglepass.io                  10.0.20.226   80, 443   38d
+backlog           backlog             nginx   backlog.eaglepass.io                         10.0.20.226   80, 443   38d
+budget-canary     budget-canary       nginx   budget-canary.eaglepass.io                   10.0.20.226   80, 443   44d
+budget            budget              nginx   budget.eaglepass.io                          10.0.20.226   80, 443   44d
+dex               dex                 nginx   dex.eaglepass.io                             10.0.20.226   80, 443   65d
+emby              emby                nginx   emby.eaglepass.io,emby-health.eaglepass.io   10.0.20.226   80, 443   65d
+explorers-hub     explorers-hub       nginx   explorers.eaglepass.io                       10.0.20.226   80, 443   55d
+gitea             gitea               nginx   git.eaglepass.io                             10.0.20.226   80, 443   65d
+grafana           grafana             nginx   grafana.eaglepass.io                         10.0.20.226   80, 443   65d
+humbleai-canary   humbleai-canary     nginx   humbleai-canary.eaglepass.io                 10.0.20.226   80, 443   65d
+humbleai          humbleai            nginx   humbleai.eaglepass.io                        10.0.20.226   80, 443   65d
+kanidm            kanidm              nginx   auth.eaglepass.io                            10.0.20.226   80, 443   65d
+localai           localai-local-ai    nginx   localai.eaglepass.io                         10.0.20.226   80, 443   65d
+n8n               n8n                 nginx   n8n.eaglepass.io                             10.0.20.226   80, 443   43d
+nextcloud         nextcloud           nginx   nextcloud.eaglepass.io                       10.0.20.226   80, 443   53d
+ollama            ollama              nginx   ollama.eaglepass.io                          10.0.20.226   80, 443   17d
+openwebui         openwebui           nginx   open.eaglepass.io                            10.0.20.226   80, 443   65d
+radarr            radarr              nginx   radarr.eaglepass.io                          10.0.20.226   80, 443   65d
+sabnzbd           sabnzbd             nginx   sabnzbd.eaglepass.io                         10.0.20.226   80, 443   65d
+searxng           searxng             nginx   searxng.eaglepass.io                         10.0.20.226   80, 443   65d
+sonarr            sonarr              nginx   sonarr.eaglepass.io                          10.0.20.226   80, 443   65d
+woodpecker        woodpecker-server   nginx   ci.eaglepass.io                              10.0.20.226   80, 443   65d
+zot               zot                 nginx   registry.eaglepass.io                        10.0.20.226   80, 443   65d

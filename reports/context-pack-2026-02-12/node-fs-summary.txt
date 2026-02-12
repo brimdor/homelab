@@ -1,0 +1,11 @@
+Node Filesystem Summary (2026-02-12):
+arcanine:   81.82% used (8.14 GB free) - WARNING
+bulbasaur:  68.60% used (16.39 GB free) - OK
+charmander: 53.63% used (25.74 GB free) - OK
+chikorita:  58.65% used (22.60 GB free) - OK
+cyndaquil:  61.66% used (20.73 GB free) - OK
+growlithe:  44.39% used (31.51 GB free) - OK
+pikachu:    58.06% used (22.98 GB free) - OK
+sprigatito: 78.50% used (10.21 GB free) - WARNING (GPU node)
+squirtle:   60.75% used (21.29 GB free) - OK
+totodile:   74.36% used (12.79 GB free) - CAUTION

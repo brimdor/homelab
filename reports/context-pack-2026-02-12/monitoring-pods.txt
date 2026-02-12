@@ -1,0 +1,15 @@
+NAME                                                     READY   STATUS    RESTARTS       AGE   IP           NODE         NOMINATED NODE   READINESS GATES
+alertmanager-monitoring-system-kube-pro-alertmanager-0   3/3     Running   0              36h   10.0.0.117   chikorita    <none>           <none>
+monitoring-system-kube-pro-operator-7d5594666c-lz9x5     1/1     Running   0              37h   10.0.0.107   chikorita    <none>           <none>
+monitoring-system-kube-state-metrics-99859855-s4b2p      1/1     Running   0              36h   10.0.3.149   cyndaquil    <none>           <none>
+monitoring-system-prometheus-node-exporter-2ff2b         1/1     Running   9 (36h ago)    29d   10.0.20.17   totodile     <none>           <none>
+monitoring-system-prometheus-node-exporter-522wf         1/1     Running   20 (37h ago)   29d   10.0.20.14   pikachu      <none>           <none>
+monitoring-system-prometheus-node-exporter-7phcd         1/1     Running   9 (37h ago)    17d   10.0.20.19   arcanine     <none>           <none>
+monitoring-system-prometheus-node-exporter-86crd         1/1     Running   9 (37h ago)    29d   10.0.20.15   chikorita    <none>           <none>
+monitoring-system-prometheus-node-exporter-j2h6q         1/1     Running   10 (37h ago)   28d   10.0.20.12   squirtle     <none>           <none>
+monitoring-system-prometheus-node-exporter-kpfww         1/1     Running   7 (37h ago)    29d   10.0.20.20   sprigatito   <none>           <none>
+monitoring-system-prometheus-node-exporter-pbqhg         1/1     Running   13 (37h ago)   29d   10.0.20.16   cyndaquil    <none>           <none>
+monitoring-system-prometheus-node-exporter-pcv7h         1/1     Running   11 (37h ago)   29d   10.0.20.11   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-x76df         1/1     Running   9 (37h ago)    29d   10.0.20.13   bulbasaur    <none>           <none>
+monitoring-system-prometheus-node-exporter-zhs9g         1/1     Running   12 (37h ago)   29d   10.0.20.18   growlithe    <none>           <none>
+prometheus-monitoring-system-kube-pro-prometheus-0       2/2     Running   0              37h   10.0.0.60    chikorita    <none>           <none>
