@@ -1,0 +1,70 @@
+NAME         STATUS   ROLES                       AGE    VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                        KERNEL-VERSION           CONTAINER-RUNTIME
+arcanine     Ready    <none>                      356d   v1.33.6+k3s1   10.0.20.19    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+bulbasaur    Ready    control-plane,etcd,master   356d   v1.33.6+k3s1   10.0.20.13    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+charmander   Ready    control-plane,etcd,master   356d   v1.33.6+k3s1   10.0.20.11    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+chikorita    Ready    <none>                      268d   v1.33.6+k3s1   10.0.20.15    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+cyndaquil    Ready    <none>                      39d    v1.33.6+k3s1   10.0.20.16    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+growlithe    Ready    <none>                      356d   v1.33.6+k3s1   10.0.20.18    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+pikachu      Ready    <none>                      356d   v1.33.6+k3s1   10.0.20.14    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+sprigatito   Ready    <none>                      176d   v1.33.6+k3s1   10.0.20.20    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+squirtle     Ready    control-plane,etcd,master   356d   v1.33.6+k3s1   10.0.20.12    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+totodile     Ready    <none>                      356d   v1.33.6+k3s1   10.0.20.17    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+---SEPARATOR---
+NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+arcanine     231m         2%       4376Mi          6%          
+bulbasaur    660m         16%      4918Mi          30%         
+charmander   829m         20%      6459Mi          27%         
+chikorita    247m         6%       2876Mi          8%          
+cyndaquil    233m         5%       2292Mi          14%         
+growlithe    374m         9%       3444Mi          10%         
+pikachu      622m         15%      1859Mi          11%         
+sprigatito   168m         4%       3149Mi          9%          
+squirtle     794m         19%      5166Mi          32%         
+totodile     276m         6%       2340Mi          14%         
+---SEPARATOR---
+ALL_PODS_HEALTHY
+---SEPARATOR---
+NAME                SYNC STATUS   HEALTH STATUS
+ace-step            Synced        Healthy
+argocd              Synced        Healthy
+backlog             Synced        Healthy
+backlog-canary      Synced        Healthy
+budget              Synced        Healthy
+budget-canary       Synced        Healthy
+cert-manager        Synced        Healthy
+cloudflared         Synced        Healthy
+connect             Synced        Healthy
+dex                 Synced        Healthy
+doplarr             Synced        Healthy
+emby                Synced        Healthy
+explorers-hub       Synced        Healthy
+external-dns        Synced        Healthy
+external-secrets    Synced        Healthy
+gitea               Synced        Healthy
+global-secrets      Synced        Healthy
+gpu-operator        Synced        Healthy
+grafana             Synced        Healthy
+humbleai            Synced        Healthy
+humbleai-canary     Synced        Healthy
+ingress-nginx       Synced        Healthy
+kanidm              Synced        Healthy
+kured               Synced        Healthy
+loki                Synced        Healthy
+monitoring-system   Synced        Healthy
+n8n                 Synced        Healthy
+nextcloud           Synced        Healthy
+ollama              Synced        Healthy
+openwebui           Synced        Healthy
+postgres            Synced        Healthy
+qdrant              Synced        Healthy
+radarr              Synced        Healthy
+renovate            Synced        Healthy
+rook-ceph           Synced        Healthy
+sabnzbd             Synced        Healthy
+searxng             Synced        Healthy
+sonarr              Synced        Healthy
+volsync-system      Synced        Healthy
+woodpecker          Synced        Healthy
+zot                 Synced        Healthy
+---SEPARATOR---
+ALL_APPS_HEALTHY

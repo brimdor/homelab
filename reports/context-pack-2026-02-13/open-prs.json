@@ -1,0 +1,12 @@
+[
+  {
+    "number": 63,
+    "title": "chore(deps): update all non-major dependencies",
+    "author": "gitea_admin",
+    "created_at": "2026-02-13T15:03:04Z",
+    "mergeable": true,
+    "base": "master",
+    "head": "renovate/all-minor-patch",
+    "labels": []
+  }
+]

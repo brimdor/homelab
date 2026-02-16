@@ -1,0 +1,157 @@
+=== INGRESS PODS ===
+NAME                                        READY   STATUS    RESTARTS   AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+ingress-nginx-controller-58fc675dc8-crgrk   1/1     Running   0          6h48m   10.0.5.102   charmander   <none>           <none>
+---SEPARATOR---
+=== INGRESS SVC ===
+NAME                                 TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                                   AGE
+ingress-nginx-controller             LoadBalancer   10.43.151.100   10.0.20.226   80:30242/TCP,443:31665/TCP,22:30840/TCP   59d
+ingress-nginx-controller-admission   ClusterIP      10.43.63.5      <none>        443/TCP                                   66d
+ingress-nginx-controller-metrics     ClusterIP      10.43.57.130    <none>        10254/TCP                                 66d
+---SEPARATOR---
+=== ALL INGRESS ===
+NAMESPACE         NAME                CLASS   HOSTS                                        ADDRESS       PORTS     AGE
+ace-step          ace-step            nginx   ace-step.eaglepass.io                        10.0.20.226   80, 443   7d14h
+argocd            argocd-server       nginx   argocd.eaglepass.io                          10.0.20.226   80, 443   66d
+backlog-canary    backlog-canary      nginx   backlog-canary.eaglepass.io                  10.0.20.226   80, 443   39d
+backlog           backlog             nginx   backlog.eaglepass.io                         10.0.20.226   80, 443   39d
+budget-canary     budget-canary       nginx   budget-canary.eaglepass.io                   10.0.20.226   80, 443   45d
+budget            budget              nginx   budget.eaglepass.io                          10.0.20.226   80, 443   45d
+dex               dex                 nginx   dex.eaglepass.io                             10.0.20.226   80, 443   66d
+emby              emby                nginx   emby.eaglepass.io,emby-health.eaglepass.io   10.0.20.226   80, 443   66d
+explorers-hub     explorers-hub       nginx   explorers.eaglepass.io                       10.0.20.226   80, 443   56d
+gitea             gitea               nginx   git.eaglepass.io                             10.0.20.226   80, 443   66d
+grafana           grafana             nginx   grafana.eaglepass.io                         10.0.20.226   80, 443   66d
+humbleai-canary   humbleai-canary     nginx   humbleai-canary.eaglepass.io                 10.0.20.226   80, 443   66d
+humbleai          humbleai            nginx   humbleai.eaglepass.io                        10.0.20.226   80, 443   66d
+kanidm            kanidm              nginx   auth.eaglepass.io                            10.0.20.226   80, 443   66d
+localai           localai-local-ai    nginx   localai.eaglepass.io                         10.0.20.226   80, 443   66d
+n8n               n8n                 nginx   n8n.eaglepass.io                             10.0.20.226   80, 443   43d
+nextcloud         nextcloud           nginx   nextcloud.eaglepass.io                       10.0.20.226   80, 443   54d
+ollama            ollama              nginx   ollama.eaglepass.io                          10.0.20.226   80, 443   17d
+openwebui         openwebui           nginx   open.eaglepass.io                            10.0.20.226   80, 443   66d
+radarr            radarr              nginx   radarr.eaglepass.io                          10.0.20.226   80, 443   66d
+sabnzbd           sabnzbd             nginx   sabnzbd.eaglepass.io                         10.0.20.226   80, 443   66d
+searxng           searxng             nginx   searxng.eaglepass.io                         10.0.20.226   80, 443   66d
+sonarr            sonarr              nginx   sonarr.eaglepass.io                          10.0.20.226   80, 443   66d
+woodpecker        woodpecker-server   nginx   ci.eaglepass.io                              10.0.20.226   80, 443   66d
+zot               zot                 nginx   registry.eaglepass.io                        10.0.20.226   80, 443   66d
+---SEPARATOR---
+=== CERTIFICATES ===
+NAMESPACE         NAME                            READY   SECRET                          AGE
+ace-step          ace-step-tls                    True    ace-step-tls                    7d14h
+argocd            argocd-server-tls               True    argocd-server-tls               66d
+backlog-canary    backlog-companion-canary-tls    True    backlog-companion-canary-tls    39d
+backlog           backlog-companion-tls           True    backlog-companion-tls           39d
+budget-canary     budget-canary-tls               True    budget-canary-tls               45d
+budget            budget-tls                      True    budget-tls                      45d
+dex               dex-tls-certificate             True    dex-tls-certificate             66d
+emby              emby-tls-certificate            True    emby-tls-certificate            66d
+explorers-hub     explorers-hub-tls-certificate   True    explorers-hub-tls-certificate   56d
+gitea             gitea-tls-certificate           True    gitea-tls-certificate           66d
+grafana           grafana-general-tls             True    grafana-general-tls             66d
+humbleai-canary   humbleai-tls                    True    humbleai-tls                    66d
+humbleai          humbleai-tls                    True    humbleai-tls                    66d
+kanidm            kanidm-selfsigned               True    kanidm-selfsigned-certificate   66d
+kanidm            kanidm-tls-certificate          True    kanidm-tls-certificate          66d
+localai           localai-eaglepass-io-tls        True    localai-eaglepass-io-tls        66d
+n8n               n8n-tls-certificate             True    n8n-tls-certificate             43d
+nextcloud         nextcloud-tls-certificate       True    nextcloud-tls-certificate       54d
+ollama            ollama-tls                      True    ollama-tls                      17d
+openwebui         open-tls-certificate            True    open-tls-certificate            66d
+radarr            radarr-tls-certificate          True    radarr-tls-certificate          66d
+sabnzbd           sabnzbd-tls-certificate         True    sabnzbd-tls-certificate         66d
+searxng           searxng-tls-certificate         True    searxng-tls-certificate         66d
+sonarr            sonarr-tls-certificate          True    sonarr-tls-certificate          66d
+woodpecker        woodpecker-tls-certificate      True    woodpecker-tls-certificate      66d
+zot               zot-tls-certificate             True    zot-tls-certificate             66d
+---SEPARATOR---
+=== CERT REQUESTS ===
+NAMESPACE         NAME                             APPROVED   DENIED   READY   ISSUER              REQUESTER                                         AGE
+argocd            argocd-server-tls-1              True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+backlog-canary    backlog-companion-canary-tls-1   True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   39d
+backlog           backlog-companion-tls-1          True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   8d
+budget-canary     budget-canary-tls-1              True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   45d
+dex               dex-tls-certificate-1            True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+emby              emby-tls-certificate-1           True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+gitea             gitea-tls-certificate-1          True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   28d
+grafana           grafana-general-tls-1            True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+humbleai-canary   humbleai-tls-1                   True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   13d
+humbleai          humbleai-tls-1                   True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   15d
+kanidm            kanidm-selfsigned-1              True                True    kanidm-selfsigned   system:serviceaccount:cert-manager:cert-manager   56d
+kanidm            kanidm-tls-certificate-1         True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+localai           localai-eaglepass-io-tls-1       True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   41d
+n8n               n8n-tls-certificate-1            True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   43d
+nextcloud         nextcloud-tls-certificate-1      True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   34d
+ollama            ollama-tls-1                     True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   17d
+openwebui         open-tls-certificate-2           True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   2d17h
+radarr            radarr-tls-certificate-1         True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+sabnzbd           sabnzbd-tls-certificate-1        True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+searxng           searxng-tls-certificate-1        True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   41d
+sonarr            sonarr-tls-certificate-1         True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+woodpecker        woodpecker-tls-certificate-1     True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+zot               zot-tls-certificate-1            True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   56d
+---SEPARATOR---
+=== ORDERS ===
+NAMESPACE         NAME                                        STATE   AGE
+argocd            argocd-server-tls-1-1806234669              valid   56d
+backlog-canary    backlog-companion-canary-tls-1-2782044485   valid   39d
+backlog           backlog-companion-tls-1-3209965606          valid   8d
+budget-canary     budget-canary-tls-1-3397355507              valid   45d
+dex               dex-tls-certificate-1-1338884972            valid   56d
+emby              emby-tls-certificate-1-2214504741           valid   56d
+gitea             gitea-tls-certificate-1-1056306335          valid   28d
+grafana           grafana-general-tls-1-3286529767            valid   56d
+humbleai-canary   humbleai-tls-1-3085603603                   valid   13d
+humbleai          humbleai-tls-1-448166436                    valid   15d
+kanidm            kanidm-tls-certificate-1-3684994957         valid   56d
+localai           localai-eaglepass-io-tls-1-1636471448       valid   41d
+n8n               n8n-tls-certificate-1-1102790071            valid   43d
+nextcloud         nextcloud-tls-certificate-1-2289380897      valid   34d
+ollama            ollama-tls-1-1173234589                     valid   17d
+openwebui         open-tls-certificate-2-2903582807           valid   2d17h
+radarr            radarr-tls-certificate-1-727431449          valid   56d
+sabnzbd           sabnzbd-tls-certificate-1-2727667487        valid   56d
+searxng           searxng-tls-certificate-1-3577027753        valid   41d
+sonarr            sonarr-tls-certificate-1-2020712202         valid   56d
+woodpecker        woodpecker-tls-certificate-1-3162624335     valid   56d
+zot               zot-tls-certificate-1-577498914             valid   56d
+---SEPARATOR---
+=== CHALLENGES ===
+No resources found
+---SEPARATOR---
+=== EXTERNAL SECRETS ===
+NAMESPACE    NAME                    STORETYPE            STORE            REFRESH INTERVAL   STATUS         READY
+connect      op-credentials          ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True
+dex          dex-secrets             ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True
+gitea        gitea-admin-secret      ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True
+grafana      grafana-secrets         ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True
+renovate     renovate-secret         ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True
+woodpecker   woodpecker-secret       ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True
+zot          registry-admin-secret   ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True
+---SEPARATOR---
+=== SECRET STORES ===
+---SEPARATOR---
+=== CLUSTER SECRET STORES ===
+NAME             AGE   STATUS   CAPABILITIES   READY
+global-secrets   66d   Valid    ReadWrite      True
+---SEPARATOR---
+=== MONITORING PODS ===
+NAME                                                     READY   STATUS    RESTARTS        AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+alertmanager-monitoring-system-kube-pro-alertmanager-0   3/3     Running   0               6h38m   10.0.7.111   bulbasaur    <none>           <none>
+monitoring-system-kube-pro-operator-5854fcf964-c6p4x     1/1     Running   0               6h48m   10.0.5.98    charmander   <none>           <none>
+monitoring-system-kube-state-metrics-99859855-74qq5      1/1     Running   0               6h22m   10.0.0.210   chikorita    <none>           <none>
+monitoring-system-prometheus-node-exporter-7fmwl         1/1     Running   1 (6h44m ago)   15h     10.0.20.13   bulbasaur    <none>           <none>
+monitoring-system-prometheus-node-exporter-7q477         1/1     Running   1 (6h54m ago)   15h     10.0.20.18   growlithe    <none>           <none>
+monitoring-system-prometheus-node-exporter-8n9x9         1/1     Running   1 (6h37m ago)   15h     10.0.20.15   chikorita    <none>           <none>
+monitoring-system-prometheus-node-exporter-b9dnr         1/1     Running   1 (6h58m ago)   15h     10.0.20.14   pikachu      <none>           <none>
+monitoring-system-prometheus-node-exporter-clclz         1/1     Running   1 (6h31m ago)   15h     10.0.20.20   sprigatito   <none>           <none>
+monitoring-system-prometheus-node-exporter-g7wdm         1/1     Running   1 (6h26m ago)   15h     10.0.20.19   arcanine     <none>           <none>
+monitoring-system-prometheus-node-exporter-v7k7s         1/1     Running   1 (7h3m ago)    15h     10.0.20.12   squirtle     <none>           <none>
+monitoring-system-prometheus-node-exporter-w7xt6         1/1     Running   1 (6h51m ago)   15h     10.0.20.11   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-xwglh         1/1     Running   1 (6h47m ago)   15h     10.0.20.17   totodile     <none>           <none>
+monitoring-system-prometheus-node-exporter-zbshj         1/1     Running   1 (6h20m ago)   15h     10.0.20.16   cyndaquil    <none>           <none>
+prometheus-monitoring-system-kube-pro-prometheus-0       2/2     Running   0               6h40m   10.0.5.50    charmander   <none>           <none>
+---SEPARATOR---
+=== GRAFANA PODS ===
+NAME                      READY   STATUS    RESTARTS   AGE     IP          NODE        NOMINATED NODE   READINESS GATES
+grafana-7848b8d88-mtb8v   3/3     Running   0          6h45m   10.0.1.84   growlithe   <none>           <none>
