@@ -73,15 +73,15 @@ app-template:
         - hosts:
             - *Host
           secretName: open-tls-certificate
-  # persistence:
-  #   data:
-  #     type: nfs
-  #     server: 10.0.40.3
-  #     path: /mnt/user/openwebui
-  #     advancedMounts:
-  #       main:
-  #         main:
-  #           - path: /app/backend/data
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/openwebui
+      advancedMounts:
+        main:
+          main:
+            - path: /app/backend/data
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/gsdumrejgu5tvtft4rutwtbdgy"
