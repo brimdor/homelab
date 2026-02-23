@@ -1,0 +1,2 @@
+NAME       READY   STATUS    RESTARTS   AGE     IP          NODE        NOMINATED NODE   READINESS GATES
+kanidm-0   1/1     Running   0          6h49m   10.0.3.67   cyndaquil   <none>           <none>

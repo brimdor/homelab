@@ -75,11 +75,22 @@
     - src: kube-vip.yaml.j2
       dest: "{{ k3s_data_dir }}/agent/pod-manifests/kube-vip.yaml"
 
+- name: Stop legacy k3s installer services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - k3s-agent.service
+    - k3s-server.service
+  ignore_errors: true
+
 - name: Enable k3s service
   ansible.builtin.systemd:
     name: k3s
     enabled: true
     state: started
+    daemon_reload: true
   register: k3s_service
   until: k3s_service is succeeded
   retries: 5

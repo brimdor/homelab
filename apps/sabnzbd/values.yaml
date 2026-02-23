@@ -134,14 +134,21 @@ app-template:
             - path: /config
           restore:
             - path: /config
-    nfs-intermediate:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/sabnzbd_inter
+    intermediate:
+      accessMode: ReadWriteOnce
+      size: 50Gi
       advancedMounts:
         main:
           main:
             - path: /incomplete-downloads
+    # nfs-intermediate:
+    #   type: nfs
+    #   server: 10.0.40.3
+    #   path: /mnt/user/sabnzbd_inter
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /incomplete-downloads
     nfs-backups:
       type: nfs
       server: 10.0.40.3

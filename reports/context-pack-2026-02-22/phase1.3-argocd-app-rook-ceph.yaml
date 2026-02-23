@@ -1,0 +1,1082 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  creationTimestamp: "2025-12-09T00:27:13Z"
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  generation: 28548
+  name: rook-ceph
+  namespace: argocd
+  ownerReferences:
+  - apiVersion: argoproj.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ApplicationSet
+    name: root
+    uid: b82ef8e1-9ab8-4f36-892e-bf561c86266d
+  resourceVersion: "281494666"
+  uid: 3e4d2555-dad5-4412-89a3-88efec46da20
+spec:
+  destination:
+    name: in-cluster
+    namespace: rook-ceph
+  ignoreDifferences:
+  - group: external-secrets.io
+    jsonPointers:
+    - /spec/data/0/remoteRef/conversionStrategy
+    - /spec/data/0/remoteRef/decodingStrategy
+    - /spec/data/0/remoteRef/metadataPolicy
+    - /spec/data/1/remoteRef/conversionStrategy
+    - /spec/data/1/remoteRef/decodingStrategy
+    - /spec/data/1/remoteRef/metadataPolicy
+    - /spec/data/2/remoteRef/conversionStrategy
+    - /spec/data/2/remoteRef/decodingStrategy
+    - /spec/data/2/remoteRef/metadataPolicy
+    - /spec/data/3/remoteRef/conversionStrategy
+    - /spec/data/3/remoteRef/decodingStrategy
+    - /spec/data/3/remoteRef/metadataPolicy
+    kind: ExternalSecret
+  - group: apps
+    jqPathExpressions:
+    - .spec.persistentVolumeClaimRetentionPolicy
+    - .spec.volumeClaimTemplates
+    - .spec.template.spec.containers[].resources
+    kind: StatefulSet
+  - group: ceph.rook.io
+    jqPathExpressions:
+    - .spec.csi
+    - .spec.monitoring
+    kind: CephCluster
+  - group: apiextensions.k8s.io
+    jqPathExpressions:
+    - .spec.conversion
+    - .status
+    kind: CustomResourceDefinition
+  project: default
+  source:
+    path: system/rook-ceph
+    repoURL: http://gitea-http.gitea:3000/ops/homelab
+    targetRevision: master
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 1m
+        factor: 2
+        maxDuration: 16m
+      limit: 10
+    syncOptions:
+    - CreateNamespace=true
+    - ApplyOutOfSyncOnly=true
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=true
+status:
+  controllerNamespace: argocd
+  health:
+    lastTransitionTime: "2026-02-20T08:57:04Z"
+    status: Degraded
+  history:
+  - deployStartedAt: "2026-02-12T22:39:22Z"
+    deployedAt: "2026-02-12T22:39:24Z"
+    id: 348
+    initiatedBy:
+      automated: true
+    revision: f4344307c62173f60828dec112838d9d8214dafa
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-12T22:50:56Z"
+    deployedAt: "2026-02-12T22:50:58Z"
+    id: 349
+    initiatedBy:
+      automated: true
+    revision: c7307da84686f084d706f7742b75d479cc0554f2
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-12T23:48:48Z"
+    deployedAt: "2026-02-12T23:48:53Z"
+    id: 350
+    initiatedBy:
+      automated: true
+    revision: ebf3bdfd9cfc921471a07c2438c8a5463f290e95
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-12T23:49:02Z"
+    deployedAt: "2026-02-12T23:49:05Z"
+    id: 351
+    initiatedBy:
+      automated: true
+    revision: a6c60f98be4922e652abc656c386990f76c1d46a
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-13T00:00:25Z"
+    deployedAt: "2026-02-13T00:00:27Z"
+    id: 352
+    initiatedBy:
+      automated: true
+    revision: 6dfb144f2d6025269bf2c1c24bba589d12978d9f
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-16T23:48:21Z"
+    deployedAt: "2026-02-16T23:48:23Z"
+    id: 353
+    initiatedBy:
+      automated: true
+    revision: 11961d1730a22cadbf1c249ba25001a31644c754
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-16T23:53:59Z"
+    deployedAt: "2026-02-16T23:54:01Z"
+    id: 354
+    initiatedBy:
+      automated: true
+    revision: e0fa1d58bf482c1b8b0f564e82d64611abc302e7
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-18T22:33:27Z"
+    deployedAt: "2026-02-18T22:33:29Z"
+    id: 355
+    initiatedBy:
+      automated: true
+    revision: 6b1574918f12e60b13ace293e7a0d32194f71602
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-18T22:42:39Z"
+    deployedAt: "2026-02-18T22:42:41Z"
+    id: 356
+    initiatedBy:
+      automated: true
+    revision: 8b3ec061ae16c5d39a25e717722ba16fd6374191
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-18T23:00:32Z"
+    deployedAt: "2026-02-18T23:00:34Z"
+    id: 357
+    initiatedBy:
+      automated: true
+    revision: cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d
+    source:
+      path: system/rook-ceph
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  operationState:
+    finishedAt: "2026-02-22T08:36:26Z"
+    message: successfully synced (all tasks run)
+    operation:
+      initiatedBy:
+        automated: true
+      retry:
+        backoff:
+          duration: 1m
+          factor: 2
+          maxDuration: 16m
+        limit: 10
+      sync:
+        autoHealAttemptsCount: 4
+        prune: true
+        resources:
+        - kind: Secret
+          name: rook-ceph-conversion-webhook
+        revision: cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d
+        source:
+          path: system/rook-ceph
+          repoURL: http://gitea-http.gitea:3000/ops/homelab
+          targetRevision: master
+        syncOptions:
+        - CreateNamespace=true
+        - ApplyOutOfSyncOnly=true
+        - ServerSideApply=true
+        - RespectIgnoreDifferences=true
+    phase: Succeeded
+    startedAt: "2026-02-22T08:36:24Z"
+    syncResult:
+      resources:
+      - group: ""
+        hookPhase: Running
+        kind: Secret
+        message: secret/rook-ceph-conversion-webhook serverside-applied
+        name: rook-ceph-conversion-webhook
+        namespace: rook-ceph
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      revision: cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d
+      source:
+        path: system/rook-ceph
+        repoURL: http://gitea-http.gitea:3000/ops/homelab
+        targetRevision: master
+  reconciledAt: "2026-02-22T23:50:43Z"
+  resourceHealthSource: appTree
+  resources:
+  - kind: ConfigMap
+    name: rook-ceph-operator-config
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: Secret
+    name: rook-ceph-conversion-webhook
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: Service
+    name: rook-ceph-conversion-webhook
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: ceph-csi-cephfs-ctrlplugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: ceph-csi-cephfs-nodeplugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: ceph-csi-controller-manager
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: ceph-csi-nfs-ctrlplugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: ceph-csi-nfs-nodeplugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: ceph-csi-rbd-ctrlplugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: ceph-csi-rbd-nodeplugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: objectstorage-provisioner
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-cmd-reporter
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-conversion-webhook
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-default
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-mgr
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-nvmeof
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-osd
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-purge-osd
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-rgw
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-snapshot-controller
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-ceph-system
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-csi-cephfs-plugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-csi-cephfs-provisioner-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-csi-rbd-plugin-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - kind: ServiceAccount
+    name: rook-csi-rbd-provisioner-sa
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephblockpoolradosnamespaces.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephblockpools.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephbucketnotifications.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephbuckettopics.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephclients.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephclusters.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephconnections.csi.ceph.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephcosidrivers.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephfilesystemmirrors.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephfilesystems.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephfilesystemsubvolumegroups.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephnfses.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephnvmeofgateways.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephobjectrealms.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephobjectstores.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephobjectstoreusers.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephobjectzonegroups.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephobjectzones.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: cephrbdmirrors.ceph.rook.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: clientprofilemappings.csi.ceph.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: clientprofiles.csi.ceph.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: drivers.csi.ceph.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: objectbucketclaims.objectbucket.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: objectbuckets.objectbucket.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: operatorconfigs.csi.ceph.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: volumegroupsnapshotclasses.groupsnapshot.storage.k8s.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: volumegroupsnapshotcontents.groupsnapshot.storage.k8s.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: volumegroupsnapshots.groupsnapshot.storage.k8s.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: volumesnapshotclasses.snapshot.storage.k8s.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: volumesnapshotcontents.snapshot.storage.k8s.io
+    status: Synced
+    version: v1
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+    name: volumesnapshots.snapshot.storage.k8s.io
+    status: Synced
+    version: v1
+  - group: apps
+    kind: Deployment
+    name: ceph-csi-controller-manager
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: apps
+    kind: Deployment
+    name: rook-ceph-conversion-webhook
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: apps
+    kind: Deployment
+    name: rook-ceph-operator
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: apps
+    kind: Deployment
+    name: rook-ceph-snapshot-controller
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: ceph.rook.io
+    kind: CephBlockPool
+    name: standard-rwo
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: ceph.rook.io
+    kind: CephCluster
+    name: rook-ceph
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: ceph.rook.io
+    kind: CephFilesystem
+    name: standard-rwx
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: ceph.rook.io
+    kind: CephFilesystemSubVolumeGroup
+    name: standard-rwx-csi
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: monitoring.coreos.com
+    kind: PrometheusRule
+    name: prometheus-ceph-rules
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-cephconnection-viewer-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-cephconnections-editor-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-cephfs-ctrlplugin-cr
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-cephfs-nodeplugin-cr
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-clientprofile-viewer-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-clientprofilemapping-editor-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-clientprofilemapping-viewer-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-clientprofiles-editor-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-driver-editor-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-driver-viewer-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-manager-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-metrics-auth-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-metrics-reader
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-nfs-ctrlplugin-cr
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-nfs-nodeplugin-cr
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-operatorconfig-editor-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-operatorconfig-viewer-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-rbd-ctrlplugin-cr
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: ceph-csi-rbd-nodeplugin-cr
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: cephfs-csi-nodeplugin
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: cephfs-external-provisioner-runner
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: objectstorage-provisioner-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rbd-csi-nodeplugin
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rbd-external-provisioner-runner
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-cluster-mgmt
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-global
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-mgr-cluster
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-mgr-system
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-object-bucket
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-osd
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-snapshot-controller
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: rook-ceph-system
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-cephfs-ctrlplugin-crb
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-cephfs-nodeplugin-crb
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-manager-rolebinding
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-metrics-auth-rolebinding
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-nfs-ctrlplugin-crb
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-nfs-nodeplugin-crb
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-rbd-ctrlplugin-crb
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: ceph-csi-rbd-nodeplugin-crb
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: cephfs-csi-nodeplugin-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: cephfs-csi-provisioner-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: objectstorage-provisioner-role-binding
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rbd-csi-nodeplugin
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rbd-csi-provisioner-role
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rook-ceph-global
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rook-ceph-mgr-cluster
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rook-ceph-object-bucket
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rook-ceph-osd
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rook-ceph-snapshot-controller
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+    name: rook-ceph-system
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: ceph-csi-cephfs-ctrlplugin-r
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: ceph-csi-cephfs-nodeplugin-r
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: ceph-csi-leader-election-role
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: ceph-csi-rbd-ctrlplugin-r
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: ceph-csi-rbd-nodeplugin-r
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: cephfs-external-provisioner-cfg
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rbd-external-provisioner-cfg
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-cmd-reporter
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-mgr
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-monitoring
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-monitoring-mgr
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-osd
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-purge-osd
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-snapshot-controller
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: Role
+    name: rook-ceph-system
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: ceph-csi-cephfs-ctrlplugin-rb
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: ceph-csi-cephfs-nodeplugin-rb
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: ceph-csi-leader-election-rolebinding
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: ceph-csi-rbd-ctrlplugin-rb
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: ceph-csi-rbd-nodeplugin-rb
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: cephfs-csi-provisioner-role-cfg
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rbd-csi-provisioner-role-cfg
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-cluster-mgmt
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-cmd-reporter
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-mgr
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-mgr-system
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-monitoring
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-monitoring-mgr
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-osd
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-purge-osd
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-snapshot-controller
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+    name: rook-ceph-system
+    namespace: rook-ceph
+    status: Synced
+    version: v1
+  - group: snapshot.storage.k8s.io
+    kind: VolumeSnapshotClass
+    name: ceph-block
+    status: Synced
+    version: v1
+  - group: snapshot.storage.k8s.io
+    kind: VolumeSnapshotClass
+    name: ceph-filesystem
+    status: Synced
+    version: v1
+  - group: storage.k8s.io
+    kind: StorageClass
+    name: standard-rwo
+    status: Synced
+    version: v1
+  - group: storage.k8s.io
+    kind: StorageClass
+    name: standard-rwx
+    status: Synced
+    version: v1
+  sourceHydrator: {}
+  sourceType: Helm
+  summary:
+    images:
+    - docker.io/rook/ceph:v1.19.1
+    - ghcr.io/piraeusdatastore/snapshot-conversion-webhook:v8.4.0
+    - quay.io/ceph/ceph:v20.2.0
+    - quay.io/cephcsi/ceph-csi-operator:v0.5.0
+    - registry.k8s.io/sig-storage/snapshot-controller:v8.4.0
+  sync:
+    comparedTo:
+      destination:
+        name: in-cluster
+        namespace: rook-ceph
+      ignoreDifferences:
+      - group: external-secrets.io
+        jsonPointers:
+        - /spec/data/0/remoteRef/conversionStrategy
+        - /spec/data/0/remoteRef/decodingStrategy
+        - /spec/data/0/remoteRef/metadataPolicy
+        - /spec/data/1/remoteRef/conversionStrategy
+        - /spec/data/1/remoteRef/decodingStrategy
+        - /spec/data/1/remoteRef/metadataPolicy
+        - /spec/data/2/remoteRef/conversionStrategy
+        - /spec/data/2/remoteRef/decodingStrategy
+        - /spec/data/2/remoteRef/metadataPolicy
+        - /spec/data/3/remoteRef/conversionStrategy
+        - /spec/data/3/remoteRef/decodingStrategy
+        - /spec/data/3/remoteRef/metadataPolicy
+        kind: ExternalSecret
+      - group: apps
+        jqPathExpressions:
+        - .spec.persistentVolumeClaimRetentionPolicy
+        - .spec.volumeClaimTemplates
+        - .spec.template.spec.containers[].resources
+        kind: StatefulSet
+      - group: ceph.rook.io
+        jqPathExpressions:
+        - .spec.csi
+        - .spec.monitoring
+        kind: CephCluster
+      - group: apiextensions.k8s.io
+        jqPathExpressions:
+        - .spec.conversion
+        - .status
+        kind: CustomResourceDefinition
+      source:
+        path: system/rook-ceph
+        repoURL: http://gitea-http.gitea:3000/ops/homelab
+        targetRevision: master
+    revision: cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d
+    status: Synced

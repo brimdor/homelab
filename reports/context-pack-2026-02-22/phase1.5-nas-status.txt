@@ -1,0 +1,2 @@
+nas_script=~/.config/opencode/scripts/homelab-nas-check.sh
+exit_code=1

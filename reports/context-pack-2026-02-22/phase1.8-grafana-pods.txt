@@ -1,0 +1,2 @@
+NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE        NOMINATED NODE   READINESS GATES
+grafana-5d876dccd9-r6g56   3/3     Running   0          15h   10.0.7.159   bulbasaur   <none>           <none>

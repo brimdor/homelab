@@ -1,0 +1,8 @@
+rook_ceph_pods=0
+ceph_health=0
+ceph_status=0
+ceph_health_detail=0
+ceph_df=0
+ceph_osd_tree=0
+ceph_pg_stat=0
+health_ok=0

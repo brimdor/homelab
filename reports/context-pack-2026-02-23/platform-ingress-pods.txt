@@ -1,0 +1,2 @@
+NAME                                        READY   STATUS    RESTARTS   AGE     IP           NODE       NOMINATED NODE   READINESS GATES
+ingress-nginx-controller-58fc675dc8-dlljj   1/1     Running   0          6h50m   10.0.6.107   squirtle   <none>           <none>

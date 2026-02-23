@@ -1,0 +1,5 @@
+[0;32mKubernetes control plane[0m is running at [0;33mhttps://10.0.20.50:6443[0m
+[0;32mCoreDNS[0m is running at [0;33mhttps://10.0.20.50:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy[0m
+[0;32mMetrics-server[0m is running at [0;33mhttps://10.0.20.50:6443/api/v1/namespaces/kube-system/services/https:metrics-server:https/proxy[0m
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.

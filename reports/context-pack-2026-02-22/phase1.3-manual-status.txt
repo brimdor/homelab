@@ -1,0 +1,7 @@
+nodes_wide=0
+nodes_top=0
+pods_all=0
+pods_nonrunning=0
+argocd_apps=0
+argocd_nonhealthy=0
+events_last200=0

@@ -1,0 +1,6 @@
+{
+  "login": "gitea_admin",
+  "id": 1,
+  "full_name": "",
+  "email": "gitea@local.domain"
+}

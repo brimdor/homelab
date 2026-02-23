@@ -1,0 +1,4 @@
+open_prs=0
+open_issues_non_maintenance=0
+open_prs_detailed=0
+dependency_dashboard_issue=4

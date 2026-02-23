@@ -1,0 +1,4 @@
+Issue #66: Ceph prometheus mgr module crash causes HEALTH_ERR in rook-ceph
+Issue #65: chore(deps): update helm release kube-prometheus-stack to v82
+Issue #63: chore(deps): update all non-major dependencies
+Issue #4: Dependency Dashboard

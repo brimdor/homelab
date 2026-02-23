@@ -1,0 +1,300 @@
+2026-02-20 09:26:02.987611 I | disruption: Set noout on draining Failure Domain: "true"
+2026-02-20 09:26:03.481435 I | disruption: reconciling osd pdb controller
+2026-02-20 09:26:19.450289 I | disruption: OSDs are up but PGs are not clean from previous drain event. PGs Status: "cluster is not fully clean. PGs: [{StateName:active+clean Count:176} {StateName:active+remapped+backfilling Count:1}]"
+2026-02-20 09:26:19.450305 I | disruption: OSD failure Domains : ["arcanine" "bulbasaur" "chikorita" "cyndaquil" "growlithe" "sprigatito"]
+2026-02-20 09:26:19.450309 I | disruption: Draining Failure Domain: "bulbasaur"
+2026-02-20 09:26:19.450312 I | disruption: Set noout on draining Failure Domain: "true"
+2026-02-20 09:26:19.884986 I | disruption: reconciling osd pdb controller
+2026-02-20 09:26:36.019668 I | disruption: OSDs are up but PGs are not clean from previous drain event. PGs Status: "cluster is not fully clean. PGs: [{StateName:active+clean Count:176} {StateName:active+remapped+backfilling Count:1}]"
+2026-02-20 09:26:36.019683 I | disruption: OSD failure Domains : ["arcanine" "bulbasaur" "chikorita" "cyndaquil" "growlithe" "sprigatito"]
+2026-02-20 09:26:36.019688 I | disruption: Draining Failure Domain: "bulbasaur"
+2026-02-20 09:26:36.019691 I | disruption: Set noout on draining Failure Domain: "true"
+2026-02-20 09:26:36.450488 I | disruption: reconciling osd pdb controller
+2026-02-20 09:26:54.313041 I | disruption: OSDs are up but PGs are not clean from previous drain event. PGs Status: "cluster is not fully clean. PGs: [{StateName:active+clean Count:176} {StateName:active+remapped+backfilling Count:1}]"
+2026-02-20 09:26:54.313056 I | disruption: OSD failure Domains : ["arcanine" "bulbasaur" "chikorita" "cyndaquil" "growlithe" "sprigatito"]
+2026-02-20 09:26:54.313061 I | disruption: Draining Failure Domain: "bulbasaur"
+2026-02-20 09:26:54.313064 I | disruption: Set noout on draining Failure Domain: "true"
+2026-02-20 09:26:54.736279 I | disruption: reconciling osd pdb controller
+2026-02-20 09:27:13.570643 I | disruption: OSDs are up but PGs are not clean from previous drain event. PGs Status: "cluster is not fully clean. PGs: [{StateName:active+clean Count:176} {StateName:active+remapped+backfilling Count:1}]"
+2026-02-20 09:27:13.570659 I | disruption: OSD failure Domains : ["arcanine" "bulbasaur" "chikorita" "cyndaquil" "growlithe" "sprigatito"]
+2026-02-20 09:27:13.570662 I | disruption: Draining Failure Domain: "bulbasaur"
+2026-02-20 09:27:13.570666 I | disruption: Set noout on draining Failure Domain: "true"
+2026-02-20 09:27:13.994196 I | disruption: reconciling osd pdb controller
+2026-02-20 09:27:31.395343 I | disruption: OSDs are up but PGs are not clean from previous drain event. PGs Status: "cluster is not fully clean. PGs: [{StateName:active+clean Count:176} {StateName:active+remapped+backfilling Count:1}]"
+2026-02-20 09:27:31.395359 I | disruption: OSD failure Domains : ["arcanine" "bulbasaur" "chikorita" "cyndaquil" "growlithe" "sprigatito"]
+2026-02-20 09:27:31.395363 I | disruption: Draining Failure Domain: "bulbasaur"
+2026-02-20 09:27:31.395366 I | disruption: Set noout on draining Failure Domain: "true"
+2026-02-20 09:27:34.265662 I | disruption: reconciling osd pdb controller
+2026-02-20 09:27:50.248965 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 09:27:50.248998 I | disruption: all PGs are active+clean. Restoring default OSD pdb settings
+2026-02-20 09:27:50.249003 I | disruption: creating the default pdb "rook-ceph-osd" with maxUnavailable=1 for all osd
+2026-02-20 09:27:50.256268 I | disruption: deleting temporary blocking pdb with "rook-ceph-osd-host-arcanine" with maxUnavailable=0 for "host" failure domain "arcanine"
+2026-02-20 09:27:50.263011 I | disruption: deleting temporary blocking pdb with "rook-ceph-osd-host-chikorita" with maxUnavailable=0 for "host" failure domain "chikorita"
+2026-02-20 09:27:50.270868 I | disruption: deleting temporary blocking pdb with "rook-ceph-osd-host-cyndaquil" with maxUnavailable=0 for "host" failure domain "cyndaquil"
+2026-02-20 09:27:50.278002 I | disruption: deleting temporary blocking pdb with "rook-ceph-osd-host-growlithe" with maxUnavailable=0 for "host" failure domain "growlithe"
+2026-02-20 09:27:50.286134 I | disruption: deleting temporary blocking pdb with "rook-ceph-osd-host-sprigatito" with maxUnavailable=0 for "host" failure domain "sprigatito"
+2026-02-20 09:27:50.734479 I | disruption: successfully reconciled OSD PDB controller
+2026-02-20 09:59:46.288408 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 09:59:47.541786 I | disruption: reconciling osd pdb controller
+2026-02-20 10:00:18.516045 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 10:00:18.948352 I | disruption: successfully reconciled OSD PDB controller
+I0220 15:57:59.648977       1 reflector.go:578] "Warning: watch ended with error" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="*v1alpha1.ObjectBucketClaim" err="an error on the server (\"unable to decode an event from the watch stream: http2: client connection lost\") has prevented the request from succeeding"
+I0220 15:57:59.649047       1 reflector.go:578] "Warning: watch ended with error" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="*v1alpha1.ObjectBucket" err="an error on the server (\"unable to decode an event from the watch stream: http2: client connection lost\") has prevented the request from succeeding"
+2026-02-20 15:57:59.888047 E | cluster-controller: [rook-ceph] failed to get ceph status. failed to get status. . timed out: exit status 1
+2026-02-20 15:57:59.889043 E | cluster-controller: [rook-ceph] failed to retrieve ceph cluster "rook-ceph" in namespace "rook-ceph" to update status to &{Health:{Status:HEALTH_ERR Checks:map[error:{Severity:Urgent Summary:{Message:failed to get status. . timed out: exit status 1}}]} FSID: ElectionEpoch:0 Quorum:[] QuorumNames:[] MonMap:{Epoch:0 NumMons:0 FSID: CreatedTime: ModifiedTime: Mons:[]} OsdMap:{Epoch:0 NumOsd:0 NumUpOsd:0 NumInOsd:0 Full:false NearFull:false NumRemappedPgs:0} PgMap:{PgsByState:[] Version:0 NumPgs:0 DataBytes:0 UsedBytes:0 AvailableBytes:0 TotalBytes:0 ReadBps:0 WriteBps:0 ReadOps:0 WriteOps:0 RecoveryBps:0 RecoveryObjectsPerSec:0 RecoveryKeysPerSec:0 CacheFlushBps:0 CacheEvictBps:0 CachePromoteBps:0} MgrMap:{Epoch:0 ActiveGID:0 ActiveName: ActiveAddr: Available:false Standbys:[]} Fsmap:{Epoch:0 ID:0 Up:0 In:0 Max:0 ByRank:[] UpStandby:0}}
+E0220 15:58:17.956739       1 reflector.go:204] "Failed to watch" err="failed to list *v1alpha1.ObjectBucket: storage is (re)initializing" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="*v1alpha1.ObjectBucket"
+E0220 15:58:18.070010       1 reflector.go:204] "Failed to watch" err="failed to list *v1alpha1.ObjectBucketClaim: storage is (re)initializing" logger="UnhandledError" reflector="pkg/mod/k8s.io/client-go@v0.35.0/tools/cache/reflector.go:289" type="*v1alpha1.ObjectBucketClaim"
+2026-02-20 15:58:22.991132 W | op-mon: [rook-ceph] failed to check mon health. failed to check for mons to skip reconcile: failed to query "mon" to skip reconcile: etcdserver: request timed out
+2026-02-20 15:58:24.661026 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-20 15:58:24.824885 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-20 15:58:25.796596 I | disruption: successfully reconciled OSD PDB controller
+2026-02-20 15:58:27.277096 I | disruption: successfully reconciled OSD PDB controller
+2026-02-20 15:58:58.254948 I | cluster-controller: [rook-ceph/rook-ceph] reconciling ceph cluster
+2026-02-20 15:58:58.259610 I | ceph-spec: parsing mon endpoints: j=10.43.217.162:6789,f=10.43.153.86:6789,h=10.43.243.67:6789
+2026-02-20 15:58:58.287745 I | ceph-spec: detecting the ceph image version for image quay.io/ceph/ceph:v20.2.0...
+2026-02-20 15:59:00.132423 I | ceph-spec: detected ceph image version: "20.2.0-0 tentacle"
+2026-02-20 15:59:00.132440 I | cluster-controller: [rook-ceph] validating ceph version from provided image
+2026-02-20 15:59:00.156871 I | ceph-spec: parsing mon endpoints: j=10.43.217.162:6789,f=10.43.153.86:6789,h=10.43.243.67:6789
+2026-02-20 15:59:00.159845 I | cephclient: writing config file /var/lib/rook/rook-ceph/rook-ceph.config
+2026-02-20 15:59:00.159953 I | cephclient: generated admin config in /var/lib/rook/rook-ceph
+2026-02-20 15:59:00.703999 I | cluster-controller: [rook-ceph] cluster "rook-ceph": version "20.2.0-0 tentacle" detected for image "quay.io/ceph/ceph:v20.2.0"
+2026-02-20 15:59:00.745989 I | op-mon: [rook-ceph] start running mons
+2026-02-20 15:59:00.750016 I | ceph-spec: parsing mon endpoints: j=10.43.217.162:6789,f=10.43.153.86:6789,h=10.43.243.67:6789
+2026-02-20 15:59:00.765707 I | op-mon: [rook-ceph] saved mon endpoints to config map map[csi-cluster-config-json:[{"clusterID":"rook-ceph","monitors":["10.43.217.162:6789","10.43.153.86:6789","10.43.243.67:6789"],"cephFS":{"netNamespaceFilePath":"","subvolumeGroup":"","radosNamespace":"","kernelMountOptions":"","fuseMountOptions":""},"rbd":{"netNamespaceFilePath":"","radosNamespace":"","mirrorDaemonCount":0},"nfs":{"netNamespaceFilePath":""},"readAffinity":{"enabled":false,"crushLocationLabels":null},"namespace":""}] data:j=10.43.217.162:6789,f=10.43.153.86:6789,h=10.43.243.67:6789 externalMons: mapping:{"node":{"f":{"Name":"bulbasaur","Hostname":"bulbasaur","Address":"10.0.50.123"},"h":{"Name":"charmander","Hostname":"charmander","Address":"10.0.50.121"},"j":{"Name":"cyndaquil","Hostname":"cyndaquil","Address":"10.0.20.16"}}} maxMonId:9 outOfQuorum:]
+2026-02-20 15:59:00.771398 I | op-mon: [rook-ceph] created/updated IPv4 endpointslice with addresses: [10.43.217.162 10.43.153.86 10.43.243.67]
+2026-02-20 15:59:01.024209 E | cluster-controller: [rook-ceph] failed to update cluster status to &{Health:{Status:HEALTH_ERR Checks:map[MGR_MODULE_ERROR:{Severity:HEALTH_ERR Summary:{Message:Module 'prometheus' has failed: not all arguments converted during string formatting}} OSD_DOWN:{Severity:HEALTH_WARN Summary:{Message:1 osds down}} OSD_HOST_DOWN:{Severity:HEALTH_WARN Summary:{Message:1 host (1 osds) down}} OSD_SLOW_PING_TIME_BACK:{Severity:HEALTH_WARN Summary:{Message:Slow OSD heartbeats on back (longest 6041.663ms)}} OSD_SLOW_PING_TIME_FRONT:{Severity:HEALTH_WARN Summary:{Message:Slow OSD heartbeats on front (longest 6041.628ms)}} PG_DEGRADED:{Severity:HEALTH_WARN Summary:{Message:Degraded data redundancy: 38980/329834 objects degraded (11.818%), 33 pgs degraded}} RECENT_MGR_MODULE_CRASH:{Severity:HEALTH_WARN Summary:{Message:4 mgr modules have recently crashed}} SLOW_OPS:{Severity:HEALTH_WARN Summary:{Message:6 slow ops, oldest one blocked for 38 sec, mon.f has slow ops}}]} FSID:13c20377-d801-43f9-aebd-59f62df5dad1 ElectionEpoch:5338 Quorum:[0 1 2] QuorumNames:[f h j] MonMap:{Epoch:19 NumMons:3 FSID: CreatedTime: ModifiedTime: Mons:[]} OsdMap:{Epoch:11926 NumOsd:7 NumUpOsd:6 NumInOsd:7 Full:false NearFull:false NumRemappedPgs:0} PgMap:{PgsByState:[{StateName:active+clean Count:136} {StateName:active+undersized+degraded Count:33} {StateName:active+undersized Count:8}] Version:0 NumPgs:177 DataBytes:686459225701 UsedBytes:1375043051520 AvailableBytes:2363535491072 TotalBytes:3738578542592 ReadBps:11169 WriteBps:111187 ReadOps:4 WriteOps:9 RecoveryBps:0 RecoveryObjectsPerSec:0 RecoveryKeysPerSec:0 CacheFlushBps:0 CacheEvictBps:0 CachePromoteBps:0} MgrMap:{Epoch:0 ActiveGID:0 ActiveName: ActiveAddr: Available:true Standbys:[]} Fsmap:{Epoch:20279 ID:1 Up:1 In:1 Max:1 ByRank:[{FilesystemID:1 Rank:0 Name:standard-rwx-a Status:up:standby-replay Gid:159599487} {FilesystemID:1 Rank:0 Name:standard-rwx-b Status:up:active Gid:159606683}] UpStandby:0}}. failed to update object "rook-ceph/rook-ceph" status: Operation cannot be fulfilled on cephclusters.ceph.rook.io "rook-ceph": the object has been modified; please apply your changes to the latest version and try again
+2026-02-20 15:59:01.518895 I | cephclient: writing config file /var/lib/rook/rook-ceph/rook-ceph.config
+2026-02-20 15:59:01.519295 I | cephclient: generated admin config in /var/lib/rook/rook-ceph
+2026-02-20 15:59:01.519347 I | ceph-csi: Configuring ceph connection CR "rook-ceph" in namespace "rook-ceph"
+2026-02-20 15:59:01.523943 I | ceph-csi: Successfully updated ceph connection CR "rook-ceph"
+2026-02-20 15:59:01.523977 I | ceph-csi: Creating ceph-csi clientProfile default CR
+2026-02-20 15:59:01.528483 I | ceph-csi: successfully updated ceph-csi for clientProfile CR "rook-ceph"
+2026-02-20 15:59:02.718867 I | op-mon: [rook-ceph] targeting the mon count 3
+2026-02-20 15:59:02.723714 I | op-config: applying ceph settings for "global"
+2026-02-20 15:59:03.156209 I | op-config: successfully applied settings to the mon configuration database
+2026-02-20 15:59:03.156441 I | op-config: applying ceph settings for "global"
+2026-02-20 15:59:03.573094 I | op-config: successfully applied settings to the mon configuration database
+2026-02-20 15:59:03.573146 I | op-config: deleting "global" "log file" option from the mon configuration database
+2026-02-20 15:59:03.994638 I | op-config: successfully deleted "log file" option from the mon configuration database
+2026-02-20 15:59:03.994654 I | op-mon: [rook-ceph] checking for basic quorum with existing mons
+2026-02-20 15:59:04.017678 I | op-mon: [rook-ceph] mon "j" cluster IP is 10.43.217.162
+2026-02-20 15:59:04.319970 I | op-mon: [rook-ceph] mon "f" cluster IP is 10.43.153.86
+2026-02-20 15:59:05.123762 I | op-mon: [rook-ceph] mon "h" cluster IP is 10.43.243.67
+2026-02-20 15:59:05.718571 I | op-mon: [rook-ceph] saved mon endpoints to config map map[csi-cluster-config-json:[{"clusterID":"rook-ceph","monitors":["10.43.217.162:6789","10.43.153.86:6789","10.43.243.67:6789"],"cephFS":{"netNamespaceFilePath":"","subvolumeGroup":"","radosNamespace":"","kernelMountOptions":"","fuseMountOptions":""},"rbd":{"netNamespaceFilePath":"","radosNamespace":"","mirrorDaemonCount":0},"nfs":{"netNamespaceFilePath":""},"readAffinity":{"enabled":false,"crushLocationLabels":null},"namespace":""}] data:j=10.43.217.162:6789,f=10.43.153.86:6789,h=10.43.243.67:6789 externalMons: mapping:{"node":{"f":{"Name":"bulbasaur","Hostname":"bulbasaur","Address":"10.0.50.123"},"h":{"Name":"charmander","Hostname":"charmander","Address":"10.0.50.121"},"j":{"Name":"cyndaquil","Hostname":"cyndaquil","Address":"10.0.20.16"}}} maxMonId:9 outOfQuorum:]
+2026-02-20 15:59:05.726069 I | op-mon: [rook-ceph] created/updated IPv4 endpointslice with addresses: [10.43.217.162 10.43.153.86 10.43.243.67]
+2026-02-20 15:59:06.318183 I | cephclient: writing config file /var/lib/rook/rook-ceph/rook-ceph.config
+2026-02-20 15:59:06.318382 I | cephclient: generated admin config in /var/lib/rook/rook-ceph
+2026-02-20 15:59:06.318509 I | ceph-csi: Configuring ceph connection CR "rook-ceph" in namespace "rook-ceph"
+2026-02-20 15:59:06.321834 I | ceph-csi: Successfully updated ceph connection CR "rook-ceph"
+2026-02-20 15:59:06.321846 I | ceph-csi: Creating ceph-csi clientProfile default CR
+2026-02-20 15:59:06.325602 I | ceph-csi: successfully updated ceph-csi for clientProfile CR "rook-ceph"
+2026-02-20 15:59:06.328813 I | op-mon: [rook-ceph] starting mon "j"
+2026-02-20 15:59:06.332170 I | op-mon: [rook-ceph] deployment for mon rook-ceph-mon-j already exists. updating if needed
+2026-02-20 15:59:06.340921 I | op-k8sutil: updating deployment "rook-ceph-mon-j" after verifying it is safe to stop
+2026-02-20 15:59:06.340990 I | op-mon: [rook-ceph] checking if we can stop the deployment rook-ceph-mon-j
+2026-02-20 15:59:10.456774 I | op-k8sutil: finished waiting for updated deployment "rook-ceph-mon-j"
+2026-02-20 15:59:10.456809 I | op-mon: [rook-ceph] checking if we can continue the deployment rook-ceph-mon-j
+2026-02-20 15:59:10.456832 I | op-mon: [rook-ceph] waiting for mon quorum with [j f h]
+2026-02-20 15:59:10.466165 I | op-mon: [rook-ceph] mons running: [j f h]
+2026-02-20 15:59:11.024162 I | op-mon: [rook-ceph] Monitors in quorum: [f h j]
+2026-02-20 15:59:11.024177 I | op-mon: [rook-ceph] starting mon "f"
+2026-02-20 15:59:11.033897 I | op-mon: [rook-ceph] deployment for mon rook-ceph-mon-f already exists. updating if needed
+2026-02-20 15:59:11.044933 I | op-k8sutil: updating deployment "rook-ceph-mon-f" after verifying it is safe to stop
+2026-02-20 15:59:11.044949 I | op-mon: [rook-ceph] checking if we can stop the deployment rook-ceph-mon-f
+2026-02-20 15:59:15.221075 I | op-k8sutil: finished waiting for updated deployment "rook-ceph-mon-f"
+2026-02-20 15:59:15.221109 I | op-mon: [rook-ceph] checking if we can continue the deployment rook-ceph-mon-f
+2026-02-20 15:59:15.221130 I | op-mon: [rook-ceph] waiting for mon quorum with [j f h]
+2026-02-20 15:59:15.230536 I | op-mon: [rook-ceph] mons running: [j f h]
+2026-02-20 15:59:15.784427 I | op-mon: [rook-ceph] Monitors in quorum: [f h j]
+2026-02-20 15:59:15.784442 I | op-mon: [rook-ceph] starting mon "h"
+2026-02-20 15:59:15.788999 I | op-mon: [rook-ceph] deployment for mon rook-ceph-mon-h already exists. updating if needed
+2026-02-20 15:59:15.796625 I | op-k8sutil: updating deployment "rook-ceph-mon-h" after verifying it is safe to stop
+2026-02-20 15:59:15.796637 I | op-mon: [rook-ceph] checking if we can stop the deployment rook-ceph-mon-h
+2026-02-20 15:59:19.908800 I | op-k8sutil: finished waiting for updated deployment "rook-ceph-mon-h"
+2026-02-20 15:59:19.908834 I | op-mon: [rook-ceph] checking if we can continue the deployment rook-ceph-mon-h
+2026-02-20 15:59:19.908857 I | op-mon: [rook-ceph] waiting for mon quorum with [j f h]
+2026-02-20 15:59:19.918830 I | op-mon: [rook-ceph] mons running: [j f h]
+2026-02-20 15:59:20.469500 I | op-mon: [rook-ceph] Monitors in quorum: [f h j]
+2026-02-20 15:59:20.469515 I | op-mon: [rook-ceph] mons created: 3
+2026-02-20 15:59:20.997569 I | op-mon: [rook-ceph] waiting for mon quorum with [j f h]
+2026-02-20 15:59:21.102456 I | op-mon: [rook-ceph] mons running: [j f h]
+2026-02-20 15:59:21.661311 I | op-mon: [rook-ceph] Monitors in quorum: [f h j]
+2026-02-20 15:59:21.661327 I | ceph-spec: [rook-ceph] not applying network settings for ceph networks
+2026-02-20 15:59:21.684885 I | op-mon: [rook-ceph] successfully updated the cephx status for mon daemon in the namespace "rook-ceph"
+2026-02-20 15:59:21.684899 I | ceph-csi: getting CephCluster rook-ceph during CSI key creation in namespace rook-ceph
+2026-02-20 15:59:22.223736 I | cephclient: getting or creating ceph auth key "client.csi-rbd-provisioner"
+2026-02-20 15:59:23.300858 I | cephclient: getting or creating ceph auth key "client.csi-rbd-node"
+2026-02-20 15:59:24.378800 I | cephclient: getting or creating ceph auth key "client.csi-cephfs-provisioner"
+2026-02-20 15:59:25.470783 I | cephclient: getting or creating ceph auth key "client.csi-cephfs-node"
+2026-02-20 15:59:26.036427 I | ceph-csi: created kubernetes csi secrets for cluster "rook-ceph"
+2026-02-20 15:59:26.036447 I | ceph-csi: updating cephCluster rook-ceph cephStatus with CSI cephxStatus in namespace rook-ceph
+2026-02-20 15:59:26.049633 I | cephclient: getting or creating ceph auth key "client.crash"
+2026-02-20 15:59:26.677522 I | nodedaemon: [rook-ceph] created kubernetes crash collector secret
+2026-02-20 15:59:26.677535 I | cephclient: getting or creating ceph auth key "client.ceph-exporter"
+2026-02-20 15:59:27.243934 I | nodedaemon: [rook-ceph] created kubernetes exporter secret for cluster "rook-ceph"
+2026-02-20 15:59:27.243948 I | op-config: deleting "global" "ms_service_mode" option from the mon configuration database
+2026-02-20 15:59:27.661930 I | op-config: successfully deleted "ms_service_mode" option from the mon configuration database
+2026-02-20 15:59:27.661945 I | op-config: deleting "global" "ms_client_mode" option from the mon configuration database
+2026-02-20 15:59:28.076031 I | op-config: successfully deleted "ms_client_mode" option from the mon configuration database
+2026-02-20 15:59:28.076045 I | op-config: deleting "global" "rbd_default_map_options" option from the mon configuration database
+2026-02-20 15:59:28.507697 I | op-config: successfully deleted "rbd_default_map_options" option from the mon configuration database
+2026-02-20 15:59:28.507711 I | op-config: deleting "global" "ms_cluster_mode" option from the mon configuration database
+2026-02-20 15:59:28.927888 I | op-config: successfully deleted "ms_cluster_mode" option from the mon configuration database
+2026-02-20 15:59:28.927903 I | op-config: deleting "global" "ms_osd_compress_mode" option from the mon configuration database
+2026-02-20 15:59:29.340910 I | op-config: successfully deleted "ms_osd_compress_mode" option from the mon configuration database
+2026-02-20 15:59:29.340986 I | cephclient: create rbd-mirror bootstrap peer token "client.rbd-mirror-peer"
+2026-02-20 15:59:29.340991 I | cephclient: getting or creating ceph auth key "client.rbd-mirror-peer"
+2026-02-20 15:59:29.886971 I | cephclient: successfully created rbd-mirror bootstrap peer token for cluster "rook-ceph"
+2026-02-20 15:59:29.933771 I | cephclient: deleting ceph auth "client.bootstrap-mds"
+2026-02-20 15:59:30.493958 I | cluster-controller: [rook-ceph] successfully deleted bootstrap key "client.bootstrap-mds"
+2026-02-20 15:59:30.493973 I | cephclient: deleting ceph auth "client.bootstrap-mgr"
+2026-02-20 15:59:31.034901 I | cluster-controller: [rook-ceph] successfully deleted bootstrap key "client.bootstrap-mgr"
+2026-02-20 15:59:31.034915 I | cephclient: deleting ceph auth "client.bootstrap-rbd"
+2026-02-20 15:59:31.570133 I | cluster-controller: [rook-ceph] successfully deleted bootstrap key "client.bootstrap-rbd"
+2026-02-20 15:59:31.570146 I | cephclient: deleting ceph auth "client.bootstrap-rbd-mirror"
+2026-02-20 15:59:32.103782 I | cluster-controller: [rook-ceph] successfully deleted bootstrap key "client.bootstrap-rbd-mirror"
+2026-02-20 15:59:32.103796 I | cephclient: deleting ceph auth "client.bootstrap-rgw"
+2026-02-20 15:59:32.650822 I | cluster-controller: [rook-ceph] successfully deleted bootstrap key "client.bootstrap-rgw"
+2026-02-20 15:59:32.682348 I | op-mgr: [rook-ceph] start running mgr
+2026-02-20 15:59:32.688811 I | cephclient: getting or creating ceph auth key "mgr.a"
+2026-02-20 15:59:33.271742 I | op-mgr: [rook-ceph] deployment for mgr rook-ceph-mgr-a already exists. updating if needed
+2026-02-20 15:59:33.278200 I | op-k8sutil: deployment "rook-ceph-mgr-a" did not change, nothing to update
+2026-02-20 15:59:33.278219 I | cephclient: getting or creating ceph auth key "mgr.b"
+2026-02-20 15:59:33.917188 I | op-mgr: [rook-ceph] deployment for mgr rook-ceph-mgr-b already exists. updating if needed
+2026-02-20 15:59:33.935147 I | op-k8sutil: deployment "rook-ceph-mgr-b" did not change, nothing to update
+2026-02-20 15:59:33.963435 I | op-mgr: [rook-ceph] successfully updated the cephx status for mgr daemon
+2026-02-20 15:59:34.024906 I | op-mgr: [rook-ceph] successful modules: balancer
+2026-02-20 15:59:34.025083 I | op-mgr: [rook-ceph] successful modules: mgr module(s) from the spec
+2026-02-20 15:59:34.038960 I | op-osd: [rook-ceph] Starting validateTopologyAcrossNodes()
+2026-02-20 15:59:34.105730 I | op-osd: [rook-ceph] start running osds in namespace "rook-ceph"
+2026-02-20 15:59:34.105783 I | op-osd: [rook-ceph] wait timeout for healthy OSDs during upgrade or restart is "10m0s"
+2026-02-20 15:59:34.122705 I | op-osd: [rook-ceph] start provisioning the OSDs on PVCs, if needed
+2026-02-20 15:59:34.303733 W | op-osd: [rook-ceph] timed out waiting for PVC size to be updated, osds may need to be restarted manually after resize
+2026-02-20 15:59:34.303748 I | op-osd: [rook-ceph] no storageClassDeviceSets defined to configure OSDs on PVCs
+2026-02-20 15:59:34.303752 I | op-osd: [rook-ceph] start provisioning the OSDs on nodes, if needed
+2026-02-20 15:59:34.710659 I | op-osd: [rook-ceph] 10 of the 10 storage nodes are valid
+2026-02-20 15:59:35.107175 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-arcanine to start a new one
+2026-02-20 15:59:35.114041 I | op-k8sutil: batch job rook-ceph-osd-prepare-arcanine still exists
+2026-02-20 15:59:35.585725 I | op-mgr: [rook-ceph] successful modules: prometheus
+2026-02-20 15:59:38.116987 I | op-k8sutil: batch job rook-ceph-osd-prepare-arcanine deleted
+2026-02-20 15:59:38.122936 I | op-osd: [rook-ceph] started OSD provisioning job for node "arcanine"
+2026-02-20 15:59:38.134152 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-charmander to start a new one
+2026-02-20 15:59:38.144058 I | op-k8sutil: batch job rook-ceph-osd-prepare-charmander still exists
+2026-02-20 15:59:40.569886 I | op-mgr: [rook-ceph] the dashboard secret was already generated
+2026-02-20 15:59:40.569917 I | op-mgr: [rook-ceph] setting ceph dashboard "admin" login creds
+2026-02-20 15:59:41.146767 I | op-k8sutil: batch job rook-ceph-osd-prepare-charmander deleted
+2026-02-20 15:59:41.151958 I | op-osd: [rook-ceph] started OSD provisioning job for node "charmander"
+2026-02-20 15:59:41.162173 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-growlithe to start a new one
+2026-02-20 15:59:41.171242 I | op-k8sutil: batch job rook-ceph-osd-prepare-growlithe still exists
+2026-02-20 15:59:41.855071 I | op-mgr: [rook-ceph] successfully set ceph dashboard creds
+2026-02-20 15:59:44.014840 I | op-mgr: [rook-ceph] successful modules: dashboard
+2026-02-20 15:59:44.173885 I | op-k8sutil: batch job rook-ceph-osd-prepare-growlithe deleted
+2026-02-20 15:59:44.178506 I | op-osd: [rook-ceph] started OSD provisioning job for node "growlithe"
+2026-02-20 15:59:44.189331 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-pikachu to start a new one
+2026-02-20 15:59:44.198049 I | op-k8sutil: batch job rook-ceph-osd-prepare-pikachu still exists
+2026-02-20 15:59:47.202774 I | op-k8sutil: batch job rook-ceph-osd-prepare-pikachu deleted
+2026-02-20 15:59:47.214786 I | op-osd: [rook-ceph] started OSD provisioning job for node "pikachu"
+2026-02-20 15:59:47.229199 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-sprigatito to start a new one
+2026-02-20 15:59:47.242889 I | op-k8sutil: batch job rook-ceph-osd-prepare-sprigatito still exists
+2026-02-20 15:59:50.245944 I | op-k8sutil: batch job rook-ceph-osd-prepare-sprigatito deleted
+2026-02-20 15:59:50.252226 I | op-osd: [rook-ceph] started OSD provisioning job for node "sprigatito"
+2026-02-20 15:59:50.265998 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-squirtle to start a new one
+2026-02-20 15:59:50.274778 I | op-k8sutil: batch job rook-ceph-osd-prepare-squirtle still exists
+2026-02-20 15:59:53.277100 I | op-k8sutil: batch job rook-ceph-osd-prepare-squirtle deleted
+2026-02-20 15:59:53.282821 I | op-osd: [rook-ceph] started OSD provisioning job for node "squirtle"
+2026-02-20 15:59:53.297028 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-totodile to start a new one
+2026-02-20 15:59:53.306313 I | op-k8sutil: batch job rook-ceph-osd-prepare-totodile still exists
+2026-02-20 15:59:56.309594 I | op-k8sutil: batch job rook-ceph-osd-prepare-totodile deleted
+2026-02-20 15:59:56.314345 I | op-osd: [rook-ceph] started OSD provisioning job for node "totodile"
+2026-02-20 15:59:56.322330 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-bulbasaur to start a new one
+2026-02-20 15:59:56.333098 I | op-k8sutil: batch job rook-ceph-osd-prepare-bulbasaur still exists
+2026-02-20 15:59:59.336790 I | op-k8sutil: batch job rook-ceph-osd-prepare-bulbasaur deleted
+2026-02-20 15:59:59.346003 I | op-osd: [rook-ceph] started OSD provisioning job for node "bulbasaur"
+2026-02-20 15:59:59.365216 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-chikorita to start a new one
+2026-02-20 15:59:59.380731 I | op-k8sutil: batch job rook-ceph-osd-prepare-chikorita still exists
+2026-02-20 16:00:02.383023 I | op-k8sutil: batch job rook-ceph-osd-prepare-chikorita deleted
+2026-02-20 16:00:02.389245 I | op-osd: [rook-ceph] started OSD provisioning job for node "chikorita"
+2026-02-20 16:00:02.403195 I | op-k8sutil: Removing previous job rook-ceph-osd-prepare-cyndaquil to start a new one
+2026-02-20 16:00:02.419749 I | op-k8sutil: batch job rook-ceph-osd-prepare-cyndaquil still exists
+2026-02-20 16:00:05.423667 I | op-k8sutil: batch job rook-ceph-osd-prepare-cyndaquil deleted
+2026-02-20 16:00:05.429632 I | op-osd: [rook-ceph] started OSD provisioning job for node "cyndaquil"
+2026-02-20 16:00:05.432813 I | op-osd: [rook-ceph] OSD orchestration status for node arcanine is "completed"
+2026-02-20 16:00:05.439087 I | op-osd: [rook-ceph] OSD orchestration status for node bulbasaur is "completed"
+2026-02-20 16:00:05.445136 I | op-osd: [rook-ceph] OSD orchestration status for node charmander is "completed"
+2026-02-20 16:00:05.449640 I | op-osd: [rook-ceph] OSD orchestration status for node chikorita is "orchestrating"
+2026-02-20 16:00:05.449688 I | op-osd: [rook-ceph] OSD orchestration status for node cyndaquil is "starting"
+2026-02-20 16:00:05.449754 I | op-osd: [rook-ceph] OSD orchestration status for node growlithe is "completed"
+2026-02-20 16:00:05.453741 I | op-osd: [rook-ceph] OSD orchestration status for node pikachu is "completed"
+2026-02-20 16:00:05.457957 I | op-osd: [rook-ceph] OSD orchestration status for node sprigatito is "completed"
+2026-02-20 16:00:05.461999 I | op-osd: [rook-ceph] OSD orchestration status for node squirtle is "completed"
+2026-02-20 16:00:05.467601 I | op-osd: [rook-ceph] OSD orchestration status for node totodile is "completed"
+2026-02-20 16:00:06.497213 I | op-osd: [rook-ceph] updating OSD 0 on node "chikorita"
+2026-02-20 16:00:06.526076 I | op-osd: [rook-ceph] OSD orchestration status for node chikorita is "completed"
+2026-02-20 16:00:07.878625 I | op-osd: [rook-ceph] updating OSD 1 on node "cyndaquil"
+2026-02-20 16:00:07.901140 I | op-osd: [rook-ceph] OSD orchestration status for node cyndaquil is "orchestrating"
+2026-02-20 16:00:08.904232 I | op-osd: [rook-ceph] updating OSD 2 on node "arcanine"
+2026-02-20 16:00:08.922537 I | op-osd: [rook-ceph] updating OSD 8 on node "arcanine"
+2026-02-20 16:00:10.027853 I | op-osd: [rook-ceph] updating OSD 4 on node "bulbasaur"
+2026-02-20 16:00:10.045881 I | op-osd: [rook-ceph] updating OSD 7 on node "sprigatito"
+2026-02-20 16:00:10.081543 I | op-osd: [rook-ceph] OSD orchestration status for node cyndaquil is "completed"
+2026-02-20 16:00:11.055736 I | op-osd: [rook-ceph] updating OSD 6 on node "growlithe"
+2026-02-20 16:00:12.200246 I | cephclient: successfully disallowed pre-tentacle osds and enabled all new tentacle-only functionality
+2026-02-20 16:00:13.063213 I | cephclient: deleting ceph auth "client.bootstrap-osd"
+2026-02-20 16:00:13.597239 I | op-osd: [rook-ceph] finished running OSDs in namespace "rook-ceph"
+2026-02-20 16:00:13.597260 I | cluster-controller: [rook-ceph] done reconciling ceph cluster
+2026-02-20 16:00:13.620039 I | cluster-controller: [rook-ceph] reporting cluster telemetry
+2026-02-20 16:00:20.960584 I | cluster-controller: [rook-ceph] reporting node telemetry
+2026-02-20 16:49:35.327628 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 16:49:35.755378 I | disruption: successfully reconciled OSD PDB controller
+2026-02-20 16:49:36.808750 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 16:49:37.237064 I | disruption: successfully reconciled OSD PDB controller
+2026-02-20 16:49:50.683386 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 16:49:51.113064 I | disruption: reconciling osd pdb controller
+2026-02-20 16:50:22.099820 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 16:50:22.581749 I | disruption: successfully reconciled OSD PDB controller
+2026-02-20 22:44:35.303292 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 22:44:35.729469 I | disruption: successfully reconciled OSD PDB controller
+2026-02-20 22:44:36.861606 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-20 22:44:37.288617 I | disruption: successfully reconciled OSD PDB controller
+2026-02-21 01:15:36.757447 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-21 01:15:36.768936 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-21 02:57:01.951364 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 02:57:03.453886 I | disruption: successfully reconciled OSD PDB controller
+2026-02-21 02:57:04.410335 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 02:57:06.928496 I | disruption: successfully reconciled OSD PDB controller
+2026-02-21 02:57:44.774997 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 02:57:45.216759 I | disruption: reconciling osd pdb controller
+2026-02-21 02:58:15.717234 I | disruption: osd "rook-ceph-osd-4" is down on node "bulbasaur" but no node drain is detected
+2026-02-21 02:58:16.271010 I | disruption: OSD(s) [4] are down but PGs are clean. PG Status: "all PGs in cluster are clean"
+2026-02-21 02:58:16.759730 I | disruption: reconciling osd pdb controller
+2026-02-21 02:58:17.197887 I | disruption: osd "rook-ceph-osd-4" is down on node "bulbasaur" but no node drain is detected
+2026-02-21 02:58:17.791198 I | disruption: OSD(s) [4] are down but PGs are clean. PG Status: "all PGs in cluster are clean"
+2026-02-21 02:58:19.081473 I | disruption: reconciling osd pdb controller
+2026-02-21 02:58:47.849495 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 02:58:48.284775 I | disruption: successfully reconciled OSD PDB controller
+2026-02-21 10:32:48.847021 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-21 10:32:48.856288 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-21 13:06:15.675780 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 13:06:16.106638 I | disruption: successfully reconciled OSD PDB controller
+2026-02-21 13:26:15.885271 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 13:26:17.274569 I | disruption: successfully reconciled OSD PDB controller
+2026-02-21 19:50:00.933980 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-21 19:50:00.940160 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-21 23:15:33.411845 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 23:15:33.842449 I | disruption: successfully reconciled OSD PDB controller
+2026-02-21 23:55:33.784204 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-21 23:55:34.222444 I | disruption: successfully reconciled OSD PDB controller
+2026-02-22 05:07:13.030463 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-22 05:07:13.041943 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-22 09:24:51.219686 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-22 09:24:51.710412 I | disruption: successfully reconciled OSD PDB controller
+2026-02-22 10:24:51.637191 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-22 10:24:52.069447 I | disruption: successfully reconciled OSD PDB controller
+2026-02-22 14:24:25.119177 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-22 14:24:25.129792 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-22 19:34:08.907802 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-22 19:34:09.335275 I | disruption: successfully reconciled OSD PDB controller
+2026-02-22 20:54:09.539510 I | disruption: OSDs are up and PGs are clean. PG status: "all PGs in cluster are clean"
+2026-02-22 20:54:09.985570 I | disruption: successfully reconciled OSD PDB controller
+2026-02-22 23:41:37.209195 I | operator: rook-ceph-operator-config-controller done reconciling
+2026-02-22 23:41:37.218972 I | operator: rook-ceph-operator-config-controller done reconciling

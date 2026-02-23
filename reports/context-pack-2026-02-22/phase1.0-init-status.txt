@@ -1,0 +1,4 @@
+run_date=2026-02-22
+report_file=reports/status-report-2026-02-22.md
+context_dir=reports/context-pack-2026-02-22
+recon_tasks=present

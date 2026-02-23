@@ -1,0 +1,8 @@
+E0222 17:43:05.148116 1006632 memcache.go:265] couldn't get current server API group list: the server has asked for the client to provide credentials
+E0222 17:43:05.160164 1006632 memcache.go:265] couldn't get current server API group list: the server has asked for the client to provide credentials
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+E0222 17:43:05.172006 1006632 memcache.go:265] couldn't get current server API group list: the server has asked for the client to provide credentials
+E0222 17:43:05.183202 1006632 memcache.go:265] couldn't get current server API group list: the server has asked for the client to provide credentials
+E0222 17:43:05.194163 1006632 memcache.go:265] couldn't get current server API group list: the server has asked for the client to provide credentials
+error: You must be logged in to the server (the server has asked for the client to provide credentials)

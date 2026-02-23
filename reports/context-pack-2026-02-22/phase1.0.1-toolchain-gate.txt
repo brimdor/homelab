@@ -1,0 +1,8 @@
+Toolchain check at 2026-02-22T17:45:50-06:00
+kubectl: OK (/usr/bin/kubectl)
+jq: OK (/usr/bin/jq)
+curl: OK (/usr/bin/curl)
+ssh: OK (/usr/bin/ssh)
+nc: OK (/home/linuxbrew/.linuxbrew/bin/nc)
+python3: OK (/home/linuxbrew/.linuxbrew/bin/python3)
+python_deps_missing=none

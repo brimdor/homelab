@@ -1,0 +1,28 @@
+Starting network health check...
+Timestamp: 2026-02-23T08:56:32-06:00
+====================================
+  Homelab Network Health Check
+====================================
+
+>> Testing Critical Endpoints...
+Testing: OPNSense (10.0.0.1)
+Testing: Controller (10.0.20.10)
+Testing port: OPNSENSE (10.0.0.1:443)
+Testing port: CONTROLLER (10.0.20.10:22)
+
+>> Testing VLAN Gateways...
+Testing: VLAN40_STORAGE (10.0.40.1)
+Testing: VLAN10_MGMT (10.0.10.1)
+Testing: VLAN30_CLUSTER_EXTRA (10.0.30.1)
+Testing: VLAN20_CLUSTER_PROD (10.0.20.1)
+Testing: VLAN50_IOT (10.0.50.1)
+
+>> Testing Internet Connectivity...
+Testing: INTERNET_1.1.1.1 (1.1.1.1)
+Testing: INTERNET_8.8.8.8 (8.8.8.8)
+Testing DNS via 1.1.1.1: google.com
+Testing DNS via 8.8.8.8: google.com
+
+====================================
+[0;32m✓ NETWORK STATUS: GREEN[0m
+  All 16 checks passed

@@ -1,0 +1,338 @@
+title: "[Maintenance] 2026-02-23 - Homelab"
+date: "2026-02-23"
+
+status:
+  overall: "GREEN"
+  last_updated: "2026-02-23 09:10"
+  source_report: "reports/status-report-2026-02-23.md"
+  assigned_to: "gitea_admin"
+
+cluster:
+  k3s_version: "v1.33.6+k3s1"
+  client_version: "v1.35.1"
+  node_count: 10
+  app_count: 41
+  ceph_status: "HEALTH_OK"
+
+layers:
+  metal:
+    nodes:
+      status: "GREEN"
+      details: "10/10 nodes Ready."
+    versions:
+      status: "GREEN"
+      details: "All nodes on v1.33.6+k3s1; kubectl client v1.35.1 reports minor skew warning only."
+    cni:
+      status: "GREEN"
+      details: "Cilium daemonset 10/10 Ready."
+    kured:
+      status: "GREEN"
+      details: "ArgoCD app kured is Synced and Healthy."
+
+  system:
+    coredns:
+      status: "GREEN"
+      details: "CoreDNS Running and cluster DNS reachable."
+    metrics_server:
+      status: "GREEN"
+      details: "metrics-server Running and node metrics available."
+    kube_vip:
+      status: "GREEN"
+      details: "kube-vip pods Running on all control-plane nodes."
+    argocd:
+      status: "GREEN"
+      details: "ArgoCD apps snapshot shows Synced/Healthy."
+
+  storage:
+    ceph_health:
+      status: "GREEN"
+      details: "ceph health = HEALTH_OK."
+    osds:
+      status: "GREEN"
+      details: "7/7 OSDs up and in."
+    usage:
+      status: "GREEN"
+      details: "1.3 TiB used, 2.1 TiB available (36.81% raw used)."
+    pools:
+      status: "GREEN"
+      details: "4 pools, 177 PGs active+clean."
+    monitors:
+      status: "GREEN"
+      details: "3 mons in quorum (f,h,j)."
+    mds:
+      status: "GREEN"
+      details: "1/1 MDS up with 1 standby-replay."
+
+  platform:
+    ingress:
+      status: "GREEN"
+      details: "ingress-nginx controller Running; LoadBalancer 10.0.20.226 present."
+    certs:
+      status: "GREEN"
+      details: "Certificates Ready=True across active ingress namespaces."
+    secrets:
+      status: "GREEN"
+      details: "ExternalSecrets SecretSynced and ClusterSecretStore global-secrets Ready=True."
+    cert_manager:
+      status: "GREEN"
+      details: "Recent CertificateRequests approved/ready and ACME orders valid."
+
+  apps:
+    pods:
+      status: "GREEN"
+      details: "No CrashLoopBackOff/Error/ImagePullBackOff/Pending pods detected."
+    gitea:
+      status: "GREEN"
+      details: "gitea namespace pods Running; Gitea API token auth succeeded as gitea_admin."
+    grafana:
+      status: "GREEN"
+      details: "grafana pod 3/3 Running."
+    kanidm:
+      status: "GREEN"
+      details: "kanidm pod 1/1 Running and ArgoCD app healthy."
+
+observations:
+  node_activity: "No NotReady nodes and no non-running kube-system pods in this snapshot."
+  renovate: "Open PR #65 (kube-prometheus-stack v82 major) and PR #63 (non-major bundle) are mergeable; Dependency Dashboard issue #4 has 4 unchecked items."
+  network:
+    workstation: "Connected (workstation kubeconfig validated via kubectl cluster-info)."
+    gitea: "Authenticated via API token as gitea_admin."
+    nas: "GREEN (NAS check script exit code 0)."
+    gateway: "GREEN (all VLAN gateways reachable in network check)."
+
+proposed_changes:
+  - id: "R1"
+    type: "VERIFY"
+    layer: "System"
+    priority: "P0"
+    impact: "Low"
+    downtime: "None"
+    summary: "Run universal preflight gate and stop immediately on any non-GREEN signal before change execution."
+    dependencies: ["None"]
+
+  - id: "R2"
+    type: "UPDATE"
+    layer: "Platform"
+    priority: "P1"
+    impact: "Medium"
+    downtime: "Low"
+    summary: "Review PR #65 (kube-prometheus-stack to v82) with release notes and breaking-change checklist, then execute merge/defer decision with staged validation."
+    dependencies: ["R1"]
+
+  - id: "R3"
+    type: "UPDATE"
+    layer: "Platform"
+    priority: "P2"
+    impact: "Medium"
+    downtime: "Low"
+    summary: "Review PR #63 (all non-major dependencies) and execute merge/defer decision with non-database-first validation."
+    dependencies: ["R1"]
+
+  - id: "R4"
+    type: "DECISION"
+    layer: "Storage"
+    priority: "P2"
+    impact: "Low"
+    downtime: "None"
+    summary: "Reconcile issue #66 against current Ceph HEALTH_OK evidence and decide close vs keep-open with updated evidence."
+    dependencies: ["R1"]
+
+  - id: "R5"
+    type: "MAINTENANCE"
+    layer: "Apps"
+    priority: "P3"
+    impact: "Low"
+    downtime: "None"
+    summary: "Process unchecked Dependency Dashboard items by editing issue body checkboxes (no comments)."
+    dependencies: ["R2", "R3"]
+
+action_items:
+  - id: "A1"
+    priority: "P0"
+    layer: "System"
+    phase: "A"
+    title: "Run preflight universal validation snapshot"
+    goal: "Establish current baseline and block all execution if any non-GREEN condition appears."
+    commands: >-
+      kubectl get nodes --no-headers | grep -v ' Ready ' || true; kubectl get pods -n kube-system --no-headers | grep -v 'Running\|Completed' || true; kubectl get applications -n argocd --no-headers | grep -v 'Synced.*Healthy' || true; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health; kubectl get pods -A --no-headers | grep -v 'Running\|Completed' || true; ~/.config/opencode/scripts/homelab-network-check.sh --json > /tmp/network-preflight.json; ~/.config/opencode/scripts/homelab-nas-check.sh --json > /tmp/nas-preflight.json
+    expected: "No non-ready node/pod/app output, ceph health HEALTH_OK, network/NAS scripts exit 0."
+    if_fails: "Stop immediately and open a new blocking recon item for the failing layer before any PR actions."
+    rollback: "N/A"
+
+  - id: "C1"
+    priority: "P1"
+    layer: "Platform"
+    phase: "C"
+    title: "PR #65 release-notes and breaking-change gate"
+    goal: "Gather evidence for kube-prometheus-stack v82 risk and make the merge/defer decision explicit."
+    commands: >-
+      set -a; source ~/.config/gitea/.env; set +a; curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/65" -H "Authorization: token $GITEA_TOKEN" | jq -r '.title,.mergeable,.body' > /tmp/pr65-review.txt; curl -fsSL "https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/UPGRADE.md" > /tmp/kube-prometheus-stack-UPGRADE.md
+    expected: "Release notes and breaking-change checklist documented, with go/no-go decision captured."
+    if_fails: "If release notes or checklist cannot be completed, defer PR #65 and keep it open."
+    rollback: "N/A"
+
+  - id: "C2"
+    priority: "P1"
+    layer: "Platform"
+    phase: "C"
+    title: "Execute PR #65 merge/defer decision with backup"
+    goal: "Only merge after C1 passes; preserve rollback artifacts before any major monitoring update."
+    commands: >-
+      kubectl get application -n argocd monitoring-system -o yaml > /tmp/monitoring-system-app-pre-pr65.yaml; kubectl get pods -n monitoring-system -o wide > /tmp/monitoring-system-pods-pre-pr65.txt; set -a; source ~/.config/gitea/.env; set +a; curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/65/merge" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d '{"Do":"merge"}'
+    expected: "Pre-merge backups exist and PR #65 is either merged successfully or explicitly deferred with rationale."
+    if_fails: "If merge fails or decision is defer, leave PR open and record blocker in maintenance issue body."
+    rollback: "git revert <merge-commit-for-pr65> && git push"
+
+  - id: "C3"
+    priority: "P1"
+    layer: "Platform"
+    phase: "C"
+    title: "Staged validation after PR #65 (if merged)"
+    goal: "Verify observability stack remains healthy after major chart update."
+    commands: >-
+      kubectl get applications -n argocd monitoring-system -o wide; kubectl get pods -n monitoring-system -o wide; kubectl get pods -n grafana -o wide; kubectl get applications -n argocd --no-headers | grep -v 'Synced.*Healthy' || true
+    expected: "monitoring-system and grafana remain healthy/running with no new ArgoCD drift."
+    if_fails: "Stop at P1 and execute rollback for PR #65 before continuing."
+    rollback: "git revert <merge-commit-for-pr65> && git push"
+
+  - id: "D1"
+    priority: "P2"
+    layer: "Storage"
+    phase: "D"
+    title: "Reconcile issue #66 with current Ceph state"
+    goal: "Confirm whether Ceph mgr crash issue is still active and decide close vs keep-open for issue #66."
+    commands: >-
+      kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health detail > /tmp/ceph-health-detail-D1.txt; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph crash ls-new > /tmp/ceph-crash-ls-new-D1.txt; set -a; source ~/.config/gitea/.env; set +a; curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/66" -H "Authorization: token $GITEA_TOKEN" > /tmp/issue66.json
+    expected: "Issue #66 decision recorded from fresh evidence (close if resolved, keep-open if reproducible)."
+    if_fails: "If diagnostics conflict, keep issue #66 open and add explicit blocking note in maintenance issue."
+    rollback: "N/A"
+
+  - id: "D2"
+    priority: "P2"
+    layer: "Platform"
+    phase: "D"
+    title: "PR #63 review and risk decision"
+    goal: "Evaluate bundled non-major updates before merge to avoid broad blast radius."
+    commands: >-
+      set -a; source ~/.config/gitea/.env; set +a; curl -s "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/63" -H "Authorization: token $GITEA_TOKEN" | jq -r '.title,.mergeable,.body' > /tmp/pr63-review.txt
+    expected: "Merge/defer decision recorded with risk rationale."
+    if_fails: "If review cannot be completed, defer PR #63 and leave open."
+    rollback: "N/A"
+
+  - id: "D3"
+    priority: "P2"
+    layer: "Platform"
+    phase: "D"
+    title: "Execute PR #63 merge/defer decision with backup"
+    goal: "Apply non-major bundle only after D2 passes and preserve rollback evidence."
+    commands: >-
+      kubectl get applications -n argocd -o wide > /tmp/argocd-apps-pre-pr63.txt; kubectl get pods -A --no-headers | grep -E 'postgres|mariadb|supabase' > /tmp/db-pods-pre-pr63.txt || true; set -a; source ~/.config/gitea/.env; set +a; curl -s -X POST "https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/63/merge" -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" -d '{"Do":"merge"}'
+    expected: "PR #63 is merged or explicitly deferred, and backup snapshots exist."
+    if_fails: "If merge fails or introduces drift, defer and open narrowed follow-up update plan."
+    rollback: "git revert <merge-commit-for-pr63> && git push"
+
+  - id: "D4"
+    priority: "P2"
+    layer: "Platform"
+    phase: "D"
+    title: "Post-merge non-database validation for PR #63"
+    goal: "Validate core platform and app health before touching database checks."
+    commands: >-
+      kubectl get applications -n argocd --no-headers | grep -v 'Synced.*Healthy' || true; kubectl get pods -n monitoring-system --no-headers | grep -v 'Running\|Completed' || true; kubectl get pods -n external-secrets --no-headers | grep -v 'Running\|Completed' || true
+    expected: "No new non-healthy ArgoCD apps and no failed pods in monitoring-system/external-secrets."
+    if_fails: "Stop and rollback PR #63 before proceeding to database validation."
+    rollback: "git revert <merge-commit-for-pr63> && git push"
+
+  - id: "D5"
+    priority: "P2"
+    layer: "Apps"
+    phase: "D"
+    title: "Database validation last for PR #63"
+    goal: "Enforce database-last rule and confirm postgres/mariadb/supabase workloads remain stable."
+    commands: >-
+      kubectl get pods -A --no-headers | grep -E 'postgres|mariadb|supabase' > /tmp/db-pods-post-pr63.txt || true; kubectl get pods -A --no-headers | grep -E 'postgres|mariadb|supabase' | grep -v 'Running\|Completed' || true
+    expected: "Database-related pods are Running/Completed with no new failures."
+    if_fails: "Rollback PR #63 and restore previous stable dependency set."
+    rollback: "git revert <merge-commit-for-pr63> && git push"
+
+  - id: "E1"
+    priority: "P3"
+    layer: "Apps"
+    phase: "E"
+    title: "[Renovate] Mark dashboard item for renovate/all-minor-patch"
+    goal: "Check off Dependency Dashboard item in issue #4 (https://git.eaglepass.io/ops/homelab/issues/4) after decision on PR #63."
+    commands: >-
+      set -a; source ~/.config/gitea/.env; set +a; MARKER='rebase-branch=renovate/all-minor-patch' python3 -c "import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [ ] '+m,'- [x] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()"
+    expected: "Dashboard checkbox for renovate/all-minor-patch is checked in issue body."
+    if_fails: "Refresh dashboard body and re-run update with exact marker string."
+    rollback: "set -a; source ~/.config/gitea/.env; set +a; MARKER='rebase-branch=renovate/all-minor-patch' python3 -c \"import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [x] '+m,'- [ ] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()\""
+
+  - id: "E2"
+    priority: "P3"
+    layer: "Apps"
+    phase: "E"
+    title: "[Renovate] Mark dashboard item for renovate/kube-prometheus-stack-82.x"
+    goal: "Check off Dependency Dashboard item in issue #4 (https://git.eaglepass.io/ops/homelab/issues/4) after decision on PR #65."
+    commands: >-
+      set -a; source ~/.config/gitea/.env; set +a; MARKER='rebase-branch=renovate/kube-prometheus-stack-82.x' python3 -c "import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [ ] '+m,'- [x] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()"
+    expected: "Dashboard checkbox for renovate/kube-prometheus-stack-82.x is checked in issue body."
+    if_fails: "Refresh dashboard body and re-run update with exact marker string."
+    rollback: "set -a; source ~/.config/gitea/.env; set +a; MARKER='rebase-branch=renovate/kube-prometheus-stack-82.x' python3 -c \"import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [x] '+m,'- [ ] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()\""
+
+  - id: "E3"
+    priority: "P3"
+    layer: "Apps"
+    phase: "E"
+    title: "[Renovate] Mark dashboard bulk rebase item"
+    goal: "Check off Dependency Dashboard bulk rebase item in issue #4 (https://git.eaglepass.io/ops/homelab/issues/4)."
+    commands: >-
+      set -a; source ~/.config/gitea/.env; set +a; MARKER='rebase-all-open-prs' python3 -c "import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [ ] '+m,'- [x] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()"
+    expected: "Dashboard checkbox for bulk rebase is checked in issue body."
+    if_fails: "Refresh dashboard body and re-run update with exact marker string."
+    rollback: "set -a; source ~/.config/gitea/.env; set +a; MARKER='rebase-all-open-prs' python3 -c \"import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [x] '+m,'- [ ] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()\""
+
+  - id: "E4"
+    priority: "P3"
+    layer: "Apps"
+    phase: "E"
+    title: "[Renovate] Mark dashboard blocked PR recreate item"
+    goal: "Check off Dependency Dashboard recreate item in issue #4 (https://git.eaglepass.io/ops/homelab/issues/4) for blocked debian v13 PR."
+    commands: >-
+      set -a; source ~/.config/gitea/.env; set +a; MARKER='recreate-branch=renovate/docker.io-library-debian-13.x' python3 -c "import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [ ] '+m,'- [x] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()"
+    expected: "Dashboard recreate checkbox is checked and Renovate re-queues PR creation."
+    if_fails: "Refresh dashboard body and re-run update with exact marker string."
+    rollback: "set -a; source ~/.config/gitea/.env; set +a; MARKER='recreate-branch=renovate/docker.io-library-debian-13.x' python3 -c \"import os,requests;u='https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4';h={'Authorization':'token '+os.environ['GITEA_TOKEN']};m='<!-- '+os.environ['MARKER']+' -->';b=requests.get(u,headers=h,timeout=30).json()['body'];b=b.replace('- [x] '+m,'- [ ] '+m,1);requests.patch(u,headers={**h,'Content-Type':'application/json'},json={'body':b},timeout=30).raise_for_status()\""
+
+  - id: "F1"
+    priority: "P0"
+    layer: "System"
+    phase: "F"
+    title: "Run final universal validation gate"
+    goal: "Confirm all layers are GREEN after all accepted decisions/changes."
+    commands: >-
+      kubectl get nodes --no-headers | grep -v ' Ready ' || true; kubectl get pods -n kube-system --no-headers | grep -v 'Running\|Completed' || true; kubectl get applications -n argocd --no-headers | grep -v 'Synced.*Healthy' || true; kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health; kubectl get pods -A --no-headers | grep -v 'Running\|Completed' || true; ~/.config/opencode/scripts/homelab-network-check.sh --json > /tmp/network-final.json; ~/.config/opencode/scripts/homelab-nas-check.sh --json > /tmp/nas-final.json
+    expected: "No non-ready output, ceph health HEALTH_OK, network/NAS checks GREEN (exit 0)."
+    if_fails: "Any non-GREEN result is a hard stop and triggers new recon evidence capture."
+    rollback: "N/A"
+
+change_log:
+  - timestamp: "2026-02-23 08:54"
+    phase: "Recon"
+    item: "Phase 1"
+    action: "Executed exhaustive evidence capture"
+    result: "Captured cluster, network, NAS, Ceph, platform, apps, and repo evidence under context pack"
+    status_after: "GREEN"
+
+  - timestamp: "2026-02-23 09:12"
+    phase: "Spec"
+    item: "Phase 2-6"
+    action: "Regenerated maintenance spec for GREEN baseline"
+    result: "Converted to PR/dependency-focused action plan with explicit decision gates and rollback"
+    status_after: "GREEN"
+
+closure:
+  status: ""
+  started: ""
+  completed: ""
+  duration: ""
+  resolved_by: ""

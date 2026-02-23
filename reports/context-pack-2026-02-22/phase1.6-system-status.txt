@@ -1,0 +1,4 @@
+kube_system_pods=0
+kube_system_nonrunning=0
+cilium_ds=0
+cilium_pods=0

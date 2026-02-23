@@ -1,0 +1,2 @@
+error: unknown flag: --short
+See 'kubectl version --help' for usage.

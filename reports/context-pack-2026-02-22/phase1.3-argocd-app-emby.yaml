@@ -1,0 +1,306 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  creationTimestamp: "2025-12-08T23:36:35Z"
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  generation: 26066
+  name: emby
+  namespace: argocd
+  ownerReferences:
+  - apiVersion: argoproj.io/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ApplicationSet
+    name: root
+    uid: b82ef8e1-9ab8-4f36-892e-bf561c86266d
+  resourceVersion: "281495172"
+  uid: 7ca05456-61fd-4587-a8d4-a19f45794e26
+spec:
+  destination:
+    name: in-cluster
+    namespace: emby
+  ignoreDifferences:
+  - group: external-secrets.io
+    jsonPointers:
+    - /spec/data/0/remoteRef/conversionStrategy
+    - /spec/data/0/remoteRef/decodingStrategy
+    - /spec/data/0/remoteRef/metadataPolicy
+    - /spec/data/1/remoteRef/conversionStrategy
+    - /spec/data/1/remoteRef/decodingStrategy
+    - /spec/data/1/remoteRef/metadataPolicy
+    - /spec/data/2/remoteRef/conversionStrategy
+    - /spec/data/2/remoteRef/decodingStrategy
+    - /spec/data/2/remoteRef/metadataPolicy
+    - /spec/data/3/remoteRef/conversionStrategy
+    - /spec/data/3/remoteRef/decodingStrategy
+    - /spec/data/3/remoteRef/metadataPolicy
+    kind: ExternalSecret
+  - group: apps
+    jqPathExpressions:
+    - .spec.persistentVolumeClaimRetentionPolicy
+    - .spec.volumeClaimTemplates
+    - .spec.template.spec.containers[].resources
+    kind: StatefulSet
+  - group: ceph.rook.io
+    jqPathExpressions:
+    - .spec.csi
+    - .spec.monitoring
+    kind: CephCluster
+  - group: apiextensions.k8s.io
+    jqPathExpressions:
+    - .spec.conversion
+    - .status
+    kind: CustomResourceDefinition
+  project: default
+  source:
+    path: apps/emby
+    repoURL: http://gitea-http.gitea:3000/ops/homelab
+    targetRevision: master
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 1m
+        factor: 2
+        maxDuration: 16m
+      limit: 10
+    syncOptions:
+    - CreateNamespace=true
+    - ApplyOutOfSyncOnly=true
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=true
+status:
+  conditions:
+  - lastTransitionTime: "2026-02-19T01:06:26Z"
+    message: 'Failed last sync attempt to [cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d]:
+      one or more objects failed to apply, reason: Deployment.apps "emby" is invalid:
+      spec.strategy.rollingUpdate: Forbidden: may not be specified when strategy `type`
+      is ''Recreate'' (retried 10 times).'
+    type: SyncError
+  controllerNamespace: argocd
+  health:
+    lastTransitionTime: "2026-02-20T08:05:21Z"
+    status: Healthy
+  history:
+  - deployStartedAt: "2025-12-08T23:55:29Z"
+    deployedAt: "2025-12-08T23:55:29Z"
+    id: 2
+    initiatedBy:
+      automated: true
+    revision: 8a1f6098faf3e985b6afc9eede665f3e7d842709
+    source:
+      path: apps/emby
+      repoURL: https://github.com/brimdor/homelab
+      targetRevision: master
+  - deployStartedAt: "2025-12-15T18:59:41Z"
+    deployedAt: "2025-12-15T18:59:41Z"
+    id: 3
+    initiatedBy:
+      automated: true
+    revision: 5103b3ac3b74be36b2f21538cd265ce5331cc589
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2025-12-15T21:40:47Z"
+    deployedAt: "2025-12-15T21:40:47Z"
+    id: 4
+    initiatedBy:
+      automated: true
+    revision: 84c4788fd6a694219a79181c6c955c4e5e40ca91
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-01-01T18:33:27Z"
+    deployedAt: "2026-01-01T18:33:31Z"
+    id: 5
+    initiatedBy:
+      automated: true
+    revision: fb9ea8c998f8349d477fea855cbc6c6257a56d45
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-01-05T00:54:59Z"
+    deployedAt: "2026-01-05T00:54:59Z"
+    id: 6
+    initiatedBy:
+      automated: true
+    revision: e1e85ab34a6a1f64372f9ec5071076df9528d821
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-01-15T17:32:27Z"
+    deployedAt: "2026-01-15T17:32:27Z"
+    id: 7
+    initiatedBy:
+      automated: true
+    revision: 0aa42121e073b4c19ce0fa210c948afc3b5bf5a6
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-01-15T18:44:24Z"
+    deployedAt: "2026-01-15T18:44:28Z"
+    id: 8
+    initiatedBy:
+      automated: true
+    revision: b2cc06c41d0a10f62e977d3e818d0b004ed493d3
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-01-21T13:50:02Z"
+    deployedAt: "2026-01-21T13:50:02Z"
+    id: 9
+    initiatedBy:
+      automated: true
+    revision: 1850504b204e6d762cccfb304f4b547c9e16de27
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-01-24T15:13:23Z"
+    deployedAt: "2026-01-24T15:13:23Z"
+    id: 10
+    initiatedBy:
+      automated: true
+    revision: 457ec57126b4bf0b9d89b592b014ad4a7a25e189
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  - deployStartedAt: "2026-02-16T23:49:04Z"
+    deployedAt: "2026-02-16T23:49:04Z"
+    id: 11
+    initiatedBy:
+      automated: true
+    revision: e0fa1d58bf482c1b8b0f564e82d64611abc302e7
+    source:
+      path: apps/emby
+      repoURL: http://gitea-http.gitea:3000/ops/homelab
+      targetRevision: master
+  operationState:
+    finishedAt: "2026-02-19T01:06:26Z"
+    message: 'one or more objects failed to apply, reason: Deployment.apps "emby"
+      is invalid: spec.strategy.rollingUpdate: Forbidden: may not be specified when
+      strategy `type` is ''Recreate'' (retried 10 times).'
+    operation:
+      initiatedBy:
+        automated: true
+      retry:
+        backoff:
+          duration: 1m
+          factor: 2
+          maxDuration: 16m
+        limit: 10
+      sync:
+        prune: true
+        revision: cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d
+        source:
+          path: apps/emby
+          repoURL: http://gitea-http.gitea:3000/ops/homelab
+          targetRevision: master
+        syncOptions:
+        - CreateNamespace=true
+        - ApplyOutOfSyncOnly=true
+        - ServerSideApply=true
+        - RespectIgnoreDifferences=true
+    phase: Failed
+    retryCount: 10
+    startedAt: "2026-02-18T23:00:25Z"
+    syncResult:
+      resources:
+      - group: apps
+        hookPhase: Failed
+        images:
+        - lscr.io/linuxserver/emby:beta
+        kind: Deployment
+        message: 'Deployment.apps "emby" is invalid: spec.strategy.rollingUpdate:
+          Forbidden: may not be specified when strategy `type` is ''Recreate'''
+        name: emby
+        namespace: emby
+        status: SyncFailed
+        syncPhase: Sync
+        version: v1
+      revision: cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d
+      source:
+        path: apps/emby
+        repoURL: http://gitea-http.gitea:3000/ops/homelab
+        targetRevision: master
+  reconciledAt: "2026-02-22T23:51:29Z"
+  resourceHealthSource: appTree
+  resources:
+  - kind: Service
+    name: emby
+    namespace: emby
+    status: Synced
+    version: v1
+  - group: apps
+    kind: Deployment
+    name: emby
+    namespace: emby
+    status: OutOfSync
+    version: v1
+  - group: networking.k8s.io
+    kind: Ingress
+    name: emby
+    namespace: emby
+    status: Synced
+    version: v1
+  sourceHydrator: {}
+  sourceType: Helm
+  summary:
+    externalURLs:
+    - https://emby-health.eaglepass.io/
+    - https://emby.eaglepass.io/
+    images:
+    - lscr.io/linuxserver/emby:beta
+  sync:
+    comparedTo:
+      destination:
+        name: in-cluster
+        namespace: emby
+      ignoreDifferences:
+      - group: external-secrets.io
+        jsonPointers:
+        - /spec/data/0/remoteRef/conversionStrategy
+        - /spec/data/0/remoteRef/decodingStrategy
+        - /spec/data/0/remoteRef/metadataPolicy
+        - /spec/data/1/remoteRef/conversionStrategy
+        - /spec/data/1/remoteRef/decodingStrategy
+        - /spec/data/1/remoteRef/metadataPolicy
+        - /spec/data/2/remoteRef/conversionStrategy
+        - /spec/data/2/remoteRef/decodingStrategy
+        - /spec/data/2/remoteRef/metadataPolicy
+        - /spec/data/3/remoteRef/conversionStrategy
+        - /spec/data/3/remoteRef/decodingStrategy
+        - /spec/data/3/remoteRef/metadataPolicy
+        kind: ExternalSecret
+      - group: apps
+        jqPathExpressions:
+        - .spec.persistentVolumeClaimRetentionPolicy
+        - .spec.volumeClaimTemplates
+        - .spec.template.spec.containers[].resources
+        kind: StatefulSet
+      - group: ceph.rook.io
+        jqPathExpressions:
+        - .spec.csi
+        - .spec.monitoring
+        kind: CephCluster
+      - group: apiextensions.k8s.io
+        jqPathExpressions:
+        - .spec.conversion
+        - .status
+        kind: CustomResourceDefinition
+      source:
+        path: apps/emby
+        repoURL: http://gitea-http.gitea:3000/ops/homelab
+        targetRevision: master
+    revision: cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d
+    status: OutOfSync

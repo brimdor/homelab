@@ -1,0 +1,8 @@
+HEALTH_ERR Module 'prometheus' has failed: not all arguments converted during string formatting; 4 mgr modules have recently crashed
+[ERR] MGR_MODULE_ERROR: Module 'prometheus' has failed: not all arguments converted during string formatting
+    Module 'prometheus' has failed: not all arguments converted during string formatting
+[WRN] RECENT_MGR_MODULE_CRASH: 4 mgr modules have recently crashed
+    mgr module prometheus crashed in daemon mgr.a on host rook-ceph-mgr-a-5fb858f4f-4ctkb at 2026-02-13T14:55:07.828225Z
+    mgr module prometheus crashed in daemon mgr.a on host rook-ceph-mgr-a-5fb858f4f-jhfxq at 2026-02-16T08:43:50.250983Z
+    mgr module prometheus crashed in daemon mgr.a on host rook-ceph-mgr-a-5fb858f4f-5ff2h at 2026-02-18T08:29:47.671681Z
+    mgr module prometheus crashed in daemon mgr.a on host rook-ceph-mgr-a-5fb858f4f-qksld at 2026-02-20T08:35:32.668970Z

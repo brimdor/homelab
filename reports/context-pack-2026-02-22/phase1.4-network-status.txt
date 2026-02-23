@@ -1,0 +1,2 @@
+network_script=~/.config/opencode/scripts/homelab-network-check.sh
+exit_code=0

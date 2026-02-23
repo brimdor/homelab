@@ -1,0 +1,200 @@
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     11m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     11m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     10m         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     10m         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m56s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m56s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m49s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m49s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m42s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m41s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m35s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m34s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m28s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m27s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m21s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m20s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m13s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m13s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     9m6s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     9m6s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m58s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m58s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m52s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m51s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m45s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m44s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m38s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m37s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m31s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m30s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m23s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m23s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m16s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m15s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m9s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m8s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     8m2s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     8m1s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m55s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m54s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m48s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m47s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m41s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m40s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m34s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m33s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m27s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m26s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m20s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m19s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m12s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m12s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7m5s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7m5s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m58s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m58s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m51s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m50s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m44s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m43s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m37s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m36s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m30s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m29s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m22s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m22s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m15s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m15s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     6m8s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m1s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     6m1s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     5m54s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m54s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     5m47s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m47s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     5m40s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m40s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     5m33s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m33s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     5m26s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m19s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m19s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     5m12s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m12s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     5m5s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     5m4s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m58s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m58s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m51s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m50s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m44s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m43s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m36s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m36s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m29s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m29s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m22s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m21s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m15s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m14s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m8s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m7s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     4m1s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     4m          Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m54s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     3m53s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m47s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     3m46s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m39s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     3m39s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m33s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     3m32s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m26s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     3m25s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m18s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     3m18s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m11s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     3m11s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     3m4s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m57s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m57s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m50s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m50s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m43s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m43s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m36s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m36s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m35s       Normal    Valid                     clustersecretstore/global-secrets   store validated
+default     2m29s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m28s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m22s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m21s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m15s       Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m14s       Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m8s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m7s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     2m1s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     2m          Normal    Starting                  node/growlithe                      Starting kubelet.
+default     114s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     113s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     106s        Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     106s        Normal    Starting                  node/growlithe                      Starting kubelet.
+default     99s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     99s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     93s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     92s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     86s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     85s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     78s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     78s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     71s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     71s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     64s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     64s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     57s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     57s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     50s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     50s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     43s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     43s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     36s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     35s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     29s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     28s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     22s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     21s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     14s         Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     14s         Normal    Starting                  node/growlithe                      Starting kubelet.
+default     7s          Normal    CertificateExpirationOK   node/growlithe                      Node and Certificate Authority certificates managed by k3s are OK
+default     7s          Normal    Starting                  node/growlithe                      Starting kubelet.
