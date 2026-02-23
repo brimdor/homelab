@@ -19,6 +19,15 @@ elementweb:
     default:
       base_url: https://matrix.eaglepass.io
       server_name: eaglepass.io
+  persistence:
+    enabled: true
+    type: nfs
+    server: 10.0.40.3
+    path: /mnt/user/matrix/elementweb
+    advancedMounts:
+      main:
+        main:
+          - path: /config
 
 dendrite:
   dendrite_config:
@@ -36,3 +45,33 @@ dendrite:
         secretName: matrix-tls-certificate
   postgresql:
     enabled: true
+    persistence:
+      enabled: true
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/matrix/postgresql
+      size: 10Gi
+      retain: true
+
+# NFS volumes - points at NAS path /mnt/user/matrix
+volumes:
+  nfs:
+    enabled: "true"
+    name: "matrix"
+    server: "10.0.40.3"
+    path: "/mnt/user/matrix"
+
+# Generic persistence block (some subcharts use this schema)
+persistence:
+  data:
+    enabled: true
+    type: nfs
+    server: 10.0.40.3
+    path: /mnt/user/matrix
+    advancedMounts:
+      dendrite:
+        main:
+          - path: /data
+      elementweb:
+        main:
+          - path: /config
