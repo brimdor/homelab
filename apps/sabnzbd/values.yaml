@@ -28,15 +28,23 @@ app-template:
                 sleep 5
               done
 
-              if [ ! -f /config/bees-knees ]; then
-                if grep -q '^host_whitelist =' /config/sabnzbd.ini; then
-                  sed -i '/^host_whitelist =.*/c\host_whitelist = sabnzbd.eaglepass.io' /config/sabnzbd.ini
-                else
-                  echo 'host_whitelist = sabnzbd.eaglepass.io' >> /config/sabnzbd.ini
-                fi
-                touch /config/bees-knees
-                echo "[INFO] host_whitelist added to /config/sabnzbd.ini"
+              if grep -q '^host_whitelist =' /config/sabnzbd.ini; then
+                sed -i '/^host_whitelist =.*/c\host_whitelist = sabnzbd.eaglepass.io' /config/sabnzbd.ini
+              else
+                echo 'host_whitelist = sabnzbd.eaglepass.io' >> /config/sabnzbd.ini
               fi
+
+              if grep -q '^ipv6_servers =' /config/sabnzbd.ini; then
+                sed -i '/^ipv6_servers =.*/c\ipv6_servers = 0' /config/sabnzbd.ini
+              else
+                echo 'ipv6_servers = 0' >> /config/sabnzbd.ini
+              fi
+
+              sed -i '/^\[\[news\.newshosting\.com\]\]/,/^\[\[/{s/^connections = .*/connections = 8/}' /config/sabnzbd.ini
+              sed -i '/^\[\[news\.newsdemon\.com\]\]/,/^\[\[/{s/^connections = .*/connections = 8/}' /config/sabnzbd.ini
+
+              touch /config/bees-knees
+              echo "[INFO] Applied sabnzbd.ini compatibility settings"
 
               sleep infinity
       initContainers:
