@@ -1,0 +1,7 @@
+NAMESPACE   LAST SEEN   TYPE     REASON               OBJECT                              MESSAGE
+argocd      9m9s        Normal   OperationStarted     application/rook-ceph               Initiated automated sync to [cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d]
+argocd      9m9s        Normal   ResourceUpdated      application/rook-ceph               Updated sync status: Synced -> OutOfSync
+argocd      9m9s        Normal   ResourceUpdated      application/rook-ceph               Updated health status: Degraded -> Healthy
+argocd      9m7s        Normal   OperationCompleted   application/rook-ceph               Partial sync operation to cc05b0bdcfb5f24d8cbb6d0c3b76f655d370193d succeeded
+argocd      9m6s        Normal   ResourceUpdated      application/rook-ceph               Updated sync status: OutOfSync -> Synced
+default     2m9s        Normal   Valid                clustersecretstore/global-secrets   store validated

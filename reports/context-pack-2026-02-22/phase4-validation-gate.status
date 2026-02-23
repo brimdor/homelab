@@ -1,0 +1,7 @@
+nodes_filter=0
+kube_system_filter=0
+argocd_filter=0
+ceph_health_cmd=0
+all_pods_filter=0
+network_gate_exit=0
+nas_gate_exit=1

@@ -1,0 +1,37 @@
+PR #63
+title: chore(deps): update all non-major dependencies
+author: gitea_admin
+created_at: 2026-02-13T15:03:04Z (age_days=9)
+mergeable: True
+base: master head: renovate/all-minor-patch
+components: apps, archived, docker-compose.yml, platform, system
+risk: Medium
+updates:
+  - argo-cd: patch `9.4.1` → `9.4.3`
+  - docker.io/kanidm/server: minor `1.8.6` → `1.9.0`
+  - external-secrets: patch `2.0.0` → `2.0.1`
+  - ghcr.io/kagent-dev/kagent/tools: patch `0.0.14` → `0.0.15`
+  - kube-prometheus-stack (source): patch `81.6.3` → `81.6.9`
+  - mariadb: minor `12.1` → `12.2`
+  - ollama (source): minor `1.42.0` → `1.44.0`
+  - postgres: minor `18.1-bookworm` → `18.2-bookworm`
+  - postgres: minor `18.1-bookworm` → `18.2-bookworm`
+  - registry.rocket.chat/rocketchat/rocket.chat: patch `8.1.0` → `8.1.1`
+  - renovate: minor `46.10.1` → `46.31.1`
+  - snapshot-controller: patch `5.0.2` → `5.0.3`
+  - supabase/logflare: minor `1.31.0` → `1.32.5`
+  - supabase/postgres: patch `17.6.1.083` → `17.6.1.087`
+  - supabase/realtime: minor `v2.76.4` → `v2.77.0`
+  - supabase/storage-api: minor `v1.37.7` → `v1.38.0`
+---
+PR #65
+title: chore(deps): update helm release kube-prometheus-stack to v82
+author: gitea_admin
+created_at: 2026-02-15T15:01:47Z (age_days=7)
+mergeable: True
+base: master head: renovate/kube-prometheus-stack-82.x
+components: system
+risk: High
+updates:
+  - kube-prometheus-stack (source): major `81.6.3` → `82.2.0`
+---

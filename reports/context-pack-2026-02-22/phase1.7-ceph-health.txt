@@ -1,0 +1,1 @@
+HEALTH_ERR Module 'prometheus' has failed: not all arguments converted during string formatting; 4 mgr modules have recently crashed

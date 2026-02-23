@@ -1,0 +1,2 @@
+PR #65: chore(deps): update helm release kube-prometheus-stack to v82 by gitea_admin (created: 2026-02-15)
+PR #63: chore(deps): update all non-major dependencies by gitea_admin (created: 2026-02-13)

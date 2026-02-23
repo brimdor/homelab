@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: emby:apps/Deployment:emby/emby
+    deployment.kubernetes.io/revision: "2"
+  creationTimestamp: "2026-01-05T00:54:59Z"
+  generation: 6
+  labels:
+    app.kubernetes.io/controller: main
+    app.kubernetes.io/instance: emby
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: emby
+    helm.sh/chart: app-template-4.6.2
+  name: emby
+  namespace: emby
+  resourceVersion: "278964333"
+  uid: fa972b7b-2cc6-4cb4-be50-b88ff505b105
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/controller: main
+      app.kubernetes.io/instance: emby
+      app.kubernetes.io/name: emby
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-02-16T23:49:31Z"
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/controller: main
+        app.kubernetes.io/instance: emby
+        app.kubernetes.io/name: emby
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - sprigatito
+      automountServiceAccountToken: true
+      containers:
+      - env:
+        - name: FFMPEG_HWACCEL
+          value: cuda
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: all
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+        - name: PGID
+          value: "100"
+        - name: PUID
+          value: "99"
+        - name: TZ
+          value: America/Chicago
+        image: lscr.io/linuxserver/emby:beta
+        imagePullPolicy: Always
+        name: main
+        resources:
+          limits:
+            cpu: 3500m
+            memory: 24Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: "2"
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /config
+          name: data
+        - mountPath: /data/movies
+          name: nfs-movies
+        - mountPath: /data/movies_custom
+          name: nfs-movies-custom
+        - mountPath: /data/music
+          name: nfs-music
+        - mountPath: /backups
+          name: nfs-restore
+        - mountPath: /data/tv
+          name: nfs-tv
+        - mountPath: /data/tv_custom
+          name: nfs-tv-custom
+        - mountPath: /emby/transcode
+          name: transcode
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: false
+      restartPolicy: Always
+      runtimeClassName: nvidia
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - effect: NoSchedule
+        key: dedicated
+        value: sprigatito
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: emby-original-data
+      - name: nfs-movies
+        nfs:
+          path: /mnt/user/movies
+          server: 10.0.40.3
+      - name: nfs-movies-custom
+        nfs:
+          path: /mnt/user/movies_custom
+          server: 10.0.40.3
+      - name: nfs-music
+        nfs:
+          path: /mnt/user/music
+          server: 10.0.40.3
+      - name: nfs-restore
+        nfs:
+          path: /mnt/user/emby_backups
+          server: 10.0.40.3
+      - name: nfs-tv
+        nfs:
+          path: /mnt/user/tv
+          server: 10.0.40.3
+      - name: nfs-tv-custom
+        nfs:
+          path: /mnt/user/tv_custom
+          server: 10.0.40.3
+      - hostPath:
+          path: /emby/transcode
+          type: ""
+        name: transcode
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-01-05T00:54:59Z"
+    lastUpdateTime: "2026-02-16T23:56:57Z"
+    message: ReplicaSet "emby-74d94f8dd7" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  - lastTransitionTime: "2026-02-20T08:05:21Z"
+    lastUpdateTime: "2026-02-20T08:05:21Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  observedGeneration: 6
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

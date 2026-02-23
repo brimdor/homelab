@@ -1,0 +1,3 @@
+Access strategy timestamp: 2026-02-22T17:45:55-06:00
+Primary workstation kubectl auth failed with default kubeconfig.
+Using controller fallback with ssh brimdor@10.0.20.10 and KUBECONFIG=~/homelab/metal/kubeconfig.yaml for all Kubernetes evidence.

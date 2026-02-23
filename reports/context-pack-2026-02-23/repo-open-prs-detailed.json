@@ -1,0 +1,22 @@
+[
+  {
+    "number": 65,
+    "title": "chore(deps): update helm release kube-prometheus-stack to v82",
+    "author": "gitea_admin",
+    "created_at": "2026-02-15T15:01:47Z",
+    "mergeable": true,
+    "base": "master",
+    "head": "renovate/kube-prometheus-stack-82.x",
+    "labels": []
+  },
+  {
+    "number": 63,
+    "title": "chore(deps): update all non-major dependencies",
+    "author": "gitea_admin",
+    "created_at": "2026-02-13T15:03:04Z",
+    "mergeable": true,
+    "base": "master",
+    "head": "renovate/all-minor-patch",
+    "labels": []
+  }
+]

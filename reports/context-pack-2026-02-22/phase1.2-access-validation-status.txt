@@ -1,0 +1,4 @@
+kubectl_cluster_info=0
+kubectl_version=0
+ssh_controller=0
+gitea_token=0

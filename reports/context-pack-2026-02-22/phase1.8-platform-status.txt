@@ -1,0 +1,12 @@
+ingress_pods=0
+ingress_services=0
+ingress_all=0
+certificates=0
+certrequests=0
+orders=0
+challenges=0
+externalsecrets=0
+secretstores=0
+clustersecretstores=0
+monitoring_system=0
+grafana=0

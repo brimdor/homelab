@@ -1,0 +1,21 @@
+Phase 6 Self-Audit
+===================
+required_sections_present: PASS
+required_sections_ordered: PASS
+top_level_checkboxes_present: PASS
+nested_checkbox_absent: PASS
+pr65_in_spec: PASS
+pr63_in_spec: PASS
+pr65_decision_task: PASS
+pr63_decision_task: PASS
+pr65_validation_task: PASS
+pr63_validation_task: PASS
+major_release_notes_task: PASS
+major_staged_rollout_task: PASS
+backup_steps_present: PASS
+rollback_present_risky: PASS
+renovate_tasks_prefixed: PASS
+ordering_rule_canonical: PASS
+ordering_rule_db_last: PASS
+contract_sections: PASS
+overall: PASS

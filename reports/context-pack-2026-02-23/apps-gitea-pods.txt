@@ -1,0 +1,9 @@
+NAME                     READY   STATUS    RESTARTS   AGE     IP           NODE        NOMINATED NODE   READINESS GATES
+gitea-95955d874-rw6tb    1/1     Running   0          6h22m   10.0.1.179   growlithe   <none>           <none>
+gitea-postgresql-0       1/1     Running   0          6h49m   10.0.3.136   cyndaquil   <none>           <none>
+gitea-valkey-cluster-0   1/1     Running   0          6h16m   10.0.2.251   totodile    <none>           <none>
+gitea-valkey-cluster-1   1/1     Running   0          6h52m   10.0.6.18    squirtle    <none>           <none>
+gitea-valkey-cluster-2   1/1     Running   0          6h11m   10.0.8.77    pikachu     <none>           <none>
+gitea-valkey-cluster-3   1/1     Running   0          6h49m   10.0.3.101   cyndaquil   <none>           <none>
+gitea-valkey-cluster-4   1/1     Running   0          6h41m   10.0.7.197   bulbasaur   <none>           <none>
+gitea-valkey-cluster-5   1/1     Running   0          6h22m   10.0.1.252   growlithe   <none>           <none>

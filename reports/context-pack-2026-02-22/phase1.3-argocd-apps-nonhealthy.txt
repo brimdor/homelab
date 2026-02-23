@@ -1,0 +1,3 @@
+NAME                SYNC STATUS   HEALTH STATUS
+emby                OutOfSync     Healthy
+rook-ceph           Synced        Degraded

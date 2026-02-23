@@ -1,0 +1,15 @@
+NAME                                                     READY   STATUS    RESTARTS        AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+alertmanager-monitoring-system-kube-pro-alertmanager-0   3/3     Running   0               6h7m    10.0.7.240   bulbasaur    <none>           <none>
+monitoring-system-kube-pro-operator-5854fcf964-6xfzt     1/1     Running   0               6h50m   10.0.6.106   squirtle     <none>           <none>
+monitoring-system-kube-state-metrics-99859855-dwt72      1/1     Running   1 (6h13m ago)   6h14m   10.0.2.111   totodile     <none>           <none>
+monitoring-system-prometheus-node-exporter-7fmwl         1/1     Running   6 (6h41m ago)   10d     10.0.20.13   bulbasaur    <none>           <none>
+monitoring-system-prometheus-node-exporter-7q477         1/1     Running   7 (6h35m ago)   10d     10.0.20.18   growlithe    <none>           <none>
+monitoring-system-prometheus-node-exporter-8n9x9         1/1     Running   6 (6h6m ago)    10d     10.0.20.15   chikorita    <none>           <none>
+monitoring-system-prometheus-node-exporter-b9dnr         1/1     Running   6 (6h13m ago)   10d     10.0.20.14   pikachu      <none>           <none>
+monitoring-system-prometheus-node-exporter-clclz         1/1     Running   7 (6h30m ago)   10d     10.0.20.20   sprigatito   <none>           <none>
+monitoring-system-prometheus-node-exporter-g7wdm         1/1     Running   6 (6h24m ago)   10d     10.0.20.19   arcanine     <none>           <none>
+monitoring-system-prometheus-node-exporter-v7k7s         1/1     Running   5 (6h54m ago)   10d     10.0.20.12   squirtle     <none>           <none>
+monitoring-system-prometheus-node-exporter-w7xt6         1/1     Running   5 (6h46m ago)   10d     10.0.20.11   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-xwglh         1/1     Running   6 (6h18m ago)   10d     10.0.20.17   totodile     <none>           <none>
+monitoring-system-prometheus-node-exporter-zbshj         1/1     Running   6 (6h49m ago)   10d     10.0.20.16   cyndaquil    <none>           <none>
+prometheus-monitoring-system-kube-pro-prometheus-0       2/2     Running   0               6h38m   10.0.5.95    charmander   <none>           <none>

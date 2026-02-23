@@ -1,0 +1,72 @@
+NAME                                                       READY   STATUS      RESTARTS         AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+ceph-csi-controller-manager-59b6bb679-wwjmz                1/1     Running     2 (2d6h ago)     2d15h   10.0.3.246   cyndaquil    <none>           <none>
+rook-ceph-conversion-webhook-5b888b9f5d-8m54k              1/1     Running     0                2d15h   10.0.8.244   pikachu      <none>           <none>
+rook-ceph-crashcollector-arcanine-5d9d65b756-nq459         1/1     Running     0                2d15h   10.0.4.48    arcanine     <none>           <none>
+rook-ceph-crashcollector-bulbasaur-5479587f64-qmnlw        1/1     Running     0                2d14h   10.0.7.147   bulbasaur    <none>           <none>
+rook-ceph-crashcollector-charmander-55579ddc5b-th5lg       1/1     Running     0                2d15h   10.0.5.162   charmander   <none>           <none>
+rook-ceph-crashcollector-chikorita-59db65967f-4sx7b        1/1     Running     0                2d15h   10.0.0.100   chikorita    <none>           <none>
+rook-ceph-crashcollector-cyndaquil-5dbddfb65c-hjc9f        1/1     Running     0                2d15h   10.0.3.162   cyndaquil    <none>           <none>
+rook-ceph-crashcollector-growlithe-7576697d66-gxtsm        1/1     Running     0                2d15h   10.0.1.220   growlithe    <none>           <none>
+rook-ceph-crashcollector-pikachu-655f7d5d4c-hgb8v          1/1     Running     0                2d15h   10.0.8.240   pikachu      <none>           <none>
+rook-ceph-crashcollector-sprigatito-846c5596b7-s8lsj       1/1     Running     0                2d15h   10.0.9.151   sprigatito   <none>           <none>
+rook-ceph-crashcollector-squirtle-7fdc7fb9f4-b8669         1/1     Running     0                2d15h   10.0.6.54    squirtle     <none>           <none>
+rook-ceph-exporter-arcanine-58bff4f758-cj8j5               1/1     Running     0                2d15h   10.0.4.152   arcanine     <none>           <none>
+rook-ceph-exporter-bulbasaur-785d954c8-tf529               1/1     Running     0                2d14h   10.0.7.11    bulbasaur    <none>           <none>
+rook-ceph-exporter-charmander-68955455bb-8r8zt             1/1     Running     0                2d15h   10.0.5.7     charmander   <none>           <none>
+rook-ceph-exporter-chikorita-768866f985-hcxlc              1/1     Running     0                2d15h   10.0.0.40    chikorita    <none>           <none>
+rook-ceph-exporter-cyndaquil-697bd7d58c-jrn44              1/1     Running     0                2d15h   10.0.3.66    cyndaquil    <none>           <none>
+rook-ceph-exporter-growlithe-95969c64d-5xvnm               1/1     Running     0                2d15h   10.0.1.5     growlithe    <none>           <none>
+rook-ceph-exporter-pikachu-78689b6cb9-lpf42                1/1     Running     0                2d15h   10.0.8.229   pikachu      <none>           <none>
+rook-ceph-exporter-sprigatito-66fd649897-zdvtg             1/1     Running     0                2d15h   10.0.9.176   sprigatito   <none>           <none>
+rook-ceph-exporter-squirtle-7d7867b4f6-jvxjt               1/1     Running     0                2d15h   10.0.6.114   squirtle     <none>           <none>
+rook-ceph-mds-standard-rwx-a-6bd6586df-q944b               1/1     Running     0                2d15h   10.0.0.249   chikorita    <none>           <none>
+rook-ceph-mds-standard-rwx-b-779b85d79c-tqmqh              1/1     Running     0                2d15h   10.0.8.216   pikachu      <none>           <none>
+rook-ceph-mgr-a-5fb858f4f-qksld                            2/2     Running     0                2d15h   10.0.6.156   squirtle     <none>           <none>
+rook-ceph-mgr-b-7bf766bd9f-h8k24                           2/2     Running     0                2d15h   10.0.3.85    cyndaquil    <none>           <none>
+rook-ceph-mon-f-5cc966c797-kp4j9                           1/1     Running     0                2d15h   10.0.7.252   bulbasaur    <none>           <none>
+rook-ceph-mon-h-5ccccdb9bc-cblfc                           1/1     Running     0                2d15h   10.0.5.251   charmander   <none>           <none>
+rook-ceph-mon-j-746c974688-k9nts                           1/1     Running     0                2d15h   10.0.3.14    cyndaquil    <none>           <none>
+rook-ceph-operator-7f67ff775c-m8rqk                        1/1     Running     0                2d15h   10.0.3.13    cyndaquil    <none>           <none>
+rook-ceph-osd-0-759886b475-2fcjn                           1/1     Running     0                2d15h   10.0.0.241   chikorita    <none>           <none>
+rook-ceph-osd-1-6d8c5776bc-fkfxk                           1/1     Running     0                2d15h   10.0.3.232   cyndaquil    <none>           <none>
+rook-ceph-osd-2-65c544f9b9-g75lf                           1/1     Running     0                2d15h   10.0.4.44    arcanine     <none>           <none>
+rook-ceph-osd-4-68899c7d97-dpqm8                           1/1     Running     0                2d14h   10.0.7.56    bulbasaur    <none>           <none>
+rook-ceph-osd-6-84797665c5-rg57q                           1/1     Running     0                2d15h   10.0.1.164   growlithe    <none>           <none>
+rook-ceph-osd-7-7f4d84c6d6-vknvl                           1/1     Running     0                2d15h   10.0.9.83    sprigatito   <none>           <none>
+rook-ceph-osd-8-5b654b7fd6-6tvhv                           1/1     Running     0                2d15h   10.0.4.31    arcanine     <none>           <none>
+rook-ceph-osd-prepare-arcanine-n5ncm                       0/1     Completed   0                2d7h    10.0.4.95    arcanine     <none>           <none>
+rook-ceph-osd-prepare-bulbasaur-7c6xc                      0/1     Completed   0                2d7h    <none>       bulbasaur    <none>           <none>
+rook-ceph-osd-prepare-charmander-klccj                     0/1     Completed   0                2d7h    <none>       charmander   <none>           <none>
+rook-ceph-osd-prepare-chikorita-646sd                      0/1     Completed   0                2d7h    10.0.0.148   chikorita    <none>           <none>
+rook-ceph-osd-prepare-cyndaquil-vxjsc                      0/1     Completed   0                2d7h    10.0.3.242   cyndaquil    <none>           <none>
+rook-ceph-osd-prepare-growlithe-26f4m                      0/1     Completed   0                2d7h    10.0.1.25    growlithe    <none>           <none>
+rook-ceph-osd-prepare-pikachu-7v92b                        0/1     Completed   0                2d7h    10.0.8.13    pikachu      <none>           <none>
+rook-ceph-osd-prepare-sprigatito-zlgns                     0/1     Completed   0                2d7h    10.0.9.78    sprigatito   <none>           <none>
+rook-ceph-osd-prepare-squirtle-f7jw6                       0/1     Completed   0                2d7h    10.0.6.63    squirtle     <none>           <none>
+rook-ceph-osd-prepare-totodile-2mhm5                       0/1     Completed   0                2d7h    10.0.2.21    totodile     <none>           <none>
+rook-ceph-snapshot-controller-7dd476c4f9-r8tz8             1/1     Running     5 (2d1h ago)     2d15h   10.0.1.179   growlithe    <none>           <none>
+rook-ceph-tools-658fd4db6f-hcklr                           1/1     Running     0                2d15h   10.0.0.22    chikorita    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-ctrlplugin-c4dc99579-4jmw9   5/5     Running     0                2d15h   10.0.2.249   totodile     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-ctrlplugin-c4dc99579-zg4mf   5/5     Running     0                2d15h   10.0.6.204   squirtle     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-cgcn2             2/2     Running     16 (2d15h ago)   9d      10.0.20.16   cyndaquil    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-dmm87             2/2     Running     16 (2d15h ago)   9d      10.0.20.17   totodile     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-gppjq             2/2     Running     16 (2d15h ago)   9d      10.0.20.18   growlithe    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-km79k             2/2     Running     16 (2d15h ago)   9d      10.0.20.15   chikorita    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-ln2xg             2/2     Running     16 (2d15h ago)   9d      10.0.20.20   sprigatito   <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-nl7sz             2/2     Running     16 (2d15h ago)   9d      10.0.20.12   squirtle     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-qqk55             2/2     Running     16 (2d14h ago)   9d      10.0.20.13   bulbasaur    <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-rp424             2/2     Running     16 (2d15h ago)   9d      10.0.20.14   pikachu      <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-sr6pd             2/2     Running     16 (2d15h ago)   9d      10.0.20.19   arcanine     <none>           <none>
+rook-ceph.cephfs.csi.ceph.com-nodeplugin-tq8r7             2/2     Running     16 (2d15h ago)   9d      10.0.20.11   charmander   <none>           <none>
+rook-ceph.rbd.csi.ceph.com-ctrlplugin-5f745fd754-578sm     5/5     Running     0                2d15h   10.0.2.236   totodile     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-ctrlplugin-5f745fd754-mgrwt     5/5     Running     0                2d15h   10.0.8.48    pikachu      <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-29n8t                2/2     Running     16 (2d15h ago)   9d      10.0.20.14   pikachu      <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-dcx5w                2/2     Running     16 (2d15h ago)   9d      10.0.20.12   squirtle     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-fdqxc                2/2     Running     16 (2d15h ago)   9d      10.0.20.16   cyndaquil    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-m4626                2/2     Running     16 (2d15h ago)   9d      10.0.20.17   totodile     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-prnr6                2/2     Running     16 (2d15h ago)   9d      10.0.20.19   arcanine     <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-r2mz4                2/2     Running     16 (2d15h ago)   9d      10.0.20.20   sprigatito   <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-skvrn                2/2     Running     16 (2d14h ago)   9d      10.0.20.13   bulbasaur    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-szksm                2/2     Running     16 (2d15h ago)   9d      10.0.20.15   chikorita    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-vjs59                2/2     Running     16 (2d15h ago)   9d      10.0.20.18   growlithe    <none>           <none>
+rook-ceph.rbd.csi.ceph.com-nodeplugin-x5hp9                2/2     Running     16 (2d15h ago)   9d      10.0.20.11   charmander   <none>           <none>

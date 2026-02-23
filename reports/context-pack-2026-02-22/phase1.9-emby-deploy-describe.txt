@@ -1,0 +1,97 @@
+Name:                   emby
+Namespace:              emby
+CreationTimestamp:      Sun, 04 Jan 2026 18:54:59 -0600
+Labels:                 app.kubernetes.io/controller=main
+                        app.kubernetes.io/instance=emby
+                        app.kubernetes.io/managed-by=Helm
+                        app.kubernetes.io/name=emby
+                        helm.sh/chart=app-template-4.6.2
+Annotations:            argocd.argoproj.io/tracking-id: emby:apps/Deployment:emby/emby
+                        deployment.kubernetes.io/revision: 2
+Selector:               app.kubernetes.io/controller=main,app.kubernetes.io/instance=emby,app.kubernetes.io/name=emby
+Replicas:               1 desired | 1 updated | 1 total | 1 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:           app.kubernetes.io/controller=main
+                    app.kubernetes.io/instance=emby
+                    app.kubernetes.io/name=emby
+  Annotations:      kubectl.kubernetes.io/restartedAt: 2026-02-16T23:49:31Z
+  Service Account:  default
+  Containers:
+   main:
+    Image:      lscr.io/linuxserver/emby:beta
+    Port:       <none>
+    Host Port:  <none>
+    Limits:
+      cpu:             3500m
+      memory:          24Gi
+      nvidia.com/gpu:  1
+    Requests:
+      cpu:             2
+      memory:          16Gi
+      nvidia.com/gpu:  1
+    Environment:
+      FFMPEG_HWACCEL:              cuda
+      NVIDIA_DRIVER_CAPABILITIES:  all
+      NVIDIA_VISIBLE_DEVICES:      all
+      PGID:                        100
+      PUID:                        99
+      TZ:                          America/Chicago
+    Mounts:
+      /backups from nfs-restore (rw)
+      /config from data (rw)
+      /data/movies from nfs-movies (rw)
+      /data/movies_custom from nfs-movies-custom (rw)
+      /data/music from nfs-music (rw)
+      /data/tv from nfs-tv (rw)
+      /data/tv_custom from nfs-tv-custom (rw)
+      /emby/transcode from transcode (rw)
+  Volumes:
+   data:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  emby-original-data
+    ReadOnly:   false
+   nfs-movies:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/movies
+    ReadOnly:  false
+   nfs-movies-custom:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/movies_custom
+    ReadOnly:  false
+   nfs-music:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/music
+    ReadOnly:  false
+   nfs-restore:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/emby_backups
+    ReadOnly:  false
+   nfs-tv:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/tv
+    ReadOnly:  false
+   nfs-tv-custom:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/tv_custom
+    ReadOnly:  false
+   transcode:
+    Type:          HostPath (bare host directory volume)
+    Path:          /emby/transcode
+    HostPathType:  
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Progressing    True    NewReplicaSetAvailable
+  Available      True    MinimumReplicasAvailable
+OldReplicaSets:  <none>
+NewReplicaSet:   emby-74d94f8dd7 (1/1 replicas created)
+Events:          <none>

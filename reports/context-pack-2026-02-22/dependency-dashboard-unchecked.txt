@@ -1,0 +1,4 @@
+ - [ ] <!-- rebase-branch=renovate/all-minor-patch -->[chore(deps): update all non-major dependencies](pulls/63) (`argo-cd`, `docker.io/kanidm/server`, `external-secrets`, `ghcr.io/kagent-dev/kagent/tools`, `kube-prometheus-stack`, `mariadb`, `ollama`, `postgres`, `registry.rocket.chat/rocketchat/rocket.chat`, `renovate`, `snapshot-controller`, `supabase/logflare`, `supabase/postgres`, `supabase/realtime`, `supabase/storage-api`)
+ - [ ] <!-- rebase-branch=renovate/kube-prometheus-stack-82.x -->[chore(deps): update helm release kube-prometheus-stack to v82](pulls/65)
+ - [ ] <!-- rebase-all-open-prs -->**Click on this checkbox to rebase all open PRs at once**
+ - [ ] <!-- recreate-branch=renovate/docker.io-library-debian-13.x -->[chore(deps): update docker.io/library/debian docker tag to v13](pulls/52)
