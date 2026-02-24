@@ -1,162 +1,70 @@
-app-template:
-  controllers:
-    main:
-      replicas: 1
-      strategy: RollingUpdate
-      containers:
-        main:
-          image:
-            repository: lscr.io/linuxserver/nextcloud
-            tag: latest
-            pullPolicy: Always
-          env:
-            TZ: "America/Chicago"
-            PHP_MEMORY_LIMIT: "1024M"
-            MYSQL_HOST: "nextcloud-mariadb.nextcloud.svc.cluster.local"
-            MYSQL_DATABASE: "nextcloud"
-            MYSQL_USER:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-username"
-            MYSQL_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-password"
-          ports:
-            - name: https
-              containerPort: 443
-              protocol: TCP
-          resources:
-            requests:
-              cpu: 100m
-              memory: 512Mi
-            limits:
-              cpu: 2000m
-              memory: 2Gi
-        valkey:
-          image:
-            repository: valkey/valkey
-            tag: alpine
-          env:
-            TZ: "America/Chicago"
-          resources:
-            requests:
-              cpu: 50m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-    mariadb:
-      type: statefulset
-      containers:
-        main:
-          image:
-            repository: mariadb
-            tag: "12.2"
-            pullPolicy: Always
-          env:
-            MYSQL_ROOT_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-root-password"
-            MYSQL_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-password"
-            MYSQL_DATABASE: "nextcloud"
-            MYSQL_USER:
-              valueFrom:
-                secretKeyRef:
-                  name: "secrets"
-                  key: "mysql-username"
-      ports:
-        - name: mysql
-          containerPort: 3306
-          protocol: TCP
-  service:
-    main:
-      controller: main
-      primary: true
-      ports:
-        https:
-          port: 443
-          targetPort: 443
-          protocol: TCP
-    mariadb:
-      controller: mariadb
-      ports:
-        mysql:
-          port: 3306
-          protocol: TCP
-          targetPort: mysql
-  ingress:
-    main:
-      enabled: true
-      className: nginx
-      annotations:
-        nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-        nginx.ingress.kubernetes.io/proxy-body-size: "16G"
-        nginx.ingress.kubernetes.io/proxy-buffering: "on"
-        nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-        nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
-        nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: &host nextcloud.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                identifier: main
-                port: https
-      tls:
-        - hosts:
-            - *host
-          secretName: nextcloud-tls-certificate
-  persistence:
-    # Nextcloud application data (files) mounted from NAS subdir
-    data:
-      enabled: true
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/nextcloud/data
-      advancedMounts:
-        main:
-          main:
-            - path: /data
-    # MariaDB data stored on the same NFS export under mysql/
-    mariadb:
-      enabled: true
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/nextcloud/mysql
-      advancedMounts:
-        main:
-          main:
-            - path: /var/lib/mysql
-    # Configuration files (config.php, app config) on same NAS export
-    config:
-      enabled: true
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/nextcloud/config
-      accessMode: ReadWriteOnce
-      size: 10Gi
-      retain: true
-      advancedMounts:
-        main:
-          main:
-            - path: /config
+# Official Nextcloud Helm chart values (starting point)
+# This file assumes static PVs/PVCs will be created and bound to the
+# NFS subpaths under /mnt/user/nextcloud on the NAS (server 10.0.40.3).
+#
+# Important: The official chart layout may differ depending on chart
+# version. This file uses the common keys `persistence.existingClaim` and
+# `mariadb.primary.persistence.existingClaim`. If your chart version uses
+# different keys, adapt accordingly.
 
-  defaultPodOptions:
-    annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/c5krkheantm42ss5tgpg5gsxeq"
-      operator.1password.io/item-name: "secrets"
+
+# Nextcloud application settings (chart-specific)
+nextcloud:
+  # Admin bootstrap (override via secret if desired)
+  # username: admin
+  # password: changeme
+
+  # Extra volumes allow mounting a separate PVC for the Nextcloud config
+  # directory. This maps the PVC `nextcloud-config` into the Pod at
+  # /var/www/html/config.
+  extraVolumes:
+    - name: nextcloud-config
+      persistentVolumeClaim:
+        claimName: nextcloud-config
+  extraVolumeMounts:
+    - name: nextcloud-config
+      mountPath: /var/www/html/config
+
+# Use the bundled MariaDB (chart may use bitnami/mariadb). We point its
+# persistence to an existing PVC created on the NFS export.
+
+# Use the bundled MariaDB chart (bitnami). We disable the internalDatabase
+# helper to avoid conflicts and point mariadb to the pre-created PVC and
+# secret.
+internalDatabase:
+  enabled: false
+
+mariadb:
+  enabled: true
+  primary:
+    persistence:
+      enabled: true
+      existingClaim: nextcloud-mysql
+  # The secret must exist in the `nextcloud` namespace and contain the
+  # required keys for the bitnami mariadb chart (mariadb-root-password,
+  # mariadb-password). We'll create this secret directly in-cluster.
+  auth:
+    existingSecret: nextcloud-db-secret
+
+# Example resource sizing (tweak to your environment)
+
+# Persistence for the Nextcloud data directory (binds to PV/PVC created
+# earlier: nextcloud-data)
+persistence:
+  enabled: true
+  existingClaim: nextcloud-data
+  accessMode: ReadWriteMany
+  size: 50Gi
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+# Service type: set to ClusterIP for internal access; change to LoadBalancer
+# or Ingress values if you expose Nextcloud externally.
+service:
+  type: ClusterIP
