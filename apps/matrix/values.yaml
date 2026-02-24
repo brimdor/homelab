@@ -45,6 +45,9 @@ dendrite:
         secretName: matrix-tls-certificate
   postgresql:
     enabled: true
+    image:
+      repository: bitnamilegacy/postgresql
+      tag: "16.2.0"
     persistence:
       enabled: true
       type: nfs
