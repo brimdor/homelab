@@ -28,7 +28,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: nextcloud-mysql
+  name: nextcloud-mysql-root
   namespace: {{ .Release.Namespace }}
 spec:
   accessModes:
