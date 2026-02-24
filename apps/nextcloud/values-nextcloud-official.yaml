@@ -1,0 +1,56 @@
+# Official Nextcloud Helm chart values (starting point)
+# This file assumes static PVs/PVCs will be created and bound to the
+# NFS subpaths under /mnt/user/nextcloud on the NAS (server 10.0.40.3).
+#
+# Important: The official chart layout may differ depending on chart
+# version. This file uses the common keys `persistence.existingClaim` and
+# `mariadb.primary.persistence.existingClaim`. If your chart version uses
+# different keys, adapt accordingly.
+
+nextcloud:
+  # Use existing PVC for Nextcloud data directory
+  persistence:
+    enabled: true
+    existingClaim: nextcloud-data
+
+  # Some charts support a separate config volume; include it if your chart
+  # uses it (otherwise you can remove this block).
+  config:
+    persistence:
+      enabled: true
+      existingClaim: nextcloud-config
+
+  # Admin credentials should not be committed in git. Prefer creating a
+  # Kubernetes secret and referencing it, or pass at install-time.
+  ## adminUser: admin
+  ## adminPassword: "REPLACE_WITH_SECRET"
+
+# Use the bundled MariaDB (chart may use bitnami/mariadb). We point its
+# persistence to an existing PVC created on the NFS export.
+mariadb:
+  enabled: true
+  primary:
+    persistence:
+      enabled: true
+      existingClaim: nextcloud-mysql
+
+  # Use the provided secret manifest (apps/nextcloud/k8s/secret-nextcloud-db.yaml)
+  # or create a secret via kubectl. The chart expects credentials under the
+  # bitnami/mariadb naming scheme; `existingSecret` points the chart to
+  # the secret name created above.
+  auth:
+    existingSecret: nextcloud-db-secret
+
+# Example resource sizing (tweak to your environment)
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+# Service type: set to ClusterIP for internal access; change to LoadBalancer
+# or Ingress values if you expose Nextcloud externally.
+service:
+  type: ClusterIP
