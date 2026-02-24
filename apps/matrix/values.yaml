@@ -47,6 +47,10 @@ dendrite:
       - hosts:
           - matrix.eaglepass.io
         secretName: matrix-tls-certificate
+  # Pass extra args to the dendrite binary. Needed to allow open registration
+  # when we explicitly enable it here for initial user provisioning.
+  extraArgs:
+    - "-really-enable-open-registration"
   postgresql:
     enabled: true
     image:
