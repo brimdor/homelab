@@ -25,21 +25,14 @@ Steps performed by this guide:
      images often use PUID/PGID environment variables). Setting ownership
      to 1000:1000 is a reasonable default for many containers.
 
-2) Apply Kubernetes manifests (namespace, PVs, secret):
-
-   kubectl apply -f apps/nextcloud/k8s/namespace-nextcloud.yaml
-   kubectl apply -f apps/nextcloud/k8s/pv-nextcloud.yaml
-   # Replace placeholders in secret-nextcloud-db.yaml or create secret with kubectl create secret
-   kubectl apply -f apps/nextcloud/k8s/secret-nextcloud-db.yaml
-
-3) Install the official Nextcloud chart via Helm (repo must be added):
+2) Install/upgrade from this repo chart (it wraps the official chart and
+   also creates the static PV/PVC resources):
 
    helm repo add nextcloud https://nextcloud.github.io/helm/
    helm repo update
-   helm upgrade --install nextcloud nextcloud/nextcloud -n nextcloud \
-     -f apps/nextcloud/values-nextcloud-official.yaml
+   helm upgrade --install nextcloud apps/nextcloud -n nextcloud
 
-4) Verify deployment:
+3) Verify deployment:
 
    kubectl -n nextcloud get pv,pvc
    kubectl -n nextcloud get pods
