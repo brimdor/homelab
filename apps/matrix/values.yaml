@@ -33,6 +33,10 @@ dendrite:
   dendrite_config:
     global:
       server_name: matrix.eaglepass.io
+    client_api:
+      # Allow user registration while we create the initial admin account.
+      # IMPORTANT: this is temporary and will be reverted after account creation.
+      registration_disabled: false
   ingress:
     enabled: true
     className: nginx
