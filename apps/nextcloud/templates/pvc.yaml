@@ -1,38 +1,40 @@
+{{- if .Values.createPVCs }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: nextcloud-data
-  namespace: nextcloud
+  namespace: {{ .Release.Namespace }}
 spec:
   accessModes:
     - ReadWriteMany
   resources:
     requests:
       storage: 50Gi
-  storageClassName: nfs
+  storageClassName: {{ .Values.nfs.storageClass }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: nextcloud-config
-  namespace: nextcloud
+  namespace: {{ .Release.Namespace }}
 spec:
   accessModes:
     - ReadWriteMany
   resources:
     requests:
       storage: 5Gi
-  storageClassName: nfs
+  storageClassName: {{ .Values.nfs.storageClass }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: nextcloud-mysql
-  namespace: nextcloud
+  namespace: {{ .Release.Namespace }}
 spec:
   accessModes:
     - ReadWriteMany
   resources:
     requests:
       storage: 20Gi
-  storageClassName: nfs
+  storageClassName: {{ .Values.nfs.storageClass }}
+{{- end }}
