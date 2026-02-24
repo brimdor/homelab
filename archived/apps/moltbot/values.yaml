@@ -20,7 +20,7 @@ app-template:
         tools-installer:
           image:
             repository: docker.io/library/debian
-            tag: "12-slim"
+            tag: "13-slim"
             pullPolicy: IfNotPresent
           command:
             - sh
