@@ -11,6 +11,14 @@ nextcloud:
       smtpUsernameKey: smtp-username
       smtpPasswordKey: smtp-password
       smtpHostKey: smtp-host
+    hooks:
+      post-installation: |
+        #!/bin/sh
+        set -eu
+        php /var/www/html/occ app:install whiteboard || true
+        php /var/www/html/occ app:enable whiteboard || true
+        php /var/www/html/occ config:app:set whiteboard collabBackendUrl --value="https://next.eaglepass.io/whiteboard" || true
+        php /var/www/html/occ config:app:set whiteboard jwt_secret_key --value="${REDIS_HOST_PASSWORD}" || true
 
   podAnnotations:
     operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/npvlyfo7z6mjr6mysjlhyshxtu"
@@ -98,6 +106,23 @@ nextcloud:
     failureThreshold: 6
     successThreshold: 1
 
+  extraSidecarContainers:
+    - name: whiteboard-ws
+      image: ghcr.io/nextcloud-releases/whiteboard:stable
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: NEXTCLOUD_URL
+          value: "https://next.eaglepass.io"
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: mariadb-password
+      ports:
+        - name: whiteboard
+          containerPort: 3002
+          protocol: TCP
+
   extraManifests:
     - apiVersion: v1
       kind: PersistentVolume
@@ -175,3 +200,42 @@ nextcloud:
                 ports:
                   - name: redis
                     containerPort: 6379
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: nextcloud-whiteboard
+        labels:
+          app.kubernetes.io/name: nextcloud
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: nextcloud
+          app.kubernetes.io/instance: "{{ .Release.Name }}"
+          app.kubernetes.io/component: app
+        ports:
+          - name: whiteboard
+            port: 3002
+            targetPort: 3002
+            protocol: TCP
+    - apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: nextcloud-whiteboard
+        annotations:
+          nginx.ingress.kubernetes.io/use-regex: "true"
+          nginx.ingress.kubernetes.io/rewrite-target: /$2
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+          nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      spec:
+        ingressClassName: nginx
+        rules:
+          - host: next.eaglepass.io
+            http:
+              paths:
+                - path: /whiteboard(/|$)(.*)
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: nextcloud-whiteboard
+                      port:
+                        number: 3002
