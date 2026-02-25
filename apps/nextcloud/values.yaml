@@ -70,35 +70,35 @@ nextcloud:
 
   persistence:
     enabled: true
-    existingClaim: nextcloud-main
+    storageClass: standard-rwo
+    accessMode: ReadWriteOnce
+    size: 20Gi
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 90
+    successThreshold: 1
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 12
+    successThreshold: 1
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 180
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
 
   extraManifests:
-    - apiVersion: v1
-      kind: PersistentVolume
-      metadata:
-        name: nextcloud-main-pv
-      spec:
-        capacity:
-          storage: 2Ti
-        accessModes:
-          - ReadWriteMany
-        persistentVolumeReclaimPolicy: Retain
-        storageClassName: ""
-        nfs:
-          server: 10.0.40.3
-          path: /mnt/user/nextcloud
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: nextcloud-main
-      spec:
-        accessModes:
-          - ReadWriteMany
-        resources:
-          requests:
-            storage: 2Ti
-        storageClassName: ""
-        volumeName: nextcloud-main-pv
     - apiVersion: v1
       kind: PersistentVolume
       metadata:
