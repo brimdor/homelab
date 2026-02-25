@@ -18,7 +18,29 @@ nextcloud:
         php /var/www/html/occ app:install whiteboard || true
         php /var/www/html/occ app:enable whiteboard || true
         php /var/www/html/occ config:app:set whiteboard collabBackendUrl --value="https://next.eaglepass.io/whiteboard" || true
-        php /var/www/html/occ config:app:set whiteboard jwt_secret_key --value="${REDIS_HOST_PASSWORD}" || true
+        php /var/www/html/occ config:app:set whiteboard jwt_secret_key --value="${WHITEBOARD_JWT_SECRET}" || true
+    extraEnv:
+      - name: WHITEBOARD_JWT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: secrets
+            key: whiteboard-jwt-secret
+    extraSidecarContainers:
+      - name: whiteboard-ws
+        image: ghcr.io/nextcloud-releases/whiteboard:stable
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: NEXTCLOUD_URL
+            value: "https://next.eaglepass.io"
+          - name: JWT_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: secrets
+                key: whiteboard-jwt-secret
+        ports:
+          - name: whiteboard
+            containerPort: 3002
+            protocol: TCP
 
   podAnnotations:
     operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/npvlyfo7z6mjr6mysjlhyshxtu"
@@ -105,23 +127,6 @@ nextcloud:
     timeoutSeconds: 5
     failureThreshold: 6
     successThreshold: 1
-
-  extraSidecarContainers:
-    - name: whiteboard-ws
-      image: ghcr.io/nextcloud-releases/whiteboard:stable
-      imagePullPolicy: IfNotPresent
-      env:
-        - name: NEXTCLOUD_URL
-          value: "https://next.eaglepass.io"
-        - name: JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: secrets
-              key: mariadb-password
-      ports:
-        - name: whiteboard
-          containerPort: 3002
-          protocol: TCP
 
   extraManifests:
     - apiVersion: v1
