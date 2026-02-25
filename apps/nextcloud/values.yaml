@@ -6,8 +6,8 @@ nextcloud:
     existingSecret:
       enabled: true
       secretName: secrets
-      usernameKey: nextcloud-username
-      passwordKey: nextcloud-password
+      usernameKey: admin-username
+      passwordKey: admin-password
       smtpUsernameKey: smtp-username
       smtpPasswordKey: smtp-password
       smtpHostKey: smtp-host
@@ -39,7 +39,7 @@ nextcloud:
     existingSecret:
       enabled: true
       secretName: secrets
-      usernameKey: mariadb-username
+      usernameKey: username
       passwordKey: mariadb-password
 
   mariadb:
@@ -66,7 +66,7 @@ nextcloud:
     existingSecret:
       enabled: true
       secretName: secrets
-      passwordKey: redis-password
+      passwordKey: mariadb-password
 
   persistence:
     enabled: true
@@ -86,7 +86,7 @@ nextcloud:
         storageClassName: ""
         nfs:
           server: 10.0.40.3
-          path: /mnt/user/nextcloud/main
+          path: /mnt/user/nextcloud
     - apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
@@ -112,7 +112,7 @@ nextcloud:
         storageClassName: ""
         nfs:
           server: 10.0.40.3
-          path: /mnt/user/nextcloud/mariadb
+          path: /mnt/user/nextcloud
     - apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
@@ -171,7 +171,7 @@ nextcloud:
                     valueFrom:
                       secretKeyRef:
                         name: secrets
-                        key: redis-password
+                        key: mariadb-password
                 ports:
                   - name: redis
                     containerPort: 6379
