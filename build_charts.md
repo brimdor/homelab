@@ -89,6 +89,17 @@ This workflow defines the rigorous process to generate **exactly two files** (`C
 ### 3.1 Secrets Management (Mandatory)
 All sensitive data must be retrieved via **1Password Operator**.
 
+**1Password CLI Access (Mandatory Context)**:
+-   This workflow can always use the configured 1Password service account token via `op` CLI.
+-   Authorized vault: `server` (`4uaua4a45yuhnwhehp5bwylmti`).
+-   The workflow may create, update, and view credentials/secrets in this vault as needed to build charts.
+-   Preferred operations: `op item get`, `op item create`, `op item edit` within the `server` vault.
+
+**1Password Item Field Naming (Mandatory)**:
+-   Every field key in 1Password items must be all lowercase and hyphenated.
+-   Allowed format: `^[a-z0-9]+(-[a-z0-9]+)*$` (for example: `api-key`, `db-password`, `client-id`).
+-   Disallowed: spaces, underscores, uppercase letters, and camelCase.
+
 1.  **Pod Annotations**:
     ```yaml
     annotations:

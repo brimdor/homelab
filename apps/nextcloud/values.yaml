@@ -1,0 +1,177 @@
+nextcloud:
+  nextcloud:
+    host: next.eaglepass.io
+    trustedDomains:
+      - next.eaglepass.io
+    existingSecret:
+      enabled: true
+      secretName: secrets
+      usernameKey: nextcloud-username
+      passwordKey: nextcloud-password
+      smtpUsernameKey: smtp-username
+      smtpPasswordKey: smtp-password
+      smtpHostKey: smtp-host
+
+  podAnnotations:
+    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/npvlyfo7z6mjr6mysjlhyshxtu"
+    operator.1password.io/item-name: "secrets"
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    tls:
+      - secretName: nextcloud-tls-certificate
+        hosts:
+          - next.eaglepass.io
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  internalDatabase:
+    enabled: false
+
+  externalDatabase:
+    enabled: true
+    type: mysql
+    existingSecret:
+      enabled: true
+      secretName: secrets
+      usernameKey: mariadb-username
+      passwordKey: mariadb-password
+
+  mariadb:
+    enabled: true
+    auth:
+      database: nextcloud
+      username: nextcloud
+      existingSecret: secrets
+    primary:
+      podAnnotations:
+        operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/npvlyfo7z6mjr6mysjlhyshxtu"
+        operator.1password.io/item-name: "secrets"
+      persistence:
+        enabled: true
+        existingClaim: nextcloud-mariadb
+
+  redis:
+    enabled: false
+
+  externalRedis:
+    enabled: true
+    host: nextcloud-valkey
+    port: "6379"
+    existingSecret:
+      enabled: true
+      secretName: secrets
+      passwordKey: redis-password
+
+  persistence:
+    enabled: true
+    existingClaim: nextcloud-main
+
+  extraManifests:
+    - apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: nextcloud-main-pv
+      spec:
+        capacity:
+          storage: 2Ti
+        accessModes:
+          - ReadWriteMany
+        persistentVolumeReclaimPolicy: Retain
+        storageClassName: ""
+        nfs:
+          server: 10.0.40.3
+          path: /mnt/user/nextcloud/main
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: nextcloud-main
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 2Ti
+        storageClassName: ""
+        volumeName: nextcloud-main-pv
+    - apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: nextcloud-mariadb-pv
+      spec:
+        capacity:
+          storage: 200Gi
+        accessModes:
+          - ReadWriteOnce
+        persistentVolumeReclaimPolicy: Retain
+        storageClassName: ""
+        nfs:
+          server: 10.0.40.3
+          path: /mnt/user/nextcloud/mariadb
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: nextcloud-mariadb
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 200Gi
+        storageClassName: ""
+        volumeName: nextcloud-mariadb-pv
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: nextcloud-valkey
+        labels:
+          app.kubernetes.io/name: nextcloud-valkey
+      spec:
+        type: ClusterIP
+        ports:
+          - name: redis
+            port: 6379
+            targetPort: 6379
+        selector:
+          app.kubernetes.io/name: nextcloud-valkey
+    - apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: nextcloud-valkey
+        labels:
+          app.kubernetes.io/name: nextcloud-valkey
+      spec:
+        serviceName: nextcloud-valkey
+        replicas: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: nextcloud-valkey
+        template:
+          metadata:
+            annotations:
+              operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/npvlyfo7z6mjr6mysjlhyshxtu"
+              operator.1password.io/item-name: "secrets"
+            labels:
+              app.kubernetes.io/name: nextcloud-valkey
+          spec:
+            containers:
+              - name: valkey
+                image: valkey/valkey:8.1-alpine
+                command:
+                  - sh
+                  - -c
+                  - exec valkey-server --save "" --appendonly no --requirepass "$REDIS_PASSWORD"
+                env:
+                  - name: REDIS_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: secrets
+                        key: redis-password
+                ports:
+                  - name: redis
+                    containerPort: 6379
