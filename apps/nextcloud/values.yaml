@@ -15,6 +15,10 @@ nextcloud:
 
   replicaCount: 1
 
+  podAnnotations:
+    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/npvlyfo7z6mjr6mysjlhyshxtu"
+    operator.1password.io/item-name: "secrets"
+
   ingress:
     enabled: true
     className: nginx
@@ -39,8 +43,15 @@ nextcloud:
     trustedDomains:
       - nextcloud.eaglepass.io
       - nextcloud.kube.home
-    username: admin
-    password: changeme
+    existingSecret:
+      enabled: true
+      secretName: secrets
+      usernameKey: admin-username
+      passwordKey: admin-password
+    securityContext:
+      runAsUser: 33
+      runAsGroup: 33
+      runAsNonRoot: true
 
   internalDatabase:
     enabled: false
@@ -48,10 +59,13 @@ nextcloud:
   externalDatabase:
     enabled: true
     type: mysql
+    database: nextcloud
+    host: nextcloud-mariadb
     existingSecret:
-      enabled: false
-      usernameKey: db-username
-      passwordKey: db-password
+      enabled: true
+      secretName: secrets
+      usernameKey: username
+      passwordKey: password
 
   mariadb:
     enabled: true
@@ -59,9 +73,11 @@ nextcloud:
     auth:
       database: nextcloud
       username: nextcloud
-      password: changeme
-      rootPassword: changeme
+      existingSecret: secrets
     primary:
+      podAnnotations:
+        operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/npvlyfo7z6mjr6mysjlhyshxtu"
+        operator.1password.io/item-name: "secrets"
       persistence:
         enabled: true
         existingClaim: nextcloud-mysql-root
@@ -73,3 +89,11 @@ nextcloud:
     nextcloudData:
       enabled: true
       existingClaim: nextcloud-data
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 360
+    successThreshold: 1
