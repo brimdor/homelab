@@ -463,6 +463,8 @@ modelPuller:
       - gpt-oss:20b
       - llama-guard3:1b
       - hf.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_S
+      - hf.co/meta-llama/Llama-Guard-4-12B:Q4_K_S
+      - hf.co/meta-llama/Llama-4-7B:Q4_K_S
 
     # -- Custom models to create with Modelfiles
     custom:
@@ -512,7 +514,7 @@ modelPuller:
       # ========================================
       humble:
         enabled: true
-        base: "llama3.2:3b"
+        base: "ministral-3:8b"
         contextSize: 64000
         repeatPenalty: 1.5
         temperature: 0.7
