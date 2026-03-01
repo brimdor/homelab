@@ -323,6 +323,8 @@ ollama:
   extraEnvFrom: []
   #  - configMapRef:
   #      name: my-env-configmap
+  #  - secretRef:
+  #      name: ollama-hf-token
 
   # Enable persistence using Persistent Volume Claims
   # ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
