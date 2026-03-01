@@ -465,7 +465,6 @@ modelPuller:
       - gpt-oss:20b
       - llama-guard3:1b
       - huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_S
-      - huggingface.co/unsloth/Llama-Guard-4-12B:Q4_K_S
 
     # -- Custom models to create with Modelfiles
     custom:
