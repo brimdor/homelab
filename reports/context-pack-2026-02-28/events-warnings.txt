@@ -1,0 +1,9 @@
+NAMESPACE     LAST SEEN   TYPE      REASON      OBJECT                                     MESSAGE
+woodpecker    50m         Warning   Unhealthy   pod/woodpecker-server-0                    Readiness probe failed: HTTP probe failed with statuscode: 500
+ollama        49m         Warning   BackOff     pod/ollama-model-puller-7b775b76cf-jknsl   Back-off restarting failed container model-puller in pod ollama-model-puller-7b775b76cf-jknsl_ollama(83c1f147-5a8f-4c94-8c38-b0930fa62bf6)
+grafana       46m         Warning   Unhealthy   pod/grafana-79c498bcd-nn4cr                Readiness probe failed: Get "http://10.0.0.46:3000/api/health": dial tcp 10.0.0.46:3000: connect: connection refused
+kube-system   16m         Warning   Unhealthy   pod/cilium-operator-6999764665-sljh9       Liveness probe failed: Get "http://127.0.0.1:9234/healthz": dial tcp 127.0.0.1:9234: connect: connection refused
+rook-ceph     16m         Warning   Unhealthy   pod/rook-ceph-mon-f-5cc966c797-r8ddn       Liveness probe failed: command timed out: "env -i sh -c \noutp=\"$(ceph --admin-daemon /run/ceph/ceph-mon.f.asok mon_status 2>&1)\"\nrc=$?\nif [ $rc -ne 0 ]; then\n\techo \"ceph daemon health check failed with the following output:\"\n\techo \"$outp\" | sed -e 's/^/> /g'\n\texit $rc\nfi\n" timed out after 5s
+kube-system   16m         Warning   Unhealthy   pod/cilium-operator-6999764665-sljh9       Readiness probe failed: Get "http://127.0.0.1:9234/healthz": dial tcp 127.0.0.1:9234: connect: connection refused
+ollama        5m44s       Warning   BackOff     pod/ollama-model-puller-7cdc75bb9d-htzvh   Back-off restarting failed container model-puller in pod ollama-model-puller-7cdc75bb9d-htzvh_ollama(e0e7348d-046d-4fbf-b716-c701a4ecc71f)
+grafana       77s         Warning   Unhealthy   pod/grafana-cb858cf97-27z54                Readiness probe failed: Get "http://10.0.0.235:3000/api/health": dial tcp 10.0.0.235:3000: connect: connection refused
