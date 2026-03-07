@@ -17,7 +17,10 @@ rook-ceph:
         effect: NoSchedule
 rook-ceph-cluster:
   monitoring:
-    enabled: true
+    # Disabled due to Ceph v20.2.0 prometheus module bug (tracker #72380)
+    # The module crashes on startup in Rook deployments (no cephadm orchestrator)
+    # Re-enable when upgrading to Ceph v20.2.1+ which includes the fix
+    enabled: false
     createPrometheusRules: true
   cephClusterSpec:
     cephVersion:
