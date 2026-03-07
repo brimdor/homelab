@@ -9,7 +9,7 @@ app-template:
         main:
           image:
             repository: registry.rocket.chat/rocketchat/rocket.chat
-            tag: 8.1.1
+            tag: 8.2.0
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
