@@ -1,0 +1,272 @@
+date: "2026-03-07"
+title: "[Maintenance] 2026-03-07 - Homelab"
+
+status:
+  overall: "YELLOW"
+  source_report: "reports/status-report-2026-03-07.md"
+
+cluster:
+  k3s_version: "v1.33.6+k3s1"
+  node_count: 10
+  app_count: 42
+  ceph_status: "HEALTH_OK"
+
+layers:
+  metal:
+    nodes:
+      status: "GREEN"
+      details: "10/10 nodes Ready"
+    versions:
+      status: "YELLOW"
+      details: "kubectl client v1.35.1 vs server v1.33.6+k3s1 (supported skew warning)"
+    cni:
+      status: "GREEN"
+      details: "Cilium daemonset present and pods running"
+    kured:
+      status: "GREEN"
+      details: "kured daemonset pods running"
+  system:
+    coredns:
+      status: "GREEN"
+      details: "CoreDNS running from cluster-info and kube-system snapshot"
+    metrics_server:
+      status: "GREEN"
+      details: "metrics-server running"
+    kube_vip:
+      status: "GREEN"
+      details: "kube-vip pods running on control-plane nodes"
+    argocd:
+      status: "GREEN"
+      details: "All ArgoCD applications Synced and Healthy"
+  storage:
+    ceph_health:
+      status: "GREEN"
+      details: "ceph health = HEALTH_OK"
+    osds:
+      status: "GREEN"
+      details: "7/7 OSDs up/in"
+    usage:
+      status: "GREEN"
+      details: "~1.4 TiB used / ~3.4 TiB total"
+    pools:
+      status: "GREEN"
+      details: "4 pools, 177 pgs active+clean"
+    monitors:
+      status: "GREEN"
+      details: "3 mons in quorum (f,h,j)"
+    mds:
+      status: "GREEN"
+      details: "1 active + 1 standby-replay"
+  platform:
+    ingress:
+      status: "GREEN"
+      details: "ingress-nginx pods/services healthy"
+    certs:
+      status: "GREEN"
+      details: "certificate resources present, no active cert failures in snapshot"
+    secrets:
+      status: "GREEN"
+      details: "ExternalSecrets healthy in snapshot"
+    cert_manager:
+      status: "GREEN"
+      details: "cert-manager pods healthy"
+  apps:
+    pods:
+      status: "GREEN"
+      details: "No CrashLoopBackOff/Error/ImagePullBackOff/Pending pods"
+    gitea:
+      status: "GREEN"
+      details: "gitea, postgres, and valkey pods running"
+    grafana:
+      status: "GREEN"
+      details: "grafana pod running"
+    kanidm:
+      status: "GREEN"
+      details: "kanidm pod running"
+
+observations:
+  node_activity: "No NotReady nodes; no current resource pressure findings from recon snapshots."
+  renovate: "4 open Renovate PRs (#67-#70), all mergeable=true, plus 5 unchecked Dependency Dashboard items (issue #4)."
+  network:
+    workstation: "GREEN (cluster API reachable)"
+    gitea: "GREEN (API token validated as gitea_admin)"
+    nas: "GREEN (NAS script status GREEN; required ports reachable)"
+    gateway: "GREEN (VLAN gateway checks all passed)"
+
+proposed_changes:
+  - id: "CHG-001"
+    type: "Dependency Review"
+    layer: "Platform"
+    priority: "P1"
+    impact: "Medium"
+    downtime: "None expected"
+    summary: "Triage PR #67 (non-major dependency bundle) with staged validation and rollback gate"
+    dependencies: ["Validation Gate", "Dependency Dashboard #4"]
+  - id: "CHG-002"
+    type: "Major Dependency"
+    layer: "Apps"
+    priority: "P1"
+    impact: "High"
+    downtime: "Possible app restart"
+    summary: "Review PR #68 (bitnamilegacy/postgresql v17) with release-note and backup-first checklist"
+    dependencies: ["Backup completed", "Validation Gate"]
+  - id: "CHG-003"
+    type: "Major Base Image"
+    layer: "System"
+    priority: "P1"
+    impact: "Medium"
+    downtime: "Possible workload restart"
+    summary: "Review PR #69 (debian v13) for breaking package/runtime changes"
+    dependencies: ["Release notes reviewed", "Validation Gate"]
+  - id: "CHG-004"
+    type: "Major Dependency"
+    layer: "Platform"
+    priority: "P1"
+    impact: "High"
+    downtime: "Possible Redis-like service restart"
+    summary: "Review PR #70 (valkey v9) with compatibility checks and staged rollout"
+    dependencies: ["Backup completed", "Validation Gate"]
+  - id: "CHG-005"
+    type: "Governance"
+    layer: "Platform"
+    priority: "P2"
+    impact: "Low"
+    downtime: "None"
+    summary: "Reconcile unchecked Dependency Dashboard items after merge/defer decisions"
+    dependencies: ["PR decisions complete"]
+
+action_items:
+  - id: "A1"
+    phase: "A"
+    priority: "P0"
+    layer: "Metal"
+    title: "Preflight cluster and repo token validation"
+    goal: "Guarantee safe execution context before any maintenance change"
+    commands: "kubectl cluster-info && kubectl get nodes && set -a && source ~/.config/gitea/.env && set +a && curl -sf https://git.eaglepass.io/api/v1/user -H \"Authorization: token $GITEA_TOKEN\" | jq -r .login"
+    expected: "Cluster reachable, all nodes Ready, Gitea API auth returns gitea_admin"
+    if_fails: "Stop execution, restore access/auth first, and re-run recon"
+    rollback: "N/A"
+
+  - id: "C3"
+    phase: "C"
+    priority: "P1"
+    layer: "System"
+    title: "[Renovate] Review PR #69 (debian major v13) for runtime compatibility"
+    goal: "Prevent base-image compatibility regressions"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/69\" -H \"Authorization: token $GITEA_TOKEN\" | jq '{number,title,mergeable,head:{ref:.head.ref}}' && echo 'Validate glibc/runtime impact from Debian 12 -> 13'"
+    expected: "Compatibility checklist complete with clear merge/defer decision"
+    if_fails: "Pin current image and open follow-up compatibility issue"
+    rollback: "Revert merge commit to restore Debian 12 image"
+
+  - id: "C1"
+    phase: "C"
+    priority: "P1"
+    layer: "Platform"
+    title: "[Renovate] Decide merge/defer for PR #67 (non-major bundle)"
+    goal: "Resolve broad non-major update batch with explicit merge or defer decision"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/67\" -H \"Authorization: token $GITEA_TOKEN\" | jq '{number,title,mergeable,head:{ref:.head.ref},base:{ref:.base.ref}}' && kubectl get applications -n argocd"
+    expected: "Decision recorded in issue and validation gate defined before merge"
+    if_fails: "Split into smaller dependency groups and defer risky components"
+    rollback: "git revert <merge_commit_sha> followed by full validation gate"
+
+  - id: "C4"
+    phase: "C"
+    priority: "P1"
+    layer: "Platform"
+    title: "[Renovate] Review PR #70 (valkey major v9) with staged rollout"
+    goal: "Upgrade Valkey safely with compatibility and data protection gates"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/70\" -H \"Authorization: token $GITEA_TOKEN\" | jq '{number,title,mergeable,head:{ref:.head.ref}}' && echo 'Take backup/snapshot and stage rollout per namespace'"
+    expected: "Major-upgrade checklist complete; merge only after backup + validation gate"
+    if_fails: "Defer PR and open dedicated migration task with app compatibility matrix"
+    rollback: "Restore Valkey data from snapshot and revert merge commit"
+
+  - id: "C2"
+    phase: "C"
+    priority: "P1"
+    layer: "Apps"
+    title: "[Renovate] Review PR #68 (postgresql major v17) with breaking-change checklist"
+    goal: "Protect data-plane workloads while evaluating major PostgreSQL container jump"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/pulls/68\" -H \"Authorization: token $GITEA_TOKEN\" | jq '{number,title,mergeable,head:{ref:.head.ref}}' && echo 'Review upstream release notes and run backup before merge'"
+    expected: "Release notes reviewed, backup procedure confirmed, decision merge/defer documented"
+    if_fails: "Defer PR and create dedicated migration plan with canary test namespace"
+    rollback: "Restore database from pre-change backup and revert merged commit"
+
+  - id: "D1"
+    phase: "D"
+    priority: "P2"
+    layer: "Platform"
+    title: "[Renovate] Track Dependency Dashboard item for PR #67"
+    goal: "Resolve unchecked dashboard entry tied to pulls/67"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4\" -H \"Authorization: token $GITEA_TOKEN\" | jq -r '.body' | rg 'pulls/67'"
+    expected: "Dashboard entry for pulls/67 is checked or explicitly deferred with rationale"
+    if_fails: "Keep maintenance issue open and align dashboard state with PR decision"
+    rollback: "N/A"
+
+  - id: "D2"
+    phase: "D"
+    priority: "P2"
+    layer: "Platform"
+    title: "[Renovate] Track Dependency Dashboard item for PR #68"
+    goal: "Resolve unchecked dashboard entry tied to pulls/68"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4\" -H \"Authorization: token $GITEA_TOKEN\" | jq -r '.body' | rg 'pulls/68'"
+    expected: "Dashboard entry for pulls/68 is checked or explicitly deferred with rationale"
+    if_fails: "Leave item open and add migration prerequisite tasks before merge"
+    rollback: "N/A"
+
+  - id: "D3"
+    phase: "D"
+    priority: "P2"
+    layer: "Platform"
+    title: "[Renovate] Track Dependency Dashboard item for PR #69"
+    goal: "Resolve unchecked dashboard entry tied to pulls/69"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4\" -H \"Authorization: token $GITEA_TOKEN\" | jq -r '.body' | rg 'pulls/69'"
+    expected: "Dashboard entry for pulls/69 is checked or explicitly deferred with rationale"
+    if_fails: "Document blockers and keep item open until compatibility is confirmed"
+    rollback: "N/A"
+
+  - id: "D4"
+    phase: "D"
+    priority: "P2"
+    layer: "Platform"
+    title: "[Renovate] Track Dependency Dashboard item for PR #70"
+    goal: "Resolve unchecked dashboard entry tied to pulls/70"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4\" -H \"Authorization: token $GITEA_TOKEN\" | jq -r '.body' | rg 'pulls/70'"
+    expected: "Dashboard entry for pulls/70 is checked or explicitly deferred with rationale"
+    if_fails: "Do not merge until compatibility and backup gates are complete"
+    rollback: "N/A"
+
+  - id: "D5"
+    phase: "D"
+    priority: "P2"
+    layer: "Platform"
+    title: "[Renovate] Reconcile 'rebase all open PRs' dashboard control"
+    goal: "Apply rebase-all checkbox only when synchronized rebase is required"
+    commands: "curl -s \"https://git.eaglepass.io/api/v1/repos/ops/homelab/issues/4\" -H \"Authorization: token $GITEA_TOKEN\" | jq -r '.body' | rg 'rebase-all-open-prs'"
+    expected: "Rebase-all control handled intentionally and reflected in dashboard state"
+    if_fails: "Rebase PRs individually and track outcomes per PR"
+    rollback: "N/A"
+
+  - id: "F1"
+    phase: "F"
+    priority: "P0"
+    layer: "System"
+    title: "Universal validation gate after each approved change"
+    goal: "Enforce GREEN status across Metal/Network/Storage/System/Platform/Apps"
+    commands: "kubectl get nodes | grep -v Ready || true && kubectl get pods -n kube-system | grep -v \"Running\\|Completed\" || true && kubectl get applications -n argocd | grep -v \"Synced.*Healthy\" || true && kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph health && kubectl get pods -A --no-headers | grep -v \"Running\\|Completed\" || true && ~/.config/opencode/scripts/homelab-network-check.sh --json > reports/context-pack-2026-03-07/network-gate.json && ~/.config/opencode/scripts/homelab-nas-check.sh --json > reports/context-pack-2026-03-07/nas-gate.json"
+    expected: "All grep checks empty; ceph health HEALTH_OK; network/nas gate exit code 0"
+    if_fails: "Stop immediately, triage failing layer, and rollback latest change"
+    rollback: "Rollback latest merged PR via git revert and re-sync ArgoCD"
+
+change_log:
+  - timestamp: "2026-03-07T22:43:00Z"
+    phase: "1"
+    item: "Evidence Capture"
+    action: "Collected script-first context pack and cluster snapshots"
+    result: "Context pack complete for Metal/Network/Storage/System/Platform/Apps/Repo"
+    status_after: "GREEN"
+  - timestamp: "2026-03-07T22:50:00Z"
+    phase: "5"
+    item: "Maintenance Spec"
+    action: "Prepared ordered action plan for open Renovate PRs and dashboard"
+    result: "Issue body ready for update"
+    status_after: "YELLOW"

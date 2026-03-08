@@ -1,0 +1,2 @@
+NAME                                        READY   STATUS    RESTARTS   AGE   IP           NODE        NOMINATED NODE   READINESS GATES
+ingress-nginx-controller-58fc675dc8-kx75g   1/1     Running   0          38h   10.0.0.142   chikorita   <none>           <none>

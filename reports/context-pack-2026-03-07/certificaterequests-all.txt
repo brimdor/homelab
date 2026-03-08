@@ -1,0 +1,27 @@
+NAMESPACE         NAME                              APPROVED   DENIED   READY   ISSUER              REQUESTER                                         AGE
+argocd            argocd-server-tls-2               True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+backlog-canary    backlog-companion-canary-tls-2    True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   44h
+backlog           backlog-companion-tls-1           True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   31d
+budget-canary     budget-canary-tls-2               True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   7d19h
+budget            budget-tls-1                      True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   7d20h
+dex               dex-tls-certificate-2             True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+emby              emby-tls-certificate-2            True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+explorers-hub     explorers-hub-tls-certificate-1   True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+gitea             gitea-tls-certificate-1           True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   51d
+grafana           grafana-general-tls-2             True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+humbleai-canary   humbleai-tls-1                    True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   35d
+humbleai          humbleai-tls-1                    True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   37d
+kanidm            kanidm-selfsigned-2               True                True    kanidm-selfsigned   system:serviceaccount:cert-manager:cert-manager   18d
+kanidm            kanidm-tls-certificate-2          True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+localai           localai-eaglepass-io-tls-2        True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   4d1h
+matrix            element-tls-certificate-1         True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   11d
+matrix            matrix-tls-certificate-1          True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   11d
+n8n               n8n-tls-certificate-2             True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   6d2h
+ollama            ollama-tls-1                      True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   40d
+openwebui         open-tls-certificate-2            True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   25d
+radarr            radarr-tls-certificate-2          True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+sabnzbd           sabnzbd-tls-certificate-2         True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+searxng           searxng-tls-certificate-2         True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   4d4h
+sonarr            sonarr-tls-certificate-2          True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+woodpecker        woodpecker-tls-certificate-2      True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d
+zot               zot-tls-certificate-2             True                True    letsencrypt-prod    system:serviceaccount:cert-manager:cert-manager   18d

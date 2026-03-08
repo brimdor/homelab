@@ -1,0 +1,1 @@
+177 pgs: 177 active+clean; 700 GiB data, 1.4 TiB used, 2.0 TiB / 3.4 TiB avail; 852 B/s rd, 14 KiB/s wr, 3 op/s

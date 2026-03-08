@@ -1,0 +1,42 @@
+[
+  {
+    "number": 70,
+    "title": "chore(deps): update valkey/valkey docker tag to v9",
+    "author": "gitea_admin",
+    "created_at": "2026-02-25T15:03:18Z",
+    "mergeable": true,
+    "base": "master",
+    "head": "renovate/valkey-valkey-9.x",
+    "labels": []
+  },
+  {
+    "number": 69,
+    "title": "chore(deps): update docker.io/library/debian docker tag to v13",
+    "author": "gitea_admin",
+    "created_at": "2026-02-24T15:03:28Z",
+    "mergeable": true,
+    "base": "master",
+    "head": "renovate/docker.io-library-debian-13.x",
+    "labels": []
+  },
+  {
+    "number": 68,
+    "title": "chore(deps): update bitnamilegacy/postgresql docker tag to v17",
+    "author": "gitea_admin",
+    "created_at": "2026-02-24T15:03:25Z",
+    "mergeable": true,
+    "base": "master",
+    "head": "renovate/bitnamilegacy-postgresql-17.x",
+    "labels": []
+  },
+  {
+    "number": 67,
+    "title": "fix(deps): update all non-major dependencies",
+    "author": "gitea_admin",
+    "created_at": "2026-02-24T15:03:21Z",
+    "mergeable": true,
+    "base": "master",
+    "head": "renovate/all-minor-patch",
+    "labels": []
+  }
+]
