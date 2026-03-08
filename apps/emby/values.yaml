@@ -13,13 +13,18 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: "America/Chicago"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            FFMPEG_HWACCEL: "cuda"
           resources:
             limits:
               cpu: 3.5
               memory: "24576Mi"
+              nvidia.com/gpu: 1
             requests:
               cpu: 2
               memory: "16384Mi"
+              nvidia.com/gpu: 1
       # initContainers:
       #   restore:
       #     name: restore
@@ -165,3 +170,19 @@ app-template:
         main:
           main:
             - path: /data/tv_custom
+  defaultPodOptions:
+    runtimeClassName: nvidia
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - sprigatito
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: sprigatito
+        effect: NoSchedule
