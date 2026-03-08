@@ -74,17 +74,8 @@ app-template:
     runtimeClassName: nvidia
     tolerations:
       - key: dedicated
-        value: arcanine
+        operator: Exists
         effect: NoSchedule
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-                - key: kubernetes.io/hostname
-                  operator: In
-                  values:
-                    - arcanine
   service:
     main:
       controller: main
@@ -115,9 +106,9 @@ app-template:
           secretName: unsloth-tls
   persistence:
     data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/unsloth
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 100Gi
       advancedMounts:
         main:
           main:
