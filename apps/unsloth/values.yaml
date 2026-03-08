@@ -1,0 +1,124 @@
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: unsloth/unsloth
+            tag: 2026.2.1-pt2.9.0-cu12.8-fixed-numba-numpy-error
+            pullPolicy: IfNotPresent
+          env:
+            TZ: America/Chicago
+            JUPYTER_PORT: "8888"
+            NVIDIA_VISIBLE_DEVICES: all
+            NVIDIA_DRIVER_CAPABILITIES: all
+            JUPYTER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: jupyter-password
+            USER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: user-password
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /lab
+                  port: http
+                initialDelaySeconds: 60
+                periodSeconds: 15
+                timeoutSeconds: 5
+                failureThreshold: 6
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /lab
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /lab
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 30
+          resources:
+            requests:
+              cpu: 2
+              memory: 8Gi
+              nvidia.com/gpu: 1
+            limits:
+              cpu: 8
+              memory: 32Gi
+              nvidia.com/gpu: 1
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/pk34zolw4s3ir3tpposebnkuuu
+      operator.1password.io/item-name: secrets
+    runtimeClassName: nvidia
+    tolerations:
+      - key: dedicated
+        value: arcanine
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - arcanine
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 8888
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host unsloth.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: unsloth-tls
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/unsloth
+      advancedMounts:
+        main:
+          main:
+            - path: /workspace/work
