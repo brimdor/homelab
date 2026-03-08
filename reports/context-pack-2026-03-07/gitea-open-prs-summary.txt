@@ -1,0 +1,4 @@
+PR #70: chore(deps): update valkey/valkey docker tag to v9 by gitea_admin (created: 2026-02-25)
+PR #69: chore(deps): update docker.io/library/debian docker tag to v13 by gitea_admin (created: 2026-02-24)
+PR #68: chore(deps): update bitnamilegacy/postgresql docker tag to v17 by gitea_admin (created: 2026-02-24)
+PR #67: fix(deps): update all non-major dependencies by gitea_admin (created: 2026-02-24)

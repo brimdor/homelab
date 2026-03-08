@@ -1,0 +1,2 @@
+NAME                       READY   STATUS    RESTARTS   AGE   IP          NODE        NOMINATED NODE   READINESS GATES
+grafana-6f79f5cbd4-lf5d8   3/3     Running   0          79m   10.0.3.12   cyndaquil   <none>           <none>

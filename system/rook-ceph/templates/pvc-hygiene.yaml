@@ -1,0 +1,114 @@
+{{- if .Values.pvcHygiene.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pvc-hygiene
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pvc-hygiene
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pvc-hygiene
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pvc-hygiene
+subjects:
+  - kind: ServiceAccount
+    name: pvc-hygiene
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pvc-hygiene
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.pvcHygiene.schedule | quote }}
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: pvc-hygiene
+          restartPolicy: OnFailure
+          containers:
+            - name: pvc-hygiene
+              image: {{ .Values.pvcHygiene.image | quote }}
+              imagePullPolicy: IfNotPresent
+              resources:
+{{ toYaml .Values.pvcHygiene.resources | indent 16 }}
+              env:
+                - name: MODE
+                  value: {{ .Values.pvcHygiene.mode | quote }}
+                - name: MIN_AGE_HOURS
+                  value: {{ .Values.pvcHygiene.minAgeHours | quote }}
+                - name: APPROVED_KEY
+                  value: {{ .Values.pvcHygiene.approvedDeleteAnnotation | quote }}
+                - name: APPROVED_VALUE
+                  value: {{ .Values.pvcHygiene.approvedDeleteValue | quote }}
+                - name: IGNORED_NAMESPACES
+                  value: "{{ join "," .Values.pvcHygiene.ignoredNamespaces }}"
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  NOW_EPOCH="$(date +%s)"
+                  USED_FILE="$(mktemp)"
+                  PVC_FILE="$(mktemp)"
+                  trap 'rm -f "$USED_FILE" "$PVC_FILE"' EXIT
+
+                  kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{range .spec.volumes[*]}{.persistentVolumeClaim.claimName}{"\n"}{end}{end}' \
+                    | awk 'NF == 2 && $2 != "" { print $1 "\t" $2 }' \
+                    | sort -u > "$USED_FILE"
+
+                  kubectl get pvc -A --no-headers -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,SC:.spec.storageClassName,SIZE:.spec.resources.requests.storage,CREATED:.metadata.creationTimestamp > "$PVC_FILE"
+
+                  ORPHANS=0
+                  DELETED=0
+                  echo "pvc-hygiene mode=$MODE minAgeHours=$MIN_AGE_HOURS"
+
+                  while read -r NS NAME SC SIZE CREATED; do
+                        case ",$IGNORED_NAMESPACES," in
+                          *",$NS,"*)
+                            continue
+                            ;;
+                        esac
+
+                        if grep -q "^${NS}[[:space:]]${NAME}$" "$USED_FILE"; then
+                          continue
+                        fi
+
+                        ORPHANS=$((ORPHANS + 1))
+                        CREATED_EPOCH="$(date -d "$CREATED" +%s)"
+                        AGE_HOURS=$(((NOW_EPOCH - CREATED_EPOCH) / 3600))
+                        ANNOTATION="$(kubectl get pvc "$NAME" -n "$NS" -o "jsonpath={.metadata.annotations['$APPROVED_KEY']}" 2>/dev/null || true)"
+
+                        echo "orphan namespace=$NS pvc=$NAME storageClass=${SC:-none} size=${SIZE:-unknown} ageHours=$AGE_HOURS approved=$ANNOTATION"
+
+                        if [ "$MODE" = "delete" ] \
+                          && [ "$ANNOTATION" = "$APPROVED_VALUE" ] \
+                          && [ "$AGE_HOURS" -ge "$MIN_AGE_HOURS" ]; then
+                          kubectl delete pvc "$NAME" -n "$NS"
+                          DELETED=$((DELETED + 1))
+                          echo "deleted namespace=$NS pvc=$NAME"
+                        fi
+                      done < "$PVC_FILE"
+
+                  echo "pvc-hygiene complete orphans=$ORPHANS deleted=$DELETED"
+{{- end }}

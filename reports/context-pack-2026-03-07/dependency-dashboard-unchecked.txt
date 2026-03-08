@@ -1,0 +1,5 @@
+ - [ ] <!-- rebase-branch=renovate/all-minor-patch -->[fix(deps): update all non-major dependencies](pulls/67) (`argo-cd`, `bitnamilegacy/postgresql`, `cert-manager`, `cloudflare`, `docker.io/kanidm/server`, `ghcr.io/kagent-dev/kagent/tools`, `go`, `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `kube-prometheus-stack`, `ollama`, `postgres`, `registry.rocket.chat/rocketchat/rocket.chat`, `renovate`, `rook-ceph`, `rook-ceph-cluster`, `supabase/edge-runtime`, `supabase/gotrue`, `supabase/logflare`, `supabase/postgres`, `supabase/postgres-meta`, `supabase/realtime`, `supabase/storage-api`, `volsync`)
+ - [ ] <!-- rebase-branch=renovate/bitnamilegacy-postgresql-17.x -->[chore(deps): update bitnamilegacy/postgresql docker tag to v17](pulls/68)
+ - [ ] <!-- rebase-branch=renovate/docker.io-library-debian-13.x -->[chore(deps): update docker.io/library/debian docker tag to v13](pulls/69)
+ - [ ] <!-- rebase-branch=renovate/valkey-valkey-9.x -->[chore(deps): update valkey/valkey docker tag to v9](pulls/70)
+ - [ ] <!-- rebase-all-open-prs -->**Click on this checkbox to rebase all open PRs at once**

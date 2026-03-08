@@ -1,31 +1,23 @@
-# AGENTS.md - Homelab Repository Guidelines
+# AGENTS.md - Homelab coding guide
 
-## Build/Test Commands
-- `make test` - Run all Go tests | `make smoke-test` - Run smoke tests only
-- `make -C test filter=<TestName>` - Run single test (e.g., `filter=Smoke`)
-- `pre-commit run --all-files` - Run all linters | `make git-hooks` - Install hooks
+## Build, lint, and test
+- `make test`: run full Go/Terratest suite via `gotestsum`.
+- `make smoke-test`: run smoke coverage only (`filter=Smoke`).
+- `make -C test filter='<Regex>'`: run a single test or subset (example: `filter='TestSmoke'`).
+- `gotestsum --format testname -- -timeout 30m -run '<Regex>'` (from `test/`) for direct, single-test execution.
+- `pre-commit run --all-files`: run repo linters (`yamllint`, `helmlint`, `shellcheck`, `terraform-fmt`, safety hooks).
+- `make git-hooks`: install pre-commit hooks locally.
 
-## Project Structure
-- **metal/** - Ansible bare metal provisioning (K3s) | **system/** - Core infra (ArgoCD, certs, ingress)
-- **platform/** - Services (Gitea, Grafana, Kanidm) | **apps/** - User Helm charts
-- **external/** - Terraform for Cloudflare | **test/** - Go tests (terratest)
-- **AGENTS/** - Agent team docs ([TEAM.md](file:///home/brimdor/Documents/Github/homelab/AGENTS/TEAM.md))
-- **.agent/workflows/** - Homelab workflows (`homelab-recon`, `homelab-action`, `homelab-troubleshoot`)
-- **.agent/rules/foundational-rules.md** - MANDATORY rules for all homelab workflows
-- **.agent/rules/HOMELAB_applications.md** - Application governance & Moltbot protocol
+## Code style and conventions
+- YAML: follow `.yamllint.yaml` (no `---` required, line length not enforced); always end files with newline.
+- Go tests: use `gofmt`; package name is `test`; test funcs are `Test<Feature>`; prefer table-driven tests with `t.Run` and `t.Parallel()` where safe.
+- Imports: keep Go imports grouped as stdlib then third-party; use aliases only when required for clarity or conflicts.
+- Types: prefer explicit struct fields for test cases and typed literals over `interface{}`-heavy patterns.
+- Naming: Helm/chart resources use `lowercase-hyphens`; Ansible vars/files use `lowercase_underscores`; keep names descriptive and stable.
+- Error handling: never ignore errors; fail fast in tests (`t.FailNow`/assert helpers) and return actionable errors in scripts/automation.
+- Shell scripts: require shebang and executable bit; keep shellcheck-clean.
+- Terraform: run `terraform fmt`; do not commit secrets or generated credentials.
 
-## Team Communication
-- **Direct Addressing**: Use the agent's name (e.g., "Forge, ...") - no `@mention` required.
-- **Group Channel**: `-5207483609`
-- **Replies**: Use 'reply' functionality for context.
-
-## Code Style
-- **YAML**: yamllint (no line-length limit), end with newline, document-start disabled
-- **Shell**: Must have shebangs, pass shellcheck | **Helm**: Must pass `helm lint`
-- **Terraform**: Use `terraform fmt` | **Go**: Standard `gofmt` for tests
-
-## Key Patterns
-- **Secrets**: ExternalSecrets with 1Password backend - never commit plaintext
-- **Ingress**: ingress-nginx with cert-manager TLS | **GitOps**: ArgoCD from `master` branch
-- **Naming**: Charts = `lowercase-hyphens`, Ansible = `lowercase_underscores`, Tests = `Test<Feature>`
-- **API**: Gitea token at `~/.config/gitea/.env`, use `GITEA_URL`/`GITEA_TOKEN` for API calls
+## Agent-specific rules
+- Apply mandatory homelab rules from `.agent/rules/foundational-rules.md` and app governance in `.agent/rules/HOMELAB_applications.md`.
+- Cursor rules: none found (`.cursor/rules/`, `.cursorrules`). Copilot rules: none found (`.github/copilot-instructions.md`).

@@ -1,0 +1,20 @@
+NAME                                                              READY   STATUS    RESTARTS        AGE   IP           NODE         NOMINATED NODE   READINESS GATES
+cilium-97b27                                                      1/1     Running   21 (38h ago)    67d   10.0.20.19   arcanine     <none>           <none>
+cilium-bktjp                                                      1/1     Running   18 (37h ago)    67d   10.0.20.20   sprigatito   <none>           <none>
+cilium-c44ng                                                      1/1     Running   35 (38h ago)    67d   10.0.20.14   pikachu      <none>           <none>
+cilium-h7cmt                                                      1/1     Running   24 (37h ago)    67d   10.0.20.17   totodile     <none>           <none>
+cilium-j64nq                                                      1/1     Running   25 (38h ago)    67d   10.0.20.12   squirtle     <none>           <none>
+cilium-nwzq6                                                      1/1     Running   25 (38h ago)    61d   10.0.20.16   cyndaquil    <none>           <none>
+cilium-operator-6999764665-8cmmt                                  1/1     Running   0               38h   10.0.20.12   squirtle     <none>           <none>
+cilium-r8snc                                                      1/1     Running   23 (38h ago)    67d   10.0.20.13   bulbasaur    <none>           <none>
+cilium-rgw2v                                                      1/1     Running   25 (38h ago)    67d   10.0.20.11   charmander   <none>           <none>
+cilium-v5gp5                                                      1/1     Running   18 (38h ago)    38d   10.0.20.18   growlithe    <none>           <none>
+cilium-xwhxf                                                      1/1     Running   23 (38h ago)    67d   10.0.20.15   chikorita    <none>           <none>
+coredns-6d8646cdb8-cmnzz                                          1/1     Running   0               38h   10.0.0.116   chikorita    <none>           <none>
+hubble-relay-69f5fc5b79-z8mjm                                     1/1     Running   0               38h   10.0.3.24    cyndaquil    <none>           <none>
+hubble-ui-6548d56557-frxc7                                        2/2     Running   0               38h   10.0.6.99    squirtle     <none>           <none>
+kube-vip-bulbasaur                                                1/1     Running   106 (38h ago)   82d   10.0.20.13   bulbasaur    <none>           <none>
+kube-vip-charmander                                               1/1     Running   113 (37h ago)   82d   10.0.20.11   charmander   <none>           <none>
+kube-vip-squirtle                                                 1/1     Running   98 (38h ago)    82d   10.0.20.12   squirtle     <none>           <none>
+metrics-server-564cb4ff68-fmlcq                                   1/1     Running   0               38h   10.0.7.203   bulbasaur    <none>           <none>
+nfs-client-provisioner-nfs-subdir-external-provisioner-854t8dwf   1/1     Running   0               38h   10.0.8.9     pikachu      <none>           <none>

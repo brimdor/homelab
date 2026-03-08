@@ -117,3 +117,21 @@ rook-ceph-cluster:
     enabled: true
     isDefault: false
   cephObjectStores: []
+
+pvcHygiene:
+  enabled: true
+  schedule: "0 3 * * *"
+  image: bitnami/kubectl:1.33.4
+  mode: report
+  minAgeHours: 168
+  approvedDeleteAnnotation: homelab.eaglepass.io/pvc-prune
+  approvedDeleteValue: approved
+  ignoredNamespaces:
+    - kube-system
+    - rook-ceph
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi

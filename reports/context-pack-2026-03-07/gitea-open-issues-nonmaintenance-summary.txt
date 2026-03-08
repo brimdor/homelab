@@ -1,0 +1,5 @@
+Issue #70: chore(deps): update valkey/valkey docker tag to v9
+Issue #69: chore(deps): update docker.io/library/debian docker tag to v13
+Issue #68: chore(deps): update bitnamilegacy/postgresql docker tag to v17
+Issue #67: fix(deps): update all non-major dependencies
+Issue #4: Dependency Dashboard

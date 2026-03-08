@@ -1,0 +1,29 @@
+NAMESPACE   LAST SEEN   TYPE      REASON               OBJECT                                  MESSAGE
+rook-ceph   28m         Normal    Scheduled            pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Successfully assigned rook-ceph/rook-ceph-osd-4-88d5c47bb-qh6jf to bulbasaur
+rook-ceph   28m         Normal    ScalingReplicaSet    deployment/rook-ceph-osd-4              Scaled down replica set rook-ceph-osd-4-68899c7d97 from 1 to 0
+rook-ceph   28m         Normal    Killing              pod/rook-ceph-osd-4-68899c7d97-qgc57    Stopping container osd
+rook-ceph   28m         Normal    SuccessfulDelete     replicaset/rook-ceph-osd-4-68899c7d97   Deleted pod: rook-ceph-osd-4-68899c7d97-qgc57
+rook-ceph   28m         Normal    Pulled               pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Container image "quay.io/ceph/ceph:v20.2.0" already present on machine
+rook-ceph   28m         Normal    ScalingReplicaSet    deployment/rook-ceph-osd-4              Scaled up replica set rook-ceph-osd-4-88d5c47bb from 0 to 1
+rook-ceph   28m         Normal    SuccessfulCreate     replicaset/rook-ceph-osd-4-88d5c47bb    Created pod: rook-ceph-osd-4-88d5c47bb-qh6jf
+rook-ceph   28m         Normal    Started              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Started container activate
+rook-ceph   28m         Normal    Created              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Created container: activate
+rook-ceph   28m         Normal    Started              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Started container expand-bluefs
+rook-ceph   28m         Normal    Pulled               pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Container image "quay.io/ceph/ceph:v20.2.0" already present on machine
+rook-ceph   28m         Normal    Created              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Created container: expand-bluefs
+rook-ceph   28m         Normal    Pulled               pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Container image "quay.io/ceph/ceph:v20.2.0" already present on machine
+rook-ceph   28m         Normal    Created              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Created container: cephx-keyring-update
+rook-ceph   28m         Normal    Started              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Started container cephx-keyring-update
+rook-ceph   28m         Normal    Pulled               pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Container image "quay.io/ceph/ceph:v20.2.0" already present on machine
+rook-ceph   28m         Normal    Started              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Started container chown-container-data-dir
+rook-ceph   28m         Normal    Created              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Created container: chown-container-data-dir
+rook-ceph   28m         Normal    Created              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Created container: osd
+rook-ceph   28m         Normal    Pulled               pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Container image "quay.io/ceph/ceph:v20.2.0" already present on machine
+rook-ceph   28m         Normal    Started              pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Started container osd
+rook-ceph   28m         Warning   Unhealthy            pod/rook-ceph-osd-4-88d5c47bb-qh6jf     Startup probe failed: ceph daemon health check failed with the following output:...
+argocd      27m         Normal    OperationStarted     application/rook-ceph                   Initiated automated sync to [a025281acd6e9c6b83ad468ffb749a797613fe19]
+argocd      27m         Normal    ResourceUpdated      application/rook-ceph                   Updated health status: Degraded -> Healthy
+argocd      27m         Normal    ResourceUpdated      application/rook-ceph                   Updated sync status: Synced -> OutOfSync
+argocd      27m         Normal    ResourceUpdated      application/rook-ceph                   Updated sync status: OutOfSync -> Synced
+argocd      27m         Normal    OperationCompleted   application/rook-ceph                   Partial sync operation to a025281acd6e9c6b83ad468ffb749a797613fe19 succeeded
+default     2m23s       Normal    Valid                clustersecretstore/global-secrets       store validated
