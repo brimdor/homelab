@@ -72,9 +72,19 @@ app-template:
       operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/pk34zolw4s3ir3tpposebnkuuu
       operator.1password.io/item-name: secrets
     runtimeClassName: nvidia
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - sprigatito
     tolerations:
       - key: dedicated
-        operator: Exists
+        operator: Equal
+        value: sprigatito
         effect: NoSchedule
   service:
     main:
