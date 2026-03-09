@@ -458,8 +458,6 @@ modelPuller:
     # -- Base models to pull from Ollama registry
     pull:
       - ministral-3:8b
-      - llama3.2:3b
-      - qwen3:8b
       - nomic-embed-text:latest
       - mxbai-embed-large:latest
       - gpt-oss:20b
