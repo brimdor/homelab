@@ -471,7 +471,7 @@ modelPuller:
       # ======================================== 
       echo:
         enabled: true
-        base: "qwen3.5:27b"
+        base: "qwen3.5:9b"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.2
@@ -562,7 +562,7 @@ modelPuller:
       # ========================================
       cody:
         enabled: true
-        base: "qwen3.5:27b"
+        base: "qwen3.5:9b"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.3
