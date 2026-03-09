@@ -474,7 +474,7 @@ modelPuller:
       # ======================================== 
       echo:
         enabled: true
-        base: "gpt-oss:20b"
+        base: "qwen3.5:9b"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.2
@@ -565,7 +565,7 @@ modelPuller:
       # ========================================
       cody:
         enabled: true
-        base: "huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_S"
+        base: "qwen3.5:9b"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.3
