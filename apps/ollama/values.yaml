@@ -472,7 +472,7 @@ modelPuller:
       # ======================================== 
       echo:
         enabled: true
-        base: "hf.co/unsloth/Qwen3.5-27B-GGUF:UD-Q3_K_XL"
+        base: "qwen3.5:9b"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.2
