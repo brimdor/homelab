@@ -462,7 +462,6 @@ modelPuller:
       - mxbai-embed-large:latest
       - gpt-oss:20b
       - llama-guard3:1b
-      - huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_S
 
     # -- Custom models to create with Modelfiles
     custom:
@@ -472,7 +471,7 @@ modelPuller:
       # ======================================== 
       echo:
         enabled: true
-        base: "qwen3.5:9b"
+        base: "qwen3.5:27b"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.2
@@ -512,7 +511,7 @@ modelPuller:
       # ========================================
       humble:
         enabled: true
-        base: "hf.co/bartowski/Ministral-8B-Instruct-2410-GGUF:Q4_K_S"
+        base: "qwen3.5:9b"
         contextSize: 64000
         repeatPenalty: 1.5
         temperature: 0.7
@@ -563,7 +562,7 @@ modelPuller:
       # ========================================
       cody:
         enabled: true
-        base: "qwen3.5:9b"
+        base: "qwen3.5:27b"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.3
