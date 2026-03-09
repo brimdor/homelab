@@ -1,0 +1,10 @@
+apiVersion: v2
+name: llama
+description: LLM inference server in C/C++
+type: application
+version: 0.1.0
+appVersion: b8250
+dependencies:
+  - name: app-template
+    version: 3.7.4
+    repository: https://bjw-s-labs.github.io/helm-charts
