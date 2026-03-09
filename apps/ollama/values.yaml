@@ -565,7 +565,7 @@ modelPuller:
       # ========================================
       cody:
         enabled: true
-        base: "huggingface.co/unsloth/Qwen3.5-27B-UD-Q3_K_XL.gguf"
+        base: "huggingface.co/unsloth/Qwen3.5-27B-GGUF:UD-Q3_K_XL"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.3
