@@ -214,14 +214,14 @@ ollama:
 
   # Configure resource requests and limits
   # ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  resources:
+  # resources:
     # -- CPU and memory resource requests and limits
-    limits:
-      cpu: 6
-      memory: 40Gi
-    requests:
-      cpu: 2
-      memory: 32Gi
+    # limits:
+    #   cpu: 6
+    #   memory: 40Gi
+    # requests:
+    #   cpu: 2
+    #   memory: 32Gi
 
   # Configure extra options for liveness probe
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
@@ -566,7 +566,7 @@ modelPuller:
       cody:
         enabled: true
         base: "huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_S"
-        contextSize: 64000
+        contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.3
         systemPrompt: |
