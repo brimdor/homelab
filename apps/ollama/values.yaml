@@ -565,7 +565,7 @@ modelPuller:
       # ========================================
       cody:
         enabled: true
-        base: "qwen3.5:9b"
+        base: "hf.co/unslothQwen3.5-27B-UD-Q3_K_XL.gguf"
         contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.3
