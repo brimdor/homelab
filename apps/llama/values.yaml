@@ -2,8 +2,76 @@ app-template:
   controllers:
     main:
       replicas: 1
+      pod:
+        runtimeClassName: nvidia
+        tolerations:
+          - key: dedicated
+            operator: Equal
+            value: arcanine
+            effect: NoSchedule
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values:
+                        - "arcanine"
       initContainers:
-        download-models:
+        wait-models:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              until [ -s /models/Qwen3.5-27B-UD-Q3_K_XL.gguf ] && [ -s /models/Qwen3.5-9B-UD-Q8_K_XL.gguf ]; do
+                echo "Waiting for downloader pod to populate /models"
+                sleep 10
+              done
+      containers:
+        main:
+          image:
+            repository: ghcr.io/ggml-org/llama.cpp
+            tag: server
+          env:
+            TZ: America/Chicago
+            PUID: "1000"
+            PGID: "1000"
+            LLAMA_ARG_HOST: 0.0.0.0
+            LLAMA_ARG_PORT: "8080"
+            LLAMA_ARG_MODEL: /models/Qwen3.5-27B-UD-Q3_K_XL.gguf
+            LLAMA_ARG_CTX_SIZE: "128000"
+            LLAMA_ARG_N_PARALLEL: "2"
+            LLAMA_ARG_N_GPU_LAYERS: "99"
+            LLAMA_ARG_WEBUI: "true"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            FFMPEG_HWACCEL: "cuda"
+
+    downloader:
+      replicas: 1
+      pod:
+        tolerations:
+          - key: dedicated
+            operator: Equal
+            value: arcanine
+            effect: NoSchedule
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values:
+                        - "arcanine"
+      containers:
+        downloader:
           image:
             repository: curlimages/curl
             tag: 8.12.1
@@ -30,7 +98,7 @@ app-template:
                 fi
 
                 echo "Downloading $dest"
-                curl -L --fail --retry 5 --retry-delay 5 \
+                curl -L --fail --retry 5 --retry-delay 5 -C - \
                   -H "Authorization: Bearer ${HF_TOKEN}" \
                   -o "${dest}.part" \
                   "$url"
@@ -39,50 +107,14 @@ app-template:
 
               download_model "https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-UD-Q3_K_XL.gguf" "/models/Qwen3.5-27B-UD-Q3_K_XL.gguf"
               download_model "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-UD-Q8_K_XL.gguf" "/models/Qwen3.5-9B-UD-Q8_K_XL.gguf"
-      containers:
-        main:
-          image:
-            repository: ghcr.io/ggml-org/llama.cpp
-            tag: server
-          env:
-            TZ: America/Chicago
-            PUID: "1000"
-            PGID: "1000"
-            LLAMA_ARG_HOST: 0.0.0.0
-            LLAMA_ARG_PORT: "8080"
-            LLAMA_ARG_MODEL: /models/Qwen3.5-27B-UD-Q3_K_XL.gguf
-            LLAMA_ARG_CTX_SIZE: "128000"
-            LLAMA_ARG_N_PARALLEL: "2"
-            LLAMA_ARG_N_GPU_LAYERS: "99"
-            LLAMA_ARG_WEBUI: "true"
-            NVIDIA_VISIBLE_DEVICES: "all"
-            NVIDIA_DRIVER_CAPABILITIES: "all"
-            FFMPEG_HWACCEL: "cuda"
-            HF_TOKEN:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: hf-token
+
+              echo "All requested models are present; keeping downloader pod alive"
+              exec tail -f /dev/null
 
   defaultPodOptions:
-    runtimeClassName: nvidia
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/vogirq5dgfcbbp4trs66xtrshu"
       operator.1password.io/item-name: "secrets"
-    tolerations:
-      - key: dedicated
-        operator: Equal
-        value: arcanine
-        effect: NoSchedule
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-                - key: kubernetes.io/hostname
-                  operator: In
-                  values:
-                    - "arcanine"
 
   service:
     main:
@@ -116,12 +148,14 @@ app-template:
 
   persistence:
     data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/llama
+      accessMode: ReadWriteOnce
+      size: 50Gi
       advancedMounts:
         main:
-          download-models:
+          wait-models:
             - path: /models
           main:
+            - path: /models
+        downloader:
+          downloader:
             - path: /models
