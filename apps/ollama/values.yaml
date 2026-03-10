@@ -514,8 +514,8 @@ modelPuller:
       # ======================================== 
       echo:
         enabled: true
-        base: "qwen3.5:397b-cloud"
-        contextSize: 256000
+        base: "qwen3.5:9b"
+        contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.2
         topP: 0.9
@@ -600,8 +600,8 @@ modelPuller:
       # ========================================
       cody:
         enabled: true
-        base: "qwen3.5:397b-cloud"
-        contextSize: 256000
+        base: "qwen3.5:9b"
+        contextSize: 128000
         repeatPenalty: 1.2
         temperature: 0.3
         systemPrompt: |
