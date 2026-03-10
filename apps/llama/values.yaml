@@ -48,6 +48,14 @@ app-template:
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             FFMPEG_HWACCEL: "cuda"
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 16Gi
+              nvidia.com/gpu: 1
+            limits:
+              memory: 32Gi
+              nvidia.com/gpu: 1
 
     downloader:
       replicas: 1
