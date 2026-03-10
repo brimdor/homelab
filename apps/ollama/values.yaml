@@ -133,7 +133,9 @@ ollama:
     name: ""
 
   # -- Map of annotations to add to the pods
-  podAnnotations: {}
+  podAnnotations:
+    operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/36pyxquae7rvu3ew5w5rb574om"
+    operator.1password.io/item-name: "secrets"
 
   # -- Map of labels to add to the pods
   podLabels: {}
@@ -310,6 +312,11 @@ ollama:
       value: "all"
     - name: NVIDIA_DRIVER_CAPABILITIES
       value: "all"
+    - name: OLLAMA_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: secrets
+          key: ollama-api-key
     - name: OLLAMA_CONTEXT_LENGTH
       value: "131072"
     - name: OLLAMA_FLASH_ATTENTION
