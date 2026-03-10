@@ -2,6 +2,43 @@ app-template:
   controllers:
     main:
       replicas: 1
+      initContainers:
+        download-models:
+          image:
+            repository: curlimages/curl
+            tag: 8.12.1
+          env:
+            HF_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: hf-token
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              mkdir -p /models
+
+              download_model() {
+                url="$1"
+                dest="$2"
+                if [ -s "$dest" ]; then
+                  echo "Model already present: $dest"
+                  return 0
+                fi
+
+                echo "Downloading $dest"
+                curl -L --fail --retry 5 --retry-delay 5 \
+                  -H "Authorization: Bearer ${HF_TOKEN}" \
+                  -o "${dest}.part" \
+                  "$url"
+                mv "${dest}.part" "$dest"
+              }
+
+              download_model "https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-UD-Q3_K_XL.gguf" "/models/Qwen3.5-27B-UD-Q3_K_XL.gguf"
+              download_model "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-UD-Q8_K_XL.gguf" "/models/Qwen3.5-9B-UD-Q8_K_XL.gguf"
       containers:
         main:
           image:
@@ -13,6 +50,7 @@ app-template:
             PGID: "1000"
             LLAMA_ARG_HOST: 0.0.0.0
             LLAMA_ARG_PORT: "8080"
+            LLAMA_ARG_MODEL: /models/Qwen3.5-27B-UD-Q3_K_XL.gguf
             LLAMA_ARG_CTX_SIZE: "128000"
             LLAMA_ARG_N_PARALLEL: "2"
             LLAMA_ARG_N_GPU_LAYERS: "99"
@@ -20,11 +58,6 @@ app-template:
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             FFMPEG_HWACCEL: "cuda"
-            LLAMA_ARG_HF_REPO:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: hf-repo
             HF_TOKEN:
               valueFrom:
                 secretKeyRef:
@@ -88,5 +121,7 @@ app-template:
       path: /mnt/user/llama
       advancedMounts:
         main:
+          download-models:
+            - path: /models
           main:
             - path: /models
