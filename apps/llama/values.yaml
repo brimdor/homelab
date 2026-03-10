@@ -36,6 +36,11 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/vogirq5dgfcbbp4trs66xtrshu"
       operator.1password.io/item-name: "secrets"
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: arcanine
+        effect: NoSchedule
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
