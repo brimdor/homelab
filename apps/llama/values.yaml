@@ -17,6 +17,9 @@ app-template:
             LLAMA_ARG_N_PARALLEL: "2"
             LLAMA_ARG_N_GPU_LAYERS: "99"
             LLAMA_ARG_WEBUI: "true"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            FFMPEG_HWACCEL: "cuda"
             LLAMA_ARG_HF_REPO:
               valueFrom:
                 secretKeyRef:
@@ -29,9 +32,18 @@ app-template:
                   key: hf-token
 
   defaultPodOptions:
+    runtimeClassName: nvidia
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/vogirq5dgfcbbp4trs66xtrshu"
       operator.1password.io/item-name: "secrets"
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - "arcanine"
 
   service:
     main:
