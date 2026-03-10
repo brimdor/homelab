@@ -1,58 +1,72 @@
-controllers:
-  main:
-    image:
-      repository: ghcr.io/ggml-org/llama.cpp
-      tag: server
-    env:
-      TZ: America/Chicago
-      PUID: 1000
-      PGID: 1000
-      LLAMA_ARG_HOST: 0.0.0.0
-      LLAMA_ARG_PORT: "8080"
-      LLAMA_ARG_CTX_SIZE: "4096"
-      LLAMA_ARG_N_PARALLEL: "2"
-      LLAMA_ARG_N_GPU_LAYERS: "99"
-      LLAMA_ARG_WEBUI: "true"
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: ghcr.io/ggml-org/llama.cpp
+            tag: server
+          env:
+            TZ: America/Chicago
+            PUID: "1000"
+            PGID: "1000"
+            LLAMA_ARG_HOST: 0.0.0.0
+            LLAMA_ARG_PORT: "8080"
+            LLAMA_ARG_CTX_SIZE: "4096"
+            LLAMA_ARG_N_PARALLEL: "2"
+            LLAMA_ARG_N_GPU_LAYERS: "99"
+            LLAMA_ARG_WEBUI: "true"
+            LLAMA_ARG_HF_REPO:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: hf-repo
+            HF_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: hf-token
+
+  defaultPodOptions:
     annotations:
-      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/vogirq5dgfcbbp4trs66xtrshu
-      operator.1password.io/item-name: secrets
-    containers:
-      main:
-        env:
-          LLAMA_ARG_HF_REPO:
-            valueFrom:
-              secretKeyRef:
-                name: secrets
-                key: hf-repo
-          HF_TOKEN:
-            valueFrom:
-              secretKeyRef:
-                name: secrets
-                key: hf-token
-service:
-  main:
-    ports:
-      http:
-        port: 8080
-        protocol: HTTP
-ingress:
-  main:
-    enabled: true
-    className: nginx
-    hosts:
-      - host: llama.eaglepass.io
-        paths:
-          - path: /
-            pathType: Prefix
-            port: http
-    tls:
-      - host: llama.eaglepass.io
-        secretName: llama-tls
-persistence:
-  data:
-    enabled: true
-    type: nfs
-    server: 10.0.40.3
-    path: /mnt/user/llama
-    globalMounts:
-      - path: /models
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/vogirq5dgfcbbp4trs66xtrshu"
+      operator.1password.io/item-name: "secrets"
+
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 8080
+          protocol: HTTP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host llama.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: llama-tls
+
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/llama
+      advancedMounts:
+        main:
+          main:
+            - path: /models
