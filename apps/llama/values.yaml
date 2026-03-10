@@ -168,7 +168,7 @@ app-template:
       size: 50Gi
       advancedMounts:
         main:
-          wait-models:
+          check-model-ready:
             - path: /models
           main:
             - path: /models
