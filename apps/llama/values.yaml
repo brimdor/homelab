@@ -2,24 +2,6 @@ app-template:
   controllers:
     main:
       replicas: 1
-      pod:
-        runtimeClassName: nvidia
-        securityContext:
-          fsGroup: 1000
-        tolerations:
-          - key: dedicated
-            operator: Equal
-            value: arcanine
-            effect: NoSchedule
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-                - matchExpressions:
-                    - key: kubernetes.io/hostname
-                      operator: In
-                      values:
-                        - "arcanine"
       initContainers:
         check-model-ready:
           image:
@@ -128,9 +110,24 @@ app-template:
               exec tail -f /dev/null
 
   defaultPodOptions:
+    runtimeClassName: nvidia
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/vogirq5dgfcbbp4trs66xtrshu"
       operator.1password.io/item-name: "secrets"
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: arcanine
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - "arcanine"
 
   service:
     main:
