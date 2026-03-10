@@ -25,10 +25,10 @@ Open `apps/ollama/templates/_model-<name>.tpl` and update:
 
 - **Template define name**: Change `"ollama.script.model.echo"` → `"ollama.script.model.<name>"`
 - **All `.Values` paths**: Change `.Values.modelPuller.models.custom.echo` → `.Values.modelPuller.models.custom.<name>`
-- **Model name references**: Replace `Echo` with `<Name>` (capitalized) in:
-  - Modelfile path (`/tmp/Modelfile.<Name>`)
-  - `ollama rm <Name>`
-  - `ollama create <Name>`
+- **Model name references**: Replace `echo` with `<name>` (lowercase) in:
+  - Modelfile path (`/tmp/Modelfile.<name>`)
+  - `ollama rm <name>`
+  - `ollama create <name>`
   - All log messages
 
 ### 3. Add config to values.yaml

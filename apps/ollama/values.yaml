@@ -87,9 +87,9 @@ ollama:
       # run:
       #  - llama2
       #  - mistral
-      # Load only the Echo model (created from a small 8b base) to keep memory low
+      # Load only the echo model (created from a small base) to keep memory low
       run:
-        # - Echo
+        # - echo
 
       # -- List of models to create at container startup, there are two options
       # 1. Create a raw model

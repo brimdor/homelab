@@ -8,9 +8,9 @@ Creates the Humble model - a family-safe AI assistant.
 # ============================================
 # Create Humble Model
 # ============================================
-echo "Creating Humble model ({{ .Values.modelPuller.models.custom.humble.base }}, {{ .Values.modelPuller.models.custom.humble.contextSize }} context)..."
+echo "Creating humble model ({{ .Values.modelPuller.models.custom.humble.base }}, {{ .Values.modelPuller.models.custom.humble.contextSize }} context)..."
 
-cat <<'MODELFILE_EOF' > /tmp/Modelfile.Humble
+cat <<'MODELFILE_EOF' > /tmp/Modelfile.humble
 FROM {{ .Values.modelPuller.models.custom.humble.base }}
 PARAMETER num_ctx {{ .Values.modelPuller.models.custom.humble.contextSize }}
 {{- with .Values.modelPuller.models.custom.humble.repeatPenalty }}
@@ -24,15 +24,15 @@ SYSTEM """
 """
 MODELFILE_EOF
 
-echo "Removing existing Humble model to enforce update..."
-ollama rm Humble || true
+echo "Removing existing humble model to enforce update..."
+ollama rm humble || true
 
-if ollama create Humble -f /tmp/Modelfile.Humble; then
-    echo "Successfully created Humble model"
+if ollama create humble -f /tmp/Modelfile.humble; then
+    echo "Successfully created humble model"
 else
-    echo "Failed to create Humble model" >&2
+    echo "Failed to create humble model" >&2
 fi
 {{- else }}
-echo "Humble model creation skipped (disabled in values)"
+echo "humble model creation skipped (disabled in values)"
 {{- end }}
 {{- end -}}
