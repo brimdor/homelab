@@ -21,7 +21,7 @@ app-template:
                       values:
                         - "arcanine"
       initContainers:
-        wait-models:
+        check-model-ready:
           image:
             repository: alpine
             tag: latest
@@ -30,11 +30,29 @@ app-template:
             - -c
           args:
             - |
-              set -eu
-              until [ -s /models/Qwen3.5-27B-UD-Q3_K_XL.gguf ] && [ -s /models/Qwen3.5-9B-UD-Q8_K_XL.gguf ]; do
-                echo "Waiting for downloader pod to populate /models"
+              DEFAULT_MODEL="/models/Qwen3.5-27B-UD-Q3_K_XL.gguf"
+              FALLBACK_MODEL="/models/Qwen3.5-9B-UD-Q8_K_XL.gguf"
+              
+              # If default model exists and is non-empty, exit immediately
+              if [ -s "$DEFAULT_MODEL" ]; then
+                echo "Default model present: $DEFAULT_MODEL"
+                exit 0
+              fi
+              
+              # If fallback exists, use it as default
+              if [ -s "$FALLBACK_MODEL" ]; then
+                echo "Fallback model present, updating default"
+                exit 0
+              fi
+              
+              # Wait for both models to be available
+              echo "Waiting for models to be downloaded..."
+              until [ -s "$DEFAULT_MODEL" ] && [ -s "$FALLBACK_MODEL" ]; do
+                echo "  - 27B: $(stat -c%s "$DEFAULT_MODEL" 2>/dev/null || echo 'missing')"
+                echo "  - 9B:  $(stat -c%s "$FALLBACK_MODEL" 2>/dev/null || echo 'missing')"
                 sleep 10
               done
+              echo "All models ready"
       containers:
         main:
           image:
