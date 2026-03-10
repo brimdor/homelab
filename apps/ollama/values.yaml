@@ -520,7 +520,6 @@ modelPuller:
         temperature: 0.2
         topP: 0.9
         topK: 50
-        reasoning: large
         systemPrompt: |
           CORE OPERATING PROTOCOL:
           1.  **Tool Schema Integrity**:
@@ -605,7 +604,6 @@ modelPuller:
         contextSize: 256000
         repeatPenalty: 1.2
         temperature: 0.3
-        reasoning: large
         systemPrompt: |
           IDENTITY:
           You are Cody, a senior software engineer and coding assistant. You follow Spec-Driven Development (SDD) as your core methodology — planning before coding is non-negotiable.
