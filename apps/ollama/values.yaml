@@ -317,6 +317,16 @@ ollama:
         secretKeyRef:
           name: secrets
           key: ollama-api-key
+    - name: OLLAMA_SSH_PRIVATE_KEY
+      valueFrom:
+        secretKeyRef:
+          name: secrets
+          key: ssh-private-key
+    - name: OLLAMA_SSH_PUBLIC_KEY
+      valueFrom:
+        secretKeyRef:
+          name: secrets
+          key: ssh-public-key
     - name: OLLAMA_CONTEXT_LENGTH
       value: "131072"
     - name: OLLAMA_FLASH_ATTENTION
@@ -426,7 +436,33 @@ ollama:
   terminationGracePeriodSeconds: 120
 
   # -- Init containers to add to the pod
-  initContainers: []
+  initContainers:
+    - name: ollama-ssh-keys
+      image: alpine:3.21
+      command: [sh, -c]
+      args:
+        - |
+          set -eu
+          umask 077
+          mkdir -p /root/.ollama
+          printf '%s\n' "$OLLAMA_SSH_PRIVATE_KEY" > /root/.ollama/id_ed25519
+          printf '%s\n' "$OLLAMA_SSH_PUBLIC_KEY" > /root/.ollama/id_ed25519.pub
+          chmod 600 /root/.ollama/id_ed25519
+          chmod 644 /root/.ollama/id_ed25519.pub
+      env:
+        - name: OLLAMA_SSH_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: ssh-private-key
+        - name: OLLAMA_SSH_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: ssh-public-key
+      volumeMounts:
+        - name: ollama-data
+          mountPath: /root/.ollama
   # - name: startup-tool
   #   image: alpine:3
   #   command: [sh, -c]
