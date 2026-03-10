@@ -25,34 +25,28 @@ app-template:
           image:
             repository: alpine
             tag: latest
+          env:
+            LLAMA_ARG_MODEL:
+              value: /models/Qwen3.5-27B-UD-Q3_K_XL.gguf
           command:
             - /bin/sh
             - -c
           args:
             - |
-              DEFAULT_MODEL="/models/Qwen3.5-27B-UD-Q3_K_XL.gguf"
-              FALLBACK_MODEL="/models/Qwen3.5-9B-UD-Q8_K_XL.gguf"
-              
-              # If default model exists and is non-empty, exit immediately
-              if [ -s "$DEFAULT_MODEL" ]; then
-                echo "Default model present: $DEFAULT_MODEL"
+              # If model exists and is non-empty, exit immediately
+              if [ -s "$LLAMA_ARG_MODEL" ]; then
+                echo "Model present: $LLAMA_ARG_MODEL"
+                ls -lh "$LLAMA_ARG_MODEL"
                 exit 0
               fi
               
-              # If fallback exists, use it as default
-              if [ -s "$FALLBACK_MODEL" ]; then
-                echo "Fallback model present, updating default"
-                exit 0
-              fi
-              
-              # Wait for both models to be available
-              echo "Waiting for models to be downloaded..."
-              until [ -s "$DEFAULT_MODEL" ] && [ -s "$FALLBACK_MODEL" ]; do
-                echo "  - 27B: $(stat -c%s "$DEFAULT_MODEL" 2>/dev/null || echo 'missing')"
-                echo "  - 9B:  $(stat -c%s "$FALLBACK_MODEL" 2>/dev/null || echo 'missing')"
+              # Wait for the model to be downloaded
+              echo "Waiting for model to be downloaded..."
+              until [ -s "$LLAMA_ARG_MODEL" ]; do
+                echo "  - $(stat -c%s "$LLAMA_ARG_MODEL" 2>/dev/null || echo 'missing')"
                 sleep 10
               done
-              echo "All models ready"
+              echo "Model ready"
       containers:
         main:
           image:
