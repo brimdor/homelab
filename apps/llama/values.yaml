@@ -33,7 +33,7 @@ app-template:
         main:
           image:
             repository: ghcr.io/ggml-org/llama.cpp
-            tag: server
+            tag: server-cuda
           env:
             TZ: America/Chicago
             PUID: "1000"
