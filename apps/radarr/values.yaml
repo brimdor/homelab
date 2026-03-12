@@ -85,7 +85,7 @@ app-template:
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: radarr.eaglepass.io
+        - host: &host radarr.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -94,7 +94,7 @@ app-template:
                 port: 7878
       tls:
         - hosts:
-            - radarr.eaglepass.io
+            - *host
           secretName: radarr-tls-certificate
   persistence:
     data:
