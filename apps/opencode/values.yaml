@@ -213,7 +213,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: password
-            OPENCODE_CONFIG_CONTENT: '{"$schema":"https://opencode.ai/config.json","autoupdate":false,"share":"disabled","server":{"hostname":"0.0.0.0","port":4096,"cors":["https://opencode.eaglepass.io"]},"provider":{"ollama":{"npm":"@ai-sdk/openai-compatible","name":"Ollama (cluster)","options":{"baseURL":"http://ollama.ollama.svc.cluster.local:11434/v1"},"models":{"gpt-oss:20b":{"name":"gpt-oss:20b"}}}},"model":"ollama/gpt-oss:20b","small_model":"ollama/gpt-oss:20b"}'
           probes:
             liveness:
               enabled: true
@@ -285,8 +284,6 @@ app-template:
         main:
           main:
             - path: /home/cody/workspace
-            - path: /home/cody/.config/git
-            - path: /home/cody/.config/gh
             - path: /home/cody/.ssh
             - path: /home/cody/.local/share/opencode
             - path: /home/cody/.local/archroot
@@ -294,8 +291,6 @@ app-template:
             - path: /home/cody/.cache
           install:
             - path: /home/cody/workspace
-            - path: /home/cody/.config/git
-            - path: /home/cody/.config/gh
             - path: /home/cody/.ssh
             - path: /home/cody/.local/share/opencode
             - path: /home/cody/.local/archroot
@@ -308,9 +303,9 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /home/cody/.config/opencode
+            - path: /home/cody/.config
           install:
-            - path: /home/cody/.config/opencode
+            - path: /home/cody/.config
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4
