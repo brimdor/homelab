@@ -5,7 +5,7 @@ app-template:
       containers:
         main:
           image:
-            repository: 10.0.20.11:32309/opencode
+            repository: registry.eaglepass.io/opencode
             tag: latest
             pullPolicy: Always
           args:
@@ -38,7 +38,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: github-token
-            GIT_SSH_COMMAND: "ssh -i /run/opencode-secrets/ssh-private-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/known_hosts"
+            GIT_SSH_COMMAND: "ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/known_hosts"
           securityContext:
             runAsNonRoot: false
             runAsUser: 0

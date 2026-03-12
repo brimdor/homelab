@@ -13,6 +13,24 @@ export OPENCODE_GIT_TOKEN="${TOKEN}"
 export GIT_TERMINAL_PROMPT=0
 export GIT_ASKPASS=/usr/local/bin/git-askpass-opencode
 
+mkdir -p /root/.ssh
+chmod 0700 /root/.ssh
+
+if [[ -f /run/opencode-secrets/ssh-private-key ]]; then
+  cp /run/opencode-secrets/ssh-private-key /root/.ssh/id_ed25519
+  chmod 0600 /root/.ssh/id_ed25519
+fi
+
+if [[ -f /run/opencode-secrets/ssh-public-key ]]; then
+  cp /run/opencode-secrets/ssh-public-key /root/.ssh/id_ed25519.pub
+  chmod 0644 /root/.ssh/id_ed25519.pub
+fi
+
+touch /root/.ssh/known_hosts
+chmod 0600 /root/.ssh/known_hosts
+
+export GIT_SSH_COMMAND="ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/known_hosts"
+
 uv tool install --force command-center --from git+https://github.com/brimdor/command-center.git
 ln -sf /root/.local/bin/cmdctl /usr/local/bin/cmdctl
 cmdctl init --opencode
