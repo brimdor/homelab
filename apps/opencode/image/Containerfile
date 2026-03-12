@@ -85,5 +85,5 @@ RUN chmod +x /usr/local/bin/git-askpass-opencode /usr/local/bin/start-opencode &
 
 WORKDIR /workspace
 
-ENTRYPOINT ["/usr/local/bin/start-opencode"]
+ENTRYPOINT ["/usr/local/bin/opencode","web"]
 CMD ["--hostname", "0.0.0.0", "--port", "4096"]
