@@ -45,7 +45,7 @@ app-template:
               pacman -S --noconfirm --needed which
 
               if [ ! -x /home/cody/.local/archroot/usr/bin/git ] || [ ! -x /home/cody/.local/archroot/usr/bin/gh ] || [ ! -x /home/cody/.local/archroot/usr/bin/ssh ]; then
-                pacman -S --noconfirm --needed \
+                pacman -Sy --noconfirm --needed \
                   --root /home/cody/.local/archroot \
                   --dbpath /home/cody/.local/archroot/var/lib/pacman \
                   --cachedir /home/cody/.cache/pacman \
