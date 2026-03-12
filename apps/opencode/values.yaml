@@ -9,11 +9,6 @@ app-template:
             repository: ghcr.io/anomalyco/opencode
             tag: latest
             pullPolicy: Always
-          command:
-            - /bin/sh
-            - -lc
-          args:
-            - apk add --no-cache gcompat >/dev/null && exec /usr/local/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io
           env:
             TZ: America/Chicago
             OPENCODE_SERVER_USERNAME:
@@ -51,13 +46,6 @@ app-template:
                 periodSeconds: 5
                 timeoutSeconds: 3
                 failureThreshold: 60
-          resources:
-            requests:
-              cpu: 500m
-              memory: 1Gi
-            limits:
-              cpu: 2
-              memory: 4Gi
   service:
     main:
       primary: true
