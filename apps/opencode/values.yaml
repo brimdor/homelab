@@ -18,6 +18,7 @@ app-template:
 
               mkdir -p \
                 /home/cody/.cache \
+                /home/cody/.cache/pacman \
                 /home/cody/.config/git \
                 /home/cody/.config/gh \
                 /home/cody/.local/archroot/var/lib/pacman \
