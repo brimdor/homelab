@@ -14,6 +14,8 @@ app-template:
             - 0.0.0.0
             - --port
             - "4096"
+            - --cors
+            - https://opencode.eaglepass.io
           workingDir: /workspace
           env:
             TZ: America/Chicago
@@ -32,8 +34,7 @@ app-template:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /global/health
+                tcpSocket:
                   port: 4096
                 initialDelaySeconds: 20
                 periodSeconds: 10
@@ -41,8 +42,7 @@ app-template:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /global/health
+                tcpSocket:
                   port: 4096
                 initialDelaySeconds: 10
                 periodSeconds: 10
@@ -50,8 +50,7 @@ app-template:
               enabled: true
               custom: true
               spec:
-                httpGet:
-                  path: /global/health
+                tcpSocket:
                   port: 4096
                 failureThreshold: 30
                 periodSeconds: 5
