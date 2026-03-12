@@ -104,6 +104,9 @@ app-template:
       controller: main
       type: LoadBalancer
       externalTrafficPolicy: Cluster
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: ssh-workshop.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
       loadBalancerSourceRanges:
         - 10.0.0.0/16
       ports:
