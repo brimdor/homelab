@@ -3,6 +3,33 @@ app-template:
     main:
       strategy: Recreate
       replicas: 1
+      initContainers:
+        install:
+          image:
+            repository: docker.io/library/archlinux
+            tag: latest
+            pullPolicy: Always
+          command:
+            - /bin/bash
+            - -lc
+          args:
+            - >-
+              set -euo pipefail;
+              mkdir -p /home/cody/.cache /home/cody/.local/share/opencode /home/cody/.opencode/bin /home/cody/workspace;
+              chown -R 1000:1000 /home/cody/.cache /home/cody/.local /home/cody/.opencode /home/cody/workspace;
+              if [ -x /home/cody/.opencode/bin/opencode ]; then exit 0; fi;
+              if [ ! -s /etc/pacman.d/gnupg/pubring.kbx ]; then pacman-key --init; pacman-key --populate archlinux; fi;
+              pacman -Sy --noconfirm archlinux-keyring;
+              pacman -S --noconfirm --needed which;
+              export HOME=/home/cody;
+              export USER=cody;
+              export SHELL=/bin/bash;
+              export XDG_CONFIG_HOME=/home/cody/.config;
+              export XDG_DATA_HOME=/home/cody/.local/share;
+              export XDG_CACHE_HOME=/home/cody/.cache;
+              export PATH=/home/cody/.opencode/bin:$PATH;
+              curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path;
+              chown -R 1000:1000 /home/cody/.cache /home/cody/.local /home/cody/.opencode /home/cody/workspace;
       containers:
         main:
           image:
@@ -16,13 +43,10 @@ app-template:
           args:
             - >-
               set -euo pipefail;
-              if [ ! -s /etc/pacman.d/gnupg/pubring.kbx ]; then pacman-key --init; pacman-key --populate archlinux; fi;
-              pacman -Sy --noconfirm archlinux-keyring;
-              pacman -Syu --noconfirm --needed bash ca-certificates ca-certificates-utils curl gzip shadow tar which;
               if ! id -u cody >/dev/null 2>&1; then useradd -M -d /home/cody -u 1000 -s /bin/bash cody; fi;
-              mkdir -p /home/cody/.config/opencode /home/cody/.local/share/opencode /home/cody/.opencode/bin /home/cody/workspace;
-              chown -R 1000:1000 /home/cody/.local /home/cody/.opencode /home/cody/workspace;
-              exec su -s /bin/bash cody -c 'set -euo pipefail; export HOME=/home/cody; export USER=cody; export SHELL=/bin/bash; export XDG_CONFIG_HOME=/home/cody/.config; export XDG_DATA_HOME=/home/cody/.local/share; export PATH=/home/cody/.opencode/bin:$PATH; curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path; exec /home/cody/.opencode/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io'
+              mkdir -p /home/cody/.cache /home/cody/workspace;
+              chown -R 1000:1000 /home/cody/.cache /home/cody/workspace /home/cody/.local /home/cody/.opencode;
+              exec su -s /bin/bash cody -c 'set -euo pipefail; export HOME=/home/cody; export USER=cody; export SHELL=/bin/bash; export XDG_CONFIG_HOME=/home/cody/.config; export XDG_DATA_HOME=/home/cody/.local/share; export XDG_CACHE_HOME=/home/cody/.cache; export PATH=/home/cody/.opencode/bin:$PATH; exec /home/cody/.opencode/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io'
           env:
             TZ: America/Chicago
             HOME: /home/cody
@@ -30,6 +54,7 @@ app-template:
             SHELL: /bin/bash
             XDG_CONFIG_HOME: /home/cody/.config
             XDG_DATA_HOME: /home/cody/.local/share
+            XDG_CACHE_HOME: /home/cody/.cache
             OPENCODE_SERVER_USERNAME:
               valueFrom:
                 secretKeyRef:
@@ -114,6 +139,12 @@ app-template:
             - path: /home/cody/workspace
             - path: /home/cody/.local/share/opencode
             - path: /home/cody/.opencode
+            - path: /home/cody/.cache
+          install:
+            - path: /home/cody/workspace
+            - path: /home/cody/.local/share/opencode
+            - path: /home/cody/.opencode
+            - path: /home/cody/.cache
     home:
       type: nfs
       server: 10.0.40.3
@@ -121,6 +152,8 @@ app-template:
       advancedMounts:
         main:
           main:
+            - path: /home/cody/.config/opencode
+          install:
             - path: /home/cody/.config/opencode
   defaultPodOptions:
     annotations:
