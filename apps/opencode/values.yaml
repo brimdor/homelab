@@ -14,8 +14,6 @@ app-template:
             - 0.0.0.0
             - --port
             - "4096"
-            - --cors
-            - https://opencode.eaglepass.io
           workingDir: /workspace
           env:
             TZ: America/Chicago
