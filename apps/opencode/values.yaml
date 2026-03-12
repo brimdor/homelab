@@ -93,9 +93,18 @@ app-template:
             - |-
               set -euo pipefail
 
+              pacman -Sy --noconfirm --needed sudo
+
               if ! id -u cody >/dev/null 2>&1; then
                 useradd -M -d /home/cody -u 1000 -s /bin/bash cody
               fi
+
+              usermod -aG wheel cody
+              install -d -m 0750 /etc/sudoers.d
+              cat > /etc/sudoers.d/cody <<'EOF'
+              cody ALL=(ALL) NOPASSWD: ALL
+              EOF
+              chmod 0440 /etc/sudoers.d/cody
 
               mkdir -p \
                 /home/cody/.cache \
@@ -238,7 +247,7 @@ app-template:
               cpu: 2
               memory: 4Gi
           securityContext:
-            allowPrivilegeEscalation: false
+            allowPrivilegeEscalation: true
             readOnlyRootFilesystem: false
   service:
     main:
