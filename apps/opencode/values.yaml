@@ -9,118 +9,16 @@ app-template:
             repository: ghcr.io/anomalyco/opencode
             tag: latest
             pullPolicy: Always
-          workingDir: /home/cody/workspace
-          command:
-            - /bin/sh
-            - -lc
           args:
-            - |-
-              set -euo pipefail
-
-              apk add --no-cache bash git github-cli openssh sudo
-
-              if ! id -u cody >/dev/null 2>&1; then
-                addgroup -g 1000 cody
-                adduser -D -h /home/cody -u 1000 -G cody -s /bin/bash cody
-              fi
-
-              install -d -m 0750 /etc/sudoers.d
-              cat > /etc/sudoers.d/cody <<'EOF'
-              cody ALL=(ALL) NOPASSWD: ALL
-              EOF
-              chmod 0440 /etc/sudoers.d/cody
-
-              mkdir -p \
-                /home/cody/.cache \
-                /home/cody/.local/share/opencode \
-                /home/cody/.ssh \
-                /home/cody/workspace
-
-              chown -R 1000:1000 \
-                /home/cody/.cache \
-                /home/cody/.local \
-                /home/cody/.ssh \
-                /home/cody/workspace
-
-              su -m -s /bin/bash cody -c 'mkdir -p /home/cody/.config/git /home/cody/.config/gh && cat > /home/cody/.config/git/askpass.sh <<'"'"'EOF'"'"'
-              #!/bin/sh
-              case "$1" in
-                *Username*) printf "%s\n" "x-access-token" ;;
-                *Password*) printf "%s\n" "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ;;
-                *) printf "\n" ;;
-              esac
-              EOF
-              chmod 700 /home/cody/.config/git/askpass.sh'
-
-              touch /home/cody/.ssh/known_hosts
-
-              if [ -n "${GITHUB_SSH_PRIVATE_KEY:-}" ] && [ -n "${GITHUB_SSH_PUBLIC_KEY:-}" ] && [ "${GITHUB_SSH_PRIVATE_KEY}" != "REPLACE_ME" ] && [ "${GITHUB_SSH_PUBLIC_KEY}" != "REPLACE_ME" ]; then
-                printf '%s\n' "${GITHUB_SSH_PRIVATE_KEY}" > /home/cody/.ssh/id_ed25519
-                printf '%s\n' "${GITHUB_SSH_PUBLIC_KEY}" > /home/cody/.ssh/id_ed25519.pub
-                chmod 600 /home/cody/.ssh/id_ed25519
-                chmod 644 /home/cody/.ssh/id_ed25519.pub
-              else
-                rm -f /home/cody/.ssh/id_ed25519 /home/cody/.ssh/id_ed25519.pub
-              fi
-
-              chown -R 1000:1000 \
-                /home/cody/.cache \
-                /home/cody/.local \
-                /home/cody/.ssh \
-                /home/cody/workspace
-
-              token_value="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
-              ssh_command=""
-
-              if [ -f /home/cody/.ssh/id_ed25519 ]; then
-                ssh_command='ssh -i /home/cody/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/home/cody/.ssh/known_hosts'
-              fi
-
-              exec env \
-                HOME=/home/cody \
-                USER=cody \
-                SHELL=/bin/bash \
-                XDG_CONFIG_HOME=/home/cody/.config \
-                XDG_DATA_HOME=/home/cody/.local/share \
-                XDG_CACHE_HOME=/home/cody/.cache \
-                GIT_CONFIG_GLOBAL=/home/cody/.config/git/config \
-                GH_CONFIG_DIR=/home/cody/.config/gh \
-                GIT_ASKPASS=/home/cody/.config/git/askpass.sh \
-                GIT_TERMINAL_PROMPT=0 \
-                GH_TOKEN="$token_value" \
-                GITHUB_TOKEN="$token_value" \
-                GIT_SSH_COMMAND="$ssh_command" \
-                su -m -s /bin/bash cody -c 'exec /usr/local/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io'
+            - serve
+            - --hostname
+            - 0.0.0.0
+            - --port
+            - "4096"
+            - --cors
+            - https://opencode.eaglepass.io
           env:
             TZ: America/Chicago
-            HOME: /home/cody
-            USER: cody
-            SHELL: /bin/bash
-            XDG_CONFIG_HOME: /home/cody/.config
-            XDG_DATA_HOME: /home/cody/.local/share
-            XDG_CACHE_HOME: /home/cody/.cache
-            GH_CONFIG_DIR: /home/cody/.config/gh
-            GIT_CONFIG_GLOBAL: /home/cody/.config/git/config
-            GH_TOKEN:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: github-token
-            GITHUB_TOKEN:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: github-token
-            GITHUB_SSH_PRIVATE_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: github-ssh-private-key
-            GITHUB_SSH_PUBLIC_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: github-ssh-public-key
             OPENCODE_SERVER_USERNAME:
               valueFrom:
                 secretKeyRef:
@@ -163,9 +61,6 @@ app-template:
             limits:
               cpu: 2
               memory: 4Gi
-          securityContext:
-            allowPrivilegeEscalation: true
-            readOnlyRootFilesystem: false
   service:
     main:
       primary: true
@@ -193,30 +88,7 @@ app-template:
         - hosts:
             - *host
           secretName: opencode-tls
-  persistence:
-    data:
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 20Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /home/cody/workspace
-            - path: /home/cody/.ssh
-            - path: /home/cody/.local/share/opencode
-            - path: /home/cody/.cache
-    home:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/opencode
-      advancedMounts:
-        main:
-          main:
-            - path: /home/cody/.config
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4
       operator.1password.io/item-name: secrets
-    securityContext:
-      fsGroup: 1000
-      fsGroupChangePolicy: OnRootMismatch
