@@ -12,10 +12,52 @@ CODE_SERVER_WORKDIR="${CODE_SERVER_WORKDIR:-/workspace}"
 CODE_SERVER_CONFIG_DIR="${CODE_SERVER_CONFIG_DIR:-/root/.config/code-server}"
 CODE_SERVER_USER_DATA_DIR="${CODE_SERVER_USER_DATA_DIR:-/root/.local/share/code-server/user-data}"
 CODE_SERVER_EXTENSIONS_DIR="${CODE_SERVER_EXTENSIONS_DIR:-/root/.local/share/code-server/extensions}"
+WORKSHOP_STORAGE_ROOT="${WORKSHOP_STORAGE_ROOT:-/mnt/workshop-storage}"
+WORKSHOP_CACHE_ROOT="${WORKSHOP_CACHE_ROOT:-/mnt/workshop-cache}"
+WORKSHOP_CACHE_SUBDIR="${WORKSHOP_CACHE_SUBDIR:-opencode}"
 OP_CONNECT_VAULT="${OP_CONNECT_VAULT:-Server}"
 
 log() {
   printf '[workshop] %s\n' "$*"
+}
+
+ensure_symlink_dir() {
+  local target="$1"
+  local link_path="$2"
+
+  mkdir -p "$(dirname "${link_path}")" "${target}"
+
+  if [[ -L "${link_path}" ]]; then
+    rm -f "${link_path}"
+  elif [[ -e "${link_path}" ]]; then
+    rm -rf "${link_path}"
+  fi
+
+  ln -s "${target}" "${link_path}"
+}
+
+prepare_persistent_layout() {
+  local mode="${1:-opencode}"
+
+  if [[ -d "${WORKSHOP_STORAGE_ROOT}" ]]; then
+    mkdir -p \
+      "${WORKSHOP_STORAGE_ROOT}/workspace" \
+      "${WORKSHOP_STORAGE_ROOT}/state/opencode" \
+      "${WORKSHOP_STORAGE_ROOT}/config/opencode"
+
+    ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/workspace" /workspace
+    ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/state/opencode" /root/.local/share/opencode
+    ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/config/opencode" /root/.config/opencode
+
+    if [[ "${mode}" == "code-server" ]]; then
+      mkdir -p "${WORKSHOP_STORAGE_ROOT}/state/code-server"
+      ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/state/code-server" /root/.local/share/code-server
+    fi
+  fi
+
+  if [[ -d "${WORKSHOP_CACHE_ROOT}" ]]; then
+    ensure_symlink_dir "${WORKSHOP_CACHE_ROOT}/${WORKSHOP_CACHE_SUBDIR}" /root/.cache
+  fi
 }
 
 normalize_ssh_private_key() {
@@ -205,9 +247,12 @@ bootstrap_command_center() {
 }
 
 prepare_runtime() {
+  local mode="${1:-opencode}"
+
   export HOME=/root
   export OP_CONNECT_VAULT
 
+  prepare_persistent_layout "${mode}"
   configure_github_access
   configure_kubeconfig
   install_opencode_config
@@ -239,7 +284,7 @@ build_cors_args() {
 }
 
 run_opencode_server() {
-  prepare_runtime
+  prepare_runtime opencode
   bootstrap_opencode_once
 
   log "Starting OpenCode server on ${WORKSHOP_HOSTNAME}:${WORKSHOP_PORT}"
@@ -253,7 +298,7 @@ run_opencode_server() {
 }
 
 run_code_server() {
-  prepare_runtime
+  prepare_runtime code-server
   install_code_server_config
   export CS_DISABLE_GETTING_STARTED_OVERRIDE=1
 
