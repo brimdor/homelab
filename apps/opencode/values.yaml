@@ -13,23 +13,66 @@ app-template:
             - /bin/bash
             - -lc
           args:
-            - >-
-              set -euo pipefail;
-              mkdir -p /home/cody/.cache /home/cody/.local/share/opencode /home/cody/.opencode/bin /home/cody/workspace;
-              chown -R 1000:1000 /home/cody/.cache /home/cody/.local /home/cody/.opencode /home/cody/workspace;
-              if [ -x /home/cody/.opencode/bin/opencode ]; then exit 0; fi;
-              if [ ! -s /etc/pacman.d/gnupg/pubring.kbx ]; then pacman-key --init; pacman-key --populate archlinux; fi;
-              pacman -Sy --noconfirm archlinux-keyring;
-              pacman -S --noconfirm --needed which;
-              export HOME=/home/cody;
-              export USER=cody;
-              export SHELL=/bin/bash;
-              export XDG_CONFIG_HOME=/home/cody/.config;
-              export XDG_DATA_HOME=/home/cody/.local/share;
-              export XDG_CACHE_HOME=/home/cody/.cache;
-              export PATH=/home/cody/.opencode/bin:$PATH;
-              curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path;
-              chown -R 1000:1000 /home/cody/.cache /home/cody/.local /home/cody/.opencode /home/cody/workspace;
+            - |-
+              set -euo pipefail
+
+              mkdir -p \
+                /home/cody/.cache \
+                /home/cody/.config/git \
+                /home/cody/.config/gh \
+                /home/cody/.local/archroot/var/lib/pacman \
+                /home/cody/.local/share/opencode \
+                /home/cody/.opencode/bin \
+                /home/cody/.ssh \
+                /home/cody/workspace
+
+              chown -R 1000:1000 \
+                /home/cody/.cache \
+                /home/cody/.config \
+                /home/cody/.local \
+                /home/cody/.opencode \
+                /home/cody/.ssh \
+                /home/cody/workspace
+
+              if [ ! -s /etc/pacman.d/gnupg/pubring.kbx ]; then
+                pacman-key --init
+                pacman-key --populate archlinux
+              fi
+
+              pacman -Sy --noconfirm archlinux-keyring
+              pacman -S --noconfirm --needed which
+
+              if [ ! -x /home/cody/.local/archroot/usr/bin/git ] || [ ! -x /home/cody/.local/archroot/usr/bin/gh ] || [ ! -x /home/cody/.local/archroot/usr/bin/ssh ]; then
+                pacman -S --noconfirm --needed \
+                  --root /home/cody/.local/archroot \
+                  --dbpath /home/cody/.local/archroot/var/lib/pacman \
+                  --cachedir /home/cody/.cache/pacman \
+                  --gpgdir /etc/pacman.d/gnupg \
+                  ca-certificates \
+                  ca-certificates-utils \
+                  git \
+                  github-cli \
+                  openssh
+              fi
+
+              if [ ! -x /home/cody/.opencode/bin/opencode ]; then
+                export HOME=/home/cody
+                export USER=cody
+                export SHELL=/bin/bash
+                export XDG_CONFIG_HOME=/home/cody/.config
+                export XDG_DATA_HOME=/home/cody/.local/share
+                export XDG_CACHE_HOME=/home/cody/.cache
+                export PATH=/home/cody/.opencode/bin:$PATH
+                curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path
+              fi
+
+              chown -R 1000:1000 \
+                /home/cody/.cache \
+                /home/cody/.config \
+                /home/cody/.local \
+                /home/cody/.opencode \
+                /home/cody/.ssh \
+                /home/cody/workspace
       containers:
         main:
           image:
@@ -41,12 +84,79 @@ app-template:
             - /bin/bash
             - -lc
           args:
-            - >-
-              set -euo pipefail;
-              if ! id -u cody >/dev/null 2>&1; then useradd -M -d /home/cody -u 1000 -s /bin/bash cody; fi;
-              mkdir -p /home/cody/.cache /home/cody/workspace;
-              chown -R 1000:1000 /home/cody/.cache /home/cody/workspace /home/cody/.local /home/cody/.opencode;
-              exec su -s /bin/bash cody -c 'set -euo pipefail; export HOME=/home/cody; export USER=cody; export SHELL=/bin/bash; export XDG_CONFIG_HOME=/home/cody/.config; export XDG_DATA_HOME=/home/cody/.local/share; export XDG_CACHE_HOME=/home/cody/.cache; export PATH=/home/cody/.opencode/bin:$PATH; exec /home/cody/.opencode/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io'
+            - |-
+              set -euo pipefail
+
+              if ! id -u cody >/dev/null 2>&1; then
+                useradd -M -d /home/cody -u 1000 -s /bin/bash cody
+              fi
+
+              mkdir -p \
+                /home/cody/.cache \
+                /home/cody/.config/git \
+                /home/cody/.config/gh \
+                /home/cody/.ssh \
+                /home/cody/workspace
+
+              cat > /home/cody/.config/git/askpass.sh <<'EOF'
+              #!/bin/sh
+              case "$1" in
+                *Username*) printf '%s\n' "x-access-token" ;;
+                *Password*) printf '%s\n' "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ;;
+                *) printf '\n' ;;
+              esac
+              EOF
+
+              chmod 700 /home/cody/.config/git/askpass.sh
+              touch /home/cody/.ssh/known_hosts
+
+              if [ -n "${GITHUB_SSH_PRIVATE_KEY:-}" ] && [ -n "${GITHUB_SSH_PUBLIC_KEY:-}" ] && [ "${GITHUB_SSH_PRIVATE_KEY}" != "REPLACE_ME" ] && [ "${GITHUB_SSH_PUBLIC_KEY}" != "REPLACE_ME" ]; then
+                printf '%s\n' "${GITHUB_SSH_PRIVATE_KEY}" > /home/cody/.ssh/id_ed25519
+                printf '%s\n' "${GITHUB_SSH_PUBLIC_KEY}" > /home/cody/.ssh/id_ed25519.pub
+                chmod 600 /home/cody/.ssh/id_ed25519
+                chmod 644 /home/cody/.ssh/id_ed25519.pub
+              else
+                rm -f /home/cody/.ssh/id_ed25519 /home/cody/.ssh/id_ed25519.pub
+              fi
+
+              chown -R 1000:1000 \
+                /home/cody/.cache \
+                /home/cody/.config \
+                /home/cody/.ssh \
+                /home/cody/workspace \
+                /home/cody/.local \
+                /home/cody/.opencode
+
+              test -x /home/cody/.local/archroot/usr/bin/git
+              test -x /home/cody/.local/archroot/usr/bin/gh
+              test -x /home/cody/.local/archroot/usr/bin/ssh
+              test -x /home/cody/.opencode/bin/opencode
+
+              token_value="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+              ssh_command=""
+
+              if [ -f /home/cody/.ssh/id_ed25519 ]; then
+                ssh_command='ssh -i /home/cody/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/home/cody/.ssh/known_hosts'
+              fi
+
+              exec env \
+                HOME=/home/cody \
+                USER=cody \
+                SHELL=/bin/bash \
+                XDG_CONFIG_HOME=/home/cody/.config \
+                XDG_DATA_HOME=/home/cody/.local/share \
+                XDG_CACHE_HOME=/home/cody/.cache \
+                GIT_CONFIG_GLOBAL=/home/cody/.config/git/config \
+                GH_CONFIG_DIR=/home/cody/.config/gh \
+                PATH=/home/cody/.local/archroot/usr/bin:/home/cody/.local/archroot/usr/sbin:/home/cody/.opencode/bin:$PATH \
+                LD_LIBRARY_PATH=/home/cody/.local/archroot/usr/lib:/home/cody/.local/archroot/lib \
+                GIT_EXEC_PATH=/home/cody/.local/archroot/usr/lib/git-core \
+                GIT_ASKPASS=/home/cody/.config/git/askpass.sh \
+                GIT_TERMINAL_PROMPT=0 \
+                GH_TOKEN="$token_value" \
+                GITHUB_TOKEN="$token_value" \
+                GIT_SSH_COMMAND="$ssh_command" \
+                su -m -s /bin/bash cody -c 'exec /home/cody/.opencode/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io'
           env:
             TZ: America/Chicago
             HOME: /home/cody
@@ -55,6 +165,28 @@ app-template:
             XDG_CONFIG_HOME: /home/cody/.config
             XDG_DATA_HOME: /home/cody/.local/share
             XDG_CACHE_HOME: /home/cody/.cache
+            GH_CONFIG_DIR: /home/cody/.config/gh
+            GIT_CONFIG_GLOBAL: /home/cody/.config/git/config
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-token
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-token
+            GITHUB_SSH_PRIVATE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-ssh-private-key
+            GITHUB_SSH_PUBLIC_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-ssh-public-key
             OPENCODE_SERVER_USERNAME:
               valueFrom:
                 secretKeyRef:
@@ -137,12 +269,20 @@ app-template:
         main:
           main:
             - path: /home/cody/workspace
+            - path: /home/cody/.config/git
+            - path: /home/cody/.config/gh
+            - path: /home/cody/.ssh
             - path: /home/cody/.local/share/opencode
+            - path: /home/cody/.local/archroot
             - path: /home/cody/.opencode
             - path: /home/cody/.cache
           install:
             - path: /home/cody/workspace
+            - path: /home/cody/.config/git
+            - path: /home/cody/.config/gh
+            - path: /home/cody/.ssh
             - path: /home/cody/.local/share/opencode
+            - path: /home/cody/.local/archroot
             - path: /home/cody/.opencode
             - path: /home/cody/.cache
     home:
