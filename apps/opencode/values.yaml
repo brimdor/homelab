@@ -6,7 +6,7 @@ app-template:
         main:
           image:
             repository: ghcr.io/anomalyco/opencode
-            tag: 0.0.0-beta-202603121038
+            tag: 1.0.196
             pullPolicy: IfNotPresent
           args:
             - web
