@@ -15,6 +15,7 @@ CODE_SERVER_EXTENSIONS_DIR="${CODE_SERVER_EXTENSIONS_DIR:-/root/.local/share/cod
 WORKSHOP_STORAGE_ROOT="${WORKSHOP_STORAGE_ROOT:-/mnt/workshop-storage}"
 WORKSHOP_CACHE_ROOT="${WORKSHOP_CACHE_ROOT:-/mnt/workshop-cache}"
 WORKSHOP_CACHE_SUBDIR="${WORKSHOP_CACHE_SUBDIR:-opencode}"
+WORKSHOP_GITHUB_USERNAME="${WORKSHOP_GITHUB_USERNAME:-brimdor}"
 OP_CONNECT_VAULT="${OP_CONNECT_VAULT:-Server}"
 
 log() {
@@ -209,11 +210,17 @@ disable_dotfiles_externals() {
   fi
 }
 
+sync_dotfiles_source() {
+  local repo_url="https://github.com/${WORKSHOP_GITHUB_USERNAME}/dotfiles.git"
+
+  log "Syncing dotfiles from ${repo_url}"
+  rm -rf "${CHEZMOI_SOURCE_DIR}"
+  mkdir -p "$(dirname "${CHEZMOI_SOURCE_DIR}")"
+  git clone --depth=1 "${repo_url}" "${CHEZMOI_SOURCE_DIR}"
+}
+
 apply_dotfiles() {
-  if [[ ! -d "${CHEZMOI_SOURCE_DIR}" ]]; then
-    log "Skipping dotfiles apply because ${CHEZMOI_SOURCE_DIR} is missing"
-    return
-  fi
+  sync_dotfiles_source
 
   patch_dotfiles_for_service_account_mode
   disable_dotfiles_externals

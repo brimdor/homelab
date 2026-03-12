@@ -30,6 +30,7 @@ app-template:
           env:
             TZ: America/Chicago
             WORKSHOP_CACHE_SUBDIR: opencode
+            WORKSHOP_GITHUB_USERNAME: brimdor
             WORKSHOP_PORT: "4096"
             WORKSHOP_HOSTNAME: 0.0.0.0
             WORKSHOP_CORS_ORIGINS: https://workshop.eaglepass.io,https://code-workshop.eaglepass.io
@@ -91,6 +92,7 @@ app-template:
           env:
             TZ: America/Chicago
             WORKSHOP_CACHE_SUBDIR: code-server
+            WORKSHOP_GITHUB_USERNAME: brimdor
             CODE_SERVER_PORT: "8080"
             CODE_SERVER_HOSTNAME: 0.0.0.0
             CODE_SERVER_WORKDIR: /mnt/workshop-storage/workspace
@@ -227,4 +229,4 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4"
       operator.1password.io/item-name: "secrets"
-      workshop.eaglepass.io/runtime-config-version: "2026-03-12-code-server-sidecar-v3"
+      workshop.eaglepass.io/runtime-config-version: "2026-03-12-dotfiles-sync"

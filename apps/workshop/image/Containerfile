@@ -63,9 +63,6 @@ RUN mkdir -p /usr/local/lib \
     | tar -xzf - -C /usr/local/lib \
     && ln -sf /usr/local/lib/code-server-${CODE_SERVER_VERSION}-linux-amd64/bin/code-server /usr/local/bin/code-server
 
-RUN mkdir -p /root/.local/share \
-    && git clone --depth=1 https://github.com/brimdor/dotfiles.git /root/.local/share/chezmoi
-
 COPY entrypoint.sh /usr/local/bin/workshop-entrypoint
 COPY opencode.json /usr/local/share/workshop/opencode.json
 
