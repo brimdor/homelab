@@ -33,6 +33,7 @@ PY
 configure_github_access() {
   if [[ -n "${GITHUB_TOKEN:-}" ]]; then
     export GH_TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
+    export GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN:-$GITHUB_TOKEN}"
   fi
 
   mkdir -p /root/.ssh
@@ -60,6 +61,54 @@ EOF
   chmod 600 /root/.ssh/config
 
   export GIT_SSH_COMMAND="ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+}
+
+configure_kubeconfig() {
+  local sa_dir="/var/run/secrets/kubernetes.io/serviceaccount"
+  local token_file="${sa_dir}/token"
+  local namespace_file="${sa_dir}/namespace"
+
+  if [[ ! -f "${token_file}" || ! -f "${namespace_file}" || -z "${KUBERNETES_SERVICE_HOST:-}" ]]; then
+    return
+  fi
+
+  mkdir -p /root/.kube /home/brimdor/.kube
+
+  python3 - <<'PY'
+from pathlib import Path
+import os
+
+token = Path('/var/run/secrets/kubernetes.io/serviceaccount/token').read_text().strip()
+namespace = Path('/var/run/secrets/kubernetes.io/serviceaccount/namespace').read_text().strip()
+server = f"https://{os.environ['KUBERNETES_SERVICE_HOST']}:{os.environ.get('KUBERNETES_SERVICE_PORT_HTTPS', os.environ.get('KUBERNETES_SERVICE_PORT', '443'))}"
+config = f"""apiVersion: v1
+kind: Config
+clusters:
+  - cluster:
+      certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      server: {server}
+    name: in-cluster
+contexts:
+  - context:
+      cluster: in-cluster
+      namespace: {namespace}
+      user: workshop
+    name: in-cluster
+current-context: in-cluster
+users:
+  - name: workshop
+    user:
+      token: {token}
+"""
+for path in ('/root/.kube/config', '/home/brimdor/.kube/config'):
+    Path(path).write_text(config)
+    Path(path).chmod(0o600)
+PY
+}
+
+install_opencode_config() {
+  mkdir -p /root/.config/opencode
+  cp /usr/local/share/workshop/opencode.json /root/.config/opencode/opencode.json
 }
 
 patch_dotfiles_for_service_account_mode() {
@@ -125,9 +174,11 @@ bootstrap_once() {
 
   mkdir -p "$(dirname "${BOOTSTRAP_SENTINEL}")"
   configure_github_access
+  configure_kubeconfig
   apply_dotfiles
   install_command_center
   bootstrap_command_center
+  install_opencode_config
   touch "${BOOTSTRAP_SENTINEL}"
 }
 
@@ -146,7 +197,9 @@ build_cors_args() {
 
 main() {
   configure_github_access
+  configure_kubeconfig
   bootstrap_once
+  install_opencode_config
 
   export OP_CONNECT_VAULT
   export HOME=/root

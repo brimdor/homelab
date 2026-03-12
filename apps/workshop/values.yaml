@@ -100,3 +100,4 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4"
       operator.1password.io/item-name: "secrets"
+      workshop.eaglepass.io/runtime-config-version: "2026-03-12-opencode-config"
