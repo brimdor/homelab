@@ -18,6 +18,20 @@ chmod 0700 /root/.ssh
 
 if [[ -f /run/opencode-secrets/ssh-private-key ]]; then
   cp /run/opencode-secrets/ssh-private-key /root/.ssh/id_ed25519
+  python3 - <<'PY'
+from pathlib import Path
+import re
+
+path = Path('/root/.ssh/id_ed25519')
+content = path.read_text()
+match = re.search(r'-----BEGIN OPENSSH PRIVATE KEY-----\s*(.*?)\s*-----END OPENSSH PRIVATE KEY-----', content, re.S)
+if match:
+    body = ''.join(match.group(1).split())
+    normalized = '-----BEGIN OPENSSH PRIVATE KEY-----\n'
+    normalized += '\n'.join(body[i:i + 70] for i in range(0, len(body), 70))
+    normalized += '\n-----END OPENSSH PRIVATE KEY-----\n'
+    path.write_text(normalized)
+PY
   chmod 0600 /root/.ssh/id_ed25519
 fi
 
