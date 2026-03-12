@@ -18,7 +18,7 @@ app-template:
               set -euo pipefail;
               if [ ! -s /etc/pacman.d/gnupg/pubring.kbx ]; then pacman-key --init; pacman-key --populate archlinux; fi;
               pacman -Sy --noconfirm archlinux-keyring;
-              pacman -Syu --noconfirm --needed bash ca-certificates ca-certificates-utils curl gzip shadow tar;
+              pacman -Syu --noconfirm --needed bash ca-certificates ca-certificates-utils curl gzip shadow tar which;
               if ! id -u cody >/dev/null 2>&1; then useradd -M -d /home/cody -u 1000 -s /bin/bash cody; fi;
               mkdir -p /home/cody/.config/opencode /home/cody/.local/share/opencode /home/cody/.opencode/bin /home/cody/workspace;
               chown -R 1000:1000 /home/cody/.local /home/cody/.opencode /home/cody/workspace;
