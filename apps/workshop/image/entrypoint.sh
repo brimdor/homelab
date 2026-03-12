@@ -6,16 +6,12 @@ CHEZMOI_SOURCE_DIR="/root/.local/share/chezmoi"
 WORKSHOP_PORT="${WORKSHOP_PORT:-4096}"
 WORKSHOP_HOSTNAME="${WORKSHOP_HOSTNAME:-0.0.0.0}"
 WORKSHOP_CORS_ORIGINS="${WORKSHOP_CORS_ORIGINS:-https://workshop.eaglepass.io}"
-CODE_SERVER_PORT="${CODE_SERVER_PORT:-8080}"
-CODE_SERVER_HOSTNAME="${CODE_SERVER_HOSTNAME:-0.0.0.0}"
-CODE_SERVER_WORKDIR="${CODE_SERVER_WORKDIR:-/workspace}"
-CODE_SERVER_CONFIG_DIR="${CODE_SERVER_CONFIG_DIR:-/root/.config/code-server}"
-CODE_SERVER_USER_DATA_DIR="${CODE_SERVER_USER_DATA_DIR:-/root/.local/share/code-server/user-data}"
-CODE_SERVER_EXTENSIONS_DIR="${CODE_SERVER_EXTENSIONS_DIR:-/root/.local/share/code-server/extensions}"
 WORKSHOP_STORAGE_ROOT="${WORKSHOP_STORAGE_ROOT:-/mnt/workshop-storage}"
 WORKSHOP_CACHE_ROOT="${WORKSHOP_CACHE_ROOT:-/mnt/workshop-cache}"
 WORKSHOP_CACHE_SUBDIR="${WORKSHOP_CACHE_SUBDIR:-opencode}"
 WORKSHOP_GITHUB_USERNAME="${WORKSHOP_GITHUB_USERNAME:-brimdor}"
+WORKSHOP_SSH_PORT="${WORKSHOP_SSH_PORT:-22}"
+WORKSHOP_SSH_LISTEN_ADDRESS="${WORKSHOP_SSH_LISTEN_ADDRESS:-0.0.0.0}"
 OP_CONNECT_VAULT="${OP_CONNECT_VAULT:-Server}"
 
 log() {
@@ -38,22 +34,16 @@ ensure_symlink_dir() {
 }
 
 prepare_persistent_layout() {
-  local mode="${1:-opencode}"
-
   if [[ -d "${WORKSHOP_STORAGE_ROOT}" ]]; then
     mkdir -p \
       "${WORKSHOP_STORAGE_ROOT}/workspace" \
       "${WORKSHOP_STORAGE_ROOT}/state/opencode" \
+      "${WORKSHOP_STORAGE_ROOT}/state/ssh" \
       "${WORKSHOP_STORAGE_ROOT}/config/opencode"
 
     ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/workspace" /workspace
     ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/state/opencode" /root/.local/share/opencode
     ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/config/opencode" /root/.config/opencode
-
-    if [[ "${mode}" == "code-server" ]]; then
-      mkdir -p "${WORKSHOP_STORAGE_ROOT}/state/code-server"
-      ensure_symlink_dir "${WORKSHOP_STORAGE_ROOT}/state/code-server" /root/.local/share/code-server
-    fi
   fi
 
   if [[ -d "${WORKSHOP_CACHE_ROOT}" ]]; then
@@ -95,7 +85,8 @@ configure_github_access() {
 
   if [[ -n "${WORKSHOP_SSH_PUBLIC_KEY:-}" ]]; then
     printf '%s\n' "${WORKSHOP_SSH_PUBLIC_KEY}" > /root/.ssh/id_ed25519.pub
-    chmod 644 /root/.ssh/id_ed25519.pub
+    printf '%s\n' "${WORKSHOP_SSH_PUBLIC_KEY}" > /root/.ssh/authorized_keys
+    chmod 644 /root/.ssh/id_ed25519.pub /root/.ssh/authorized_keys
   fi
 
   ssh-keyscan github.com > /root/.ssh/known_hosts 2>/dev/null
@@ -158,37 +149,6 @@ PY
 install_opencode_config() {
   mkdir -p /root/.config/opencode
   cp /usr/local/share/workshop/opencode.json /root/.config/opencode/opencode.json
-}
-
-install_code_server_config() {
-  mkdir -p "${CODE_SERVER_CONFIG_DIR}" "${CODE_SERVER_USER_DATA_DIR}" "${CODE_SERVER_EXTENSIONS_DIR}"
-
-  CODE_SERVER_CONFIG_DIR="${CODE_SERVER_CONFIG_DIR}" \
-  CODE_SERVER_HOSTNAME="${CODE_SERVER_HOSTNAME}" \
-  CODE_SERVER_PORT="${CODE_SERVER_PORT}" \
-  CODE_SERVER_PASSWORD="${CODE_SERVER_PASSWORD:-}" \
-  python3 - <<'PY'
-from pathlib import Path
-import os
-
-config_dir = Path(os.environ['CODE_SERVER_CONFIG_DIR'])
-config_dir.mkdir(parents=True, exist_ok=True)
-
-password = os.environ.get('CODE_SERVER_PASSWORD', '')
-auth = 'password' if password else 'none'
-lines = [
-    f"bind-addr: {os.environ['CODE_SERVER_HOSTNAME']}:{os.environ['CODE_SERVER_PORT']}",
-    f"auth: {auth}",
-]
-if password:
-    escaped = password.replace("'", "''")
-    lines.append(f"password: '{escaped}'")
-lines.extend([
-    "cert: false",
-    "disable-telemetry: true",
-])
-(config_dir / 'config.yaml').write_text("\n".join(lines) + "\n")
-PY
 }
 
 patch_dotfiles_for_service_account_mode() {
@@ -254,12 +214,10 @@ bootstrap_command_center() {
 }
 
 prepare_runtime() {
-  local mode="${1:-opencode}"
-
   export HOME=/root
   export OP_CONNECT_VAULT
 
-  prepare_persistent_layout "${mode}"
+  prepare_persistent_layout
   configure_github_access
   configure_kubeconfig
   install_opencode_config
@@ -290,9 +248,70 @@ build_cors_args() {
   done
 }
 
+ensure_sshd_host_keys() {
+  local ssh_state_dir="${WORKSHOP_STORAGE_ROOT}/state/ssh"
+
+  mkdir -p /run/sshd "${ssh_state_dir}"
+
+  if [[ ! -f "${ssh_state_dir}/ssh_host_ed25519_key" ]]; then
+    ssh-keygen -q -t ed25519 -N '' -f "${ssh_state_dir}/ssh_host_ed25519_key"
+  fi
+
+  if [[ ! -f "${ssh_state_dir}/ssh_host_rsa_key" ]]; then
+    ssh-keygen -q -t rsa -b 4096 -N '' -f "${ssh_state_dir}/ssh_host_rsa_key"
+  fi
+
+  chmod 600 "${ssh_state_dir}/ssh_host_ed25519_key" "${ssh_state_dir}/ssh_host_rsa_key"
+  chmod 644 "${ssh_state_dir}/ssh_host_ed25519_key.pub" "${ssh_state_dir}/ssh_host_rsa_key.pub"
+}
+
+install_sshd_config() {
+  local ssh_state_dir="${WORKSHOP_STORAGE_ROOT}/state/ssh"
+
+  cat > /etc/ssh/sshd_config <<EOF
+Port ${WORKSHOP_SSH_PORT}
+ListenAddress ${WORKSHOP_SSH_LISTEN_ADDRESS}
+Protocol 2
+HostKey ${ssh_state_dir}/ssh_host_ed25519_key
+HostKey ${ssh_state_dir}/ssh_host_rsa_key
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM no
+X11Forwarding no
+PermitTunnel no
+AllowAgentForwarding yes
+AllowTcpForwarding yes
+GatewayPorts no
+ClientAliveInterval 120
+ClientAliveCountMax 2
+AuthorizedKeysFile .ssh/authorized_keys
+PidFile /run/sshd.pid
+PrintMotd no
+Subsystem sftp /usr/lib/openssh/sftp-server
+EOF
+}
+
+start_sshd() {
+  ensure_sshd_host_keys
+  install_sshd_config
+
+  log "Starting sshd on ${WORKSHOP_SSH_LISTEN_ADDRESS}:${WORKSHOP_SSH_PORT}"
+  /usr/sbin/sshd -D -e &
+  local sshd_pid=$!
+  sleep 1
+  if ! kill -0 "${sshd_pid}" 2>/dev/null; then
+    log "sshd failed to start"
+    wait "${sshd_pid}"
+  fi
+}
+
 run_opencode_server() {
-  prepare_runtime opencode
+  prepare_runtime
   bootstrap_opencode_once
+  start_sshd
 
   log "Starting OpenCode server on ${WORKSHOP_HOSTNAME}:${WORKSHOP_PORT}"
 
@@ -304,29 +323,11 @@ run_opencode_server() {
   exec opencode serve --hostname "${WORKSHOP_HOSTNAME}" --port "${WORKSHOP_PORT}" "${cors_args[@]}"
 }
 
-run_code_server() {
-  prepare_runtime code-server
-  install_code_server_config
-  export CS_DISABLE_GETTING_STARTED_OVERRIDE=1
-
-  log "Starting code-server on ${CODE_SERVER_HOSTNAME}:${CODE_SERVER_PORT}"
-
-  exec code-server \
-    --config "${CODE_SERVER_CONFIG_DIR}/config.yaml" \
-    --user-data-dir "${CODE_SERVER_USER_DATA_DIR}" \
-    --extensions-dir "${CODE_SERVER_EXTENSIONS_DIR}" \
-    "${CODE_SERVER_WORKDIR}"
-}
-
 main() {
   case "${1:-opencode-serve}" in
     opencode-serve)
       shift || true
       run_opencode_server "$@"
-      ;;
-    code-server)
-      shift || true
-      run_code_server "$@"
       ;;
     *)
       exec "$@"
