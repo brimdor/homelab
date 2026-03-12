@@ -31,6 +31,8 @@ RUN apt-get update \
         curl \
         git \
         jq \
+        nodejs \
+        npm \
         openssh-client \
         procps \
         python3 \
@@ -59,9 +61,10 @@ RUN mkdir -p /root/.local/share \
     && git clone --depth=1 https://github.com/brimdor/dotfiles.git /root/.local/share/chezmoi
 
 COPY entrypoint.sh /usr/local/bin/workshop-entrypoint
+COPY opencode.json /usr/local/share/workshop/opencode.json
 
 RUN chmod 755 /usr/local/bin/workshop-entrypoint \
-    && mkdir -p /workspace
+    && mkdir -p /usr/local/share/workshop /workspace
 
 WORKDIR /workspace
 

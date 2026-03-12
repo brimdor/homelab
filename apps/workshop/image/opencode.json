@@ -1,0 +1,85 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [],
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "qwen3.5:9b": {
+          "name": "Qwen 3.5 (local)"
+        },
+        "qwen3.5:397b-cloud": {
+          "name": "Qwen Cloud (local)"
+        }
+      }
+    },
+    "ollama-homelab": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (homelab)",
+      "options": {
+        "baseURL": "https://ollama.eaglepass.io/v1"
+      },
+      "models": {
+        "Echo:latest": {
+          "name": "Echo"
+        },
+        "Cody:latest": {
+          "name": "Cody"
+        },
+        "qwen3.5:9b": {
+          "name": "Qwen 3.5"
+        }
+      }
+    }
+  },
+  "agent": {
+    "yolo": {
+      "description": "Autonomous agent that executes everything without prompting or confirmation",
+      "mode": "primary",
+      "permission": "allow"
+    }
+  },
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "enabled": true,
+      "environment": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    },
+    "shell": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@mkusaka/mcp-shell-server"
+      ],
+      "enabled": true
+    },
+    "kubernetes": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "kubernetes-mcp-server@latest"
+      ],
+      "enabled": true,
+      "environment": {
+        "KUBECONFIG": "/home/brimdor/.kube/config"
+      }
+    },
+    "gh_grep": {
+      "type": "remote",
+      "url": "https://mcp.grep.app"
+    }
+  }
+}
