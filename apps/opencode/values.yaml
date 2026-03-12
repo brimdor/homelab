@@ -104,7 +104,15 @@ app-template:
                 /home/cody/.ssh \
                 /home/cody/workspace
 
-              su -m -s /bin/bash cody -c "mkdir -p /home/cody/.config/git /home/cody/.config/gh && printf '%s\n' '#!/bin/sh' 'case \"\\$1\" in' '  *Username*) printf \"%s\\n\" \"x-access-token\" ;;' '  *Password*) printf \"%s\\n\" \"\\${GITHUB_TOKEN:-\\${GH_TOKEN:-}}\" ;;' '  *) printf \\"\\n\\" ;;' 'esac' > /home/cody/.config/git/askpass.sh && chmod 700 /home/cody/.config/git/askpass.sh"
+              su -m -s /bin/bash cody -c 'mkdir -p /home/cody/.config/git /home/cody/.config/gh && cat > /home/cody/.config/git/askpass.sh <<'"'"'EOF'"'"'
+              #!/bin/sh
+              case "$1" in
+                *Username*) printf "%s\n" "x-access-token" ;;
+                *Password*) printf "%s\n" "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ;;
+                *) printf "\n" ;;
+              esac
+              EOF
+              chmod 700 /home/cody/.config/git/askpass.sh'
 
               touch /home/cody/.ssh/known_hosts
 
