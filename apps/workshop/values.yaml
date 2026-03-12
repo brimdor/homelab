@@ -2,17 +2,36 @@ app-template:
   controllers:
     main:
       replicas: 1
+      initContainers:
+        init-storage:
+          image:
+            repository: 10.0.20.11:32309/workshop
+            tag: latest
+            pullPolicy: Always
+          command:
+            - /bin/bash
+            - -lc
+          args:
+            - >-
+              mkdir -p
+              /data/caches/opencode
+              /data/caches/code-server
+              /nfs/workspace
+              /nfs/state/opencode
+              /nfs/config/opencode
+              /nfs/state/code-server
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/workshop
             tag: latest
             pullPolicy: Always
+          workingDir: /workspace
           env:
             TZ: America/Chicago
             WORKSHOP_PORT: "4096"
             WORKSHOP_HOSTNAME: 0.0.0.0
-            WORKSHOP_CORS_ORIGINS: https://workshop.eaglepass.io
+            WORKSHOP_CORS_ORIGINS: https://workshop.eaglepass.io,https://code-workshop.eaglepass.io
             OP_CONNECT_VAULT: Server
             OPENCODE_DISABLE_AUTOUPDATE: "true"
             GITHUB_TOKEN:
@@ -35,16 +54,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: op-service-account-token
-            # OPENCODE_SERVER_USERNAME:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: secrets
-            #       key: username
-            # OPENCODE_SERVER_PASSWORD:
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: secrets
-            #       key: password
           probes:
             startup:
               enabled: false
@@ -70,6 +79,74 @@ app-template:
                   port: http
                 initialDelaySeconds: 10
                 periodSeconds: 10
+        code:
+          image:
+            repository: 10.0.20.11:32309/workshop
+            tag: latest
+            pullPolicy: Always
+          args:
+            - code-server
+          workingDir: /workspace
+          env:
+            TZ: America/Chicago
+            CODE_SERVER_PORT: "8080"
+            CODE_SERVER_HOSTNAME: 0.0.0.0
+            CODE_SERVER_WORKDIR: /workspace
+            OP_CONNECT_VAULT: Server
+            OPENCODE_DISABLE_AUTOUPDATE: "true"
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-token
+            WORKSHOP_SSH_PRIVATE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ssh-private-key
+            WORKSHOP_SSH_PUBLIC_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ssh-public-key
+            OP_SERVICE_ACCOUNT_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: op-service-account-token
+            CODE_SERVER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: password
+          probes:
+            startup:
+              enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: code
+                periodSeconds: 10
+                failureThreshold: 60
+            liveness:
+              enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: code
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: code
+                initialDelaySeconds: 10
+                periodSeconds: 10
   service:
     main:
       controller: main
@@ -78,6 +155,12 @@ app-template:
         http:
           port: 4096
           protocol: HTTP
+    code:
+      controller: main
+      ports:
+        code:
+          port: 8080
+          protocol: HTTP
   ingress:
     main:
       enabled: true
@@ -85,7 +168,7 @@ app-template:
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
-        - host: &host workshop.eaglepass.io
+        - host: &workshopHost workshop.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
@@ -94,10 +177,66 @@ app-template:
                 port: http
       tls:
         - hosts:
-            - *host
+            - *workshopHost
           secretName: workshop-tls-certificate
+    code:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &codeHost code-workshop.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: code
+                port: code
+      tls:
+        - hosts:
+            - *codeHost
+          secretName: code-workshop-tls-certificate
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          init-storage:
+            - path: /data
+          main:
+            - path: /root/.cache
+              subPath: caches/opencode
+          code:
+            - path: /root/.cache
+              subPath: caches/code-server
+    nfs-workspace:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/workshop
+      advancedMounts:
+        main:
+          init-storage:
+            - path: /nfs
+          main:
+            - path: /workspace
+              subPath: workspace
+            - path: /root/.local/share/opencode
+              subPath: state/opencode
+            - path: /root/.config/opencode
+              subPath: config/opencode
+          code:
+            - path: /workspace
+              subPath: workspace
+            - path: /root/.local/share/opencode
+              subPath: state/opencode
+            - path: /root/.config/opencode
+              subPath: config/opencode
+            - path: /root/.local/share/code-server
+              subPath: state/code-server
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4"
       operator.1password.io/item-name: "secrets"
-      workshop.eaglepass.io/runtime-config-version: "2026-03-12-opencode-config"
+      workshop.eaglepass.io/runtime-config-version: "2026-03-12-code-server-sidecar"

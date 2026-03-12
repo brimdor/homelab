@@ -8,12 +8,13 @@ ENV PATH=/root/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbi
 
 ARG OP_VERSION=2.32.1
 ARG OPENCODE_VERSION=1.2.24
+ARG CODE_SERVER_VERSION=4.111.0
 ARG BUILD_DATE=unknown
 ARG VCS_REF=unknown
 ARG VERSION=latest
 
 LABEL org.opencontainers.image.title="workshop" \
-      org.opencontainers.image.description="OpenCode workshop server with dotfiles bootstrap and command-center initialization" \
+      org.opencontainers.image.description="OpenCode workshop image with dotfiles bootstrap, command-center initialization, and code-server sidecar support" \
       org.opencontainers.image.source="https://github.com/brimdor/homelab" \
       org.opencontainers.image.url="https://workshop.eaglepass.io" \
       org.opencontainers.image.documentation="https://opencode.ai/docs/server/" \
@@ -57,6 +58,11 @@ RUN curl -fsSL -o /tmp/op.zip https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_
 RUN curl -fsSL https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz \
     | tar -xzf - -C /usr/local/bin opencode
 
+RUN mkdir -p /usr/local/lib \
+    && curl -fsSL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz \
+    | tar -xzf - -C /usr/local/lib \
+    && ln -sf /usr/local/lib/code-server-${CODE_SERVER_VERSION}-linux-amd64/bin/code-server /usr/local/bin/code-server
+
 RUN mkdir -p /root/.local/share \
     && git clone --depth=1 https://github.com/brimdor/dotfiles.git /root/.local/share/chezmoi
 
@@ -68,6 +74,6 @@ RUN chmod 755 /usr/local/bin/workshop-entrypoint \
 
 WORKDIR /workspace
 
-EXPOSE 4096
+EXPOSE 4096 8080
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/workshop-entrypoint"]
