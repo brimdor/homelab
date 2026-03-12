@@ -3,96 +3,27 @@ app-template:
     main:
       strategy: Recreate
       replicas: 1
-      initContainers:
-        install:
-          image:
-            repository: docker.io/library/archlinux
-            tag: latest
-            pullPolicy: Always
-          command:
-            - /bin/bash
-            - -lc
-          args:
-            - |-
-              set -euo pipefail
-
-              if ! id -u cody >/dev/null 2>&1; then
-                useradd -M -d /home/cody -u 1000 -s /bin/bash cody
-              fi
-
-              mkdir -p \
-                /home/cody/.cache \
-                /home/cody/.cache/pacman \
-                /home/cody/.local/archroot/var/lib/pacman \
-                /home/cody/.local/share/opencode \
-                /home/cody/.opencode/bin \
-                /home/cody/.ssh \
-                /home/cody/workspace
-
-              su -m -s /bin/bash cody -c 'mkdir -p /home/cody/.config/git /home/cody/.config/gh'
-
-              chown -R 1000:1000 \
-                /home/cody/.cache \
-                /home/cody/.local \
-                /home/cody/.opencode \
-                /home/cody/.ssh \
-                /home/cody/workspace
-
-              if [ ! -s /etc/pacman.d/gnupg/pubring.kbx ]; then
-                pacman-key --init
-                pacman-key --populate archlinux
-              fi
-
-              pacman -Sy --noconfirm archlinux-keyring
-              pacman -S --noconfirm --needed which
-
-              if [ ! -x /home/cody/.local/archroot/usr/bin/git ] || [ ! -x /home/cody/.local/archroot/usr/bin/gh ] || [ ! -x /home/cody/.local/archroot/usr/bin/ssh ]; then
-                rm -rf /home/cody/.local/archroot/*
-                mkdir -p /home/cody/.local/archroot/var/lib/pacman /home/cody/.cache/pacman
-                pacman -Sy --noconfirm --needed \
-                  --root /home/cody/.local/archroot \
-                  --dbpath /home/cody/.local/archroot/var/lib/pacman \
-                  --cachedir /home/cody/.cache/pacman \
-                  --gpgdir /etc/pacman.d/gnupg \
-                  --overwrite '*' \
-                  ca-certificates \
-                  ca-certificates-utils \
-                  git \
-                  github-cli \
-                  openssh
-              fi
-
-              if [ ! -x /home/cody/.opencode/bin/opencode ]; then
-                su -m -s /bin/bash cody -c 'export HOME=/home/cody; export USER=cody; export SHELL=/bin/bash; export XDG_CONFIG_HOME=/home/cody/.config; export XDG_DATA_HOME=/home/cody/.local/share; export XDG_CACHE_HOME=/home/cody/.cache; export PATH=/home/cody/.opencode/bin:$PATH; curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path'
-              fi
-
-              chown -R 1000:1000 \
-                /home/cody/.cache \
-                /home/cody/.local \
-                /home/cody/.opencode \
-                /home/cody/.ssh \
-                /home/cody/workspace
       containers:
         main:
           image:
-            repository: docker.io/library/archlinux
+            repository: ghcr.io/anomalyco/opencode
             tag: latest
             pullPolicy: Always
           workingDir: /home/cody/workspace
           command:
-            - /bin/bash
+            - /bin/sh
             - -lc
           args:
             - |-
               set -euo pipefail
 
-              pacman -Sy --noconfirm --needed sudo
+              apk add --no-cache bash git github-cli openssh sudo
 
               if ! id -u cody >/dev/null 2>&1; then
-                useradd -M -d /home/cody -u 1000 -s /bin/bash cody
+                addgroup -g 1000 cody
+                adduser -D -h /home/cody -u 1000 -G cody -s /bin/bash cody
               fi
 
-              usermod -aG wheel cody
               install -d -m 0750 /etc/sudoers.d
               cat > /etc/sudoers.d/cody <<'EOF'
               cody ALL=(ALL) NOPASSWD: ALL
@@ -101,6 +32,13 @@ app-template:
 
               mkdir -p \
                 /home/cody/.cache \
+                /home/cody/.local/share/opencode \
+                /home/cody/.ssh \
+                /home/cody/workspace
+
+              chown -R 1000:1000 \
+                /home/cody/.cache \
+                /home/cody/.local \
                 /home/cody/.ssh \
                 /home/cody/workspace
 
@@ -127,15 +65,9 @@ app-template:
 
               chown -R 1000:1000 \
                 /home/cody/.cache \
-                /home/cody/.ssh \
-                /home/cody/workspace \
                 /home/cody/.local \
-                /home/cody/.opencode
-
-              test -x /home/cody/.local/archroot/usr/bin/git
-              test -x /home/cody/.local/archroot/usr/bin/gh
-              test -x /home/cody/.local/archroot/usr/bin/ssh
-              test -x /home/cody/.opencode/bin/opencode
+                /home/cody/.ssh \
+                /home/cody/workspace
 
               token_value="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
               ssh_command=""
@@ -153,15 +85,12 @@ app-template:
                 XDG_CACHE_HOME=/home/cody/.cache \
                 GIT_CONFIG_GLOBAL=/home/cody/.config/git/config \
                 GH_CONFIG_DIR=/home/cody/.config/gh \
-                PATH=/home/cody/.local/archroot/usr/bin:/home/cody/.local/archroot/usr/sbin:/home/cody/.opencode/bin:$PATH \
-                LD_LIBRARY_PATH=/home/cody/.local/archroot/usr/lib:/home/cody/.local/archroot/lib \
-                GIT_EXEC_PATH=/home/cody/.local/archroot/usr/lib/git-core \
                 GIT_ASKPASS=/home/cody/.config/git/askpass.sh \
                 GIT_TERMINAL_PROMPT=0 \
                 GH_TOKEN="$token_value" \
                 GITHUB_TOKEN="$token_value" \
                 GIT_SSH_COMMAND="$ssh_command" \
-                su -m -s /bin/bash cody -c 'exec /home/cody/.opencode/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io'
+                su -m -s /bin/bash cody -c 'exec /usr/local/bin/opencode serve --hostname 0.0.0.0 --port 4096 --cors https://opencode.eaglepass.io'
           env:
             TZ: America/Chicago
             HOME: /home/cody
@@ -275,15 +204,6 @@ app-template:
             - path: /home/cody/workspace
             - path: /home/cody/.ssh
             - path: /home/cody/.local/share/opencode
-            - path: /home/cody/.local/archroot
-            - path: /home/cody/.opencode
-            - path: /home/cody/.cache
-          install:
-            - path: /home/cody/workspace
-            - path: /home/cody/.ssh
-            - path: /home/cody/.local/share/opencode
-            - path: /home/cody/.local/archroot
-            - path: /home/cody/.opencode
             - path: /home/cody/.cache
     home:
       type: nfs
@@ -292,8 +212,6 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /home/cody/.config
-          install:
             - path: /home/cody/.config
   defaultPodOptions:
     annotations:
