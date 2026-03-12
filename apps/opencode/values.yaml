@@ -1,0 +1,114 @@
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: 10.0.20.11:32309/opencode
+            tag: latest
+            pullPolicy: Always
+          args:
+            - --hostname
+            - 0.0.0.0
+            - --port
+            - "4096"
+            - --cors
+            - https://opencode.eaglepass.io
+          workingDir: /workspace
+          env:
+            TZ: America/Chicago
+            OPENCODE_SERVER_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: username
+            OPENCODE_SERVER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: password
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-token
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-token
+            GIT_SSH_COMMAND: "ssh -i /run/opencode-secrets/ssh-private-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/known_hosts"
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: true
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 4096
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 4096
+                initialDelaySeconds: 5
+                periodSeconds: 10
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 4096
+                failureThreshold: 30
+                periodSeconds: 5
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 4096
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host opencode.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: opencode-tls-certificate
+  persistence:
+    data:
+      type: emptyDir
+      globalMounts:
+        - path: /workspace
+    secrets:
+      type: secret
+      name: secrets
+      globalMounts:
+        - path: /run/opencode-secrets
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4
+      operator.1password.io/item-name: secrets
