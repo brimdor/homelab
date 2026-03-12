@@ -8,6 +8,20 @@ ENV PATH=/root/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbi
 
 ARG OP_VERSION=2.32.1
 ARG OPENCODE_VERSION=1.2.24
+ARG BUILD_DATE=unknown
+ARG VCS_REF=unknown
+ARG VERSION=latest
+
+LABEL org.opencontainers.image.title="workshop" \
+      org.opencontainers.image.description="OpenCode workshop server with dotfiles bootstrap and command-center initialization" \
+      org.opencontainers.image.source="https://github.com/brimdor/homelab" \
+      org.opencontainers.image.url="https://workshop.eaglepass.io" \
+      org.opencontainers.image.documentation="https://opencode.ai/docs/server/" \
+      org.opencontainers.image.vendor="Eaglepass" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
