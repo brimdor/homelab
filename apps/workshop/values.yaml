@@ -1,0 +1,102 @@
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: 10.0.20.11:32309/workshop
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            WORKSHOP_PORT: "4096"
+            WORKSHOP_HOSTNAME: 0.0.0.0
+            WORKSHOP_CORS_ORIGINS: https://workshop.eaglepass.io
+            OP_CONNECT_VAULT: Server
+            OPENCODE_DISABLE_AUTOUPDATE: "true"
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: github-token
+            WORKSHOP_SSH_PRIVATE_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ssh-private-key
+            WORKSHOP_SSH_PUBLIC_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ssh-public-key
+            OP_SERVICE_ACCOUNT_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: op-service-account-token
+            OPENCODE_SERVER_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: username
+            OPENCODE_SERVER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: password
+          probes:
+            startup:
+              enabled: false
+              custom: true
+              spec:
+                tcpSocket:
+                  port: http
+                periodSeconds: 10
+                failureThreshold: 60
+            liveness:
+              enabled: false
+              custom: true
+              spec:
+                tcpSocket:
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              enabled: false
+              custom: true
+              spec:
+                tcpSocket:
+                  port: http
+                initialDelaySeconds: 10
+                periodSeconds: 10
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 4096
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host workshop.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: workshop-tls-certificate
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4"
+      operator.1password.io/item-name: "secrets"

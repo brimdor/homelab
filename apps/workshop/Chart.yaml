@@ -1,0 +1,9 @@
+apiVersion: v2
+name: workshop
+description: Helm chart for deploying the OpenCode workshop service via the bjw-s app-template chart
+type: application
+version: 0.1.0
+dependencies:
+  - name: app-template
+    version: 4.6.2
+    repository: https://bjw-s-labs.github.io/helm-charts/

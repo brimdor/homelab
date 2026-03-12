@@ -1,0 +1,56 @@
+FROM debian:stable-slim
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/root
+ENV PATH=/root/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+
+ARG OP_VERSION=2.32.1
+ARG OPENCODE_VERSION=1.2.24
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        bzip2 \
+        ca-certificates \
+        curl \
+        git \
+        jq \
+        openssh-client \
+        procps \
+        python3 \
+        sudo \
+        tar \
+        tini \
+        unzip \
+        xz-utils \
+        zsh \
+        zstd \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN sh -c "$(curl -fsLS https://get.chezmoi.io)" -- -b /usr/local/bin
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
+RUN curl -fsSL -o /tmp/op.zip https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_amd64_v${OP_VERSION}.zip \
+    && unzip -p /tmp/op.zip op > /usr/local/bin/op \
+    && chmod 755 /usr/local/bin/op \
+    && rm -f /tmp/op.zip
+
+RUN curl -fsSL https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz \
+    | tar -xzf - -C /usr/local/bin opencode
+
+RUN mkdir -p /root/.local/share \
+    && git clone --depth=1 https://github.com/brimdor/dotfiles.git /root/.local/share/chezmoi
+
+COPY entrypoint.sh /usr/local/bin/workshop-entrypoint
+
+RUN chmod 755 /usr/local/bin/workshop-entrypoint \
+    && mkdir -p /workspace
+
+WORKDIR /workspace
+
+EXPOSE 4096
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/workshop-entrypoint"]
