@@ -35,16 +35,16 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: op-service-account-token
-            OPENCODE_SERVER_USERNAME:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: username
-            OPENCODE_SERVER_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: password
+            # OPENCODE_SERVER_USERNAME:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: username
+            # OPENCODE_SERVER_PASSWORD:
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: secrets
+            #       key: password
           probes:
             startup:
               enabled: false
