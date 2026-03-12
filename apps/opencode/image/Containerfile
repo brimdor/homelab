@@ -1,6 +1,10 @@
 FROM ubuntu:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH=/root/.local/bin:/root/.opencode/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+COPY git-askpass.sh /usr/local/bin/git-askpass-opencode
+COPY start-opencode.sh /usr/local/bin/start-opencode
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -57,9 +61,15 @@ RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path && \
     ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode && \
     opencode --version
 
-RUN mkdir -p /workspace /root/.ssh
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -sf /root/.local/bin/uv /usr/local/bin/uv && \
+    ln -sf /root/.local/bin/uvx /usr/local/bin/uvx && \
+    uv --version
+
+RUN chmod +x /usr/local/bin/git-askpass-opencode /usr/local/bin/start-opencode && \
+    mkdir -p /workspace /root/.ssh
 
 WORKDIR /workspace
 
-ENTRYPOINT ["opencode", "web"]
+ENTRYPOINT ["/usr/local/bin/start-opencode"]
 CMD ["--hostname", "0.0.0.0", "--port", "4096"]
