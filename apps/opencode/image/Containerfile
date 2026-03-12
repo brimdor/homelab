@@ -57,6 +57,20 @@ RUN apt-get update && \
     git lfs install --system && \
     rm -rf /var/lib/apt/lists/*
 
+RUN arch="$(dpkg --print-architecture)" && \
+    case "${arch}" in \
+      amd64) kubectl_arch="amd64"; argocd_arch="amd64" ;; \
+      arm64) kubectl_arch="arm64"; argocd_arch="arm64" ;; \
+      *) printf 'Unsupported architecture: %s\n' "${arch}" >&2; exit 1 ;; \
+    esac && \
+    kubectl_version="$(curl -fsSL https://dl.k8s.io/release/stable.txt)" && \
+    curl -fsSL "https://dl.k8s.io/release/${kubectl_version}/bin/linux/${kubectl_arch}/kubectl" -o /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl && \
+    curl -fsSL "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${argocd_arch}" -o /usr/local/bin/argocd && \
+    chmod +x /usr/local/bin/argocd && \
+    kubectl version --client && \
+    argocd version --client
+
 RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path && \
     ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode && \
     opencode --version
