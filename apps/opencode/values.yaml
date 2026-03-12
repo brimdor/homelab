@@ -45,11 +45,14 @@ app-template:
               pacman -S --noconfirm --needed which
 
               if [ ! -x /home/cody/.local/archroot/usr/bin/git ] || [ ! -x /home/cody/.local/archroot/usr/bin/gh ] || [ ! -x /home/cody/.local/archroot/usr/bin/ssh ]; then
+                rm -rf /home/cody/.local/archroot/*
+                mkdir -p /home/cody/.local/archroot/var/lib/pacman /home/cody/.cache/pacman
                 pacman -Sy --noconfirm --needed \
                   --root /home/cody/.local/archroot \
                   --dbpath /home/cody/.local/archroot/var/lib/pacman \
                   --cachedir /home/cody/.cache/pacman \
                   --gpgdir /etc/pacman.d/gnupg \
+                  --overwrite '*' \
                   ca-certificates \
                   ca-certificates-utils \
                   git \
