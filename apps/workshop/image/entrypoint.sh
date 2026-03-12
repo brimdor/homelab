@@ -6,6 +6,12 @@ CHEZMOI_SOURCE_DIR="/root/.local/share/chezmoi"
 WORKSHOP_PORT="${WORKSHOP_PORT:-4096}"
 WORKSHOP_HOSTNAME="${WORKSHOP_HOSTNAME:-0.0.0.0}"
 WORKSHOP_CORS_ORIGINS="${WORKSHOP_CORS_ORIGINS:-https://workshop.eaglepass.io}"
+CODE_SERVER_PORT="${CODE_SERVER_PORT:-8080}"
+CODE_SERVER_HOSTNAME="${CODE_SERVER_HOSTNAME:-0.0.0.0}"
+CODE_SERVER_WORKDIR="${CODE_SERVER_WORKDIR:-/workspace}"
+CODE_SERVER_CONFIG_DIR="${CODE_SERVER_CONFIG_DIR:-/root/.config/code-server}"
+CODE_SERVER_USER_DATA_DIR="${CODE_SERVER_USER_DATA_DIR:-/root/.local/share/code-server/user-data}"
+CODE_SERVER_EXTENSIONS_DIR="${CODE_SERVER_EXTENSIONS_DIR:-/root/.local/share/code-server/extensions}"
 OP_CONNECT_VAULT="${OP_CONNECT_VAULT:-Server}"
 
 log() {
@@ -111,11 +117,42 @@ install_opencode_config() {
   cp /usr/local/share/workshop/opencode.json /root/.config/opencode/opencode.json
 }
 
+install_code_server_config() {
+  mkdir -p "${CODE_SERVER_CONFIG_DIR}" "${CODE_SERVER_USER_DATA_DIR}" "${CODE_SERVER_EXTENSIONS_DIR}"
+
+  CODE_SERVER_CONFIG_DIR="${CODE_SERVER_CONFIG_DIR}" \
+  CODE_SERVER_HOSTNAME="${CODE_SERVER_HOSTNAME}" \
+  CODE_SERVER_PORT="${CODE_SERVER_PORT}" \
+  CODE_SERVER_PASSWORD="${CODE_SERVER_PASSWORD:-}" \
+  python3 - <<'PY'
+from pathlib import Path
+import os
+
+config_dir = Path(os.environ['CODE_SERVER_CONFIG_DIR'])
+config_dir.mkdir(parents=True, exist_ok=True)
+
+password = os.environ.get('CODE_SERVER_PASSWORD', '')
+auth = 'password' if password else 'none'
+lines = [
+    f"bind-addr: {os.environ['CODE_SERVER_HOSTNAME']}:{os.environ['CODE_SERVER_PORT']}",
+    f"auth: {auth}",
+]
+if password:
+    escaped = password.replace("'", "''")
+    lines.append(f"password: '{escaped}'")
+lines.extend([
+    "cert: false",
+    "disable-telemetry: true",
+])
+(config_dir / 'config.yaml').write_text("\n".join(lines) + "\n")
+PY
+}
+
 patch_dotfiles_for_service_account_mode() {
   python3 - <<'PY'
 from pathlib import Path
 
-path = Path("/root/.local/share/chezmoi/dot_dotfiles/functions/opAll.zsh.tmpl")
+path = Path('/root/.local/share/chezmoi/dot_dotfiles/functions/opAll.zsh.tmpl')
 old = '{{- if (env "OP_CONNECT_HOST") }}'
 new = '{{- if or (env "OP_CONNECT_HOST") (env "OP_SERVICE_ACCOUNT_TOKEN") }}'
 text = path.read_text()
@@ -167,18 +204,24 @@ bootstrap_command_center() {
   cmdctl init --opencode
 }
 
-bootstrap_once() {
+prepare_runtime() {
+  export HOME=/root
+  export OP_CONNECT_VAULT
+
+  configure_github_access
+  configure_kubeconfig
+  install_opencode_config
+  apply_dotfiles
+}
+
+bootstrap_opencode_once() {
   if [[ -f "${BOOTSTRAP_SENTINEL}" ]]; then
     return
   fi
 
   mkdir -p "$(dirname "${BOOTSTRAP_SENTINEL}")"
-  configure_github_access
-  configure_kubeconfig
-  apply_dotfiles
   install_command_center
   bootstrap_command_center
-  install_opencode_config
   touch "${BOOTSTRAP_SENTINEL}"
 }
 
@@ -195,14 +238,9 @@ build_cors_args() {
   done
 }
 
-main() {
-  configure_github_access
-  configure_kubeconfig
-  bootstrap_once
-  install_opencode_config
-
-  export OP_CONNECT_VAULT
-  export HOME=/root
+run_opencode_server() {
+  prepare_runtime
+  bootstrap_opencode_once
 
   log "Starting OpenCode server on ${WORKSHOP_HOSTNAME}:${WORKSHOP_PORT}"
 
@@ -212,6 +250,36 @@ main() {
   done < <(build_cors_args)
 
   exec opencode serve --hostname "${WORKSHOP_HOSTNAME}" --port "${WORKSHOP_PORT}" "${cors_args[@]}"
+}
+
+run_code_server() {
+  prepare_runtime
+  install_code_server_config
+  export CS_DISABLE_GETTING_STARTED_OVERRIDE=1
+
+  log "Starting code-server on ${CODE_SERVER_HOSTNAME}:${CODE_SERVER_PORT}"
+
+  exec code-server \
+    --config "${CODE_SERVER_CONFIG_DIR}/config.yaml" \
+    --user-data-dir "${CODE_SERVER_USER_DATA_DIR}" \
+    --extensions-dir "${CODE_SERVER_EXTENSIONS_DIR}" \
+    "${CODE_SERVER_WORKDIR}"
+}
+
+main() {
+  case "${1:-opencode-serve}" in
+    opencode-serve)
+      shift || true
+      run_opencode_server "$@"
+      ;;
+    code-server)
+      shift || true
+      run_code_server "$@"
+      ;;
+    *)
+      exec "$@"
+      ;;
+  esac
 }
 
 main "$@"
