@@ -28,7 +28,8 @@ app-template:
 
               chown -R 1000:1000 \
                 /home/cody/.cache \
-                /home/cody/.config \
+                /home/cody/.config/git \
+                /home/cody/.config/gh \
                 /home/cody/.local \
                 /home/cody/.opencode \
                 /home/cody/.ssh \
@@ -68,7 +69,8 @@ app-template:
 
               chown -R 1000:1000 \
                 /home/cody/.cache \
-                /home/cody/.config \
+                /home/cody/.config/git \
+                /home/cody/.config/gh \
                 /home/cody/.local \
                 /home/cody/.opencode \
                 /home/cody/.ssh \
@@ -121,7 +123,8 @@ app-template:
 
               chown -R 1000:1000 \
                 /home/cody/.cache \
-                /home/cody/.config \
+                /home/cody/.config/git \
+                /home/cody/.config/gh \
                 /home/cody/.ssh \
                 /home/cody/workspace \
                 /home/cody/.local \
