@@ -15,11 +15,10 @@ app-template:
             - >-
               mkdir -p
               /data/caches/opencode
-              /data/caches/code-server
               /nfs/workspace
               /nfs/state/opencode
+              /nfs/state/ssh
               /nfs/config/opencode
-              /nfs/state/code-server
       containers:
         main:
           image:
@@ -33,7 +32,9 @@ app-template:
             WORKSHOP_GITHUB_USERNAME: brimdor
             WORKSHOP_PORT: "4096"
             WORKSHOP_HOSTNAME: 0.0.0.0
-            WORKSHOP_CORS_ORIGINS: https://workshop.eaglepass.io,https://code-workshop.eaglepass.io
+            WORKSHOP_SSH_PORT: "22"
+            WORKSHOP_SSH_LISTEN_ADDRESS: 0.0.0.0
+            WORKSHOP_CORS_ORIGINS: https://workshop.eaglepass.io
             OP_CONNECT_VAULT: Server
             OPENCODE_DISABLE_AUTOUPDATE: "true"
             GITHUB_TOKEN:
@@ -56,69 +57,12 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: op-service-account-token
-          probes:
-            startup:
-              enabled: false
-              custom: true
-              spec:
-                tcpSocket:
-                  port: http
-                periodSeconds: 10
-                failureThreshold: 60
-            liveness:
-              enabled: false
-              custom: true
-              spec:
-                tcpSocket:
-                  port: http
-                initialDelaySeconds: 30
-                periodSeconds: 30
-            readiness:
-              enabled: false
-              custom: true
-              spec:
-                tcpSocket:
-                  port: http
-                initialDelaySeconds: 10
-                periodSeconds: 10
-        code:
-          image:
-            repository: 10.0.20.11:32309/workshop
-            tag: latest
-            pullPolicy: Always
-          args:
-            - code-server
-          workingDir: /mnt/workshop-storage/workspace
-          env:
-            TZ: America/Chicago
-            WORKSHOP_CACHE_SUBDIR: code-server
-            WORKSHOP_GITHUB_USERNAME: brimdor
-            CODE_SERVER_PORT: "8080"
-            CODE_SERVER_HOSTNAME: 0.0.0.0
-            CODE_SERVER_WORKDIR: /mnt/workshop-storage/workspace
-            OP_CONNECT_VAULT: Server
-            OPENCODE_DISABLE_AUTOUPDATE: "true"
-            GITHUB_TOKEN:
+            OPENCODE_SERVER_USERNAME:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: github-token
-            WORKSHOP_SSH_PRIVATE_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: ssh-private-key
-            WORKSHOP_SSH_PUBLIC_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: ssh-public-key
-            OP_SERVICE_ACCOUNT_TOKEN:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: op-service-account-token
-            CODE_SERVER_PASSWORD:
+                  key: username
+            OPENCODE_SERVER_PASSWORD:
               valueFrom:
                 secretKeyRef:
                   name: secrets
@@ -128,27 +72,24 @@ app-template:
               enabled: false
               custom: true
               spec:
-                httpGet:
-                  path: /healthz
-                  port: code
+                tcpSocket:
+                  port: http
                 periodSeconds: 10
                 failureThreshold: 60
             liveness:
               enabled: false
               custom: true
               spec:
-                httpGet:
-                  path: /healthz
-                  port: code
+                tcpSocket:
+                  port: http
                 initialDelaySeconds: 30
                 periodSeconds: 30
             readiness:
               enabled: false
               custom: true
               spec:
-                httpGet:
-                  path: /healthz
-                  port: code
+                tcpSocket:
+                  port: http
                 initialDelaySeconds: 10
                 periodSeconds: 10
   service:
@@ -159,12 +100,17 @@ app-template:
         http:
           port: 4096
           protocol: HTTP
-    code:
+    ssh:
       controller: main
+      type: LoadBalancer
+      externalTrafficPolicy: Cluster
+      loadBalancerSourceRanges:
+        - 10.0.0.0/16
       ports:
-        code:
-          port: 8080
-          protocol: HTTP
+        ssh:
+          port: 22
+          targetPort: 22
+          protocol: TCP
   ingress:
     main:
       enabled: true
@@ -183,23 +129,6 @@ app-template:
         - hosts:
             - *workshopHost
           secretName: workshop-tls-certificate
-    code:
-      enabled: true
-      className: nginx
-      annotations:
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: &codeHost code-workshop.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                identifier: code
-                port: code
-      tls:
-        - hosts:
-            - *codeHost
-          secretName: code-workshop-tls-certificate
   persistence:
     data:
       type: persistentVolumeClaim
@@ -211,8 +140,6 @@ app-template:
             - path: /data
           main:
             - path: /mnt/workshop-cache
-          code:
-            - path: /mnt/workshop-cache
     nfs-workspace:
       type: nfs
       server: 10.0.40.3
@@ -223,10 +150,8 @@ app-template:
             - path: /nfs
           main:
             - path: /mnt/workshop-storage
-          code:
-            - path: /mnt/workshop-storage
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/shsxwdyma3wxwyfeiw6ekcefd4"
       operator.1password.io/item-name: "secrets"
-      workshop.eaglepass.io/runtime-config-version: "2026-03-12-dotfiles-sync"
+      workshop.eaglepass.io/runtime-config-version: "2026-03-12-sshd-replace-code-server"
