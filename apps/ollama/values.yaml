@@ -505,6 +505,8 @@ modelPuller:
       - mxbai-embed-large:latest
       - gpt-oss:20b
       - llama-guard3:1b
+      - huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF:Q4_K_S
+      - huggingface.co/Jackrong/Qwen3.5-27B-Gemini-3.1-Pro-Reasoning-Distill-GGUF:Q4_K_S
 
     # -- Custom models to create with Modelfiles
     custom:
