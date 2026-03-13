@@ -502,10 +502,8 @@ modelPuller:
   # -- Delay between retry attempts (seconds)
   pullRetryDelay: 15
 
-  # -- Files to download (GGUF) before creating Modelfiles
-  downloads:
-    - url: "https://huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-27B.Q4_K_M.gguf"
-      dest: "/models/Opus.gguf"
+  # -- Files to download (GGUF) before creating Modelfiles (unused when using hf.co/ prefix)
+  downloads: []
 
   models:
     # -- Base models to pull from Ollama registry
@@ -663,10 +661,9 @@ modelPuller:
       # ========================================
       opus:
         enabled: true
-        # Use a local GGUF file path in the Modelfile per Ollama docs.
-        # The model-puller will download the GGUF into /models/Opus.gguf
-        # before creating the Modelfile.
-        base: "/models/Opus.gguf"
+        # Ollama natively supports the hf.co/ prefix — it downloads the GGUF
+        # directly into its own model store (/root/.ollama) during `ollama create`.
+        base: "hf.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF:Q4_K_S"
         # Large context for reasoning-heavy model
         contextSize: 131072
         repeatPenalty: 1.1
