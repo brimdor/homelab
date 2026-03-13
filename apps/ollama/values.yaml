@@ -504,7 +504,7 @@ modelPuller:
 
   # -- Files to download (GGUF) before creating Modelfiles
   downloads:
-    - url: "https://huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-27B-Opus-Reasoning-Distilled.gguf"
+    - url: "https://huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-27B.Q4_K_M.gguf"
       dest: "/models/Opus.gguf"
 
   models:
@@ -515,6 +515,7 @@ modelPuller:
       - mxbai-embed-large:latest
       - gpt-oss:20b
       - llama-guard3:1b
+      - hf.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF:Q4_K_M
 
     # -- Custom models to create with Modelfiles
     custom:
