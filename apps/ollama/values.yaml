@@ -513,7 +513,6 @@ modelPuller:
       - mxbai-embed-large:latest
       - gpt-oss:20b
       - llama-guard3:1b
-      - hf.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF
 
     # -- Custom models to create with Modelfiles
     custom:
@@ -654,26 +653,6 @@ modelPuller:
           - Use fenced code blocks with the correct language tag.
           - For multi-file changes, clearly label each file.
           - When modifying existing code, show only the changed sections unless full context is needed.
-
-      # ========================================
-      # Opus - GGUF-based reasoning model
-      # Script: templates/_model-opus.tpl
-      # ========================================
-      opus:
-        enabled: true
-        # Must match the tag in modelPuller.models.pull so the model is already
-        # in Ollama's registry when `ollama create` runs, avoiding the 400 error
-        # that occurs when Ollama tries to GGUF-import an un-cached hf.co model.
-        base: "hf.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF"
-        # Large context for reasoning-heavy model
-        contextSize: 131072
-        repeatPenalty: 1.1
-        temperature: 0.2
-        topP: 0.95
-        topK: 40
-        systemPrompt: |
-          You are Opus, a focused reasoning assistant distilled for high-quality logical reasoning and stepwise problem solving.
-          Keep answers concise, show reasoning steps when useful, and refuse unsafe requests.
 
 # Optional GGUF downloads the model-puller should fetch before creating Modelfiles
   # Test connection pods

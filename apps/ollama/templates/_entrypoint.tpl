@@ -19,8 +19,6 @@ echo "Creating custom models..."
 
 {{ include "ollama.script.model.cody" . }}
 
-{{ include "ollama.script.model.opus" . }}
-
 echo "All models requested. Sleeping indefinitely..."
 sleep infinity
 {{- end -}}
