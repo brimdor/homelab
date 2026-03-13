@@ -42,6 +42,11 @@ spec:
           env:
             - name: OLLAMA_HOST
               value: "http://ollama:11434"
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: huggingface-token
           volumeMounts:
             - name: script-volume
               mountPath: /scripts

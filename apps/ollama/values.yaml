@@ -333,6 +333,11 @@ ollama:
       value: "1"
     - name: OLLAMA_KV_CACHE_TYPE
       value: "q4_0"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: secrets
+          key: huggingface-token
     # - name: OLLAMA_ORIGINS
     #   value: "*"
 
