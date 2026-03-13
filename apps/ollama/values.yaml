@@ -661,9 +661,10 @@ modelPuller:
       # ========================================
       opus:
         enabled: true
-        # Ollama natively supports the hf.co/ prefix — it downloads the GGUF
-        # directly into its own model store (/root/.ollama) during `ollama create`.
-        base: "hf.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF:Q4_K_S"
+        # Must match the tag in modelPuller.models.pull so the model is already
+        # in Ollama's registry when `ollama create` runs, avoiding the 400 error
+        # that occurs when Ollama tries to GGUF-import an un-cached hf.co model.
+        base: "hf.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF:Q4_K_M"
         # Large context for reasoning-heavy model
         contextSize: 131072
         repeatPenalty: 1.1
