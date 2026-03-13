@@ -35,6 +35,41 @@ spec:
       annotations:
         checksum/config: {{ include "ollama.script.entrypoint" . | sha256sum }}
     spec:
+      initContainers:
+        - name: model-downloader
+          image: curlimages/curl:8.12.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /models
+{{- if .Values.modelPuller.downloads }}
+{{- range .Values.modelPuller.downloads }}
+              if [ -s "{{ .dest }}" ]; then
+                echo "Already present: {{ .dest }}"
+              else
+                echo "Downloading {{ .url }} -> {{ .dest }}"
+                curl -L --fail --retry 5 --retry-delay 5 -C - \
+                  ${HF_TOKEN:+-H "Authorization: Bearer ${HF_TOKEN}"} \
+                  -o "${{.dest}}.part" "{{ .url }}" && mv "${{.dest}}.part" "{{ .dest }}"
+              fi
+{{- end }}
+{{- else }}
+              echo "No downloads configured."
+{{- end }}
+              echo "Downloader finished; leaving init container."
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: huggingface-token
+          volumeMounts:
+            - name: script-volume
+              mountPath: /scripts
+            - name: models
+              mountPath: /models
+
       containers:
         - name: model-puller
           image: ollama/ollama:latest
@@ -50,8 +85,12 @@ spec:
           volumeMounts:
             - name: script-volume
               mountPath: /scripts
+            - name: models
+              mountPath: /models
       volumes:
         - name: script-volume
           configMap:
             name: ollama-model-puller-script
             defaultMode: 0755
+        - name: models
+          emptyDir: {}
