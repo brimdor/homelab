@@ -502,6 +502,11 @@ modelPuller:
   # -- Delay between retry attempts (seconds)
   pullRetryDelay: 15
 
+  # -- Files to download (GGUF) before creating Modelfiles
+  downloads:
+    - url: "https://huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF/resolve/main/Qwen3.5-27B-Opus-Reasoning-Distilled.gguf"
+      dest: "/models/Opus.gguf"
+
   models:
     # -- Base models to pull from Ollama registry
     pull:
@@ -657,10 +662,10 @@ modelPuller:
       # ========================================
       opus:
         enabled: true
-        # Base points to the Hugging Face repo containing the GGUF artifact.
-        # Respecting Ollama guidance: reference the GGUF source explicitly so
-        # the Modelfile imports a GGUF-based model.
-        base: "huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-GGUF"
+        # Use a local GGUF file path in the Modelfile per Ollama docs.
+        # The model-puller will download the GGUF into /models/Opus.gguf
+        # before creating the Modelfile.
+        base: "/models/Opus.gguf"
         # Large context for reasoning-heavy model
         contextSize: 131072
         repeatPenalty: 1.1
@@ -671,6 +676,7 @@ modelPuller:
           You are Opus, a focused reasoning assistant distilled for high-quality logical reasoning and stepwise problem solving.
           Keep answers concise, show reasoning steps when useful, and refuse unsafe requests.
 
+# Optional GGUF downloads the model-puller should fetch before creating Modelfiles
   # Test connection pods
   tests:
     enabled: true
