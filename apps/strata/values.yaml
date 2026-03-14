@@ -15,7 +15,7 @@ app-template:
             STRATA_PORT: "8787"
             STRATA_DB_FILE: /app/data/strata.sqlite
             STRATA_SESSION_COOKIE: strata_session
-            SEED_DATA: "true"
+            SEED_DATA: "false"
           probes:
             liveness:
               enabled: false
