@@ -1,0 +1,89 @@
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: 10.0.20.11:32309/strata
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            NODE_ENV: production
+            PORT: "8787"
+            STRATA_PORT: "8787"
+            STRATA_DB_FILE: /app/data/strata.sqlite
+            STRATA_SESSION_COOKIE: strata_session
+            SEED_DATA: "true"
+          probes:
+            liveness:
+              enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/health
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 15
+            readiness:
+              enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/health
+                  port: http
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            startup:
+              enabled: false
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/health
+                  port: http
+                failureThreshold: 30
+                periodSeconds: 5
+  service:
+    main:
+      controller: main
+      primary: true
+      type: ClusterIP
+      ports:
+        http:
+          port: 8787
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: strata.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - strata.eaglepass.io
+          secretName: strata-tls
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/strata
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
+  defaultPodOptions:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
