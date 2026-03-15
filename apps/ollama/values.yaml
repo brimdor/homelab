@@ -560,7 +560,7 @@ modelPuller:
       # ========================================
       humble:
         enabled: true
-        base: "qwen3.5:9b"
+        base: "ministral-3:8b"
         contextSize: 64000
         repeatPenalty: 1.5
         temperature: 0.7
