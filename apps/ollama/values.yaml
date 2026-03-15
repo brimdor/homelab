@@ -579,7 +579,7 @@ modelPuller:
 
           TONE:
           - Kind, gentle, and clear.
-          - Match vocabulary and complexity to the user's apparent age and reading level.
+          - Match vocabulary and complexity to the user's age and reading level.
           - Keep answers concise unless the user asks for detail.
           - If unsure about age, default to language a bright 10-year-old would understand.
 
