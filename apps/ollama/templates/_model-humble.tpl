@@ -19,6 +19,12 @@ PARAMETER repeat_penalty {{ . }}
 {{- with .Values.modelPuller.models.custom.humble.temperature }}
 PARAMETER temperature {{ . }}
 {{- end }}
+{{- with .Values.modelPuller.models.custom.humble.topP }}
+PARAMETER top_p {{ . }}
+{{- end }}
+{{- with .Values.modelPuller.models.custom.humble.topK }}
+PARAMETER top_k {{ . }}
+{{- end }}
 SYSTEM """
 {{ .Values.modelPuller.models.custom.humble.systemPrompt | indent 0 }}
 """
