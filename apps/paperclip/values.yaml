@@ -8,6 +8,10 @@ app-template:
             repository: docker.io/alpine
             tag: "3.21"
             pullPolicy: Always
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
           env:
             HOME: /home/node
             PATH: /home/node/.opencode/bin:/home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -32,6 +36,7 @@ app-template:
               curl -fsSL -o "$tmpdir/opencode.tar.gz" "https://github.com/anomalyco/opencode/releases/latest/download/opencode-${target}.tar.gz"
               tar -xzf "$tmpdir/opencode.tar.gz" -C "$tmpdir"
               install -m 0755 "$tmpdir/opencode" "$HOME/.opencode/bin/opencode"
+              chown -R 1000:1000 "$HOME/.config" "$HOME/.opencode"
       containers:
         main:
           image:
