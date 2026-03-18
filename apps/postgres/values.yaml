@@ -25,6 +25,21 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "postgres-password"
+            PAPERCLIP_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "paperclip-postgres-db"
+            PAPERCLIP_POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "paperclip-postgres-user"
+            PAPERCLIP_POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "paperclip-postgres-password"
         db-backup:
           image:
             repository: postgres
@@ -49,6 +64,11 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "postgres-password"
+            PAPERCLIP_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "paperclip-postgres-db"
           dependsOn:
             - main
           command:
@@ -58,31 +78,121 @@ app-template:
               set -e
               sleep 30
               mkdir -p /mnt/backup/db
+
+              backup_database() {
+                database="$1"
+                prefix="$2"
+                ts="$3"
+                db_file="/mnt/backup/db/${prefix}-${ts}.dump"
+                tmp_db="${db_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump for ${database} to $db_file"
+                if pg_dump -Fc -d "$database" -f "$tmp_db"; then
+                  if [ -s "$tmp_db" ]; then
+                    mv -f "$tmp_db" "$db_file"
+                  else
+                    echo "[WARN] pg_dump for ${database} created empty file; skipping."
+                    rm -f "$tmp_db"
+                  fi
+                else
+                  echo "[WARN] pg_dump failed for ${database}."
+                  rm -f "$tmp_db"
+                fi
+              }
+
+              prune_backups() {
+                prefix="$1"
+                cnt=$(ls -1 "/mnt/backup/db/${prefix}-"*.dump 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t "/mnt/backup/db/${prefix}-"*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+              }
+
               while true; do
                 ts=$(date +%Y-%m-%d_%H-%M-%S)
-                db_file="/mnt/backup/db/db-${ts}.dump"
-                tmp_db="${db_file}.tmp"
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Waiting for postgres to be ready..."
                 until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
                   sleep 2
                 done
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump to $db_file"
-                if pg_dump -Fc -f "$tmp_db"; then
-                  if [ -s "$tmp_db" ]; then
-                    mv -f "$tmp_db" "$db_file"
-                  else
-                    echo "[WARN] pg_dump created empty file; skipping."
-                    rm -f "$tmp_db"
-                  fi
+
+                backup_database "$PGDATABASE" "db" "$ts"
+
+                if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Atqc "SELECT 1 FROM pg_database WHERE datname = '$PAPERCLIP_POSTGRES_DB'" | grep -q '^1$'; then
+                  backup_database "$PAPERCLIP_POSTGRES_DB" "paperclip" "$ts"
                 else
-                  echo "[WARN] pg_dump failed (db may not be ready)."
-                  rm -f "$tmp_db"
+                  echo "[WARN] Paperclip database ${PAPERCLIP_POSTGRES_DB} does not exist yet; skipping backup."
                 fi
-                cnt=$(ls -1 /mnt/backup/db/db-*.dump 2>/dev/null | wc -l)
-                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
-                  ls -t /mnt/backup/db/db-*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
-                fi
+
+                prune_backups db
+                prune_backups paperclip
                 sleep 600
+              done
+        db-bootstrap:
+          image:
+            repository: postgres
+            tag: "18.3-bookworm"
+          env:
+            TZ: "America/Chicago"
+            PGHOST: "127.0.0.1"
+            PGPORT: "5432"
+            PGDATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-db"
+            PGUSER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-user"
+            PGPASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-password"
+            PAPERCLIP_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "paperclip-postgres-db"
+            PAPERCLIP_POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "paperclip-postgres-user"
+            PAPERCLIP_POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "paperclip-postgres-password"
+          dependsOn:
+            - main
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              while true; do
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Waiting for postgres bootstrap target..."
+                until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
+                  sleep 2
+                done
+
+                psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
+                  -v app_db="$PAPERCLIP_POSTGRES_DB" \
+                  -v app_user="$PAPERCLIP_POSTGRES_USER" \
+                  -v app_password="$PAPERCLIP_POSTGRES_PASSWORD" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
+              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
+              SELECT format('ALTER DATABASE %I OWNER TO %I', :'app_db', :'app_user') \gexec
+              SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', :'app_db', :'app_user') \gexec
+              SQL
+
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Paperclip bootstrap reconciliation complete."
+                sleep 3600
               done
       initContainers:
         db-restore:
@@ -96,24 +206,57 @@ app-template:
               set -e
               echo "[INIT] Preparing initial DB restore script..."
               mkdir -p /work
-              # Find latest non-empty dump
-              latest_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
-              if [ -n "$latest_dump" ] && [ -s "$latest_dump" ]; then
-                echo "[INIT] Using dump: $latest_dump"
-                cp "$latest_dump" /work/db.dump
-                printf '%s\n' \
-                  '#!/bin/sh' \
-                  'echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"' \
-                  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump || echo "[INITDB] pg_restore completed with warnings (non-fatal)"' \
-                  'echo "[INITDB] Restore complete."' \
-                  > /work/10-restore.sh
-                chmod +x /work/10-restore.sh
-              else
-                echo "[INIT] No valid DB dump found. Creating no-op init script."
-                printf '%s\n' \
-                  '#!/bin/sh' \
-                  'echo "[INITDB] No dump present; skipping database restore."' \
-                  > /work/99-noop.sh
+              restore_count=0
+
+              latest_primary_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_primary_dump" ] && [ -s "$latest_primary_dump" ]; then
+                echo "[INIT] Using primary dump: $latest_primary_dump"
+                cp "$latest_primary_dump" /work/db.dump
+                cat <<'EOF' > /work/10-restore-main.sh
+              #!/bin/sh
+              echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"
+              pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump || echo "[INITDB] pg_restore completed with warnings (non-fatal)"
+              echo "[INITDB] Primary restore complete."
+              EOF
+                chmod +x /work/10-restore-main.sh
+                restore_count=$((restore_count + 1))
+              fi
+
+              latest_paperclip_dump=$(ls -t /mnt/backup/db/paperclip-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_paperclip_dump" ] && [ -s "$latest_paperclip_dump" ]; then
+                echo "[INIT] Using Paperclip dump: $latest_paperclip_dump"
+                cp "$latest_paperclip_dump" /work/paperclip.dump
+                cat <<'EOF' > /work/20-restore-paperclip.sh
+              #!/bin/sh
+              set -e
+              echo "[INITDB] Ensuring Paperclip role and database exist before restore"
+              export PGPASSWORD="$POSTGRES_PASSWORD"
+              psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -v app_db="$PAPERCLIP_POSTGRES_DB" \
+                -v app_user="$PAPERCLIP_POSTGRES_USER" \
+                -v app_password="$PAPERCLIP_POSTGRES_PASSWORD" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
+              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
+              SELECT format('ALTER DATABASE %I OWNER TO %I', :'app_db', :'app_user') \gexec
+              SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', :'app_db', :'app_user') \gexec
+              SQL
+              echo "[INITDB] Restoring Paperclip database from /docker-entrypoint-initdb.d/paperclip.dump"
+              pg_restore -U "$POSTGRES_USER" -d "$PAPERCLIP_POSTGRES_DB" /docker-entrypoint-initdb.d/paperclip.dump || echo "[INITDB] Paperclip pg_restore completed with warnings (non-fatal)"
+              echo "[INITDB] Paperclip restore complete."
+              EOF
+                chmod +x /work/20-restore-paperclip.sh
+                restore_count=$((restore_count + 1))
+              fi
+
+              if [ "$restore_count" -eq 0 ]; then
+                echo "[INIT] No valid DB dumps found. Creating no-op init script."
+                cat <<'EOF' > /work/99-noop.sh
+              #!/bin/sh
+              echo "[INITDB] No dump present; skipping database restore."
+              EOF
                 chmod +x /work/99-noop.sh
               fi
   service:
