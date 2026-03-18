@@ -26,6 +26,16 @@ rook-ceph-cluster:
     cephVersion:
       image: quay.io/ceph/ceph:v20.2.0
       imagePullPolicy: IfNotPresent
+    storage:
+      useAllNodes: false
+      useAllDevices: true
+      nodes:
+        - name: arcanine
+        # bulbasaur excluded: osd.4 device has recurring BlueFS stalled-read alerts
+        - name: chikorita
+        - name: cyndaquil
+        - name: growlithe
+        - name: sprigatito
     placement:
       all:
         tolerations:
