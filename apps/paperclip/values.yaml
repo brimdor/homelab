@@ -139,9 +139,9 @@ app-template:
             - path: /home/node
   defaultPodOptions:
     securityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
+      runAsUser: 99
+      runAsGroup: 100
+      fsGroup: 100
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/oed3ydnybql5ajq3aspmbiogke"
       operator.1password.io/item-name: "secrets"
