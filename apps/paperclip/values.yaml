@@ -1,0 +1,100 @@
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      containers:
+        main:
+          image:
+            repository: docker.io/node
+            tag: 24-trixie-slim
+            pullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - exec npx -y paperclipai@0.3.1 run
+          env:
+            TZ: America/Chicago
+            HOME: /paperclip
+            HOST: 0.0.0.0
+            PORT: "3100"
+            NODE_ENV: production
+            SERVE_UI: "true"
+            PAPERCLIP_HOME: /paperclip
+            PAPERCLIP_INSTANCE_ID: default
+            PAPERCLIP_DEPLOYMENT_MODE: authenticated
+            PAPERCLIP_DEPLOYMENT_EXPOSURE: public
+            PAPERCLIP_PUBLIC_URL: https://paperclip.eaglepass.io
+            BETTER_AUTH_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: better-auth-secret
+          probes:
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: http
+                periodSeconds: 10
+                failureThreshold: 60
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: http
+                periodSeconds: 10
+                failureThreshold: 6
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: http
+                periodSeconds: 30
+                failureThreshold: 6
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 3100
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host paperclip.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: paperclip-tls-certificate
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/paperclip
+      advancedMounts:
+        main:
+          main:
+            - path: /paperclip
+  defaultPodOptions:
+    securityContext:
+      runAsUser: 99
+      runAsGroup: 100
+      fsGroup: 100
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/oed3ydnybql5ajq3aspmbiogke"
+      operator.1password.io/item-name: "secrets"
