@@ -21,6 +21,11 @@ app-template:
             PAPERCLIP_DEPLOYMENT_MODE: authenticated
             PAPERCLIP_DEPLOYMENT_EXPOSURE: public
             PAPERCLIP_PUBLIC_URL: https://paperclip.eaglepass.io
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database-url
             BETTER_AUTH_SECRET:
               valueFrom:
                 secretKeyRef:
