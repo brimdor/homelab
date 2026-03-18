@@ -10,7 +10,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
-            HOME: /paperclip
+            HOME: /home/node
             HOST: 0.0.0.0
             PORT: "3100"
             NODE_ENV: production
@@ -91,6 +91,14 @@ app-template:
         main:
           main:
             - path: /paperclip
+    home:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/node
   defaultPodOptions:
     securityContext:
       runAsUser: 1000
