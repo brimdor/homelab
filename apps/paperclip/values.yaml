@@ -16,7 +16,8 @@ app-template:
             NODE_ENV: production
             SERVE_UI: "true"
             PAPERCLIP_HOME: /paperclip
-            PAPERCLIP_INSTANCE_ID: default
+            PAPERCLIP_INSTANCE_ID: paperclip
+            PAPERCLIP_CONFIG: /paperclip/instances/paperclip/config.json
             PAPERCLIP_DEPLOYMENT_MODE: authenticated
             PAPERCLIP_DEPLOYMENT_EXPOSURE: public
             PAPERCLIP_PUBLIC_URL: https://paperclip.eaglepass.io
@@ -31,7 +32,7 @@ app-template:
               custom: true
               spec:
                 tcpSocket:
-                  port: http
+                  port: 3100
                 periodSeconds: 10
                 failureThreshold: 60
             readiness:
@@ -39,7 +40,7 @@ app-template:
               custom: true
               spec:
                 tcpSocket:
-                  port: http
+                  port: 3100
                 periodSeconds: 10
                 failureThreshold: 6
             liveness:
@@ -47,7 +48,7 @@ app-template:
               custom: true
               spec:
                 tcpSocket:
-                  port: http
+                  port: 3100
                 periodSeconds: 30
                 failureThreshold: 6
   service:
