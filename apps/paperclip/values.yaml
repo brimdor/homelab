@@ -2,6 +2,36 @@ app-template:
   controllers:
     main:
       replicas: 1
+      initContainers:
+        opencode-install:
+          image:
+            repository: docker.io/alpine
+            tag: "3.21"
+            pullPolicy: Always
+          env:
+            HOME: /home/node
+            PATH: /home/node/.opencode/bin:/home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              if [ -x "$HOME/.opencode/bin/opencode" ]; then
+                echo "opencode already installed"
+                exit 0
+              fi
+              apk add --no-cache curl tar
+              arch="$(uname -m)"
+              case "$arch" in
+                x86_64) target="linux-x64" ;;
+                aarch64) target="linux-arm64" ;;
+                *) echo "unsupported arch: $arch" >&2; exit 1 ;;
+              esac
+              mkdir -p "$HOME/.config" "$HOME/.opencode/bin"
+              tmpdir="$(mktemp -d)"
+              trap 'rm -rf "$tmpdir"' EXIT
+              curl -fsSL -o "$tmpdir/opencode.tar.gz" "https://github.com/anomalyco/opencode/releases/latest/download/opencode-${target}.tar.gz"
+              tar -xzf "$tmpdir/opencode.tar.gz" -C "$tmpdir"
+              install -m 0755 "$tmpdir/opencode" "$HOME/.opencode/bin/opencode"
       containers:
         main:
           image:
@@ -11,6 +41,7 @@ app-template:
           env:
             TZ: America/Chicago
             HOME: /home/node
+            PATH: /home/node/.opencode/bin:/home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             HOST: 0.0.0.0
             PORT: "3100"
             NODE_ENV: production
@@ -97,6 +128,8 @@ app-template:
       size: 5Gi
       advancedMounts:
         main:
+          opencode-install:
+            - path: /home/node
           main:
             - path: /home/node
   defaultPodOptions:
