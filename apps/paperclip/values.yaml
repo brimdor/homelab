@@ -3,6 +3,98 @@ app-template:
     main:
       replicas: 1
       initContainers:
+        bootstrap-state:
+          image:
+            repository: docker.io/alpine
+            tag: "3.21"
+            pullPolicy: Always
+          env:
+            PAPERCLIP_PUBLIC_URL: https://paperclip.eaglepass.io
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database-url
+            PAPERCLIP_AGENT_JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: agent-jwt-secret
+            PAPERCLIP_SECRETS_MASTER_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: secrets-master-key
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              instance_dir="/paperclip/instances/paperclip"
+              mkdir -p \
+                "$instance_dir/data/storage" \
+                "$instance_dir/data/backups" \
+                "$instance_dir/logs" \
+                "$instance_dir/secrets"
+
+              cat > "$instance_dir/config.json" <<EOF
+              {
+                "\$meta": {
+                  "version": 1,
+                  "updatedAt": "1970-01-01T00:00:00.000Z",
+                  "source": "configure"
+                },
+                "database": {
+                  "mode": "postgres",
+                  "connectionString": "$DATABASE_URL",
+                  "backup": {
+                    "enabled": true,
+                    "intervalMinutes": 60,
+                    "retentionDays": 30,
+                    "dir": "$instance_dir/data/backups"
+                  }
+                },
+                "logging": {
+                  "mode": "file",
+                  "logDir": "$instance_dir/logs"
+                },
+                "server": {
+                  "deploymentMode": "authenticated",
+                  "exposure": "public",
+                  "host": "0.0.0.0",
+                  "port": 3100,
+                  "allowedHostnames": ["paperclip.eaglepass.io"],
+                  "serveUi": true
+                },
+                "auth": {
+                  "baseUrlMode": "explicit",
+                  "publicBaseUrl": "$PAPERCLIP_PUBLIC_URL",
+                  "disableSignUp": false
+                },
+                "storage": {
+                  "provider": "local_disk",
+                  "localDisk": {
+                    "baseDir": "$instance_dir/data/storage"
+                  },
+                  "s3": {
+                    "bucket": "paperclip",
+                    "region": "us-east-1",
+                    "prefix": "",
+                    "forcePathStyle": false
+                  }
+                },
+                "secrets": {
+                  "provider": "local_encrypted",
+                  "strictMode": false,
+                  "localEncrypted": {
+                    "keyFilePath": "$instance_dir/secrets/master.key"
+                  }
+                }
+              }
+              EOF
+
+              printf 'PAPERCLIP_AGENT_JWT_SECRET=%s\n' "$PAPERCLIP_AGENT_JWT_SECRET" > "$instance_dir/.env"
+              printf '%s' "$PAPERCLIP_SECRETS_MASTER_KEY" > "$instance_dir/secrets/master.key"
+              chmod 600 "$instance_dir/.env" "$instance_dir/secrets/master.key"
         opencode-install:
           image:
             repository: docker.io/alpine
@@ -67,6 +159,11 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: better-auth-secret
+            PAPERCLIP_AGENT_JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: agent-jwt-secret
           probes:
             startup:
               enabled: true
@@ -125,6 +222,8 @@ app-template:
       path: /mnt/user/paperclip
       advancedMounts:
         main:
+          bootstrap-state:
+            - path: /paperclip
           main:
             - path: /paperclip
     home:
