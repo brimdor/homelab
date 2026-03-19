@@ -15,6 +15,15 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database-url
+            MARIADB_HOST: 127.0.0.1
+            MARIADB_PORT: "3306"
+            MARIADB_DATABASE: paperclip
+            MARIADB_USER: paperclip
+            MARIADB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mariadb-password
             PAPERCLIP_AGENT_JWT_SECRET:
               valueFrom:
                 secretKeyRef:
@@ -92,7 +101,15 @@ app-template:
               }
               EOF
 
-              printf 'PAPERCLIP_AGENT_JWT_SECRET=%s\n' "$PAPERCLIP_AGENT_JWT_SECRET" > "$instance_dir/.env"
+              {
+                printf 'PAPERCLIP_AGENT_JWT_SECRET=%s\n' "$PAPERCLIP_AGENT_JWT_SECRET"
+                printf 'DATABASE_URL=%s\n' "$DATABASE_URL"
+                printf 'MARIADB_HOST=%s\n' "$MARIADB_HOST"
+                printf 'MARIADB_PORT=%s\n' "$MARIADB_PORT"
+                printf 'MARIADB_DATABASE=%s\n' "$MARIADB_DATABASE"
+                printf 'MARIADB_USER=%s\n' "$MARIADB_USER"
+                printf 'MARIADB_PASSWORD=%s\n' "$MARIADB_PASSWORD"
+              } > "$instance_dir/.env"
               printf '%s' "$PAPERCLIP_SECRETS_MASTER_KEY" > "$instance_dir/secrets/master.key"
               chmod 600 "$instance_dir/.env" "$instance_dir/secrets/master.key"
         opencode-install:
@@ -130,6 +147,59 @@ app-template:
               install -m 0755 "$tmpdir/opencode" "$HOME/.opencode/bin/opencode"
               chown -R 1000:1000 "$HOME/.config" "$HOME/.opencode"
       containers:
+        mariadb:
+          image:
+            repository: docker.io/mariadb
+            tag: "12.2"
+            pullPolicy: IfNotPresent
+          env:
+            TZ: America/Chicago
+            MARIADB_DATABASE: paperclip
+            MARIADB_USER: paperclip
+            MARIADB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mariadb-password
+            MARIADB_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mariadb-root-password
+          probes:
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - sh
+                    - -c
+                    - 'mariadb-admin ping -h 127.0.0.1 -uroot -p"$MARIADB_ROOT_PASSWORD"'
+                periodSeconds: 10
+                failureThreshold: 60
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - sh
+                    - -c
+                    - 'mariadb-admin ping -h 127.0.0.1 -uroot -p"$MARIADB_ROOT_PASSWORD"'
+                periodSeconds: 10
+                failureThreshold: 6
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - sh
+                    - -c
+                    - 'mariadb-admin ping -h 127.0.0.1 -uroot -p"$MARIADB_ROOT_PASSWORD"'
+                periodSeconds: 30
+                failureThreshold: 6
         main:
           image:
             repository: 10.0.20.11:32309/paperclip
@@ -149,6 +219,15 @@ app-template:
             PAPERCLIP_DEPLOYMENT_MODE: authenticated
             PAPERCLIP_DEPLOYMENT_EXPOSURE: public
             PAPERCLIP_PUBLIC_URL: https://paperclip.eaglepass.io
+            MARIADB_HOST: 127.0.0.1
+            MARIADB_PORT: "3306"
+            MARIADB_DATABASE: paperclip
+            MARIADB_USER: paperclip
+            MARIADB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: mariadb-password
             DATABASE_URL:
               valueFrom:
                 secretKeyRef:
@@ -197,6 +276,12 @@ app-template:
         http:
           port: 3100
           protocol: HTTP
+    mariadb:
+      controller: main
+      ports:
+        mysql:
+          port: 3306
+          protocol: TCP
   ingress:
     main:
       enabled: true
@@ -236,7 +321,18 @@ app-template:
             - path: /home/node
           main:
             - path: /home/node
+    mariadb-data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          mariadb:
+            - path: /var/lib/mysql
+          main:
+            - path: /srv/mariadb
   defaultPodOptions:
+    shareProcessNamespace: true
     securityContext:
       runAsUser: 0
       runAsGroup: 0
