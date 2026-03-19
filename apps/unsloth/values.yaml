@@ -1,0 +1,175 @@
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      initContainers:
+        init-permissions:
+          image:
+            repository: unsloth/unsloth
+            tag: latest
+            pullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -e
+              uid="$(id -u unsloth)"
+              gid="$(id -g unsloth)"
+              install -d -o "${uid}" -g "${gid}" -m 0755 \
+                /mnt/data/work \
+                /mnt/data/models \
+                /mnt/config/jupyter \
+                /mnt/config/config \
+                /mnt/config/jupyter-share \
+                /mnt/config/ssh
+              chown -R "${uid}:${gid}" /mnt/data /mnt/config
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+      containers:
+        main:
+          image:
+            repository: unsloth/unsloth
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            JUPYTER_PORT: "8888"
+            JUPYTER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: jupyter-password
+            USER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: user-password
+            SSH_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ssh-key
+            NVIDIA_VISIBLE_DEVICES: all
+            NVIDIA_DRIVER_CAPABILITIES: all
+            HF_HOME: /workspace/models/huggingface
+            HF_HUB_CACHE: /workspace/models/huggingface/hub
+            TRANSFORMERS_CACHE: /workspace/models/transformers
+            TORCH_HOME: /workspace/models/torch
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 8888
+                initialDelaySeconds: 60
+                periodSeconds: 20
+                timeoutSeconds: 5
+                failureThreshold: 6
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 8888
+                initialDelaySeconds: 20
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 8888
+                initialDelaySeconds: 20
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 30
+
+  defaultPodOptions:
+    runtimeClassName: nvidia
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3x4w5iw3l5zxmf4aaf7vevzxie"
+      operator.1password.io/item-name: "secrets"
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: arcanine
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - arcanine
+
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 8888
+          protocol: HTTP
+        ssh:
+          port: 22
+          protocol: TCP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &host unsloth.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *host
+          secretName: unsloth-tls
+
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      storageClass: standard-rwo
+      accessMode: ReadWriteOnce
+      size: 250Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /workspace/work
+              subPath: work
+            - path: /workspace/models
+              subPath: models
+          init-permissions:
+            - path: /mnt/data
+    config:
+      type: persistentVolumeClaim
+      storageClass: standard-rwo
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          main:
+            - path: /home/unsloth/.jupyter
+              subPath: jupyter
+            - path: /home/unsloth/.config
+              subPath: config
+            - path: /home/unsloth/.local/share/jupyter
+              subPath: jupyter-share
+            - path: /home/unsloth/.ssh
+              subPath: ssh
+          init-permissions:
+            - path: /mnt/config
