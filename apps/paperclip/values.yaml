@@ -139,13 +139,17 @@ app-template:
                 aarch64) target="linux-arm64" ;;
                 *) echo "unsupported arch: $arch" >&2; exit 1 ;;
               esac
-              mkdir -p "$HOME/.config" "$HOME/.opencode/bin"
+              mkdir -p \
+                "$HOME/.config" \
+                "$HOME/.local/share/opencode" \
+                "$HOME/.opencode/bin"
               tmpdir="$(mktemp -d)"
               trap 'rm -rf "$tmpdir"' EXIT
               curl -fsSL -o "$tmpdir/opencode.tar.gz" "https://github.com/anomalyco/opencode/releases/latest/download/opencode-${target}.tar.gz"
               tar -xzf "$tmpdir/opencode.tar.gz" -C "$tmpdir"
               install -m 0755 "$tmpdir/opencode" "$HOME/.opencode/bin/opencode"
-              chown -R 1000:1000 "$HOME/.config" "$HOME/.opencode"
+              chown -R 0:0 "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
+              chmod -R u+rwX "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
       containers:
         mariadb:
           image:
@@ -314,7 +318,7 @@ app-template:
     home:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
-      size: 5Gi
+      size: 15Gi
       advancedMounts:
         main:
           opencode-install:

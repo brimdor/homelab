@@ -35,13 +35,15 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 
 FROM base AS production
 WORKDIR /app
-COPY --chown=node:node --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
-  && mkdir -p /paperclip \
-  && chown node:node /paperclip
+RUN usermod -o -u 0 node \
+  && usermod -g 0 node \
+  && mkdir -p /home/node /paperclip \
+  && chown -R 0:0 /home/node /paperclip
+COPY --chown=0:0 --from=build /app /app
+RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
 
 ENV NODE_ENV=production \
-  HOME=/paperclip \
+  HOME=/home/node \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
