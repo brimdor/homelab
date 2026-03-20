@@ -34,6 +34,16 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: secrets-master-key
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: gh-token
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: gh-token
           command:
             - /bin/sh
             - -ec
@@ -109,6 +119,8 @@ app-template:
                 printf 'MARIADB_DATABASE=%s\n' "$MARIADB_DATABASE"
                 printf 'MARIADB_USER=%s\n' "$MARIADB_USER"
                 printf 'MARIADB_PASSWORD=%s\n' "$MARIADB_PASSWORD"
+                printf 'GH_TOKEN=%s\n' "$GH_TOKEN"
+                printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN"
               } > "$instance_dir/.env"
               printf '%s' "$PAPERCLIP_SECRETS_MASTER_KEY" > "$instance_dir/secrets/master.key"
               chmod 600 "$instance_dir/.env" "$instance_dir/secrets/master.key"
@@ -247,6 +259,16 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: agent-jwt-secret
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: gh-token
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: gh-token
           probes:
             startup:
               enabled: true
