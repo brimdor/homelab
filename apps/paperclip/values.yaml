@@ -181,11 +181,6 @@ app-template:
                     "name": "Ollama (homelab)",
                     "options": {
                       "baseURL": "http://ollama.ollama.svc.cluster.local:11434/v1"
-                    },
-                    "models": {
-                      "qwen3.5:397b-cloud": {
-                        "name": "Qwen 3.5 397B (homelab)"
-                      }
                     }
                   }
                 }
