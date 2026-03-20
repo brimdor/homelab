@@ -145,6 +145,7 @@ app-template:
 
               mkdir -p \
                 "$HOME/.config/git" \
+                "$HOME/.config/opencode" \
                 "$HOME/.local/share/opencode" \
                 "$HOME/.opencode/bin"
 
@@ -168,7 +169,31 @@ app-template:
               EOF
               fi
 
+              rm -f "$HOME/.config/opencode/config.json"
+              rm -f "$HOME/.local/bin/paperclip-opencode"
+
+              cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
+              {
+                "$schema": "https://opencode.ai/config.json",
+                "provider": {
+                  "ollama": {
+                    "npm": "@ai-sdk/openai-compatible",
+                    "name": "Ollama (homelab)",
+                    "options": {
+                      "baseURL": "http://ollama.ollama.svc.cluster.local:11434/v1"
+                    },
+                    "models": {
+                      "qwen3.5:397b-cloud": {
+                        "name": "Qwen 3.5 397B (homelab)"
+                      }
+                    }
+                  }
+                }
+              }
+              EOF
+
               chmod 600 "$helper_include" "$gitconfig"
+              chmod 644 "$HOME/.config/opencode/opencode.json"
 
               if [ -x "$HOME/.opencode/bin/opencode" ]; then
                 chown -R 0:0 "$HOME/.config" "$HOME/.local" "$HOME/.opencode"

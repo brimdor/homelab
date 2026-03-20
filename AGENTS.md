@@ -21,3 +21,5 @@
 ## Agent-specific rules
 - Apply mandatory homelab rules from `.agent/rules/foundational-rules.md` and app governance in `.agent/rules/HOMELAB_applications.md`.
 - Cursor rules: none found (`.cursor/rules/`, `.cursorrules`). Copilot rules: none found (`.github/copilot-instructions.md`).
+- Never alter any code in ~/Documents/Github/paperclip
+- When building a new image for paperclip, always pull from the upstream in ~/Documents/Github/paperclip to make sure we have the latest codebase/features/etc.
