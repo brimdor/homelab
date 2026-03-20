@@ -140,7 +140,39 @@ app-template:
             - /bin/sh
             - -ec
             - |
+              helper_include="$HOME/.config/git/gh-credential-helper.inc"
+              gitconfig="$HOME/.gitconfig"
+
+              mkdir -p \
+                "$HOME/.config/git" \
+                "$HOME/.local/share/opencode" \
+                "$HOME/.opencode/bin"
+
+              cat > "$helper_include" <<'EOF'
+              [credential "https://github.com"]
+                helper =
+                helper = !/usr/bin/gh auth git-credential
+              [credential "https://gist.github.com"]
+                helper =
+                helper = !/usr/bin/gh auth git-credential
+              EOF
+
+              if [ -f "$gitconfig" ]; then
+                if ! grep -qF "path = $helper_include" "$gitconfig"; then
+                  printf '\n[include]\n  path = %s\n' "$helper_include" >> "$gitconfig"
+                fi
+              else
+                cat > "$gitconfig" <<EOF
+              [include]
+                path = $helper_include
+              EOF
+              fi
+
+              chmod 600 "$helper_include" "$gitconfig"
+
               if [ -x "$HOME/.opencode/bin/opencode" ]; then
+                chown -R 0:0 "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
+                chmod -R u+rwX "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
                 echo "opencode already installed"
                 exit 0
               fi
@@ -151,10 +183,6 @@ app-template:
                 aarch64) target="linux-arm64" ;;
                 *) echo "unsupported arch: $arch" >&2; exit 1 ;;
               esac
-              mkdir -p \
-                "$HOME/.config" \
-                "$HOME/.local/share/opencode" \
-                "$HOME/.opencode/bin"
               tmpdir="$(mktemp -d)"
               trap 'rm -rf "$tmpdir"' EXIT
               curl -fsSL -o "$tmpdir/opencode.tar.gz" "https://github.com/anomalyco/opencode/releases/latest/download/opencode-${target}.tar.gz"
