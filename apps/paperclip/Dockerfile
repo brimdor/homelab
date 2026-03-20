@@ -37,6 +37,7 @@ FROM base AS production
 WORKDIR /app
 RUN usermod -o -u 0 node \
   && usermod -g 0 node \
+  && node -e "const fs=require('fs'); const p='/etc/passwd'; const text=fs.readFileSync(p,'utf8').replace(/^root:([^:]*:[0-9]+:[0-9]+:[^:]*:)\/root:/m, 'root:$1/home/node:'); fs.writeFileSync(p, text);" \
   && mkdir -p /home/node /paperclip \
   && chown -R 0:0 /home/node /paperclip
 COPY --chown=0:0 --from=build /app /app
