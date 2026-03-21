@@ -182,6 +182,29 @@ app-template:
                     "name": "Ollama (homelab)",
                     "options": {
                       "baseURL": "http://ollama.ollama.svc.cluster.local:11434/v1"
+                    },
+                    "models": {
+                      "cody:latest": {
+                        "name": "cody:latest"
+                      },
+                      "echo:latest": {
+                        "name": "echo:latest"
+                      },
+                      "gpt-oss:20b": {
+                        "name": "gpt-oss:20b"
+                      },
+                      "humble:latest": {
+                        "name": "humble:latest"
+                      },
+                      "ministral-3:8b": {
+                        "name": "ministral-3:8b"
+                      },
+                      "qwen3.5:397b-cloud": {
+                        "name": "qwen3.5:397b-cloud"
+                      },
+                      "qwen3.5:9b": {
+                        "name": "qwen3.5:9b"
+                      }
                     }
                   }
                 }
@@ -395,8 +418,10 @@ app-template:
         main:
           opencode-install:
             - path: /home/node
+            - path: /root
           main:
             - path: /home/node
+            - path: /root
     mariadb-data:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
