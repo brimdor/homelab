@@ -4,38 +4,6 @@ app-template:
       replicas: 1
       strategy: Recreate
       initContainers:
-        a-migrate-from-nfs:
-          image:
-            repository: docker.io/alpine
-            tag: "3.21"
-            pullPolicy: Always
-          command:
-            - /bin/sh
-            - -ec
-            - |
-              marker="/paperclip/.nfs-to-pvc-migration-complete"
-
-              if [ -f "$marker" ]; then
-                echo "paperclip data already migrated to PVC"
-                exit 0
-              fi
-
-              if ! ls -A /paperclip-nfs-source >/dev/null 2>&1; then
-                echo "paperclip NFS source is unavailable; refusing to start with an empty PVC" >&2
-                exit 1
-              fi
-
-              mkdir -p /paperclip
-              echo "copying paperclip data from NFS to PVC"
-              tar -C /paperclip-nfs-source -cf - . | tar -C /paperclip -xpf -
-              sync
-
-              {
-                echo "source=/paperclip-nfs-source"
-                echo "completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-              } > "$marker"
-
-              du -sh /paperclip-nfs-source /paperclip || true
         bootstrap-state:
           image:
             repository: docker.io/alpine
@@ -415,21 +383,10 @@ app-template:
       storageClass: standard-rwo
       advancedMounts:
         main:
-          a-migrate-from-nfs:
-            - path: /paperclip
           bootstrap-state:
             - path: /paperclip
           main:
             - path: /paperclip
-    migration-source:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/paperclip
-      advancedMounts:
-        main:
-          a-migrate-from-nfs:
-            - path: /paperclip-nfs-source
-              readOnly: true
     home:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
