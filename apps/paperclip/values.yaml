@@ -176,6 +176,18 @@ app-template:
               cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
               {
                 "$schema": "https://opencode.ai/config.json",
+                "permission": {
+                  "read": "allow",
+                  "edit": "allow",
+                  "glob": "allow",
+                  "grep": "allow",
+                  "list": "allow",
+                  "bash": "allow",
+                  "task": "allow",
+                  "external_directory": {
+                    "/**": "allow"
+                  }
+                },
                 "provider": {
                   "ollama": {
                     "npm": "@ai-sdk/openai-compatible",
