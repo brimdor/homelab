@@ -36,6 +36,7 @@ RUN pnpm --filter @paperclipai/server build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
 FROM base AS production
+ARG OPENCODE_VERSION=1.3.0
 WORKDIR /app
 RUN usermod -o -u 0 node \
   && usermod -g 0 node \
@@ -43,18 +44,10 @@ RUN usermod -o -u 0 node \
   && mkdir -p /home/node /paperclip \
   && chown -R 0:0 /home/node /paperclip
 COPY --chown=0:0 --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest \
-  && arch="$(dpkg --print-architecture)" \
-  && case "$arch" in \
-    amd64) target="linux-x64" ;; \
-    arm64) target="linux-arm64" ;; \
-    *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
-  esac \
-  && tmpdir="$(mktemp -d)" \
-  && curl -fsSL -o "$tmpdir/opencode.tar.gz" "https://github.com/anomalyco/opencode/releases/download/${OPENCODE_VERSION}/opencode-${target}.tar.gz" \
-  && tar -xzf "$tmpdir/opencode.tar.gz" -C "$tmpdir" \
-  && install -m 0755 "$tmpdir/opencode" /usr/local/bin/opencode \
-  && rm -rf "$tmpdir"
+RUN npm install --global --omit=dev \
+  @anthropic-ai/claude-code@latest \
+  @openai/codex@latest \
+  opencode-ai@${OPENCODE_VERSION}
 
 ENV NODE_ENV=production \
   HOME=/home/node \
