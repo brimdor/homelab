@@ -300,21 +300,27 @@ app-template:
               while true; do
                 for ws in /paperclip/instances/paperclip/workspaces/*; do
                   [ -d "$ws" ] || continue
-                  mkdir -p "$ws/memory" "$ws/life" "$ws/plans"
                   today="$(date +%F)"
+                  mkdir -p "$ws/memory" "$ws/life" "$ws/plans"
                   [ -e "$ws/memory/$today.md" ] || : > "$ws/memory/$today.md"
                   agent_id="$(basename "$ws")"
                   instr_dir="$(find /paperclip/instances/paperclip/companies -path "*/agents/$agent_id/instructions" -type d | head -n 1)"
                   [ -n "$instr_dir" ] || continue
+                  agent_dir="$(dirname "$instr_dir")"
 
-                  for name in HEARTBEAT.md SOUL.md TOOLS.md; do
+                  mkdir -p "$agent_dir/memory" "$agent_dir/life" "$agent_dir/plans"
+                  [ -e "$agent_dir/memory/$today.md" ] || : > "$agent_dir/memory/$today.md"
+
+                  for name in AGENTS.md HEARTBEAT.md SOUL.md TOOLS.md; do
                     target="$instr_dir/$name"
-                    link="$ws/$name"
                     [ -e "$target" ] || continue
-                    current="$(readlink "$link" 2>/dev/null || true)"
-                    if [ "$current" != "$target" ]; then
-                      ln -sfn "$target" "$link"
-                    fi
+                    for base in "$ws" "$agent_dir"; do
+                      link="$base/$name"
+                      current="$(readlink "$link" 2>/dev/null || true)"
+                      if [ "$current" != "$target" ]; then
+                        ln -sfn "$target" "$link"
+                      fi
+                    done
                   done
                 done
 
