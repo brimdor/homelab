@@ -332,6 +332,7 @@ app-template:
             HOST: 0.0.0.0
             PORT: "3100"
             NODE_ENV: production
+            NODE_OPTIONS: --max-old-space-size=1536
             SERVE_UI: "true"
             PAPERCLIP_HOME: /paperclip
             PAPERCLIP_INSTANCE_ID: paperclip
@@ -373,6 +374,13 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: gh-token
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
           probes:
             startup:
               enabled: true
