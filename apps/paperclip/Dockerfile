@@ -1,6 +1,56 @@
 FROM node:lts-trixie-slim AS base
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl gh git mariadb-client postgresql-client procps \
+  && apt-get install -y --no-install-recommends \
+    bash \
+    build-essential \
+    ca-certificates \
+    composer \
+    curl \
+    default-jdk-headless \
+    dnsutils \
+    fd-find \
+    gh \
+    git \
+    golang-go \
+    jq \
+    less \
+    libffi-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    make \
+    mariadb-client \
+    nano \
+    netcat-openbsd \
+    openssh-client \
+    pkg-config \
+    php-cli \
+    php-curl \
+    php-mbstring \
+    php-sqlite3 \
+    php-xml \
+    php-zip \
+    postgresql-client \
+    procps \
+    python-is-python3 \
+    python3 \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    python3-full \
+    pipx \
+    ripgrep \
+    ruby-full \
+    rustc \
+    rsync \
+    sqlite3 \
+    unzip \
+    xz-utils \
+    zip \
+    cargo \
+    maven \
+  && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+  && gem install --no-document bundler \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
