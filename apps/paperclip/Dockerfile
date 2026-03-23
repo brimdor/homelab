@@ -4,6 +4,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
+ARG OPENCODE_VERSION=1.3.0
+
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
@@ -41,13 +43,25 @@ RUN usermod -o -u 0 node \
   && mkdir -p /home/node /paperclip \
   && chown -R 0:0 /home/node /paperclip
 COPY --chown=0:0 --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
+RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest \
+  && arch="$(dpkg --print-architecture)" \
+  && case "$arch" in \
+    amd64) target="linux-x64" ;; \
+    arm64) target="linux-arm64" ;; \
+    *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
+  esac \
+  && tmpdir="$(mktemp -d)" \
+  && curl -fsSL -o "$tmpdir/opencode.tar.gz" "https://github.com/anomalyco/opencode/releases/download/${OPENCODE_VERSION}/opencode-${target}.tar.gz" \
+  && tar -xzf "$tmpdir/opencode.tar.gz" -C "$tmpdir" \
+  && install -m 0755 "$tmpdir/opencode" /usr/local/bin/opencode \
+  && rm -rf "$tmpdir"
 
 ENV NODE_ENV=production \
   HOME=/home/node \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
+  PAPERCLIP_OPENCODE_COMMAND=/usr/local/bin/opencode \
   PAPERCLIP_HOME=/paperclip \
   PAPERCLIP_INSTANCE_ID=default \
   PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
