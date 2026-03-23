@@ -216,6 +216,9 @@ app-template:
                       },
                       "qwen3.5:9b": {
                         "name": "qwen3.5:9b"
+                      },
+                      "qwen3.5:cloud": {
+                        "name": "qwen3.5:cloud"
                       }
                     }
                   }
@@ -226,24 +229,9 @@ app-template:
               chmod 600 "$helper_include" "$gitconfig"
               chmod 644 "$HOME/.config/opencode/opencode.json"
 
-              if [ -x "$HOME/.opencode/bin/opencode" ]; then
-                chown -R 0:0 "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
-                chmod -R u+rwX "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
-                echo "opencode already installed"
-                exit 0
-              fi
-              apk add --no-cache curl tar
-              arch="$(uname -m)"
-              case "$arch" in
-                x86_64) target="linux-x64" ;;
-                aarch64) target="linux-arm64" ;;
-                *) echo "unsupported arch: $arch" >&2; exit 1 ;;
-              esac
-              tmpdir="$(mktemp -d)"
-              trap 'rm -rf "$tmpdir"' EXIT
-              curl -fsSL -o "$tmpdir/opencode.tar.gz" "https://github.com/anomalyco/opencode/releases/latest/download/opencode-${target}.tar.gz"
-              tar -xzf "$tmpdir/opencode.tar.gz" -C "$tmpdir"
-              install -m 0755 "$tmpdir/opencode" "$HOME/.opencode/bin/opencode"
+              rm -f "$HOME/.opencode/bin/opencode"
+              ln -s /usr/local/bin/opencode "$HOME/.opencode/bin/opencode"
+
               chown -R 0:0 "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
               chmod -R u+rwX "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
       containers:
@@ -312,6 +300,9 @@ app-template:
               while true; do
                 for ws in /paperclip/instances/paperclip/workspaces/*; do
                   [ -d "$ws" ] || continue
+                  mkdir -p "$ws/memory" "$ws/life" "$ws/plans"
+                  today="$(date +%F)"
+                  [ -e "$ws/memory/$today.md" ] || : > "$ws/memory/$today.md"
                   agent_id="$(basename "$ws")"
                   instr_dir="$(find /paperclip/instances/paperclip/companies -path "*/agents/$agent_id/instructions" -type d | head -n 1)"
                   [ -n "$instr_dir" ] || continue
