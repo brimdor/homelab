@@ -300,6 +300,35 @@ app-template:
                     - 'mariadb-admin ping -h 127.0.0.1 -uroot -p"$MARIADB_ROOT_PASSWORD"'
                 periodSeconds: 30
                 failureThreshold: 6
+        workspace-compat:
+          image:
+            repository: docker.io/alpine
+            tag: "3.21"
+            pullPolicy: Always
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              while true; do
+                for ws in /paperclip/instances/paperclip/workspaces/*; do
+                  [ -d "$ws" ] || continue
+                  agent_id="$(basename "$ws")"
+                  instr_dir="$(find /paperclip/instances/paperclip/companies -path "*/agents/$agent_id/instructions" -type d | head -n 1)"
+                  [ -n "$instr_dir" ] || continue
+
+                  for name in HEARTBEAT.md SOUL.md TOOLS.md; do
+                    target="$instr_dir/$name"
+                    link="$ws/$name"
+                    [ -e "$target" ] || continue
+                    current="$(readlink "$link" 2>/dev/null || true)"
+                    if [ "$current" != "$target" ]; then
+                      ln -sfn "$target" "$link"
+                    fi
+                  done
+                done
+
+                sleep 60
+              done
         main:
           image:
             repository: 10.0.20.11:32309/paperclip
@@ -419,6 +448,8 @@ app-template:
       advancedMounts:
         main:
           bootstrap-state:
+            - path: /paperclip
+          workspace-compat:
             - path: /paperclip
           main:
             - path: /paperclip
