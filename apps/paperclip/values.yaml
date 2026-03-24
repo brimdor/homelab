@@ -125,10 +125,10 @@ app-template:
               } > "$instance_dir/.env"
               printf '%s' "$PAPERCLIP_SECRETS_MASTER_KEY" > "$instance_dir/secrets/master.key"
               chmod 600 "$instance_dir/.env" "$instance_dir/secrets/master.key"
-        opencode-install:
+        cli-install:
           image:
-            repository: docker.io/alpine
-            tag: "3.21"
+            repository: 10.0.20.11:32309/paperclip
+            tag: latest
             pullPolicy: Always
           securityContext:
             runAsUser: 0
@@ -136,6 +136,10 @@ app-template:
             allowPrivilegeEscalation: false
           env:
             HOME: /home/node
+            CODEX_HOME: /home/node/.codex
+            GEMINI_CLI_HOME: /home/node
+            NPM_CONFIG_PREFIX: /home/node/.local
+            NPM_CONFIG_CACHE: /home/node/.cache/npm
             PATH: /home/node/.opencode/bin:/home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
           command:
             - /bin/sh
@@ -145,10 +149,34 @@ app-template:
               gitconfig="$HOME/.gitconfig"
 
               mkdir -p \
+                "$HOME/.claude" \
                 "$HOME/.config/git" \
                 "$HOME/.config/opencode" \
+                "$HOME/.cache/npm" \
+                "$HOME/.codex" \
+                "$HOME/.gemini" \
+                "$HOME/.local/bin" \
+                "$HOME/.local/lib" \
                 "$HOME/.local/share/opencode" \
                 "$HOME/.opencode/bin"
+
+              cat > "$HOME/.npmrc" <<EOF
+              prefix=${NPM_CONFIG_PREFIX}
+              cache=${NPM_CONFIG_CACHE}
+              EOF
+
+              if [ -x "$HOME/.local/bin/claude" ] \
+                && [ -x "$HOME/.local/bin/gemini" ] \
+                && [ -x "$HOME/.local/bin/codex" ] \
+                && [ -x "$HOME/.local/bin/opencode" ]; then
+                printf 'CLI tools already installed under %s; skipping npm install\n' "$NPM_CONFIG_PREFIX"
+              else
+                npm install --global --omit=dev \
+                  @anthropic-ai/claude-code@latest \
+                  @google/gemini-cli@latest \
+                  @openai/codex@latest \
+                  opencode-ai@1.3.0
+              fi
 
               cat > "$helper_include" <<'EOF'
               [credential "https://github.com"]
@@ -227,13 +255,14 @@ app-template:
               EOF
 
               chmod 600 "$helper_include" "$gitconfig"
+              chmod 644 "$HOME/.npmrc"
               chmod 644 "$HOME/.config/opencode/opencode.json"
 
               rm -f "$HOME/.opencode/bin/opencode"
-              ln -s /usr/local/bin/opencode "$HOME/.opencode/bin/opencode"
+              ln -s "$HOME/.local/bin/opencode" "$HOME/.opencode/bin/opencode"
 
-              chown -R 0:0 "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
-              chmod -R u+rwX "$HOME/.config" "$HOME/.local" "$HOME/.opencode"
+              chown -R 0:0 "$HOME/.cache" "$HOME/.claude" "$HOME/.codex" "$HOME/.config" "$HOME/.gemini" "$HOME/.local" "$HOME/.opencode"
+              chmod -R u+rwX "$HOME/.cache" "$HOME/.claude" "$HOME/.codex" "$HOME/.config" "$HOME/.gemini" "$HOME/.local" "$HOME/.opencode"
       containers:
         mariadb:
           image:
@@ -334,6 +363,11 @@ app-template:
           env:
             TZ: America/Chicago
             HOME: /home/node
+            CODEX_HOME: /home/node/.codex
+            GEMINI_CLI_HOME: /home/node
+            NPM_CONFIG_PREFIX: /home/node/.local
+            NPM_CONFIG_CACHE: /home/node/.cache/npm
+            PAPERCLIP_OPENCODE_COMMAND: /home/node/.opencode/bin/opencode
             PATH: /home/node/.opencode/bin:/home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             HOST: 0.0.0.0
             PORT: "3100"
@@ -466,7 +500,7 @@ app-template:
       size: 15Gi
       advancedMounts:
         main:
-          opencode-install:
+          cli-install:
             - path: /home/node
             - path: /root
           main:
