@@ -1,0 +1,2 @@
+[include]
+  path = /opt/paperclip/defaults/home/.config/git/gh-credential-helper.inc

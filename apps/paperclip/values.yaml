@@ -138,9 +138,8 @@ app-template:
             HOME: /home/node
             CODEX_HOME: /home/node/.codex
             GEMINI_CLI_HOME: /home/node
-            NPM_CONFIG_PREFIX: /home/node/.local
             NPM_CONFIG_CACHE: /home/node/.cache/npm
-            PATH: /home/node/.opencode/bin:/home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+            PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
           command:
             - /bin/sh
             - -ec
@@ -155,28 +154,13 @@ app-template:
                 "$HOME/.cache/npm" \
                 "$HOME/.codex" \
                 "$HOME/.gemini" \
-                "$HOME/.local/bin" \
-                "$HOME/.local/lib" \
+                "$HOME/.pi" \
                 "$HOME/.local/share/opencode" \
-                "$HOME/.opencode/bin"
+                "$HOME/.opencode"
 
               cat > "$HOME/.npmrc" <<EOF
-              prefix=${NPM_CONFIG_PREFIX}
               cache=${NPM_CONFIG_CACHE}
               EOF
-
-              if [ -x "$HOME/.local/bin/claude" ] \
-                && [ -x "$HOME/.local/bin/gemini" ] \
-                && [ -x "$HOME/.local/bin/codex" ] \
-                && [ -x "$HOME/.local/bin/opencode" ]; then
-                printf 'CLI tools already installed under %s; skipping npm install\n' "$NPM_CONFIG_PREFIX"
-              else
-                npm install --global --omit=dev \
-                  @anthropic-ai/claude-code@latest \
-                  @google/gemini-cli@latest \
-                  @openai/codex@latest \
-                  opencode-ai@1.3.0
-              fi
 
               cat > "$helper_include" <<'EOF'
               [credential "https://github.com"]
@@ -258,11 +242,8 @@ app-template:
               chmod 644 "$HOME/.npmrc"
               chmod 644 "$HOME/.config/opencode/opencode.json"
 
-              rm -f "$HOME/.opencode/bin/opencode"
-              ln -s "$HOME/.local/bin/opencode" "$HOME/.opencode/bin/opencode"
-
-              chown -R 0:0 "$HOME/.cache" "$HOME/.claude" "$HOME/.codex" "$HOME/.config" "$HOME/.gemini" "$HOME/.local" "$HOME/.opencode"
-              chmod -R u+rwX "$HOME/.cache" "$HOME/.claude" "$HOME/.codex" "$HOME/.config" "$HOME/.gemini" "$HOME/.local" "$HOME/.opencode"
+              chown -R 0:0 "$HOME/.cache" "$HOME/.claude" "$HOME/.codex" "$HOME/.config" "$HOME/.gemini" "$HOME/.local" "$HOME/.opencode" "$HOME/.pi"
+              chmod -R u+rwX "$HOME/.cache" "$HOME/.claude" "$HOME/.codex" "$HOME/.config" "$HOME/.gemini" "$HOME/.local" "$HOME/.opencode" "$HOME/.pi"
       containers:
         mariadb:
           image:
@@ -365,10 +346,9 @@ app-template:
             HOME: /home/node
             CODEX_HOME: /home/node/.codex
             GEMINI_CLI_HOME: /home/node
-            NPM_CONFIG_PREFIX: /home/node/.local
             NPM_CONFIG_CACHE: /home/node/.cache/npm
-            PAPERCLIP_OPENCODE_COMMAND: /home/node/.opencode/bin/opencode
-            PATH: /home/node/.opencode/bin:/home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+            PAPERCLIP_OPENCODE_COMMAND: /usr/local/bin/opencode
+            PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             HOST: 0.0.0.0
             PORT: "3100"
             NODE_ENV: production
