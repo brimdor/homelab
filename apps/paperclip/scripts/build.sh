@@ -22,6 +22,7 @@ require_cmd() {
 require_cmd docker
 require_cmd git
 require_cmd curl
+require_cmd rsync
 
 if [ ! -f "$DOCKERFILE" ]; then
   printf 'Dockerfile not found: %s\n' "$DOCKERFILE" >&2
@@ -49,6 +50,12 @@ clone_or_update_repo() {
 
 clone_or_update_repo
 
+BUILD_CONTEXT="$(mktemp -d)"
+trap 'rm -rf "$BUILD_CONTEXT"' EXIT
+
+rsync -a --delete --exclude '.git' "$REPO_DIR/" "$BUILD_CONTEXT/"
+rsync -a "$SCRIPT_DIR/../build-overlay/" "$BUILD_CONTEXT/"
+
 REVISION="$(git -C "$REPO_DIR" rev-parse --short HEAD)"
 SOURCE_IMAGE="$PUSH_IMAGE:$IMAGE_TAG"
 SOURCE_REVISION_IMAGE="$PUSH_IMAGE:sha-$REVISION"
@@ -66,7 +73,7 @@ docker build \
   --file "$DOCKERFILE" \
   --tag "$SOURCE_IMAGE" \
   --tag "$SOURCE_REVISION_IMAGE" \
-  "$REPO_DIR"
+  "$BUILD_CONTEXT"
 
 docker push "$SOURCE_IMAGE"
 docker push "$SOURCE_REVISION_IMAGE"

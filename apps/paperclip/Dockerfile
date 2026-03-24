@@ -1,5 +1,10 @@
 FROM node:lts-trixie-slim AS base
 ARG DEBIAN_FRONTEND=noninteractive
+ARG CLAUDE_CODE_VERSION=latest
+ARG GEMINI_CLI_VERSION=latest
+ARG CODEX_VERSION=latest
+ARG OPENCODE_VERSION=latest
+ARG PI_CODING_AGENT_VERSION=latest
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
@@ -53,10 +58,34 @@ RUN apt-get update \
   && gem install --no-document bundler \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
+RUN npm install --global --omit=dev \
+    "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+    "@google/gemini-cli@${GEMINI_CLI_VERSION}" \
+    "@openai/codex@${CODEX_VERSION}" \
+    "opencode-ai@${OPENCODE_VERSION}" \
+    "@mariozechner/pi-coding-agent@${PI_CODING_AGENT_VERSION}"
+RUN for tool in claude gemini codex pi opencode; do \
+      mv "/usr/local/bin/${tool}" "/usr/local/bin/${tool}-real"; \
+    done
+COPY .paperclip-build/defaults/home /opt/paperclip/defaults/home
+COPY .paperclip-build/bin/paperclip-tool-env /usr/local/bin/paperclip-tool-env
+COPY .paperclip-build/bin/claude /usr/local/bin/claude
+COPY .paperclip-build/bin/gemini /usr/local/bin/gemini
+COPY .paperclip-build/bin/codex /usr/local/bin/codex
+COPY .paperclip-build/bin/pi /usr/local/bin/pi
+COPY .paperclip-build/bin/opencode /usr/local/bin/opencode
+RUN chmod 755 \
+      /usr/local/bin/paperclip-tool-env \
+      /usr/local/bin/claude \
+      /usr/local/bin/gemini \
+      /usr/local/bin/codex \
+      /usr/local/bin/pi \
+      /usr/local/bin/opencode
 
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY patches patches/
 COPY cli/package.json cli/
 COPY server/package.json server/
 COPY ui/package.json ui/
@@ -97,7 +126,7 @@ ENV NODE_ENV=production \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
-  PAPERCLIP_OPENCODE_COMMAND=/home/node/.opencode/bin/opencode \
+  PAPERCLIP_OPENCODE_COMMAND=/usr/local/bin/opencode \
   PAPERCLIP_HOME=/paperclip \
   PAPERCLIP_INSTANCE_ID=default \
   PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \

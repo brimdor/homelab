@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+tool="$1"
+shift
+real_bin="$1"
+shift
+
+paperclip_home="${PAPERCLIP_HOME:-/paperclip}"
+instance_id="${PAPERCLIP_INSTANCE_ID:-default}"
+company_id="${PAPERCLIP_COMPANY_ID:-shared}"
+agent_id="${PAPERCLIP_AGENT_ID:-shared}"
+agent_root="${AGENT_HOME:-${PAPERCLIP_WORKSPACE_CWD:-$paperclip_home/instances/$instance_id/runtime/$company_id/$agent_id}}"
+state_root="$agent_root/.tool-state"
+home_dir="$state_root/home"
+shared_home="${PAPERCLIP_SHARED_HOME:-/home/node}"
+company_codex_home="$paperclip_home/instances/$instance_id/companies/$company_id/codex-home"
+defaults_home="/opt/paperclip/defaults/home"
+
+copy_tree() {
+  local src="$1"
+  local dst="$2"
+
+  [ -d "$src" ] || return 0
+  mkdir -p "$dst"
+  cp -a -n "$src"/. "$dst"/ 2>/dev/null || true
+}
+
+copy_file() {
+  local src="$1"
+  local dst="$2"
+
+  [ -f "$src" ] || return 0
+  mkdir -p "$(dirname "$dst")"
+  cp -a -n "$src" "$dst" 2>/dev/null || true
+}
+
+mkdir -p "$agent_root" "$state_root" "$home_dir"
+copy_file "$shared_home/.gitconfig" "$home_dir/.gitconfig"
+copy_tree "$shared_home/.config/git" "$home_dir/.config/git"
+copy_tree "$shared_home/.config/opencode" "$home_dir/.config/opencode"
+copy_tree "$shared_home/.opencode" "$home_dir/.opencode"
+copy_tree "$shared_home/.pi" "$home_dir/.pi"
+copy_tree "$shared_home/.local/share/opencode" "$home_dir/.local/share/opencode"
+copy_tree "$shared_home/.cache/opencode" "$home_dir/.cache/opencode"
+copy_tree "$defaults_home" "$home_dir"
+
+export HOME="$home_dir"
+export XDG_CONFIG_HOME="$home_dir/.config"
+export XDG_CACHE_HOME="$home_dir/.cache"
+export XDG_DATA_HOME="$home_dir/.local/share"
+export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$home_dir/.cache/npm}"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$NPM_CONFIG_CACHE"
+
+case "$tool" in
+  claude)
+    export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$home_dir/.claude}"
+    mkdir -p "$CLAUDE_CONFIG_DIR"
+    copy_tree "$shared_home/.claude" "$CLAUDE_CONFIG_DIR"
+    ;;
+  codex)
+    export CODEX_HOME="${CODEX_HOME:-$state_root/codex}"
+    mkdir -p "$CODEX_HOME"
+    copy_tree "$company_codex_home" "$CODEX_HOME"
+    copy_tree "$shared_home/.codex" "$CODEX_HOME"
+    ;;
+  gemini)
+    export GEMINI_CLI_HOME="${GEMINI_CLI_HOME:-$home_dir/.gemini}"
+    mkdir -p "$GEMINI_CLI_HOME"
+    copy_tree "$shared_home/.gemini" "$GEMINI_CLI_HOME"
+    ;;
+  pi)
+    mkdir -p "$home_dir/.pi"
+    ;;
+  opencode)
+    mkdir -p "$XDG_CONFIG_HOME/opencode" "$XDG_CACHE_HOME/opencode" "$XDG_DATA_HOME/opencode"
+    ;;
+esac
+
+exec "$real_bin" "$@"
