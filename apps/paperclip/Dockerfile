@@ -54,8 +54,6 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
-ARG OPENCODE_VERSION=1.3.0
-
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
@@ -86,7 +84,6 @@ RUN pnpm --filter @paperclipai/server build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
 FROM base AS production
-ARG OPENCODE_VERSION=1.3.0
 WORKDIR /app
 RUN usermod -o -u 0 node \
   && usermod -g 0 node \
@@ -94,17 +91,13 @@ RUN usermod -o -u 0 node \
   && mkdir -p /home/node /paperclip \
   && chown -R 0:0 /home/node /paperclip
 COPY --chown=0:0 --from=build /app /app
-RUN npm install --global --omit=dev \
-  @anthropic-ai/claude-code@latest \
-  @openai/codex@latest \
-  opencode-ai@${OPENCODE_VERSION}
 
 ENV NODE_ENV=production \
   HOME=/home/node \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
-  PAPERCLIP_OPENCODE_COMMAND=/usr/local/bin/opencode \
+  PAPERCLIP_OPENCODE_COMMAND=/home/node/.opencode/bin/opencode \
   PAPERCLIP_HOME=/paperclip \
   PAPERCLIP_INSTANCE_ID=default \
   PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
