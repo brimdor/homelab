@@ -1,0 +1,30 @@
+NAMESPACE   LAST SEEN   TYPE     REASON              OBJECT                              MESSAGE
+paperclip   22m         Normal   Scheduled           pod/paperclip-68b7d67bcb-562pd      Successfully assigned paperclip/paperclip-68b7d67bcb-562pd to totodile
+argocd      22m         Normal   ResourceDeleted     application/paperclip               admin deleted resource apps/ReplicaSet 'paperclip-68b7d67bcb'
+paperclip   22m         Normal   Killing             pod/paperclip-68b7d67bcb-rsgpx      Stopping container workspace-compat
+paperclip   22m         Normal   Killing             pod/paperclip-68b7d67bcb-rsgpx      Stopping container main
+paperclip   22m         Normal   Killing             pod/paperclip-68b7d67bcb-rsgpx      Stopping container mariadb
+argocd      22m         Normal   ResourceUpdated     application/paperclip               Updated health status: Healthy -> Progressing
+paperclip   22m         Normal   ScalingReplicaSet   deployment/paperclip                Scaled up replica set paperclip-68b7d67bcb from 0 to 1
+paperclip   22m         Normal   SuccessfulCreate    replicaset/paperclip-68b7d67bcb     Created pod: paperclip-68b7d67bcb-562pd
+paperclip   21m         Normal   Pulling             pod/paperclip-68b7d67bcb-562pd      Pulling image "docker.io/alpine:3.21"
+paperclip   21m         Normal   Pulled              pod/paperclip-68b7d67bcb-562pd      Successfully pulled image "docker.io/alpine:3.21" in 465ms (465ms including waiting). Image size: 3654593 bytes.
+paperclip   21m         Normal   Started             pod/paperclip-68b7d67bcb-562pd      Started container bootstrap-state
+paperclip   21m         Normal   Pulled              pod/paperclip-68b7d67bcb-562pd      Successfully pulled image "docker.io/alpine:3.21" in 476ms (476ms including waiting). Image size: 3654593 bytes.
+paperclip   21m         Normal   Pulling             pod/paperclip-68b7d67bcb-562pd      Pulling image "docker.io/alpine:3.21"
+paperclip   21m         Normal   Created             pod/paperclip-68b7d67bcb-562pd      Created container: bootstrap-state
+paperclip   21m         Normal   Created             pod/paperclip-68b7d67bcb-562pd      Created container: opencode-install
+paperclip   21m         Normal   Started             pod/paperclip-68b7d67bcb-562pd      Started container opencode-install
+paperclip   21m         Normal   Pulling             pod/paperclip-68b7d67bcb-562pd      Pulling image "10.0.20.11:32309/paperclip:latest"
+paperclip   21m         Normal   Pulled              pod/paperclip-68b7d67bcb-562pd      Successfully pulled image "10.0.20.11:32309/paperclip:latest" in 21.6s (21.6s including waiting). Image size: 1518464091 bytes.
+paperclip   21m         Normal   Created             pod/paperclip-68b7d67bcb-562pd      Created container: main
+paperclip   21m         Normal   Created             pod/paperclip-68b7d67bcb-562pd      Created container: mariadb
+paperclip   21m         Normal   Started             pod/paperclip-68b7d67bcb-562pd      Started container mariadb
+paperclip   21m         Normal   Pulling             pod/paperclip-68b7d67bcb-562pd      Pulling image "docker.io/alpine:3.21"
+paperclip   21m         Normal   Pulled              pod/paperclip-68b7d67bcb-562pd      Container image "docker.io/mariadb:12.2" already present on machine
+paperclip   21m         Normal   Started             pod/paperclip-68b7d67bcb-562pd      Started container main
+paperclip   21m         Normal   Pulled              pod/paperclip-68b7d67bcb-562pd      Successfully pulled image "docker.io/alpine:3.21" in 468ms (468ms including waiting). Image size: 3654593 bytes.
+paperclip   21m         Normal   Created             pod/paperclip-68b7d67bcb-562pd      Created container: workspace-compat
+paperclip   21m         Normal   Started             pod/paperclip-68b7d67bcb-562pd      Started container workspace-compat
+argocd      21m         Normal   ResourceUpdated     application/paperclip               Updated health status: Progressing -> Healthy
+default     37s         Normal   Valid               clustersecretstore/global-secrets   store validated
