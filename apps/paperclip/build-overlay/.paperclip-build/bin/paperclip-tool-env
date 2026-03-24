@@ -68,9 +68,9 @@ case "$tool" in
     copy_tree "$shared_home/.codex" "$CODEX_HOME"
     ;;
   gemini)
-    export GEMINI_CLI_HOME="$home_dir/.gemini"
-    mkdir -p "$GEMINI_CLI_HOME"
-    copy_tree "$shared_home/.gemini" "$GEMINI_CLI_HOME"
+    export GEMINI_CLI_HOME="$home_dir"
+    mkdir -p "$home_dir/.gemini"
+    copy_tree "$shared_home/.gemini" "$home_dir/.gemini"
     ;;
   pi)
     mkdir -p "$home_dir/.pi"
