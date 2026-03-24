@@ -136,8 +136,6 @@ app-template:
             allowPrivilegeEscalation: false
           env:
             HOME: /home/node
-            CODEX_HOME: /home/node/.codex
-            GEMINI_CLI_HOME: /home/node
             NPM_CONFIG_CACHE: /home/node/.cache/npm
             PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
           command:
@@ -344,9 +342,6 @@ app-template:
           env:
             TZ: America/Chicago
             HOME: /home/node
-            CODEX_HOME: /home/node/.codex
-            GEMINI_CLI_HOME: /home/node
-            NPM_CONFIG_CACHE: /home/node/.cache/npm
             PAPERCLIP_OPENCODE_COMMAND: /usr/local/bin/opencode
             PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             HOST: 0.0.0.0

@@ -50,25 +50,25 @@ export HOME="$home_dir"
 export XDG_CONFIG_HOME="$home_dir/.config"
 export XDG_CACHE_HOME="$home_dir/.cache"
 export XDG_DATA_HOME="$home_dir/.local/share"
-export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$home_dir/.cache/npm}"
+export NPM_CONFIG_CACHE="$home_dir/.cache/npm"
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
 
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$NPM_CONFIG_CACHE"
 
 case "$tool" in
   claude)
-    export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$home_dir/.claude}"
+    export CLAUDE_CONFIG_DIR="$home_dir/.claude"
     mkdir -p "$CLAUDE_CONFIG_DIR"
     copy_tree "$shared_home/.claude" "$CLAUDE_CONFIG_DIR"
     ;;
   codex)
-    export CODEX_HOME="${CODEX_HOME:-$state_root/codex}"
+    export CODEX_HOME="$state_root/codex"
     mkdir -p "$CODEX_HOME"
     copy_tree "$company_codex_home" "$CODEX_HOME"
     copy_tree "$shared_home/.codex" "$CODEX_HOME"
     ;;
   gemini)
-    export GEMINI_CLI_HOME="${GEMINI_CLI_HOME:-$home_dir/.gemini}"
+    export GEMINI_CLI_HOME="$home_dir/.gemini"
     mkdir -p "$GEMINI_CLI_HOME"
     copy_tree "$shared_home/.gemini" "$GEMINI_CLI_HOME"
     ;;
