@@ -10,6 +10,9 @@ app-template:
             repository: 10.0.20.11:32309/scribe
             tag: latest
             pullPolicy: Always
+          ports:
+            - containerPort: 8787
+              name: http
           workingDir: /app
           env:
             NODE_ENV: production
