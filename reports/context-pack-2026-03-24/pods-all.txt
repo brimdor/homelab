@@ -1,0 +1,210 @@
+NAMESPACE           NAME                                                              READY   STATUS      RESTARTS        AGE
+argocd              argocd-application-controller-0                                   1/1     Running     0               37h
+argocd              argocd-applicationset-controller-7b9967d7-8prj9                   1/1     Running     0               36h
+argocd              argocd-dex-server-b4d796b55-pqf5p                                 1/1     Running     0               36h
+argocd              argocd-notifications-controller-867fb8d8c6-wnlxs                  1/1     Running     0               36h
+argocd              argocd-redis-74784b875c-4bwzn                                     1/1     Running     0               37h
+argocd              argocd-repo-server-86d49d4b66-8n7fw                               1/1     Running     0               36h
+argocd              argocd-server-59cd86c5f-mk5fh                                     1/1     Running     0               36h
+backlog             backlog-844f77c6f6-fbzdn                                          3/3     Running     0               37h
+backlog-canary      backlog-canary-5f97974969-2v8jm                                   3/3     Running     0               36h
+budget              budget-76cf7cb8b6-jr7bj                                           2/2     Running     0               36h
+budget-canary       budget-canary-75bcc4cf4-pxr55                                     2/2     Running     0               36h
+cert-manager        cert-manager-854b8894c4-5sdmf                                     1/1     Running     0               37h
+cert-manager        cert-manager-cainjector-5ff4f588f5-c8bsx                          1/1     Running     0               36h
+cert-manager        cert-manager-webhook-7c97749f44-8jv5q                             1/1     Running     0               37h
+cloudflared         cloudflared-dd448d59b-m2hmc                                       1/1     Running     0               37h
+code                weaviate-0                                                        1/1     Running     0               37h
+connect             onepassword-connect-5fcbd4c68b-w66gt                              2/2     Running     0               37h
+connect             onepassword-connect-operator-5dd699c7c-mfwxx                      1/1     Running     0               36h
+default             external-secrets-764b89d78f-v8cj7                                 1/1     Running     0               37h
+default             external-secrets-webhook-bcf58f89b-lwq5f                          1/1     Running     0               36h
+default             rook-ceph-operator-84f6b7f9fb-bhv9t                               1/1     Running     0               37h
+dex                 dex-756c687ddc-bhlvm                                              1/1     Running     0               36h
+doplarr             doplarr-8647b5dcf9-sj8f4                                          1/1     Running     0               36h
+emby                emby-654d467bfc-9r6gw                                             1/1     Running     0               37h
+explorers-hub       explorers-hub-65d9f459bb-d4zk7                                    1/1     Running     0               36h
+explorers-hub       explorers-hub-6c76f6d4d6-h4z4x                                    1/1     Running     0               36h
+external-dns        external-dns-6f48c4f67b-bttdg                                     1/1     Running     0               37h
+external-secrets    external-secrets-85dccb745d-5jtv8                                 1/1     Running     0               37h
+external-secrets    external-secrets-cert-controller-6d9964dd6b-fnv8g                 1/1     Running     0               36h
+external-secrets    external-secrets-webhook-5bff9d77fb-rsx8x                         1/1     Running     0               36h
+gitea               gitea-95955d874-926wm                                             1/1     Running     0               36h
+gitea               gitea-postgresql-0                                                1/1     Running     0               37h
+gitea               gitea-valkey-cluster-0                                            1/1     Running     0               36h
+gitea               gitea-valkey-cluster-1                                            1/1     Running     0               36h
+gitea               gitea-valkey-cluster-2                                            1/1     Running     0               37h
+gitea               gitea-valkey-cluster-3                                            1/1     Running     0               36h
+gitea               gitea-valkey-cluster-4                                            1/1     Running     0               37h
+gitea               gitea-valkey-cluster-5                                            1/1     Running     0               37h
+gpu-operator        gpu-feature-discovery-j8hzv                                       1/1     Running     32 (36h ago)    39d
+gpu-operator        gpu-feature-discovery-l6sds                                       1/1     Running     23 (37h ago)    39d
+gpu-operator        gpu-operator-999cc8dcc-rb8h2                                      1/1     Running     0               36h
+gpu-operator        gpu-operator-node-feature-discovery-gc-7cc7ccfff8-7dgdh           1/1     Running     0               36h
+gpu-operator        gpu-operator-node-feature-discovery-master-d8597d549-g76wk        1/1     Running     0               36h
+gpu-operator        gpu-operator-node-feature-discovery-worker-482gv                  1/1     Running     14 (37h ago)    15d
+gpu-operator        gpu-operator-node-feature-discovery-worker-4vfxp                  1/1     Running     42 (37h ago)    68d
+gpu-operator        gpu-operator-node-feature-discovery-worker-g8fqb                  1/1     Running     72 (37h ago)    79d
+gpu-operator        gpu-operator-node-feature-discovery-worker-kzbhr                  1/1     Running     60 (37h ago)    78d
+gpu-operator        gpu-operator-node-feature-discovery-worker-lkkh7                  1/1     Running     3 (36h ago)     5d3h
+gpu-operator        gpu-operator-node-feature-discovery-worker-mwl4l                  1/1     Running     17 (37h ago)    25d
+gpu-operator        gpu-operator-node-feature-discovery-worker-rj9td                  1/1     Running     56 (36h ago)    79d
+gpu-operator        gpu-operator-node-feature-discovery-worker-vhv8z                  1/1     Running     59 (36h ago)    79d
+gpu-operator        gpu-operator-node-feature-discovery-worker-wcnrz                  1/1     Running     56 (36h ago)    79d
+gpu-operator        gpu-operator-node-feature-discovery-worker-xls78                  1/1     Running     62 (37h ago)    79d
+gpu-operator        nvidia-container-toolkit-daemonset-22xrp                          1/1     Running     18 (37h ago)    39d
+gpu-operator        nvidia-container-toolkit-daemonset-8p2t8                          1/1     Running     18 (36h ago)    39d
+gpu-operator        nvidia-cuda-validator-vbd6f                                       0/1     Completed   1               37h
+gpu-operator        nvidia-cuda-validator-wt7x6                                       0/1     Completed   0               36h
+gpu-operator        nvidia-dcgm-exporter-2skz9                                        1/1     Running     22 (37h ago)    39d
+gpu-operator        nvidia-dcgm-exporter-dhsbk                                        1/1     Running     31 (36h ago)    39d
+gpu-operator        nvidia-device-plugin-daemonset-crwwt                              1/1     Running     32              39d
+gpu-operator        nvidia-device-plugin-daemonset-cx4ss                              1/1     Running     33              39d
+gpu-operator        nvidia-operator-validator-d7zgg                                   1/1     Running     18 (37h ago)    39d
+gpu-operator        nvidia-operator-validator-dvncb                                   1/1     Running     18 (36h ago)    39d
+grafana             grafana-66467f4cc8-94ndl                                          3/3     Running     0               125m
+humbleai            humbleai-585c4bf9bd-lqq86                                         1/1     Running     0               37h
+humbleai-canary     humbleai-canary-57877ffb9b-8hpx7                                  1/1     Running     0               37h
+humbleai-demo       humbleai-demo-764f78c45f-fcdxp                                    1/1     Running     0               37h
+ingress-nginx       ingress-nginx-controller-58fc675dc8-n4l65                         1/1     Running     0               36h
+kanidm              kanidm-0                                                          1/1     Running     0               36h
+kube-system         cilium-97b27                                                      1/1     Running     29 (36h ago)    84d
+kube-system         cilium-bktjp                                                      1/1     Running     26 (37h ago)    84d
+kube-system         cilium-c44ng                                                      1/1     Running     43 (37h ago)    84d
+kube-system         cilium-h7cmt                                                      1/1     Running     32 (36h ago)    84d
+kube-system         cilium-j64nq                                                      1/1     Running     33 (37h ago)    84d
+kube-system         cilium-nwzq6                                                      1/1     Running     33 (37h ago)    78d
+kube-system         cilium-operator-6999764665-4c5st                                  1/1     Running     0               36h
+kube-system         cilium-r8snc                                                      1/1     Running     31 (36h ago)    84d
+kube-system         cilium-rgw2v                                                      1/1     Running     33 (37h ago)    84d
+kube-system         cilium-v5gp5                                                      1/1     Running     26 (37h ago)    55d
+kube-system         cilium-xwhxf                                                      1/1     Running     31 (36h ago)    84d
+kube-system         coredns-6d8646cdb8-jqkrq                                          1/1     Running     0               37h
+kube-system         hubble-relay-69f5fc5b79-vx5wp                                     1/1     Running     0               36h
+kube-system         hubble-ui-6548d56557-5rcgb                                        2/2     Running     0               36h
+kube-system         kube-vip-bulbasaur                                                1/1     Running     123 (36h ago)   99d
+kube-system         kube-vip-charmander                                               1/1     Running     145 (37h ago)   99d
+kube-system         kube-vip-squirtle                                                 1/1     Running     118 (37h ago)   99d
+kube-system         metrics-server-564cb4ff68-jqk2f                                   1/1     Running     0               37h
+kube-system         nfs-client-provisioner-nfs-subdir-external-provisioner-854r4rtf   1/1     Running     0               37h
+kured               kured-24dq7                                                       1/1     Running     24 (37h ago)    53d
+kured               kured-4r994                                                       1/1     Running     11 (37h ago)    25d
+kured               kured-bn85l                                                       1/1     Running     23 (36h ago)    53d
+kured               kured-fb2hr                                                       1/1     Running     25 (37h ago)    53d
+kured               kured-hhs42                                                       1/1     Running     25 (37h ago)    53d
+kured               kured-k25tm                                                       1/1     Running     25 (37h ago)    53d
+kured               kured-pkvvx                                                       1/1     Running     24 (36h ago)    53d
+kured               kured-rt846                                                       1/1     Running     24 (36h ago)    53d
+kured               kured-vg7pf                                                       1/1     Running     24 (36h ago)    53d
+kured               kured-wxpd9                                                       1/1     Running     8 (37h ago)     15d
+loki                loki-0                                                            1/1     Running     0               37h
+loki                loki-promtail-79pqz                                               1/1     Running     46 (37h ago)    105d
+loki                loki-promtail-b97xw                                               1/1     Running     43 (36h ago)    105d
+loki                loki-promtail-bp6zx                                               1/1     Running     44 (36h ago)    105d
+loki                loki-promtail-gbjnm                                               1/1     Running     43 (36h ago)    105d
+loki                loki-promtail-kqwwc                                               1/1     Running     28 (37h ago)    68d
+loki                loki-promtail-tf7wq                                               1/1     Running     33 (37h ago)    78d
+loki                loki-promtail-xwnbd                                               1/1     Running     55 (37h ago)    105d
+loki                loki-promtail-xx4nn                                               1/1     Running     11 (37h ago)    25d
+matrix              matrix-dendrite-77bf47567c-4r8rl                                  1/1     Running     0               37h
+matrix              matrix-elementweb-756868d58d-6v2v2                                1/1     Running     0               37h
+matrix              matrix-postgresql-0                                               1/1     Running     0               36h
+monitoring-system   alertmanager-monitoring-system-kube-pro-alertmanager-0            3/3     Running     0               37h
+monitoring-system   monitoring-system-kube-pro-operator-869749955b-wrvtp              1/1     Running     0               37h
+monitoring-system   monitoring-system-kube-state-metrics-757c775956-qps7b             1/1     Running     0               36h
+monitoring-system   monitoring-system-prometheus-node-exporter-6thzr                  1/1     Running     8 (36h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-6trhk                  1/1     Running     8 (37h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-cl94h                  1/1     Running     8 (37h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-hlg7l                  1/1     Running     8 (37h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-j2l2t                  1/1     Running     8 (37h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-mkdzh                  1/1     Running     8 (37h ago)     15d
+monitoring-system   monitoring-system-prometheus-node-exporter-s6l6g                  1/1     Running     8 (36h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-vnzn4                  1/1     Running     8 (37h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-wb2cs                  1/1     Running     8 (36h ago)     16d
+monitoring-system   monitoring-system-prometheus-node-exporter-wrfzx                  1/1     Running     8 (36h ago)     16d
+monitoring-system   prometheus-monitoring-system-kube-pro-prometheus-0                2/2     Running     0               36h
+n8n                 n8n-db-756b95b648-x2lrm                                           2/2     Running     0               37h
+n8n                 n8n-main-d586c6fcc-c9cn7                                          2/2     Running     0               36h
+nextcloud           nextcloud-7dcdfd77ff-dfhzw                                        2/2     Running     0               36h
+nextcloud           nextcloud-mariadb-0                                               1/1     Running     0               37h
+nextcloud           nextcloud-valkey-0                                                1/1     Running     0               36h
+ollama              ollama-5687cd9f6-7pmk6                                            1/1     Running     0               36h
+ollama              ollama-model-puller-df956569b-g8xnh                               1/1     Running     0               37h
+openwebui           openwebui-54df8b6fd7-sjncn                                        1/1     Running     0               36h
+paperclip           paperclip-ccb684f5c-qz4pq                                         3/3     Running     0               67m
+postgres            postgres-79fbb6c7bd-lxcqk                                         3/3     Running     0               37h
+qdrant              qdrant-0                                                          1/1     Running     0               36h
+radarr              radarr-f6666f9fc-wsrnv                                            1/1     Running     0               37h
+renovate            renovate-29571240-6cfj7                                           0/1     Completed   0               30h
+renovate            renovate-29572680-th9hq                                           0/1     Completed   0               6h32m
+rook-ceph           ceph-csi-controller-manager-59b6bb679-cvzj7                       1/1     Running     0               36h
+rook-ceph           rook-ceph-conversion-webhook-59888b8875-6md7m                     1/1     Running     0               37h
+rook-ceph           rook-ceph-crashcollector-arcanine-5d9d65b756-v9j7v                1/1     Running     0               36h
+rook-ceph           rook-ceph-crashcollector-bulbasaur-59cd9fcffd-rhnx6               1/1     Running     0               36h
+rook-ceph           rook-ceph-crashcollector-charmander-55579ddc5b-dchq6              1/1     Running     0               37h
+rook-ceph           rook-ceph-crashcollector-cyndaquil-5dbddfb65c-9fw9h               1/1     Running     0               36h
+rook-ceph           rook-ceph-crashcollector-growlithe-7576697d66-thknh               1/1     Running     0               37h
+rook-ceph           rook-ceph-crashcollector-pikachu-655f7d5d4c-7rv9s                 1/1     Running     0               37h
+rook-ceph           rook-ceph-crashcollector-sprigatito-846c5596b7-m24zb              1/1     Running     0               37h
+rook-ceph           rook-ceph-crashcollector-squirtle-6754b64545-f49nb                1/1     Running     0               37h
+rook-ceph           rook-ceph-exporter-arcanine-6596fc4cd9-4nrlp                      1/1     Running     0               36h
+rook-ceph           rook-ceph-exporter-bulbasaur-5f8d86d56f-cmsmc                     1/1     Running     0               36h
+rook-ceph           rook-ceph-exporter-charmander-d8fd9f4d5-rnztz                     1/1     Running     0               37h
+rook-ceph           rook-ceph-exporter-cyndaquil-6ffd99c4c8-jd7p6                     1/1     Running     0               36h
+rook-ceph           rook-ceph-exporter-growlithe-7568dc95c-cvr72                      1/1     Running     0               37h
+rook-ceph           rook-ceph-exporter-pikachu-6d66c97dbd-q5xfd                       1/1     Running     0               37h
+rook-ceph           rook-ceph-exporter-sprigatito-dffcb875d-9dzrr                     1/1     Running     0               37h
+rook-ceph           rook-ceph-exporter-squirtle-79bc59ff44-mbgrs                      1/1     Running     0               37h
+rook-ceph           rook-ceph-mds-standard-rwx-a-6bd6586df-llwmh                      1/1     Running     0               37h
+rook-ceph           rook-ceph-mds-standard-rwx-b-779b85d79c-h57cp                     1/1     Running     0               37h
+rook-ceph           rook-ceph-mgr-a-85cf456ccc-99sdq                                  2/2     Running     0               37h
+rook-ceph           rook-ceph-mgr-b-8564fb67f7-m6z4z                                  2/2     Running     0               36h
+rook-ceph           rook-ceph-mon-h-5ccccdb9bc-qklwl                                  1/1     Running     0               37h
+rook-ceph           rook-ceph-mon-j-746c974688-r8nfg                                  1/1     Running     0               37h
+rook-ceph           rook-ceph-mon-k-87ddd7cdf-dz9l2                                   1/1     Running     0               36h
+rook-ceph           rook-ceph-operator-7dd9d5998c-zck6c                               1/1     Running     0               36h
+rook-ceph           rook-ceph-osd-1-6c5b9465b6-ncwwm                                  1/1     Running     0               37h
+rook-ceph           rook-ceph-osd-2-9c8b6cdf6-7zrk7                                   1/1     Running     0               36h
+rook-ceph           rook-ceph-osd-6-78fb5bc9db-8bkw9                                  1/1     Running     0               37h
+rook-ceph           rook-ceph-osd-7-55c9677467-mp8gm                                  1/1     Running     0               37h
+rook-ceph           rook-ceph-osd-8-68757d6697-gzfkb                                  1/1     Running     0               36h
+rook-ceph           rook-ceph-osd-prepare-arcanine-qjg2r                              0/1     Completed   0               36h
+rook-ceph           rook-ceph-osd-prepare-cyndaquil-6ksjx                             0/1     Completed   0               36h
+rook-ceph           rook-ceph-osd-prepare-growlithe-79ndv                             0/1     Completed   0               36h
+rook-ceph           rook-ceph-osd-prepare-sprigatito-rqnz2                            0/1     Completed   0               36h
+rook-ceph           rook-ceph-snapshot-controller-6dbc5fd87b-jrscn                    1/1     Running     0               36h
+rook-ceph           rook-ceph-tools-658fd4db6f-kplr4                                  1/1     Running     0               37h
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-ctrlplugin-86757c8c54-4pb42         5/5     Running     0               36h
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-ctrlplugin-86757c8c54-pd4wp         5/5     Running     0               37h
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-42g9r                    2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-886cd                    2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-8r9cb                    2/2     Running     32 (36h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-9h6kl                    2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-9kz8x                    2/2     Running     32 (36h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-sqgsz                    2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-tmsbm                    2/2     Running     31 (37h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-ttd2b                    2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-w6qr7                    2/2     Running     32 (36h ago)    16d
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-xzxz5                    2/2     Running     32 (36h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-ctrlplugin-66f54b995f-c6wz8            5/5     Running     0               36h
+rook-ceph           rook-ceph.rbd.csi.ceph.com-ctrlplugin-66f54b995f-gxd5l            5/5     Running     0               36h
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-2pxd8                       2/2     Running     32 (36h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-5pfrr                       2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-6kvt2                       2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-bl2sf                       2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-crg8c                       2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-j4cnx                       2/2     Running     32 (36h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-l9d5f                       2/2     Running     32 (36h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-lhjml                       2/2     Running     31 (36h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-qkncb                       2/2     Running     32 (37h ago)    16d
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-wvjg9                       2/2     Running     32 (37h ago)    16d
+sabnzbd             sabnzbd-6fc46c74fc-v99ls                                          2/2     Running     0               36h
+searxng             searxng-main-85d6c58b8c-2t74j                                     1/1     Running     0               37h
+searxng             searxng-redis-5b5d46bf8c-hwrps                                    1/1     Running     0               37h
+sonarr              sonarr-6d44cd4845-bw62p                                           1/1     Running     0               36h
+strata              strata-7f7688575c-cn52n                                           1/1     Running     0               36h
+volsync-system      volsync-system-69476fddfd-858vh                                   1/1     Running     0               36h
+weaviate-test       weaviate-0                                                        1/1     Running     0               37h
+woodpecker          woodpecker-agent-0                                                1/1     Running     0               37h
+woodpecker          woodpecker-server-0                                               1/1     Running     0               36h
+zot                 zot-0                                                             1/1     Running     0               36h
