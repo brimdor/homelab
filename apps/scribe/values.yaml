@@ -7,7 +7,7 @@ app-template:
         main:
           nameOverride: scribe
           image:
-            repository: registry.eaglepass.io/scribe
+            repository: 10.0.20.11:32309/scribe
             tag: latest
             pullPolicy: Always
           workingDir: /app
