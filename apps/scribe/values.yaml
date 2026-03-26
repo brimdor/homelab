@@ -3,8 +3,6 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
-      podSecurityContext:
-        fsGroup: 1000
       containers:
         main:
           nameOverride: scribe
@@ -89,6 +87,9 @@ app-template:
       storageClass: standard-rwo
       globalMounts:
         - path: /app/server/repos
-  podAnnotations:
-    operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-secrets
-    operator.1password.io/item-name: secrets
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-secrets
+      operator.1password.io/item-name: secrets
