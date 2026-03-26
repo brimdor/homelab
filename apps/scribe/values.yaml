@@ -22,19 +22,16 @@ app-template:
           envFrom:
             - secretRef:
                 name: scribe-secrets
-          probes:
-            liveness:
-              enabled: true
-              path: /api/health
-              port: 8787
-              initialDelaySeconds: 30
-              periodSeconds: 30
-            readiness:
-              enabled: true
-              path: /api/health
-              port: 8787
-              initialDelaySeconds: 10
-              periodSeconds: 10
+          livenessProbe:
+            enabled: true
+            path: /api/health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            enabled: true
+            path: /api/health
+            initialDelaySeconds: 10
+            periodSeconds: 10
           resources:
             limits:
               cpu: 2
