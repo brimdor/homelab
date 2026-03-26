@@ -1,0 +1,3 @@
+NAMESPACE    LAST SEEN   TYPE      REASON      OBJECT                              MESSAGE
+woodpecker   46m         Warning   Unhealthy   pod/woodpecker-server-0             Liveness probe failed: HTTP probe failed with statuscode: 500
+default      3m55s       Normal    Valid       clustersecretstore/global-secrets   store validated

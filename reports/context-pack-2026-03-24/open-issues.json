@@ -1,0 +1,26 @@
+[
+  {
+    "number": 74,
+    "title": "chore(deps): update helm release nextcloud to v9",
+    "created_at": "2026-03-09T14:02:36Z",
+    "labels": []
+  },
+  {
+    "number": 73,
+    "title": "chore(deps): update bitnamilegacy/postgresql docker tag to v17",
+    "created_at": "2026-03-08T14:02:31Z",
+    "labels": []
+  },
+  {
+    "number": 72,
+    "title": "fix(deps): update all non-major dependencies",
+    "created_at": "2026-03-08T14:02:28Z",
+    "labels": []
+  },
+  {
+    "number": 4,
+    "title": "Dependency Dashboard",
+    "created_at": "2025-12-09T15:01:32Z",
+    "labels": []
+  }
+]
