@@ -3,6 +3,8 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
+      podSecurityContext:
+        fsGroup: 1000
       containers:
         main:
           nameOverride: scribe
