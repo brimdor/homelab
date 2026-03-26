@@ -2,94 +2,85 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
+      replicas: 1
       containers:
         main:
+          nameOverride: scribe
           image:
             repository: registry.eaglepass.io/scribe
             tag: latest
             pullPolicy: Always
+          workingDir: /app
           env:
-            TZ: America/Chicago
-            HOST: 0.0.0.0
-            PORT: "3100"
             NODE_ENV: production
-            SCRIBE_DB_ENCRYPTION_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: scribe-db-encryption-key
-            GITHUB_TOKEN:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: github-token
+            PORT: "8787"
+            SCRIBE_DB_PATH: /app/server/data/scribe.db
+            SCRIBE_SESSION_TTL_HOURS: "24"
+            SCRIBE_REPO_SYNC_ROOT: /app/server/repos
+            OLLAMA_BASE_URL: http://ollama.ollama.svc.cluster.local:11434
+            TZ: America/Chicago
+          envFrom:
+            - secretRef:
+                name: scribe-secrets
           probes:
             liveness:
               enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /api/health
-                  port: http
-                initialDelaySeconds: 10
-                periodSeconds: 30
-                failureThreshold: 3
+              path: /api/health
+              port: 8787
+              initialDelaySeconds: 30
+              periodSeconds: 30
             readiness:
               enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /api/health
-                  port: http
-                initialDelaySeconds: 5
-                periodSeconds: 10
-                failureThreshold: 3
+              path: /api/health
+              port: 8787
+              initialDelaySeconds: 10
+              periodSeconds: 10
           resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
             limits:
-              cpu: 500m
-              memory: 1Gi
+              cpu: 2
+              memory: 4096Mi
+            requests:
+              cpu: 0.5
+              memory: 1024Mi
   service:
     main:
-      controller: main
       primary: true
       ports:
         http:
-          port: 3100
+          port: 8787
           protocol: HTTP
   ingress:
     main:
       enabled: true
       className: nginx
       annotations:
-        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: scribe.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
-              service:
-                identifier: main
-                port: http
       tls:
         - hosts:
             - scribe.eaglepass.io
-          secretName: scribe-tls-certificate
+          secretName: scribe-tls
   persistence:
     data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/scribe
-      advancedMounts:
-        main:
-          main:
-            - path: /app/server/data
-            - path: /app/server/repos
-  defaultPodOptions:
-    annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-secrets"
-      operator.1password.io/item-name: "scribe-secrets"
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: standard-rwo
+      globalMounts:
+        - path: /app/server/data
+    repos:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      storageClass: standard-rwo
+      globalMounts:
+        - path: /app/server/repos
+  podAnnotations:
+    operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-secrets
+    operator.1password.io/item-name: secrets
