@@ -28,19 +28,15 @@ app-template:
           probes:
             liveness:
               enabled: true
-              custom: true
               spec:
-                httpGet:
-                  path: /api/health
+                tcpSocket:
                   port: 8787
                 initialDelaySeconds: 30
                 periodSeconds: 30
             readiness:
               enabled: true
-              custom: true
               spec:
-                httpGet:
-                  path: /api/health
+                tcpSocket:
                   port: 8787
                 initialDelaySeconds: 10
                 periodSeconds: 10
