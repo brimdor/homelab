@@ -7,7 +7,7 @@ app-template:
         main:
           nameOverride: echo-dashboard
           image:
-            repository: registry.eaglepass.io:32309/echo-dashboard
+            repository: 10.0.20.11:32309/echo-dashboard
             tag: latest
             pullPolicy: Always
           ports:
