@@ -32,7 +32,7 @@ app-template:
               spec:
                 httpGet:
                   path: /api/health
-                  port: http
+                  port: 8787
                 initialDelaySeconds: 30
                 periodSeconds: 30
             readiness:
@@ -41,7 +41,7 @@ app-template:
               spec:
                 httpGet:
                   path: /api/health
-                  port: http
+                  port: 8787
                 initialDelaySeconds: 10
                 periodSeconds: 10
           resources:
