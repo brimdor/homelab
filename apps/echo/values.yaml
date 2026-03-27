@@ -17,7 +17,7 @@ app-template:
             TZ: America/Chicago
           envFrom:
             - secretRef:
-                name: echo-secrets
+                name: secrets
           probes:
             liveness:
               enabled: true
