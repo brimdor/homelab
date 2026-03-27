@@ -8,7 +8,7 @@ app-template:
           nameOverride: echo-dashboard
           image:
             repository: 10.0.20.11:32309/echo-dashboard
-            tag: latest
+            tag: "20260327-135933"
             pullPolicy: Always
           ports:
             - containerPort: 8000
