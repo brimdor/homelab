@@ -20,7 +20,7 @@ app-template:
             SCRIBE_DB_PATH: /app/server/data/scribe.db
             SCRIBE_SESSION_TTL_HOURS: "24"
             SCRIBE_REPO_SYNC_ROOT: /app/server/repos
-            OLLAMA_BASE_URL: http://ollama.ollama.svc.cluster.local:11434
+            OLLAMA_BASE_URL: "http://localai.localai.svc.cluster.local:8080"
             TZ: America/Chicago
           envFrom:
             - secretRef:
