@@ -19,7 +19,13 @@ ENV NODE_ENV=production \
 EXPOSE 3100
 
 # The actual deployment uses image: 10.0.20.11:32309/scribe:latest
-# which is built and pushed from ~/Documents/Github/scribe
+# which is built and pushed from ~/Documents/Github/scribe using:
+#   npm install && npm run build
+#   docker build -t registry.eaglepass.io/scribe:latest .
+#   docker push registry.eaglepass.io/scribe:latest
+#   docker tag registry.eaglepass.io/scribe:latest 10.0.20.11:32309/scribe:latest
+#   docker push 10.0.20.11:32309/scribe:latest
+#
 # This container would need the following copied in to work:
 # COPY dist/ dist/
 # COPY server/ server/
