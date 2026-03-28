@@ -18,7 +18,7 @@ app-template:
             ENABLE_LOGIN_FORM: "true"
             WEBUI_URL: "https://open.eaglepass.io"
             BYPASS_MODEL_ACCESS_CONTROL: "false"
-            OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
+            OLLAMA_BASE_URL: "http://localai.localai.svc.cluster.local:8080"
             RAG_EMBEDDING_ENGINE: "ollama"
             VECTOR_DB: "qdrant"
             QDRANT_URI: "http://qdrant.qdrant.svc.cluster.local:6333"
