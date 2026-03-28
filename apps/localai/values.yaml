@@ -1,10 +1,11 @@
-nameOverride: localai
-fullnameOverride: localai
 
 # Values for umbrella chart to configure the go-skynet/local-ai subchart.
 # Schema reference: https://raw.githubusercontent.com/go-skynet/helm-charts/main/charts/local-ai/values.yaml
 
 local-ai:
+  nameOverride: localai
+  fullnameOverride: localai
+
   # Deployment image override
   deployment:
     image:
