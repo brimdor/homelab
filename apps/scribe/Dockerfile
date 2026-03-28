@@ -2,7 +2,7 @@
 # The actual Scribe image is built from ~/Documents/Github/scribe and pushed
 # to registry.eaglepass.io / 10.0.20.11:32309 during deploy.
 # This Dockerfile serves as a local/dev fallback reference only.
-FROM node:20-alpine
+FROM node:24-alpine
 
 RUN apk add --no-cache \
     dumb-init \
