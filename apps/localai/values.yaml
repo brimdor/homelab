@@ -21,9 +21,11 @@ local-ai:
       LOCALAI_P2P: "true"
       LOCALAI_FEDERATED: "true"
       # NGPULayers: "32"
-      LOCALAI_SINGLE_ACTIVE_BACKEND: "true"
+      LOCALAI_SINGLE_ACTIVE_BACKEND: "false"
+      LOCALAI_MAX_ACTIVE_BACKENDS: "0"
       LOCALAI_PARALLEL_REQUESTS: "false"
-      LOCALAI_WATCHDOG_IDLE: "true"
+      LOCALAI_LOAD_TO_MEMORY: "qwen3-embedding-4b,sd-3.5-medium-ggml"
+      LOCALAI_WATCHDOG_IDLE: "false"
       LOCALAI_WATCHDOG_BUSY: "true"
       LOCALAI_WATCHDOG_IDLE_TIMEOUT: 5m
       LOCALAI_WATCHDOG_BUSY_TIMEOUT: 5m
