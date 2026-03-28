@@ -92,8 +92,8 @@ local-ai:
 
   # Ingress for eaglepass.io
   ingress:
-    enabled: true
-    className: "nginx"
+    main:
+      enabled: true
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
