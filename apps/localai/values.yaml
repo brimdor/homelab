@@ -24,7 +24,7 @@ local-ai:
       LOCALAI_SINGLE_ACTIVE_BACKEND: "false"
       LOCALAI_MAX_ACTIVE_BACKENDS: "0"
       LOCALAI_PARALLEL_REQUESTS: "false"
-      LOCALAI_LOAD_TO_MEMORY: "sd-3.5-medium-ggml,kokoro"
+      LOCALAI_LOAD_TO_MEMORY: "sd-3.5-medium-ggml"
       LOCALAI_WATCHDOG_IDLE: "false"
       LOCALAI_WATCHDOG_BUSY: "true"
       LOCALAI_WATCHDOG_IDLE_TIMEOUT: 5m
