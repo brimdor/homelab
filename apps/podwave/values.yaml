@@ -53,8 +53,6 @@ app-template:
       className: nginx
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
-        nginx.ingress.kubernetes.io/auth-type: basic
-        nginx.ingress.kubernetes.io/auth-secret: podwave-auth
       hosts:
         - host: podwave.eaglepass.io
           paths:
