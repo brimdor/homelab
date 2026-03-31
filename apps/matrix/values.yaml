@@ -55,7 +55,7 @@ dendrite:
     enabled: true
     image:
       repository: bitnamilegacy/postgresql
-      tag: "17.6.0"
+      tag: "16.6.0"
     persistence:
       enabled: true
       type: nfs

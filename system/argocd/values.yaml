@@ -91,23 +91,27 @@ argocd-apps:
               kind: CustomResourceDefinition
               jqPathExpressions:
                 - .spec.conversion
-                - .spec.additionalPrinterColumns
                 - .status
+                - .spec.versions[].additionalPrinterColumns[] | select(.jsonPath == ".status.refreshTime")
+            - group: argoproj.io
+              kind: ApplicationSet
+              jqPathExpressions:
+                - .spec.template.spec.syncPolicy.retry
+            - group: apps
+              kind: StatefulSet
+              name: matrix-postgresql
+              namespace: matrix
+              jqPathExpressions:
+                - .spec.template.spec.containers[] | select(.name == "postgresql") | .image
           syncPolicy:
             automated:
               prune: true
               selfHeal: true
-              retry:
-                limit: 10
-                backoff:
-                  duration: 1m
-                  factor: 2
-                  maxDuration: 16m
-              syncOptions:
-                - CreateNamespace=true
-                - ApplyOutOfSyncOnly=true
-                - ServerSideApply=true
-                - RespectIgnoreDifferences=true
+            syncOptions:
+              - CreateNamespace=true
+              - ApplyOutOfSyncOnly=true
+              - ServerSideApply=true
+              - RespectIgnoreDifferences=true
 
     root-crd-replace:
       namespace: argocd
@@ -162,16 +166,21 @@ argocd-apps:
               jqPathExpressions:
                 - .spec.conversion
                 - .status
+                - .spec.versions[].additionalPrinterColumns[] | select(.jsonPath == ".status.refreshTime")
+            - group: argoproj.io
+              kind: ApplicationSet
+              jqPathExpressions:
+                - .spec.template.spec.syncPolicy.retry
+            - group: apps
+              kind: StatefulSet
+              name: matrix-postgresql
+              namespace: matrix
+              jqPathExpressions:
+                - .spec.template.spec.containers[] | select(.name == "postgresql") | .image
           syncPolicy:
             automated:
               prune: true
               selfHeal: true
-            retry:
-              limit: 10
-              backoff:
-                duration: 1m
-                factor: 2
-                maxDuration: 16m
             syncOptions:
               - CreateNamespace=true
               - ApplyOutOfSyncOnly=true
