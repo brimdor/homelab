@@ -443,7 +443,7 @@ ollama:
   # -- Init containers to add to the pod
   initContainers:
     - name: ollama-ssh-keys
-      image: alpine:3.21
+      image: alpine:3.23
       command: [sh, -c]
       args:
         - |
