@@ -131,7 +131,7 @@ rook-ceph-cluster:
 pvcHygiene:
   enabled: true
   schedule: "0 3 * * *"
-  image: registry.k8s.io/kubectl:v1.33.6
+  image: registry.k8s.io/kubectl:v1.35.3
   mode: report
   minAgeHours: 168
   approvedDeleteAnnotation: homelab.eaglepass.io/pvc-prune
