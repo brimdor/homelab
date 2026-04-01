@@ -79,10 +79,12 @@ app-template:
           secretName: podwave-canary-tls
   persistence:
     data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/podwave-canary
-    downloads:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/podwave-canary-downloads
+      type: persistentVolumeClaim
+      size: 5Gi
+      accessMode: ReadWriteOnce
+      storageClass: standard-rwo
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
+            - path: /app/downloads
