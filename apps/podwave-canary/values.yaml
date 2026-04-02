@@ -6,7 +6,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/podwave
-            tag: "2026-04-01-v10"
+            tag: "2026-04-02-v11"
             pullPolicy: Always
           env:
             TZ: America/Chicago
