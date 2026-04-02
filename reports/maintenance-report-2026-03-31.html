@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Homelab Maintenance Report — 2026-03-31</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; line-height: 1.6; padding: 2rem; }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { color: #58a6ff; font-size: 1.8rem; margin-bottom: 0.25rem; }
+    h2 { color: #8b949e; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 2rem 0 1rem; border-bottom: 1px solid #21262d; padding-bottom: 0.5rem; }
+    h3 { color: #e6edf3; font-size: 1.1rem; margin-bottom: 0.75rem; }
+    .meta { color: #8b949e; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .status-banner { border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; }
+    .status-banner.warn { background: #3d2e00; border: 1px solid #d29922; }
+    .status-banner.ok { background: #0d2d1a; border: 1px solid #238636; }
+    .status-icon { font-size: 1.5rem; }
+    .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    .summary-table th { text-align: left; color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; }
+    .summary-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #161b22; }
+    .summary-table tr:hover { background: #161b22; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-ok { background: #0d2d1a; color: #3fb950; border: 1px solid #3fb950; }
+    .badge-warn { background: #3d2e00; color: #d29922; border: 1px solid #d29922; }
+    .badge-fail { background: #3d0d0d; color: #f85149; border: 1px solid #f85149; }
+    .badge-skip { background: #1c2128; color: #8b949e; border: 1px solid #484f58; }
+    .task { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+    .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; gap: 1rem; }
+    .task-id { font-family: 'Courier New', monospace; color: #79c0ff; font-size: 0.8rem; }
+    .task-title { font-weight: 600; color: #e6edf3; }
+    .task-detail { color: #8b949e; font-size: 0.85rem; margin: 0.35rem 0; }
+    .task-cmd { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 0.5rem 0.75rem; font-family: 'Courier New', monospace; font-size: 0.8rem; color: #7ee787; margin: 0.35rem 0; white-space: pre-wrap; word-break: break-all; }
+    .note { background: #1c2128; border-left: 3px solid #58a6ff; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; font-size: 0.85rem; }
+    .note.warn { border-left-color: #d29922; }
+    .note.fail { border-left-color: #f85149; }
+    .deferred { background: #1c2128; border-left: 3px solid #8b949e; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; font-size: 0.85rem; }
+    .cluster-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+    .cluster-card { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 1rem; }
+    .cluster-card .label { color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .cluster-card .value { color: #e6edf3; font-size: 1.1rem; font-weight: 600; margin-top: 0.25rem; }
+    .cluster-card .value.ok { color: #3fb950; }
+    .cluster-card .value.warn { color: #d29922; }
+    .cluster-card .value.fail { color: #f85149; }
+    .changelog { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .changelog th { text-align: left; color: #8b949e; font-size: 0.7rem; text-transform: uppercase; padding: 0.4rem 0.75rem; border-bottom: 1px solid #21262d; }
+    .changelog td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #161b22; color: #e6edf3; }
+    .changelog td:first-child { color: #8b949e; white-space: nowrap; }
+    .changelog .badge { font-size: 0.7rem; }
+    .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #21262d; color: #484f58; font-size: 0.8rem; text-align: center; }
+    code { color: #79c0ff; font-family: 'Courier New', monospace; font-size: 0.85em; background: #0d1117; padding: 0.1em 0.3em; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+<h1>Homelab Maintenance Report</h1>
+<div class="meta">2026-03-31 &nbsp;·&nbsp; Unscheduled Maintenance &nbsp;·&nbsp; Duration: ~45 minutes</div>
+
+<div class="status-banner warn">
+  <span class="status-icon">⚠️</span>
+  <div>
+    <strong>Overall Status: PARTIAL SUCCESS</strong><br>
+    <span style="color: #d29922; font-size: 0.9rem;">3 of 9 items fully resolved. 2 items deferred. 1 recurring issue acknowledged.</span>
+  </div>
+</div>
+
+<!-- EXECUTIVE SUMMARY -->
+<h2>Executive Summary</h2>
+<p style="color: #8b949e; margin-bottom: 1rem; font-size: 0.9rem;">
+  This unscheduled maintenance addressed 9 action items from <a href="https://git.eaglepass.io/ops/homelab/issues/77" style="color: #58a6ff;">Issue #77</a>. The cluster is in a known-but-managed state — the only unresolved functional issue is the Ceph prometheus mgr module, which requires a future Ceph version bump to fully resolve.
+</p>
+
+<!-- CLUSTER STATE -->
+<h2>Final Cluster State</h2>
+<div class="cluster-grid">
+  <div class="cluster-card">
+    <div class="label">Nodes</div>
+    <div class="value ok">10/10 Ready</div>
+  </div>
+  <div class="cluster-card">
+    <div class="label">Ceph Health</div>
+    <div class="value warn">HEALTH_WARN</div>
+  </div>
+  <div class="cluster-card">
+    <div class="label">Ceph Usage</div>
+    <div class="value ok">718 GiB / 3.0 TiB</div>
+  </div>
+  <div class="cluster-card">
+    <div class="label">ArgoCD Apps</div>
+    <div class="value ok">Synced</div>
+  </div>
+  <div class="cluster-card">
+    <div class="label">Strata Pod</div>
+    <div class="value ok">Running</div>
+  </div>
+  <div class="cluster-card">
+    <div class="label">Grafana</div>
+    <div class="value ok">Healthy</div>
+  </div>
+</div>
+
+<!-- TASKS -->
+<h2>Task Results</h2>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">C1 · P1</span> <span class="task-title">Merge PR #78 — Rook Ceph v1.19.3</span></div>
+    <span class="badge badge-ok">COMPLETE</span>
+  </div>
+  <div class="task-detail">PR was already merged prior to this session. ArgoCD synced successfully.</div>
+  <div class="task-detail"><strong>Additional step:</strong> Prometheus mgr module was re-enabled during this maintenance window to test if v1.19.3 resolved the crash loop. The module crashed again — the Ceph v20.2.0 bug persists in v1.19.3. Re-disabled as a workaround. No functional impact since kube-prometheus-stack scrapes Ceph via service monitors.</div>
+</div>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">C2 · P2</span> <span class="task-title">Clean up podwave stale pod and PVC</span></div>
+    <span class="badge badge-ok">COMPLETE</span>
+  </div>
+  <div class="task-detail">No orphaned podwave resources found in the cluster. App was already decommissioned and removed.</div>
+</div>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">C3 · P2</span> <span class="task-title">Fix strata NFS stale mount</span></div>
+    <span class="badge badge-ok">COMPLETE</span>
+  </div>
+  <div class="task-detail">Pod <code>strata-7f7688575c-hr2n7</code> was force-deleted. Replacement pod <code>strata-7f7688575c-m95pb</code> rescheduled and is Running with no FailedMount events. NFS mount healthy.</div>
+</div>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">R1 · P2</span> <span class="task-title">Merge PR #76 — node.js v24</span></div>
+    <span class="badge badge-ok">COMPLETE</span>
+  </div>
+  <div class="task-detail">PR merged successfully. ArgoCD synced the update.</div>
+</div>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">R2 · P2</span> <span class="task-title">Merge PR #72 — non-major dependencies</span></div>
+    <span class="badge badge-ok">COMPLETE</span>
+  </div>
+  <div class="task-detail">PR merged successfully. ArgoCD synced the update.</div>
+</div>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">R4 · P3</span> <span class="task-title">Verify grafana readiness probe</span></div>
+    <span class="badge badge-ok">COMPLETE</span>
+  </div>
+  <div class="task-detail">Grafana is healthy and responding. Health endpoint returned <code>{"database":"ok"}</code>. Version 12.3.1. No action needed.</div>
+</div>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">R5 · P3</span> <span class="task-title">Investigate promtail restart loops</span></div>
+    <span class="badge badge-ok">COMPLETE</span>
+  </div>
+  <div class="task-detail">Promtail pods show elevated restart counts (up to 58 on one node). Logs show this is caused by kured node reboots — promtail gracefully exits and restarts as part of the node drain/reboot cycle. This is expected behavior. Current pods are stable with no crash loops. No action needed.</div>
+</div>
+
+<div class="task">
+  <div class="task-header">
+    <div><span class="task-id">R3 · P3</span> <span class="task-title">Add GitHub token to Renovate config</span></div>
+    <span class="badge badge-skip">DEFERRED</span>
+  </div>
+  <div class="task-detail">Renovate config exists at <code>apps/renovate/</code> and <code>renovate.json5</code>. Adding a GitHub token requires obtaining one first and deciding where to store it (1Password or environment). No token was available to install. Recommend: add a Personal Access Token to 1Password under <code>Homelab Renovate GitHub Token</code>, then update the Renovate values.</div>
+</div>
+
+<!-- KNOWN ISSUE -->
+<h2>Known Issue — Ceph Prometheus Module</h2>
+
+<div class="note warn">
+  <strong>Recurring: Ceph prometheus mgr module crash loop</strong><br><br>
+  <strong>Status:</strong> Acknowledged — temporarily disabled, no functional impact<br><br>
+  <strong>Root cause:</strong> Ceph v20.2.0 (tentacle) has a bug in <code>mgr/prometheus/module.py</code> at the <code>configure()</code> step. When the prometheus module initializes, it calls <code>json.loads(out)</code> on the output of <code>cephadm ls --spec-name secure-monitoring-stack</code>, but the spec is empty on fresh clusters, returning an empty string that causes <code>JSONDecodeError</code> and crashes the mgr daemon.<br><br>
+  <strong>Behavior:</strong> Every mgr failover triggers the crash → HEALTH_ERR → ArgoCD Degraded. The crash was observed on 6+ mgr failovers.<br><br>
+  <strong>v1.19.3 outcome:</strong> Upgrading Rook Ceph from v1.19.2 → v1.19.3 did <strong>not</strong> resolve the issue — the Ceph version itself is unchanged (still v20.2.0).<br><br>
+  <strong>Workaround:</strong> <code>ceph mgr module disable prometheus</code> + <code>ceph crash archive-all</code>. This has been applied. kube-prometheus-stack continues to scrape Ceph metrics directly via service monitors — no monitoring data is lost.<br><br>
+  <strong>Real fix:</strong> Upgrade Ceph to v20.3+ (when available in Rook). Track in a future maintenance issue.
+</div>
+
+<!-- OUT OF SCOPE -->
+<h2>Out of Scope (Not Attempted)</h2>
+<div class="deferred">
+  <strong>external-secrets OutOfSync</strong> — The external-secrets app is OutOfSync in ArgoCD but all underlying resources are Healthy. The RBAC resources keep resyncing due to how the app is configured. This is a known ArgoCD behavior, not a real problem. Can be investigated separately.
+</div>
+
+<!-- CHANGE LOG -->
+<h2>Change Log</h2>
+<table class="changelog">
+  <thead>
+    <tr>
+      <th>Time (CDT)</th>
+      <th>Task</th>
+      <th>Action</th>
+      <th>Result</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2026-03-31 09:22</td>
+      <td>Maintenance start</td>
+      <td>—</td>
+      <td>Began execution of Issue #77 action items</td>
+      <td><span class="badge badge-ok">DONE</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 09:23</td>
+      <td>C1</td>
+      <td>PR #78 already merged; verified ArgoCD sync</td>
+      <td>rook-ceph Synced</td>
+      <td><span class="badge badge-ok">DONE</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 09:24</td>
+      <td>C1</td>
+      <td>Re-enabled prometheus mgr module to test fix</td>
+      <td>Module crashed again — bug persists in v1.19.3</td>
+      <td><span class="badge badge-warn">ACKNOWLEDGED</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 09:25</td>
+      <td>C3</td>
+      <td>Force-deleted stale strata pod</td>
+      <td>New pod Running, NFS mount healthy</td>
+      <td><span class="badge badge-ok">DONE</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 09:28</td>
+      <td>R1 + R2</td>
+      <td>Merged PR #76 and PR #72 via tea</td>
+      <td>Both merged, ArgoCD synced</td>
+      <td><span class="badge badge-ok">DONE</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 09:30</td>
+      <td>R4</td>
+      <td>Verified grafana health endpoint</td>
+      <td>database: ok, v12.3.1</td>
+      <td><span class="badge badge-ok">DONE</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 09:31</td>
+      <td>R5</td>
+      <td>Investigated promtail restart logs</td>
+      <td>Confirmed kured reboot cycles — expected behavior</td>
+      <td><span class="badge badge-ok">DONE</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 09:35</td>
+      <td>R3</td>
+      <td>Checked Renovate config and token availability</td>
+      <td>No GitHub token available — deferred</td>
+      <td><span class="badge badge-skip">DEFERRED</span></td>
+    </tr>
+    <tr>
+      <td>2026-03-31 10:06</td>
+      <td>Report</td>
+      <td>Generated HTML maintenance brief</td>
+      <td>Report complete</td>
+      <td><span class="badge badge-ok">DONE</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- RECOMMENDATIONS -->
+<h2>Recommendations</h2>
+<ol style="color: #8b949e; font-size: 0.9rem; padding-left: 1.5rem; line-height: 2;">
+  <li style="color: #e6edf3;"><strong>Track Ceph upgrade</strong> — Open a new issue to upgrade Ceph to v20.3+ when available in Rook. The prometheus module fix lives in Ceph itself.</li>
+  <li><strong>Add GitHub token for Renovate</strong> — Store a PAT in 1Password, then update the Renovate values file to enable release notes fetching.</li>
+  <li><strong>Monitor prometheus module</strong> — Leave disabled for now. Re-test after Ceph upgrade.</li>
+  <li><strong>external-secrets OutOfSync</strong> — Low priority. Can be reviewed in a future maintenance window if desired.</li>
+</ol>
+
+<div class="footer">
+  Maintenance Report · Issue <a href="https://git.eaglepass.io/ops/homelab/issues/77" style="color: #58a6ff;">#77</a> · Generated 2026-03-31 10:06 CDT
+</div>
+
+</div>
+</body>
+</html>
