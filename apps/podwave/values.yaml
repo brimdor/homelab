@@ -82,10 +82,10 @@ app-template:
           secretName: podwave-tls
   persistence:
     data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/podwave
+      type: persistentVolumeClaim
+      size: 5Gi
+      accessMode: ReadWriteOnce
     downloads:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/podwave-downloads
+      type: persistentVolumeClaim
+      size: 10Gi
+      accessMode: ReadWriteOnce
