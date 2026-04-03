@@ -20,12 +20,12 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: PODWAVE_ADMIN_USERNAME
+                  key: username
             PODWAVE_ADMIN_PASSWORD:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: PODWAVE_ADMIN_PASSWORD
+                  key: password
             PODWAVE_ADMIN_NAME:
               valueFrom:
                 secretKeyRef:
