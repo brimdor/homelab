@@ -6,13 +6,16 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/podwave
-            tag: latest
+            tag: "2026-04-02-v47"
             pullPolicy: Always
           env:
             TZ: America/Chicago
             NODE_ENV: production
             PORT: "3000"
             PODWAVE_CORS_ORIGIN: "https://podwave.eaglepass.io"
+            PODWAVE_ADMIN_USERNAME: "admin"
+            PODWAVE_ADMIN_PASSWORD: "PodWave2026!"
+            PODWAVE_ADMIN_NAME: "Admin"
           probes:
             liveness:
               enabled: true
