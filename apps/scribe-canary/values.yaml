@@ -1,0 +1,94 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: scribe-canary
+          image:
+            repository: 10.0.20.11:32309/scribe
+            tag: "2026-04-03-v1"
+            pullPolicy: Always
+          ports:
+            - containerPort: 8787
+              name: http
+          workingDir: /app
+          env:
+            NODE_ENV: production
+            PORT: "8787"
+            SCRIBE_DB_PATH: /app/server/data/scribe-canary.db
+            SCRIBE_SESSION_TTL_HOURS: "24"
+            SCRIBE_REPO_SYNC_ROOT: /app/server/repos
+            OLLAMA_BASE_URL: "http://localai.localai.svc.cluster.local:8080"
+            TZ: America/Chicago
+          envFrom:
+            - secretRef:
+                name: scribe-canary-secrets
+          probes:
+            liveness:
+              enabled: true
+              spec:
+                tcpSocket:
+                  port: 8787
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              spec:
+                tcpSocket:
+                  port: 8787
+                initialDelaySeconds: 10
+                periodSeconds: 10
+          resources:
+            limits:
+              cpu: 2
+              memory: 4096Mi
+            requests:
+              cpu: 0.5
+              memory: 1024Mi
+  service:
+    main:
+      primary: true
+      ports:
+        http:
+          port: 8787
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: scribe-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - hosts:
+            - scribe-canary.eaglepass.io
+          secretName: scribe-canary-tls
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: standard-rwo
+      globalMounts:
+        - path: /app/server/data
+    repos:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      storageClass: standard-rwo
+      globalMounts:
+        - path: /app/server/repos
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-canary-secrets
+      operator.1password.io/item-name: secrets
