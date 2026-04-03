@@ -16,9 +16,21 @@ app-template:
             NODE_ENV: production
             PORT: "3000"
             PODWAVE_CORS_ORIGIN: "https://podwave.eaglepass.io"
-            PODWAVE_ADMIN_USERNAME: "admin"
-            PODWAVE_ADMIN_PASSWORD: "PodWave2026!"
-            PODWAVE_ADMIN_NAME: "Admin"
+            PODWAVE_ADMIN_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: PODWAVE_ADMIN_USERNAME
+            PODWAVE_ADMIN_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: PODWAVE_ADMIN_PASSWORD
+            PODWAVE_ADMIN_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: PODWAVE_ADMIN_NAME
           probes:
             liveness:
               enabled: true
@@ -83,6 +95,10 @@ app-template:
         - hosts:
             - podwave.eaglepass.io
           secretName: podwave-tls
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/thgauj67wkda7qutwsnezqbjra"
+      operator.1password.io/item-name: "secrets"
   persistence:
     data:
       type: persistentVolumeClaim
