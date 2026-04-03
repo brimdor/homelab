@@ -8,7 +8,7 @@ app-template:
           nameOverride: scribe
           image:
             repository: 10.0.20.11:32309/scribe
-            tag: latest
+            tag: "2026-04-03-v1"
             pullPolicy: Always
           ports:
             - containerPort: 8787
