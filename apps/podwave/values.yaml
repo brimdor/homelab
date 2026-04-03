@@ -27,11 +27,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: password
-            PODWAVE_ADMIN_NAME:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: PODWAVE_ADMIN_NAME
+            PODWAVE_ADMIN_NAME: "Chris"
           probes:
             liveness:
               enabled: true
