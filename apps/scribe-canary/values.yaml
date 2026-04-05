@@ -1,8 +1,7 @@
 app-template:
   controllers:
     main:
-      strategy: Recreate
-      rollingUpdate: null
+      strategy: RollingUpdate
       replicas: 1
       containers:
         main:
