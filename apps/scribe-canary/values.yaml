@@ -8,7 +8,7 @@ app-template:
           nameOverride: scribe-canary
           image:
             repository: 10.0.20.11:32309/scribe
-            tag: "2026-04-05-1818-v1-canary"
+            tag: "2026-04-05-1835-v1-canary"
             pullPolicy: Always
           ports:
             - containerPort: 8787
