@@ -1,0 +1,66 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      containers:
+        main:
+          image:
+            repository: 10.0.20.11:32309/opencode-server
+            tag: "2026-04-06-v1"
+            pullPolicy: Always
+          args:
+            - serve
+            - --port=4096
+            - --hostname=0.0.0.0
+          env:
+            TZ: America/Chicago
+            OPENCODE_SERVER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: opencode-server-password
+            OPENCODE_SERVER_USERNAME:
+              value: opencode
+          ports:
+            - containerPort: 4096
+              name: http
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 2Gi
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 4096
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      hosts:
+        - host: opencode.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - hosts:
+            - opencode.eaglepass.io
+          secretName: opencode-server-tls
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/ct5v4yatyitshv2swm3uet3psm"
+      operator.1password.io/item-name: "secrets"
