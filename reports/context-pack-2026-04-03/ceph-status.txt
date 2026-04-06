@@ -1,0 +1,21 @@
+  cluster:
+    id:     13c20377-d801-43f9-aebd-59f62df5dad1
+    health: HEALTH_WARN
+            2 mgr modules have recently crashed
+ 
+  services:
+    mon: 3 daemons, quorum h,k,l (age 10h) [leader: h]
+    mgr: b(active, since 19m), standbys: a
+    mds: 1/1 daemons up, 1 hot standby
+    osd: 6 osds: 6 up (since 10h), 6 in (since 9d)
+ 
+  data:
+    volumes: 1/1 healthy
+    pools:   4 pools, 177 pgs
+    objects: 185.28k objects, 718 GiB
+    usage:   1.4 TiB used, 1.6 TiB / 3.0 TiB avail
+    pgs:     177 active+clean
+ 
+  io:
+    client:   1.2 KiB/s rd, 14 KiB/s wr, 1 op/s rd, 1 op/s wr
+ 
