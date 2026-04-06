@@ -20,7 +20,7 @@ app-template:
             SCRIBE_DB_PATH: /app/server/data/scribe-canary.db
             SCRIBE_SESSION_TTL_HOURS: "24"
             SCRIBE_REPO_SYNC_ROOT: /app/server/repos
-            OLLAMA_BASE_URL: "http://localhost:11434"
+            OLLAMA_BASE_URL: "https://ollama.com"
             TZ: America/Chicago
           envFrom:
             - secretRef:
@@ -32,25 +32,21 @@ app-template:
             requests:
               cpu: 0.5
               memory: 1024Mi
-        ollama:
-          nameOverride: ollama
-          image:
-            repository: ollama/ollama
-            tag: "latest"
-            pullPolicy: Always
-          command: ["/bin/sh", "-c"]
-          args:
-            - ollama serve
-          ports:
-            - containerPort: 11434
-              name: ollama
-          resources:
-            limits:
-              cpu: 4
-              memory: 16Gi
-            requests:
-              cpu: 1
-              memory: 8Gi
+          probes:
+            liveness:
+              enabled: true
+              spec:
+                tcpSocket:
+                  port: 8787
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              spec:
+                tcpSocket:
+                  port: 8787
+                initialDelaySeconds: 10
+                periodSeconds: 10
   service:
     main:
       primary: true
@@ -92,14 +88,6 @@ app-template:
       storageClass: standard-rwo
       globalMounts:
         - path: /app/server/repos
-    ollama-models:
-      type: emptyDir
-      advancedMounts:
-        main:
-          scribe-canary:
-            - path: /root/.ollama
-          ollama:
-            - path: /root/.ollama
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
