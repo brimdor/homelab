@@ -20,7 +20,7 @@ app-template:
             SCRIBE_DB_PATH: /app/server/data/scribe-canary.db
             SCRIBE_SESSION_TTL_HOURS: "24"
             SCRIBE_REPO_SYNC_ROOT: /app/server/repos
-            OLLAMA_BASE_URL: "http://localhost:11434"
+            OLLAMA_BASE_URL: "http://localai.localai.svc.cluster.local:8080"
             TZ: America/Chicago
           envFrom:
             - secretRef:
@@ -91,8 +91,6 @@ app-template:
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
-    hostNetwork: true
-    dnsPolicy: ClusterFirstWithHostNet
     annotations:
       operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-canary-secrets
       operator.1password.io/item-name: secrets
