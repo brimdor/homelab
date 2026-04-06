@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: scribe:apps/Deployment:scribe/scribe
+    deployment.kubernetes.io/revision: "4"
+  creationTimestamp: "2026-03-27T12:53:30Z"
+  finalizers:
+  - onepassword.com/finalizer.secret
+  generation: 6
+  labels:
+    app.kubernetes.io/controller: main
+    app.kubernetes.io/instance: scribe
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: scribe
+    helm.sh/chart: app-template-4.6.2
+  name: scribe
+  namespace: scribe
+  resourceVersion: "318702919"
+  uid: 1b94b8d9-b38b-4b40-a69b-4dd27a16c4a7
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/controller: main
+      app.kubernetes.io/instance: scribe
+      app.kubernetes.io/name: scribe
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-03-27T13:03:35Z"
+        operator.1password.io/item-name: secrets
+        operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-secrets
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/controller: main
+        app.kubernetes.io/instance: scribe
+        app.kubernetes.io/name: scribe
+    spec:
+      automountServiceAccountToken: true
+      containers:
+      - env:
+        - name: NODE_ENV
+          value: production
+        - name: OLLAMA_BASE_URL
+          value: http://localai.localai.svc.cluster.local:8080
+        - name: PORT
+          value: "8787"
+        - name: SCRIBE_DB_PATH
+          value: /app/server/data/scribe.db
+        - name: SCRIBE_REPO_SYNC_ROOT
+          value: /app/server/repos
+        - name: SCRIBE_SESSION_TTL_HOURS
+          value: "24"
+        - name: TZ
+          value: America/Chicago
+        envFrom:
+        - secretRef:
+            name: scribe-secrets
+        image: 10.0.20.11:32309/scribe:2026-04-03-v1
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          successThreshold: 1
+          tcpSocket:
+            port: 8787
+          timeoutSeconds: 1
+        name: scribe
+        ports:
+        - containerPort: 8787
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: 8787
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /app/server/data
+          name: data
+        - mountPath: /app/server/repos
+          name: repos
+        workingDir: /app
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: false
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1000
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: scribe-data
+      - name: repos
+        persistentVolumeClaim:
+          claimName: scribe-repos
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-04-03T07:56:18Z"
+    lastUpdateTime: "2026-04-03T07:56:18Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-03-27T14:02:24Z"
+    lastUpdateTime: "2026-04-03T18:33:19Z"
+    message: ReplicaSet "scribe-74d4bd95d4" is progressing.
+    reason: ReplicaSetUpdated
+    status: "True"
+    type: Progressing
+  observedGeneration: 6
+  readyReplicas: 1
+  replicas: 2
+  unavailableReplicas: 1
+  updatedReplicas: 1

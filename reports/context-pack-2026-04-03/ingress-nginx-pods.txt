@@ -1,0 +1,2 @@
+NAME                                        READY   STATUS    RESTARTS   AGE   IP           NODE      NOMINATED NODE   READINESS GATES
+ingress-nginx-controller-6dbfd75566-vdzs2   1/1     Running   0          10h   10.0.8.132   pikachu   <none>           <none>
