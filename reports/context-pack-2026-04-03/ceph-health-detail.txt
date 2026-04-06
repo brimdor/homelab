@@ -1,0 +1,4 @@
+HEALTH_WARN 2 mgr modules have recently crashed
+[WRN] RECENT_MGR_MODULE_CRASH: 2 mgr modules have recently crashed
+    mgr module prometheus crashed in daemon mgr.b on host rook-ceph-mgr-b-6cc56d78c4-xmpnp at 2026-04-03T18:08:53.781939Z
+    mgr module rook crashed in daemon mgr.b on host rook-ceph-mgr-b-6cc56d78c4-xmpnp at 2026-04-03T18:09:06.235302Z

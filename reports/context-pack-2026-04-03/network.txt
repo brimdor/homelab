@@ -1,0 +1,2 @@
+[0;32m✓ NETWORK STATUS: GREEN[0m
+  All 16 checks passed

@@ -1,0 +1,208 @@
+NAMESPACE        LAST SEEN   TYPE      REASON               OBJECT                                 MESSAGE
+podwave-canary   38m         Normal    Scheduled            pod/podwave-canary-d4c64445f-xn5vj     Successfully assigned podwave-canary/podwave-canary-d4c64445f-xn5vj to squirtle
+grafana          39m         Normal    Scheduled            pod/grafana-577799c989-j7nsb           Successfully assigned grafana/grafana-577799c989-j7nsb to squirtle
+grafana          36m         Normal    Scheduled            pod/grafana-69f8c77689-b797j           Successfully assigned grafana/grafana-69f8c77689-b797j to squirtle
+grafana          43m         Normal    Scheduled            pod/grafana-78fcb8c6ff-zcd6k           Successfully assigned grafana/grafana-78fcb8c6ff-zcd6k to squirtle
+podwave-canary   46m         Normal    Scheduled            pod/podwave-canary-5df59c6b69-w4tsj    Successfully assigned podwave-canary/podwave-canary-5df59c6b69-w4tsj to squirtle
+podwave-canary   42m         Normal    Scheduled            pod/podwave-canary-64c97c57f6-kkd72    Successfully assigned podwave-canary/podwave-canary-64c97c57f6-kkd72 to squirtle
+podwave          37m         Normal    Scheduled            pod/podwave-56d57446f6-rxgbb           Successfully assigned podwave/podwave-56d57446f6-rxgbb to squirtle
+podwave-canary   48m         Warning   Unhealthy            pod/podwave-canary-6dd9599cc8-z9vkl    Liveness probe failed: Get "http://10.0.6.197:3000/api/health": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+argocd           47m         Normal    OperationStarted     application/podwave-canary             admin initiated sync to master (0f6c819d27b3bfc8b5531c97c223826727a006bc)
+podwave-canary   47m         Normal    ScalingReplicaSet    deployment/podwave-canary              Scaled down replica set podwave-canary-6dd9599cc8 from 1 to 0
+podwave-canary   47m         Normal    SuccessfulDelete     replicaset/podwave-canary-6dd9599cc8   Deleted pod: podwave-canary-6dd9599cc8-z9vkl
+podwave-canary   47m         Normal    Killing              pod/podwave-canary-6dd9599cc8-z9vkl    Stopping container main
+argocd           47m         Normal    OperationCompleted   application/podwave-canary             Sync operation to 0f6c819d27b3bfc8b5531c97c223826727a006bc succeeded
+argocd           47m         Normal    ResourceUpdated      application/podwave-canary             Updated sync status: Synced -> OutOfSync
+argocd           47m         Normal    ResourceUpdated      application/podwave-canary             Updated health status: Healthy -> Progressing
+argocd           47m         Normal    ResourceUpdated      application/podwave-canary             Updated sync status: OutOfSync -> Synced
+podwave-canary   46m         Warning   Unhealthy            pod/podwave-canary-6dd9599cc8-z9vkl    Readiness probe failed: Get "http://10.0.6.197:3000/api/health": dial tcp 10.0.6.197:3000: connect: connection refused
+podwave-canary   46m         Normal    ScalingReplicaSet    deployment/podwave-canary              Scaled up replica set podwave-canary-5df59c6b69 from 0 to 1
+podwave-canary   46m         Normal    SuccessfulCreate     replicaset/podwave-canary-5df59c6b69   Created pod: podwave-canary-5df59c6b69-w4tsj
+podwave-canary   46m         Normal    Pulling              pod/podwave-canary-5df59c6b69-w4tsj    Pulling image "10.0.20.11:32309/podwave:2026-04-03-v67"
+podwave-canary   46m         Normal    Created              pod/podwave-canary-5df59c6b69-w4tsj    Created container: main
+podwave-canary   46m         Normal    Started              pod/podwave-canary-5df59c6b69-w4tsj    Started container main
+podwave-canary   46m         Normal    Pulled               pod/podwave-canary-5df59c6b69-w4tsj    Successfully pulled image "10.0.20.11:32309/podwave:2026-04-03-v67" in 342ms (342ms including waiting). Image size: 74209214 bytes.
+argocd           46m         Normal    ResourceUpdated      application/podwave-canary             Updated health status: Progressing -> Healthy
+argocd           45m         Normal    ResourceUpdated      application/matrix                     Updated sync status: Synced -> OutOfSync
+argocd           45m         Normal    OperationStarted     application/matrix                     Initiated automated sync to [0f6c819d27b3bfc8b5531c97c223826727a006bc]
+argocd           45m         Normal    ResourceUpdated      application/matrix                     Updated sync status: OutOfSync -> Synced
+argocd           45m         Normal    OperationCompleted   application/matrix                     Sync operation to 0f6c819d27b3bfc8b5531c97c223826727a006bc succeeded
+argocd           45m         Normal    ResourceUpdated      application/gitea                      Updated sync status: Synced -> OutOfSync
+argocd           45m         Normal    OperationStarted     application/gitea                      Initiated automated sync to [0f6c819d27b3bfc8b5531c97c223826727a006bc]
+argocd           45m         Normal    OperationCompleted   application/gitea                      Sync operation to 0f6c819d27b3bfc8b5531c97c223826727a006bc succeeded
+argocd           45m         Normal    OperationStarted     application/gitea                      Initiated automated sync to [0f6c819d27b3bfc8b5531c97c223826727a006bc]
+argocd           45m         Normal    ResourceUpdated      application/gitea                      Updated sync status: OutOfSync -> Synced
+argocd           45m         Normal    OperationCompleted   application/gitea                      Partial sync operation to 0f6c819d27b3bfc8b5531c97c223826727a006bc succeeded
+argocd           44m         Normal    OperationStarted     application/rook-ceph                  Initiated automated sync to [0f6c819d27b3bfc8b5531c97c223826727a006bc]
+argocd           44m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: Synced -> OutOfSync
+argocd           44m         Normal    OperationCompleted   application/rook-ceph                  Sync operation to 0f6c819d27b3bfc8b5531c97c223826727a006bc succeeded
+argocd           44m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: OutOfSync -> Synced
+argocd           43m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: OutOfSync -> Synced
+argocd           43m         Normal    OperationCompleted   application/woodpecker                 Sync operation to 0f6c819d27b3bfc8b5531c97c223826727a006bc succeeded
+argocd           43m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: Synced -> OutOfSync
+argocd           43m         Normal    OperationStarted     application/woodpecker                 Initiated automated sync to [0f6c819d27b3bfc8b5531c97c223826727a006bc]
+argocd           43m         Normal    OperationCompleted   application/grafana                    Sync operation to 0f6c819d27b3bfc8b5531c97c223826727a006bc succeeded
+grafana          43m         Normal    SuccessfulCreate     replicaset/grafana-78fcb8c6ff          Created pod: grafana-78fcb8c6ff-zcd6k
+argocd           43m         Normal    OperationStarted     application/grafana                    Initiated automated sync to [0f6c819d27b3bfc8b5531c97c223826727a006bc]
+argocd           43m         Normal    ResourceUpdated      application/grafana                    Updated sync status: Synced -> OutOfSync
+argocd           43m         Normal    ResourceUpdated      application/grafana                    Updated sync status: OutOfSync -> Synced
+argocd           43m         Normal    ResourceUpdated      application/grafana                    Updated health status: Healthy -> Progressing
+grafana          43m         Normal    ScalingReplicaSet    deployment/grafana                     Scaled up replica set grafana-78fcb8c6ff from 0 to 1
+grafana          43m         Normal    Pulled               pod/grafana-78fcb8c6ff-zcd6k           Container image "quay.io/kiwigrid/k8s-sidecar:2.5.0" already present on machine
+grafana          43m         Normal    Created              pod/grafana-78fcb8c6ff-zcd6k           Created container: grafana
+grafana          43m         Normal    Started              pod/grafana-78fcb8c6ff-zcd6k           Started container grafana
+grafana          43m         Normal    Pulled               pod/grafana-78fcb8c6ff-zcd6k           Container image "docker.io/grafana/grafana:12.3.1" already present on machine
+grafana          43m         Normal    Started              pod/grafana-78fcb8c6ff-zcd6k           Started container grafana-sc-datasources
+grafana          43m         Normal    Created              pod/grafana-78fcb8c6ff-zcd6k           Created container: grafana-sc-datasources
+grafana          43m         Normal    Pulled               pod/grafana-78fcb8c6ff-zcd6k           Container image "quay.io/kiwigrid/k8s-sidecar:2.5.0" already present on machine
+grafana          43m         Normal    Started              pod/grafana-78fcb8c6ff-zcd6k           Started container grafana-sc-dashboard
+grafana          43m         Normal    Created              pod/grafana-78fcb8c6ff-zcd6k           Created container: grafana-sc-dashboard
+grafana          43m         Warning   Unhealthy            pod/grafana-78fcb8c6ff-zcd6k           Readiness probe failed: Get "http://10.0.6.50:3000/api/health": dial tcp 10.0.6.50:3000: connect: connection refused
+grafana          43m         Normal    ScalingReplicaSet    deployment/grafana                     Scaled down replica set grafana-75f5788cc4 from 1 to 0
+grafana          43m         Normal    SuccessfulDelete     replicaset/grafana-75f5788cc4          Deleted pod: grafana-75f5788cc4-gqt85
+grafana          43m         Normal    Killing              pod/grafana-75f5788cc4-gqt85           Stopping container grafana-sc-datasources
+grafana          43m         Normal    Killing              pod/grafana-75f5788cc4-gqt85           Stopping container grafana
+grafana          43m         Normal    Killing              pod/grafana-75f5788cc4-gqt85           Stopping container grafana-sc-dashboard
+argocd           43m         Normal    ResourceUpdated      application/grafana                    Updated health status: Progressing -> Healthy
+argocd           42m         Normal    OperationStarted     application/podwave-canary             admin initiated sync to master (bfabb152ec4e54e9366430192ea5d5db92a907d7)
+argocd           42m         Normal    ResourceUpdated      application/podwave-canary             Updated sync status: Synced -> OutOfSync
+argocd           42m         Normal    ResourceUpdated      application/podwave-canary             Updated sync status: OutOfSync -> Synced
+podwave-canary   42m         Normal    SuccessfulDelete     replicaset/podwave-canary-5df59c6b69   Deleted pod: podwave-canary-5df59c6b69-w4tsj
+podwave-canary   42m         Normal    Killing              pod/podwave-canary-5df59c6b69-w4tsj    Stopping container main
+argocd           42m         Normal    OperationCompleted   application/podwave-canary             Sync operation to bfabb152ec4e54e9366430192ea5d5db92a907d7 succeeded
+podwave-canary   42m         Normal    ScalingReplicaSet    deployment/podwave-canary              Scaled down replica set podwave-canary-5df59c6b69 from 1 to 0
+argocd           42m         Normal    ResourceUpdated      application/podwave-canary             Updated health status: Healthy -> Progressing
+podwave-canary   42m         Normal    ScalingReplicaSet    deployment/podwave-canary              Scaled up replica set podwave-canary-64c97c57f6 from 0 to 1
+podwave-canary   42m         Normal    SuccessfulCreate     replicaset/podwave-canary-64c97c57f6   Created pod: podwave-canary-64c97c57f6-kkd72
+podwave-canary   42m         Normal    Created              pod/podwave-canary-64c97c57f6-kkd72    Created container: main
+podwave-canary   42m         Normal    Started              pod/podwave-canary-64c97c57f6-kkd72    Started container main
+podwave-canary   42m         Normal    Pulling              pod/podwave-canary-64c97c57f6-kkd72    Pulling image "10.0.20.11:32309/podwave:2026-04-03-v68"
+podwave-canary   42m         Normal    Pulled               pod/podwave-canary-64c97c57f6-kkd72    Successfully pulled image "10.0.20.11:32309/podwave:2026-04-03-v68" in 372ms (373ms including waiting). Image size: 74208619 bytes.
+argocd           42m         Normal    OperationStarted     application/gitea                      Initiated automated sync to [bfabb152ec4e54e9366430192ea5d5db92a907d7]
+argocd           42m         Normal    ResourceUpdated      application/gitea                      Updated sync status: Synced -> OutOfSync
+argocd           42m         Normal    OperationCompleted   application/gitea                      Sync operation to bfabb152ec4e54e9366430192ea5d5db92a907d7 succeeded
+argocd           42m         Normal    ResourceUpdated      application/gitea                      Updated sync status: OutOfSync -> Synced
+argocd           42m         Normal    ResourceUpdated      application/podwave-canary             Updated health status: Progressing -> Healthy
+argocd           42m         Normal    OperationStarted     application/matrix                     Initiated automated sync to [bfabb152ec4e54e9366430192ea5d5db92a907d7]
+argocd           42m         Normal    ResourceUpdated      application/matrix                     Updated sync status: Synced -> OutOfSync
+argocd           42m         Normal    OperationCompleted   application/matrix                     Sync operation to bfabb152ec4e54e9366430192ea5d5db92a907d7 succeeded
+argocd           42m         Normal    ResourceUpdated      application/matrix                     Updated sync status: OutOfSync -> Synced
+argocd           41m         Normal    OperationCompleted   application/woodpecker                 Sync operation to bfabb152ec4e54e9366430192ea5d5db92a907d7 succeeded
+argocd           41m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: OutOfSync -> Synced
+argocd           41m         Normal    OperationStarted     application/woodpecker                 Initiated automated sync to [bfabb152ec4e54e9366430192ea5d5db92a907d7]
+argocd           41m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: Synced -> OutOfSync
+argocd           41m         Normal    OperationStarted     application/rook-ceph                  Initiated automated sync to [bfabb152ec4e54e9366430192ea5d5db92a907d7]
+argocd           41m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: Synced -> OutOfSync
+argocd           41m         Normal    OperationCompleted   application/rook-ceph                  Sync operation to bfabb152ec4e54e9366430192ea5d5db92a907d7 succeeded
+argocd           41m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: OutOfSync -> Synced
+grafana          39m         Normal    SuccessfulCreate     replicaset/grafana-577799c989          Created pod: grafana-577799c989-j7nsb
+argocd           39m         Normal    ResourceUpdated      application/grafana                    Updated health status: Healthy -> Progressing
+argocd           39m         Normal    ResourceUpdated      application/grafana                    Updated sync status: OutOfSync -> Synced
+argocd           39m         Normal    OperationCompleted   application/grafana                    Sync operation to bfabb152ec4e54e9366430192ea5d5db92a907d7 succeeded
+grafana          39m         Normal    ScalingReplicaSet    deployment/grafana                     Scaled up replica set grafana-577799c989 from 0 to 1
+argocd           39m         Normal    ResourceUpdated      application/grafana                    Updated sync status: Synced -> OutOfSync
+argocd           39m         Normal    OperationStarted     application/grafana                    Initiated automated sync to [bfabb152ec4e54e9366430192ea5d5db92a907d7]
+grafana          39m         Normal    Created              pod/grafana-577799c989-j7nsb           Created container: grafana-sc-dashboard
+grafana          39m         Normal    Created              pod/grafana-577799c989-j7nsb           Created container: grafana-sc-datasources
+grafana          39m         Normal    Created              pod/grafana-577799c989-j7nsb           Created container: grafana
+grafana          39m         Normal    Pulled               pod/grafana-577799c989-j7nsb           Container image "docker.io/grafana/grafana:12.3.1" already present on machine
+grafana          39m         Normal    Started              pod/grafana-577799c989-j7nsb           Started container grafana-sc-datasources
+grafana          39m         Normal    Started              pod/grafana-577799c989-j7nsb           Started container grafana
+grafana          39m         Normal    Pulled               pod/grafana-577799c989-j7nsb           Container image "quay.io/kiwigrid/k8s-sidecar:2.5.0" already present on machine
+grafana          39m         Normal    Started              pod/grafana-577799c989-j7nsb           Started container grafana-sc-dashboard
+grafana          39m         Normal    Pulled               pod/grafana-577799c989-j7nsb           Container image "quay.io/kiwigrid/k8s-sidecar:2.5.0" already present on machine
+grafana          39m         Warning   Unhealthy            pod/grafana-577799c989-j7nsb           Readiness probe failed: Get "http://10.0.6.204:3000/api/health": dial tcp 10.0.6.204:3000: connect: connection refused
+argocd           39m         Normal    ResourceUpdated      application/grafana                    Updated health status: Progressing -> Healthy
+grafana          39m         Normal    ScalingReplicaSet    deployment/grafana                     Scaled down replica set grafana-78fcb8c6ff from 1 to 0
+grafana          39m         Normal    SuccessfulDelete     replicaset/grafana-78fcb8c6ff          Deleted pod: grafana-78fcb8c6ff-zcd6k
+grafana          39m         Normal    Killing              pod/grafana-78fcb8c6ff-zcd6k           Stopping container grafana-sc-datasources
+grafana          39m         Normal    Killing              pod/grafana-78fcb8c6ff-zcd6k           Stopping container grafana
+grafana          39m         Normal    Killing              pod/grafana-78fcb8c6ff-zcd6k           Stopping container grafana-sc-dashboard
+argocd           38m         Normal    OperationStarted     application/podwave-canary             admin initiated sync to master (69d0c010a9d97a75ca16b131923eeca478d6b5ce)
+podwave-canary   38m         Normal    SuccessfulDelete     replicaset/podwave-canary-64c97c57f6   Deleted pod: podwave-canary-64c97c57f6-kkd72
+argocd           38m         Normal    OperationCompleted   application/podwave-canary             Sync operation to 69d0c010a9d97a75ca16b131923eeca478d6b5ce succeeded
+argocd           38m         Normal    ResourceUpdated      application/podwave-canary             Updated sync status: Synced -> OutOfSync
+argocd           38m         Normal    ResourceUpdated      application/podwave-canary             Updated health status: Healthy -> Progressing
+argocd           38m         Normal    ResourceUpdated      application/podwave-canary             Updated sync status: OutOfSync -> Synced
+podwave-canary   38m         Normal    ScalingReplicaSet    deployment/podwave-canary              Scaled down replica set podwave-canary-64c97c57f6 from 1 to 0
+podwave-canary   38m         Normal    Killing              pod/podwave-canary-64c97c57f6-kkd72    Stopping container main
+podwave-canary   38m         Normal    ScalingReplicaSet    deployment/podwave-canary              Scaled up replica set podwave-canary-d4c64445f from 0 to 1
+podwave-canary   38m         Normal    SuccessfulCreate     replicaset/podwave-canary-d4c64445f    Created pod: podwave-canary-d4c64445f-xn5vj
+podwave-canary   38m         Normal    Started              pod/podwave-canary-d4c64445f-xn5vj     Started container main
+podwave-canary   38m         Normal    Created              pod/podwave-canary-d4c64445f-xn5vj     Created container: main
+podwave-canary   38m         Normal    Pulled               pod/podwave-canary-d4c64445f-xn5vj     Successfully pulled image "10.0.20.11:32309/podwave:2026-04-03-v69" in 365ms (365ms including waiting). Image size: 74209337 bytes.
+podwave-canary   38m         Normal    Pulling              pod/podwave-canary-d4c64445f-xn5vj     Pulling image "10.0.20.11:32309/podwave:2026-04-03-v69"
+argocd           38m         Normal    ResourceUpdated      application/podwave-canary             Updated health status: Progressing -> Healthy
+argocd           38m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: Synced -> OutOfSync
+argocd           38m         Normal    OperationStarted     application/woodpecker                 Initiated automated sync to [69d0c010a9d97a75ca16b131923eeca478d6b5ce]
+argocd           38m         Normal    OperationCompleted   application/woodpecker                 Sync operation to 69d0c010a9d97a75ca16b131923eeca478d6b5ce succeeded
+argocd           38m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: OutOfSync -> Synced
+argocd           38m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: Synced -> OutOfSync
+argocd           38m         Normal    OperationStarted     application/rook-ceph                  Initiated automated sync to [69d0c010a9d97a75ca16b131923eeca478d6b5ce]
+argocd           38m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: OutOfSync -> Synced
+argocd           38m         Normal    OperationCompleted   application/rook-ceph                  Sync operation to 69d0c010a9d97a75ca16b131923eeca478d6b5ce succeeded
+argocd           37m         Normal    ResourceUpdated      application/gitea                      Updated sync status: Synced -> OutOfSync
+argocd           37m         Normal    OperationStarted     application/gitea                      Initiated automated sync to [69d0c010a9d97a75ca16b131923eeca478d6b5ce]
+argocd           37m         Normal    OperationCompleted   application/gitea                      Sync operation to 69d0c010a9d97a75ca16b131923eeca478d6b5ce succeeded
+argocd           37m         Normal    ResourceUpdated      application/gitea                      Updated sync status: OutOfSync -> Synced
+argocd           37m         Normal    OperationStarted     application/podwave                    admin initiated sync to master (8ba868c5fd3ccb3b46cb323658d752ad01cd24f0)
+podwave          37m         Normal    SuccessfulDelete     replicaset/podwave-58d448fcdc          Deleted pod: podwave-58d448fcdc-qv5cp
+podwave          37m         Normal    ScalingReplicaSet    deployment/podwave                     Scaled up replica set podwave-56d57446f6 from 0 to 1
+podwave          37m         Normal    SuccessfulCreate     replicaset/podwave-56d57446f6          Created pod: podwave-56d57446f6-rxgbb
+podwave          37m         Normal    Killing              pod/podwave-58d448fcdc-qv5cp           Stopping container main
+podwave          37m         Normal    ScalingReplicaSet    deployment/podwave                     Scaled down replica set podwave-58d448fcdc from 1 to 0
+argocd           37m         Normal    OperationCompleted   application/podwave                    Sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+argocd           37m         Normal    ResourceUpdated      application/podwave                    Updated sync status: OutOfSync -> Synced
+argocd           37m         Normal    ResourceUpdated      application/podwave                    Updated sync status: Synced -> OutOfSync
+argocd           37m         Normal    ResourceUpdated      application/podwave                    Updated health status: Healthy -> Progressing
+podwave          37m         Normal    Pulling              pod/podwave-56d57446f6-rxgbb           Pulling image "10.0.20.11:32309/podwave:2026-04-03-v69"
+podwave          37m         Normal    Pulled               pod/podwave-56d57446f6-rxgbb           Successfully pulled image "10.0.20.11:32309/podwave:2026-04-03-v69" in 31ms (31ms including waiting). Image size: 74209337 bytes.
+podwave          37m         Normal    Created              pod/podwave-56d57446f6-rxgbb           Created container: main
+podwave          37m         Normal    Started              pod/podwave-56d57446f6-rxgbb           Started container main
+argocd           37m         Normal    ResourceUpdated      application/podwave                    Updated health status: Progressing -> Healthy
+argocd           36m         Normal    OperationStarted     application/grafana                    Initiated automated sync to [8ba868c5fd3ccb3b46cb323658d752ad01cd24f0]
+grafana          36m         Normal    SuccessfulCreate     replicaset/grafana-69f8c77689          Created pod: grafana-69f8c77689-b797j
+grafana          36m         Normal    ScalingReplicaSet    deployment/grafana                     Scaled up replica set grafana-69f8c77689 from 0 to 1
+argocd           36m         Normal    ResourceUpdated      application/grafana                    Updated sync status: Synced -> OutOfSync
+argocd           36m         Normal    OperationCompleted   application/grafana                    Sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+argocd           36m         Normal    ResourceUpdated      application/grafana                    Updated sync status: OutOfSync -> Synced
+argocd           36m         Normal    ResourceUpdated      application/grafana                    Updated health status: Healthy -> Progressing
+argocd           36m         Normal    OperationStarted     application/grafana                    Initiated automated sync to [8ba868c5fd3ccb3b46cb323658d752ad01cd24f0]
+argocd           36m         Normal    OperationCompleted   application/grafana                    Partial sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+grafana          36m         Normal    Started              pod/grafana-69f8c77689-b797j           Started container grafana-sc-datasources
+grafana          36m         Normal    Pulled               pod/grafana-69f8c77689-b797j           Container image "docker.io/grafana/grafana:12.3.1" already present on machine
+grafana          36m         Normal    Pulled               pod/grafana-69f8c77689-b797j           Container image "quay.io/kiwigrid/k8s-sidecar:2.5.0" already present on machine
+grafana          36m         Normal    Created              pod/grafana-69f8c77689-b797j           Created container: grafana-sc-dashboard
+grafana          36m         Normal    Started              pod/grafana-69f8c77689-b797j           Started container grafana-sc-dashboard
+grafana          36m         Normal    Pulled               pod/grafana-69f8c77689-b797j           Container image "quay.io/kiwigrid/k8s-sidecar:2.5.0" already present on machine
+grafana          36m         Normal    Created              pod/grafana-69f8c77689-b797j           Created container: grafana-sc-datasources
+grafana          36m         Normal    Started              pod/grafana-69f8c77689-b797j           Started container grafana
+grafana          36m         Normal    Created              pod/grafana-69f8c77689-b797j           Created container: grafana
+grafana          36m         Warning   Unhealthy            pod/grafana-69f8c77689-b797j           Readiness probe failed: Get "http://10.0.6.176:3000/api/health": dial tcp 10.0.6.176:3000: connect: connection refused
+argocd           36m         Normal    ResourceUpdated      application/matrix                     Updated sync status: Synced -> OutOfSync
+argocd           36m         Normal    OperationStarted     application/matrix                     Initiated automated sync to [8ba868c5fd3ccb3b46cb323658d752ad01cd24f0]
+argocd           36m         Normal    ResourceUpdated      application/matrix                     Updated sync status: OutOfSync -> Synced
+argocd           36m         Normal    OperationCompleted   application/matrix                     Sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+grafana          36m         Normal    Killing              pod/grafana-577799c989-j7nsb           Stopping container grafana-sc-datasources
+grafana          36m         Normal    ScalingReplicaSet    deployment/grafana                     Scaled down replica set grafana-577799c989 from 1 to 0
+grafana          36m         Normal    SuccessfulDelete     replicaset/grafana-577799c989          Deleted pod: grafana-577799c989-j7nsb
+argocd           36m         Normal    ResourceUpdated      application/grafana                    Updated health status: Progressing -> Healthy
+grafana          36m         Normal    Killing              pod/grafana-577799c989-j7nsb           Stopping container grafana
+grafana          36m         Normal    Killing              pod/grafana-577799c989-j7nsb           Stopping container grafana-sc-dashboard
+argocd           36m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: Synced -> OutOfSync
+argocd           36m         Normal    OperationStarted     application/woodpecker                 Initiated automated sync to [8ba868c5fd3ccb3b46cb323658d752ad01cd24f0]
+argocd           36m         Normal    ResourceUpdated      application/woodpecker                 Updated sync status: OutOfSync -> Synced
+argocd           36m         Normal    OperationStarted     application/woodpecker                 Initiated automated sync to [8ba868c5fd3ccb3b46cb323658d752ad01cd24f0]
+argocd           36m         Normal    OperationCompleted   application/woodpecker                 Sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+argocd           36m         Normal    OperationCompleted   application/woodpecker                 Partial sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+argocd           33m         Normal    OperationStarted     application/gitea                      Initiated automated sync to [8ba868c5fd3ccb3b46cb323658d752ad01cd24f0]
+argocd           33m         Normal    ResourceUpdated      application/gitea                      Updated sync status: Synced -> OutOfSync
+argocd           33m         Normal    ResourceUpdated      application/gitea                      Updated sync status: OutOfSync -> Synced
+argocd           33m         Normal    OperationCompleted   application/gitea                      Sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+argocd           33m         Normal    OperationStarted     application/rook-ceph                  Initiated automated sync to [8ba868c5fd3ccb3b46cb323658d752ad01cd24f0]
+argocd           33m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: Synced -> OutOfSync
+argocd           33m         Normal    OperationCompleted   application/rook-ceph                  Sync operation to 8ba868c5fd3ccb3b46cb323658d752ad01cd24f0 succeeded
+argocd           33m         Normal    ResourceUpdated      application/rook-ceph                  Updated sync status: OutOfSync -> Synced
+argocd           18m         Normal    ResourceUpdated      application/rook-ceph                  Updated health status: Degraded -> Healthy
+argocd           15m         Normal    ResourceUpdated      application/rook-ceph                  Updated health status: Healthy -> Degraded
+default          2m12s       Normal    Valid                clustersecretstore/global-secrets      store validated

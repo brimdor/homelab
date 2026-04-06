@@ -15,6 +15,9 @@ app-template:
               name: http
           env:
             TZ: America/Chicago
+            # Openclaw-specific sync settings were intentionally removed.
+            # Echo now runs in Hermes on 10.0.50.200, so deployment config
+            # should move to HERMES_* names when the backend reader pivots.
           envFrom:
             - secretRef:
                 name: secrets

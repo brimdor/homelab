@@ -1,0 +1,15 @@
+NAME                                                     READY   STATUS    RESTARTS      AGE    IP           NODE         NOMINATED NODE   READINESS GATES
+alertmanager-monitoring-system-kube-pro-alertmanager-0   3/3     Running   0             10h    10.0.2.213   totodile     <none>           <none>
+monitoring-system-kube-pro-operator-868fdff8dd-kpcpv     1/1     Running   0             10h    10.0.8.127   pikachu      <none>           <none>
+monitoring-system-kube-state-metrics-bffd45b7d-rf6lj     1/1     Running   0             10h    10.0.7.156   bulbasaur    <none>           <none>
+monitoring-system-prometheus-node-exporter-4fflf         1/1     Running   2 (11h ago)   3d4h   10.0.20.15   chikorita    <none>           <none>
+monitoring-system-prometheus-node-exporter-7bz7d         1/1     Running   2 (11h ago)   3d4h   10.0.20.20   sprigatito   <none>           <none>
+monitoring-system-prometheus-node-exporter-7xp6p         1/1     Running   2 (10h ago)   3d4h   10.0.20.14   pikachu      <none>           <none>
+monitoring-system-prometheus-node-exporter-97cxk         1/1     Running   2 (10h ago)   3d4h   10.0.20.11   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-dj2bj         1/1     Running   2 (11h ago)   3d4h   10.0.20.18   growlithe    <none>           <none>
+monitoring-system-prometheus-node-exporter-hzps4         1/1     Running   2 (10h ago)   3d4h   10.0.20.13   bulbasaur    <none>           <none>
+monitoring-system-prometheus-node-exporter-s8j95         1/1     Running   2 (10h ago)   3d4h   10.0.20.12   squirtle     <none>           <none>
+monitoring-system-prometheus-node-exporter-tgk79         1/1     Running   2 (11h ago)   3d4h   10.0.20.19   arcanine     <none>           <none>
+monitoring-system-prometheus-node-exporter-wnncg         1/1     Running   2 (11h ago)   3d4h   10.0.20.16   cyndaquil    <none>           <none>
+monitoring-system-prometheus-node-exporter-zz2vf         1/1     Running   2 (10h ago)   3d4h   10.0.20.17   totodile     <none>           <none>
+prometheus-monitoring-system-kube-pro-prometheus-0       2/2     Running   0             11h    10.0.0.105   chikorita    <none>           <none>
