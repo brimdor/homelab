@@ -51,21 +51,6 @@ app-template:
             requests:
               cpu: 1
               memory: 8Gi
-          probe:
-            liveness:
-              enabled: true
-              spec:
-                tcpSocket:
-                  port: 11434
-                initialDelaySeconds: 10
-                periodSeconds: 30
-            readiness:
-              enabled: true
-              spec:
-                tcpSocket:
-                  port: 11434
-                initialDelaySeconds: 5
-                periodSeconds: 10
   service:
     main:
       primary: true
