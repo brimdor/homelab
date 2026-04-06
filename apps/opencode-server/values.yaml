@@ -60,6 +60,16 @@ app-template:
         - hosts:
             - opencode.eaglepass.io
           secretName: opencode-server-tls
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      storageClass: standard-rwo
+      globalMounts:
+        - path: /root/.local/share/opencode
+        - path: /root/.cache/opencode
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/ct5v4yatyitshv2swm3uet3psm"
