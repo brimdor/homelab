@@ -94,7 +94,6 @@ app-template:
     securityContext:
       fsGroup: 1000
     hostNetwork: true
-    dnsPolicy: ClusterFirstWithHostNet
     annotations:
       operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-canary-secrets
       operator.1password.io/item-name: secrets
