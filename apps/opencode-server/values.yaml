@@ -18,7 +18,7 @@ app-template:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: opencode-server-password
+                  key: password
             OPENCODE_SERVER_USERNAME:
               value: opencode
           ports:
