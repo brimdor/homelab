@@ -25,6 +25,9 @@ app-template:
           envFrom:
             - secretRef:
                 name: scribe-canary-secrets
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
           probes:
             liveness:
               enabled: true
@@ -47,6 +50,46 @@ app-template:
             requests:
               cpu: 0.5
               memory: 1024Mi
+        ollama:
+          nameOverride: ollama
+          image:
+            repository: ollama/ollama
+            tag: "latest"
+            pullPolicy: Always
+          command: ["/bin/sh", "-c"]
+          args:
+            - ollama serve
+          ports:
+            - containerPort: 11434
+              name: ollama
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            limits:
+              cpu: 4
+              memory: 16Gi
+            requests:
+              cpu: 1
+              memory: 8Gi
+          probe:
+            liveness:
+              enabled: true
+              spec:
+                tcpSocket:
+                  port: 11434
+                initialDelaySeconds: 10
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              spec:
+                tcpSocket:
+                  port: 11434
+                initialDelaySeconds: 5
+                periodSeconds: 10
+      volumes:
+        - name: ollama-models
+          emptyDir: {}
   service:
     main:
       primary: true
