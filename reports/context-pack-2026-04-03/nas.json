@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-03T13:29:25-05:00",
+  "target": "10.0.40.3",
+  "overall_status": "GREEN",
+  "warnings": 0,
+  "errors": 0,
+  "checks": [
+    {"check": "NAS_REACHABLE", "status": "GREEN", "message": "Reachable via TCP (SMB:445)", "value": "SMB:445"}
+    ,{"check": "UNRAID_WEB", "status": "GREEN", "message": "Web interface accessible", "value": ""}
+    ,{"check": "PORT_HTTP", "status": "GREEN", "message": "Port 80 open", "value": ""}
+    ,{"check": "PORT_SMB", "status": "GREEN", "message": "Port 445 open", "value": ""}
+    ,{"check": "PORT_NFS-RPC", "status": "GREEN", "message": "Port 111 open", "value": ""}
+    ,{"check": "PORT_NFS", "status": "GREEN", "message": "Port 2049 open", "value": ""}
+    ,{"check": "SMB_media", "status": "GREEN", "message": "Share not visible without auth (expected for secured NAS)", "value": ""}
+    ,{"check": "SMB_backups", "status": "GREEN", "message": "Share not visible without auth (expected for secured NAS)", "value": ""}
+    ,{"check": "SMB_appdata", "status": "GREEN", "message": "Share not visible without auth (expected for secured NAS)", "value": ""}
+    ,{"check": "SMB_isos", "status": "GREEN", "message": "Share not visible without auth (expected for secured NAS)", "value": ""}
+    ,{"check": "NFS_media", "status": "GREEN", "message": "Export not visible via showmount (NFS port open; export may require auth)", "value": ""}
+    ,{"check": "NFS_backups", "status": "GREEN", "message": "Export not visible via showmount (NFS port open; export may require auth)", "value": ""}
+  ]
+}

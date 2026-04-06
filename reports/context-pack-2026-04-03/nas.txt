@@ -1,0 +1,2 @@
+[0;32m✓ NAS STATUS: GREEN[0m
+  All 12 checks passed

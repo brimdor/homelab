@@ -1,0 +1,2 @@
+NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE       NOMINATED NODE   READINESS GATES
+grafana-69f8c77689-b797j   3/3     Running   0          37m   10.0.6.176   squirtle   <none>           <none>
