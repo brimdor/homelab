@@ -95,10 +95,9 @@ app-template:
     ollama-models:
       type: emptyDir
       advancedMounts:
-        scribe-canary:
-          ollama:
+        main:
+          scribe-canary:
             - path: /root/.ollama
-        ollama:
           ollama:
             - path: /root/.ollama
   defaultPodOptions:
