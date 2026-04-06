@@ -25,24 +25,6 @@ app-template:
           envFrom:
             - secretRef:
                 name: scribe-canary-secrets
-          volumeMounts:
-            - name: ollama-models
-              mountPath: /root/.ollama
-          probes:
-            liveness:
-              enabled: true
-              spec:
-                tcpSocket:
-                  port: 8787
-                initialDelaySeconds: 30
-                periodSeconds: 30
-            readiness:
-              enabled: true
-              spec:
-                tcpSocket:
-                  port: 8787
-                initialDelaySeconds: 10
-                periodSeconds: 10
           resources:
             limits:
               cpu: 2
@@ -62,9 +44,6 @@ app-template:
           ports:
             - containerPort: 11434
               name: ollama
-          volumeMounts:
-            - name: ollama-models
-              mountPath: /root/.ollama
           resources:
             limits:
               cpu: 4
@@ -87,9 +66,6 @@ app-template:
                   port: 11434
                 initialDelaySeconds: 5
                 periodSeconds: 10
-      volumes:
-        - name: ollama-models
-          emptyDir: {}
   service:
     main:
       primary: true
@@ -131,6 +107,15 @@ app-template:
       storageClass: standard-rwo
       globalMounts:
         - path: /app/server/repos
+    ollama-models:
+      type: emptyDir
+      advancedMounts:
+        scribe-canary:
+          ollama:
+            - path: /root/.ollama
+        ollama:
+          ollama:
+            - path: /root/.ollama
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
