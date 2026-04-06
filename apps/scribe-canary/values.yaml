@@ -3,8 +3,6 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
-      nodeSelector:
-        kubernetes.io/hostname: charmander
       containers:
         main:
           nameOverride: scribe-canary
@@ -94,6 +92,8 @@ app-template:
     securityContext:
       fsGroup: 1000
     hostNetwork: true
+    nodeSelector:
+      kubernetes.io/hostname: charmander
     annotations:
       operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-canary-secrets
       operator.1password.io/item-name: secrets
