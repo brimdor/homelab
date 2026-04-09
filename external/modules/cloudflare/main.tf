@@ -25,6 +25,16 @@ resource "cloudflare_record" "tunnel" {
   ttl     = 1 # Auto
 }
 
+# Static route for Hermes webhook — host-native service not in K8s
+resource "cloudflare_record" "hermes_webhook" {
+  zone_id = data.cloudflare_zone.zone.id
+  type    = "CNAME"
+  name    = "hermes-webhook"
+  value   = "homelab-tunnel.eaglepass.io"
+  proxied = true
+  ttl     = 1
+}
+
 resource "kubernetes_secret" "cloudflared_credentials" {
   metadata {
     name      = "cloudflared-credentials"
