@@ -58,7 +58,6 @@ app-template:
       className: nginx
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
-        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
       hosts:
         - host: brain-canary.eaglepass.io
           paths:
