@@ -57,7 +57,6 @@ local-ai:
       command:
         - /busybox/sh
         - -lc
-      args:
         - |
           set -eu
           mkdir -p /backends/stablediffusion-ggml-assets
@@ -71,7 +70,6 @@ local-ai:
       command:
         - /bin/sh
         - -lc
-      args:
         - |
           set -eu
           cat > /backends/stablediffusion-ggml <<'EOF'
