@@ -1,4 +1,3 @@
-
 # Values for umbrella chart to configure the go-skynet/local-ai subchart.
 # Schema reference: https://raw.githubusercontent.com/go-skynet/helm-charts/main/charts/local-ai/values.yaml
 
@@ -38,7 +37,8 @@ local-ai:
       LOCAL_AI_MODELS_PATH: "/models"
       LOCALAI_IMAGE_PATH: "/tmp/generated/images"
     # MODELS_PATH is injected automatically by template from modelsPath below
-      BACKENDS_PATH: /backends
+      # BACKENDS_PATH defaults to /usr/share/localai/backends (image built-in)
+      # Do NOT set BACKENDS_PATH to a PVC mount - the image ships backends internally
       LOCALAI_UPLOAD_LIMIT: "1000"
 
     # Secrets via 1Password operator
@@ -60,7 +60,11 @@ local-ai:
       memory: "8Gi"
       # nvidia.com/gpu: 1
 
-  # Persistent storage for models and outputs
+  # Persistent storage for models and outputs.
+  # NOTE: backends and sec-backends persistence are DISABLED because the image
+  # ships backends at /usr/share/localai/backends. Creating PVCs for these paths
+  # would override the image's built-in backends with empty volumes, causing
+  # LocalAI to crash with "no backends found".
   persistence:
     models:
       enabled: true
@@ -69,17 +73,9 @@ local-ai:
       size: 50Gi
       globalMount: /models
     backends:
-      enabled: true
-      accessModes:
-        - ReadWriteOnce
-      size: 50Gi
-      globalMount: /backends
+      enabled: false
     sec-backends:
-      enabled: true
-      accessModes:
-        - ReadWriteOnce
-      size: 10Gi
-      globalMount: /usr/share/localai/backends
+      enabled: false
     output:
       enabled: true
       accessModes:
