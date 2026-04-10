@@ -59,6 +59,14 @@ local-ai:
         - -lc
         - |
           set -eu
+          if [ -f /backends/stablediffusion-ggml ]; then
+            rm -f /backends/stablediffusion-ggml
+          fi
+
+          if [ -d /backends/stablediffusion-ggml-assets ] && [ ! -d /backends/stablediffusion-ggml ]; then
+            mv /backends/stablediffusion-ggml-assets /backends/stablediffusion-ggml
+          fi
+
           mkdir -p /backends/stablediffusion-ggml
           if [ ! -x /backends/stablediffusion-ggml/stablediffusion-ggml ]; then
             crane export quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-stablediffusion-ggml - | tar -C /backends/stablediffusion-ggml -xf -
