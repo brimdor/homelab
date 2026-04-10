@@ -79,3 +79,8 @@ app-template:
       storageClass: standard-rwo
       globalMounts:
         - path: /app/data
+  defaultPodOptions:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
