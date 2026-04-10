@@ -59,49 +59,10 @@ local-ai:
         - -lc
         - |
           set -eu
-          mkdir -p /backends/stablediffusion-ggml-assets
-          if [ ! -x /backends/stablediffusion-ggml-assets/stablediffusion-ggml ]; then
-            crane export quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-stablediffusion-ggml - | tar -C /backends/stablediffusion-ggml-assets -xf -
+          mkdir -p /backends/stablediffusion-ggml
+          if [ ! -x /backends/stablediffusion-ggml/stablediffusion-ggml ]; then
+            crane export quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-stablediffusion-ggml - | tar -C /backends/stablediffusion-ggml -xf -
           fi
-
-    - name: install-stablediffusion-wrapper
-      image: alpine:3.20
-      imagePullPolicy: IfNotPresent
-      command:
-        - /bin/sh
-        - -lc
-        - |
-          set -eu
-          cat > /backends/stablediffusion-ggml <<'EOF'
-          #!/bin/sh
-          set -eu
-
-          ASSETDIR=/backends/stablediffusion-ggml-assets
-          LIBRARY="$ASSETDIR/libgosd-fallback.so"
-
-          if grep -q -e '\savx\s' /proc/cpuinfo 2>/dev/null && [ -e "$ASSETDIR/libgosd-avx.so" ]; then
-            LIBRARY="$ASSETDIR/libgosd-avx.so"
-          fi
-
-          if grep -q -e '\savx2\s' /proc/cpuinfo 2>/dev/null && [ -e "$ASSETDIR/libgosd-avx2.so" ]; then
-            LIBRARY="$ASSETDIR/libgosd-avx2.so"
-          fi
-
-          if grep -q -e '\savx512f\s' /proc/cpuinfo 2>/dev/null && [ -e "$ASSETDIR/libgosd-avx512.so" ]; then
-            LIBRARY="$ASSETDIR/libgosd-avx512.so"
-          fi
-
-          export LD_LIBRARY_PATH="$ASSETDIR/lib:${LD_LIBRARY_PATH:-}"
-          export SD_LIBRARY="$LIBRARY"
-
-          if [ -f "$ASSETDIR/lib/ld.so" ]; then
-            exec "$ASSETDIR/lib/ld.so" "$ASSETDIR/stablediffusion-ggml" "$@"
-          fi
-
-          exec "$ASSETDIR/stablediffusion-ggml" "$@"
-          EOF
-
-          chmod 0755 /backends/stablediffusion-ggml
 
   # Resources suitable for GPU workloads (adjust as needed)
   resources:
