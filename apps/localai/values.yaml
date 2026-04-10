@@ -38,8 +38,8 @@ local-ai:
       LOCAL_AI_MODELS_PATH: "/models"
       LOCALAI_IMAGE_PATH: "/tmp/generated/images"
     # MODELS_PATH is injected automatically by template from modelsPath below
-      # BACKENDS_PATH defaults to /usr/share/localai/backends (image built-in)
-      # Do NOT set BACKENDS_PATH to a PVC mount - the image ships backends internally
+      # Stable Diffusion GGML uses a separately extracted backend binary.
+      BACKENDS_PATH: "/backends"
       LOCALAI_UPLOAD_LIMIT: "1000"
 
     # Secrets via 1Password operator
@@ -49,6 +49,61 @@ local-ai:
 
     # If your cluster uses NVIDIA runtimeClass, set it here; otherwise use GPU device plugin resources below.
     runtimeClassName: nvidia
+
+  initContainers:
+    - name: extract-stablediffusion-backend
+      image: gcr.io/go-containerregistry/crane:debug
+      imagePullPolicy: IfNotPresent
+      command:
+        - /busybox/sh
+        - -lc
+      args:
+        - |
+          set -eu
+          mkdir -p /backends/stablediffusion-ggml-assets
+          if [ ! -x /backends/stablediffusion-ggml-assets/stablediffusion-ggml ]; then
+            crane export quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-stablediffusion-ggml - | tar -C /backends/stablediffusion-ggml-assets -xf -
+          fi
+
+    - name: install-stablediffusion-wrapper
+      image: alpine:3.20
+      imagePullPolicy: IfNotPresent
+      command:
+        - /bin/sh
+        - -lc
+      args:
+        - |
+          set -eu
+          cat > /backends/stablediffusion-ggml <<'EOF'
+          #!/bin/sh
+          set -eu
+
+          ASSETDIR=/backends/stablediffusion-ggml-assets
+          LIBRARY="$ASSETDIR/libgosd-fallback.so"
+
+          if grep -q -e '\savx\s' /proc/cpuinfo 2>/dev/null && [ -e "$ASSETDIR/libgosd-avx.so" ]; then
+            LIBRARY="$ASSETDIR/libgosd-avx.so"
+          fi
+
+          if grep -q -e '\savx2\s' /proc/cpuinfo 2>/dev/null && [ -e "$ASSETDIR/libgosd-avx2.so" ]; then
+            LIBRARY="$ASSETDIR/libgosd-avx2.so"
+          fi
+
+          if grep -q -e '\savx512f\s' /proc/cpuinfo 2>/dev/null && [ -e "$ASSETDIR/libgosd-avx512.so" ]; then
+            LIBRARY="$ASSETDIR/libgosd-avx512.so"
+          fi
+
+          export LD_LIBRARY_PATH="$ASSETDIR/lib:${LD_LIBRARY_PATH:-}"
+          export SD_LIBRARY="$LIBRARY"
+
+          if [ -f "$ASSETDIR/lib/ld.so" ]; then
+            exec "$ASSETDIR/lib/ld.so" "$ASSETDIR/stablediffusion-ggml" "$@"
+          fi
+
+          exec "$ASSETDIR/stablediffusion-ggml" "$@"
+          EOF
+
+          chmod 0755 /backends/stablediffusion-ggml
 
   # Resources suitable for GPU workloads (adjust as needed)
   resources:
@@ -61,11 +116,7 @@ local-ai:
       memory: "8Gi"
       # nvidia.com/gpu: 1
 
-  # Persistent storage for models and outputs.
-  # NOTE: backends and sec-backends persistence are DISABLED because the image
-  # ships backends at /usr/share/localai/backends. Creating PVCs for these paths
-  # would override the image's built-in backends with empty volumes, causing
-  # LocalAI to crash with "no backends found".
+  # Persistent storage for models, extracted backends, and outputs.
   persistence:
     models:
       enabled: true
@@ -74,9 +125,11 @@ local-ai:
       size: 50Gi
       globalMount: /models
     backends:
-      enabled: false
-    sec-backends:
-      enabled: false
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+      size: 5Gi
+      globalMount: /backends
     output:
       enabled: true
       accessModes:
