@@ -8,7 +8,7 @@ app-template:
           nameOverride: second-brain-canary
           image:
             repository: 10.0.20.11:32309/second-brain
-            tag: "2026-04-09-multi-account"
+            tag: "2026-04-09-oauth-only"
             pullPolicy: Always
           ports:
             - containerPort: 3000
