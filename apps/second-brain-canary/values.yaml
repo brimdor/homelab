@@ -8,7 +8,7 @@ app-template:
           nameOverride: second-brain-canary
           image:
             repository: 10.0.20.11:32309/second-brain
-            tag: "2026-04-09-canary"
+            tag: "2026-04-09-multi-account"
             pullPolicy: Always
           ports:
             - containerPort: 3000
@@ -18,6 +18,9 @@ app-template:
             NODE_ENV: production
             PORT: "3000"
             TZ: America/Chicago
+            DATABASE_PATH: /app/data/second-brain.sqlite
+            REPO_CACHE_DIR: /app/data/repos
+            ALLOW_OPEN_REGISTRATION: "true"
           envFrom:
             - secretRef:
                 name: second-brain-canary-secrets
@@ -67,3 +70,12 @@ app-template:
         - hosts:
             - brain-canary.eaglepass.io
           secretName: second-brain-canary-tls
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: standard-rwo
+      globalMounts:
+        - path: /app/data
