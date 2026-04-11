@@ -21,9 +21,11 @@ app-template:
             DATABASE_PATH: /app/data/second-brain.sqlite
             REPO_CACHE_DIR: /app/data/repos
             ALLOW_OPEN_REGISTRATION: "true"
-          envFrom:
-            - secretRef:
-                name: second-brain-canary-secrets
+          # Mount the master key as a file to avoid kubelet env injection corruption
+          volumeMounts:
+            - name: master-key
+              mountPath: /run/secrets
+              readOnly: true
           probes:
             liveness:
               enabled: true
@@ -48,6 +50,13 @@ app-template:
             requests:
               cpu: 0.25
               memory: 512Mi
+      volumes:
+        - name: master-key
+          secret:
+            secretName: second-brain-canary-secrets
+            items:
+              - key: APP_SECRETS_MASTER_KEY_B64
+                path: master_key
   service:
     main:
       primary: true
@@ -86,6 +95,3 @@ app-template:
       runAsUser: 1000
       runAsGroup: 1000
       fsGroup: 1000
-    annotations:
-      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/second-brain-canary
-      operator.1password.io/item-name: secrets
