@@ -92,5 +92,5 @@ app-template:
       runAsGroup: 1000
       fsGroup: 1000
     annotations:
-      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/second-brain-prod
-      operator.1password.io/item-name: secrets
+      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/7idd2onjjqvk5l5lqspscq74dq
+      operator.1password.io/item-name: second-brain-secrets
