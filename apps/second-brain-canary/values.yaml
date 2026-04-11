@@ -45,20 +45,6 @@ app-template:
             requests:
               cpu: 0.25
               memory: 512Mi
-          advancedMounts:
-            main:
-              master-key:
-                enabled: true
-                path: /run/secrets
-                readOnly: true
-      volumes:
-        master-key:
-          enabled: true
-          type: secret
-          name: second-brain-canary-secrets
-          items:
-            - key: APP_SECRETS_MASTER_KEY_B64
-              path: master_key
   service:
     main:
       primary: true
@@ -92,6 +78,17 @@ app-template:
       storageClass: standard-rwo
       globalMounts:
         - path: /app/data
+    master-key:
+      enabled: true
+      type: secret
+      name: second-brain-canary-secrets
+      advancedMounts:
+        main:
+          second-brain-canary:
+            enabled: true
+            path: /run/secrets
+            readOnly: true
+            subPath: APP_SECRETS_MASTER_KEY_B64
   defaultPodOptions:
     securityContext:
       runAsUser: 1000
