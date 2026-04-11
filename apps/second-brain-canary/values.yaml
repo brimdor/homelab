@@ -83,14 +83,6 @@ app-template:
       storageClass: standard-rwo
       globalMounts:
         - path: /app/data
-    master-key:
-      enabled: true
-      type: secret
-      name: second-brain-canary-secrets
-      globalMounts:
-        - path: /run/secrets/master_key
-          subPath: APP_SECRETS_MASTER_KEY_B64
-          readOnly: true
   defaultPodOptions:
     securityContext:
       runAsUser: 1000
