@@ -18,14 +18,9 @@ app-template:
             NODE_ENV: production
             PORT: "3000"
             TZ: America/Chicago
-            DATABASE_PATH: /app/data/second-brain.sqlite
-            REPO_CACHE_DIR: /app/data/repos
-            ALLOW_OPEN_REGISTRATION: "true"
-            APP_SECRETS_MASTER_KEY_B64:
-              valueFrom:
-                secretKeyRef:
-                  name: second-brain-canary-secrets
-                  key: APP_SECRETS_MASTER_KEY_B64
+          envFrom:
+            - secretRef:
+                name: second-brain-canary-secrets
           probes:
             liveness:
               enabled: true
@@ -62,9 +57,8 @@ app-template:
       enabled: true
       className: nginx
       annotations:
-        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
       hosts:
         - host: brain-canary.eaglepass.io
           paths:
@@ -74,20 +68,3 @@ app-template:
         - hosts:
             - brain-canary.eaglepass.io
           secretName: second-brain-canary-tls
-  persistence:
-    data:
-      enabled: true
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 5Gi
-      storageClass: standard-rwo
-      globalMounts:
-        - path: /app/data
-  defaultPodOptions:
-    securityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
-    annotations:
-      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/7qevahjksydjqcwste4tscybvy
-      operator.1password.io/item-name: second-brain-canary-secrets
