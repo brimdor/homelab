@@ -21,6 +21,11 @@ app-template:
             DATABASE_PATH: /app/data/second-brain.sqlite
             REPO_CACHE_DIR: /app/data/repos
             ALLOW_OPEN_REGISTRATION: "true"
+            APP_SECRETS_MASTER_KEY_B64:
+              valueFrom:
+                secretKeyRef:
+                  name: second-brain-canary-secrets
+                  key: APP_SECRETS_MASTER_KEY_B64
           probes:
             liveness:
               enabled: true
