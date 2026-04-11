@@ -21,6 +21,11 @@ app-template:
             DATABASE_PATH: /app/data/second-brain.sqlite
             REPO_CACHE_DIR: /app/data/repos
             ALLOW_OPEN_REGISTRATION: "false"
+            APP_SECRETS_MASTER_KEY_B64:
+              valueFrom:
+                secretKeyRef:
+                  name: second-brain-secrets
+                  key: APP_SECRETS_MASTER_KEY_B64
           probes:
             liveness:
               enabled: true
@@ -78,14 +83,6 @@ app-template:
       storageClass: standard-rwo
       globalMounts:
         - path: /app/data
-    master-key:
-      enabled: true
-      type: secret
-      name: second-brain-secrets
-      globalMounts:
-        - path: /run/secrets/master_key
-          subPath: APP_SECRETS_MASTER_KEY_B64
-          readOnly: true
   defaultPodOptions:
     securityContext:
       runAsUser: 1000
