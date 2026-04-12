@@ -2,7 +2,7 @@ apiVersion: v2
 name: second-brain-canary
 description: A Helm chart for deploying Second Brain canary
 type: application
-version: 0.1.2
+version: 0.1.3
 dependencies:
   - name: app-template
     version: 4.6.2
