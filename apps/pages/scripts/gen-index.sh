@@ -1,33 +1,32 @@
 #!/bin/sh
 # gen-index.sh — Regenerates index.html from HTML files with PAGES_META comments
-# Run inside the pages container: kubectl exec -n pages deploy/pages -- /usr/share/nginx/html/gen-index.sh
+# POSIX-compliant for Alpine /bin/sh (ash)
+# Run: kubectl exec -n pages deploy/pages -- /usr/local/bin/gen-index.sh
 
 HTML_DIR="/usr/share/nginx/html"
 INDEX="$HTML_DIR/index.html"
 
-# Collect pages with metadata
-pages=""
+# Collect pages with metadata into a temp file
+TMPFILE=$(mktemp)
 for f in "$HTML_DIR"/*.html; do
-  [ "$(basename "$f")" = "index.html" ] && continue
-  [ "$(basename "$f")" = "gen-index.sh" ] && continue
+  fname=$(basename "$f")
+  [ "$fname" = "index.html" ] && continue
   [ ! -f "$f" ] && continue
 
   # Extract PAGES_META from first 5 lines
   meta=$(head -5 "$f" | sed -n 's/.*PAGES_META: \({.*}\).*/\1/p' | head -1)
   if [ -n "$meta" ]; then
-    # Parse with python3 (available in nginx:alpine)
     title=$(printf '%s' "$meta" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('title','Untitled'))" 2>/dev/null || echo "Untitled")
     date=$(printf '%s' "$meta" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('date','Unknown'))" 2>/dev/null || echo "Unknown")
     desc=$(printf '%s' "$meta" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('description','')[:120])" 2>/dev/null || echo "")
     tags=$(printf '%s' "$meta" | python3 -c "import sys,json; print(' '.join(json.loads(sys.stdin.read()).get('tags',[])))" 2>/dev/null || echo "")
-    fname=$(basename "$f")
-    pages="${pages}${date}|${title}|${desc}|${tags}|${fname}
-"
+    printf '%s|%s|%s|%s|%s\n' "$date" "$title" "$desc" "$tags" "$fname" >> "$TMPFILE"
   fi
 done
 
 # Sort by date descending
-sorted=$(printf '%s' "$pages" | sort -t'|' -k1 -r)
+sorted=$(sort -t'|' -k1 -r "$TMPFILE")
+rm -f "$TMPFILE"
 
 # Build tag HTML
 build_tags() {
@@ -39,7 +38,7 @@ build_tags() {
   printf '%s' "$_html"
 }
 
-# Generate index.html
+# Write index.html
 cat > "$INDEX" << 'HEADER'
 <!DOCTYPE html>
 <html lang="en">
@@ -86,27 +85,20 @@ HEADER
 # Add each page as a card
 count=0
 if [ -n "$sorted" ]; then
-  while IFS='|' read -r date title desc tags fname; do
+  printf '%s\n' "$sorted" | while IFS='|' read -r date title desc tags fname; do
     [ -z "$fname" ] && continue
     tag_html=$(build_tags "$tags")
-    cat >> "$INDEX" << CARD
-<a class="card" href="${fname}">
-  <div class="card-title">${title}</div>
-  <div class="card-date">${date}</div>
-  <div class="card-desc">${desc}</div>
-  <div class="card-tags">${tag_html}</div>
-</a>
-CARD
+    printf '<a class="card" href="%s">\n  <div class="card-title">%s</div>\n  <div class="card-date">%s</div>\n  <div class="card-desc">%s</div>\n  <div class="card-tags">%s</div>\n</a>\n' "$fname" "$title" "$date" "$desc" "$tag_html" >> "$INDEX"
     count=$((count + 1))
-  done <<< "$sorted"
+  done
 fi
 
 # If no pages, show empty state
-if [ "$count" -eq 0 ]; then
+if [ ! -s "$INDEX" ] || ! grep -q 'card-title' "$INDEX"; then
   cat >> "$INDEX" << 'EMPTY'
 <div class="empty-state">
   <h2>No pages yet</h2>
-  <p>Pages will appear here as they're published.</p>
+  <p>Pages will appear here as they are published.</p>
 </div>
 EMPTY
 fi
@@ -119,4 +111,4 @@ cat >> "$INDEX" << 'FOOTER'
 </html>
 FOOTER
 
-echo "Index regenerated with $count pages"
+echo "Index regenerated"
