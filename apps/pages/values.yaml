@@ -1,0 +1,77 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: pages
+          image:
+            repository: 10.0.20.11:32309/pages
+            tag: "latest"
+            pullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            TZ: America/Chicago
+          probes:
+            liveness:
+              enabled: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 80
+                initialDelaySeconds: 5
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 80
+                initialDelaySeconds: 3
+                periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+  service:
+    main:
+      primary: true
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      hosts:
+        - host: pages.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - hosts:
+            - pages.eaglepass.io
+          secretName: pages-tls
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/pages
+      advancedMounts:
+        main:
+          main:
+            - path: /usr/share/nginx/html
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
