@@ -1,0 +1,122 @@
+<!-- PAGES_META: {"title": "Deployment Tutorial", "date": "2026-04-13", "description": "Step-by-step guide for deploying a web application to the homelab K3s cluster with ArgoCD", "tags": ["tutorial", "deployment", "kubernetes", "homelab"]} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deployment Tutorial</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940}
+@media(max-width:768px){:root{--glass-radius:16px}}
+body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:1rem}
+nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
+nav .badge{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:1rem}
+.hero{padding:2rem 1rem;text-align:center}
+.hero h2{font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),#1a1a1a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--text-secondary);font-size:clamp(0.9rem,2vw,1.1rem)}
+.content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
+footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+.step{display:flex;gap:1rem;margin:1.5rem 0;align-items:flex-start}
+.step-num{flex-shrink:0;width:40px;height:40px;border-radius:50%;background:rgba(255,140,0,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem}
+.step-body{flex:1;min-width:0}
+.step-body h4{color:var(--text-primary);margin-bottom:0.4rem;font-size:1rem}
+.step-body p{color:var(--text-secondary);font-size:0.92rem;line-height:1.6;margin-bottom:0.4rem}
+.code-inline{font-family:'SF Mono',Monaco,monospace;background:rgba(255,140,0,0.08);padding:0.15rem 0.4rem;border-radius:4px;font-size:0.85rem;color:var(--accent-light)}
+.code-block{background:rgba(0,0,0,0.3);border:1px solid rgba(255,140,0,0.08);border-radius:10px;padding:1rem;margin:0.5rem 0;font-family:'SF Mono',Monaco,monospace;font-size:0.82rem;color:var(--text-secondary);overflow-x:auto;line-height:1.5;white-space:pre}
+.tip{background:rgba(255,140,0,0.08);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:0.75rem 1rem;margin:1rem 0;font-size:0.88rem;color:var(--text-secondary)}
+.tip strong{color:var(--accent)}
+.warning{background:rgba(248,113,113,0.08);border-left:3px solid #f87171;border-radius:0 10px 10px 0;padding:0.75rem 1rem;margin:1rem 0;font-size:0.88rem;color:var(--text-secondary)}
+.warning strong{color:#f87171}
+@media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+@media(max-width:768px){.glass{backdrop-filter:blur(12px) saturate(130%);-webkit-backdrop-filter:blur(12px) saturate(130%);border-radius:16px}.content{padding:0.5rem}}
+a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<nav class="glass">
+  <h1>Pages</h1>
+  <span class="badge">CANARY</span>
+</nav>
+<main>
+  <div class="hero">
+    <h2>Deployment Tutorial</h2>
+    <p>Ship your app to the homelab K3s cluster with ArgoCD</p>
+  </div>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Create the Helm Chart</h4>
+      <p>Each application lives in <span class="code-inline">apps/&lt;app-name&gt;/</span> in the homelab repository. Start with the bjw-s app-template as a base.</p>
+      <div class="code-block">apps/my-app/
+├── Chart.yaml        # app-template v4.6.2 dependency
+├── values.yaml       # deployment config (image, ingress, PVC)
+└── templates/        # optional custom manifests</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h4>Configure values.yaml</h4>
+      <p>Define your container image, ingress hostname, and any persistent volumes. The app-template handles the boilerplate.</p>
+      <div class="code-block">app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            repository: 10.0.20.11:32309/my-app
+            tag: "latest"
+  ingress:
+    main:
+      hosts:
+        - host: my-app.eaglepass.io</div>
+      <div class="tip"><strong>Tip:</strong> Always add <span class="code-inline">cloudflare-proxied: "true"</span> to ingress annotations so external-dns creates proxied DNS records through Cloudflare.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h4>Build and Push the Image</h4>
+      <p>Container images are built with Podman and pushed to the private Harbor registry on the homelab network.</p>
+      <div class="code-block">podman build -t 10.0.20.11:32309/my-app:latest \
+  -f Dockerfile .
+podman push 10.0.20.11:32309/my-app:latest \
+  --tls-verify=false --quiet</div>
+      <div class="warning"><strong>Warning:</strong> Never use <span class="code-inline">kubectl apply</span> directly. ArgoCD auto-heals and will revert manual changes. Push to Gitea instead.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h4>Commit to Gitea</h4>
+      <p>Push your Helm chart changes to the homelab repo on Gitea. ArgoCD watches this repo and will automatically sync within 1-2 minutes.</p>
+      <div class="code-block">git add apps/my-app/
+git commit -m "feat: add my-app deployment"
+git push origin main</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <h4>Verify the Deployment</h4>
+      <p>Check that ArgoCD picked up the change and the pod is running healthy.</p>
+      <div class="code-block">kubectl get pods -n my-app
+kubectl get ingress -n my-app
+curl -sI https://my-app.eaglepass.io/ | head -3</div>
+      <div class="tip"><strong>Tip:</strong> If external-dns isn't creating the DNS record, check for stale CNAME conflicts in Cloudflare. A CNAME at the same hostname will block A record creation with error 81054.</div>
+    </div>
+  </div>
+</main>
+<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!-- PAGES_META: {"title": "Security Audit Report", "date": "2026-04-13", "description": "Infrastructure security posture review with vulnerability findings and compliance checks", "tags": ["security", "audit", "compliance", "infrastructure"]} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Security Audit Report</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--yellow:#facc15;--red:#f87171;--blue:#60a5fa}
+@media(max-width:768px){:root{--glass-radius:16px}}
+body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:1rem}
+nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
+nav .badge{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:1rem}
+.hero{padding:2rem 1rem;text-align:center}
+.hero h2{font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),#1a1a1a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--text-secondary);font-size:clamp(0.9rem,2vw,1.1rem)}
+.content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
+.content-card h3{color:var(--accent);margin-bottom:0.75rem;font-size:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:1rem;margin:1rem 0}
+footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+.severity{display:inline-block;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:700;text-transform:uppercase}
+.critical{background:rgba(248,113,113,0.2);color:var(--red)}
+.high{background:rgba(250,204,21,0.2);color:var(--yellow)}
+.medium{background:rgba(96,165,250,0.15);color:var(--blue)}
+.low{background:rgba(74,222,128,0.15);color:var(--green)}
+.finding{background:var(--content-bg);border-radius:12px;border:1px solid rgba(255,140,0,0.1);padding:1.25rem;margin:0.75rem 0}
+.finding-header{display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap}
+.finding-title{font-weight:600;color:var(--text-primary);font-size:0.95rem}
+.finding p{color:var(--text-secondary);font-size:0.88rem;line-height:1.5;margin-bottom:0.4rem}
+.remediation{background:rgba(74,222,128,0.05);border-left:3px solid var(--green);border-radius:0 8px 8px 0;padding:0.6rem 1rem;margin-top:0.5rem;font-size:0.85rem;color:var(--text-secondary)}
+.remediation strong{color:var(--green)}
+.score-ring{text-align:center;padding:1.5rem}
+.score-value{font-size:3rem;font-weight:700}
+.score-label{font-size:0.9rem;color:var(--text-secondary);margin-top:0.25rem}
+.check{display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;font-size:0.9rem}
+.check-pass{color:var(--green)}
+.check-fail{color:var(--red)}
+.check-warn{color:var(--yellow)}
+@media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+@media(max-width:768px){.glass{backdrop-filter:blur(12px) saturate(130%);-webkit-backdrop-filter:blur(12px) saturate(130%);border-radius:16px}.content{padding:0.5rem}}
+a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<nav class="glass">
+  <h1>Pages</h1>
+  <span class="badge">CANARY</span>
+</nav>
+<main>
+  <div class="hero">
+    <h2>Security Audit Report</h2>
+    <p>Infrastructure security posture review &mdash; April 2026</p>
+  </div>
+
+  <div class="grid">
+    <div class="score-ring">
+      <div class="score-value" style="color:var(--green)">87</div>
+      <div class="score-label">Security Score</div>
+    </div>
+    <div class="score-ring">
+      <div class="score-value" style="color:var(--accent)">3</div>
+      <div class="score-label">Open Findings</div>
+    </div>
+    <div class="score-ring">
+      <div class="score-value" style="color:var(--blue)">8</div>
+      <div class="score-label">Checks Passed</div>
+    </div>
+    <div class="score-ring">
+      <div class="score-value" style="color:var(--yellow)">2</div>
+      <div class="score-label">Warnings</div>
+    </div>
+  </div>
+
+  <div class="content-card">
+    <h3>Compliance Checks</h3>
+    <div class="check"><span class="check-pass">&#10003;</span> TLS 1.3 enforced on all endpoints</div>
+    <div class="check"><span class="check-pass">&#10003;</span> Cloudflare Access enabled for production</div>
+    <div class="check"><span class="check-pass">&#10003;</span> Container images scanned for CVEs</div>
+    <div class="check"><span class="check-pass">&#10003;</span> Secrets stored in Kubernetes Secrets (not env vars)</div>
+    <div class="check"><span class="check-pass">&#10003;</span> Network policies restrict pod-to-pod traffic</div>
+    <div class="check"><span class="check-warn">&#9888;</span> Rook-Ceph dashboard exposed without auth (internal only)</div>
+    <div class="check"><span class="check-warn">&#9888;</span> Harbor registry uses self-signed cert (internal only)</div>
+    <div class="check"><span class="check-fail">&#10007;</span> No automated secret rotation schedule</div>
+    <div class="check"><span class="check-pass">&#10003;</span> Security headers (X-Frame-Options, CSP, HSTS) present</div>
+    <div class="check"><span class="check-pass">&#10003;</span> Cloudflare WAF rules active</div>
+  </div>
+
+  <div class="content-card">
+    <h3>Open Findings</h3>
+    <div class="finding">
+      <div class="finding-header">
+        <span class="severity high">High</span>
+        <span class="finding-title">No Automated Secret Rotation</span>
+      </div>
+      <p>Kubernetes Secrets and Cloudflare API tokens are manually created and never rotated. A leaked token remains valid indefinitely.</p>
+      <div class="remediation"><strong>Fix:</strong> Implement cert-manager-based secret rotation with 90-day expiry. Add ExternalSecrets operator for Cloudflare tokens.</div>
+    </div>
+    <div class="finding">
+      <div class="finding-header">
+        <span class="severity medium">Medium</span>
+        <span class="finding-title">Self-Signed Registry Certificate</span>
+      </div>
+      <p>Harbor registry uses a self-signed CA certificate. Podman pulls require <code>--tls-verify=false</code> which disables certificate validation.</p>
+      <div class="remediation"><strong>Fix:</strong> Add internal CA to node trust stores or use cert-manager with internal issuer for registry certificates.</div>
+    </div>
+    <div class="finding">
+      <div class="finding-header">
+        <span class="severity low">Low</span>
+        <span class="finding-title">Ceph Dashboard Without Authentication</span>
+      </div>
+      <p>Rook-Ceph dashboard is accessible on the internal network without login. While not externally exposed, lateral movement is possible.</p>
+      <div class="remediation"><strong>Fix:</strong> Enable Ceph dashboard SSO via Cloudflare Access or add basic-auth ingress annotation.</div>
+    </div>
+  </div>
+</main>
+<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+</body>
+</html>

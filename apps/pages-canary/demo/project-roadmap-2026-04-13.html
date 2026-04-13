@@ -1,0 +1,119 @@
+<!-- PAGES_META: {"title": "Project Roadmap", "date": "2026-04-13", "description": "Quarterly roadmap with milestones, priorities, and progress tracking for the Second Brain platform", "tags": ["roadmap", "planning", "project"]} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Project Roadmap</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--yellow:#facc15;--blue:#60a5fa;--purple:#c084fc}
+@media(max-width:768px){:root{--glass-radius:16px}}
+body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:1rem}
+nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
+nav .badge{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:1rem}
+.hero{padding:2rem 1rem;text-align:center}
+.hero h2{font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),#1a1a1a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--text-secondary);font-size:clamp(0.9rem,2vw,1.1rem)}
+.content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
+footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+.quarter{margin:2rem 0}
+.quarter-header{display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem}
+.quarter-label{font-size:1.1rem;font-weight:700;color:var(--text-primary)}
+.quarter-badge{padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+.current{background:rgba(74,222,128,0.15);color:var(--green)}
+.upcoming{background:rgba(96,165,250,0.15);color:var(--blue)}
+.future{background:rgba(192,132,252,0.15);color:var(--purple)}
+.milestone{background:var(--content-bg);border-radius:12px;border:1px solid rgba(255,140,0,0.1);padding:1.25rem;margin:0.75rem 0}
+.milestone-title{font-weight:600;color:var(--text-primary);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap}
+.status{display:inline-block;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:700;text-transform:uppercase}
+.done{background:rgba(74,222,128,0.15);color:var(--green)}
+.progress{background:rgba(250,204,21,0.15);color:var(--yellow)}
+.planned{background:rgba(96,165,250,0.15);color:var(--blue)}
+.milestone p{color:var(--text-secondary);font-size:0.9rem;line-height:1.5;margin-top:0.4rem}
+.progress-bar{background:rgba(255,255,255,0.05);border-radius:8px;height:10px;overflow:hidden;margin-top:0.5rem}
+.progress-bar .fill{height:100%;border-radius:8px}
+@media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+@media(max-width:768px){.glass{backdrop-filter:blur(12px) saturate(130%);-webkit-backdrop-filter:blur(12px) saturate(130%);border-radius:16px}.content{padding:0.5rem}}
+a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<nav class="glass">
+  <h1>Pages</h1>
+  <span class="badge">CANARY</span>
+</nav>
+<main>
+  <div class="hero">
+    <h2>Project Roadmap</h2>
+    <p>Quarterly milestones and priorities for Second Brain</p>
+  </div>
+
+  <div class="quarter">
+    <div class="quarter-header">
+      <span class="quarter-label">Q1 2026</span>
+      <span class="quarter-badge current">Current</span>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">Responsive UI Overhaul <span class="status done">Completed</span></div>
+      <p>Full mobile support with touch-optimized navigation, responsive grids, and safe-area insets for iOS.</p>
+      <div class="progress-bar"><div class="fill" style="width:100%;background:var(--green)"></div></div>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">Cloudflare Access Integration <span class="status done">Completed</span></div>
+      <p>Per-user vault scoping via Cloudflare Access OAuth. Bearer tokens auto-provisioned from Access identity.</p>
+      <div class="progress-bar"><div class="fill" style="width:100%;background:var(--green)"></div></div>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">GitOps Deployment Pipeline <span class="status progress">In Progress</span></div>
+      <p>Automated canary deployment from isolated worktrees with ArgoCD auto-sync and Discord feedback loops.</p>
+      <div class="progress-bar"><div class="fill" style="width:65%;background:var(--yellow)"></div></div>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">E2E Testing Suite <span class="status progress">In Progress</span></div>
+      <p>Playwright-based end-to-end tests covering hash routing, authentication flow, and API interactions.</p>
+      <div class="progress-bar"><div class="fill" style="width:40%;background:var(--yellow)"></div></div>
+    </div>
+  </div>
+
+  <div class="quarter">
+    <div class="quarter-header">
+      <span class="quarter-label">Q2 2026</span>
+      <span class="quarter-badge upcoming">Upcoming</span>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">Multi-Model Chat Switching <span class="status planned">Planned</span></div>
+      <p>Switch between Ollama, OpenAI, and Anthropic models mid-conversation with context preservation.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">Vault Sharing &amp; Permissions <span class="status planned">Planned</span></div>
+      <p>Share vaults between users with read-only and read-write permission levels. Access grants via Cloudflare Access groups.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">Webhook Integrations <span class="status planned">Planned</span></div>
+      <p>Outgoing webhooks on vault events (commit, chat, merge). Incoming webhooks for CI/CD status updates.</p>
+    </div>
+  </div>
+
+  <div class="quarter">
+    <div class="quarter-header">
+      <span class="quarter-label">Q3 2026</span>
+      <span class="quarter-badge future">Future</span>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">Plugin System <span class="status planned">Planned</span></div>
+      <p>Extensible plugin architecture for custom vault processors, AI providers, and chat commands.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-title">Real-time Collaboration <span class="status planned">Planned</span></div>
+      <p>Multi-user editing with conflict-free replicated data types (CRDTs) for concurrent vault modifications.</p>
+    </div>
+  </div>
+</main>
+<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+</body>
+</html>

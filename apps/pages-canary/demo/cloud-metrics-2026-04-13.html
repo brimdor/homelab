@@ -1,0 +1,157 @@
+<!-- PAGES_META: {"title": "Cloud Infrastructure Metrics", "date": "2026-04-13", "description": "Monthly cost analysis, resource utilization trends, and Cloudflare analytics for the homelab", "tags": ["metrics", "cloudflare", "cost-analysis", "infrastructure"]} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cloud Infrastructure Metrics</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--yellow:#facc15;--red:#f87171;--blue:#60a5fa;--purple:#c084fc}
+@media(max-width:768px){:root{--glass-radius:16px}}
+body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:1rem}
+nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
+nav .badge{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:1rem}
+.hero{padding:2rem 1rem;text-align:center}
+.hero h2{font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),#1a1a1a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--text-secondary);font-size:clamp(0.9rem,2vw,1.1rem)}
+.content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
+.content-card h3{color:var(--accent);margin-bottom:0.75rem;font-size:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:1rem;margin:1rem 0}
+.table-wrap{overflow-x:auto;margin:1rem 0;border-radius:12px;border:1px solid rgba(255,140,0,0.1);-webkit-overflow-scrolling:touch}
+.table-wrap table{margin:0;min-width:500px;width:100%;border-collapse:collapse}
+.table-wrap th,.table-wrap td{padding:0.75rem;text-align:left;border-bottom:1px solid rgba(255,140,0,0.05)}
+.table-wrap th{color:var(--accent);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em}
+.table-wrap td{color:var(--text-secondary);font-size:0.9rem}
+.table-wrap tr:hover{background:rgba(255,140,0,0.03)}
+footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+.metric{background:var(--content-bg);border-radius:12px;border:1px solid rgba(255,140,0,0.08);padding:1rem;text-align:center}
+.metric .value{font-size:2rem;font-weight:700}
+.metric .label{font-size:0.85rem;color:var(--text-secondary);margin-top:0.25rem}
+.metric .change{font-size:0.75rem;margin-top:0.25rem}
+.up{color:var(--green)}
+.down{color:var(--red)}
+.flat{color:var(--text-secondary)}
+.bar-chart{display:flex;align-items:flex-end;gap:4px;height:120px;margin:1rem 0;padding:0 0.5rem}
+.bar{flex:1;border-radius:4px 4px 0 0;min-width:12px;position:relative;transition:height 0.3s}
+.bar:hover{opacity:0.8}
+.bar-label{position:absolute;bottom:-1.5rem;left:50%;transform:translateX(-50%);font-size:0.65rem;color:var(--text-secondary);white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0 0.5rem;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;color:var(--text-secondary)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.cost-row{display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid rgba(255,140,0,0.05)}
+.cost-row:last-child{border-bottom:none}
+.cost-service{color:var(--text-primary);font-size:0.92rem}
+.cost-amount{font-family:'SF Mono',Monaco,monospace;color:var(--accent-light);font-size:0.92rem}
+@media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+@media(max-width:768px){.glass{backdrop-filter:blur(12px) saturate(130%);-webkit-backdrop-filter:blur(12px) saturate(130%);border-radius:16px}.content{padding:0.5rem}.table-wrap{margin:0.5rem 0;border-radius:8px}table{font-size:0.8rem}th,td{padding:0.4rem 0.5rem}}
+a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<nav class="glass">
+  <h1>Pages</h1>
+  <span class="badge">CANARY</span>
+</nav>
+<main>
+  <div class="hero">
+    <h2>Cloud Infrastructure Metrics</h2>
+    <p>March 2026 &mdash; Cost analysis and resource utilization</p>
+  </div>
+
+  <div class="grid">
+    <div class="metric">
+      <div class="value" style="color:var(--accent)">$12.40</div>
+      <div class="label">Total Cloud Spend (Mar)</div>
+      <div class="change down">&darr; 8% vs Feb</div>
+    </div>
+    <div class="metric">
+      <div class="value" style="color:var(--green)">847K</div>
+      <div class="label">Cloudflare Requests</div>
+      <div class="change up">&uarr; 12% vs Feb</div>
+    </div>
+    <div class="metric">
+      <div class="value" style="color:var(--blue)">99.97%</div>
+      <div class="label">Uptime</div>
+      <div class="change flat">Stable</div>
+    </div>
+    <div class="metric">
+      <div class="value" style="color:var(--purple)">23ms</div>
+      <div class="label">Avg Response Time</div>
+      <div class="change up">&uarr; 2ms</div>
+    </div>
+  </div>
+
+  <div class="content-card">
+    <h3>Monthly Cost Breakdown</h3>
+    <div class="cost-row">
+      <span class="cost-service">Cloudflare Pro Plan</span>
+      <span class="cost-amount">$5.00</span>
+    </div>
+    <div class="cost-row">
+      <span class="cost-service">Domain Renewals (3 domains)</span>
+      <span class="cost-amount">$3.20</span>
+    </div>
+    <div class="cost-row">
+      <span class="cost-service">Harbor Registry (storage)</span>
+      <span class="cost-amount">$2.50</span>
+    </div>
+    <div class="cost-row">
+      <span class="cost-service">Certificate Authority (Let's Encrypt)</span>
+      <span class="cost-amount">$0.00</span>
+    </div>
+    <div class="cost-row">
+      <span class="cost-service">K3s Cluster (self-hosted)</span>
+      <span class="cost-amount">$0.00</span>
+    </div>
+    <div class="cost-row">
+      <span class="cost-service">Rook-Ceph Storage (self-hosted)</span>
+      <span class="cost-amount">$0.00</span>
+    </div>
+    <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(255,140,0,0.15);display:flex;justify-content:space-between">
+      <span style="color:var(--accent);font-weight:600">Total</span>
+      <span style="color:var(--accent);font-weight:600;font-family:'SF Mono',Monaco,monospace">$12.40/mo</span>
+    </div>
+  </div>
+
+  <div class="content-card">
+    <h3>Request Volume (Last 7 Days)</h3>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> HTTPS</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-light)"></div> Origin Pulls</div>
+    </div>
+    <div class="bar-chart">
+      <div class="bar" style="height:60%;background:var(--accent)"><span class="bar-label">Mon</span></div>
+      <div class="bar" style="height:72%;background:var(--accent)"><span class="bar-label">Tue</span></div>
+      <div class="bar" style="height:85%;background:var(--accent)"><span class="bar-label">Wed</span></div>
+      <div class="bar" style="height:68%;background:var(--accent)"><span class="bar-label">Thu</span></div>
+      <div class="bar" style="height:95%;background:var(--accent)"><span class="bar-label">Fri</span></div>
+      <div class="bar" style="height:45%;background:var(--accent-light)"><span class="bar-label">Sat</span></div>
+      <div class="bar" style="height:38%;background:var(--accent-light)"><span class="bar-label">Sun</span></div>
+    </div>
+  </div>
+
+  <div class="content-card">
+    <h3>Cloudflare Analytics</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Metric</th><th>This Month</th><th>Last Month</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>Total Requests</td><td>847,231</td><td>756,102</td><td style="color:var(--green)">+12.1%</td></tr>
+        <tr><td>Cache Hit Rate</td><td>94.2%</td><td>93.8%</td><td style="color:var(--green)">+0.4%</td></tr>
+        <tr><td>Bandwidth</td><td>4.2 GB</td><td>3.9 GB</td><td style="color:var(--green)">+7.7%</td></tr>
+        <tr><td>Threats Blocked</td><td>12,847</td><td>11,234</td><td style="color:var(--yellow)">+14.4%</td></tr>
+        <tr><td>SSL/TLS Handshake</td><td>18ms avg</td><td>16ms avg</td><td style="color:var(--red)">+2ms</td></tr>
+        <tr><td>Bot Traffic</td><td>23%</td><td>26%</td><td style="color:var(--green)">-3%</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</main>
+<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+</body>
+</html>

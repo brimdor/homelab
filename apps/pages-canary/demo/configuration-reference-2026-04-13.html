@@ -1,0 +1,148 @@
+<!-- PAGES_META: {"title": "Configuration Reference", "date": "2026-04-13", "description": "Complete environment variable and Helm values reference for Second Brain deployments", "tags": ["configuration", "reference", "helm"]} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Configuration Reference</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--yellow:#facc15}
+@media(max-width:768px){:root{--glass-radius:16px}}
+body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:1rem}
+nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
+nav .badge{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:1rem}
+.hero{padding:2rem 1rem;text-align:center}
+.hero h2{font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),#1a1a1a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--text-secondary);font-size:clamp(0.9rem,2vw,1.1rem)}
+.content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
+.content-card h3{color:var(--accent);margin-bottom:0.75rem;font-size:1.1rem}
+footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+.section-label{color:var(--accent);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-top:2rem;margin-bottom:0.75rem;padding-bottom:0.4rem;border-bottom:1px solid rgba(255,140,0,0.15)}
+.config-row{display:grid;grid-template-columns:minmax(200px,1fr) 2fr auto;gap:0.5rem 1rem;padding:0.6rem 0;border-bottom:1px solid rgba(255,140,0,0.05);align-items:start}
+.config-row:last-child{border-bottom:none}
+.config-key{font-family:'SF Mono',Monaco,monospace;color:var(--accent-light);font-size:0.85rem;word-break:break-all}
+.config-val{color:var(--text-secondary);font-size:0.88rem;line-height:1.5}
+.config-default{font-family:'SF Mono',Monaco,monospace;color:var(--text-secondary);font-size:0.8rem;text-align:right;white-space:nowrap}
+.required{color:var(--yellow);font-size:0.72rem;font-weight:700}
+.optional{color:var(--text-secondary);font-size:0.72rem}
+@media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+@media(max-width:768px){.glass{backdrop-filter:blur(12px) saturate(130%);-webkit-backdrop-filter:blur(12px) saturate(130%);border-radius:16px}.content{padding:0.5rem}.config-row{grid-template-columns:1fr;gap:0.2rem}.config-default{text-align:left}}
+a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<nav class="glass">
+  <h1>Pages</h1>
+  <span class="badge">CANARY</span>
+</nav>
+<main>
+  <div class="hero">
+    <h2>Configuration Reference</h2>
+    <p>Environment variables and Helm values for Second Brain deployments</p>
+  </div>
+
+  <div class="section-label">Core Environment Variables</div>
+  <div class="content-card">
+    <div class="config-row">
+      <span class="config-key">GITHUB_OWNER</span>
+      <span class="config-val">GitHub organization or user that owns vault repositories</span>
+      <span class="config-default"><span class="required">Required</span></span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">GITHUB_REPO</span>
+      <span class="config-val">Default repository name for new vaults</span>
+      <span class="config-default"><span class="required">Required</span></span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">GITHUB_TOKEN</span>
+      <span class="config-val">Personal access token or GitHub App installation token with repo scope</span>
+      <span class="config-default"><span class="required">Required</span></span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">OLLAMA_BASE_URL</span>
+      <span class="config-val">Base URL for local Ollama inference server</span>
+      <span class="config-default">http://ollama:11434</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">OPENAI_API_KEY</span>
+      <span class="config-val">OpenAI API key for cloud AI fallback</span>
+      <span class="config-default"><span class="optional">Optional</span></span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">VAULT_DIR</span>
+      <span class="config-val">Root directory for vault Git clones on the filesystem</span>
+      <span class="config-default">/tmp/vaults</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">PORT</span>
+      <span class="config-val">HTTP listen port for the Express server</span>
+      <span class="config-default">3000</span>
+    </div>
+  </div>
+
+  <div class="section-label">Helm Values (values.yaml)</div>
+  <div class="content-card">
+    <div class="config-row">
+      <span class="config-key">image.repository</span>
+      <span class="config-val">Container image registry path</span>
+      <span class="config-default">10.0.20.11:32309/second-brain</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">image.tag</span>
+      <span class="config-val">Image tag to deploy (date-stamped for canary)</span>
+      <span class="config-default">latest</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">ingress.hosts[0].host</span>
+      <span class="config-val">Public hostname for the application</span>
+      <span class="config-default">brain.eaglepass.io</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">persistence.data.type</span>
+      <span class="config-val">Storage type &mdash; nfs (prod) or omitted (canary/ephemeral)</span>
+      <span class="config-default">nfs</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">persistence.data.server</span>
+      <span class="config-val">NFS server IP (only when type=nfs)</span>
+      <span class="config-default">10.0.40.3</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">persistence.data.path</span>
+      <span class="config-val">NFS export path on the server</span>
+      <span class="config-default">/mnt/user/second-brain</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">resources.limits.memory</span>
+      <span class="config-val">Maximum memory allocation</span>
+      <span class="config-default">2Gi</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">resources.requests.cpu</span>
+      <span class="config-val">Minimum CPU guarantee</span>
+      <span class="config-default">100m</span>
+    </div>
+  </div>
+
+  <div class="section-label">ArgoCD Sync Options</div>
+  <div class="content-card">
+    <div class="config-row">
+      <span class="config-key">syncPolicy.automated</span>
+      <span class="config-val">Enable auto-sync and self-heal</span>
+      <span class="config-default">true / true</span>
+    </div>
+    <div class="config-row">
+      <span class="config-key">syncOptions</span>
+      <span class="config-val">CreateNamespace=true ensures namespace exists before deployment</span>
+      <span class="config-default">CreateNamespace=true</span>
+    </div>
+  </div>
+</main>
+<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+</body>
+</html>

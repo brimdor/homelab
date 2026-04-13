@@ -8,7 +8,7 @@ app-template:
           nameOverride: pages-canary
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "latest-canary"
+            tag: "latest"
             pullPolicy: Always
           ports:
             - containerPort: 80
@@ -63,3 +63,14 @@ app-template:
         - hosts:
             - pages-canary.eaglepass.io
           secretName: pages-canary-tls
+  persistence:
+    demo:
+      type: configMap
+      name: pages-canary-demo
+      advancedMounts:
+        main:
+          main:
+            - path: /usr/share/nginx/demo
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
