@@ -1,10 +1,10 @@
-<!-- PAGES_META: {"title": "Homelab Health Dashboard", "date": "2026-04-13", "description": "Canary demo — simulated infrastructure health and resource utilization dashboard", "tags": ["homelab", "dashboard", "demo"]} -->
+<!-- PAGES_META: {"title": "Platform Health Dashboard", "date": "2026-04-13", "description": "Canary demo — simulated infrastructure health and resource utilization dashboard", "tags": ["platform", "dashboard", "demo"]} -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Homelab Health Dashboard</title>
+<title>Platform Health Dashboard</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--yellow:#facc15;--red:#f87171}
@@ -49,7 +49,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
 </nav>
 <main>
   <div class="hero">
-    <h2>Homelab Health Dashboard</h2>
+    <h2>Platform Health Dashboard</h2>
     <p style="color:var(--text-secondary);font-size:0.9rem">Canary demo — simulated metrics for infrastructure monitoring</p>
   </div>
 
@@ -80,11 +80,11 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
         <tr><th>Service</th><th>Status</th><th>Uptime</th><th>CPU</th><th>Memory</th></tr>
       </thead>
       <tbody>
-        <tr><td>Second Brain</td><td><span class="status-dot healthy"></span>Healthy</td><td>45d 12h</td><td>12%</td><td>1.2Gi / 2Gi</td></tr>
+        <tr><td>PageVault</td><td><span class="status-dot healthy"></span>Healthy</td><td>45d 12h</td><td>12%</td><td>1.2Gi / 2Gi</td></tr>
         <tr><td>Pages</td><td><span class="status-dot healthy"></span>Healthy</td><td>1d 14h</td><td>2%</td><td>48Mi / 256Mi</td></tr>
-        <tr><td>Gitea</td><td><span class="status-dot healthy"></span>Healthy</td><td>92d 6h</td><td>8%</td><td>340Mi / 1Gi</td></tr>
-        <tr><td>ArgoCD</td><td><span class="status-dot healthy"></span>Healthy</td><td>92d 6h</td><td>15%</td><td>280Mi / 512Mi</td></tr>
-        <tr><td>Rook-Ceph</td><td><span class="status-dot healthy"></span>Healthy</td><td>45d 12h</td><td>6%</td><td>2.1Gi / 4Gi</td></tr>
+        <tr><td>Git Server</td><td><span class="status-dot healthy"></span>Healthy</td><td>92d 6h</td><td>8%</td><td>340Mi / 1Gi</td></tr>
+        <tr><td>GitOps Controller</td><td><span class="status-dot healthy"></span>Healthy</td><td>92d 6h</td><td>15%</td><td>280Mi / 512Mi</td></tr>
+        <tr><td>Distributed Storage</td><td><span class="status-dot healthy"></span>Healthy</td><td>45d 12h</td><td>6%</td><td>2.1Gi / 4Gi</td></tr>
         <tr><td>Cloudflared</td><td><span class="status-dot healthy"></span>Healthy</td><td>180d 0h</td><td>1%</td><td>24Mi / 128Mi</td></tr>
       </tbody>
     </table>
@@ -94,7 +94,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
   <div class="content-card">
     <h3>Storage Utilization</h3>
     <div style="margin-bottom:1.5rem">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-secondary);font-size:0.9rem">Rook-Ceph Pool</span><span style="color:var(--accent-light);font-size:0.85rem">142 GB / 500 GB</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-secondary);font-size:0.9rem">Storage Pool</span><span style="color:var(--accent-light);font-size:0.85rem">142 GB / 500 GB</span></div>
       <div class="progress-bar"><div class="fill" style="width:28.4%;background:linear-gradient(90deg,var(--accent),var(--accent-light))">28%</div></div>
     </div>
     <div style="margin-bottom:1.5rem">
@@ -120,7 +120,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
       </div>
       <div class="metric">
         <div class="value" style="color:var(--text-primary)">847K</div>
-        <div class="label">Cloudflare Requests</div>
+        <div class="label">CDN Requests</div>
       </div>
     </div>
   </div>

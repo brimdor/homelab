@@ -1,4 +1,4 @@
-<!-- PAGES_META: {"title": "Project Roadmap", "date": "2026-04-13", "description": "Quarterly roadmap with milestones, priorities, and progress tracking for the Second Brain platform", "tags": ["roadmap", "planning", "project"]} -->
+<!-- PAGES_META: {"title": "Project Roadmap", "date": "2026-04-13", "description": "Quarterly roadmap with milestones, priorities, and progress tracking for the PageVault platform", "tags": ["roadmap", "planning", "project"]} -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,7 +50,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
 <main>
   <div class="hero">
     <h2>Project Roadmap</h2>
-    <p>Quarterly milestones and priorities for Second Brain</p>
+    <p>Quarterly milestones and priorities for PageVault</p>
   </div>
 
   <div class="quarter">
@@ -64,13 +64,13 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
       <div class="progress-bar"><div class="fill" style="width:100%;background:var(--green)"></div></div>
     </div>
     <div class="milestone">
-      <div class="milestone-title">Cloudflare Access Integration <span class="status done">Completed</span></div>
-      <p>Per-user vault scoping via Cloudflare Access OAuth. Bearer tokens auto-provisioned from Access identity.</p>
+      <div class="milestone-title">SSO Provider Integration <span class="status done">Completed</span></div>
+      <p>Per-user vault scoping via SSO Provider OAuth. Bearer tokens auto-provisioned from SSO identity.</p>
       <div class="progress-bar"><div class="fill" style="width:100%;background:var(--green)"></div></div>
     </div>
     <div class="milestone">
       <div class="milestone-title">GitOps Deployment Pipeline <span class="status progress">In Progress</span></div>
-      <p>Automated canary deployment from isolated worktrees with ArgoCD auto-sync and Discord feedback loops.</p>
+      <p>Automated canary deployment from isolated worktrees with GitOps controller auto-sync and Discord feedback loops.</p>
       <div class="progress-bar"><div class="fill" style="width:65%;background:var(--yellow)"></div></div>
     </div>
     <div class="milestone">
@@ -91,7 +91,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     </div>
     <div class="milestone">
       <div class="milestone-title">Vault Sharing &amp; Permissions <span class="status planned">Planned</span></div>
-      <p>Share vaults between users with read-only and read-write permission levels. Access grants via Cloudflare Access groups.</p>
+      <p>Share vaults between users with read-only and read-write permission levels. Access grants via SSO Provider groups.</p>
     </div>
     <div class="milestone">
       <div class="milestone-title">Webhook Integrations <span class="status planned">Planned</span></div>

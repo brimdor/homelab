@@ -1,10 +1,10 @@
-<!-- PAGES_META: {"title": "Second Brain API Reference", "date": "2026-04-13", "description": "REST API endpoint documentation with request/response schemas and authentication details", "tags": ["api", "reference", "documentation"]} -->
+<!-- PAGES_META: {"title": "PageVault API Reference", "date": "2026-04-13", "description": "REST API endpoint documentation with request/response schemas and authentication details", "tags": ["api", "reference", "documentation"]} -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Second Brain API Reference</title>
+<title>PageVault API Reference</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--red:#f87171;--blue:#60a5fa}
@@ -54,12 +54,12 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
 <main>
   <div class="hero">
     <h2>API Reference</h2>
-    <p>REST API endpoint documentation for the Second Brain platform</p>
+    <p>REST API endpoint documentation for the PageVault platform</p>
   </div>
 
   <div class="content-card">
     <h3>Authentication</h3>
-    <p>All API requests require a Bearer token in the Authorization header. Tokens are issued via Cloudflare Access OAuth flow and scoped to the user's vault.</p>
+    <p>All API requests require a Bearer token in the Authorization header. Tokens are issued via SSO Provider OAuth flow and scoped to the user's vault.</p>
     <div class="code-block">Authorization: Bearer eyJhbGciOiJSUzI1NiIs...</div>
   </div>
 
@@ -95,7 +95,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     <div class="code-block">{
   "id": "vault_def456",
   "name": "Research Notes",
-  "repo_url": "https://git.eaglepass.io/vaults/def456.git",
+  "repo_url": "https://git.acme-platform.io/repos/vault-abc123.git",
   "status": "provisioning"
 }</div>
   </div>

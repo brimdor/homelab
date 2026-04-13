@@ -1,4 +1,4 @@
-<!-- PAGES_META: {"title": "Configuration Reference", "date": "2026-04-13", "description": "Complete environment variable and Helm values reference for Second Brain deployments", "tags": ["configuration", "reference", "helm"]} -->
+<!-- PAGES_META: {"title": "Configuration Reference", "date": "2026-04-13", "description": "Complete environment variable and Helm values reference for PageVault deployments", "tags": ["configuration", "reference", "helm"]} -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,7 +43,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
 <main>
   <div class="hero">
     <h2>Configuration Reference</h2>
-    <p>Environment variables and Helm values for Second Brain deployments</p>
+    <p>Environment variables and Helm values for PageVault deployments</p>
   </div>
 
   <div class="section-label">Core Environment Variables</div>
@@ -90,7 +90,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     <div class="config-row">
       <span class="config-key">image.repository</span>
       <span class="config-val">Container image registry path</span>
-      <span class="config-default">10.0.20.11:32309/second-brain</span>
+      <span class="config-default">registry.internal:5000/pagevault</span>
     </div>
     <div class="config-row">
       <span class="config-key">image.tag</span>
@@ -100,7 +100,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     <div class="config-row">
       <span class="config-key">ingress.hosts[0].host</span>
       <span class="config-val">Public hostname for the application</span>
-      <span class="config-default">brain.eaglepass.io</span>
+      <span class="config-default">pagevault.acme-platform.io</span>
     </div>
     <div class="config-row">
       <span class="config-key">persistence.data.type</span>
@@ -110,12 +110,12 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     <div class="config-row">
       <span class="config-key">persistence.data.server</span>
       <span class="config-val">NFS server IP (only when type=nfs)</span>
-      <span class="config-default">10.0.40.3</span>
+      <span class="config-default">nfs.internal</span>
     </div>
     <div class="config-row">
       <span class="config-key">persistence.data.path</span>
       <span class="config-val">NFS export path on the server</span>
-      <span class="config-default">/mnt/user/second-brain</span>
+      <span class="config-default">/data/pagevault</span>
     </div>
     <div class="config-row">
       <span class="config-key">resources.limits.memory</span>
@@ -129,7 +129,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     </div>
   </div>
 
-  <div class="section-label">ArgoCD Sync Options</div>
+  <div class="section-label">GitOps Sync Options</div>
   <div class="content-card">
     <div class="config-row">
       <span class="config-key">syncPolicy.automated</span>
