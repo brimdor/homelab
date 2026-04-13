@@ -1,10 +1,10 @@
-<!-- PAGES_META: {"title": "Second Brain — Architecture Overview", "date": "2026-04-13", "description": "System architecture and data flow diagram for the Second Brain application", "tags": ["architecture", "second-brain", "demo"]} -->
+<!-- PAGES_META: {"title": "PageVault — Architecture Overview", "date": "2026-04-13", "description": "System architecture and data flow diagram for the PageVault application", "tags": ["architecture", "pagevault", "demo"]} -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Second Brain — Architecture Overview</title>
+<title>PageVault — Architecture Overview</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940}
@@ -40,7 +40,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
 </nav>
 <main>
   <div class="hero">
-    <h2>Second Brain Architecture</h2>
+    <h2>PageVault Architecture</h2>
     <p>System architecture and data flow — canary demo</p>
   </div>
 
@@ -68,7 +68,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     <div class="diagram-box">
   Browser ──▶ Cloudflare Access ──▶ Cloudflare Tunnel
        │                                      │
-       │                              K3s Ingress (nginx)
+       │                              Kubernetes Ingress (nginx)
        │                                      │
        │                              ┌────────┴────────┐
        │                              │   Express Server  │
@@ -105,17 +105,17 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
         </tr>
         <tr style="border-bottom:1px solid rgba(255,140,0,0.05)">
           <td style="padding:0.75rem;color:#f0ece4">Orchestration</td>
-          <td style="padding:0.75rem;color:#b0a890">K3s + ArgoCD</td>
+          <td style="padding:0.75rem;color:#b0a890">Kubernetes + GitOps</td>
           <td style="padding:0.75rem;color:#b0a890">Container scheduling, GitOps</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,140,0,0.05)">
           <td style="padding:0.75rem;color:#f0ece4">Storage</td>
-          <td style="padding:0.75rem;color:#b0a890">Rook-Ceph</td>
+          <td style="padding:0.75rem;color:#b0a890">Distributed Storage</td>
           <td style="padding:0.75rem;color:#b0a890">Persistent volumes, block storage</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,140,0,0.05)">
           <td style="padding:0.75rem;color:#f0ece4">Registry</td>
-          <td style="padding:0.75rem;color:#b0a890">Harbor (10.0.20.11)</td>
+          <td style="padding:0.75rem;color:#b0a890">Container Registry</td>
           <td style="padding:0.75rem;color:#b0a890">Private container images</td>
         </tr>
         <tr>

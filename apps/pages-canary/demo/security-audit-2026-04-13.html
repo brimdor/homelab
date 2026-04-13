@@ -83,8 +83,8 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     <div class="check"><span class="check-pass">&#10003;</span> Container images scanned for CVEs</div>
     <div class="check"><span class="check-pass">&#10003;</span> Secrets stored in Kubernetes Secrets (not env vars)</div>
     <div class="check"><span class="check-pass">&#10003;</span> Network policies restrict pod-to-pod traffic</div>
-    <div class="check"><span class="check-warn">&#9888;</span> Rook-Ceph dashboard exposed without auth (internal only)</div>
-    <div class="check"><span class="check-warn">&#9888;</span> Harbor registry uses self-signed cert (internal only)</div>
+    <div class="check"><span class="check-warn">&#9888;</span> Storage dashboard exposed without auth (internal only)</div>
+    <div class="check"><span class="check-warn">&#9888;</span> Container Registry uses self-signed cert (internal only)</div>
     <div class="check"><span class="check-fail">&#10007;</span> No automated secret rotation schedule</div>
     <div class="check"><span class="check-pass">&#10003;</span> Security headers (X-Frame-Options, CSP, HSTS) present</div>
     <div class="check"><span class="check-pass">&#10003;</span> Cloudflare WAF rules active</div>
@@ -105,7 +105,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
         <span class="severity medium">Medium</span>
         <span class="finding-title">Self-Signed Registry Certificate</span>
       </div>
-      <p>Harbor registry uses a self-signed CA certificate. Podman pulls require <code>--tls-verify=false</code> which disables certificate validation.</p>
+      <p>Container Registry uses a self-signed CA certificate. Docker pulls require <code>--tls-verify=false</code> which disables certificate validation.</p>
       <div class="remediation"><strong>Fix:</strong> Add internal CA to node trust stores or use cert-manager with internal issuer for registry certificates.</div>
     </div>
     <div class="finding">
@@ -113,7 +113,7 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
         <span class="severity low">Low</span>
         <span class="finding-title">Ceph Dashboard Without Authentication</span>
       </div>
-      <p>Rook-Ceph dashboard is accessible on the internal network without login. While not externally exposed, lateral movement is possible.</p>
+      <p>Storage dashboard is accessible on the internal network without login. While not externally exposed, lateral movement is possible.</p>
       <div class="remediation"><strong>Fix:</strong> Enable Ceph dashboard SSO via Cloudflare Access or add basic-auth ingress annotation.</div>
     </div>
   </div>
