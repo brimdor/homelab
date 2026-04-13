@@ -1,0 +1,106 @@
+<!-- PAGES_META: {"title": "Release Changelog", "date": "2026-04-13", "description": "Version history with features, fixes, and breaking changes for the Second Brain platform", "tags": ["changelog", "releases", "versions"]} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Release Changelog</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--yellow:#facc15;--red:#f87171;--blue:#60a5fa}
+@media(max-width:768px){:root{--glass-radius:16px}}
+body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:1rem}
+nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
+nav .badge{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:1rem}
+.hero{padding:2rem 1rem;text-align:center}
+.hero h2{font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),#1a1a1a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--text-secondary);font-size:clamp(0.9rem,2vw,1.1rem)}
+.content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
+footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+.release{border-left:3px solid var(--accent);padding-left:1.25rem;margin:2rem 0}
+.release-header{display:flex;align-items:baseline;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap}
+.version{font-size:1.25rem;font-weight:700;color:var(--accent)}
+.release-date{font-size:0.85rem;color:var(--text-secondary)}
+.change-type{display:inline-block;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.03em}
+.feat{background:rgba(74,222,128,0.15);color:var(--green)}
+.fix{background:rgba(96,165,250,0.15);color:var(--blue)}
+.breaking{background:rgba(248,113,113,0.15);color:var(--red)}
+.deprecate{background:rgba(250,204,21,0.15);color:var(--yellow)}
+.change-list{list-style:none;padding:0}
+.change-list li{padding:0.4rem 0;border-bottom:1px solid rgba(255,140,0,0.05);color:var(--text-secondary);font-size:0.92rem;line-height:1.5}
+.change-list li:last-child{border-bottom:none}
+@media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+@media(max-width:768px){.glass{backdrop-filter:blur(12px) saturate(130%);-webkit-backdrop-filter:blur(12px) saturate(130%);border-radius:16px}.content{padding:0.5rem}}
+a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<nav class="glass">
+  <h1>Pages</h1>
+  <span class="badge">CANARY</span>
+</nav>
+<main>
+  <div class="hero">
+    <h2>Release Changelog</h2>
+    <p>Version history for the Second Brain platform</p>
+  </div>
+
+  <div class="release">
+    <div class="release-header">
+      <span class="version">v2.4.0</span>
+      <span class="release-date">April 10, 2026</span>
+    </div>
+    <ul class="change-list">
+      <li><span class="change-type feat">Feature</span> SSE streaming for chat API &mdash; tokens delivered in real-time instead of batch response</li>
+      <li><span class="change-type feat">Feature</span> Vault-level model selection &mdash; choose between Ollama, OpenAI, and Anthropic per vault</li>
+      <li><span class="change-type fix">Fix</span> Chat context window correctly respects 128k token limit instead of truncating at 32k</li>
+      <li><span class="change-type fix">Fix</span> Git sync no longer fails on repositories with LFS-tracked files</li>
+      <li><span class="change-type feat">Feature</span> Added /model slash command in chat to switch providers mid-conversation</li>
+    </ul>
+  </div>
+
+  <div class="release">
+    <div class="release-header">
+      <span class="version">v2.3.1</span>
+      <span class="release-date">March 28, 2026</span>
+    </div>
+    <ul class="change-list">
+      <li><span class="change-type fix">Fix</span> Resolved race condition in bi-directional git sync that caused duplicate commits on fast successive saves</li>
+      <li><span class="change-type fix">Fix</span> ArgoCD sync no longer creates duplicate Ingress records when canary and prod share same image tag</li>
+      <li><span class="change-type deprecate">Deprecate</span> The /api/v1/chat endpoint is deprecated in favor of /api/v1/vaults/:id/chat (removal in v3.0)</li>
+    </ul>
+  </div>
+
+  <div class="release">
+    <div class="release-header">
+      <span class="version">v2.3.0</span>
+      <span class="release-date">March 15, 2026</span>
+    </div>
+    <ul class="change-list">
+      <li><span class="change-type feat">Feature</span> Multi-vault dashboard with aggregated health metrics</li>
+      <li><span class="change-type feat">Feature</span> Cloudflare Access integration for per-user vault scoping</li>
+      <li><span class="change-type breaking">Breaking</span> Bearer token format changed from JWT HS256 to RS256 &mdash; existing tokens must be re-issued</li>
+      <li><span class="change-type feat">Feature</span> Added Prometheus metrics endpoint at /metrics for operator observability</li>
+      <li><span class="change-type fix">Fix</span> Container image now correctly respects TZ environment variable for log timestamps</li>
+    </ul>
+  </div>
+
+  <div class="release">
+    <div class="release-header">
+      <span class="version">v2.2.0</span>
+      <span class="release-date">February 22, 2026</span>
+    </div>
+    <ul class="change-list">
+      <li><span class="change-type feat">Feature</span> Local-first AI inference via Ollama with automatic cloud fallback</li>
+      <li><span class="change-type feat">Feature</span> Responsive UI overhaul &mdash; full mobile support with touch-optimized navigation</li>
+      <li><span class="change-type fix">Fix</span> PVC multi-attach errors resolved by switching from ReadWriteMany to ReadWriteOnce with Rook-Ceph</li>
+    </ul>
+  </div>
+</main>
+<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+</body>
+</html>

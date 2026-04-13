@@ -1,0 +1,141 @@
+<!-- PAGES_META: {"title": "Second Brain API Reference", "date": "2026-04-13", "description": "REST API endpoint documentation with request/response schemas and authentication details", "tags": ["api", "reference", "documentation"]} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Second Brain API Reference</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940;--green:#4ade80;--red:#f87171;--blue:#60a5fa}
+@media(max-width:768px){:root{--glass-radius:16px}}
+body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin:1rem}
+nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
+nav .badge{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem;font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:1rem}
+.hero{padding:2rem 1rem;text-align:center}
+.hero h2{font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--accent),#1a1a1a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--text-secondary);font-size:clamp(0.9rem,2vw,1.1rem)}
+.content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
+.content-card h3{color:var(--accent);margin-bottom:0.75rem;font-size:1.1rem}
+.content-card p{color:var(--text-secondary);margin-bottom:0.5rem;line-height:1.6}
+.endpoint{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1.25rem 0}
+.method{display:inline-block;padding:0.2rem 0.6rem;border-radius:6px;font-size:0.8rem;font-weight:700;font-family:'SF Mono',Monaco,monospace;margin-right:0.5rem}
+.get{background:rgba(74,222,128,0.15);color:var(--green)}
+.post{background:rgba(96,165,250,0.15);color:var(--blue)}
+.delete{background:rgba(248,113,113,0.15);color:var(--red)}
+.put{background:rgba(255,140,0,0.15);color:var(--accent)}
+.path{font-family:'SF Mono',Monaco,monospace;color:var(--text-primary);font-size:0.95rem}
+.endpoint h4{color:var(--accent);margin:0.75rem 0 0.4rem;font-size:0.95rem}
+.code-block{background:rgba(0,0,0,0.3);border:1px solid rgba(255,140,0,0.08);border-radius:10px;padding:1rem;margin:0.5rem 0;font-family:'SF Mono',Monaco,monospace;font-size:0.82rem;color:var(--text-secondary);overflow-x:auto;line-height:1.5;white-space:pre}
+.param-grid{display:grid;grid-template-columns:auto 1fr;gap:0.25rem 1rem;margin:0.5rem 0}
+.param-name{font-family:'SF Mono',Monaco,monospace;color:var(--accent-light);font-size:0.85rem}
+.param-desc{color:var(--text-secondary);font-size:0.85rem}
+.table-wrap{overflow-x:auto;margin:1rem 0;border-radius:12px;border:1px solid rgba(255,140,0,0.1);-webkit-overflow-scrolling:touch}
+.table-wrap table{margin:0;min-width:500px;width:100%;border-collapse:collapse}
+.table-wrap th,.table-wrap td{padding:0.75rem;text-align:left;border-bottom:1px solid rgba(255,140,0,0.05)}
+.table-wrap th{color:var(--accent);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em}
+.table-wrap td{color:var(--text-secondary);font-size:0.9rem}
+.table-wrap tr:hover{background:rgba(255,140,0,0.03)}
+footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+@media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
+@media(max-width:768px){.glass{backdrop-filter:blur(12px) saturate(130%);-webkit-backdrop-filter:blur(12px) saturate(130%);border-radius:16px}.content{padding:0.5rem}.table-wrap{margin:0.5rem 0;border-radius:8px}table{font-size:0.8rem}th,td{padding:0.4rem 0.5rem}}
+a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<nav class="glass">
+  <h1>Pages</h1>
+  <span class="badge">CANARY</span>
+</nav>
+<main>
+  <div class="hero">
+    <h2>API Reference</h2>
+    <p>REST API endpoint documentation for the Second Brain platform</p>
+  </div>
+
+  <div class="content-card">
+    <h3>Authentication</h3>
+    <p>All API requests require a Bearer token in the Authorization header. Tokens are issued via Cloudflare Access OAuth flow and scoped to the user's vault.</p>
+    <div class="code-block">Authorization: Bearer eyJhbGciOiJSUzI1NiIs...</div>
+  </div>
+
+  <div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/v1/vaults</span>
+    <h4>List all vaults</h4>
+    <p>Returns all vaults accessible to the authenticated user. Supports pagination via cursor-based tokens.</p>
+    <div class="param-grid">
+      <span class="param-name">limit</span><span class="param-desc">integer — Max vaults to return (default 25, max 100)</span>
+      <span class="param-name">cursor</span><span class="param-desc">string — Pagination cursor from previous response</span>
+    </div>
+    <h4>Response</h4>
+    <div class="code-block">{
+  "vaults": [
+    {"id": "vault_abc123", "name": "Engineering", "repo_url": "...", "created": "2026-03-15T10:30:00Z"}
+  ],
+  "next_cursor": "eyJsaWIiOi"
+}</div>
+  </div>
+
+  <div class="endpoint">
+    <span class="method post">POST</span>
+    <span class="path">/api/v1/vaults</span>
+    <h4>Create a new vault</h4>
+    <p>Provisions a new vault with an associated Git repository. The repository is initialized with a README and default branch configuration.</p>
+    <div class="param-grid">
+      <span class="param-name">name</span><span class="param-desc">string (required) — Display name for the vault</span>
+      <span class="param-name">description</span><span class="param-desc">string — Optional vault description</span>
+      <span class="param-name">ai_provider</span><span class="param-desc">enum — "openai" | "ollama" | "anthropic" (default: "ollama")</span>
+    </div>
+    <h4>Response</h4>
+    <div class="code-block">{
+  "id": "vault_def456",
+  "name": "Research Notes",
+  "repo_url": "https://git.eaglepass.io/vaults/def456.git",
+  "status": "provisioning"
+}</div>
+  </div>
+
+  <div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/v1/vaults/:id/chat</span>
+    <h4>Chat with vault</h4>
+    <p>Send a message to the AI chat engine scoped to a specific vault. Responses are streamed via SSE for real-time token delivery.</p>
+    <div class="param-grid">
+      <span class="param-name">message</span><span class="param-desc">string (required) — User message content</span>
+      <span class="param-name">model</span><span class="param-desc">string — Override default model for this request</span>
+      <span class="param-name">stream</span><span class="param-desc">boolean — Enable SSE streaming (default: true)</span>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <span class="method delete">DELETE</span>
+    <span class="path">/api/v1/vaults/:id</span>
+    <h4>Archive a vault</h4>
+    <p>Marks a vault as archived. The Git repository becomes read-only. Chat and sync are disabled. Archival is reversible within 30 days.</p>
+  </div>
+
+  <div class="content-card">
+    <h3>Error Responses</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Code</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>400</td><td>Bad Request</td><td>Missing or invalid parameters in request body</td></tr>
+        <tr><td>401</td><td>Unauthorized</td><td>Missing or expired Bearer token</td></tr>
+        <tr><td>403</td><td>Forbidden</td><td>Token lacks scope for requested resource</td></tr>
+        <tr><td>404</td><td>Not Found</td><td>Vault or endpoint does not exist</td></tr>
+        <tr><td>429</td><td>Rate Limited</td><td>Too many requests — retry after Retry-After header</td></tr>
+        <tr><td>500</td><td>Server Error</td><td>Internal failure — check server logs</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</main>
+<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+</body>
+</html>
