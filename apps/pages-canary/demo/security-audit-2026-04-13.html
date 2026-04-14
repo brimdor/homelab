@@ -21,7 +21,7 @@ main{max-width:1200px;margin:0 auto;padding:1rem}
 .content-card{background:var(--content-bg);border-radius:16px;border:1px solid rgba(255,140,0,0.1);padding:1.5rem;margin:1rem 0}
 .content-card h3{color:var(--accent);margin-bottom:0.75rem;font-size:1.1rem}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:1rem;margin:1rem 0}
-footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+footer{padding:2.5rem 1.5rem 2rem;text-align:center;border-top:1px solid rgba(255,140,0,0.08);margin-top:2rem}.footer-name{font-size:1rem;font-weight:700;color:var(--text-primary);margin-bottom:0.35rem}.footer-updated{font-size:0.8rem;color:var(--accent-light);margin-bottom:0.5rem}.footer-tagline{font-size:0.75rem;color:var(--text-secondary);letter-spacing:0.03em}
 .severity{display:inline-block;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:700;text-transform:uppercase}
 .critical{background:rgba(248,113,113,0.2);color:var(--red)}
 .high{background:rgba(250,204,21,0.2);color:var(--yellow)}
@@ -118,6 +118,10 @@ a,button,[role="button"]{min-height:44px;min-width:44px;display:inline-flex;alig
     </div>
   </div>
 </main>
-<footer>Eagle Pass Pages &mdash; Canary Demo</footer>
+<footer>
+  <div class="footer-name">Pages</div>
+  <div class="footer-updated">Canary Demo</div>
+  <div class="footer-tagline">Auto-indexed collection</div>
+</footer>
 </body>
 </html>
