@@ -8,7 +8,7 @@ app-template:
           nameOverride: pages-canary
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "2025-04-14v1-canary"
+            tag: "canary"
             pullPolicy: Always
           ports:
             - containerPort: 80
