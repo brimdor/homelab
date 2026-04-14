@@ -8,13 +8,24 @@ app-template:
           nameOverride: pages
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "latest"
+            tag: "2026-04-14v2-prod"
             pullPolicy: Always
           ports:
             - containerPort: 80
               name: http
+            - containerPort: 5000
+              name: api
           env:
             TZ: America/Chicago
+            PAGES_API_ENABLED:
+              value: "true"
+            PAGES_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: pages-api-key
+                  key: api-key
+            PAGES_CF_ACCESS:
+              value: "true"
           probes:
             liveness:
               enabled: true
