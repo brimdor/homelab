@@ -28,6 +28,13 @@ done
 sorted=$(sort -t'|' -k1 -r "$TMPFILE")
 rm -f "$TMPFILE"
 
+# Extract the latest date (first entry after sort = most recent)
+latest_date=""
+if [ -n "$sorted" ]; then
+  latest_date=$(printf '%s\n' "$sorted" | head -1 | cut -d'|' -f1)
+fi
+[ -z "$latest_date" ] && latest_date="No pages yet"
+
 # Build tag HTML
 build_tags() {
   _tags="$1"
@@ -45,14 +52,14 @@ cat > "$INDEX" << 'HEADER'
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pages — Eagle Pass</title>
+<title>Pages</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--glass-bg:rgba(255,140,0,0.06);--glass-border:rgba(255,140,0,0.15);--glass-radius:20px;--content-bg:rgba(20,15,8,0.85);--text-primary:#f0ece4;--text-secondary:#b0a890;--accent:#ff8c00;--accent-light:#ffa940}
 @media(max-width:768px){:root{--glass-radius:16px}}
 body{background:linear-gradient(135deg,#0d0d0d 0%,#1a1008 30%,#1a0f05 60%,#0a0a0a 100%);background-attachment:fixed;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;color:var(--text-primary);line-height:1.6;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,140,0,0.08);position:relative;overflow:hidden}
-.glass::before{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,140,0,0.08) 0%,transparent 100%);border-radius:var(--glass-radius) var(--glass-radius) 0 0;pointer-events:none}
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border-radius:var(--glass-radius);border:1px solid var(--glass-border);box-shadow:0 8px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,140,0,0.08)}
+
 nav{position:sticky;top:0;z-index:100;padding:1rem 1.5rem;display:flex;align-items:center;margin:1rem}
 nav h1{font-size:1.25rem;font-weight:700;color:var(--accent)}
 main{max-width:1200px;margin:0 auto;padding:1rem}
@@ -67,7 +74,7 @@ main{max-width:1200px;margin:0 auto;padding:1rem}
 .card-desc{font-size:0.9rem;color:var(--text-secondary);line-height:1.5}
 .card-tags{margin-top:0.75rem;display:flex;flex-wrap:wrap;gap:0.4rem}
 .tag{background:rgba(255,140,0,0.15);color:var(--accent-light);padding:0.2rem 0.6rem;border-radius:999px;font-size:0.75rem}
-footer{text-align:center;padding:2rem 1rem;color:var(--text-secondary);font-size:0.85rem}
+footer{padding:2.5rem 1.5rem 2rem;text-align:center;border-top:1px solid rgba(255,140,0,0.08);margin-top:2rem}.footer-name{font-size:1rem;font-weight:700;color:var(--text-primary);margin-bottom:0.35rem}.footer-updated{font-size:0.8rem;color:var(--accent-light);margin-bottom:0.5rem}.footer-tagline{font-size:0.75rem;color:var(--text-secondary);letter-spacing:0.03em}
 .empty-state{text-align:center;padding:4rem 1rem;color:var(--text-secondary)}
 .empty-state p{font-size:1.1rem;margin-top:0.5rem}
 @media(prefers-reduced-transparency){.glass{background:rgba(20,16,8,0.95);backdrop-filter:none;-webkit-backdrop-filter:none}.glass::before{display:none}}
@@ -103,10 +110,14 @@ if [ ! -s "$INDEX" ] || ! grep -q 'card-title' "$INDEX"; then
 EMPTY
 fi
 
-cat >> "$INDEX" << 'FOOTER'
+cat >> "$INDEX" << FOOTER
 </div>
 </main>
-<footer>Eagle Pass Pages</footer>
+<footer>
+  <div class="footer-name">Pages</div>
+  <div class="footer-updated">Last updated: ${latest_date}</div>
+  <div class="footer-tagline">Auto-indexed collection</div>
+</footer>
 </body>
 </html>
 FOOTER
