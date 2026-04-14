@@ -75,13 +75,14 @@ app-template:
             - pages-canary.eaglepass.io
           secretName: pages-canary-tls
   persistence:
-    demo:
-      type: configMap
-      name: pages-canary-demo
+    data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 1Gi
       advancedMounts:
         main:
           main:
-            - path: /usr/share/nginx/demo
+            - path: /usr/share/nginx/html
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
