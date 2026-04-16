@@ -1,0 +1,55 @@
+name: "🔧 Enhancement"
+description: Improve an existing feature or part of the application.
+title: "[Enhancement] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Overview
+        A clear description of what existing feature or area is being improved and why.
+
+  - type: textarea
+    id: current
+    attributes:
+      label: "Current Behavior"
+      placeholder: |
+        How does this work today? Describe the current state.
+
+  - type: textarea
+    id: improved
+    attributes:
+      label: "Improved Behavior"
+      placeholder: |
+        What should it do or how should it work after the change?
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: "Rationale"
+      placeholder: |
+        Why is this improvement worth the effort? Who benefits?
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: "Scope & Boundaries"
+      placeholder: |
+        What is in scope? What is explicitly out of scope?
+
+  - type: textarea
+    id: references
+    attributes:
+      label: "References / Related Issues"
+      placeholder: |
+        Links to related issues, discussions, docs, or research
+
+  - type: checkboxes
+    id: priority
+    attributes:
+      label: "Priority"
+      options:
+        - label: "Critical — blocks current functionality"
+        - label: "High — significant UX improvement"
+        - label: "Medium — worthwhile quality of life fix"
+        - label: "Low — polish and refinement"
