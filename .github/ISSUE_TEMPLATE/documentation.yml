@@ -1,0 +1,50 @@
+name: "📄 Documentation"
+description: Report missing, unclear, or incorrect documentation.
+title: "[Docs] "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Documentation Issue
+        Briefly describe the documentation problem.
+
+  - type: textarea
+    id: location
+    attributes:
+      label: "Location"
+      placeholder: |
+        Where is the issue located?
+        - e.g. README.md, specific section, API docs, inline comments, etc.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem Description"
+      placeholder: |
+        What is wrong, missing, or unclear?
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: "Suggested Fix or Addition"
+      placeholder: |
+        What should the documentation say instead? Include exact text if possible.
+
+  - type: textarea
+    id: audience
+    attributes:
+      label: "Audience Impact"
+      placeholder: |
+        Who needs this documentation and what are they trying to do?
+
+  - type: checkboxes
+    id: type
+    attributes:
+      label: "Documentation Type"
+      options:
+        - label: "Missing documentation — needs to be written"
+        - label: "Incorrect documentation — needs to be corrected"
+        - label: "Unclear documentation — needs better explanation"
+        - label: "Outdated documentation — needs to be updated"
+        - label: "Formatting/Layout — needs better presentation"
