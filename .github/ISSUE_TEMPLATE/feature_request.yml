@@ -1,0 +1,58 @@
+name: "✨ Feature Request"
+description: Propose a new feature or enhancement.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Overview
+        A brief summary of the proposed feature and why it would be useful.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem It Solves"
+      placeholder: |
+        What specific problem does this solve? Who benefits and how?
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution"
+      placeholder: |
+        Describe what you're proposing. Be as specific as possible.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      placeholder: |
+        Any other approaches you considered? Why not those?
+
+  - type: textarea
+    id: sketches
+    attributes:
+      label: "Mockups / Sketches"
+      placeholder: |
+        Attach or describe any wireframes, mockups, or UI sketches
+
+  - type: checkboxes
+    id: priority
+    attributes:
+      label: "Priority"
+      options:
+        - label: "Critical — blocks daily use"
+        - label: "High — important workflow enhancement"
+        - label: "Medium — nice to have"
+        - label: "Low — future consideration"
+
+  - type: checkboxes
+    id: checklists
+    attributes:
+      label: "Checklist"
+      options:
+        - label: "I have searched for existing feature requests"
+          required: true
+        - label: "This is not a refactor disguised as a feature"
+          required: false
