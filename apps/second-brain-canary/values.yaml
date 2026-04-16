@@ -18,6 +18,8 @@ app-template:
             NODE_ENV: production
             PORT: "3000"
             TZ: America/Chicago
+            DATABASE_PATH: /app/data/second-brain.sqlite
+            REPO_CACHE_DIR: /app/data/repos
           envFrom:
             - secretRef:
                 name: second-brain-canary-secrets
@@ -69,3 +71,14 @@ app-template:
         - hosts:
             - brain-canary.eaglepass.io
           secretName: second-brain-canary-tls
+  persistence:
+    data:
+      enabled: true
+      type: emptyDir
+      globalMounts:
+        - path: /app/data
+  defaultPodOptions:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
