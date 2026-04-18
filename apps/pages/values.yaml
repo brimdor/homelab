@@ -29,12 +29,14 @@ app-template:
           probes:
             liveness:
               enabled: true
+              type: Exec
               spec:
-                httpGet:
-                  path: /
-                  port: 80
-                initialDelaySeconds: 5
-                periodSeconds: 30
+                exec:
+                  command:
+                    - /usr/local/bin/healthcheck.sh
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                failureThreshold: 2
             readiness:
               enabled: true
               spec:
