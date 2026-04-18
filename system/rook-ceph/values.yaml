@@ -51,6 +51,11 @@ rook-ceph-cluster:
       count: 2
     dashboard:
       ssl: false
+    healthCheck:
+      livenessProbe:
+        mon:
+          probe:
+            timeoutSeconds: 10
     logCollector:
       enabled: false
     removeOSDsIfOutAndSafeToRemove: true
