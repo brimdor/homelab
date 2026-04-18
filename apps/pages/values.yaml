@@ -29,7 +29,8 @@ app-template:
           probes:
             liveness:
               enabled: true
-              custom: true
+              type: HTTP
+              path: /
               spec:
                 initialDelaySeconds: 30
                 periodSeconds: 60
