@@ -31,6 +31,10 @@ rook-ceph-cluster:
       useAllDevices: true
       nodes:
         - name: arcanine
+          # osd.2 on arcanine:sda was raising recurring BlueFS stalled-read alerts;
+          # pin Ceph to the dedicated Samsung data SSD and exclude the shared boot disk.
+          devices:
+            - name: sdb
         # bulbasaur excluded: osd.4 device has recurring BlueFS stalled-read alerts
         - name: chikorita
         - name: cyndaquil
