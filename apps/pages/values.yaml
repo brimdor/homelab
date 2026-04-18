@@ -8,7 +8,7 @@ app-template:
           nameOverride: pages
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "2026-04-14v2-prod"
+            tag: "2026-04-18-v1-prod"
             pullPolicy: Always
           ports:
             - containerPort: 80
