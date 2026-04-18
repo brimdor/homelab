@@ -2,13 +2,13 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 0
+      replicas: 1
       containers:
         main:
           nameOverride: pages-canary
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "2026-04-14v1-canary"
+            tag: "2026-04-17-v1-canary"
             pullPolicy: Always
           ports:
             - containerPort: 80
@@ -29,12 +29,14 @@ app-template:
           probes:
             liveness:
               enabled: true
+              type: Exec
               spec:
-                httpGet:
-                  path: /
-                  port: 80
-                initialDelaySeconds: 5
-                periodSeconds: 30
+                exec:
+                  command:
+                    - /usr/local/bin/healthcheck.sh
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                failureThreshold: 2
             readiness:
               enabled: true
               spec:
