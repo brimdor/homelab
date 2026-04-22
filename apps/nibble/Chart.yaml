@@ -1,0 +1,9 @@
+apiVersion: v2
+name: nibble
+description: Production deployment for Nibble — Next.js meal recommendation app
+type: application
+version: 0.1.0
+dependencies:
+  - name: app-template
+    version: 4.6.2
+    repository: https://bjw-s-labs.github.io/helm-charts/
