@@ -29,7 +29,7 @@ app-template:
           probes:
             liveness:
               enabled: true
-              type: Exec
+              custom: true
               spec:
                 exec:
                   command:
