@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: canary
+            tag: 2026-04-23-v1-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
