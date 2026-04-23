@@ -2,7 +2,7 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 1
+      replicas: 0
       containers:
         main:
           nameOverride: pages-canary
@@ -82,14 +82,6 @@ app-template:
         main:
           main:
             - path: /usr/share/nginx/html
-    demo:
-      type: configMap
-      name: pages-canary-demo
-      advancedMounts:
-        main:
-          main:
-            - path: /usr/share/nginx/demo
-              readOnly: true
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
