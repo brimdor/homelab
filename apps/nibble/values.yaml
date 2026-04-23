@@ -52,3 +52,40 @@ app-template:
         - hosts:
             - nibble.eaglepass.io
           secretName: nibble-tls
+
+  # Tier 2: NetworkPolicy for pod isolation (defense-in-depth)
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes:
+        - Ingress
+        - Egress
+      rules:
+        ingress:
+          # Allow ingress only from ingress-nginx controller namespace
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ingress-nginx
+            ports:
+              - protocol: TCP
+                port: 3000
+        egress:
+          # Allow DNS resolution (required for all outbound connections)
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - protocol: UDP
+                port: 53
+              - protocol: TCP
+                port: 53
+          # Allow egress to Ollama service (if backend proxy calls Ollama)
+          # Adjust namespace/port based on actual Ollama deployment location
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ollama
+            ports:
+              - protocol: TCP
+                port: 11434
