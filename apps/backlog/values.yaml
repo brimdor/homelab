@@ -5,8 +5,8 @@ app-template:
       containers:
         database:
           image:
-            repository: docker.io/brimdor/backlog_database
-            tag: alpha
+            repository: 10.0.20.11:32309/backlog_database
+            tag: canary
             pullPolicy: Always
           env:
             MYSQL_ROOT_PASSWORD:
@@ -55,8 +55,8 @@ app-template:
 
         backend:
           image:
-            repository: docker.io/brimdor/backlog_backend
-            tag: alpha
+            repository: 10.0.20.11:32309/backlog_backend
+            tag: 2026-04-23-v1-prod
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -112,8 +112,8 @@ app-template:
 
         frontend:
           image:
-            repository: docker.io/brimdor/backlog_frontend
-            tag: alpha
+            repository: 10.0.20.11:32309/backlog_frontend
+            tag: canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
