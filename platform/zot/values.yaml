@@ -13,9 +13,13 @@ zot:
       - secretName: zot-tls-certificate
         hosts:
           - *host
+  podLabels:
+    app: zot
   service:
     selector:
       app: zot
+      app.kubernetes.io/name: zot
+      app.kubernetes.io/instance: zot
   # TODO enable auth
   persistence: true
   pvc:
