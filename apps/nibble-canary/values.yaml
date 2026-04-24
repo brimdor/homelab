@@ -89,3 +89,11 @@ app-template:
             ports:
               - protocol: TCP
                 port: 11434
+          # Allow egress to zot registry for image pulls
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: zot
+            ports:
+              - protocol: TCP
+                port: 5000
