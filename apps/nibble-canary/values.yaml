@@ -6,7 +6,7 @@ app-template:
       containers:
         main:
           image:
-            repository: 10.43.153.189:5000/nibble
+            repository: 10.43.164.137:5000/nibble
             tag: "issue-13-canary"
             pullPolicy: Always
           env:
