@@ -56,7 +56,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: 2026-04-23-v1-prod
+            tag: 2026-04-24-v1-prod
             pullPolicy: Always
           env:
             TZ: America/Chicago
