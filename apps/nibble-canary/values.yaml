@@ -6,7 +6,7 @@ app-template:
       containers:
         main:
           image:
-            repository: registry.eaglepass.io/nibble
+            repository: 10.0.20.12:30809/nibble
             tag: "issue-13-canary"
             pullPolicy: Always
           env:
