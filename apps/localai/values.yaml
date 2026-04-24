@@ -24,7 +24,9 @@ local-ai:
       LOCALAI_MAX_ACTIVE_BACKENDS: "0"
       LOCALAI_PARALLEL_REQUESTS: "false"
       # Preload after confirming the model is present on the mounted models PVC.
-      LOCALAI_LOAD_TO_MEMORY: "sd-3.5-medium-ggml"
+      # TEMPORARILY DISABLED - Model files lost from PVC, will re-enable after user
+      # downloads sd-3.5-medium-ggml via webui.
+      # LOCALAI_LOAD_TO_MEMORY: "sd-3.5-medium-ggml"
       LOCALAI_WATCHDOG_IDLE: "false"
       LOCALAI_WATCHDOG_BUSY: "true"
       LOCALAI_WATCHDOG_IDLE_TIMEOUT: 5m
