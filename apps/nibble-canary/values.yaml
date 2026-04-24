@@ -7,7 +7,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/nibble
-            tag: "issue-9-canary"
+            tag: "issue-13-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
