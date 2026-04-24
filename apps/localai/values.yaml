@@ -24,9 +24,7 @@ local-ai:
       LOCALAI_MAX_ACTIVE_BACKENDS: "0"
       LOCALAI_PARALLEL_REQUESTS: "false"
       # Preload after confirming the model is present on the mounted models PVC.
-      # TEMPORARILY DISABLED - Model files lost from PVC, will re-enable after user
-      # downloads sd-3.5-medium-ggml via webui.
-      # LOCALAI_LOAD_TO_MEMORY: "sd-3.5-medium-ggml"
+      LOCALAI_LOAD_TO_MEMORY: "sd-3.5-large-ggml"
       LOCALAI_WATCHDOG_IDLE: "false"
       LOCALAI_WATCHDOG_BUSY: "true"
       LOCALAI_WATCHDOG_IDLE_TIMEOUT: 5m
@@ -117,6 +115,9 @@ local-ai:
       enabled: true
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
     hosts:
       - host: localai.eaglepass.io
         paths:
