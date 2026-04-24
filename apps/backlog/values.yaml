@@ -1,7 +1,7 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      strategy: Recreate
       containers:
         database:
           image:
