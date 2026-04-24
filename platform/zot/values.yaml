@@ -13,6 +13,9 @@ zot:
       - secretName: zot-tls-certificate
         hosts:
           - *host
+  service:
+    selector:
+      app: zot
   # TODO enable auth
   persistence: true
   pvc:
