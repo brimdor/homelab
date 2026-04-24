@@ -113,7 +113,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: canary
+            tag: "2026-04-24-v1-prod"
             pullPolicy: Always
           env:
             TZ: America/Chicago
