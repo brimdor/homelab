@@ -1,0 +1,724 @@
+=== Phase 1 Kube-system Details ===
+Fri Apr 24 13:43:32 CDT 2026
+
+=== Non-running / Unknown pods in kube-system ===
+No resources found in kube-system namespace.
+
+=== NFS client provisioner (Unknown) ===
+No Unknown nfs-client-provisioner pod found; listing all nfs-client-provisioner pods:
+No resources found in kube-system namespace.
+
+=== Non-running pods in default ===
+NAME                             READY   STATUS    RESTARTS   AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+node-debugger-arcanine-fgqkz     0/1     Unknown   0          4h2m    10.0.20.19   arcanine     <none>           <none>
+node-debugger-charmander-c9jrc   0/1     Error     0          3h46m   10.0.20.11   charmander   <none>           <none>
+node-debugger-charmander-d9nkw   0/1     Error     0          4h25m   10.0.20.11   charmander   <none>           <none>
+node-debugger-chikorita-6f9rr    0/1     Unknown   0          4h1m    10.0.20.15   chikorita    <none>           <none>
+node-debugger-cyndaquil-cwb66    0/1     Unknown   0          4h      10.0.20.16   cyndaquil    <none>           <none>
+node-debugger-cyndaquil-dxxzn    0/1     Error     0          4h26m   10.0.20.16   cyndaquil    <none>           <none>
+node-debugger-growlithe-lqrrx    0/1     Unknown   0          3h59m   10.0.20.18   growlithe    <none>           <none>
+node-debugger-pikachu-5knhm      0/1     Unknown   0          4h3m    10.0.20.14   pikachu      <none>           <none>
+node-debugger-sprigatito-s2jz2   0/1     Unknown   0          3h59m   10.0.20.20   sprigatito   <none>           <none>
+node-debugger-totodile-mbzdp     0/1     Unknown   0          3h58m   10.0.20.17   totodile     <none>           <none>
+--- Pod: node-debugger-arcanine-fgqkz ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-arcanine-fgqkz" not found
+logs current:
+describe:
+Name:             node-debugger-arcanine-fgqkz
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             arcanine/10.0.20.19
+Start Time:       Fri, 24 Apr 2026 09:41:30 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.19
+IPs:
+  IP:  10.0.20.19
+Containers:
+  debugger:
+    Container ID:  containerd://4d064169c1697c2299778ab8c6615b4c0ca9bf5f8e9f4d279cbd001f7d3d0fd0
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      mkdir -p /etc/rancher/k3s && cat > /etc/rancher/k3s/registries.yaml <<"EOF"
+      mirrors:
+        "10.0.20.11:32309":
+          endpoint:
+            - "http://10.0.20.11:32309"
+        "10.0.20.12:30809":
+          endpoint:
+            - "http://10.0.20.12:30809"
+      EOF
+      if systemctl is-active --quiet k3s; then systemctl restart k3s; else systemctl restart k3s-agent; fi
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 09:41:32 -0500
+      Finished:     Fri, 24 Apr 2026 09:41:36 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-n2fgx (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-n2fgx:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-charmander-c9jrc ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-charmander-c9jrc" not found
+logs current:
+10.0.20.11:32309/pages:2025-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:2a9e3e0a26841a3c5ba138644dd9dfd3d15b7b8cb6e32f7b02acb165917c426d 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2026-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:f411e3f3b4033699b694ad71f4e21cb047b1231bee1e91e13634f4288a432c53 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2026-04-14v2-prod                                                                                            application/vnd.oci.image.manifest.v1+json                sha256:09c1ce0bf2590554f0bb3397792d7bcbb5d65eaf1783e1d7caedc842eb885b8d 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2026-04-22-v1-prod                                                                                           application/vnd.oci.image.manifest.v1+json                sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b 51.6 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:canary                                                                                                       application/vnd.oci.image.manifest.v1+json                sha256:09275ee57dc0a40e07ee38ef7a3a914d5592a12b59b621ce90aa0dfa0a8ebd7f 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+ctr: content digest sha256:9da841cba2d188205a2fa437c08e0f3819d6de84dae71e78e70515e282f44e6e: not found
+manifest-sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b: waiting        |[32m[0m--------------------------------------| 
+elapsed: 0.1 s                                                                    total:   0.0 B (0.0 B/s)                                         
+describe:
+Name:             node-debugger-charmander-c9jrc
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             charmander/10.0.20.11
+Start Time:       Fri, 24 Apr 2026 09:57:22 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.11
+IPs:
+  IP:  10.0.20.11
+Containers:
+  debugger:
+    Container ID:  containerd://b076290bf8be3117d8ae7f26b6d275402661f63e3a42ab63d84759f6edb78989
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      /bin/ctr --address /run/k3s/containerd/containerd.sock -n k8s.io images ls | grep "10.0.20.11:32309/pages" | head -5; /bin/ctr --address /run/k3s/containerd/containerd.sock -n k8s.io images push --plain-http 10.0.20.11:32309/pages:2026-04-22-v1-prod
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Fri, 24 Apr 2026 09:57:23 -0500
+      Finished:     Fri, 24 Apr 2026 09:57:24 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-qhft6 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-qhft6:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-charmander-d9nkw ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-charmander-d9nkw" not found
+logs current:
+ctr: unable to resolve image to manifest: image "10.0.20.11:32309/pages:2026-04-22-v1-prod": not found
+describe:
+Name:             node-debugger-charmander-d9nkw
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             charmander/10.0.20.11
+Start Time:       Fri, 24 Apr 2026 09:18:33 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.11
+IPs:
+  IP:  10.0.20.11
+Containers:
+  debugger:
+    Container ID:  containerd://e05265092284a7d9fe31e861f4fba58ba28482b320a577f6546047ae1ec07832
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      /bin/ctr -n k8s.io images push --skip-verify 10.0.20.11:32309/pages:2026-04-22-v1-prod
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Fri, 24 Apr 2026 09:18:34 -0500
+      Finished:     Fri, 24 Apr 2026 09:18:34 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-m8bcm (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-m8bcm:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-chikorita-6f9rr ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-chikorita-6f9rr" not found
+logs current:
+describe:
+Name:             node-debugger-chikorita-6f9rr
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             chikorita/10.0.20.15
+Start Time:       Fri, 24 Apr 2026 09:42:15 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.15
+IPs:
+  IP:  10.0.20.15
+Containers:
+  debugger:
+    Container ID:  containerd://59a4c1e1d55c37ca3e869aa53617441be9dbbfea374ea13cdde87a69919834d0
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      mkdir -p /etc/rancher/k3s && cat > /etc/rancher/k3s/registries.yaml <<"EOF"
+      mirrors:
+        "10.0.20.11:32309":
+          endpoint:
+            - "http://10.0.20.11:32309"
+        "10.0.20.12:30809":
+          endpoint:
+            - "http://10.0.20.12:30809"
+      EOF
+      if systemctl is-active --quiet k3s; then systemctl restart k3s; else systemctl restart k3s-agent; fi
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 09:42:16 -0500
+      Finished:     Fri, 24 Apr 2026 09:42:18 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-hrzwp (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-hrzwp:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-cyndaquil-cwb66 ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-cyndaquil-cwb66" not found
+logs current:
+describe:
+Name:             node-debugger-cyndaquil-cwb66
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             cyndaquil/10.0.20.16
+Start Time:       Fri, 24 Apr 2026 09:43:00 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.16
+IPs:
+  IP:  10.0.20.16
+Containers:
+  debugger:
+    Container ID:  containerd://421585e3b8cd9d0051d1d3826c37ad20b74fc59c21154327ae9758cf7b4081f0
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      mkdir -p /etc/rancher/k3s && cat > /etc/rancher/k3s/registries.yaml <<"EOF"
+      mirrors:
+        "10.0.20.11:32309":
+          endpoint:
+            - "http://10.0.20.11:32309"
+        "10.0.20.12:30809":
+          endpoint:
+            - "http://10.0.20.12:30809"
+      EOF
+      if systemctl is-active --quiet k3s; then systemctl restart k3s; else systemctl restart k3s-agent; fi
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 09:43:01 -0500
+      Finished:     Fri, 24 Apr 2026 09:43:04 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jmv27 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-jmv27:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-cyndaquil-dxxzn ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-cyndaquil-dxxzn" not found
+logs current:
+chroot: can't execute '/usr/local/bin/crictl': No such file or directory
+describe:
+Name:             node-debugger-cyndaquil-dxxzn
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             cyndaquil/10.0.20.16
+Start Time:       Fri, 24 Apr 2026 09:16:40 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.16
+IPs:
+  IP:  10.0.20.16
+Containers:
+  debugger:
+    Container ID:  containerd://592ac8dd3aaa035dfaf51bc68e9ae6aad38a8aad01351659fa75389a0d25f9df
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /usr/local/bin/crictl
+      images
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    127
+      Started:      Fri, 24 Apr 2026 09:16:42 -0500
+      Finished:     Fri, 24 Apr 2026 09:16:42 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-gvpqk (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-gvpqk:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-growlithe-lqrrx ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-growlithe-lqrrx" not found
+logs current:
+describe:
+Name:             node-debugger-growlithe-lqrrx
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             growlithe/10.0.20.18
+Start Time:       Fri, 24 Apr 2026 09:43:45 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.18
+IPs:
+  IP:  10.0.20.18
+Containers:
+  debugger:
+    Container ID:  containerd://97fb0db9a616b616ede2f23ebf7043bef9ba7d5980c4ffa0cc8c1d26df0148a4
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      mkdir -p /etc/rancher/k3s && cat > /etc/rancher/k3s/registries.yaml <<"EOF"
+      mirrors:
+        "10.0.20.11:32309":
+          endpoint:
+            - "http://10.0.20.11:32309"
+        "10.0.20.12:30809":
+          endpoint:
+            - "http://10.0.20.12:30809"
+      EOF
+      if systemctl is-active --quiet k3s; then systemctl restart k3s; else systemctl restart k3s-agent; fi
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 09:43:46 -0500
+      Finished:     Fri, 24 Apr 2026 09:43:48 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-n5f5f (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-n5f5f:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-pikachu-5knhm ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-pikachu-5knhm" not found
+logs current:
+describe:
+Name:             node-debugger-pikachu-5knhm
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             pikachu/10.0.20.14
+Start Time:       Fri, 24 Apr 2026 09:39:47 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.14
+IPs:
+  IP:  10.0.20.14
+Containers:
+  debugger:
+    Container ID:  containerd://c0524a476c402ab95f102e05976b2cd635f48962208d2b1d1e6e24b21f98e439
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      mkdir -p /etc/rancher/k3s && cat > /etc/rancher/k3s/registries.yaml <<"EOF"
+      mirrors:
+        "10.0.20.11:32309":
+          endpoint:
+            - "http://10.0.20.11:32309"
+        "10.0.20.12:30809":
+          endpoint:
+            - "http://10.0.20.12:30809"
+      EOF
+      if systemctl is-active --quiet k3s; then systemctl restart k3s; else systemctl restart k3s-agent; fi
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 09:39:48 -0500
+      Finished:     Fri, 24 Apr 2026 09:39:50 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-sz9z7 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-sz9z7:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-sprigatito-s2jz2 ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-sprigatito-s2jz2" not found
+logs current:
+describe:
+Name:             node-debugger-sprigatito-s2jz2
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             sprigatito/10.0.20.20
+Start Time:       Fri, 24 Apr 2026 09:44:31 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.20
+IPs:
+  IP:  10.0.20.20
+Containers:
+  debugger:
+    Container ID:  containerd://882a7aa0986bee602742784e5a8e8dcbbe34211743dda001a8b8a05b597200ab
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      mkdir -p /etc/rancher/k3s && cat > /etc/rancher/k3s/registries.yaml <<"EOF"
+      mirrors:
+        "10.0.20.11:32309":
+          endpoint:
+            - "http://10.0.20.11:32309"
+        "10.0.20.12:30809":
+          endpoint:
+            - "http://10.0.20.12:30809"
+      EOF
+      if systemctl is-active --quiet k3s; then systemctl restart k3s; else systemctl restart k3s-agent; fi
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 09:44:32 -0500
+      Finished:     Fri, 24 Apr 2026 09:44:33 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-mwcvg (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-mwcvg:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+--- Pod: node-debugger-totodile-mbzdp ---
+logs --previous:
+Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-totodile-mbzdp" not found
+logs current:
+describe:
+Name:             node-debugger-totodile-mbzdp
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             totodile/10.0.20.17
+Start Time:       Fri, 24 Apr 2026 09:45:16 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.17
+IPs:
+  IP:  10.0.20.17
+Containers:
+  debugger:
+    Container ID:  containerd://de0e0b67dcf33353f1acb2aaafee2f66b393ebb2418b3f119092530d6d267392
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      mkdir -p /etc/rancher/k3s && cat > /etc/rancher/k3s/registries.yaml <<"EOF"
+      mirrors:
+        "10.0.20.11:32309":
+          endpoint:
+            - "http://10.0.20.11:32309"
+        "10.0.20.12:30809":
+          endpoint:
+            - "http://10.0.20.12:30809"
+      EOF
+      if systemctl is-active --quiet k3s; then systemctl restart k3s; else systemctl restart k3s-agent; fi
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 09:45:17 -0500
+      Finished:     Fri, 24 Apr 2026 09:45:19 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-hwm24 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-hwm24:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>

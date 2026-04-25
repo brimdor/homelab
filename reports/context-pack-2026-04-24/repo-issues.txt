@@ -1,0 +1,4 @@
+Issue #83: chore(deps): update helm release kube-prometheus-stack to v84
+Issue #81: chore(deps): update bitnamilegacy/postgresql docker tag to v17
+Issue #80: fix(deps): update all non-major dependencies
+Issue #4: Dependency Dashboard

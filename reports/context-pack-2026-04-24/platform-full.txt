@@ -1,0 +1,1652 @@
+=== Phase 1 Platform Evidence ===
+Fri Apr 24 13:43:32 CDT 2026
+
+=== Certificates ===
+NAMESPACE             NAME                            READY   SECRET                          ISSUER              STATUS                                          AGE
+argocd                argocd-server-tls               True    argocd-server-tls               letsencrypt-prod    Certificate is up to date and has not expired   8h
+backlog-canary        backlog-companion-canary-tls    True    backlog-companion-canary-tls    letsencrypt-prod    Certificate is up to date and has not expired   8h
+backlog               backlog-companion-tls           True    backlog-companion-tls           letsencrypt-prod    Certificate is up to date and has not expired   4h56m
+budget-canary         budget-canary-tls               True    budget-canary-tls               letsencrypt-prod    Certificate is up to date and has not expired   8h
+budget                budget-tls                      True    budget-tls                      letsencrypt-prod    Certificate is up to date and has not expired   8h
+dex                   dex-tls-certificate             True    dex-tls-certificate             letsencrypt-prod    Certificate is up to date and has not expired   136d
+emby                  emby-tls-certificate            True    emby-tls-certificate            letsencrypt-prod    Certificate is up to date and has not expired   8h
+explorers-hub         explorers-hub-tls-certificate   True    explorers-hub-tls-certificate   letsencrypt-prod    Certificate is up to date and has not expired   8h
+gitea                 gitea-tls-certificate           True    gitea-tls-certificate           letsencrypt-prod    Certificate is up to date and has not expired   8h
+grafana               grafana-general-tls             True    grafana-general-tls             letsencrypt-prod    Certificate is up to date and has not expired   8h
+humbleai-canary       humbleai-tls                    True    humbleai-tls                    letsencrypt-prod    Certificate is up to date and has not expired   8h
+humbleai-demo         humbleai-tls                    True    humbleai-tls                    letsencrypt-prod    Certificate is up to date and has not expired   8h
+humbleai              humbleai-tls                    True    humbleai-tls                    letsencrypt-prod    Certificate is up to date and has not expired   8h
+kanidm                kanidm-selfsigned               True    kanidm-selfsigned-certificate   kanidm-selfsigned   Certificate is up to date and has not expired   8h
+kanidm                kanidm-tls-certificate          True    kanidm-tls-certificate          letsencrypt-prod    Certificate is up to date and has not expired   8h
+localai               localai-eaglepass-io-tls        True    localai-eaglepass-io-tls        letsencrypt-prod    Certificate is up to date and has not expired   136d
+matrix                element-tls-certificate         True    element-tls-certificate         letsencrypt-prod    Certificate is up to date and has not expired   8h
+matrix                matrix-tls-certificate          True    matrix-tls-certificate          letsencrypt-prod    Certificate is up to date and has not expired   8h
+nibble-canary         nibble-canary-tls               True    nibble-canary-tls               letsencrypt-prod    Certificate is up to date and has not expired   8h
+nibble                nibble-tls                      True    nibble-tls                      letsencrypt-prod    Certificate is up to date and has not expired   8h
+openwebui             open-tls-certificate            True    open-tls-certificate            letsencrypt-prod    Certificate is up to date and has not expired   8h
+pages-canary          pages-canary-tls                True    pages-canary-tls                letsencrypt-prod    Certificate is up to date and has not expired   8h
+pages                 pages-tls                       True    pages-tls                       letsencrypt-prod    Certificate is up to date and has not expired   8h
+podwave               podwave-tls                     True    podwave-tls                     letsencrypt-prod    Certificate is up to date and has not expired   8h
+radarr                radarr-tls-certificate          True    radarr-tls-certificate          letsencrypt-prod    Certificate is up to date and has not expired   8h
+sabnzbd               sabnzbd-tls-certificate         True    sabnzbd-tls-certificate         letsencrypt-prod    Certificate is up to date and has not expired   8h
+searxng               searxng-tls-certificate         True    searxng-tls-certificate         letsencrypt-prod    Certificate is up to date and has not expired   8h
+second-brain-canary   second-brain-canary-tls         True    second-brain-canary-tls         letsencrypt-prod    Certificate is up to date and has not expired   4h56m
+second-brain          second-brain-tls                True    second-brain-tls                letsencrypt-prod    Certificate is up to date and has not expired   8h
+sonarr                sonarr-tls-certificate          True    sonarr-tls-certificate          letsencrypt-prod    Certificate is up to date and has not expired   8h
+strata                strata-tls                      True    strata-tls                      letsencrypt-prod    Certificate is up to date and has not expired   8h
+woodpecker            woodpecker-tls-certificate      True    woodpecker-tls-certificate      letsencrypt-prod    Certificate is up to date and has not expired   8h
+zot                   zot-tls-certificate             True    zot-tls-certificate             letsencrypt-prod    Certificate is up to date and has not expired   8h
+
+=== CertificateRequests ===
+NAMESPACE   NAME                         APPROVED   DENIED   READY   ISSUER             REQUESTER                                         STATUS                                         AGE
+dex         dex-tls-certificate-3        True                True    letsencrypt-prod   system:serviceaccount:cert-manager:cert-manager   Certificate fetched from issuer successfully   6d19h
+localai     localai-eaglepass-io-tls-2   True                True    letsencrypt-prod   system:serviceaccount:cert-manager:cert-manager   Certificate fetched from issuer successfully   51d
+
+=== Orders ===
+NAMESPACE   NAME                                    STATE   ISSUER             REASON   AGE
+dex         dex-tls-certificate-3-1338884972        valid   letsencrypt-prod            6d19h
+localai     localai-eaglepass-io-tls-2-1636471448   valid   letsencrypt-prod            51d
+
+=== Challenges ===
+No resources found
+
+=== ExternalSecrets ===
+NAMESPACE    NAME                    STORETYPE            STORE            REFRESH INTERVAL   STATUS         READY   LAST SYNC
+connect      op-credentials          ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    56m
+dex          dex-secrets             ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    56m
+gitea        gitea-admin-secret      ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    56m
+grafana      grafana-secrets         ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    56m
+renovate     renovate-secret         ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    56m
+woodpecker   woodpecker-secret       ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    56m
+zot          registry-admin-secret   ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    54m
+
+=== SecretStores ===
+No resources found
+
+=== ClusterSecretStores ===
+NAME             AGE   STATUS   CAPABILITIES   READY
+global-secrets   8h    Valid    ReadWrite      True
+
+=== Ingress-nginx pods ===
+NAME                                        READY   STATUS    RESTARTS        AGE   IP           NODE       NOMINATED NODE   READINESS GATES
+ingress-nginx-controller-7b89dc4cff-z97kf   1/1     Running   1 (6h11m ago)   8h    10.0.2.160   totodile   <none>           <none>
+Name:             ingress-nginx-controller-7b89dc4cff-z97kf
+Namespace:        ingress-nginx
+Priority:         0
+Service Account:  ingress-nginx
+Node:             totodile/10.0.20.17
+Start Time:       Fri, 24 Apr 2026 05:12:48 -0500
+Labels:           app.kubernetes.io/component=controller
+                  app.kubernetes.io/instance=ingress-nginx
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=ingress-nginx
+                  app.kubernetes.io/part-of=ingress-nginx
+                  app.kubernetes.io/version=1.15.1
+                  helm.sh/chart=ingress-nginx-4.15.1
+                  pod-template-hash=7b89dc4cff
+Annotations:      <none>
+Status:           Running
+IP:               10.0.2.160
+IPs:
+  IP:           10.0.2.160
+Controlled By:  ReplicaSet/ingress-nginx-controller-7b89dc4cff
+Containers:
+  controller:
+    Container ID:    containerd://b079d05a6a64d3305dca7873f84b0da51ca79f5003b709c7e20999d881647ce8
+    Image:           registry.k8s.io/ingress-nginx/controller:v1.15.1@sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1
+    Image ID:        registry.k8s.io/ingress-nginx/controller@sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1
+    Ports:           80/TCP (http), 443/TCP (https), 10254/TCP (metrics), 8443/TCP (webhook), 22/TCP (22-tcp)
+    Host Ports:      0/TCP (http), 0/TCP (https), 0/TCP (metrics), 0/TCP (webhook), 0/TCP (22-tcp)
+    SeccompProfile:  RuntimeDefault
+    Args:
+      /nginx-ingress-controller
+      --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+      --election-id=ingress-nginx-leader
+      --controller-class=k8s.io/ingress-nginx
+      --ingress-class=nginx
+      --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+      --tcp-services-configmap=$(POD_NAMESPACE)/ingress-nginx-tcp
+      --validating-webhook=:8443
+      --validating-webhook-certificate=/usr/local/certificates/cert
+      --validating-webhook-key=/usr/local/certificates/key
+      --enable-metrics=true
+    State:          Running
+      Started:      Fri, 24 Apr 2026 07:33:04 -0500
+    Last State:     Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 05:12:50 -0500
+      Finished:     Fri, 24 Apr 2026 07:32:20 -0500
+    Ready:          True
+    Restart Count:  1
+    Requests:
+      cpu:      100m
+      memory:   90Mi
+    Liveness:   http-get http://:10254/healthz delay=10s timeout=1s period=10s #success=1 #failure=5
+    Readiness:  http-get http://:10254/healthz delay=10s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      POD_NAME:       ingress-nginx-controller-7b89dc4cff-z97kf (v1:metadata.name)
+      POD_NAMESPACE:  ingress-nginx (v1:metadata.namespace)
+      LD_PRELOAD:     /usr/local/lib/libmimalloc.so
+    Mounts:
+      /usr/local/certificates/ from webhook-cert (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-6ckvj (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  webhook-cert:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  ingress-nginx-admission
+    Optional:    false
+  kube-api-access-6ckvj:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              kubernetes.io/os=linux
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
+
+=== Monitoring-system pods ===
+NAME                                                     READY   STATUS    RESTARTS   AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+alertmanager-monitoring-system-kube-pro-alertmanager-0   3/3     Running   0          4h56m   10.0.2.9     totodile     <none>           <none>
+monitoring-system-kube-pro-operator-868fdff8dd-4wqr4     1/1     Running   0          4h56m   10.0.1.98    growlithe    <none>           <none>
+monitoring-system-kube-state-metrics-bffd45b7d-656jr     1/1     Running   0          4h56m   10.0.5.223   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-5qt9t         1/1     Running   0          4h56m   10.0.20.15   chikorita    <none>           <none>
+monitoring-system-prometheus-node-exporter-6txhs         1/1     Running   0          4h56m   10.0.20.13   bulbasaur    <none>           <none>
+monitoring-system-prometheus-node-exporter-9ktxw         1/1     Running   0          4h56m   10.0.20.16   cyndaquil    <none>           <none>
+monitoring-system-prometheus-node-exporter-bxfjb         1/1     Running   0          4h56m   10.0.20.11   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-gts9b         1/1     Running   0          4h56m   10.0.20.19   arcanine     <none>           <none>
+monitoring-system-prometheus-node-exporter-j7gpc         1/1     Running   0          4h56m   10.0.20.12   squirtle     <none>           <none>
+monitoring-system-prometheus-node-exporter-r9cng         1/1     Running   0          4h56m   10.0.20.20   sprigatito   <none>           <none>
+monitoring-system-prometheus-node-exporter-sn6ps         1/1     Running   0          4h56m   10.0.20.14   pikachu      <none>           <none>
+monitoring-system-prometheus-node-exporter-xfw6f         1/1     Running   0          4h56m   10.0.20.18   growlithe    <none>           <none>
+monitoring-system-prometheus-node-exporter-zzqwh         1/1     Running   0          4h56m   10.0.20.17   totodile     <none>           <none>
+prometheus-monitoring-system-kube-pro-prometheus-0       2/2     Running   0          4h56m   10.0.1.157   growlithe    <none>           <none>
+Name:             alertmanager-monitoring-system-kube-pro-alertmanager-0
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-kube-pro-alertmanager
+Node:             totodile/10.0.20.17
+Start Time:       Fri, 24 Apr 2026 08:46:53 -0500
+Labels:           alertmanager=monitoring-system-kube-pro-alertmanager
+                  app.kubernetes.io/instance=monitoring-system-kube-pro-alertmanager
+                  app.kubernetes.io/managed-by=prometheus-operator
+                  app.kubernetes.io/name=alertmanager
+                  app.kubernetes.io/version=0.31.1
+                  apps.kubernetes.io/pod-index=0
+                  controller-revision-hash=alertmanager-monitoring-system-kube-pro-alertmanager-7b8d9cdb97
+                  statefulset.kubernetes.io/pod-name=alertmanager-monitoring-system-kube-pro-alertmanager-0
+Annotations:      kubectl.kubernetes.io/default-container: alertmanager
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.0.2.9
+IPs:
+  IP:           10.0.2.9
+Controlled By:  StatefulSet/alertmanager-monitoring-system-kube-pro-alertmanager
+Init Containers:
+  init-config-reloader:
+    Container ID:  containerd://609810e35da4ceffb09914b01318664f318570bb78be266eea5afc69fe01ffb7
+    Image:         quay.io/prometheus-operator/prometheus-config-reloader:v0.89.0
+    Image ID:      quay.io/prometheus-operator/prometheus-config-reloader@sha256:cb4ac6a56555bef0e202bec11e367dfe07ffb241cf4d30566b12b864692607a8
+    Port:          8081/TCP (reloader-init)
+    Host Port:     0/TCP (reloader-init)
+    Command:
+      /bin/prometheus-config-reloader
+    Args:
+      --watch-interval=0
+      --listen-address=:8081
+      --config-file=/etc/alertmanager/config/alertmanager.yaml.gz
+      --config-envsubst-file=/etc/alertmanager/config_out/alertmanager.env.yaml
+      --watched-dir=/etc/alertmanager/config
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Fri, 24 Apr 2026 08:46:54 -0500
+      Finished:     Fri, 24 Apr 2026 08:46:55 -0500
+    Ready:          True
+    Restart Count:  0
+    Environment:
+      POD_NAME:  alertmanager-monitoring-system-kube-pro-alertmanager-0 (v1:metadata.name)
+      SHARD:     -1
+    Mounts:
+      /etc/alertmanager/config from config-volume (ro)
+      /etc/alertmanager/config_out from config-out (rw)
+      /etc/alertmanager/web_config/web-config.yaml from web-config (ro,path="web-config.yaml")
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-b4w6g (ro)
+Containers:
+  alertmanager:
+    Container ID:  containerd://cbb4faea55e7539b1bd119f24edfaf5fc1b15d22da435be58942baa31f2f2fa2
+    Image:         quay.io/prometheus/alertmanager:v0.31.1
+    Image ID:      quay.io/prometheus/alertmanager@sha256:88b605de9aba0410775c1eb3438f951115054e0d307f23f274a4c705f51630c1
+    Ports:         9093/TCP (http-web), 9094/TCP (mesh-tcp), 9094/UDP (mesh-udp)
+    Host Ports:    0/TCP (http-web), 0/TCP (mesh-tcp), 0/UDP (mesh-udp)
+    Args:
+      --config.file=/etc/alertmanager/config_out/alertmanager.env.yaml
+      --storage.path=/alertmanager
+      --data.retention=120h
+      --cluster.listen-address=
+      --web.listen-address=:9093
+      --web.external-url=http://monitoring-system-kube-pro-alertmanager.monitoring-system:9093
+      --web.route-prefix=/
+      --cluster.label=monitoring-system/monitoring-system-kube-pro-alertmanager
+      --cluster.peer=alertmanager-monitoring-system-kube-pro-alertmanager-0.alertmanager-operated:9094
+      --cluster.reconnect-timeout=5m
+      --web.config.file=/etc/alertmanager/web_config/web-config.yaml
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:56 -0500
+    Ready:          True
+    Restart Count:  0
+    Requests:
+      memory:   200Mi
+    Liveness:   http-get http://:http-web/-/healthy delay=0s timeout=3s period=10s #success=1 #failure=10
+    Readiness:  http-get http://:http-web/-/ready delay=3s timeout=3s period=5s #success=1 #failure=10
+    Environment:
+      POD_IP:   (v1:status.podIP)
+    Mounts:
+      /alertmanager from alertmanager-monitoring-system-kube-pro-alertmanager-db (rw)
+      /etc/alertmanager/certs from tls-assets (ro)
+      /etc/alertmanager/cluster_tls_config/cluster-tls-config.yaml from cluster-tls-config (ro,path="cluster-tls-config.yaml")
+      /etc/alertmanager/config from config-volume (rw)
+      /etc/alertmanager/config_out from config-out (ro)
+      /etc/alertmanager/web_config/web-config.yaml from web-config (ro,path="web-config.yaml")
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-b4w6g (ro)
+  config-reloader:
+    Container ID:  containerd://9d586d01b799a4c0c3aa5239946f5ff46b345ea1c0b7e394dd563d66bdcc83e8
+    Image:         quay.io/prometheus-operator/prometheus-config-reloader:v0.89.0
+    Image ID:      quay.io/prometheus-operator/prometheus-config-reloader@sha256:cb4ac6a56555bef0e202bec11e367dfe07ffb241cf4d30566b12b864692607a8
+    Port:          8080/TCP (reloader-web)
+    Host Port:     0/TCP (reloader-web)
+    Command:
+      /bin/prometheus-config-reloader
+    Args:
+      --listen-address=:8080
+      --web-config-file=/etc/alertmanager/web_config/web-config.yaml
+      --reload-url=http://127.0.0.1:9093/-/reload
+      --config-file=/etc/alertmanager/config/alertmanager.yaml.gz
+      --config-envsubst-file=/etc/alertmanager/config_out/alertmanager.env.yaml
+      --watched-dir=/etc/alertmanager/config
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:56 -0500
+    Ready:          True
+    Restart Count:  0
+    Environment:
+      POD_NAME:  alertmanager-monitoring-system-kube-pro-alertmanager-0 (v1:metadata.name)
+      SHARD:     -1
+    Mounts:
+      /etc/alertmanager/config from config-volume (ro)
+      /etc/alertmanager/config_out from config-out (rw)
+      /etc/alertmanager/web_config/web-config.yaml from web-config (ro,path="web-config.yaml")
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-b4w6g (ro)
+  ntfy-relay:
+    Container ID:  containerd://b64d97ca20b5e38de27eefdf1e0a542d350ab1f83274dc444725b12e3d758614
+    Image:         ghcr.io/khuedoan/webhook-transformer:v0.0.3
+    Image ID:      ghcr.io/khuedoan/webhook-transformer@sha256:ba5066bd4a5bddd9bfdc32f4556af7d8871cfda0b2e3a470d52dfc8edb26b5ed
+    Port:          <none>
+    Host Port:     <none>
+    Args:
+      --port=8081
+      --config=/config/alertmanager-to-ntfy.jsonnet
+      --upstream-host=https://ntfy.sh
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:56 -0500
+    Ready:          True
+    Restart Count:  0
+    Environment Variables from:
+      webhook-transformer  Secret  Optional: false
+    Environment:           <none>
+    Mounts:
+      /config from config (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-b4w6g (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  config-volume:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  alertmanager-monitoring-system-kube-pro-alertmanager-generated
+    Optional:    false
+  tls-assets:
+    Type:        Projected (a volume that contains injected data from multiple sources)
+    SecretName:  alertmanager-monitoring-system-kube-pro-alertmanager-tls-assets-0
+    Optional:    false
+  config-out:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     Memory
+    SizeLimit:  <unset>
+  web-config:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  alertmanager-monitoring-system-kube-pro-alertmanager-web-config
+    Optional:    false
+  cluster-tls-config:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  alertmanager-monitoring-system-kube-pro-alertmanager-cluster-tls-config
+    Optional:    false
+  alertmanager-monitoring-system-kube-pro-alertmanager-db:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  config:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      webhook-transformer
+    Optional:  false
+  kube-api-access-b4w6g:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
+
+
+Name:             monitoring-system-kube-pro-operator-868fdff8dd-4wqr4
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-kube-pro-operator
+Node:             growlithe/10.0.20.18
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app=kube-prometheus-stack-operator
+                  app.kubernetes.io/component=prometheus-operator
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=kube-prometheus-stack-prometheus-operator
+                  app.kubernetes.io/part-of=kube-prometheus-stack
+                  app.kubernetes.io/version=82.15.1
+                  chart=kube-prometheus-stack-82.15.1
+                  heritage=Helm
+                  pod-template-hash=868fdff8dd
+                  release=monitoring-system
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.0.1.98
+IPs:
+  IP:           10.0.1.98
+Controlled By:  ReplicaSet/monitoring-system-kube-pro-operator-868fdff8dd
+Containers:
+  kube-prometheus-stack:
+    Container ID:  containerd://f3b22119d6cdee26c12893488ede90f732a24949c90b740a3eb4d28d0247fc06
+    Image:         quay.io/prometheus-operator/prometheus-operator:v0.89.0
+    Image ID:      quay.io/prometheus-operator/prometheus-operator@sha256:fea93ca9be807eee2f51f4d997b7a2bf073d4051d9012b45b3c84a7b9e8b3f25
+    Port:          10250/TCP (https)
+    Host Port:     0/TCP (https)
+    Args:
+      --kubelet-service=kube-system/monitoring-system-kube-pro-kubelet
+      --kubelet-endpoints=true
+      --kubelet-endpointslice=false
+      --localhost=127.0.0.1
+      --prometheus-config-reloader=quay.io/prometheus-operator/prometheus-config-reloader:v0.89.0
+      --config-reloader-cpu-request=0
+      --config-reloader-cpu-limit=0
+      --config-reloader-memory-request=0
+      --config-reloader-memory-limit=0
+      --thanos-default-base-image=quay.io/thanos/thanos:v0.41.0
+      --secret-field-selector=type!=kubernetes.io/dockercfg,type!=kubernetes.io/service-account-token,type!=helm.sh/release.v1
+      --web.enable-tls=true
+      --web.cert-file=/cert/cert
+      --web.key-file=/cert/key
+      --web.listen-address=:10250
+      --web.tls-min-version=VersionTLS13
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:53 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get https://:https/healthz delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get https://:https/healthz delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      GOGC:  30
+    Mounts:
+      /cert from tls-secret (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-7ch4n (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  tls-secret:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  monitoring-system-kube-pro-admission
+    Optional:    false
+  kube-api-access-7ch4n:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
+
+
+Name:             monitoring-system-kube-state-metrics-bffd45b7d-656jr
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-kube-state-metrics
+Node:             charmander/10.0.20.11
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=kube-state-metrics
+                  app.kubernetes.io/part-of=kube-state-metrics
+                  app.kubernetes.io/version=2.18.0
+                  helm.sh/chart=kube-state-metrics-7.2.2
+                  pod-template-hash=bffd45b7d
+                  release=monitoring-system
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.0.5.223
+IPs:
+  IP:           10.0.5.223
+Controlled By:  ReplicaSet/monitoring-system-kube-state-metrics-bffd45b7d
+Containers:
+  kube-state-metrics:
+    Container ID:  containerd://03bad760149d089ed485b9b8b01ad8f92643e8c3e2adbc74a55b5a3072996769
+    Image:         registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.18.0
+    Image ID:      registry.k8s.io/kube-state-metrics/kube-state-metrics@sha256:1545919b72e3ae035454fc054131e8d0f14b42ef6fc5b2ad5c751cafa6b2130e
+    Ports:         8080/TCP (http), 8081/TCP (metrics)
+    Host Ports:    0/TCP (http), 0/TCP (metrics)
+    Args:
+      --port=8080
+      --resources=certificatesigningrequests,configmaps,cronjobs,daemonsets,deployments,endpointslices,horizontalpodautoscalers,ingresses,jobs,leases,limitranges,mutatingwebhookconfigurations,namespaces,networkpolicies,nodes,persistentvolumeclaims,persistentvolumes,poddisruptionbudgets,pods,replicasets,replicationcontrollers,resourcequotas,secrets,services,statefulsets,storageclasses,validatingwebhookconfigurations,volumeattachments
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:52 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http/livez delay=5s timeout=5s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:metrics/readyz delay=5s timeout=5s period=10s #success=1 #failure=3
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-bf9r5 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  kube-api-access-bf9r5:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-5qt9t
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             chikorita/10.0.20.15
+Start Time:       Fri, 24 Apr 2026 08:46:51 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.15
+IPs:
+  IP:           10.0.20.15
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://3819c7b922716d3be10a20322c6eea363a9ec04dabb59e3ea1cfd1d4e917fbc3
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:53 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-6txhs
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             bulbasaur/10.0.20.13
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.13
+IPs:
+  IP:           10.0.20.13
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://eb399acfb747fddaac7bdad8eabfbaf1f8beb88523cd69eb66a97cfdac4a4e72
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:52 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-9ktxw
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             cyndaquil/10.0.20.16
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.16
+IPs:
+  IP:           10.0.20.16
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://97365151a427f6ee4bd4bd8820bf22c51bf3679e7bd778f45585e21240c55777
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:53 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-bxfjb
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             charmander/10.0.20.11
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.11
+IPs:
+  IP:           10.0.20.11
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://148c12e3f2a3c45ba627f027dcaea7c4a5448c8b6e8cdb0a58718a56aa88983f
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:52 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-gts9b
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             arcanine/10.0.20.19
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.19
+IPs:
+  IP:           10.0.20.19
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://37a0c4b2a0fd4a987b9379fd02a693c2953a6d2b99402be72b36be6d54194a10
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:47:01 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-j7gpc
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             squirtle/10.0.20.12
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.12
+IPs:
+  IP:           10.0.20.12
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://30f94d1db7ce24d36a8d1cb556bcc604c1d01bffe016d1c6b0f0d922bc69fd79
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:52 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-r9cng
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             sprigatito/10.0.20.20
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.20
+IPs:
+  IP:           10.0.20.20
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://f2b76642b5cc9cf351080f2662233cf2556301c0f70520098f2543185c2e4bd7
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:58 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-sn6ps
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             pikachu/10.0.20.14
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.14
+IPs:
+  IP:           10.0.20.14
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://1987d03d2c3ea525ac42c10de3e0856a855546093d9e10cc204b65db32479b18
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:52 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-xfw6f
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             growlithe/10.0.20.18
+Start Time:       Fri, 24 Apr 2026 08:46:51 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.18
+IPs:
+  IP:           10.0.20.18
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://56205225071532e525cfeec8562158232cba9cf64438827833aff898703cf2d8
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:52 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             monitoring-system-prometheus-node-exporter-zzqwh
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-prometheus-node-exporter
+Node:             totodile/10.0.20.17
+Start Time:       Fri, 24 Apr 2026 08:46:52 -0500
+Labels:           app.kubernetes.io/component=metrics
+                  app.kubernetes.io/instance=monitoring-system
+                  app.kubernetes.io/managed-by=Helm
+                  app.kubernetes.io/name=prometheus-node-exporter
+                  app.kubernetes.io/part-of=prometheus-node-exporter
+                  app.kubernetes.io/version=1.10.2
+                  controller-revision-hash=8cdf96754
+                  helm.sh/chart=prometheus-node-exporter-4.52.2
+                  jobLabel=node-exporter
+                  pod-template-generation=1
+                  release=monitoring-system
+Annotations:      cluster-autoscaler.kubernetes.io/safe-to-evict: true
+Status:           Running
+IP:               10.0.20.17
+IPs:
+  IP:           10.0.20.17
+Controlled By:  DaemonSet/monitoring-system-prometheus-node-exporter
+Containers:
+  node-exporter:
+    Container ID:  containerd://e6df12a743b29c01f3123f977b69176b34bfc88a5e48092f4868347fda3320fb
+    Image:         quay.io/prometheus/node-exporter:v1.10.2
+    Image ID:      quay.io/prometheus/node-exporter@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+    Port:          9100/TCP (http-metrics)
+    Host Port:     9100/TCP (http-metrics)
+    Args:
+      --path.procfs=/host/proc
+      --path.sysfs=/host/sys
+      --path.rootfs=/host/root
+      --path.udev.data=/host/root/run/udev/data
+      --web.listen-address=[$(HOST_IP)]:9100
+      --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+      --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:52 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:      http-get http://:http-metrics/ delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      HOST_IP:  0.0.0.0
+    Mounts:
+      /host/proc from proc (ro)
+      /host/root from root (ro)
+      /host/sys from sys (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  proc:
+    Type:          HostPath (bare host directory volume)
+    Path:          /proc
+    HostPathType:  
+  sys:
+    Type:          HostPath (bare host directory volume)
+    Path:          /sys
+    HostPathType:  
+  root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+QoS Class:         BestEffort
+Node-Selectors:    kubernetes.io/os=linux
+Tolerations:       :NoSchedule op=Exists
+                   node.kubernetes.io/disk-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/network-unavailable:NoSchedule op=Exists
+                   node.kubernetes.io/not-ready:NoExecute op=Exists
+                   node.kubernetes.io/pid-pressure:NoSchedule op=Exists
+                   node.kubernetes.io/unreachable:NoExecute op=Exists
+                   node.kubernetes.io/unschedulable:NoSchedule op=Exists
+Events:            <none>
+
+
+Name:             prometheus-monitoring-system-kube-pro-prometheus-0
+Namespace:        monitoring-system
+Priority:         0
+Service Account:  monitoring-system-kube-pro-prometheus
+Node:             growlithe/10.0.20.18
+Start Time:       Fri, 24 Apr 2026 08:46:54 -0500
+Labels:           app.kubernetes.io/instance=monitoring-system-kube-pro-prometheus
+                  app.kubernetes.io/managed-by=prometheus-operator
+                  app.kubernetes.io/name=prometheus
+                  app.kubernetes.io/version=3.10.0
+                  apps.kubernetes.io/pod-index=0
+                  controller-revision-hash=prometheus-monitoring-system-kube-pro-prometheus-58bb7d5466
+                  operator.prometheus.io/name=monitoring-system-kube-pro-prometheus
+                  operator.prometheus.io/shard=0
+                  prometheus=monitoring-system-kube-pro-prometheus
+                  statefulset.kubernetes.io/pod-name=prometheus-monitoring-system-kube-pro-prometheus-0
+Annotations:      kubectl.kubernetes.io/default-container: prometheus
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.0.1.157
+IPs:
+  IP:           10.0.1.157
+Controlled By:  StatefulSet/prometheus-monitoring-system-kube-pro-prometheus
+Init Containers:
+  init-config-reloader:
+    Container ID:  containerd://76b3dd911e2dcf72412ae829aaf8874b03928a42074355ccfd6ec9d9027d0446
+    Image:         quay.io/prometheus-operator/prometheus-config-reloader:v0.89.0
+    Image ID:      quay.io/prometheus-operator/prometheus-config-reloader@sha256:cb4ac6a56555bef0e202bec11e367dfe07ffb241cf4d30566b12b864692607a8
+    Port:          8081/TCP (reloader-init)
+    Host Port:     0/TCP (reloader-init)
+    Command:
+      /bin/prometheus-config-reloader
+    Args:
+      --watch-interval=0
+      --listen-address=:8081
+      --config-file=/etc/prometheus/config/prometheus.yaml.gz
+      --config-envsubst-file=/etc/prometheus/config_out/prometheus.env.yaml
+      --watched-dir=/etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0
+      --watched-dir=/etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1
+      --watched-dir=/etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Fri, 24 Apr 2026 08:46:55 -0500
+      Finished:     Fri, 24 Apr 2026 08:46:55 -0500
+    Ready:          True
+    Restart Count:  0
+    Environment:
+      POD_NAME:  prometheus-monitoring-system-kube-pro-prometheus-0 (v1:metadata.name)
+      SHARD:     0
+    Mounts:
+      /etc/prometheus/config from config (rw)
+      /etc/prometheus/config_out from config-out (rw)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0 (rw)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1 (rw)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2 (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-vgjzp (ro)
+Containers:
+  prometheus:
+    Container ID:  containerd://9bcf5045c4f92e2a5a46d9e9b281a8229d31098e34c881ebd841f2e4af814a2c
+    Image:         quay.io/prometheus/prometheus:v3.10.0
+    Image ID:      quay.io/prometheus/prometheus@sha256:7571a304e67fbd794be02422b13627dc7de822152f74e99e2bef95d29eceecde
+    Port:          9090/TCP (http-web)
+    Host Port:     0/TCP (http-web)
+    Args:
+      --config.file=/etc/prometheus/config_out/prometheus.env.yaml
+      --web.enable-lifecycle
+      --web.external-url=http://monitoring-system-kube-pro-prometheus.monitoring-system:9090
+      --web.route-prefix=/
+      --storage.tsdb.retention.time=10d
+      --storage.tsdb.path=/prometheus
+      --storage.tsdb.wal-compression
+      --web.config.file=/etc/prometheus/web_config/web-config.yaml
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:57 -0500
+    Ready:          True
+    Restart Count:  0
+    Liveness:       http-get http://:http-web/-/healthy delay=0s timeout=3s period=5s #success=1 #failure=6
+    Readiness:      http-get http://:http-web/-/ready delay=0s timeout=3s period=5s #success=1 #failure=3
+    Startup:        http-get http://:http-web/-/ready delay=0s timeout=3s period=15s #success=1 #failure=60
+    Environment:    <none>
+    Mounts:
+      /etc/prometheus/certs from tls-assets (ro)
+      /etc/prometheus/config_out from config-out (ro)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0 (ro)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1 (ro)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2 (ro)
+      /etc/prometheus/web_config/web-config.yaml from web-config (ro,path="web-config.yaml")
+      /prometheus from prometheus-monitoring-system-kube-pro-prometheus-db (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-vgjzp (ro)
+  config-reloader:
+    Container ID:  containerd://d297260a32e314ce608eb3f296b71e91601eeb9b486b7ed597b6a8995b6617e8
+    Image:         quay.io/prometheus-operator/prometheus-config-reloader:v0.89.0
+    Image ID:      quay.io/prometheus-operator/prometheus-config-reloader@sha256:cb4ac6a56555bef0e202bec11e367dfe07ffb241cf4d30566b12b864692607a8
+    Port:          8080/TCP (reloader-web)
+    Host Port:     0/TCP (reloader-web)
+    Command:
+      /bin/prometheus-config-reloader
+    Args:
+      --listen-address=:8080
+      --reload-url=http://127.0.0.1:9090/-/reload
+      --config-file=/etc/prometheus/config/prometheus.yaml.gz
+      --config-envsubst-file=/etc/prometheus/config_out/prometheus.env.yaml
+      --watched-dir=/etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0
+      --watched-dir=/etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1
+      --watched-dir=/etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2
+    State:          Running
+      Started:      Fri, 24 Apr 2026 08:46:57 -0500
+    Ready:          True
+    Restart Count:  0
+    Environment:
+      POD_NAME:  prometheus-monitoring-system-kube-pro-prometheus-0 (v1:metadata.name)
+      SHARD:     0
+    Mounts:
+      /etc/prometheus/config from config (rw)
+      /etc/prometheus/config_out from config-out (rw)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0 (rw)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1 (rw)
+      /etc/prometheus/rules/prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2 from prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2 (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-vgjzp (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  config:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  prometheus-monitoring-system-kube-pro-prometheus
+    Optional:    false
+  tls-assets:
+    Type:        Projected (a volume that contains injected data from multiple sources)
+    SecretName:  prometheus-monitoring-system-kube-pro-prometheus-tls-assets-0
+    Optional:    false
+  config-out:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     Memory
+    SizeLimit:  <unset>
+  prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      prometheus-monitoring-system-kube-pro-prometheus-rulefiles-0
+    Optional:  true
+  prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      prometheus-monitoring-system-kube-pro-prometheus-rulefiles-1
+    Optional:  true
+  prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      prometheus-monitoring-system-kube-pro-prometheus-rulefiles-2
+    Optional:  true
+  web-config:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  prometheus-monitoring-system-kube-pro-prometheus-web-config
+    Optional:    false
+  prometheus-monitoring-system-kube-pro-prometheus-db:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  kube-api-access-vgjzp:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
+
+=== Grafana pods ===
+NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE        NOMINATED NODE   READINESS GATES
+grafana-65d56f4748-kmq6l   3/3     Running   0          85m   10.0.0.166   chikorita   <none>           <none>
+Name:             grafana-65d56f4748-kmq6l
+Namespace:        grafana
+Priority:         0
+Service Account:  grafana
+Node:             chikorita/10.0.20.15
+Start Time:       Fri, 24 Apr 2026 12:17:44 -0500
+Labels:           app.kubernetes.io/instance=grafana
+                  app.kubernetes.io/name=grafana
+                  app.kubernetes.io/version=12.3.1
+                  helm.sh/chart=grafana-10.5.15
+                  pod-template-hash=65d56f4748
+Annotations:      checksum/config: d24a84ca833eeda0290e6f72e77bfaaa7a8ef87643cd25c0d434a40e83631573
+                  checksum/sc-dashboard-provider-config: e70bf6a851099d385178a76de9757bb0bef8299da6d8443602590e44f05fdf24
+                  checksum/secret: 414bbf74bcb2435b8b767b559b2b6974c54b6a1dbbe502930eda77e7544b4d8f
+                  kubectl.kubernetes.io/default-container: grafana
+Status:           Running
+IP:               10.0.0.166
+IPs:
+  IP:           10.0.0.166
+Controlled By:  ReplicaSet/grafana-65d56f4748
+Containers:
+  grafana-sc-dashboard:
+    Container ID:    containerd://4c040a7fcc196768629aaf040ef64b538ec6b95748fa0cecdd2b35c91caadabc
+    Image:           quay.io/kiwigrid/k8s-sidecar:2.5.0
+    Image ID:        quay.io/kiwigrid/k8s-sidecar@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df
+    Port:            <none>
+    Host Port:       <none>
+    SeccompProfile:  RuntimeDefault
+    State:           Running
+      Started:       Fri, 24 Apr 2026 12:17:45 -0500
+    Ready:           True
+    Restart Count:   0
+    Environment:
+      METHOD:        WATCH
+      LABEL:         grafana_dashboard
+      FOLDER:        /tmp/dashboards
+      RESOURCE:      both
+      NAMESPACE:     monitoring-system
+      REQ_USERNAME:  <set to the key 'admin-user' in secret 'grafana'>      Optional: false
+      REQ_PASSWORD:  <set to the key 'admin-password' in secret 'grafana'>  Optional: false
+      REQ_URL:       http://localhost:3000/api/admin/provisioning/dashboards/reload
+      REQ_METHOD:    POST
+    Mounts:
+      /tmp/dashboards from sc-dashboard-volume (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-448sj (ro)
+  grafana-sc-datasources:
+    Container ID:    containerd://ef404151c0d5d0ba49f3b2a66c18a5266980019ceffb44489a20a97f592a270c
+    Image:           quay.io/kiwigrid/k8s-sidecar:2.5.0
+    Image ID:        quay.io/kiwigrid/k8s-sidecar@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df
+    Port:            <none>
+    Host Port:       <none>
+    SeccompProfile:  RuntimeDefault
+    State:           Running
+      Started:       Fri, 24 Apr 2026 12:17:46 -0500
+    Ready:           True
+    Restart Count:   0
+    Environment:
+      METHOD:        WATCH
+      LABEL:         grafana_datasource
+      FOLDER:        /etc/grafana/provisioning/datasources
+      RESOURCE:      both
+      NAMESPACE:     monitoring-system
+      REQ_USERNAME:  <set to the key 'admin-user' in secret 'grafana'>      Optional: false
+      REQ_PASSWORD:  <set to the key 'admin-password' in secret 'grafana'>  Optional: false
+      REQ_URL:       http://localhost:3000/api/admin/provisioning/datasources/reload
+      REQ_METHOD:    POST
+    Mounts:
+      /etc/grafana/provisioning/datasources from sc-datasources-volume (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-448sj (ro)
+  grafana:
+    Container ID:    containerd://cc160585ccc6c58f3c22910f96143fa1af0968b266e8fe4b2f9e5c0932bf5b16
+    Image:           docker.io/grafana/grafana:12.3.1
+    Image ID:        docker.io/grafana/grafana@sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f
+    Ports:           3000/TCP (grafana), 9094/TCP (gossip-tcp), 9094/UDP (gossip-udp), 6060/TCP (profiling)
+    Host Ports:      0/TCP (grafana), 0/TCP (gossip-tcp), 0/UDP (gossip-udp), 0/TCP (profiling)
+    SeccompProfile:  RuntimeDefault
+    State:           Running
+      Started:       Fri, 24 Apr 2026 12:17:46 -0500
+    Ready:           True
+    Restart Count:   0
+    Liveness:        http-get http://:grafana/api/health delay=60s timeout=30s period=10s #success=1 #failure=10
+    Readiness:       http-get http://:grafana/api/health delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment Variables from:
+      grafana-secrets  Secret  Optional: false
+    Environment:
+      POD_IP:                          (v1:status.podIP)
+      GF_SECURITY_ADMIN_USER:         <set to the key 'admin-user' in secret 'grafana'>      Optional: false
+      GF_SECURITY_ADMIN_PASSWORD:     <set to the key 'admin-password' in secret 'grafana'>  Optional: false
+      GF_PATHS_DATA:                  /var/lib/grafana/
+      GF_PATHS_LOGS:                  /var/log/grafana
+      GF_PATHS_PLUGINS:               /var/lib/grafana/plugins
+      GF_PATHS_PROVISIONING:          /etc/grafana/provisioning
+      GF_UNIFIED_STORAGE_INDEX_PATH:  /var/lib/grafana-search/bleve
+    Mounts:
+      /etc/grafana/grafana.ini from config (rw,path="grafana.ini")
+      /etc/grafana/provisioning/dashboards/sc-dashboardproviders.yaml from sc-dashboard-provider (rw,path="provider.yaml")
+      /etc/grafana/provisioning/datasources from sc-datasources-volume (rw)
+      /tmp/dashboards from sc-dashboard-volume (rw)
+      /var/lib/grafana from storage (rw)
+      /var/lib/grafana-search from search (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-448sj (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  config:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      grafana
+    Optional:  false
+  storage:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  search:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  sc-dashboard-volume:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  sc-dashboard-provider:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      grafana-config-dashboards
+    Optional:  false
+  sc-datasources-volume:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  kube-api-access-448sj:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>

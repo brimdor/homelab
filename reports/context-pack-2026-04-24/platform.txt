@@ -1,0 +1,129 @@
+=== ingress-nginx pods ===
+NAME                                        READY   STATUS    RESTARTS       AGE   IP           NODE       NOMINATED NODE   READINESS GATES
+ingress-nginx-controller-7b89dc4cff-z97kf   1/1     Running   1 (6h4m ago)   8h    10.0.2.160   totodile   <none>           <none>
+
+=== ingress-nginx svc ===
+NAME                                 TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                                   AGE
+ingress-nginx-controller             LoadBalancer   10.43.45.207    10.0.20.226   80:31308/TCP,443:30350/TCP,22:30588/TCP   8h
+ingress-nginx-controller-admission   ClusterIP      10.43.143.154   <none>        443/TCP                                   8h
+ingress-nginx-controller-metrics     ClusterIP      10.43.3.147     <none>        10254/TCP                                 8h
+
+=== All Ingresses ===
+NAMESPACE             NAME                  CLASS   HOSTS                                        ADDRESS       PORTS     AGE
+argocd                argocd-server         nginx   argocd.eaglepass.io                          10.0.20.226   80, 443   8h
+backlog-canary        backlog-canary        nginx   backlog-canary.eaglepass.io                  10.0.20.226   80, 443   8h
+backlog               backlog               nginx   backlog.eaglepass.io                         10.0.20.226   80, 443   4h50m
+budget-canary         budget-canary         nginx   budget-canary.eaglepass.io                   10.0.20.226   80, 443   8h
+budget                budget                nginx   budget.eaglepass.io                          10.0.20.226   80, 443   8h
+dex                   dex                   nginx   dex.eaglepass.io                             10.0.20.226   80, 443   136d
+emby                  emby                  nginx   emby.eaglepass.io,emby-health.eaglepass.io   10.0.20.226   80, 443   8h
+explorers-hub         explorers-hub         nginx   explorers.eaglepass.io                       10.0.20.226   80, 443   8h
+gitea                 gitea                 nginx   git.eaglepass.io                             10.0.20.226   80, 443   8h
+grafana               grafana               nginx   grafana.eaglepass.io                         10.0.20.226   80, 443   8h
+humbleai-canary       humbleai-canary       nginx   humbleai-canary.eaglepass.io                 10.0.20.226   80, 443   8h
+humbleai-demo         humbleai-demo         nginx   humbleai-demo.eaglepass.io                   10.0.20.226   80, 443   8h
+humbleai              humbleai              nginx   humbleai.eaglepass.io                        10.0.20.226   80, 443   8h
+kanidm                kanidm                nginx   auth.eaglepass.io                            10.0.20.226   80, 443   8h
+localai               localai-local-ai      nginx   localai.eaglepass.io                         10.0.20.226   80, 443   136d
+matrix                matrix-dendrite       nginx   matrix.eaglepass.io                          10.0.20.226   80, 443   8h
+matrix                matrix-elementweb     nginx   chat.eaglepass.io                            10.0.20.226   80, 443   8h
+nibble-canary         nibble-canary         nginx   nibble-canary.eaglepass.io                   10.0.20.226   80, 443   8h
+nibble                nibble                nginx   nibble.eaglepass.io                          10.0.20.226   80, 443   8h
+openwebui             openwebui             nginx   open.eaglepass.io                            10.0.20.226   80, 443   8h
+pages-canary          pages-canary          nginx   pages-canary.eaglepass.io                    10.0.20.226   80, 443   8h
+pages                 pages                 nginx   pages.eaglepass.io                           10.0.20.226   80, 443   8h
+podwave               podwave               nginx   podwave.eaglepass.io                         10.0.20.226   80, 443   8h
+radarr                radarr                nginx   radarr.eaglepass.io                          10.0.20.226   80, 443   8h
+sabnzbd               sabnzbd               nginx   sabnzbd.eaglepass.io                         10.0.20.226   80, 443   8h
+searxng               searxng               nginx   searxng.eaglepass.io                         10.0.20.226   80, 443   8h
+second-brain-canary   second-brain-canary   nginx   brain-canary.eaglepass.io                    10.0.20.226   80, 443   4h50m
+second-brain          second-brain          nginx   brain.eaglepass.io                           10.0.20.226   80, 443   8h
+sonarr                sonarr                nginx   sonarr.eaglepass.io                          10.0.20.226   80, 443   8h
+strata                strata                nginx   strata.eaglepass.io                          10.0.20.226   80, 443   8h
+woodpecker            woodpecker-server     nginx   ci.eaglepass.io                              10.0.20.226   80, 443   8h
+zot                   zot                   nginx   registry.eaglepass.io                        10.0.20.226   80, 443   8h
+
+=== Certificates ===
+NAMESPACE             NAME                            READY   SECRET                          AGE
+argocd                argocd-server-tls               True    argocd-server-tls               8h
+backlog-canary        backlog-companion-canary-tls    True    backlog-companion-canary-tls    8h
+backlog               backlog-companion-tls           True    backlog-companion-tls           4h50m
+budget-canary         budget-canary-tls               True    budget-canary-tls               8h
+budget                budget-tls                      True    budget-tls                      8h
+dex                   dex-tls-certificate             True    dex-tls-certificate             136d
+emby                  emby-tls-certificate            True    emby-tls-certificate            8h
+explorers-hub         explorers-hub-tls-certificate   True    explorers-hub-tls-certificate   8h
+gitea                 gitea-tls-certificate           True    gitea-tls-certificate           8h
+grafana               grafana-general-tls             True    grafana-general-tls             8h
+humbleai-canary       humbleai-tls                    True    humbleai-tls                    8h
+humbleai-demo         humbleai-tls                    True    humbleai-tls                    8h
+humbleai              humbleai-tls                    True    humbleai-tls                    8h
+kanidm                kanidm-selfsigned               True    kanidm-selfsigned-certificate   8h
+kanidm                kanidm-tls-certificate          True    kanidm-tls-certificate          8h
+localai               localai-eaglepass-io-tls        True    localai-eaglepass-io-tls        136d
+matrix                element-tls-certificate         True    element-tls-certificate         8h
+matrix                matrix-tls-certificate          True    matrix-tls-certificate          8h
+nibble-canary         nibble-canary-tls               True    nibble-canary-tls               8h
+nibble                nibble-tls                      True    nibble-tls                      8h
+openwebui             open-tls-certificate            True    open-tls-certificate            8h
+pages-canary          pages-canary-tls                True    pages-canary-tls                8h
+pages                 pages-tls                       True    pages-tls                       8h
+podwave               podwave-tls                     True    podwave-tls                     8h
+radarr                radarr-tls-certificate          True    radarr-tls-certificate          8h
+sabnzbd               sabnzbd-tls-certificate         True    sabnzbd-tls-certificate         8h
+searxng               searxng-tls-certificate         True    searxng-tls-certificate         8h
+second-brain-canary   second-brain-canary-tls         True    second-brain-canary-tls         4h50m
+second-brain          second-brain-tls                True    second-brain-tls                8h
+sonarr                sonarr-tls-certificate          True    sonarr-tls-certificate          8h
+strata                strata-tls                      True    strata-tls                      8h
+woodpecker            woodpecker-tls-certificate      True    woodpecker-tls-certificate      8h
+zot                   zot-tls-certificate             True    zot-tls-certificate             8h
+
+=== CertificateRequests ===
+NAMESPACE   NAME                         APPROVED   DENIED   READY   ISSUER             REQUESTER                                         AGE
+dex         dex-tls-certificate-3        True                True    letsencrypt-prod   system:serviceaccount:cert-manager:cert-manager   6d18h
+localai     localai-eaglepass-io-tls-2   True                True    letsencrypt-prod   system:serviceaccount:cert-manager:cert-manager   51d
+
+=== Orders ===
+NAMESPACE   NAME                                    STATE   AGE
+dex         dex-tls-certificate-3-1338884972        valid   6d18h
+localai     localai-eaglepass-io-tls-2-1636471448   valid   51d
+
+=== Challenges ===
+
+=== ExternalSecrets ===
+NAMESPACE    NAME                    STORETYPE            STORE            REFRESH INTERVAL   STATUS         READY   LAST SYNC
+connect      op-credentials          ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    50m
+dex          dex-secrets             ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    50m
+gitea        gitea-admin-secret      ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    50m
+grafana      grafana-secrets         ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    50m
+renovate     renovate-secret         ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    50m
+woodpecker   woodpecker-secret       ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    50m
+zot          registry-admin-secret   ClusterSecretStore   global-secrets   1h0m0s             SecretSynced   True    48m
+
+=== SecretStores ===
+
+=== ClusterSecretStores ===
+NAME             AGE   STATUS   CAPABILITIES   READY
+global-secrets   8h    Valid    ReadWrite      True
+
+=== Monitoring pods ===
+NAME                                                     READY   STATUS    RESTARTS   AGE     IP           NODE         NOMINATED NODE   READINESS GATES
+alertmanager-monitoring-system-kube-pro-alertmanager-0   3/3     Running   0          4h50m   10.0.2.9     totodile     <none>           <none>
+monitoring-system-kube-pro-operator-868fdff8dd-4wqr4     1/1     Running   0          4h50m   10.0.1.98    growlithe    <none>           <none>
+monitoring-system-kube-state-metrics-bffd45b7d-656jr     1/1     Running   0          4h50m   10.0.5.223   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-5qt9t         1/1     Running   0          4h50m   10.0.20.15   chikorita    <none>           <none>
+monitoring-system-prometheus-node-exporter-6txhs         1/1     Running   0          4h50m   10.0.20.13   bulbasaur    <none>           <none>
+monitoring-system-prometheus-node-exporter-9ktxw         1/1     Running   0          4h50m   10.0.20.16   cyndaquil    <none>           <none>
+monitoring-system-prometheus-node-exporter-bxfjb         1/1     Running   0          4h50m   10.0.20.11   charmander   <none>           <none>
+monitoring-system-prometheus-node-exporter-gts9b         1/1     Running   0          4h50m   10.0.20.19   arcanine     <none>           <none>
+monitoring-system-prometheus-node-exporter-j7gpc         1/1     Running   0          4h50m   10.0.20.12   squirtle     <none>           <none>
+monitoring-system-prometheus-node-exporter-r9cng         1/1     Running   0          4h50m   10.0.20.20   sprigatito   <none>           <none>
+monitoring-system-prometheus-node-exporter-sn6ps         1/1     Running   0          4h50m   10.0.20.14   pikachu      <none>           <none>
+monitoring-system-prometheus-node-exporter-xfw6f         1/1     Running   0          4h50m   10.0.20.18   growlithe    <none>           <none>
+monitoring-system-prometheus-node-exporter-zzqwh         1/1     Running   0          4h50m   10.0.20.17   totodile     <none>           <none>
+prometheus-monitoring-system-kube-pro-prometheus-0       2/2     Running   0          4h50m   10.0.1.157   growlithe    <none>           <none>
+
+=== Grafana pods ===
+NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE        NOMINATED NODE   READINESS GATES
+grafana-65d56f4748-kmq6l   3/3     Running   0          79m   10.0.0.166   chikorita   <none>           <none>
