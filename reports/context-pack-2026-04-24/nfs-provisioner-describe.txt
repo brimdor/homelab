@@ -1,0 +1,62 @@
+Name:             nfs-client-provisioner-nfs-subdir-external-provisioner-854jlrfx
+Namespace:        kube-system
+Priority:         0
+Service Account:  nfs-client-provisioner-nfs-subdir-external-provisioner
+Node:             totodile/10.0.20.17
+Start Time:       Fri, 24 Apr 2026 02:39:04 -0500
+Labels:           app=nfs-subdir-external-provisioner
+                  pod-template-hash=8546c7cb6f
+                  release=nfs-client-provisioner
+Annotations:      <none>
+Status:           Running
+IP:               
+IPs:              <none>
+Controlled By:    ReplicaSet/nfs-client-provisioner-nfs-subdir-external-provisioner-8546c7cb6f
+Containers:
+  nfs-subdir-external-provisioner:
+    Container ID:   containerd://8380209d273f7dca5d3a9280e5093328e7d17869d6f2f276b74d2a5a366c646e
+    Image:          registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
+    Image ID:       registry.k8s.io/sig-storage/nfs-subdir-external-provisioner@sha256:63d5e04551ec8b5aae83b6f35938ca5ddc50a88d85492d9731810c31591fa4c9
+    Port:           <none>
+    Host Port:      <none>
+    State:          Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 24 Apr 2026 03:10:47 -0500
+      Finished:     Fri, 24 Apr 2026 07:32:20 -0500
+    Ready:          False
+    Restart Count:  2
+    Environment:
+      PROVISIONER_NAME:  cluster.local/nfs-client-provisioner-nfs-subdir-external-provisioner
+      NFS_SERVER:        10.0.40.3
+      NFS_PATH:          /mnt/user/heartlib
+    Mounts:
+      /persistentvolumes from nfs-subdir-external-provisioner-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-txzrd (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  nfs-subdir-external-provisioner-root:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/heartlib
+    ReadOnly:  false
+  kube-api-access-txzrd:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason       Age                   From     Message
+  ----     ------       ----                  ----     -------
+  Warning  FailedMount  14s (x129 over 4h6m)  kubelet  MountVolume.SetUp failed for volume "nfs-subdir-external-provisioner-root" : lstat /var/lib/kubelet/pods/a5ba95e3-5325-4bf6-a293-0682df885439/volumes/kubernetes.io~nfs/nfs-subdir-external-provisioner-root: stale NFS file handle

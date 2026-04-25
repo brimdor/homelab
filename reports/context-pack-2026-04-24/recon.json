@@ -1,0 +1,556 @@
+{
+  "timestamp": "2026-04-24T18:36:40Z",
+  "cluster": {
+    "nodes": [
+      {
+        "name": "arcanine",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "8",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "65767072Ki",
+          "nvidia.com/gpu": "1",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "bulbasaur",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16256536Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "charmander",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "24489272Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "chikorita",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32749020Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "cyndaquil",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16258528Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "growlithe",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32748916Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "pikachu",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16256540Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "sprigatito",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32788000Ki",
+          "nvidia.com/gpu": "1",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "squirtle",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16256240Ki",
+          "pods": "110"
+        }
+      },
+      {
+        "name": "totodile",
+        "status": "Ready",
+        "capacity": {
+          "cpu": "4",
+          "ephemeral-storage": "65478188Ki",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "16258380Ki",
+          "pods": "110"
+        }
+      }
+    ],
+    "unhealthy_pods": [
+      {
+        "namespace": "default",
+        "name": "node-debugger-arcanine-fgqkz",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-charmander-c9jrc",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-charmander-d9nkw",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-chikorita-6f9rr",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-cyndaquil-cwb66",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-cyndaquil-dxxzn",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-growlithe-lqrrx",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-pikachu-5knhm",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-sprigatito-s2jz2",
+        "status": "Failed",
+        "reason": null
+      },
+      {
+        "namespace": "default",
+        "name": "node-debugger-totodile-mbzdp",
+        "status": "Failed",
+        "reason": null
+      }
+    ],
+    "apps": [
+      {
+        "name": "argocd",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "backlog",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "backlog-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "budget",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "budget-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "cert-manager",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "cloudflared",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "connect",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "dex",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "doplarr",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "emby",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "explorers-hub",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "external-dns",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "external-secrets",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "gitea",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "global-secrets",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "gpu-operator",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "grafana",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "humbleai",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "humbleai-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "humbleai-demo",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "ingress-nginx",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "kanidm",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "kured",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "localai",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "loki",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "matrix",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "monitoring-system",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "nibble",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "nibble-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "openwebui",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "pages",
+        "health": "Progressing",
+        "sync": "Synced"
+      },
+      {
+        "name": "pages-canary",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "podwave",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "postgres",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "qdrant",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "radarr",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "renovate",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "rook-ceph",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "sabnzbd",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "searxng",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "second-brain",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "second-brain-canary",
+        "health": "Progressing",
+        "sync": "Synced"
+      },
+      {
+        "name": "sonarr",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "strata",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "volsync-system",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "woodpecker",
+        "health": "Healthy",
+        "sync": "Synced"
+      },
+      {
+        "name": "zot",
+        "health": "Healthy",
+        "sync": "Synced"
+      }
+    ],
+    "ceph": {
+      "fsid": "13c20377-d801-43f9-aebd-59f62df5dad1",
+      "health": {
+        "status": "HEALTH_OK",
+        "checks": {},
+        "mutes": []
+      },
+      "election_epoch": 8056,
+      "quorum": [
+        0,
+        1,
+        2
+      ],
+      "quorum_names": [
+        "h",
+        "l",
+        "m"
+      ],
+      "quorum_age": 20029,
+      "monmap": {
+        "epoch": 25,
+        "min_mon_release_name": "tentacle",
+        "num_mons": 3
+      },
+      "osdmap": {
+        "epoch": 16204,
+        "num_osds": 7,
+        "num_up_osds": 7,
+        "osd_up_since": 1777037825,
+        "num_in_osds": 5,
+        "osd_in_since": 1777036504,
+        "num_remapped_pgs": 23
+      },
+      "pgmap": {
+        "pgs_by_state": [
+          {
+            "state_name": "active+clean",
+            "count": 154
+          },
+          {
+            "state_name": "active+remapped+backfill_wait",
+            "count": 22
+          },
+          {
+            "state_name": "active+remapped+backfilling",
+            "count": 1
+          }
+        ],
+        "num_pgs": 177,
+        "num_pools": 4,
+        "num_objects": 152834,
+        "data_bytes": 635485188906,
+        "bytes_used": 1220446380032,
+        "bytes_avail": 1632427278336,
+        "bytes_total": 2852873658368,
+        "misplaced_objects": 26291,
+        "misplaced_total": 305680,
+        "misplaced_ratio": 0.086008243915205437,
+        "recovering_objects_per_sec": 2,
+        "recovering_bytes_per_sec": 9172726,
+        "recovering_keys_per_sec": 0,
+        "num_objects_recovered": 27,
+        "num_bytes_recovered": 110129152,
+        "num_keys_recovered": 0,
+        "read_bytes_sec": 7505,
+        "write_bytes_sec": 11599,
+        "read_op_per_sec": 10,
+        "write_op_per_sec": 1
+      },
+      "fsmap": {
+        "epoch": 21339,
+        "btime": "2026-04-24T13:30:11:624464+0000",
+        "id": 1,
+        "up": 1,
+        "in": 1,
+        "max": 1,
+        "by_rank": [
+          {
+            "filesystem_id": 1,
+            "rank": 0,
+            "name": "standard-rwx-a",
+            "status": "up:active",
+            "gid": 168908205
+          },
+          {
+            "filesystem_id": 1,
+            "rank": 0,
+            "name": "standard-rwx-b",
+            "status": "up:standby-replay",
+            "gid": 168908244
+          }
+        ],
+        "up:standby": 0
+      },
+      "mgrmap": {
+        "available": true,
+        "num_standbys": 1,
+        "modules": [
+          "dashboard",
+          "iostat",
+          "nfs",
+          "prometheus",
+          "restful",
+          "rook"
+        ],
+        "services": {
+          "dashboard": "http://10.0.4.8:7000/",
+          "prometheus": "http://10.0.4.8:9283/"
+        }
+      },
+      "servicemap": {
+        "epoch": 144782,
+        "modified": "2026-04-24T18:32:57.968047+0000",
+        "services": {}
+      },
+      "progress_events": {
+        "70221e4c-d2a5-4e50-a0a4-433778113b94": {
+          "message": "Global Recovery Event (5h)\n      [========================....] (remaining: 45m)",
+          "progress": 0.87005650997161865,
+          "add_to_ceph_s": true
+        }
+      }
+    }
+  }
+}

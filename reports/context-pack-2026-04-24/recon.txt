@@ -1,0 +1,63 @@
+=== HOMELAB RECON SNAPSHOT [2026-04-24T18:36:42Z] ===
+
+--- Metal Layer (Nodes) ---
+NAME         STATUS   ROLES                       AGE    VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                        KERNEL-VERSION           CONTAINER-RUNTIME
+arcanine     Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.19    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+bulbasaur    Ready    control-plane,etcd,master   426d   v1.33.6+k3s1   10.0.20.13    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+charmander   Ready    control-plane,etcd,master   426d   v1.33.6+k3s1   10.0.20.11    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+chikorita    Ready    <none>                      338d   v1.33.6+k3s1   10.0.20.15    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+cyndaquil    Ready    <none>                      109d   v1.33.6+k3s1   10.0.20.16    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+growlithe    Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.18    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+pikachu      Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.14    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+sprigatito   Ready    <none>                      246d   v1.33.6+k3s1   10.0.20.20    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+squirtle     Ready    control-plane,etcd,master   426d   v1.33.6+k3s1   10.0.20.12    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+totodile     Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.17    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+
+--- System Layer (Unhealthy Pods) ---
+default             node-debugger-arcanine-fgqkz                                      0/1   Unknown                0                 3h55m
+default             node-debugger-charmander-c9jrc                                    0/1   Error                  0                 3h39m
+default             node-debugger-charmander-d9nkw                                    0/1   Error                  0                 4h18m
+default             node-debugger-chikorita-6f9rr                                     0/1   Unknown                0                 3h54m
+default             node-debugger-cyndaquil-cwb66                                     0/1   Unknown                0                 3h53m
+default             node-debugger-cyndaquil-dxxzn                                     0/1   Error                  0                 4h20m
+default             node-debugger-growlithe-lqrrx                                     0/1   Unknown                0                 3h52m
+default             node-debugger-pikachu-5knhm                                       0/1   Unknown                0                 3h56m
+default             node-debugger-sprigatito-s2jz2                                    0/1   Unknown                0                 3h52m
+default             node-debugger-totodile-mbzdp                                      0/1   Unknown                0                 3h51m
+kube-system         nfs-client-provisioner-nfs-subdir-external-provisioner-854jlrfx   0/1   Unknown                2                 10h
+pages               pages-78cd655d8b-fw8kt                                            0/1   CreateContainerError   0                 142m
+
+--- Platform Layer (ArgoCD Apps) ---
+NAME                  SYNC STATUS   HEALTH STATUS
+pages                 Synced        Progressing
+second-brain-canary   Synced        Progressing
+
+--- Storage Layer (Ceph) ---
+  cluster:
+    id:     13c20377-d801-43f9-aebd-59f62df5dad1
+    health: HEALTH_OK
+ 
+  services:
+    mon: 3 daemons, quorum h,l,m (age 5h) [leader: h]
+    mgr: a(active, since 5h), standbys: b
+    mds: 1/1 daemons up, 1 hot standby
+    osd: 7 osds: 7 up (since 4h), 5 in (since 5h); 23 remapped pgs
+ 
+  data:
+    volumes: 1/1 healthy
+    pools:   4 pools, 177 pgs
+    objects: 152.83k objects, 592 GiB
+    usage:   1.1 TiB used, 1.5 TiB / 2.6 TiB avail
+    pgs:     26291/305680 objects misplaced (8.601%)
+             154 active+clean
+             22  active+remapped+backfill_wait
+             1   active+remapped+backfilling
+ 
+  io:
+    client:   7.8 KiB/s rd, 13 KiB/s wr, 9 op/s rd, 1 op/s wr
+    recovery: 5.3 MiB/s, 1 objects/s
+ 
+  progress:
+    Global Recovery Event (5h)
+      [========================....] (remaining: 45m)
+ 

@@ -1,0 +1,496 @@
+=== Describe default/node-debugger-charmander-c9jrc ===
+Name:             node-debugger-charmander-c9jrc
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             charmander/10.0.20.11
+Start Time:       Fri, 24 Apr 2026 09:57:22 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.11
+IPs:
+  IP:  10.0.20.11
+Containers:
+  debugger:
+    Container ID:  containerd://b076290bf8be3117d8ae7f26b6d275402661f63e3a42ab63d84759f6edb78989
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      /bin/ctr --address /run/k3s/containerd/containerd.sock -n k8s.io images ls | grep "10.0.20.11:32309/pages" | head -5; /bin/ctr --address /run/k3s/containerd/containerd.sock -n k8s.io images push --plain-http 10.0.20.11:32309/pages:2026-04-22-v1-prod
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Fri, 24 Apr 2026 09:57:23 -0500
+      Finished:     Fri, 24 Apr 2026 09:57:24 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-qhft6 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-qhft6:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+
+=== Logs default/node-debugger-charmander-c9jrc ===
+10.0.20.11:32309/pages:2025-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:2a9e3e0a26841a3c5ba138644dd9dfd3d15b7b8cb6e32f7b02acb165917c426d 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2026-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:f411e3f3b4033699b694ad71f4e21cb047b1231bee1e91e13634f4288a432c53 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2026-04-14v2-prod                                                                                            application/vnd.oci.image.manifest.v1+json                sha256:09c1ce0bf2590554f0bb3397792d7bcbb5d65eaf1783e1d7caedc842eb885b8d 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2026-04-22-v1-prod                                                                                           application/vnd.oci.image.manifest.v1+json                sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b 51.6 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:canary                                                                                                       application/vnd.oci.image.manifest.v1+json                sha256:09275ee57dc0a40e07ee38ef7a3a914d5592a12b59b621ce90aa0dfa0a8ebd7f 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+ctr: content digest sha256:9da841cba2d188205a2fa437c08e0f3819d6de84dae71e78e70515e282f44e6e: not found
+manifest-sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b: waiting        |[32m[0m--------------------------------------| 
+elapsed: 0.1 s                                                                    total:   0.0 B (0.0 B/s)                                         
+
+=== Describe default/node-debugger-charmander-d9nkw ===
+Name:             node-debugger-charmander-d9nkw
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             charmander/10.0.20.11
+Start Time:       Fri, 24 Apr 2026 09:18:33 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.11
+IPs:
+  IP:  10.0.20.11
+Containers:
+  debugger:
+    Container ID:  containerd://e05265092284a7d9fe31e861f4fba58ba28482b320a577f6546047ae1ec07832
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /bin/sh
+      -c
+      /bin/ctr -n k8s.io images push --skip-verify 10.0.20.11:32309/pages:2026-04-22-v1-prod
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Fri, 24 Apr 2026 09:18:34 -0500
+      Finished:     Fri, 24 Apr 2026 09:18:34 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-m8bcm (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-m8bcm:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+
+=== Logs default/node-debugger-charmander-d9nkw ===
+ctr: unable to resolve image to manifest: image "10.0.20.11:32309/pages:2026-04-22-v1-prod": not found
+
+=== Describe default/node-debugger-cyndaquil-dxxzn ===
+Name:             node-debugger-cyndaquil-dxxzn
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             cyndaquil/10.0.20.16
+Start Time:       Fri, 24 Apr 2026 09:16:40 -0500
+Labels:           app.kubernetes.io/managed-by=kubectl-debug
+Annotations:      <none>
+Status:           Failed
+IP:               10.0.20.16
+IPs:
+  IP:  10.0.20.16
+Containers:
+  debugger:
+    Container ID:  containerd://592ac8dd3aaa035dfaf51bc68e9ae6aad38a8aad01351659fa75389a0d25f9df
+    Image:         busybox
+    Image ID:      docker.io/library/busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      chroot
+      /host
+      /usr/local/bin/crictl
+      images
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    127
+      Started:      Fri, 24 Apr 2026 09:16:42 -0500
+      Finished:     Fri, 24 Apr 2026 09:16:42 -0500
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /host from host-root (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-gvpqk (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  host-root:
+    Type:          HostPath (bare host directory volume)
+    Path:          /
+    HostPathType:  
+  kube-api-access-gvpqk:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 op=Exists
+Events:                      <none>
+
+=== Logs default/node-debugger-cyndaquil-dxxzn ===
+chroot: can't execute '/usr/local/bin/crictl': No such file or directory
+
+=== Describe pages/pages-78cd655d8b-fw8kt ===
+Name:             pages-78cd655d8b-fw8kt
+Namespace:        pages
+Priority:         0
+Service Account:  default
+Node:             chikorita/10.0.20.15
+Start Time:       Fri, 24 Apr 2026 11:14:20 -0500
+Labels:           app.kubernetes.io/controller=main
+                  app.kubernetes.io/instance=pages
+                  app.kubernetes.io/name=pages
+                  pod-template-hash=78cd655d8b
+Annotations:      kubectl.kubernetes.io/restartedAt: 2026-04-24T16:14:20Z
+Status:           Running
+IP:               10.0.0.229
+IPs:
+  IP:           10.0.0.229
+Controlled By:  ReplicaSet/pages-78cd655d8b
+Containers:
+  pages:
+    Container ID:   containerd://8a0a15e76df66361f196209b83e539ab429c4f28a850036b5295071a550179c5
+    Image:          10.0.20.11:32309/pages:2026-04-22-v1-prod
+    Image ID:       10.0.20.11:32309/pages@sha256:59e66646aa7b525d36dba760de97c55beca9faf4e1f7c98865d429661203fa1f
+    Ports:          80/TCP (http), 5000/TCP (api)
+    Host Ports:     0/TCP (http), 0/TCP (api)
+    State:          Waiting
+      Reason:       CreateContainerError
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    137
+      Started:      Fri, 24 Apr 2026 11:17:25 -0500
+      Finished:     Fri, 24 Apr 2026 13:12:51 -0500
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      cpu:     500m
+      memory:  256Mi
+    Requests:
+      cpu:      100m
+      memory:   64Mi
+    Liveness:   exec [/usr/local/bin/healthcheck.sh] delay=30s timeout=1s period=60s #success=1 #failure=2
+    Readiness:  http-get http://:80/ delay=3s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      PAGES_API_ENABLED:  true
+      PAGES_API_KEY:      <set to the key 'api-key' in secret 'pages-api-key'>  Optional: false
+      PAGES_CF_ACCESS:    true
+      TZ:                 America/Chicago
+    Mounts:
+      /usr/share/nginx/html from data (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-twb4s (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  data:
+    Type:      NFS (an NFS mount that lasts the lifetime of a pod)
+    Server:    10.0.40.3
+    Path:      /mnt/user/pages
+    ReadOnly:  false
+  kube-api-access-twb4s:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age                   From     Message
+  ----     ------     ----                  ----     -------
+  Warning  Unhealthy  29m (x2 over 137m)    kubelet  spec.containers{pages}: Liveness probe failed: command timed out: "/usr/local/bin/healthcheck.sh" timed out after 1s
+  Warning  Unhealthy  25m (x2 over 26m)     kubelet  spec.containers{pages}: Liveness probe failed: [healthcheck] FAIL: cannot stat /usr/share/nginx/html
+  Normal   Killing    25m                   kubelet  spec.containers{pages}: Container pages failed liveness probe, will be restarted
+  Normal   Pulled     24m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 420ms (420ms including waiting). Image size: 53557748 bytes.
+  Warning  Failed     24m                   kubelet  spec.containers{pages}: Error: failed to generate container "7d2a6042a635b81ba610b768bdbf6a54c3f19d69901610b4e227f93e367b58bb" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Warning  Failed     24m                   kubelet  spec.containers{pages}: Error: failed to generate container "35323be054eaa9b9b4accf8515c7c4ac29c2181511598e94fb1f95c94ad03cd1" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Normal   Pulled     24m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 439ms (439ms including waiting). Image size: 53557748 bytes.
+  Warning  Failed     24m                   kubelet  spec.containers{pages}: Error: failed to generate container "46023ae86728df6f29e51d8a862b146bc019369c31b9ee8fa85f5928c3219104" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Normal   Pulled     24m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 343ms (343ms including waiting). Image size: 53557748 bytes.
+  Warning  Failed     24m                   kubelet  spec.containers{pages}: Error: failed to generate container "aca8b24f3af0f6857fca046b2ff707d3dab3af05f04deba7f7ef7a2e05d313a9" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Warning  Failed     23m                   kubelet  spec.containers{pages}: Error: failed to generate container "a2c4a7a44d55879b600ee03705d3c7172b963594dabf4dc6a42d7f620298f5dd" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Normal   Pulled     23m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 354ms (354ms including waiting). Image size: 53557748 bytes.
+  Normal   Pulled     23m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 427ms (427ms including waiting). Image size: 53557748 bytes.
+  Warning  Failed     23m                   kubelet  spec.containers{pages}: Error: failed to generate container "aa69f2a86f9ca5abe2b4d5e8aaea83e03fbe0a4eb87a7c5ee8bff54322433bce" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Normal   Pulled     21m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 340ms (341ms including waiting). Image size: 53557748 bytes.
+  Warning  Failed     21m                   kubelet  spec.containers{pages}: Error: failed to generate container "17f6884bb92e1484ac42e5a899ce1e89bf09a0e61b864c258adba193f7073187" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Warning  BackOff    21m (x13 over 24m)    kubelet  spec.containers{pages}: Back-off restarting failed container pages in pod pages-78cd655d8b-fw8kt_pages(a8c6e1a0-bfea-42a1-962a-0a941f7438d9)
+  Normal   Pulled     19m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 389ms (389ms including waiting). Image size: 53557748 bytes.
+  Normal   Pulled     19m                   kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 236ms (236ms including waiting). Image size: 53557748 bytes.
+  Normal   Pulled     19m (x2 over 24m)     kubelet  spec.containers{pages}: Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 324ms (324ms including waiting). Image size: 53557748 bytes.
+  Normal   Pulled     18m (x2 over 18m)     kubelet  spec.containers{pages}: (combined from similar events): Successfully pulled image "10.0.20.11:32309/pages:2026-04-22-v1-prod" in 209ms (209ms including waiting). Image size: 53557748 bytes.
+  Warning  Failed     3m5s (x73 over 19m)   kubelet  spec.containers{pages}: (combined from similar events): Error: failed to generate container "e59aa209bb53c68d50d949e778daca0b97f22897604129ac1d6635e6315d0a34" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+  Normal   Pulling    12s (x100 over 143m)  kubelet  spec.containers{pages}: Pulling image "10.0.20.11:32309/pages:2026-04-22-v1-prod"
+
+=== Logs pages/pages-78cd655d8b-fw8kt ===
+10.0.0.177 - - [24/Apr/2026:12:47:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:47:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:47:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:47:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:47:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:47:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:48:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:48:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:48:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:48:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:48:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:48:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:49:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:49:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:49:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:49:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:49:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:49:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:50:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:50:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:50:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:50:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:50:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:50:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:51:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:51:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:51:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:51:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:51:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:51:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:52:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:52:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:52:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:52:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:52:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:52:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:53:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:53:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:53:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:53:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:53:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:53:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:54:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:54:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:54:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:54:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:54:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:54:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:55:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:55:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:55:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:55:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:55:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:55:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:56:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:56:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:56:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:56:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:56:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:56:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:57:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:57:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:57:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:57:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:57:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:57:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:58:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:58:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:58:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:58:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:58:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:58:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:59:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:59:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:59:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:59:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:59:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:12:59:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:00:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:00:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:00:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:00:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:00:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+2026/04/24 13:00:44 [warn] 2301#2301: *606 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000001, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", host: "pages.eaglepass.io"
+2026/04/24 13:00:44 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:00:44 -0500] "PUT /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "10.0.3.144"
+2026/04/24 13:00:51 [warn] 2301#2301: *606 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000002, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", host: "pages.eaglepass.io"
+2026/04/24 13:00:51 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:00:51 -0500] "PUT /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "10.0.3.144"
+10.0.0.177 - - [24/Apr/2026:13:00:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+2026/04/24 13:01:01 [warn] 2301#2301: *606 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000003, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", host: "pages.eaglepass.io"
+2026/04/24 13:01:01 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:01:01 -0500] "PUT /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "10.0.3.144"
+2026/04/24 13:01:03 [warn] 2301#2301: *606 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000004, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", host: "pages.eaglepass.io"
+2026/04/24 13:01:03 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:01:03 -0500] "PUT /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "10.0.3.144"
+10.0.0.177 - - [24/Apr/2026:13:01:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+2026/04/24 13:01:05 [warn] 2301#2301: *606 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000005, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", host: "pages.eaglepass.io"
+2026/04/24 13:01:05 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:01:05 -0500] "PUT /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "10.0.3.144"
+2026/04/24 13:01:07 [warn] 2301#2301: *606 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000006, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", host: "pages.eaglepass.io"
+2026/04/24 13:01:07 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:01:07 -0500] "PUT /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "10.0.3.144"
+2026/04/24 13:01:09 [warn] 2301#2301: *606 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000007, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", host: "pages.eaglepass.io"
+2026/04/24 13:01:09 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "PUT /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:01:09 -0500] "PUT /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "10.0.3.144"
+10.0.0.177 - - [24/Apr/2026:13:01:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+2026/04/24 13:01:22 [error] 2301#2301: *606 connect() failed (111: Connection refused) while connecting to upstream, client: 10.0.2.160, server: _, request: "HEAD /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "pages.eaglepass.io"
+10.0.2.160 - - [24/Apr/2026:13:01:22 -0500] "HEAD /api/pages/ollama-pulse-report.html HTTP/1.1" 502 0 "-" "curl/8.19.0" "10.0.3.144"
+10.0.0.177 - - [24/Apr/2026:13:01:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:01:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:01:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:01:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:02:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:02:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:02:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:02:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:02:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:02:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:03:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:03:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:03:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:03:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:03:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+2026/04/24 13:03:48 [error] 2306#2306: *633 connect() failed (111: Connection refused) while connecting to upstream, client: 127.0.0.1, server: _, request: "GET /api/pages/ollama-pulse-report.html HTTP/1.1", upstream: "http://127.0.0.1:5000/api/pages/ollama-pulse-report.html", host: "localhost:9999"
+127.0.0.1 - - [24/Apr/2026:13:03:48 -0500] "GET /api/pages/ollama-pulse-report.html HTTP/1.1" 502 157 "-" "curl/8.19.0" "-"
+10.0.0.177 - - [24/Apr/2026:13:03:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:04:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:04:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:04:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:04:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:04:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:04:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:05:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:05:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:05:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:05:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:05:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:05:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:06:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:06:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:06:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:06:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:06:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:06:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:07:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:07:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:07:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:07:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:07:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:07:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:08:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:08:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:08:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:08:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:08:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:08:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:09:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:09:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:09:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:09:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:09:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:09:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:10:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:10:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:10:23 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:10:33 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:10:43 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:10:53 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+10.0.0.177 - - [24/Apr/2026:13:11:03 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+2026/04/24 13:11:13 [crit] 2301#2301: *679 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:11:13 [crit] 2301#2301: *679 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:11:13 -0500] "GET / HTTP/1.1" 200 22521 "-" "kube-probe/1.33" "-"
+2026/04/24 13:11:23 [crit] 2301#2301: *680 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:11:23 [crit] 2301#2301: *680 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:11:23 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:11:33 [crit] 2301#2301: *681 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:11:33 [crit] 2301#2301: *681 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:11:33 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:11:43 [crit] 2301#2301: *682 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:11:43 [crit] 2301#2301: *682 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:11:43 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:11:53 [crit] 2301#2301: *683 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:11:53 [crit] 2301#2301: *683 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:11:53 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:12:03 [crit] 2301#2301: *684 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:12:03 [crit] 2301#2301: *684 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:12:03 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:12:13 [crit] 2301#2301: *685 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:12:13 [crit] 2301#2301: *685 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:12:13 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:12:23 [crit] 2306#2306: *686 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:12:23 [crit] 2306#2306: *686 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:12:23 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:12:33 [crit] 2306#2306: *687 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:12:33 [crit] 2306#2306: *687 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:12:33 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+2026/04/24 13:12:43 [crit] 2306#2306: *688 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+2026/04/24 13:12:43 [crit] 2306#2306: *688 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
+10.0.0.177 - - [24/Apr/2026:13:12:43 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
+

@@ -1,0 +1,18 @@
+====================================
+  Homelab NAS (Unraid) Health Check
+====================================
+
+>> Testing NAS Reachability...
+[0;31m✗ NAS unreachable - aborting further tests[0m
+
+====================================
+{
+  "timestamp": "2026-04-24T13:36:40-05:00",
+  "target": "10.0.40.3",
+  "overall_status": "RED",
+  "warnings": 0,
+  "errors": 1,
+  "checks": [
+    {"check": "NAS_REACHABLE", "status": "RED", "message": "NAS unreachable (TCP ports closed/filtered) at 10.0.40.3", "value": ""}
+  ]
+}

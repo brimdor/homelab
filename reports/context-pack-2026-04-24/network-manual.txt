@@ -1,0 +1,59 @@
+=== Phase 1 Network Evidence ===
+Fri Apr 24 13:43:32 CDT 2026
+
+=== VLAN Gateways ===
+--- ping 10.0.10.1 ---
+PING 10.0.10.1 (10.0.10.1): 56 data bytes
+
+--- 10.0.10.1 ping statistics ---
+2 packets transmitted, 2 packets received, 0.0% packet loss, 2 packets out of wait time
+round-trip min/avg/max/stddev = 2.580/2.584/2.588/0.004 ms
+
+--- ping 10.0.20.1 ---
+PING 10.0.20.1 (10.0.20.1): 56 data bytes
+
+--- 10.0.20.1 ping statistics ---
+2 packets transmitted, 2 packets received, 0.0% packet loss, 2 packets out of wait time
+round-trip min/avg/max/stddev = 2.543/2.543/2.544/0.001 ms
+
+--- ping 10.0.30.1 ---
+PING 10.0.30.1 (10.0.30.1): 56 data bytes
+
+--- 10.0.30.1 ping statistics ---
+2 packets transmitted, 2 packets received, 0.0% packet loss, 2 packets out of wait time
+round-trip min/avg/max/stddev = 2.250/2.585/2.921/0.336 ms
+
+--- ping 10.0.40.1 ---
+PING 10.0.40.1 (10.0.40.1): 56 data bytes
+
+--- 10.0.40.1 ping statistics ---
+2 packets transmitted, 2 packets received, 0.0% packet loss, 2 packets out of wait time
+round-trip min/avg/max/stddev = 2.499/4.531/6.563/2.032 ms
+
+=== OPNSense ===
+--- ping 10.0.10.2 ---
+PING 10.0.10.2 (10.0.10.2): 56 data bytes
+Request timeout for icmp_seq 0
+
+--- 10.0.10.2 ping statistics ---
+2 packets transmitted, 0 packets received, 100.0% packet loss
+--- nc 10.0.10.2 443 ---
+Connection to 10.0.10.2 port 443 [tcp/https] succeeded!
+
+=== NAS ===
+--- nc 10.0.40.3 445 ---
+Connection to 10.0.40.3 port 445 [tcp/microsoft-ds] succeeded!
+--- nc 10.0.40.3 2049 ---
+Connection to 10.0.40.3 port 2049 [tcp/nfsd] succeeded!
+--- curl http://10.0.40.3 ---
+302
+
+=== DNS ===
+
+; <<>> DiG 9.10.6 <<>> @10.0.10.2 google.com +short
+; (1 server found)
+;; global options: +cmd
+;; connection timed out; no servers could be reached
+
+=== Internet ===
+301

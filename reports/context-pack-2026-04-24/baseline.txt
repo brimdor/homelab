@@ -1,0 +1,537 @@
+=== Nodes ===
+NAME         STATUS   ROLES                       AGE    VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                        KERNEL-VERSION           CONTAINER-RUNTIME
+arcanine     Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.19    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+bulbasaur    Ready    control-plane,etcd,master   426d   v1.33.6+k3s1   10.0.20.13    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+charmander   Ready    control-plane,etcd,master   426d   v1.33.6+k3s1   10.0.20.11    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+chikorita    Ready    <none>                      338d   v1.33.6+k3s1   10.0.20.15    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+cyndaquil    Ready    <none>                      109d   v1.33.6+k3s1   10.0.20.16    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+growlithe    Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.18    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+pikachu      Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.14    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+sprigatito   Ready    <none>                      246d   v1.33.6+k3s1   10.0.20.20    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+squirtle     Ready    control-plane,etcd,master   426d   v1.33.6+k3s1   10.0.20.12    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+totodile     Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.17    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
+
+=== Top Nodes ===
+NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+arcanine     486m         6%       6933Mi          10%         
+bulbasaur    582m         14%      3655Mi          23%         
+charmander   1004m        25%      4945Mi          20%         
+chikorita    528m         13%      4881Mi          15%         
+cyndaquil    289m         7%       4534Mi          28%         
+growlithe    563m         14%      7675Mi          23%         
+pikachu      453m         11%      3708Mi          23%         
+sprigatito   308m         7%       4133Mi          12%         
+squirtle     1078m        26%      4715Mi          29%         
+totodile     266m         6%       2482Mi          15%         
+
+=== All Pods ===
+NAMESPACE           NAME                                                              READY   STATUS                 RESTARTS          AGE
+argocd              argocd-application-controller-0                                   1/1     Running                1 (6h4m ago)      8h
+argocd              argocd-applicationset-controller-69595fc4f5-8pxfp                 1/1     Running                1 (6h5m ago)      8h
+argocd              argocd-dex-server-b4d796b55-f7xms                                 1/1     Running                1 (6h4m ago)      11h
+argocd              argocd-notifications-controller-697b64b7f7-kxtxw                  1/1     Running                1 (6h5m ago)      8h
+argocd              argocd-redis-69d96b696-dbkqz                                      1/1     Running                1 (6h4m ago)      8h
+argocd              argocd-repo-server-548675fdbd-sf4qs                               1/1     Running                1 (6h5m ago)      8h
+argocd              argocd-server-6b4c8f59c4-v8sht                                    1/1     Running                1 (6h4m ago)      8h
+backlog             backlog-867456dc55-c8gsq                                          3/3     Running                0                 145m
+budget              budget-76cf7cb8b6-5lpt8                                           2/2     Running                2 (6h4m ago)      8h
+cert-manager        cert-manager-675d68ff8d-2lnqf                                     1/1     Running                1 (6h5m ago)      8h
+cert-manager        cert-manager-cainjector-64f7ddb858-vddpg                          1/1     Running                1 (6h4m ago)      8h
+cert-manager        cert-manager-webhook-867db696d5-bj67p                             1/1     Running                1 (6h4m ago)      8h
+cloudflared         cloudflared-6d656ffc7f-25rbq                                      1/1     Running                2 (6h4m ago)      8h
+code                weaviate-0                                                        1/1     Running                2 (5h7m ago)      11h
+connect             onepassword-connect-6dd8c7457-58pj2                               2/2     Running                3 (6h4m ago)      11h
+connect             onepassword-connect-operator-5dd699c7c-f2gqw                      1/1     Running                1 (6h4m ago)      10h
+default             external-secrets-764b89d78f-rcmbd                                 1/1     Running                2 (6h4m ago)      2d11h
+default             external-secrets-webhook-bcf58f89b-2hz85                          1/1     Running                1 (6h4m ago)      11h
+default             nfs-recovery-debug                                                0/1     Completed              0                 3h44m
+default             node-debugger-arcanine-7kchl                                      0/1     Completed              0                 4h20m
+default             node-debugger-arcanine-fgqkz                                      0/1     Unknown                0                 3h55m
+default             node-debugger-bulbasaur-9q92w                                     0/1     Completed              0                 4h20m
+default             node-debugger-bulbasaur-gvlfm                                     0/1     Completed              0                 3h50m
+default             node-debugger-charmander-2x2nd                                    0/1     Completed              0                 3h45m
+default             node-debugger-charmander-c9jrc                                    0/1     Error                  0                 3h39m
+default             node-debugger-charmander-d9nkw                                    0/1     Error                  0                 4h18m
+default             node-debugger-charmander-jhzml                                    0/1     Completed              0                 3h49m
+default             node-debugger-charmander-z87df                                    0/1     Completed              0                 4h20m
+default             node-debugger-chikorita-6f9rr                                     0/1     Unknown                0                 3h54m
+default             node-debugger-chikorita-f5h97                                     0/1     Completed              0                 4h20m
+default             node-debugger-cyndaquil-cwb66                                     0/1     Unknown                0                 3h54m
+default             node-debugger-cyndaquil-dxxzn                                     0/1     Error                  0                 4h20m
+default             node-debugger-growlithe-dkw97                                     0/1     Completed              0                 4h20m
+default             node-debugger-growlithe-lqrrx                                     0/1     Unknown                0                 3h53m
+default             node-debugger-pikachu-5knhm                                       0/1     Unknown                0                 3h57m
+default             node-debugger-pikachu-fw9wj                                       0/1     Completed              0                 4h20m
+default             node-debugger-pikachu-kn757                                       0/1     Completed              0                 3h56m
+default             node-debugger-sprigatito-ktq6r                                    0/1     Completed              0                 4h20m
+default             node-debugger-sprigatito-s2jz2                                    0/1     Unknown                0                 3h52m
+default             node-debugger-squirtle-f4ntv                                      0/1     Completed              0                 4h1m
+default             node-debugger-squirtle-v2zwr                                      0/1     Completed              0                 3h48m
+default             node-debugger-squirtle-wdrmb                                      0/1     Completed              0                 4h20m
+default             node-debugger-totodile-mbzdp                                      0/1     Unknown                0                 3h51m
+default             node-debugger-totodile-xrqtz                                      0/1     Completed              0                 4h20m
+default             rook-ceph-operator-84f6b7f9fb-6t62h                               1/1     Running                1 (6h4m ago)      11h
+dex                 dex-79c5dd44d8-vn65m                                              1/1     Running                80 (5h7m ago)     10h
+doplarr             doplarr-8647b5dcf9-9d64b                                          1/1     Running                1 (6h4m ago)      8h
+emby                emby-564b4ddd8c-7gcd5                                             1/1     Running                0                 6h4m
+explorers-hub       explorers-hub-65d9f459bb-xk556                                    1/1     Running                1 (6h4m ago)      8h
+external-dns        external-dns-67756c5c98-4877h                                     1/1     Running                1 (6h4m ago)      8h
+external-secrets    external-secrets-cert-controller-766695dd79-b4lbp                 1/1     Running                0                 4h50m
+external-secrets    external-secrets-d594cbb85-k6tj5                                  1/1     Running                0                 4h50m
+external-secrets    external-secrets-webhook-6cfcf6cd67-mvsl4                         1/1     Running                0                 4h50m
+gitea               gitea-95955d874-cvm7x                                             1/1     Running                0                 4h46m
+gitea               gitea-postgresql-0                                                1/1     Running                0                 5h28m
+gitea               gitea-valkey-cluster-0                                            1/1     Running                0                 5h28m
+gitea               gitea-valkey-cluster-1                                            1/1     Running                1 (5h5m ago)      5h28m
+gitea               gitea-valkey-cluster-2                                            1/1     Running                0                 5h28m
+gitea               gitea-valkey-cluster-3                                            1/1     Running                1 (5h5m ago)      5h28m
+gitea               gitea-valkey-cluster-4                                            1/1     Running                0                 5h28m
+gitea               gitea-valkey-cluster-5                                            1/1     Running                0                 5h28m
+global-secrets      secret-generator-96e4e37-cwnjr                                    0/1     Completed              0                 8h
+global-secrets      secret-generator-kanidm-fix-ftll4                                 0/1     Completed              0                 8h
+gpu-operator        gpu-feature-discovery-6l5fp                                       1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-feature-discovery-9lbh4                                       1/1     Running                33 (6h4m ago)     8h
+gpu-operator        gpu-operator-88765dbfc-k254j                                      1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-gc-9d4df945f-kc578            1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-master-55ff75dd7b-xqcnc       1/1     Running                1 (6h5m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-86clg                  1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-qprkr                  1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-qwcls                  1/1     Running                4 (3h48m ago)     8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-sdqnn                  1/1     Running                2 (116m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-sxzfr                  1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-t9gr2                  1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-vhm8c                  1/1     Running                1 (6h5m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-xmq89                  1/1     Running                1 (6h4m ago)      8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-xq424                  1/1     Running                2 (3h49m ago)     8h
+gpu-operator        gpu-operator-node-feature-discovery-worker-zsxc6                  1/1     Running                2 (6h4m ago)      8h
+gpu-operator        nvidia-container-toolkit-daemonset-27t28                          1/1     Running                1 (6h4m ago)      8h
+gpu-operator        nvidia-container-toolkit-daemonset-fb2md                          1/1     Running                1 (6h4m ago)      8h
+gpu-operator        nvidia-cuda-validator-8w762                                       0/1     Completed              0                 6h3m
+gpu-operator        nvidia-cuda-validator-xjbbb                                       0/1     Completed              0                 6h4m
+gpu-operator        nvidia-dcgm-exporter-74rk8                                        1/1     Running                1 (6h4m ago)      8h
+gpu-operator        nvidia-dcgm-exporter-wbrzj                                        1/1     Running                33 (6h4m ago)     8h
+gpu-operator        nvidia-device-plugin-daemonset-kltbj                              1/1     Running                1 (6h4m ago)      8h
+gpu-operator        nvidia-device-plugin-daemonset-zqvjx                              1/1     Running                33 (6h4m ago)     8h
+gpu-operator        nvidia-operator-validator-hvr2l                                   1/1     Running                0                 8h
+gpu-operator        nvidia-operator-validator-ltq6k                                   1/1     Running                1 (6h4m ago)      8h
+grafana             grafana-65d56f4748-kmq6l                                          3/3     Running                0                 79m
+humbleai            humbleai-585c4bf9bd-2qzbl                                         1/1     Running                0                 4h32m
+humbleai-demo       humbleai-demo-764f78c45f-zxbsd                                    1/1     Running                0                 125m
+ingress-nginx       ingress-nginx-controller-7b89dc4cff-z97kf                         1/1     Running                1 (6h4m ago)      8h
+kanidm              kanidm-0                                                          1/1     Running                0                 8h
+kube-system         cilium-97b27                                                      1/1     Running                44 (6h4m ago)     115d
+kube-system         cilium-bktjp                                                      1/1     Running                43 (6h4m ago)     115d
+kube-system         cilium-c44ng                                                      1/1     Running                57 (6h4m ago)     115d
+kube-system         cilium-h7cmt                                                      1/1     Running                47 (6h4m ago)     115d
+kube-system         cilium-j64nq                                                      1/1     Running                48 (6h5m ago)     115d
+kube-system         cilium-nwzq6                                                      1/1     Running                48 (6h4m ago)     109d
+kube-system         cilium-operator-6999764665-kc6r8                                  1/1     Running                5 (6h4m ago)      2d11h
+kube-system         cilium-r8snc                                                      1/1     Running                46 (6h4m ago)     115d
+kube-system         cilium-rgw2v                                                      1/1     Running                47 (6h5m ago)     115d
+kube-system         cilium-v5gp5                                                      1/1     Running                42 (6h4m ago)     86d
+kube-system         cilium-xwhxf                                                      1/1     Running                45 (6h4m ago)     115d
+kube-system         coredns-6954c5d8d9-9bfgn                                          1/1     Running                1 (6h4m ago)      6h23m
+kube-system         hubble-relay-69f5fc5b79-rlsjl                                     1/1     Running                1 (6h4m ago)      11h
+kube-system         hubble-ui-6548d56557-r9q6g                                        2/2     Running                2 (6h4m ago)      10h
+kube-system         kube-vip-bulbasaur                                                1/1     Running                166 (3h50m ago)   129d
+kube-system         kube-vip-charmander                                               1/1     Running                197 (117m ago)    129d
+kube-system         kube-vip-squirtle                                                 1/1     Running                158 (3h48m ago)   129d
+kube-system         metrics-server-564cb4ff68-bhs2q                                   1/1     Running                1 (6h4m ago)      10h
+kube-system         nfs-client-provisioner-nfs-subdir-external-provisioner-854jlrfx   0/1     Unknown                2                 10h
+kured               kured-6xglq                                                       1/1     Running                1 (6h5m ago)      8h
+kured               kured-8xxsj                                                       1/1     Running                1 (6h4m ago)      8h
+kured               kured-d5gb8                                                       1/1     Running                1 (6h4m ago)      8h
+kured               kured-d7nvz                                                       1/1     Running                1 (6h4m ago)      8h
+kured               kured-hk2rk                                                       1/1     Running                1 (6h4m ago)      8h
+kured               kured-jbsb6                                                       1/1     Running                1 (6h5m ago)      8h
+kured               kured-mp5x9                                                       1/1     Running                1 (6h4m ago)      8h
+kured               kured-ppgtm                                                       1/1     Running                1 (6h4m ago)      8h
+kured               kured-t99qt                                                       1/1     Running                1 (6h4m ago)      8h
+kured               kured-vrpsh                                                       1/1     Running                1 (6h4m ago)      8h
+localai             localai-fbc7dd596-jhp4r                                           1/1     Running                0                 81m
+loki                loki-0                                                            1/1     Running                1 (6h4m ago)      2d11h
+loki                loki-promtail-6nwdd                                               1/1     Running                14 (6h4m ago)     28d
+loki                loki-promtail-79pqz                                               1/1     Running                61 (6h4m ago)     135d
+loki                loki-promtail-b97xw                                               1/1     Running                57 (6h4m ago)     135d
+loki                loki-promtail-bp6zx                                               1/1     Running                59 (6h4m ago)     135d
+loki                loki-promtail-kqwwc                                               1/1     Running                43 (6h5m ago)     98d
+loki                loki-promtail-tf7wq                                               1/1     Running                48 (6h4m ago)     109d
+loki                loki-promtail-xwnbd                                               1/1     Running                69 (6h4m ago)     135d
+loki                loki-promtail-xx4nn                                               1/1     Running                25 (6h5m ago)     56d
+matrix              generate-signing-key-pkbht                                        0/2     Completed              0                 8h
+matrix              matrix-dendrite-85d69fc46f-jmqsm                                  1/1     Running                0                 8h
+matrix              matrix-elementweb-756868d58d-xnmdn                                1/1     Running                1 (6h4m ago)      8h
+matrix              matrix-postgresql-0                                               1/1     Running                0                 8h
+monitoring-system   alertmanager-monitoring-system-kube-pro-alertmanager-0            3/3     Running                0                 4h50m
+monitoring-system   monitoring-system-kube-pro-operator-868fdff8dd-4wqr4              1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-kube-state-metrics-bffd45b7d-656jr              1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-5qt9t                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-6txhs                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-9ktxw                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-bxfjb                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-gts9b                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-j7gpc                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-r9cng                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-sn6ps                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-xfw6f                  1/1     Running                0                 4h50m
+monitoring-system   monitoring-system-prometheus-node-exporter-zzqwh                  1/1     Running                0                 4h50m
+monitoring-system   prometheus-monitoring-system-kube-pro-prometheus-0                2/2     Running                0                 4h50m
+nibble              nibble-778f44576c-xvf2k                                           1/1     Running                0                 4h32m
+nibble-canary       nibble-canary-b9c5f7f95-cq9hn                                     1/1     Running                0                 3h9m
+openwebui           openwebui-c9ffc9b4d-pdszv                                         1/1     Running                1 (6h4m ago)      8h
+pages               pages-78cd655d8b-fw8kt                                            0/1     CreateContainerError   0                 142m
+podwave             podwave-69b8d7b785-rfbrn                                          1/1     Running                0                 147m
+postgres            postgres-79fbb6c7bd-nxp6b                                         3/3     Running                0                 8h
+qdrant              qdrant-0                                                          1/1     Running                0                 8h
+radarr              radarr-f6666f9fc-cqlqw                                            1/1     Running                0                 8h
+renovate            renovate-29617320-nvvpf                                           0/1     Completed              0                 4h37m
+rook-ceph           ceph-csi-controller-manager-59b6bb679-qj9xt                       1/1     Running                0                 5h37m
+rook-ceph           rook-ceph-conversion-webhook-59888b8875-nkdl5                     1/1     Running                0                 5h37m
+rook-ceph           rook-ceph-crashcollector-arcanine-5d9d65b756-dsvp5                1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-crashcollector-bulbasaur-5479587f64-nzdzp               1/1     Running                0                 5h35m
+rook-ceph           rook-ceph-crashcollector-charmander-6f8fdff966-wsk4w              1/1     Running                0                 5h13m
+rook-ceph           rook-ceph-crashcollector-chikorita-659f47b6f7-dmvzj               1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-crashcollector-cyndaquil-5dbddfb65c-48hdx               1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-crashcollector-growlithe-7576697d66-6dzs9               1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-crashcollector-pikachu-655f7d5d4c-rlxzt                 1/1     Running                0                 5h13m
+rook-ceph           rook-ceph-crashcollector-sprigatito-846c5596b7-t9wvh              1/1     Running                0                 5h35m
+rook-ceph           rook-ceph-crashcollector-squirtle-65898d9f6-vrtdt                 1/1     Running                0                 5h35m
+rook-ceph           rook-ceph-exporter-arcanine-6b9f6b9b44-r2p9g                      1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-exporter-bulbasaur-677df9596d-zlssp                     1/1     Running                0                 5h35m
+rook-ceph           rook-ceph-exporter-charmander-6c49cc66c8-2n94q                    1/1     Running                0                 5h13m
+rook-ceph           rook-ceph-exporter-chikorita-6b4d4f8b89-dcpf6                     1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-exporter-cyndaquil-84f67cd97c-fc7pp                     1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-exporter-growlithe-5c4b9ffc54-22qxp                     1/1     Running                0                 5h15m
+rook-ceph           rook-ceph-exporter-pikachu-fcbc5784c-6ghvk                        1/1     Running                0                 5h13m
+rook-ceph           rook-ceph-exporter-sprigatito-59bd8fc979-pw6z9                    1/1     Running                0                 5h35m
+rook-ceph           rook-ceph-exporter-squirtle-5cf47f4684-dw92c                      1/1     Running                0                 5h35m
+rook-ceph           rook-ceph-mds-standard-rwx-a-5799ff9d95-qfgpj                     1/1     Running                0                 5h13m
+rook-ceph           rook-ceph-mds-standard-rwx-b-665f4d5bc8-wflh5                     1/1     Running                0                 5h13m
+rook-ceph           rook-ceph-mgr-a-7cb88dcb57-cwkqw                                  2/2     Running                0                 5h36m
+rook-ceph           rook-ceph-mgr-b-d9c587c66-5s4x5                                   2/2     Running                0                 5h35m
+rook-ceph           rook-ceph-mon-h-c6b94586d-cz2w9                                   1/1     Running                0                 5h36m
+rook-ceph           rook-ceph-mon-l-55b6c8c968-pp5fp                                  1/1     Running                0                 5h36m
+rook-ceph           rook-ceph-mon-m-85998c76b8-c6bl9                                  1/1     Running                0                 5h36m
+rook-ceph           rook-ceph-operator-59b7cb597-tdx6m                                1/1     Running                0                 5h37m
+rook-ceph           rook-ceph-osd-0-6bb6b5db75-96r2q                                  1/1     Running                0                 5h8m
+rook-ceph           rook-ceph-osd-1-6c6d7974dc-wd8hq                                  1/1     Running                0                 5h8m
+rook-ceph           rook-ceph-osd-2-7cf65f9656-k74pg                                  1/1     Running                0                 5h8m
+rook-ceph           rook-ceph-osd-4-787f9878f-2cj2h                                   1/1     Running                0                 5h8m
+rook-ceph           rook-ceph-osd-6-6b5c95799-69hkv                                   1/1     Running                0                 5h8m
+rook-ceph           rook-ceph-osd-7-69cc4dffc9-qxv4k                                  1/1     Running                0                 5h35m
+rook-ceph           rook-ceph-osd-8-9b678766f-ckt82                                   1/1     Running                0                 5h8m
+rook-ceph           rook-ceph-osd-prepare-arcanine-7ltgg                              0/1     Completed              0                 3h47m
+rook-ceph           rook-ceph-osd-prepare-chikorita-8v8g4                             0/1     Completed              0                 3h47m
+rook-ceph           rook-ceph-osd-prepare-cyndaquil-8kbzz                             0/1     Completed              0                 3h47m
+rook-ceph           rook-ceph-osd-prepare-growlithe-m9rjt                             0/1     Completed              0                 3h47m
+rook-ceph           rook-ceph-osd-prepare-sprigatito-94qq8                            0/1     Completed              0                 3h47m
+rook-ceph           rook-ceph-snapshot-controller-6dbc5fd87b-dbmp7                    1/1     Running                0                 5h37m
+rook-ceph           rook-ceph-tools-658fd4db6f-mpkzd                                  1/1     Running                1 (6h4m ago)      2d11h
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-ctrlplugin-5976c5446b-mmc9n         5/5     Running                0                 5h37m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-ctrlplugin-5976c5446b-z2cff         5/5     Running                0                 5h37m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-4872m                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-7p5gq                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-9hngm                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-cfv56                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-hm2sp                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-lrbwf                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-lsz4s                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-mkb7m                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-sct98                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.cephfs.csi.ceph.com-nodeplugin-swg45                    2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-ctrlplugin-8679b64c77-htwpv            5/5     Running                0                 5h37m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-ctrlplugin-8679b64c77-jm28w            5/5     Running                0                 5h37m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-52bnf                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-9tczt                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-bwbcn                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-glcbj                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-h4p9k                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-kkjjn                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-mtdtv                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-vsk49                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-xqxwq                       2/2     Running                0                 5h36m
+rook-ceph           rook-ceph.rbd.csi.ceph.com-nodeplugin-zq6pg                       2/2     Running                0                 5h36m
+sabnzbd             sabnzbd-569d6c5f5c-fsxjj                                          2/2     Running                0                 8h
+searxng             searxng-main-85d6c58b8c-dzhvr                                     1/1     Running                0                 8h
+searxng             searxng-redis-5b5d46bf8c-tplkg                                    1/1     Running                1 (6h5m ago)      8h
+second-brain        second-brain-697c7595b8-drbn5                                     1/1     Running                0                 125m
+sonarr              sonarr-6d44cd4845-mglhd                                           1/1     Running                0                 8h
+strata              strata-7f7688575c-9k4kb                                           1/1     Running                0                 4h32m
+volsync-system      volsync-system-69476fddfd-qxj49                                   1/1     Running                1 (6h4m ago)      8h
+weaviate-test       weaviate-0                                                        1/1     Running                2 (5h7m ago)      11h
+woodpecker          woodpecker-agent-0                                                1/1     Running                2 (5h7m ago)      8h
+woodpecker          woodpecker-server-0                                               1/1     Running                1 (4h54m ago)     8h
+zot                 registry-test                                                     1/1     Running                7 (3m40s ago)     6h28m
+zot                 zot-0                                                             1/1     Running                0                 4h
+
+=== Non-running Pods ===
+default             node-debugger-arcanine-fgqkz                                      0/1   Unknown                0                 3h55m
+default             node-debugger-charmander-c9jrc                                    0/1   Error                  0                 3h39m
+default             node-debugger-charmander-d9nkw                                    0/1   Error                  0                 4h18m
+default             node-debugger-chikorita-6f9rr                                     0/1   Unknown                0                 3h54m
+default             node-debugger-cyndaquil-cwb66                                     0/1   Unknown                0                 3h54m
+default             node-debugger-cyndaquil-dxxzn                                     0/1   Error                  0                 4h20m
+default             node-debugger-growlithe-lqrrx                                     0/1   Unknown                0                 3h53m
+default             node-debugger-pikachu-5knhm                                       0/1   Unknown                0                 3h57m
+default             node-debugger-sprigatito-s2jz2                                    0/1   Unknown                0                 3h52m
+default             node-debugger-totodile-mbzdp                                      0/1   Unknown                0                 3h51m
+kube-system         nfs-client-provisioner-nfs-subdir-external-provisioner-854jlrfx   0/1   Unknown                2                 10h
+pages               pages-78cd655d8b-fw8kt                                            0/1   CreateContainerError   0                 142m
+
+=== ArgoCD Applications ===
+NAME                  SYNC STATUS   HEALTH STATUS
+argocd                Synced        Healthy
+backlog               Synced        Healthy
+backlog-canary        Synced        Healthy
+budget                Synced        Healthy
+budget-canary         Synced        Healthy
+cert-manager          Synced        Healthy
+cloudflared           Synced        Healthy
+connect               Synced        Healthy
+dex                   Synced        Healthy
+doplarr               Synced        Healthy
+emby                  Synced        Healthy
+explorers-hub         Synced        Healthy
+external-dns          Synced        Healthy
+external-secrets      Synced        Healthy
+gitea                 Synced        Healthy
+global-secrets        Synced        Healthy
+gpu-operator          Synced        Healthy
+grafana               Synced        Healthy
+humbleai              Synced        Healthy
+humbleai-canary       Synced        Healthy
+humbleai-demo         Synced        Healthy
+ingress-nginx         Synced        Healthy
+kanidm                Synced        Healthy
+kured                 Synced        Healthy
+localai               Synced        Healthy
+loki                  Synced        Healthy
+matrix                Synced        Healthy
+monitoring-system     Synced        Healthy
+nibble                Synced        Healthy
+nibble-canary         Synced        Healthy
+openwebui             Synced        Healthy
+pages                 Synced        Progressing
+pages-canary          Synced        Healthy
+podwave               Synced        Healthy
+postgres              Synced        Healthy
+qdrant                Synced        Healthy
+radarr                Synced        Healthy
+renovate              Synced        Healthy
+rook-ceph             Synced        Healthy
+sabnzbd               Synced        Healthy
+searxng               Synced        Healthy
+second-brain          Synced        Healthy
+second-brain-canary   Synced        Progressing
+sonarr                Synced        Healthy
+strata                Synced        Healthy
+volsync-system        Synced        Healthy
+woodpecker            Synced        Healthy
+zot                   Synced        Healthy
+
+=== Unsynced/Unhealthy Apps ===
+NAME                  SYNC STATUS   HEALTH STATUS
+pages                 Synced        Progressing
+second-brain-canary   Synced        Progressing
+
+=== Recent Events (last 200) ===
+default       2m57s       Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m56s       Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m56s       Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m55s       Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       2m52s       Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m52s       Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m50s       Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m50s       Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       2m49s       Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m48s       Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       2m48s       Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       2m48s       Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m45s       Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m45s       Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m43s       Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       2m43s       Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m42s       Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m41s       Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       2m41s       Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m41s       Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+pages         2m40s       Warning   Failed                           pod/pages-78cd655d8b-fw8kt                                            (combined from similar events): Error: failed to generate container "e59aa209bb53c68d50d949e778daca0b97f22897604129ac1d6635e6315d0a34" spec: failed to generate spec: failed to stat "/var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data": stat /var/lib/kubelet/pods/a8c6e1a0-bfea-42a1-962a-0a941f7438d9/volumes/kubernetes.io~nfs/data: stale NFS file handle
+default       2m38s       Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m38s       Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m36s       Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       2m36s       Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m35s       Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m34s       Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       2m34s       Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m33s       Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       2m31s       Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m31s       Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m29s       Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m29s       Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       2m28s       Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m27s       Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       2m26s       Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       2m26s       Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m24s       Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m23s       Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m22s       Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m21s       Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       2m20s       Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m20s       Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       2m19s       Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       2m19s       Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m17s       Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m16s       Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m15s       Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m14s       Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       2m13s       Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       2m13s       Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m11s       Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m11s       Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       2m10s       Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m9s        Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m8s        Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m7s        Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       2m6s        Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       2m6s        Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m4s        Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       2m3s        Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2m3s        Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       2m2s        Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       2m1s        Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       2m          Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       119s        Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       119s        Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       117s        Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       116s        Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       115s        Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       115s        Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       114s        Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       113s        Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       113s        Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       112s        Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       109s        Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       109s        Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       109s        Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       108s        Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       106s        Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       106s        Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       105s        Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       105s        Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       102s        Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       102s        Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       102s        Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       101s        Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       99s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       99s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       99s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       98s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       95s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       95s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       95s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       94s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       91s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       91s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       91s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       91s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       88s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       87s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       87s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       87s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       85s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       84s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       81s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       80s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       78s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       78s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       77s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       77s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       77s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       76s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       73s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       73s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       71s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       70s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       70s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       70s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       70s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       69s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       67s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       66s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       63s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       63s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       63s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       63s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       63s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       62s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       60s         Warning   VolumeFailedDelete               persistentvolume/pvc-97976541-3954-4e10-82b8-23818bac6ad5             rpc error: code = Aborted desc = rbd csi-vol-b20cbe2d-4343-4649-98b8-d6721a42e0fb is still being used
+default       60s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       59s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       56s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       56s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       55s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       55s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       55s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       55s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       54s         Warning   VolumeFailedDelete               persistentvolume/pvc-c228169c-aed8-4170-b775-db2dc4eb24fe             rpc error: code = Aborted desc = rbd csi-vol-ffe92b8c-2157-4400-82da-75158a63b89a is still being used
+default       52s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       52s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       50s         Warning   VolumeFailedDelete               persistentvolume/pvc-c10a238d-fafa-48b4-8f11-f538a9de48b8             rpc error: code = Aborted desc = rbd csi-vol-143000ef-407f-48c7-8a46-c426ef77d3db is still being used
+default       49s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       49s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       48s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       48s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       48s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       48s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       45s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       45s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       42s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       42s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       41s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       41s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       41s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       40s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       39s         Warning   VolumeFailedDelete               persistentvolume/pvc-a76e4242-c189-4334-ac17-87437d5ca8cc             rpc error: code = Aborted desc = rbd csi-vol-de5a700e-489f-43f3-bbc5-ccab8524039d is still being used
+default       38s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       38s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       35s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       34s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       34s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       34s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       34s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       33s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       31s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       30s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       28s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       27s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       27s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       27s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       27s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       26s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       24s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       23s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       22s         Normal    Valid                            clustersecretstore/global-secrets                                     store validated
+default       21s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       20s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       20s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       20s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       19s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       19s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       17s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       16s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       14s         Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       13s         Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       13s         Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       13s         Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       12s         Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       11s         Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       10s         Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       10s         Normal    Starting                         node/growlithe                                                        Starting kubelet.
+default       7s          Normal    CertificateExpirationOK          node/pikachu                                                          Node and Certificate Authority certificates managed by k3s are OK
+default       6s          Normal    CertificateExpirationOK          node/chikorita                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       6s          Normal    Starting                         node/chikorita                                                        Starting kubelet.
+default       6s          Normal    Starting                         node/pikachu                                                          Starting kubelet.
+default       5s          Normal    CertificateExpirationOK          node/sprigatito                                                       Node and Certificate Authority certificates managed by k3s are OK
+default       4s          Normal    Starting                         node/sprigatito                                                       Starting kubelet.
+default       3s          Normal    CertificateExpirationOK          node/growlithe                                                        Node and Certificate Authority certificates managed by k3s are OK
+default       2s          Normal    Starting                         node/growlithe                                                        Starting kubelet.
