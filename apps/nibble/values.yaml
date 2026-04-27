@@ -7,7 +7,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/nibble
-            tag: "2026-04-24-v2-prod"
+            tag: "2026-04-27-prod"
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
