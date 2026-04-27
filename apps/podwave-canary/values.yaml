@@ -90,17 +90,3 @@ app-template:
                 port: 443
               - protocol: TCP
                 port: 80
-
-  persistence:
-    data:
-      enabled: true
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 5Gi
-      mountPath: /app/data
-    downloads:
-      enabled: true
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 10Gi
-      mountPath: /app/downloads
