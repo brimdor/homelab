@@ -8,7 +8,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/nibble
             tag: "issue-12-canary"
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:

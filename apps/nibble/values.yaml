@@ -8,7 +8,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/nibble
             tag: "2026-04-24-v2-prod"
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:

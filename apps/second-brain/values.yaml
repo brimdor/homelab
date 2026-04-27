@@ -9,7 +9,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/second-brain
             tag: "2026-04-17-v1-prod"
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
               name: http

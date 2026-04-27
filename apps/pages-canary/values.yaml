@@ -9,7 +9,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/pages
             tag: "latest-canary"
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
               name: http

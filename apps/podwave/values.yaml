@@ -7,7 +7,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/podwave
             tag: "2026-04-03-v69"
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3000
