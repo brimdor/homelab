@@ -12,6 +12,20 @@ app-template:
           env:
             TZ: America/Chicago
             NODE_ENV: production
+            PORT: "3000"
+            PODWAVE_CORS_ORIGIN: "https://podwave-canary.eaglepass.io"
+            PODWAVE_PUBLIC_URL: "https://podwave-canary.eaglepass.io"
+            PODWAVE_ADMIN_USERNAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: username
+            PODWAVE_ADMIN_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: password
+            PODWAVE_ADMIN_NAME: "Chris"
           probes:
             liveness:
               enabled: true
@@ -90,3 +104,8 @@ app-template:
                 port: 443
               - protocol: TCP
                 port: 80
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/6tsj4sw2jjbu5jfumvn6cqpbea"
+      operator.1password.io/item-name: "secrets"
