@@ -34,7 +34,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /api/health
+                  path: /
                   port: http
                 initialDelaySeconds: 10
                 periodSeconds: 15
@@ -43,7 +43,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /api/health
+                  path: /
                   port: http
                 initialDelaySeconds: 5
                 periodSeconds: 10
@@ -52,7 +52,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /api/health
+                  path: /
                   port: http
                 failureThreshold: 30
                 periodSeconds: 5
