@@ -8,7 +8,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_database
             tag: canary
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             MYSQL_ROOT_PASSWORD:
               valueFrom:
@@ -58,7 +58,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_backend
             tag: 2026-04-23-v1-canary
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog-canary.eaglepass.io
@@ -115,7 +115,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
             tag: "2026-04-24-v2-canary"
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:

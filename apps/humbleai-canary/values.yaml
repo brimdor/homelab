@@ -8,7 +8,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/humbleai
             tag: canary
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             GOOGLE_CLIENT_SECRET:
