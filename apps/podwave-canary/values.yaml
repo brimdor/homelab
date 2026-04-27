@@ -6,9 +6,9 @@ app-template:
       containers:
         main:
           image:
-            repository: registry.eaglepass.io/podwave
+            repository: localhost/podwave
             tag: "issue-1-canary"
-            pullPolicy: Always
+            pullPolicy: Never
           env:
             TZ: America/Chicago
             NODE_ENV: production
