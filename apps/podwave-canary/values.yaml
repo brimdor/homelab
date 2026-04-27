@@ -6,9 +6,9 @@ app-template:
       containers:
         main:
           image:
-            repository: localhost/podwave
+            repository: 10.0.20.11:32309/podwave
             tag: "issue-1-canary"
-            pullPolicy: Never
+            pullPolicy: Always
           env:
             TZ: America/Chicago
             NODE_ENV: production
