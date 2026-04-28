@@ -2,13 +2,13 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 0
+      replicas: 1
       containers:
         main:
           nameOverride: pages-canary
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "latest-canary"
+            tag: "2026-04-28-t3-canary"
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
