@@ -2,7 +2,7 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 0
+      replicas: 1
       containers:
         database:
           image:
@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: 2026-04-23-v1-canary
+            tag: issue-7-canary
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
