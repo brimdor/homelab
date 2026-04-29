@@ -35,7 +35,7 @@ app-template:
           nameOverride: pages
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "2026-04-22-v1-prod"
+            tag: "latest"
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
