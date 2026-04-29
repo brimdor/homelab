@@ -3,6 +3,47 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
+      initContainers:
+        restore:
+          name: restore
+          image:
+            repository: busybox
+            tag: latest
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              SENTINEL="/html/honey-bee"
+              SRC="/nfs-source"
+              DST="/html"
+
+              if [ -f "$SENTINEL" ]; then
+                  echo "honey-bee present — skipping NFS restore"
+                  exit 0
+              fi
+
+              if [ -d "$SRC" ] && [ -n "$(ls -A "$SRC" 2>/dev/null)" ]; then
+                  echo "Restoring from NFS backup..."
+                  cp -r "$SRC"/* "$DST/" 2>/dev/null || exit 1
+                  rm -f "$DST/gen-index.sh"
+                  touch "$SENTINEL"
+                  echo "Restore complete. honey-bee created."
+                  exit 0
+              else
+                  echo "NFS source not available — failing init to trigger K8s retry"
+                  exit 1
+              fi
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          volumeMounts:
+            - name: html-data
+              mountPath: /html
+            - name: nfs-source
+              mountPath: /nfs-source
+              readOnly: true
       containers:
         main:
           nameOverride: pages
@@ -51,6 +92,50 @@ app-template:
             requests:
               cpu: 100m
               memory: 64Mi
+          volumeMounts:
+            - name: html-data
+              mountPath: /usr/share/nginx/html
+        backup:
+          name: backup
+          image:
+            repository: alpine
+            tag: latest
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[backup] Starting backup sidecar with BACKUP_INTERVAL=${BACKUP_INTERVAL:-86400}s"
+              while true; do
+                  if [ -d /html ] && [ -d /nfs-target ]; then
+                      echo "[backup] Starting rsync to NFS..."
+                      rsync -av --delete /html/ /nfs-target/ 2>&1 || echo "[backup] rsync failed or NFS unavailable"
+                  else
+                      echo "[backup] Directories not ready, skipping"
+                  fi
+                  echo "[backup] Sleeping for ${BACKUP_INTERVAL:-86400}s"
+                  sleep "${BACKUP_INTERVAL:-86400}"
+              done
+          env:
+            BACKUP_INTERVAL:
+              value: "86400"
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          volumeMounts:
+            - name: html-data
+              mountPath: /html
+              readOnly: true
+            - name: nfs-target
+              mountPath: /nfs-target
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
   service:
     main:
       primary: true
@@ -76,14 +161,42 @@ app-template:
             - pages.eaglepass.io
           secretName: pages-tls
   persistence:
-    data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/pages
+    html-data:
+      enabled: true
+      type: persistentVolumeClaim
+      size: 5Gi
+      accessMode: ReadWriteOnce
+      retain: true
       advancedMounts:
         main:
           main:
             - path: /usr/share/nginx/html
+        restore:
+          restore:
+            - path: /html
+        backup:
+          backup:
+            - path: /html
+    nfs-source:
+      enabled: true
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/pages
+      readOnly: true
+      advancedMounts:
+        restore:
+          restore:
+            - path: /nfs-source
+    nfs-target:
+      enabled: true
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/pages
+      readOnly: false
+      advancedMounts:
+        backup:
+          backup:
+            - path: /nfs-target
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
