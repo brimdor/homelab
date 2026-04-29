@@ -17,9 +17,20 @@ app-template:
               SRC="/nfs-source"
               DST="/html"
 
+              # Check sentinel first - if exists, skip restore entirely (no NFS needed)
               if [ -f "$SENTINEL" ]; then
                   echo "honey-bee present — skipping NFS restore"
                   exit 0
+              fi
+
+              # Only try NFS if sentinel is missing
+              echo "honey-bee absent — attempting restore from NFS..."
+              
+              # Check if NFS source is accessible
+              if ! ls "$SRC" >/dev/null 2>&1; then
+                  echo "ERROR: NFS source not accessible (stale handle or network issue)"
+                  echo "Failing init to trigger K8s retry loop"
+                  exit 1
               fi
 
               if [ -d "$SRC" ] && [ -n "$(ls -A "$SRC" 2>/dev/null)" ]; then
@@ -30,7 +41,7 @@ app-template:
                   echo "Restore complete. honey-bee created."
                   exit 0
               else
-                  echo "NFS source not available — failing init to trigger K8s retry"
+                  echo "NFS source empty or not available — failing init to trigger K8s retry"
                   exit 1
               fi
           securityContext:
