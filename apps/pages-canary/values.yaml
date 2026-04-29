@@ -3,6 +3,33 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
+      initContainers:
+        restore:
+          image:
+            repository: busybox
+            tag: latest
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              SENTINEL="/html/honey-bee"
+
+              # Check sentinel - if exists, skip restore
+              if [ -f "$SENTINEL" ]; then
+                  echo "honey-bee present — skipping restore"
+                  exit 0
+              fi
+
+              # No NFS restore needed - PVC already has data from previous deployment
+              # Just create the sentinel to mark migration complete
+              echo "Creating honey-bee sentinel (migration from NFS to PVC complete)"
+              touch "$SENTINEL"
+              echo "Migration marker created"
+              exit 0
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
       containers:
         main:
           nameOverride: pages-canary
@@ -51,6 +78,40 @@ app-template:
             requests:
               cpu: 100m
               memory: 64Mi
+        backup:
+          nameOverride: backup
+          image:
+            repository: alpine
+            tag: latest
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[backup] Starting backup sidecar with BACKUP_INTERVAL=${BACKUP_INTERVAL:-86400}s"
+              while true; do
+                  if [ -d /html ] && [ -d /nfs-target ]; then
+                      echo "[backup] Starting rsync to NFS..."
+                      rsync -av --delete /html/ /nfs-target/ 2>&1 || echo "[backup] rsync failed or NFS unavailable"
+                  else
+                      echo "[backup] Directories not ready, skipping"
+                  fi
+                  echo "[backup] Sleeping for ${BACKUP_INTERVAL:-86400}s"
+                  sleep "${BACKUP_INTERVAL:-86400}"
+              done
+          env:
+            BACKUP_INTERVAL:
+              value: "86400"
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
   service:
     main:
       primary: true
@@ -76,14 +137,24 @@ app-template:
             - pages-canary.eaglepass.io
           secretName: pages-canary-tls
   persistence:
-    data:
+    html-data:
+      enabled: true
       type: persistentVolumeClaim
+      size: 5Gi
       accessMode: ReadWriteOnce
-      size: 1Gi
-      advancedMounts:
-        main:
-          main:
-            - path: /usr/share/nginx/html
+      globalMounts:
+        - path: /usr/share/nginx/html
+          readOnly: false
+    nfs-target:
+      enabled: true
+      type: custom
+      volumeSpec:
+        nfs:
+          server: 10.0.40.3
+          path: /mnt/user/pages
+      globalMounts:
+        - path: /nfs-target
+          readOnly: false
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
