@@ -8,7 +8,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/nibble
             tag: "latest"
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: America/Chicago
           probes:
