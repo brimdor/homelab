@@ -9,6 +9,7 @@ app-template:
             repository: 10.0.20.11:32309/nibble
             tag: "issue-22-canary"
             pullPolicy: Always
+          # roll: 2026-04-30-ssr-fix
           env:
             TZ: America/Chicago
           probes:
