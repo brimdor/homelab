@@ -27,6 +27,69 @@ app-template:
               spec:
                 initialDelaySeconds: 5
                 periodSeconds: 10
+        # T10: Image optimization worker — sidecar pattern in same pod
+        worker:
+          image:
+            repository: 10.0.20.11:32309/nibble
+            tag: "issue-23-canary"
+            pullPolicy: Always
+          command:
+            - node
+            - dist/workers/image-worker.js
+          env:
+            TZ: America/Chicago
+            IMAGE_OPTIMIZATION_ENABLED: "true"
+            IMAGE_WORKER_CONCURRENCY: "4"
+            IMAGE_QUEUE_TIMEOUT_MS: "30000"
+            IMAGE_QUALITY_WEBP: "85"
+            IMAGE_QUALITY_AVIF: "80"
+            IMAGE_MAX_WIDTH: "1920"
+            IMAGE_MAX_HEIGHT: "1080"
+            IMAGE_MAX_FILE_SIZE_MB: "10"
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /health/liveness
+              port: 3001
+              spec:
+                initialDelaySeconds: 15
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /health/readiness
+              port: 3001
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 500m
+            requests:
+              memory: 256Mi
+              cpu: 250m
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+
+  persistence:
+    # Shared emptyDir volume for temp image processing between API and worker
+    image-tmp:
+      type: emptyDir
+      advancedMounts:
+        main:
+          main:
+            - path: /tmp/image-processing
+          worker:
+            - path: /tmp/image-processing
 
   service:
     main:
@@ -85,3 +148,27 @@ app-template:
             ports:
               - protocol: TCP
                 port: 11434
+          # T10: Worker egress — Redis (BullMQ queue backend)
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: redis
+            ports:
+              - protocol: TCP
+                port: 6379
+          # T10: Worker egress — PostgreSQL (image metadata DB)
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: postgres
+            ports:
+              - protocol: TCP
+                port: 5432
+          # T10: Worker egress — Object storage (S3-compatible, image variants)
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: minio
+            ports:
+              - protocol: TCP
+                port: 9000
