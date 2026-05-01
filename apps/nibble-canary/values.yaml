@@ -71,13 +71,17 @@ app-template:
               - protocol: TCP
                 port: 3000
         egress:
+          # DNS resolution (CoreDNS in kube-system)
           - to:
-              - namespaceSelector: {}
+              - namespaceSelector:
+                  matchLabels:
+                    name: kube-system
             ports:
               - protocol: UDP
                 port: 53
               - protocol: TCP
                 port: 53
+          # API egress — Ollama (AI inference)
           - to:
               - namespaceSelector:
                   matchLabels:
@@ -85,3 +89,27 @@ app-template:
             ports:
               - protocol: TCP
                 port: 11434
+          # T11: Worker egress — Redis (BullMQ queue backend)
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: redis
+            ports:
+              - protocol: TCP
+                port: 6379
+          # T11: Worker egress — PostgreSQL (image metadata DB)
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: postgres
+            ports:
+              - protocol: TCP
+                port: 5432
+          # T11: Worker egress — Object storage (S3-compatible, image variants)
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: minio
+            ports:
+              - protocol: TCP
+                port: 9000
