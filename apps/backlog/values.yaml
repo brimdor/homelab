@@ -80,6 +80,16 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database
+            MYSQL_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: root-password
+            MYSQL_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database
             JWT_SECRET:
               valueFrom:
                 secretKeyRef:
