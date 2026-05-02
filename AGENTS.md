@@ -1,5 +1,11 @@
 # AGENTS.md - Homelab coding guide
 
+## Repository location
+- **Local path:** `~/Documents/Github/homelab`
+- **Remote (Gitea):** `git.eaglepass.io/ops/homelab`
+- **ArgoCD source:** Same Gitea repo, branch `master`, path varies per app (e.g. `apps/backlog-canary`)
+- Do NOT use any other path (e.g. `~/homelab-ops`, `~/homelab`) — those are stale or nonexistent.
+
 ## Build, lint, and test
 - `make test`: run full Go/Terratest suite via `gotestsum`.
 - `make smoke-test`: run smoke coverage only (`filter=Smoke`).
