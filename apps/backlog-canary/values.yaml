@@ -169,6 +169,11 @@ app-template:
       hosts:
         - host: backlog-canary.eaglepass.io
           paths:
+            - path: /health/ready
+              pathType: Exact
+              service:
+                identifier: backend
+                port: http
             - path: /
               pathType: Prefix
               service:
