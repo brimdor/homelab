@@ -196,9 +196,7 @@ app-template:
 
   persistence:
     data:
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 5Gi
+      type: emptyDir
       advancedMounts:
         main:
           database:
