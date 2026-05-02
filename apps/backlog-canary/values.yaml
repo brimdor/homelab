@@ -40,7 +40,7 @@ app-template:
                     - sh
                     - -c
                     - 'mariadb-admin ping -h localhost -uroot -p"$MYSQL_ROOT_PASSWORD"'
-                initialDelaySeconds: 15
+                initialDelaySeconds: 30
                 periodSeconds: 10
             readiness:
               enabled: true
@@ -51,7 +51,7 @@ app-template:
                     - sh
                     - -c
                     - 'mariadb-admin ping -h localhost -uroot -p"$MYSQL_ROOT_PASSWORD"'
-                initialDelaySeconds: 10
+                initialDelaySeconds: 20
                 periodSeconds: 10
 
         backend: # roll: 2026-05-02 re-deploy with health endpoint fix
@@ -99,7 +99,7 @@ app-template:
                 httpGet:
                   path: /
                   port: 3000
-                initialDelaySeconds: 30
+                initialDelaySeconds: 60
                 periodSeconds: 10
             readiness:
               enabled: true
@@ -108,7 +108,7 @@ app-template:
                 httpGet:
                   path: /
                   port: 3000
-                initialDelaySeconds: 15
+                initialDelaySeconds: 45
                 periodSeconds: 10
 
         frontend:
@@ -208,4 +208,4 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
-      restart-trigger: "2026-05-02-health-fix"
+      restart-trigger: "2026-05-02-probe-fix"
