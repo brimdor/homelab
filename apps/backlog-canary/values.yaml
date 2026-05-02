@@ -54,7 +54,7 @@ app-template:
                 initialDelaySeconds: 20
                 periodSeconds: 10
 
-        backend: # roll: 2026-05-02 re-deploy with health endpoint fix
+        backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
             tag: issue-10-canary-v2
@@ -97,18 +97,18 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
-                initialDelaySeconds: 60
+                initialDelaySeconds: 30
                 periodSeconds: 10
             readiness:
               enabled: true
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
-                initialDelaySeconds: 45
+                initialDelaySeconds: 15
                 periodSeconds: 10
 
         frontend:
@@ -208,4 +208,3 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
-      restart-trigger: "2026-05-02-probe-fix"
