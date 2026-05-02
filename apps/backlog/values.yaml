@@ -56,8 +56,8 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: issue-7-canary
-            pullPolicy: IfNotPresent
+            tag: latest
+            pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
@@ -98,7 +98,7 @@ app-template:
                 httpGet:
                   path: /
                   port: 3000
-                initialDelaySeconds: 15
+                initialDelaySeconds: 60
                 periodSeconds: 10
             readiness:
               enabled: true
@@ -107,7 +107,7 @@ app-template:
                 httpGet:
                   path: /
                   port: 3000
-                initialDelaySeconds: 10
+                initialDelaySeconds: 45
                 periodSeconds: 10
 
         frontend:
