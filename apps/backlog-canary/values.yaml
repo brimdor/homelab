@@ -57,8 +57,8 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: issue-7-canary
-            pullPolicy: IfNotPresent
+            tag: issue-10-canary
+            pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog-canary.eaglepass.io
@@ -97,7 +97,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
                 initialDelaySeconds: 15
                 periodSeconds: 10
@@ -106,7 +106,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
                 initialDelaySeconds: 10
                 periodSeconds: 10
