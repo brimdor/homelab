@@ -97,7 +97,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /health/ready
+                  path: /
                   port: 3000
                 initialDelaySeconds: 30
                 periodSeconds: 10
@@ -106,7 +106,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /health/ready
+                  path: /
                   port: 3000
                 initialDelaySeconds: 15
                 periodSeconds: 10
