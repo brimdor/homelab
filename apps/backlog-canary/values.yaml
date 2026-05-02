@@ -57,7 +57,7 @@ app-template:
         backend: # roll: 2026-05-02 re-deploy with health endpoint fix
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: issue-10-canary
+            tag: issue-10-canary-v2
             pullPolicy: Always
           env:
             TZ: America/Chicago
