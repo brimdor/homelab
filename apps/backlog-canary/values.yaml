@@ -54,7 +54,7 @@ app-template:
                 initialDelaySeconds: 10
                 periodSeconds: 10
 
-        backend:
+        backend: # roll: 2026-05-02 re-deploy with health endpoint fix
           image:
             repository: 10.0.20.11:32309/backlog_backend
             tag: issue-10-canary
@@ -97,7 +97,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
                 initialDelaySeconds: 30
                 periodSeconds: 10
@@ -106,7 +106,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
                 initialDelaySeconds: 15
                 periodSeconds: 10
@@ -171,6 +171,16 @@ app-template:
           paths:
             - path: /health/ready
               pathType: Exact
+              service:
+                identifier: backend
+                port: http
+            - path: /health
+              pathType: Prefix
+              service:
+                identifier: backend
+                port: http
+            - path: /api
+              pathType: Prefix
               service:
                 identifier: backend
                 port: http
