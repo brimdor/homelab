@@ -57,7 +57,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_backend
             tag: latest
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
