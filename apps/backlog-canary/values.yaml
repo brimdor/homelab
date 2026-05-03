@@ -206,6 +206,5 @@ app-template:
     securityContext:
       fsGroup: 999
     annotations:
-      restart/reason: "hotfix-howlongtobeat-endpoint-patch-20260503"
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
