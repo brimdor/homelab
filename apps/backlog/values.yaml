@@ -57,7 +57,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_backend
             tag: latest
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
@@ -106,25 +106,25 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
-                initialDelaySeconds: 60
+                initialDelaySeconds: 30
                 periodSeconds: 10
             readiness:
               enabled: true
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
-                initialDelaySeconds: 45
+                initialDelaySeconds: 15
                 periodSeconds: 10
 
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "2026-04-24-v2-prod"
-            pullPolicy: IfNotPresent
+            tag: latest
+            pullPolicy: Always
           env:
             TZ: America/Chicago
           probes:
@@ -178,6 +178,21 @@ app-template:
       hosts:
         - host: backlog.eaglepass.io
           paths:
+            - path: /health/ready
+              pathType: Exact
+              service:
+                identifier: backend
+                port: http
+            - path: /health
+              pathType: Prefix
+              service:
+                identifier: backend
+                port: http
+            - path: /api
+              pathType: Prefix
+              service:
+                identifier: backend
+                port: http
             - path: /
               pathType: Prefix
               service:
