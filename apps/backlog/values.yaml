@@ -219,3 +219,5 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
+      # roll: force pod restart to pull latest image
+      roll: "2026-05-03T10:45:00Z"
