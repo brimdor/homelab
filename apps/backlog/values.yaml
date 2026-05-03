@@ -57,7 +57,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_backend
             tag: issue-12-canary
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
@@ -124,7 +124,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
             tag: issue-12-canary
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:
@@ -219,5 +219,3 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
-      # roll: force pod restart to pull latest image
-      roll: "2026-05-03T11:00:00Z"
