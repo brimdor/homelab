@@ -117,7 +117,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: issue-12-canary
+            tag: issue-14-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -172,6 +172,11 @@ app-template:
       hosts:
         - host: backlog-canary.eaglepass.io
           paths:
+            - path: /health/live
+              pathType: Exact
+              service:
+                identifier: backend
+                port: http
             - path: /health/ready
               pathType: Exact
               service:
@@ -209,5 +214,6 @@ app-template:
     securityContext:
       fsGroup: 999
     annotations:
+      roll: "2026-05-04-t8-cors-fix-frontend-tag"
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
