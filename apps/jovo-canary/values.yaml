@@ -167,7 +167,7 @@ app-template:
         http:
           port: 8000
           protocol: HTTP
-    database:
+    mariadb:
       controller: main
       ports:
         mysql:
@@ -208,7 +208,9 @@ app-template:
   persistence:
     data:
       enabled: true
-      type: emptyDir
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      storageClass: local-path
       advancedMounts:
         main:
           database:
@@ -222,10 +224,40 @@ app-template:
         main:
           backend:
             - path: /data
+    init-db:
+      enabled: true
+      type: configMap
+      name: jovo-canary-init-db
+      items:
+        - key: 01-init.sql
+          path: 01-init.sql
+      advancedMounts:
+        main:
+          database:
+            - path: /docker-entrypoint-initdb.d/01-init.sql
+              subPath: 01-init.sql
+
+  configMaps:
+    init-db:
+      enabled: true
+      data:
+        01-init.sql: |
+          -- T2.2: Create database and user for Jovo app
+          -- MariaDB official image auto-runs *.sql and *.sh files in /docker-entrypoint-initdb.d/
+          -- only on first container start (when /var/lib/mysql is empty).
+          -- The MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD env vars also handle this,
+          -- but we include explicit SQL as a belt-and-suspenders approach for AC T2.2.
+          CREATE DATABASE IF NOT EXISTS jovo
+            CHARACTER SET utf8mb4
+            COLLATE utf8mb4_unicode_ci;
+          -- The user is created by MYSQL_USER/MYSQL_PASSWORD env vars.
+          -- This GRANT ensures full permissions on the jovo database.
+          GRANT ALL PRIVILEGES ON jovo.* TO 'jovo_app'@'%';
+          FLUSH PRIVILEGES;
 
   defaultPodOptions:
     securityContext:
-      fsGroup: 1000
+      fsGroup: 999
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
       operator.1password.io/item-name: "jovo-canary-secrets"
