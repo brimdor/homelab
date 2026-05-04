@@ -70,21 +70,21 @@ app-template:
             TZ: America/Chicago
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
             JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
-            JOVO_DB_HOST: localhost
-            JOVO_DB_PORT: "3306"
+            DB_HOST: localhost
+            DB_PORT: "3306"
             DB_WAIT_HOST: localhost
             DB_WAIT_PORT: "3306"
-            JOVO_DB_NAME:
+            DB_NAME:
               valueFrom:
                 secretKeyRef:
                   name: jovo-canary-secrets
                   key: mariadb-database
-            JOVO_DB_USER:
+            DB_USER:
               valueFrom:
                 secretKeyRef:
                   name: jovo-canary-secrets
                   key: mariadb-user
-            JOVO_DB_PASSWORD:
+            DB_PASSWORD:
               valueFrom:
                 secretKeyRef:
                   name: jovo-canary-secrets
@@ -263,6 +263,7 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
       operator.1password.io/item-name: "jovo-canary-secrets"
+      roll: "t24-fix-alembic-dbenvvars"
 
   networkpolicies:
     main:
