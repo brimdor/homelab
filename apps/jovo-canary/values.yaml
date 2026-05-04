@@ -212,7 +212,7 @@ app-template:
       enabled: true
       accessMode: ReadWriteOnce
       size: 10Gi
-      storageClass: local-path
+      storageClass: standard-rwo
       advancedMounts:
         main:
           database:
@@ -221,7 +221,7 @@ app-template:
       enabled: true
       accessMode: ReadWriteOnce
       size: 50Gi
-      storageClass: local-path
+      storageClass: standard-rwo
       advancedMounts:
         main:
           backend:
