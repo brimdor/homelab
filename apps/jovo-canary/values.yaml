@@ -229,7 +229,7 @@ app-template:
     init-db:
       enabled: true
       type: configMap
-      name: jovo-canary-init-db
+      name: jovo-canary
       items:
         - key: 01-init.sql
           path: 01-init.sql
