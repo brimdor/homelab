@@ -6,7 +6,7 @@ app-template:
       containers:
         database:
           image:
-            repository: 10.0.20.11:32309/mariadb
+            repository: mariadb
             tag: "10.11"
             pullPolicy: IfNotPresent
           env:
