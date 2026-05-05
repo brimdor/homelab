@@ -70,21 +70,21 @@ app-template:
             TZ: America/Chicago
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
             JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
-            DB_HOST: localhost
-            DB_PORT: "3306"
+            db_host: localhost
+            db_port: "3306"
             DB_WAIT_HOST: localhost
             DB_WAIT_PORT: "3306"
-            DB_NAME:
+            db_name:
               valueFrom:
                 secretKeyRef:
                   name: jovo-canary-secrets
                   key: mariadb-database
-            DB_USER:
+            db_user:
               valueFrom:
                 secretKeyRef:
                   name: jovo-canary-secrets
                   key: mariadb-user
-            DB_PASSWORD:
+            db_password:
               valueFrom:
                 secretKeyRef:
                   name: jovo-canary-secrets
