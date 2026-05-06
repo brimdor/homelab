@@ -70,6 +70,7 @@ app-template:
             TZ: America/Chicago
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
             JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
+            JOVO_AUTH_REQUIRED: "false"
             db_host: localhost
             db_port: "3306"
             DB_WAIT_HOST: localhost
