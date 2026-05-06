@@ -1,7 +1,7 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      strategy: Recreate
       containers:
         database:
           image:
@@ -57,7 +57,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_backend
             tag: 2026-05-06-v1-prod
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
@@ -93,16 +93,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: encryption-key
-            MYSQL_DATABASE:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: database
-            MYSQL_ROOT_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: root-password
           probes:
             liveness:
               enabled: true
@@ -126,8 +116,8 @@ app-template:
         node-backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: latest
-            pullPolicy: Always
+            tag: 2026-05-06-v1-prod
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
@@ -160,16 +150,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: encryption-key
-            MYSQL_DATABASE:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: database
-            MYSQL_ROOT_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: root-password
           probes:
             liveness:
               enabled: true
@@ -194,7 +174,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
             tag: "2026-05-06-v1-prod"
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:
