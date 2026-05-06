@@ -1,7 +1,7 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      strategy: Recreate
       containers:
         database:
           image:
@@ -53,15 +53,18 @@ app-template:
                 initialDelaySeconds: 10
                 periodSeconds: 10
 
-        backend:
+        fastapi:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: latest
-            pullPolicy: Always
+            tag: 2026-05-06-v1-prod
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
-            CORS_ORIGIN: https://backlog.eaglepass.io
+            FASTAPI_CORS_ORIGINS: https://backlog.eaglepass.io
+            FASTAPI_ENV: production
+            FASTAPI_HOST: 0.0.0.0
+            FASTAPI_PORT: "8000"
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
@@ -80,12 +83,59 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database
-            MYSQL_ROOT_PASSWORD:
+            JWT_SECRET:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: root-password
-            MYSQL_DATABASE:
+                  key: jwt-secret
+            ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: encryption-key
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health/live
+                  port: 8000
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health/ready
+                  port: 8000
+                initialDelaySeconds: 15
+                periodSeconds: 10
+
+        node-backend:
+          image:
+            repository: 10.0.20.11:32309/backlog_backend
+            tag: 2026-05-06-v2-prod
+            pullPolicy: IfNotPresent
+          env:
+            TZ: America/Chicago
+            HOST_URL: https://backlog.eaglepass.io
+            CORS_ORIGIN: https://backlog.eaglepass.io
+            DB_HOST: localhost
+            DB_PORT: "3306"
+            ADMIN_MODE: "true"
+            DB_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-user
+            DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: db-password
+            DB_NAME:
               valueFrom:
                 secretKeyRef:
                   name: secrets
@@ -123,8 +173,8 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: latest
-            pullPolicy: Always
+            tag: "2026-05-06-v1-prod"
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:
@@ -154,11 +204,17 @@ app-template:
         http:
           port: 80
           protocol: HTTP
-    backend:
+    node-backend:
       controller: main
       ports:
         http:
           port: 3000
+          protocol: HTTP
+    fastapi:
+      controller: main
+      ports:
+        http:
+          port: 8000
           protocol: HTTP
     database:
       controller: main
@@ -178,20 +234,25 @@ app-template:
       hosts:
         - host: backlog.eaglepass.io
           paths:
+            - path: /health/live
+              pathType: Exact
+              service:
+                identifier: fastapi
+                port: http
             - path: /health/ready
               pathType: Exact
               service:
-                identifier: backend
+                identifier: fastapi
                 port: http
             - path: /health
               pathType: Prefix
               service:
-                identifier: backend
+                identifier: fastapi
                 port: http
             - path: /api
               pathType: Prefix
               service:
-                identifier: backend
+                identifier: node-backend
                 port: http
             - path: /
               pathType: Prefix
@@ -217,6 +278,5 @@ app-template:
     securityContext:
       fsGroup: 999
     annotations:
-      roll: "2026-05-03T16:25:00Z"
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
