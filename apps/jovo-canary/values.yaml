@@ -123,7 +123,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/broville/jovo_frontend
-            tag: t34-rebuild
+            tag: issue-1-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
