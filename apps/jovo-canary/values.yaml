@@ -1,0 +1,308 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      containers:
+        database:
+          image:
+            repository: mariadb
+            tag: "10.11"
+            pullPolicy: IfNotPresent
+          env:
+            MYSQL_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: jovo-canary-secrets
+                  key: mariadb-root-password
+            MYSQL_DATABASE:
+              valueFrom:
+                secretKeyRef:
+                  name: jovo-canary-secrets
+                  key: mariadb-database
+            MYSQL_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: jovo-canary-secrets
+                  key: mariadb-user
+            MYSQL_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: jovo-canary-secrets
+                  key: mariadb-password
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - sh
+                    - -c
+                    - 'mariadb-admin ping -h localhost -uroot -p"$MYSQL_ROOT_PASSWORD"'
+                initialDelaySeconds: 60
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - sh
+                    - -c
+                    - 'mariadb-admin ping -h localhost -uroot -p"$MYSQL_ROOT_PASSWORD"'
+                initialDelaySeconds: 30
+                periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+
+        backend:
+          image:
+            repository: 10.0.20.11:32309/broville/jovo_backend
+            tag: issue-1-canary
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            JOVO_HOST_URL: https://jovo-canary.eaglepass.io
+            JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
+            JOVO_AUTH_REQUIRED: "false"
+            db_host: localhost
+            db_port: "3306"
+            DB_WAIT_HOST: localhost
+            DB_WAIT_PORT: "3306"
+            db_name:
+              valueFrom:
+                secretKeyRef:
+                  name: jovo-canary-secrets
+                  key: mariadb-database
+            db_user:
+              valueFrom:
+                secretKeyRef:
+                  name: jovo-canary-secrets
+                  key: mariadb-user
+            db_password:
+              valueFrom:
+                secretKeyRef:
+                  name: jovo-canary-secrets
+                  key: mariadb-password
+            JOVO_DATA_DIR: /data
+            JOVO_AUDIO_DIR: /data/audio
+            JOVO_COVERS_DIR: /data/covers
+            JOVO_MAX_UPLOAD_SIZE_MB: "500"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 8000
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /health
+                  port: 8000
+                initialDelaySeconds: 10
+                periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+
+        frontend:
+          image:
+            repository: 10.0.20.11:32309/broville/jovo_frontend
+            tag: issue-1-canary
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            NEXT_PUBLIC_API_URL: https://jovo-canary.eaglepass.io/api
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 3000
+                initialDelaySeconds: 15
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 3000
+                initialDelaySeconds: 5
+                periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+
+  service:
+    main:
+      controller: main
+      primary: true
+      ports:
+        http:
+          port: 3000
+          protocol: HTTP
+    backend:
+      controller: main
+      ports:
+        http:
+          port: 8000
+          protocol: HTTP
+    mariadb:
+      controller: main
+      ports:
+        mysql:
+          port: 3306
+          protocol: TCP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: jovo-canary.eaglepass.io
+          paths:
+            - path: /health
+              pathType: Prefix
+              service:
+                identifier: backend
+                port: http
+            - path: /api
+              pathType: Prefix
+              service:
+                identifier: backend
+                port: http
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - jovo-canary.eaglepass.io
+          secretName: jovo-canary-tls
+
+  persistence:
+    data:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        main:
+          database:
+            - path: /var/lib/mysql
+    audio:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 50Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        main:
+          backend:
+            - path: /data
+    init-db:
+      enabled: true
+      type: configMap
+      name: jovo-canary
+      items:
+        - key: 01-init.sql
+          path: 01-init.sql
+      advancedMounts:
+        main:
+          database:
+            - path: /docker-entrypoint-initdb.d/01-init.sql
+              subPath: 01-init.sql
+
+  configMaps:
+    init-db:
+      enabled: true
+      data:
+        01-init.sql: |
+          -- T2.2: Create database and user for Jovo app
+          -- MariaDB official image auto-runs *.sql and *.sh files in /docker-entrypoint-initdb.d/
+          -- only on first container start (when /var/lib/mysql is empty).
+          -- The MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD env vars also handle this,
+          -- but we include explicit SQL as a belt-and-suspenders approach for AC T2.2.
+          CREATE DATABASE IF NOT EXISTS jovo
+            CHARACTER SET utf8mb4
+            COLLATE utf8mb4_unicode_ci;
+          -- The user is created by MYSQL_USER/MYSQL_PASSWORD env vars.
+          -- This GRANT ensures full permissions on the jovo database.
+          GRANT ALL PRIVILEGES ON jovo.* TO 'jovo_app'@'%';
+          FLUSH PRIVILEGES;
+
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 999
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
+      operator.1password.io/item-name: "jovo-canary-secrets"
+      roll: "t31-t33-frontend-rebuild"
+
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes:
+        - Ingress
+        - Egress
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ingress-nginx
+            ports:
+              - protocol: TCP
+                port: 3000
+              - protocol: TCP
+                port: 8000
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: kube-system
+            ports:
+              - protocol: UDP
+                port: 53
+              - protocol: TCP
+                port: 53
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except:
+                    - 10.0.0.0/8
+                    - 172.16.0.0/12
+                    - 192.168.0.0/16
+            ports:
+              - protocol: TCP
+                port: 443
+              - protocol: TCP
+                port: 80
