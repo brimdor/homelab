@@ -57,7 +57,7 @@ app-template:
         fastapi:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: issue-14-canary
+            tag: issue-18-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -184,7 +184,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: issue-14-canary
+            tag: issue-18-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -287,6 +287,6 @@ app-template:
     securityContext:
       fsGroup: 999
     annotations:
-      roll: "2026-05-06-issue-16-sidecar"
+      roll: "2026-05-07-issue-18-canary"
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
