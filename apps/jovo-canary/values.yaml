@@ -71,7 +71,7 @@ app-template:
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
             JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
             JOVO_AUTH_REQUIRED: "false"
-            RESTART_AT: "2026-05-07T1510Z"
+            RESTART_AT: "2026-05-07T1600Z"
             db_host: localhost
             db_port: "3306"
             DB_WAIT_HOST: localhost
@@ -130,7 +130,7 @@ app-template:
           env:
             TZ: America/Chicago
             NEXT_PUBLIC_API_URL: https://jovo-canary.eaglepass.io/api
-            RESTART_AT: "2026-05-07T1510Z"
+            RESTART_AT: "2026-05-07T1600Z"
           probes:
             liveness:
               enabled: true
@@ -266,7 +266,7 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
       operator.1password.io/item-name: "jovo-canary-secrets"
-      roll: "t54-upload-fix-1778184736"
+      roll: "canary-final-rebuild-1778191664"
 
   networkpolicies:
     main:
