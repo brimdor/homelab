@@ -64,14 +64,14 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/broville/jovo_backend
-            tag: issue-1-canary-t51
+            tag: issue-1-canary-t52
             pullPolicy: Always
           env:
             TZ: America/Chicago
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
             JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
             JOVO_AUTH_REQUIRED: "false"
-            RESTART_AT: "2026-05-07T0538Z"
+            RESTART_AT: "2026-05-07T1302Z"
             db_host: localhost
             db_port: "3306"
             DB_WAIT_HOST: localhost
@@ -125,12 +125,12 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/broville/jovo_frontend
-            tag: issue-1-canary-t51
+            tag: issue-1-canary-t52
             pullPolicy: Always
           env:
             TZ: America/Chicago
             NEXT_PUBLIC_API_URL: https://jovo-canary.eaglepass.io/api
-            RESTART_AT: "2026-05-07T0538Z"
+            RESTART_AT: "2026-05-07T1302Z"
           probes:
             liveness:
               enabled: true
@@ -266,7 +266,7 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
       operator.1password.io/item-name: "jovo-canary-secrets"
-      roll: "t51-frontend-sync-1778132599"
+      roll: "t52-frontend-cache-purge-1778158969"
 
   networkpolicies:
     main:
