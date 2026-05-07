@@ -103,6 +103,10 @@ argocd-apps:
               namespace: matrix
               jqPathExpressions:
                 - .spec.template.spec.containers[] | select(.name == "postgresql") | .image
+            - group: apps
+              kind: Deployment
+              jqPathExpressions:
+                - .spec.strategy.rollingUpdate
           syncPolicy:
             automated:
               prune: true
@@ -177,6 +181,10 @@ argocd-apps:
               namespace: matrix
               jqPathExpressions:
                 - .spec.template.spec.containers[] | select(.name == "postgresql") | .image
+            - group: apps
+              kind: Deployment
+              jqPathExpressions:
+                - .spec.strategy.rollingUpdate
           syncPolicy:
             automated:
               prune: true
