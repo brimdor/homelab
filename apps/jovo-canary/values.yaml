@@ -63,7 +63,7 @@ app-template:
 
         backend:
           image:
-            repository: registry.eaglepass.io/broville/jovo_backend
+            repository: 10.0.20.11:32309/broville/jovo_backend
             tag: issue-1-canary
             pullPolicy: Always
           env:
@@ -124,7 +124,7 @@ app-template:
 
         frontend:
           image:
-            repository: registry.eaglepass.io/broville/jovo_frontend
+            repository: 10.0.20.11:32309/broville/jovo_frontend
             tag: issue-1-canary
             pullPolicy: Always
           env:
