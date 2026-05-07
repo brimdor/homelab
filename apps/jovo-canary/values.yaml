@@ -129,6 +129,7 @@ app-template:
           env:
             TZ: America/Chicago
             NEXT_PUBLIC_API_URL: https://jovo-canary.eaglepass.io/api
+            RESTART_AT: "2026-05-07T0055Z"
           probes:
             liveness:
               enabled: true
