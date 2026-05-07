@@ -264,7 +264,7 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
       operator.1password.io/item-name: "jovo-canary-secrets"
-      roll: "t46-canary-rebuild"
+      roll: "t48-no-cache-rebuild"
 
   networkpolicies:
     main:
