@@ -71,6 +71,7 @@ app-template:
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
             JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
             JOVO_AUTH_REQUIRED: "false"
+            RESTART_AT: "2026-05-07T0120Z"
             db_host: localhost
             db_port: "3306"
             DB_WAIT_HOST: localhost
@@ -265,7 +266,7 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
       operator.1password.io/item-name: "jovo-canary-secrets"
-      roll: "t48-no-cache-rebuild"
+      roll: "t50-backend-uuid-fix"
 
   networkpolicies:
     main:
