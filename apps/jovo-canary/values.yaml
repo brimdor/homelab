@@ -64,7 +64,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/broville/jovo_backend
-            tag: issue-1-canary-t50
+            tag: issue-1-canary-t51
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -266,7 +266,7 @@ app-template:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-canary-secrets"
       operator.1password.io/item-name: "jovo-canary-secrets"
-      roll: "t51-frontend-nocache-rebuild"
+      roll: "t51-full-pod-refresh"
 
   networkpolicies:
     main:
