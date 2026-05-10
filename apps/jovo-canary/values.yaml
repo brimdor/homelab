@@ -71,7 +71,7 @@ app-template:
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
             JOVO_CORS_ORIGIN: https://jovo-canary.eaglepass.io
             JOVO_AUTH_REQUIRED: "false"
-            RESTART_AT: "2026-05-09T1912Z"
+            RESTART_AT: "2026-05-10T0026Z"
             db_host: localhost
             db_port: "3306"
             DB_WAIT_HOST: localhost
@@ -130,7 +130,7 @@ app-template:
           env:
             TZ: America/Chicago
             NEXT_PUBLIC_API_URL: https://jovo-canary.eaglepass.io/api
-            RESTART_AT: "2026-05-09T1912Z"
+            RESTART_AT: "2026-05-10T0026Z"
           probes:
             liveness:
               enabled: true
