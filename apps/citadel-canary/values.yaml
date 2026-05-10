@@ -133,6 +133,6 @@ app-template:
 
   defaultPodOptions:
     securityContext:
-      fsGroup: 1000
+      fsGroup: 999
     annotations:
       roll: "issue-1-canary"
