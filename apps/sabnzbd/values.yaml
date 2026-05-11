@@ -3,6 +3,7 @@
 app-template:
   controllers:
     main:
+      strategy: Recreate
       containers:
         main:
           image:
