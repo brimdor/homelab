@@ -287,6 +287,6 @@ app-template:
     securityContext:
       fsGroup: 999
     annotations:
-      roll: "2026-05-11-t24-rebuild"
+      roll: "2026-05-11-t26-canary-rebuild"
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
