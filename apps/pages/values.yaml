@@ -56,11 +56,9 @@ app-template:
           probes:
             liveness:
               enabled: true
-              custom: true
+              type: HTTP
+              path: /
               spec:
-                exec:
-                  command:
-                    - /usr/local/bin/healthcheck.sh
                 initialDelaySeconds: 30
                 periodSeconds: 60
                 failureThreshold: 2
