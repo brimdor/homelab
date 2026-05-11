@@ -14,6 +14,22 @@ zot:
         hosts:
           - *host
   # TODO enable auth
+  mountConfig: true
+  configFiles:
+    config.json: |-
+      {
+        "storage": {
+          "rootDirectory": "/var/lib/registry",
+          "dedupe": false
+        },
+        "http": {
+          "address": "0.0.0.0",
+          "port": "5000"
+        },
+        "log": {
+          "level": "debug"
+        }
+      }
   persistence: true
   pvc:
     create: true
