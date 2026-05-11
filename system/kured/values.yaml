@@ -17,8 +17,13 @@ kured:
     period: 5m
     rebootDays: [mo, we, fr]
     startTime: 1:45
-    endTime: 5:00
+    endTime: 7:00
     timeZone: America/Chicago
+    concurrency: 1
+    annotateNodes: true
+    preferNoScheduleTaint: homelab.eaglepass.io/rebooting
+    lockReleaseDelay: 10m
+    drainTimeout: 20m
 
   initContainers:
     - name: deploy-rebooter-script
