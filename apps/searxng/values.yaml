@@ -4,6 +4,7 @@ app-template:
     main:
       strategy: Recreate
       annotations:
+        argocd.argoproj.io/sync-options: Replace=true
         operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/zmzs6wc2wftouzhoaufk7eivdy"
         operator.1password.io/item-name: "secrets"
       containers:

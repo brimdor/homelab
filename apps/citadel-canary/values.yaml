@@ -3,6 +3,8 @@ app-template:
     main:
       strategy: Recreate
       replicas: 1
+      annotations:
+        argocd.argoproj.io/sync-options: Replace=true
       containers:
         backend:
           image:
