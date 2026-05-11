@@ -4,6 +4,8 @@ app-template:
   controllers:
     main:
       strategy: Recreate
+      annotations:
+        argocd.argoproj.io/sync-options: Replace=true
       containers:
         main:
           image:
