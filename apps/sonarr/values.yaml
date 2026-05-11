@@ -3,9 +3,10 @@
 app-template:
   controllers:
     main:
-      strategy: Recreate
-      annotations:
-        argocd.argoproj.io/sync-options: Replace=true
+      strategy: RollingUpdate
+      rollingUpdate:
+        unavailable: 1
+        surge: "0"
       containers:
         main:
           image:
