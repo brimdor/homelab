@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gitea-actions-runner.fullname" . }}
+  labels:
+    {{- include "gitea-actions-runner.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "gitea-actions-runner.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "gitea-actions-runner.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "gitea-actions-runner.fullname" . }}
+      containers:
+        - name: runner
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: CONFIG_FILE
+              value: /config/config.yaml
+            - name: GITEA_INSTANCE_URL
+              value: {{ .Values.gitea.instanceURL | quote }}
+            - name: GITEA_RUNNER_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gitea-actions-runner.fullname" . }}-token
+                  key: token
+            - name: GITEA_RUNNER_LABELS
+              value: {{ join "," .Values.labels | quote }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "gitea-actions-runner.fullname" . }}-config
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket

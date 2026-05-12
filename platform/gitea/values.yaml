@@ -1,5 +1,3 @@
-# Initial config job for creating orgs/repos - disable after first setup
-# (uses basic auth which conflicts with 2FA on admin account)
 configJob:
   enabled: false
 
@@ -31,6 +29,8 @@ gitea:
         ROOT_URL: https://git.eaglepass.io
       webhook:
         ALLOWED_HOST_LIST: private
+      actions:
+        ENABLED: true
   persistence:
     storageClass: standard-rwo
   postgresql:
