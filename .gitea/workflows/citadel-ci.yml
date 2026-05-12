@@ -1,0 +1,115 @@
+name: Citadel CI Pipeline
+run-name: "${{ gitea.actor }} CI for ${{ inputs.project-name || gitea.repository }}"
+
+on:
+  push:
+    branches: [main]
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version
+        required: false
+        default: "20"
+        type: string
+      project-name:
+        description: Citadel project name (for Docker image tagging)
+        required: true
+        type: string
+      dockerfile:
+        description: Path to Dockerfile
+        required: false
+        default: "./Dockerfile"
+        type: string
+      docker-context:
+        description: Docker build context
+        required: false
+        default: "."
+        type: string
+      argocd-values-path:
+        description: Path in GitOps repo to the app values.yaml for ArgoCD
+        required: false
+        default: ""
+        type: string
+      install-cmd:
+        description: Install dependencies command
+        required: false
+        default: "npm ci"
+        type: string
+      build-cmd:
+        description: Build command
+        required: false
+        default: "npm run build"
+        type: string
+      lint-cmd:
+        description: Lint command
+        required: false
+        default: "npm run lint"
+        type: string
+      test-cmd:
+        description: Test command
+        required: false
+        default: "npm test"
+        type: string
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: ${{ inputs.install-cmd }}
+
+      - name: Run linter
+        run: ${{ inputs.lint-cmd }}
+
+      - name: Run tests
+        run: ${{ inputs.test-cmd }}
+
+      - name: Build application
+        run: ${{ inputs.build-cmd }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Gitea Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: git.eaglepass.io
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.GITEA_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.docker-context }}
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: |
+            git.eaglepass.io/citadel/${{ inputs.project-name }}:latest
+            git.eaglepass.io/citadel/${{ inputs.project-name }}:${{ gitea.sha }}
+
+      - name: Update ArgoCD GitOps config
+        if: inputs.argocd-values-path != ""
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="${{ gitea.sha }}"
+          VALUES_PATH="${{ inputs.argocd-values-path }}"
+          git clone "https://git.eaglepass.io/ops/homelab.git" /tmp/homelab
+          cd /tmp/homelab
+          sed -i "s|tag:.*|tag: ${IMAGE_TAG}|" "${VALUES_PATH}"
+          git config user.name "Citadel CI"
+          git config user.email "ci@citadel.local"
+          git add "${VALUES_PATH}"
+          git commit -m "chore: update ${{ inputs.project-name }} image tag to ${IMAGE_TAG} [skip ci]"
+          git push
