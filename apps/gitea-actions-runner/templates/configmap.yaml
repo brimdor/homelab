@@ -13,7 +13,7 @@ data:
       capacity: 1
       envs:
         A_RUNNER_NAME: {{ .Values.gitea.name | quote }}
-      timeout: 0
+      timeout: 0s
     container:
       network_mode: bridge
       privileged: false
