@@ -3,7 +3,7 @@ run-name: "${{ gitea.actor }} CI for ${{ inputs.project-name || gitea.repository
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_call:
     inputs:
       node-version:
