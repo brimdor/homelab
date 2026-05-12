@@ -2,8 +2,8 @@ replicas: 1
 
 image:
   repository: gitea/act_runner
-  tag: latest
-  pullPolicy: IfNotPresent
+  tag: nightly
+  pullPolicy: Always
 
 gitea:
   instanceURL: https://git.eaglepass.io
