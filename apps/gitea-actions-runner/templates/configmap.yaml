@@ -17,5 +17,6 @@ data:
     container:
       network: host
       privileged: false
+      options: --dns 10.43.0.10
       valid_volumes:
         - /var/run/docker.sock:/var/run/docker.sock
