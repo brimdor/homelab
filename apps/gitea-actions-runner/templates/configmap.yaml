@@ -15,7 +15,7 @@ data:
         A_RUNNER_NAME: {{ .Values.gitea.name | quote }}
       timeout: 0s
     container:
-      network_mode: bridge
+      network_mode: host
       privileged: false
       valid_volumes:
         - /var/run/docker.sock:/var/run/docker.sock
