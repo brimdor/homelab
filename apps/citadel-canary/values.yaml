@@ -10,7 +10,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/broville/citadel_backend
-            tag: issue-1-canary
+            tag: issue-4-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -52,7 +52,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/broville/citadel_frontend
-            tag: issue-1-canary
+            tag: issue-4-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -139,4 +139,4 @@ app-template:
     securityContext:
       fsGroup: 999
     annotations:
-      roll: "issue-1-canary"
+      roll: "issue-4-canary"
