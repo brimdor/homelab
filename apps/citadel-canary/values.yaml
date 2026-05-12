@@ -29,6 +29,7 @@ app-template:
             METRICS_GPU_ENABLED: "true"
             METRICS_TEMPS_ENABLED: "true"
             CORS_ORIGINS: '["https://citadel-canary.eaglepass.io"]'
+            RESTART_AT: "2026-05-12T0400Z"
           probes:
             liveness:
               enabled: true
@@ -56,6 +57,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
+            RESTART_AT: "2026-05-12T0400Z"
           probes:
             liveness:
               enabled: true
