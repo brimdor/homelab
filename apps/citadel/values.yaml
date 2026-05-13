@@ -156,9 +156,6 @@ app-template:
             - citadel.eaglepass.io
           secretName: citadel-tls
 
-  persistence:
-    data:
-      enabled: false
 
   defaultPodOptions:
     securityContext:
