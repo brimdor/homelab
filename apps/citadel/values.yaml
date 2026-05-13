@@ -16,7 +16,7 @@ app-template:
       containers:
         backend:
           image:
-            repository: 10.43.42.8:5000/citadel-backend
+            repository: 10.0.20.14:32309/citadel-backend
             tag: latest
             pullPolicy: Always
           env:
@@ -83,7 +83,7 @@ app-template:
 
         frontend:
           image:
-            repository: 10.43.42.8:5000/citadel-frontend
+            repository: 10.0.20.14:32309/citadel-frontend
             tag: latest
             pullPolicy: Always
           env:
