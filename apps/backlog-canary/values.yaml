@@ -2,13 +2,13 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 1
+      replicas: 0
       containers:
         database:
           image:
             repository: 10.0.20.11:32309/backlog_database
             tag: canary
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             MYSQL_ROOT_PASSWORD:
               valueFrom:
@@ -40,7 +40,7 @@ app-template:
                     - sh
                     - -c
                     - 'mariadb-admin ping -h localhost -uroot -p"$MYSQL_ROOT_PASSWORD"'
-                initialDelaySeconds: 30
+                initialDelaySeconds: 15
                 periodSeconds: 10
             readiness:
               enabled: true
@@ -51,73 +51,13 @@ app-template:
                     - sh
                     - -c
                     - 'mariadb-admin ping -h localhost -uroot -p"$MYSQL_ROOT_PASSWORD"'
-                initialDelaySeconds: 20
+                initialDelaySeconds: 10
                 periodSeconds: 10
 
-        fastapi:
+        backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: issue-18-canary
-            pullPolicy: Always
-          env:
-            TZ: America/Chicago
-            HOST_URL: https://backlog-canary.eaglepass.io
-            FASTAPI_HOST: "0.0.0.0"
-            FASTAPI_PORT: "8000"
-            FASTAPI_CORS_ORIGINS: https://backlog-canary.eaglepass.io
-            FASTAPI_ENV: production
-            DB_HOST: localhost
-            DB_PORT: "3306"
-            ADMIN_MODE: "true"
-            DB_USER:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: db-user
-            DB_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: db-password
-            DB_NAME:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: database
-            JWT_SECRET:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: jwt-secret
-            ENCRYPTION_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: encryption-key
-          probes:
-            liveness:
-              enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /health/live
-                  port: 8000
-                initialDelaySeconds: 30
-                periodSeconds: 10
-            readiness:
-              enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /health/ready
-                  port: 8000
-                initialDelaySeconds: 15
-                periodSeconds: 10
-
-        node-backend:
-          image:
-            repository: 10.0.20.11:32309/backlog_backend
-            tag: latest
+            tag: 2026-04-23-v1-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -141,16 +81,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: database
-            MYSQL_ROOT_PASSWORD:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: root-password
-            MYSQL_DATABASE:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: database
             JWT_SECRET:
               valueFrom:
                 secretKeyRef:
@@ -167,24 +97,24 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /health/ready
+                  path: /
                   port: 3000
-                initialDelaySeconds: 30
+                initialDelaySeconds: 15
                 periodSeconds: 10
             readiness:
               enabled: true
               custom: true
               spec:
                 httpGet:
-                  path: /health/ready
+                  path: /
                   port: 3000
-                initialDelaySeconds: 15
+                initialDelaySeconds: 10
                 periodSeconds: 10
 
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: issue-18-canary
+            tag: "2026-04-24-v2-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -215,13 +145,7 @@ app-template:
         http:
           port: 80
           protocol: HTTP
-    fastapi:
-      controller: main
-      ports:
-        http:
-          port: 8000
-          protocol: HTTP
-    node-backend:
+    backend:
       controller: main
       ports:
         http:
@@ -245,26 +169,6 @@ app-template:
       hosts:
         - host: backlog-canary.eaglepass.io
           paths:
-            - path: /health/live
-              pathType: Exact
-              service:
-                identifier: fastapi
-                port: http
-            - path: /health/ready
-              pathType: Exact
-              service:
-                identifier: fastapi
-                port: http
-            - path: /health
-              pathType: Prefix
-              service:
-                identifier: fastapi
-                port: http
-            - path: /api
-              pathType: Prefix
-              service:
-                identifier: node-backend
-                port: http
             - path: /
               pathType: Prefix
               service:
@@ -277,7 +181,9 @@ app-template:
 
   persistence:
     data:
-      type: emptyDir
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
       advancedMounts:
         main:
           database:
@@ -287,6 +193,5 @@ app-template:
     securityContext:
       fsGroup: 999
     annotations:
-      roll: "2026-05-11-t33-canary-rebuild"
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/3g3cuf6gowcxdhtlteivplc27u"
       operator.1password.io/item-name: "secrets"
