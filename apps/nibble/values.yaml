@@ -8,7 +8,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/nibble
             tag: "latest"
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           env:
             TZ: America/Chicago
           probes:
@@ -81,11 +81,11 @@ app-template:
               - protocol: TCP
                 port: 53
           # Allow egress to Ollama service (if backend proxy calls Ollama)
-          # Adjust namespace/port bbased on actual Ollama deployment location
+          # Adjust namespace/port based on actual Ollama deployment location
           - to:
               - namespaceSelector:
                   matchLabels:
-                     name: ollama
+                    name: ollama
             ports:
               - protocol: TCP
                 port: 11434

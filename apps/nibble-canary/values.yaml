@@ -2,12 +2,12 @@ app-template:
   controllers:
     main:
       strategy: RollingUpdate
-      replicas: 0
+      replicas: 1
       containers:
         main:
           image:
-            repository: 10.0.20.11:32309/nibble
-            tag: "issue-17-canary"
+            repository: 10.0.20.12:30809/nibble
+            tag: "issue-13-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -53,6 +53,7 @@ app-template:
             - nibble-canary.eaglepass.io
           secretName: nibble-canary-tls
 
+  # Tier 2: NetworkPolicy for pod isolation (defense-in-depth)
   networkpolicies:
     main:
       enabled: true
@@ -62,6 +63,7 @@ app-template:
         - Egress
       rules:
         ingress:
+          # Allow ingress only from ingress-nginx controller namespace
           - from:
               - namespaceSelector:
                   matchLabels:
@@ -70,6 +72,7 @@ app-template:
               - protocol: TCP
                 port: 3000
         egress:
+          # Allow DNS resolution (required for all outbound connections)
           - to:
               - namespaceSelector: {}
             ports:
@@ -77,6 +80,8 @@ app-template:
                 port: 53
               - protocol: TCP
                 port: 53
+          # Allow egress to Ollama service (if backend proxy calls Ollama)
+          # Adjust namespace/port based on actual Ollama deployment location
           - to:
               - namespaceSelector:
                   matchLabels:
@@ -84,3 +89,11 @@ app-template:
             ports:
               - protocol: TCP
                 port: 11434
+          # Allow egress to zot registry for image pulls
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: zot
+            ports:
+              - protocol: TCP
+                port: 5000
