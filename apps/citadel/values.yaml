@@ -96,7 +96,7 @@ app-template:
               spec:
                 httpGet:
                   path: /
-                  port: 5173
+                  port: 80
                 initialDelaySeconds: 10
                 periodSeconds: 10
             readiness:
@@ -105,7 +105,7 @@ app-template:
               spec:
                 httpGet:
                   path: /
-                  port: 5173
+                  port: 80
                 initialDelaySeconds: 5
                 periodSeconds: 10
           resources:
@@ -121,7 +121,7 @@ app-template:
       controller: main
       ports:
         http:
-          port: 5173
+          port: 80
           protocol: HTTP
     backend:
       controller: main
