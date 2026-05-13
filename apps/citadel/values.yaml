@@ -16,7 +16,7 @@ app-template:
       containers:
         backend:
           image:
-            repository: 10.43.42.8:5000/broville/citadel_backend
+            repository: 10.0.20.11:32309/broville/citadel_backend
             tag: latest
             pullPolicy: Always
           env:
@@ -83,7 +83,7 @@ app-template:
 
         frontend:
           image:
-            repository: 10.43.42.8:5000/broville/citadel_frontend
+            repository: 10.0.20.11:32309/broville/citadel_frontend
             tag: latest
             pullPolicy: Always
           env:
