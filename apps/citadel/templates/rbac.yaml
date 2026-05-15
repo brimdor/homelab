@@ -1,0 +1,35 @@
+---
+# ServiceAccount for Citadel
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: citadel
+  namespace: citadel
+automountServiceAccountToken: true
+---
+# ClusterRole for reading K8s resources (cluster-wide: nodes, pods, deployments)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: citadel-reader
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "services", "events", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: citadel-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: citadel-reader
+subjects:
+  - kind: ServiceAccount
+    name: citadel
+    namespace: citadel
