@@ -50,14 +50,12 @@ app-template:
           protocol: HTTP
   persistence:
     data:
-      enabled: true
       type: persistentVolumeClaim
-      storageClassName: standard-rwo
+      storageClass: standard-rwo
       accessMode: ReadWriteOnce
       size: 1Gi
-      advancedMounts:
-        main:
-          - path: /app/data
+      globalMounts:
+        - path: /app/data
   ingress:
     main:
       enabled: true
