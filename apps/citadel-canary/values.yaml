@@ -8,6 +8,9 @@ app-template:
         surge: "0"
       containers:
         main:
+          ports:
+            - containerPort: 8501
+              name: http
           image:
             repository: 10.0.20.11:32309/broville/citadel
             tag: latest
