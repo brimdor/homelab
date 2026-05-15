@@ -11,7 +11,7 @@ app-template:
           nameOverride: eaglepass-news
           image:
             repository: 10.0.20.11:32309/eaglepass-news
-            tag: "2025-05-16-v7"
+            tag: "2025-05-16-v8"
             pullPolicy: Always
           ports:
             - containerPort: 8501
