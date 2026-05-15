@@ -48,6 +48,16 @@ app-template:
         http:
           port: 8501
           protocol: HTTP
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      storageClassName: standard-rwo
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      advancedMounts:
+        main:
+          - path: /app/data
   ingress:
     main:
       enabled: true
