@@ -1,0 +1,75 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      rollingUpdate:
+        unavailable: 1
+        surge: "0"
+      containers:
+        main:
+          image:
+            repository: 10.0.20.11:32309/broville/citadel
+            tag: latest
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            STREAMLIT_SERVER_PORT: "8501"
+            STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+            STREAMLIT_SERVER_HEADLESS: "true"
+            STREAMLIT_SERVER_ENABLECORS: "false"
+            RESTART_AT: "2026-05-15T2015Z"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /_stcore/health
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /_stcore/health
+                  port: http
+                initialDelaySeconds: 5
+                periodSeconds: 10
+
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 8501
+          protocol: HTTP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      hosts:
+        - host: citadel-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - citadel-canary.eaglepass.io
+          secretName: citadel-canary-tls
+
+  defaultPodOptions:
+    annotations:
+      roll: "streamlit-canary"
