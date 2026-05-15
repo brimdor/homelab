@@ -21,6 +21,14 @@ app-template:
           metrics: 0.0.0.0:2000
           no-autoupdate: true
           ingress:
+            - hostname: 'citadel.eaglepass.io'
+              service: http://10.0.30.100:8501
+              originRequest:
+                noTLSVerify: true
+            - hostname: 'hermes-webhook.eaglepass.io'
+              service: http://10.0.30.100:8644
+              originRequest:
+                noTLSVerify: true
             - hostname: '*.eaglepass.io'
               service: https://ingress-nginx-controller.ingress-nginx
               originRequest:
@@ -37,7 +45,6 @@ app-template:
     credentials:
       enabled: true
       type: secret
-      # Created by ../../external/cloudflared
       name: cloudflared-credentials
       globalMounts:
         - path: /etc/cloudflared/credentials.json
