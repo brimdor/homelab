@@ -10,7 +10,7 @@ app-template:
       rollingUpdate:
         unavailable: 1
         surge: "0"
-      replicas: 0
+      replicas: 1
       containers:
         main:
           image:
