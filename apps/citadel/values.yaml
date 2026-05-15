@@ -15,7 +15,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/citadel
-            tag: streamlit-v1
+            tag: streamlit-v2
             pullPolicy: Always
           env:
             TZ: America/Chicago
