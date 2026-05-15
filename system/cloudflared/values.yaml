@@ -21,6 +21,10 @@ app-template:
           metrics: 0.0.0.0:2000
           no-autoupdate: true
           ingress:
+            - hostname: 'citadel.eaglepass.io'
+              service: https://command-central.tail18136a.ts.net:443
+              originRequest:
+                noTLSVerify: true
             - hostname: 'hermes-webhook.eaglepass.io'
               service: http://10.0.30.100:8644
               originRequest:
