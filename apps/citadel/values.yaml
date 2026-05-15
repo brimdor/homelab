@@ -48,14 +48,6 @@ app-template:
             limits:
               cpu: 1000m
               memory: 1Gi
-          volumeMounts:
-            - name: kubeconfig
-              mountPath: /root/.kube/config
-              subPath: config
-              readOnly: true
-            - name: hermes-profiles
-              mountPath: /home/echo/.hermes/profiles
-              readOnly: true
 
   service:
     main:
@@ -91,17 +83,21 @@ app-template:
       enabled: true
       type: hostPath
       hostPath: /home/echo/.kube/config
-      globalMounts:
-        - path: /root/.kube/config
-          subPath: config
-          readOnly: true
+      advancedMounts:
+        main:
+          main:
+            - path: /root/.kube/config
+              subPath: config
+              readOnly: true
     hermes-profiles:
       enabled: true
       type: hostPath
       hostPath: /home/echo/.hermes/profiles
-      globalMounts:
-        - path: /home/echo/.hermes/profiles
-          readOnly: true
+      advancedMounts:
+        main:
+          main:
+            - path: /home/echo/.hermes/profiles
+              readOnly: true
 
   defaultPodOptions:
     securityContext:
