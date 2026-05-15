@@ -79,7 +79,5 @@ app-template:
           secretName: citadel-tls
 
   defaultPodOptions:
-    serviceAccount:
-      name: citadel
     securityContext:
       fsGroup: 1000
