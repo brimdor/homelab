@@ -38,8 +38,8 @@ app-template:
           nameOverride: pages
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "latest"
-            pullPolicy: IfNotPresent
+            tag: "2026-05-14-v2"
+            pullPolicy: Always
           ports:
             - containerPort: 80
               name: http
