@@ -1,0 +1,9 @@
+apiVersion: v2
+name: eaglepass-news
+description: Daily curated newsletter with time-of-day dark mode palettes, TLDR+takeaways format, and RSS-driven content
+type: application
+version: 0.1.0
+dependencies:
+  - name: app-template
+    version: 4.6.2
+    repository: https://bjw-s-labs.github.io/helm-charts
