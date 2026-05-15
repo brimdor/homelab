@@ -102,3 +102,5 @@ app-template:
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
+    nodeSelector:
+      kubernetes.io/hostname: charmander
