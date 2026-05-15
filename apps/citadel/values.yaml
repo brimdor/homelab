@@ -78,29 +78,6 @@ app-template:
             - citadel.eaglepass.io
           secretName: citadel-tls
 
-  persistence:
-    kubeconfig:
-      enabled: true
-      type: hostPath
-      hostPath: /home/echo/.kube/config
-      advancedMounts:
-        main:
-          main:
-            - path: /root/.kube/config
-              subPath: config
-              readOnly: true
-    hermes-profiles:
-      enabled: true
-      type: hostPath
-      hostPath: /home/echo/.hermes/profiles
-      advancedMounts:
-        main:
-          main:
-            - path: /home/echo/.hermes/profiles
-              readOnly: true
-
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
-    nodeSelector:
-      kubernetes.io/hostname: charmander
