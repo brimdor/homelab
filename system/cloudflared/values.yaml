@@ -21,8 +21,10 @@ app-template:
           metrics: 0.0.0.0:2000
           no-autoupdate: true
           ingress:
-            # citadel.eaglepass.io is served directly from command-central
-            # via a local cloudflared connector (not K3s)
+            - hostname: 'citadel.eaglepass.io'
+              service: https://command-central.tail18136a.ts.net:443
+              originRequest:
+                noTLSVerify: true
             - hostname: 'hermes-webhook.eaglepass.io'
               service: http://10.0.30.100:8644
               originRequest:
