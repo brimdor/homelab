@@ -13,7 +13,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/backlog-tracker
-            tag: "2025-05-17-v8"
+            tag: "2025-05-17-v9"
             pullPolicy: Always
           env:
             TZ: America/Chicago
