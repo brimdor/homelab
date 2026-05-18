@@ -236,4 +236,4 @@ app-template:
       advancedMounts:
         postgres:
           main:
-            - path: /var/lib/postgresql/data
+            - path: /var/lib/postgresql
