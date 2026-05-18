@@ -10,8 +10,8 @@ app-template:
       containers:
         main:
           image:
-            repository: 10.0.20.11:32309/backlog-tracker
-            tag: "2025-05-17-v14"
+            repository: registry.eaglepass.io/backlog-tracker
+            tag: "2025-05-18-v15"
             pullPolicy: Always
           env:
             TZ: America/Chicago
