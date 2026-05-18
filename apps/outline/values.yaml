@@ -1,0 +1,239 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1001
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/atb6uu3xrclvwjwgxms4xeekoy"
+      operator.1password.io/item-name: "secrets"
+
+  controllers:
+    outline:
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      pod:
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/atb6uu3xrclvwjwgxms4xeekoy"
+          operator.1password.io/item-name: "secrets"
+      containers:
+        main:
+          image:
+            repository: outlinewiki/outline
+            tag: "1.8.0-1"
+            pullPolicy: IfNotPresent
+          env:
+            NODE_ENV: production
+            URL: "https://outline.eaglepass.io"
+            PORT: "3000"
+            SECRET_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "secret-key"
+            UTILS_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "utils-secret"
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "database-url"
+            PGSSLMODE: disable
+            REDIS_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "redis-url"
+            FILE_STORAGE: local
+            FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+            FILE_STORAGE_UPLOAD_MAX_SIZE: "262144000"
+            WEB_CONCURRENCY: "1"
+            FORCE_HTTPS: "true"
+            DEFAULT_LANGUAGE: en_US
+            OIDC_CLIENT_ID:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "oidc-client-id"
+            OIDC_CLIENT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "oidc-client-secret"
+            OIDC_AUTH_URI:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "oidc-auth-uri"
+            OIDC_TOKEN_URI:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "oidc-token-uri"
+            OIDC_USERINFO_URI:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "oidc-userinfo-uri"
+            OIDC_USERNAME_CLAIM: preferred_username
+            OIDC_DISPLAY_NAME: Cloudflare
+            OIDC_SCOPES: "openid profile email"
+            ENABLE_UPDATES: "false"
+            DEBUG: http
+            LOG_LEVEL: info
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /_health
+              port: 3000
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /_health
+              port: 3000
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: HTTP
+              path: /_health
+              port: 3000
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 5
+                timeoutSeconds: 3
+                failureThreshold: 60
+        redis:
+          image:
+            repository: valkey/valkey
+            tag: "8-alpine"
+            pullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - "exec valkey-server --save 30 1 --loglevel warning"
+          probes:
+            liveness:
+              enabled: true
+              type: TCP
+              port: 6379
+
+    postgres:
+      type: statefulset
+      replicas: 1
+      pod:
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/atb6uu3xrclvwjwgxms4xeekoy"
+          operator.1password.io/item-name: "secrets"
+      containers:
+        main:
+          image:
+            repository: postgres
+            tag: "18.4-bookworm"
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+            POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-user"
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-password"
+            POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "postgres-db"
+          probes:
+            liveness:
+              enabled: true
+              type: TCP
+              port: 5432
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 30
+                timeoutSeconds: 5
+            readiness:
+              enabled: true
+              type: TCP
+              port: 5432
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 3
+
+  service:
+    main:
+      controller: outline
+      primary: true
+      ports:
+        http:
+          port: 3000
+          protocol: HTTP
+    redis:
+      controller: outline
+      ports:
+        redis:
+          port: 6379
+          protocol: TCP
+    postgres:
+      controller: postgres
+      ports:
+        postgres:
+          port: 5432
+          protocol: TCP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: outline.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: 3000
+      tls:
+        - hosts:
+            - outline.eaglepass.io
+          secretName: outline-tls-certificate
+
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/outline
+      advancedMounts:
+        outline:
+          main:
+            - path: /var/lib/outline/data
+    postgres-data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        postgres:
+          main:
+            - path: /var/lib/postgresql/data

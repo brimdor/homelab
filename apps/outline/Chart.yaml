@@ -1,0 +1,10 @@
+apiVersion: v2
+name: outline
+description: A Helm chart for deploying Outline knowledge base using bjw-s app-template
+type: application
+version: 0.1.0
+appVersion: "1.8.0-1"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts
