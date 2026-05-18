@@ -13,7 +13,7 @@ app-template:
               name: http
           image:
             repository: 10.0.20.11:32309/broville/citadel
-            tag: latest
+            tag: card-redesign
             pullPolicy: Always
           env:
             TZ: America/Chicago
