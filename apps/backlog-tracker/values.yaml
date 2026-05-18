@@ -11,7 +11,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/backlog-tracker
-            tag: "2025-05-18-v19"
+            tag: "2025-05-18-v20"
             pullPolicy: Always
           env:
             TZ: America/Chicago
