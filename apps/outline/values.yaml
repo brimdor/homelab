@@ -90,6 +90,11 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "github-client-secret"
+            GITHUB_APP_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "github-app-name"
             ENABLE_UPDATES: "false"
             DEBUG: http
             LOG_LEVEL: info
