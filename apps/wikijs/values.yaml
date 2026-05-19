@@ -173,11 +173,14 @@ app-template:
 
   persistence:
     wikijs-data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/wikijs
-      globalMounts:
-        - path: /wiki/data
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        wikijs:
+          main:
+            - path: /wiki/data
     postgres-data:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
