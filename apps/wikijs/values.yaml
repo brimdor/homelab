@@ -14,6 +14,46 @@ app-template:
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/y3bx6ahrieffcgivili4t6jdhy"
           operator.1password.io/item-name: "wikijs-secrets"
+      initContainers:
+        restore-db:
+          image:
+            repository: postgres
+            tag: "16.4-bookworm"
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[restore-db] Starting restore check..."
+              if [ -f /backup/honey-bee.txt ]; then
+                echo "[restore-db] honey-bee.txt exists. Skipping restore."
+                exit 0
+              fi
+              if [ -f /backup/wikijs-backup.sql.gz ]; then
+                echo "[restore-db] Found backup. Waiting for Postgres..."
+                for i in $(seq 1 60); do
+                  if pg_isready -h wikijs-postgres -p 5432 -U wikijs -q 2>/dev/null; then
+                    echo "[restore-db] Postgres ready. Restoring..."
+                    gunzip -c /backup/wikijs-backup.sql.gz | psql "$DB_URL"
+                    echo "[restore-db] Restore complete!"
+                    touch /backup/honey-bee.txt
+                    exit 0
+                  fi
+                  sleep 5
+                done
+                echo "[restore-db] ERROR: Timeout waiting for Postgres."
+                exit 1
+              else
+                echo "[restore-db] No backup found. Fresh start."
+                touch /backup/honey-bee.txt
+              fi
+          env:
+            DB_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "wikijs-secrets"
+                  key: "database-url"
       containers:
         main:
           image:
@@ -88,6 +128,36 @@ app-template:
                 periodSeconds: 5
                 timeoutSeconds: 5
                 failureThreshold: 60
+        backup-db:
+          image:
+            repository: postgres
+            tag: "16.4-bookworm"
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[backup-db] Starting backup sidecar..."
+              while true; do
+                echo "[backup-db] Running pg_dump at $(date)..."
+                pg_dump "$DB_URL" | gzip > /backup/wikijs-backup.sql.gz.tmp
+                mv /backup/wikijs-backup.sql.gz.tmp /backup/wikijs-backup.sql.gz
+                touch /backup/honey-bee.txt
+                echo "[backup-db] Backup complete."
+                sleep 3600
+              done
+          env:
+            DB_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: "wikijs-secrets"
+                  key: "database-url"
+            DB_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: "wikijs-secrets"
+                  key: "db-pass"
 
     postgres:
       type: statefulset
@@ -174,6 +244,16 @@ app-template:
           secretName: wikijs-tls-certificate
 
   persistence:
+    ssh-key:
+      type: secret
+      name: wikijs-ssh-key
+      defaultMode: 0400
+      advancedMounts:
+        wikijs:
+          main:
+            - path: /home/node/.ssh/wikijs_ed25519
+              subPath: wikijs_ed25519
+              readOnly: true
     wikijs-data:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
@@ -183,6 +263,10 @@ app-template:
         wikijs:
           main:
             - path: /wiki/data
+          backup-db:
+            - path: /backup
+          restore-db:
+            - path: /backup
     postgres-data:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
