@@ -69,6 +69,7 @@ app-template:
               chmod 750 /home/node/.ssh
               echo "$SSH_KEY_B64" | base64 -d > /home/node/.ssh/wikijs_ed25519
               chmod 640 /home/node/.ssh/wikijs_ed25519
+              chown root:1000 /home/node/.ssh /home/node/.ssh/wikijs_ed25519
               echo "[decode-ssh-key] Done. Key written."
           env:
             SSH_KEY_B64:
