@@ -246,13 +246,13 @@ app-template:
   persistence:
     ssh-key:
       type: secret
-      name: wikijs-ssh-key
+      name: wikijs-secrets
       defaultMode: 0400
       advancedMounts:
         wikijs:
           main:
             - path: /home/node/.ssh/wikijs_ed25519
-              subPath: wikijs_ed25519
+              subPath: ssh-private-key
               readOnly: true
     wikijs-data:
       type: persistentVolumeClaim
