@@ -54,6 +54,28 @@ app-template:
                 secretKeyRef:
                   name: "wikijs-secrets"
                   key: "database-url"
+        decode-ssh-key:
+          image:
+            repository: busybox
+            tag: "1.36.1"
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[decode-ssh-key] Decoding SSH private key..."
+              mkdir -p /home/node/.ssh
+              chmod 700 /home/node/.ssh
+              echo "$SSH_KEY_B64" | base64 -d > /home/node/.ssh/wikijs_ed25519
+              chmod 600 /home/node/.ssh/wikijs_ed25519
+              echo "[decode-ssh-key] Done. Key written."
+          env:
+            SSH_KEY_B64:
+              valueFrom:
+                secretKeyRef:
+                  name: "wikijs-secrets"
+                  key: "ssh-private-key"
       containers:
         main:
           image:
@@ -245,15 +267,13 @@ app-template:
 
   persistence:
     ssh-key:
-      type: secret
-      name: wikijs-secrets
-      defaultMode: 0400
+      type: emptyDir
       advancedMounts:
         wikijs:
+          decode-ssh-key:
+            - path: /home/node/.ssh
           main:
-            - path: /home/node/.ssh/wikijs_ed25519
-              subPath: ssh-private-key
-              readOnly: true
+            - path: /home/node/.ssh
     wikijs-data:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
