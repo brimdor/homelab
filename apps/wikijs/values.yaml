@@ -1,5 +1,7 @@
 app-template:
   defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
     labels:
       app.kubernetes.io/name: wikijs
 
