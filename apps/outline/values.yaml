@@ -80,6 +80,16 @@ app-template:
             OIDC_USERNAME_CLAIM: preferred_username
             OIDC_DISPLAY_NAME: Cloudflare
             OIDC_SCOPES: "openid profile email"
+            GITHUB_CLIENT_ID:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "github-client-id"
+            GITHUB_CLIENT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "github-client-secret"
             ENABLE_UPDATES: "false"
             DEBUG: http
             LOG_LEVEL: info
