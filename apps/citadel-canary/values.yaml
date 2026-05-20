@@ -13,7 +13,7 @@ app-template:
               name: http
           image:
             repository: 10.0.20.11:32309/broville/citadel
-            tag: latest
+            tag: pipeline-dashboard
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -22,6 +22,11 @@ app-template:
             STREAMLIT_SERVER_HEADLESS: "true"
             STREAMLIT_SERVER_ENABLECORS: "false"
             RESTART_AT: "2026-05-15T2015Z"
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: github-token
+                  key: token
           probes:
             liveness:
               enabled: true
