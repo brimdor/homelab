@@ -1,12 +1,12 @@
 app-template:
   controllers:
     main:
-      replicas: 0
+      replicas: 1
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/strata
-            tag: canary
+            tag: canary-20260520
             pullPolicy: Always
           env:
             TZ: America/Chicago
