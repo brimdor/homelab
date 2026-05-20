@@ -75,9 +75,7 @@ app-template:
           secretName: strata-canary-tls
   persistence:
     data:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/strata-canary
+      type: emptyDir
       advancedMounts:
         main:
           main:
