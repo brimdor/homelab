@@ -80,4 +80,4 @@ app-template:
 
   defaultPodOptions:
     annotations:
-      roll: "streamlit-canary"
+      roll: "streamlit-canary-m3"
