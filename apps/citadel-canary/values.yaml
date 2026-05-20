@@ -21,7 +21,7 @@ app-template:
             STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
             STREAMLIT_SERVER_HEADLESS: "true"
             STREAMLIT_SERVER_ENABLECORS: "false"
-            RESTART_AT: "2026-05-20T1910Z"
+            RESTART_AT: "2026-05-20T1922Z"
             GH_TOKEN:
               valueFrom:
                 secretKeyRef:
