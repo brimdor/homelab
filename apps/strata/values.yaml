@@ -6,7 +6,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/strata
-            tag: prod-20260520-1647
+            tag: prod-20260520-2136
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
