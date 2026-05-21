@@ -22,7 +22,7 @@ app-template:
           no-autoupdate: true
           ingress:
             - hostname: 'citadel.eaglepass.io'
-              service: https://command-central.tail18136a.ts.net:443
+              service: http://10.0.30.100:8000
               originRequest:
                 noTLSVerify: true
             - hostname: 'hermes-webhook.eaglepass.io'
