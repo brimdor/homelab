@@ -59,7 +59,7 @@ app-template:
       className: nginx
       annotations:
         external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
       hosts:
         - host: strata-canary.eaglepass.io
