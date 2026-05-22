@@ -132,7 +132,7 @@ app-template:
         redis:
           image:
             repository: valkey/valkey
-            tag: "8-alpine"
+            tag: "9-alpine"
             pullPolicy: IfNotPresent
           command:
             - sh
