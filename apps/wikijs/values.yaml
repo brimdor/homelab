@@ -18,7 +18,7 @@ app-template:
         restore-db:
           image:
             repository: postgres
-            tag: "18.4-bookworm"
+            tag: "16.4-bookworm"
             pullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -154,7 +154,7 @@ app-template:
         backup-db:
           image:
             repository: postgres
-            tag: "18.4-bookworm"
+            tag: "16.4-bookworm"
             pullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -193,7 +193,7 @@ app-template:
         main:
           image:
             repository: postgres
-            tag: "18.4-bookworm"
+            tag: "16.4-bookworm"
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
