@@ -18,7 +18,7 @@ app-template:
             SEED_DATA: "true"
           probes:
             liveness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
@@ -27,7 +27,7 @@ app-template:
                 initialDelaySeconds: 30
                 periodSeconds: 15
             readiness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
@@ -36,7 +36,7 @@ app-template:
                 initialDelaySeconds: 10
                 periodSeconds: 10
             startup:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
@@ -44,6 +44,13 @@ app-template:
                   port: http
                 failureThreshold: 30
                 periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
   service:
     main:
       controller: main
@@ -80,6 +87,36 @@ app-template:
         main:
           main:
             - path: /app/data
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes:
+        - Ingress
+        - Egress
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ingress-nginx
+            ports:
+              - protocol: TCP
+                port: 8787
+        egress:
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - protocol: UDP
+                port: 53
+              - protocol: TCP
+                port: 53
+          - to:
+              - ipBlock:
+                  cidr: 10.0.40.3/32
+            ports:
+              - protocol: TCP
+                port: 2049
   defaultPodOptions:
     securityContext:
       runAsUser: 1000
