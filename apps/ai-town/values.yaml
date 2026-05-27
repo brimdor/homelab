@@ -14,11 +14,6 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: convex-instance-secret
-            CONVEX_SELF_HOSTED_ADMIN_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: convex-admin-key
             # Ollama Cloud LLM config (read by convex/util/llm.ts)
             LLM_API_URL: "https://ollama.com"
             LLM_API_KEY:
