@@ -9,7 +9,6 @@ app-template:
             tag: latest
             pullPolicy: IfNotPresent
           env:
-            TZ: America/Chicago
             CONVEX_SELF_HOSTED_INSTANCE_SECRET:
               valueFrom:
                 secretKeyRef:
@@ -55,8 +54,6 @@ app-template:
                   key: ollama-api-key
             LLM_MODEL: "glm-5.1"
             LLM_EMBEDDING_MODEL: "nomic-embed-text"
-            # AI Town agents + engine run via Convex scheduler within the backend,
-            # so no separate agent worker container is required.
           probes:
             liveness:
               enabled: true
@@ -131,11 +128,19 @@ app-template:
             - aitown-api.eaglepass.io
           secretName: aitown-api-tls
 
+  persistence:
+    convex-data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      advancedMounts:
+        main:
+          convex-backend:
+            - path: /convex/data
+
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/e6u2ous6hd4lhhs4obzjd6d5da"
       operator.1password.io/item-name: "secrets"
-      # Note: create 1Password item "ai-town-secrets" in Server vault
-      # with fields: ollama-api-key, convex-instance-secret, convex-admin-key
