@@ -7,7 +7,7 @@ app-template:
         database:
           image:
             repository: mariadb
-            tag: "10.11"
+            tag: canary-20260527
             pullPolicy: IfNotPresent
           env:
             MYSQL_ROOT_PASSWORD:
@@ -64,7 +64,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/broville/jovo_backend
-            tag: issue-1-canary
+            tag: canary-20260527
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -125,7 +125,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/broville/jovo_frontend
-            tag: issue-1-canary
+            tag: canary-20260527
             pullPolicy: Always
           env:
             TZ: America/Chicago
