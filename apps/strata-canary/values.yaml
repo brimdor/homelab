@@ -6,7 +6,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/strata
-            tag: canary-20260523
+            tag: canary-20260527
             pullPolicy: Always
           env:
             TZ: America/Chicago
