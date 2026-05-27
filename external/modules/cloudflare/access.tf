@@ -9,22 +9,22 @@
 # Google OAuth ID: facd56ad-71fa-4cf3-98a0-ac986681b252
 
 resource "cloudflare_zero_trust_access_application" "citadel" {
-  account_id               = var.cloudflare_account_id
-  name                     = "Citadel"
-  domain                   = "citadel.eaglepass.io"
-  type                     = "self_hosted"
-  session_duration         = "24h"
-  allowed_idps             = ["facd56ad-71fa-4cf3-98a0-ac986681b252"]
+  account_id                = var.cloudflare_account_id
+  name                      = "Citadel"
+  domain                    = "citadel.eaglepass.io"
+  type                      = "self_hosted"
+  session_duration          = "24h"
+  allowed_idps              = ["facd56ad-71fa-4cf3-98a0-ac986681b252"]
   auto_redirect_to_identity = true
-  app_launcher_visible     = true
+  app_launcher_visible      = true
 }
 
 resource "cloudflare_zero_trust_access_policy" "citadel_allow" {
-  account_id     = var.cloudflare_account_id
-  application_id = cloudflare_zero_trust_access_application.citadel.id
-  name           = "Citadel Access"
-  decision       = "allow"
-  precedence     = 1
+  account_id       = var.cloudflare_account_id
+  application_id   = cloudflare_zero_trust_access_application.citadel.id
+  name             = "Citadel Access"
+  decision         = "allow"
+  precedence       = 1
   session_duration = "24h"
 
   include {
@@ -68,6 +68,36 @@ resource "cloudflare_zero_trust_access_policy" "citadel_canary_allow" {
     }
     email {
       email = "kaleb.bays@gmail.com"
+    }
+  }
+}
+
+# =============================================================================
+# Cloudflare Zero Trust Access — Arc Tracker
+# =============================================================================
+
+resource "cloudflare_zero_trust_access_application" "arc_tracker" {
+  account_id                = var.cloudflare_account_id
+  name                      = "Arc Tracker"
+  domain                    = "arc.eaglepass.io"
+  type                      = "self_hosted"
+  session_duration          = "24h"
+  allowed_idps              = ["facd56ad-71fa-4cf3-98a0-ac986681b252"]
+  auto_redirect_to_identity = true
+  app_launcher_visible      = true
+}
+
+resource "cloudflare_zero_trust_access_policy" "arc_tracker_allow" {
+  account_id       = var.cloudflare_account_id
+  application_id   = cloudflare_zero_trust_access_application.arc_tracker.id
+  name             = "Arc Tracker Allow"
+  decision         = "allow"
+  precedence       = 1
+  session_duration = "24h"
+
+  include {
+    email {
+      email = "chrisnelsonx@gmail.com"
     }
   }
 }
