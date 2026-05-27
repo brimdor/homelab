@@ -1,0 +1,141 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      containers:
+        convex-backend:
+          image:
+            repository: ghcr.io/get-convex/convex-backend
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            TZ: America/Chicago
+            CONVEX_SELF_HOSTED_INSTANCE_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: convex-instance-secret
+            CONVEX_SELF_HOSTED_ADMIN_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: convex-admin-key
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 8000
+                initialDelaySeconds: 15
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 8000
+                initialDelaySeconds: 10
+                periodSeconds: 10
+
+        frontend:
+          image:
+            repository: 10.0.20.11:32309/aitown-frontend
+            tag: v1.0.2
+            pullPolicy: Always
+          env:
+            TZ: America/Chicago
+            LLM_API_URL: "https://ollama.com"
+            LLM_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ollama-api-key
+            LLM_MODEL: "glm-5.1"
+            LLM_EMBEDDING_MODEL: "nomic-embed-text"
+            # AI Town agents + engine run via Convex scheduler within the backend,
+            # so no separate agent worker container is required.
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 80
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 80
+                initialDelaySeconds: 5
+                periodSeconds: 10
+
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+    backend:
+      controller: main
+      ports:
+        http:
+          port: 8000
+          protocol: HTTP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: aitown.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - aitown.eaglepass.io
+          secretName: ai-town-tls
+    api:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: aitown-api.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: backend
+                port: http
+      tls:
+        - hosts:
+            - aitown-api.eaglepass.io
+          secretName: aitown-api-tls
+
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/e6u2ous6hd4lhhs4obzjd6d5da"
+      operator.1password.io/item-name: "secrets"
+      # Note: create 1Password item "ai-town-secrets" in Server vault
+      # with fields: ollama-api-key, convex-instance-secret, convex-admin-key
