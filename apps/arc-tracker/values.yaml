@@ -1,0 +1,62 @@
+app-template:
+  controllers:
+    main:
+      strategy: RollingUpdate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: arc-tracker
+          image:
+            repository: 10.0.20.11:32309/arc-tracker
+            tag: "1.0.0"
+            pullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 30
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+  service:
+    main:
+      primary: true
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      hosts:
+        - host: arc.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - hosts:
+            - arc.eaglepass.io
+          secretName: arc-tracker-tls
