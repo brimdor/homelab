@@ -1,9 +1,0 @@
-apiVersion: v2
-name: ai-town
-description: Helm chart for deploying a16z AI Town (frontend + Convex backend + Ollama embeddings)
-type: application
-version: 0.1.0
-dependencies:
-  - name: app-template
-    version: 5.0.1
-    repository: https://bjw-s-labs.github.io/helm-charts/
