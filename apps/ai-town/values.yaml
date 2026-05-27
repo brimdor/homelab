@@ -46,7 +46,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/aitown-frontend
-            tag: v1.0.3
+            tag: v1.0.4
             pullPolicy: Always
           env:
             TZ: America/Chicago
