@@ -19,6 +19,15 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: convex-admin-key
+            # Ollama Cloud LLM config (read by convex/util/llm.ts)
+            LLM_API_URL: "https://ollama.com"
+            LLM_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: ollama-api-key
+            LLM_MODEL: "glm-5.1"
+            LLM_EMBEDDING_MODEL: "nomic-embed-text"
           probes:
             liveness:
               enabled: true
@@ -46,14 +55,6 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
-            LLM_API_URL: "https://ollama.com"
-            LLM_API_KEY:
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: ollama-api-key
-            LLM_MODEL: "glm-5.1"
-            LLM_EMBEDDING_MODEL: "nomic-embed-text"
           probes:
             liveness:
               enabled: true
