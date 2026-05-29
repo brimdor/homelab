@@ -240,7 +240,7 @@ app-template:
     init-db:
       enabled: true
       type: configMap
-      name: jovo-init-db
+      name: jovo
       items:
         - key: 01-init.sql
           path: 01-init.sql
