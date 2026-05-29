@@ -7,7 +7,7 @@ app-template:
         database:
           image:
             repository: mariadb
-            tag: canary-20260528
+            tag: "10.11"
             pullPolicy: IfNotPresent
           env:
             MYSQL_ROOT_PASSWORD:
