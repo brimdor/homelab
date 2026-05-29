@@ -92,7 +92,6 @@ app-template:
                   key: mariadb-password
             JOVO_DATA_DIR: /data
             JOVO_AUDIO_DIR: /data/audio
-            JOVO_COVERS_DIR: /data/covers
             JOVO_MAX_UPLOAD_SIZE_MB: "500"
           probes:
             liveness:
@@ -228,14 +227,6 @@ app-template:
         main:
           backend:
             - path: /data
-    covers:
-      type: nfs
-      server: 10.0.40.3
-      path: /mnt/user/jovo/covers
-      advancedMounts:
-        main:
-          backend:
-            - path: /data/covers
 
     init-db:
       enabled: true
