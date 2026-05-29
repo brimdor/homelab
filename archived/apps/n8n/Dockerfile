@@ -1,5 +1,5 @@
 # Postgres with pgvector extension for n8n
-FROM postgres:18.3-bookworm
+FROM postgres:18.4-bookworm
 
 # Install pgvector (extension name: "vector")
 RUN set -eux; \

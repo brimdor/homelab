@@ -24,7 +24,7 @@ rook-ceph-cluster:
     createPrometheusRules: true
   cephClusterSpec:
     cephVersion:
-      image: quay.io/ceph/ceph:v20.2.0
+      image: quay.io/ceph/ceph:v20.2.1
       imagePullPolicy: IfNotPresent
     storage:
       useAllNodes: false
@@ -140,7 +140,7 @@ rook-ceph-cluster:
 pvcHygiene:
   enabled: true
   schedule: "0 3 * * *"
-  image: registry.k8s.io/kubectl:v1.35.3
+  image: registry.k8s.io/kubectl:v1.36.1
   mode: report
   minAgeHours: 168
   approvedDeleteAnnotation: homelab.eaglepass.io/pvc-prune
