@@ -180,7 +180,7 @@ app-template:
   defaultPodOptions:
     runtimeClassName: nvidia
     hostAliases:
-      - ip: "185.199.108.133"
+      - ip: "143.204.130.38"
         hostnames:
           - huggingface.co
     tolerations:
