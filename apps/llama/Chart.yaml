@@ -1,9 +1,9 @@
 apiVersion: v2
 name: llama
-description: llama.cpp inference server (CUDA) — standard + TurboQuant fork
+description: llama.cpp inference server (CUDA) — Qwen + GLM REAP models, tuned for agent workloads
 type: application
 version: 0.1.0
-appVersion: "server-cuda12"
+appVersion: "server-cuda12-tuned"
 dependencies:
   - name: app-template
     version: 5.0.1
