@@ -1,0 +1,10 @@
+apiVersion: v2
+name: llama
+description: llama.cpp inference server (CUDA) — standard + TurboQuant fork
+type: application
+version: 0.1.0
+appVersion: "server-cuda"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts
