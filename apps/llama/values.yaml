@@ -44,6 +44,7 @@ app-template:
             LLAMA_ARG_WEBUI: "true"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
+            NVIDIA_DISABLE_REQUIRE: "true"
           resources:
             requests:
               cpu: 2000m
@@ -97,6 +98,7 @@ app-template:
             LLAMA_ARG_N_GPU_LAYERS: "99"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
+            NVIDIA_DISABLE_REQUIRE: "true"
           args:
             - --server
             - --model
