@@ -3,7 +3,7 @@ name: llama
 description: llama.cpp inference server (CUDA) — standard + TurboQuant fork
 type: application
 version: 0.1.0
-appVersion: "server-cuda"
+appVersion: "server-cuda12"
 dependencies:
   - name: app-template
     version: 5.0.1
