@@ -30,7 +30,7 @@ app-template:
         main:
           image:
             repository: ghcr.io/ggml-org/llama.cpp
-            tag: server-cuda12
+            tag: server-cuda
           env:
             TZ: America/Chicago
             PUID: "1000"
@@ -47,35 +47,11 @@ app-template:
             LLAMA_ARG_FLASH_ATTN: "true"
             LLAMA_ARG_CACHE_TYPE_K: "q4_0"
             LLAMA_ARG_CACHE_TYPE_V: "q4_0"
-            LLAMA_ARG_NO_WARMUP: "true"
             LLAMA_ARG_WEBUI: "true"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
-          command: ["/app/llama-server"]
-          args:
-            - --model
-            - /models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf
-            - --ctx-size
-            - "32768"
-            - --n-gpu-layers
-            - "99"
-            - --threads
-            - "3"
-            - --threads-batch
-            - "3"
-            - --ubatch-size
-            - "1024"
-            - --cache-type-k
-            - q4_0
-            - --cache-type-v
-            - q4_0
-            - --no-warmup
-            - --host
-            - 0.0.0.0
-            - --port
-            - "8080"
           resources:
             requests:
               cpu: 2000m
@@ -131,18 +107,6 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
-          command: ["/app/llama-server"]
-          args:
-            - --model
-            - /models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf
-            - --ctx-size
-            - "32768"
-            - --n-gpu-layers
-            - "99"
-            - --host
-            - 0.0.0.0
-            - --port
-            - "8081"
           resources:
             requests:
               cpu: 2000m
@@ -183,7 +147,7 @@ app-template:
         glm:
           image:
             repository: ghcr.io/ggml-org/llama.cpp
-            tag: server-cuda12
+            tag: server-cuda
           env:
             TZ: America/Chicago
             PUID: "1000"
@@ -200,35 +164,11 @@ app-template:
             LLAMA_ARG_FLASH_ATTN: "true"
             LLAMA_ARG_CACHE_TYPE_K: "q4_0"
             LLAMA_ARG_CACHE_TYPE_V: "q4_0"
-            LLAMA_ARG_NO_WARMUP: "true"
             LLAMA_ARG_WEBUI: "true"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
-          command: ["/app/llama-server"]
-          args:
-            - --model
-            - /models/GLM-4.7-Flash-REAP-23B-A3B-Q4_K_M.gguf
-            - --ctx-size
-            - "32768"
-            - --n-gpu-layers
-            - "99"
-            - --threads
-            - "3"
-            - --threads-batch
-            - "3"
-            - --ubatch-size
-            - "1024"
-            - --cache-type-k
-            - q4_0
-            - --cache-type-v
-            - q4_0
-            - --no-warmup
-            - --host
-            - 0.0.0.0
-            - --port
-            - "8082"
           resources:
             requests:
               cpu: 2000m
