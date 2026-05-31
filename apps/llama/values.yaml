@@ -56,7 +56,7 @@ app-template:
               nvidia.com/gpu: 1
 
     turboquant:
-      replicas: 1
+      replicas: 0
       type: deployment
       initContainers:
         check-model-ready:
