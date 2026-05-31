@@ -38,8 +38,8 @@ app-template:
             LLAMA_ARG_HOST: 0.0.0.0
             LLAMA_ARG_PORT: "8080"
             LLAMA_ARG_MODEL: /models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf
-            LLAMA_ARG_CTX_SIZE: "65536"
-            LLAMA_ARG_N_PARALLEL: "2"
+            LLAMA_ARG_CTX_SIZE: "131072"
+            LLAMA_ARG_N_PARALLEL: "1"
             LLAMA_ARG_N_GPU_LAYERS: "99"
             LLAMA_ARG_THREADS: "3"
             LLAMA_ARG_THREADS_BATCH: "3"
@@ -101,8 +101,8 @@ app-template:
             LLAMA_ARG_HOST: 0.0.0.0
             LLAMA_ARG_PORT: "8081"
             LLAMA_ARG_MODEL: /models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf
-            LLAMA_ARG_CTX_SIZE: "65536"
-            LLAMA_ARG_N_PARALLEL: "2"
+            LLAMA_ARG_CTX_SIZE: "131072"
+            LLAMA_ARG_N_PARALLEL: "1"
             LLAMA_ARG_N_GPU_LAYERS: "99"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
@@ -157,8 +157,8 @@ app-template:
             LLAMA_ARG_HOST: 0.0.0.0
             LLAMA_ARG_PORT: "8082"
             LLAMA_ARG_MODEL: /models/GLM-4.7-Flash-REAP-23B-A3B-Q4_K_M.gguf
-            LLAMA_ARG_CTX_SIZE: "65536"
-            LLAMA_ARG_N_PARALLEL: "2"
+            LLAMA_ARG_CTX_SIZE: "131072"
+            LLAMA_ARG_N_PARALLEL: "1"
             LLAMA_ARG_N_GPU_LAYERS: "99"
             LLAMA_ARG_THREADS: "3"
             LLAMA_ARG_THREADS_BATCH: "3"
