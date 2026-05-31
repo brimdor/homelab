@@ -15,7 +15,6 @@ app-template:
             - -c
           args:
             - |
-              echo "185.199.108.133 huggingface.co" >> /etc/hosts
               if [ -s "$LLAMA_ARG_MODEL" ]; then
                 echo "Model present: $LLAMA_ARG_MODEL"
                 ls -lh "$LLAMA_ARG_MODEL"
@@ -55,7 +54,7 @@ app-template:
               nvidia.com/gpu: 1
 
     turboquant:
-      replicas: 1
+      replicas: 0
       type: deployment
       initContainers:
         check-model-ready:
@@ -70,7 +69,6 @@ app-template:
             - -c
           args:
             - |
-              echo "185.199.108.133 huggingface.co" >> /etc/hosts
               if [ -s "$LLAMA_ARG_MODEL" ]; then
                 echo "Model present: $LLAMA_ARG_MODEL"
                 ls -lh "$LLAMA_ARG_MODEL"
@@ -151,7 +149,6 @@ app-template:
             - |
               set -eu
               mkdir -p /models
-              echo "185.199.108.133 huggingface.co" >> /etc/hosts
 
               download_model() {
                 url="$1"
@@ -182,6 +179,10 @@ app-template:
 
   defaultPodOptions:
     runtimeClassName: nvidia
+    hostAliases:
+      - ip: "185.199.108.133"
+        hostnames:
+          - huggingface.co
     tolerations:
       - key: dedicated
         operator: Equal
