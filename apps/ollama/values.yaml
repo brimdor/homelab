@@ -36,7 +36,7 @@ ollama:
 
     gpu:
       # -- Enable GPU integration
-      enabled: false
+      enabled: true
 
       # -- Enable DRA GPU integration
       # If enabled, it will use DRA instead of Device Driver Plugin and create a ResourceClaim and GpuClaimParameters
@@ -216,14 +216,16 @@ ollama:
 
   # Configure resource requests and limits
   # ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  # resources:
+  resources:
     # -- CPU and memory resource requests and limits
-    # limits:
-    #   cpu: 6
-    #   memory: 40Gi
-    # requests:
-    #   cpu: 2
-    #   memory: 32Gi
+    limits:
+      cpu: 8
+      memory: 40Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 2
+      memory: 32Gi
+      nvidia.com/gpu: 1
 
   # Configure extra options for liveness probe
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
@@ -508,11 +510,7 @@ modelPuller:
   models:
     # -- Base models to pull from Ollama registry
     pull:
-      - ministral-3:8b
-      - nomic-embed-text:latest
-      - mxbai-embed-large:latest
-      - gpt-oss:20b
-      - llama-guard3:1b
+      - qwen3
 
     # -- Custom models to create with Modelfiles
     custom:
