@@ -41,11 +41,42 @@ app-template:
             LLAMA_ARG_CTX_SIZE: "32768"
             LLAMA_ARG_N_PARALLEL: "2"
             LLAMA_ARG_N_GPU_LAYERS: "99"
+            LLAMA_ARG_THREADS: "3"
+            LLAMA_ARG_THREADS_BATCH: "3"
+            LLAMA_ARG_UBATCH_SIZE: "1024"
+            LLAMA_ARG_FLASH_ATTN: "true"
+            LLAMA_ARG_CACHE_TYPE_K: "q4_0"
+            LLAMA_ARG_CACHE_TYPE_V: "q4_0"
+            LLAMA_ARG_NO_WARMUP: "true"
             LLAMA_ARG_WEBUI: "true"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+          args:
+            - --server
+            - --model
+            - /models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf
+            - --ctx-size
+            - "32768"
+            - --n-gpu-layers
+            - "99"
+            - --threads
+            - "3"
+            - --threads-batch
+            - "3"
+            - --ubatch-size
+            - "1024"
+            - --flash-attn
+            - --cache-type-k
+            - q4_0
+            - --cache-type-v
+            - q4_0
+            - --no-warmup
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8080"
           resources:
             requests:
               cpu: 2000m
@@ -113,6 +144,93 @@ app-template:
             - 0.0.0.0
             - --port
             - "8081"
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 16Gi
+              nvidia.com/gpu: 1
+            limits:
+              memory: 24Gi
+              nvidia.com/gpu: 1
+
+    glm:
+      replicas: 0
+      type: deployment
+      initContainers:
+        check-model-ready:
+          image:
+            repository: alpine
+            tag: latest
+          env:
+            LLAMA_ARG_MODEL:
+              value: /models/GLM-4.7-Flash-REAP-23B-A3B-Q4_K_M.gguf
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              if [ -s "$LLAMA_ARG_MODEL" ]; then
+                echo "Model present: $LLAMA_ARG_MODEL"
+                ls -lh "$LLAMA_ARG_MODEL"
+                exit 0
+              fi
+              echo "Waiting for model to be downloaded..."
+              until [ -s "$LLAMA_ARG_MODEL" ]; do
+                echo "  - $(stat -c%s "$LLAMA_ARG_MODEL" 2>/dev/null || echo 'missing')"
+                sleep 10
+              done
+              echo "Model ready"
+      containers:
+        glm:
+          image:
+            repository: ghcr.io/ggml-org/llama.cpp
+            tag: server-cuda12
+          env:
+            TZ: America/Chicago
+            PUID: "1000"
+            PGID: "1000"
+            LLAMA_ARG_HOST: 0.0.0.0
+            LLAMA_ARG_PORT: "8082"
+            LLAMA_ARG_MODEL: /models/GLM-4.7-Flash-REAP-23B-A3B-Q4_K_M.gguf
+            LLAMA_ARG_CTX_SIZE: "32768"
+            LLAMA_ARG_N_PARALLEL: "2"
+            LLAMA_ARG_N_GPU_LAYERS: "99"
+            LLAMA_ARG_THREADS: "3"
+            LLAMA_ARG_THREADS_BATCH: "3"
+            LLAMA_ARG_UBATCH_SIZE: "1024"
+            LLAMA_ARG_FLASH_ATTN: "true"
+            LLAMA_ARG_CACHE_TYPE_K: "q4_0"
+            LLAMA_ARG_CACHE_TYPE_V: "q4_0"
+            LLAMA_ARG_NO_WARMUP: "true"
+            LLAMA_ARG_WEBUI: "true"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+            NVIDIA_DISABLE_REQUIRE: "true"
+            NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+          args:
+            - --server
+            - --model
+            - /models/GLM-4.7-Flash-REAP-23B-A3B-Q4_K_M.gguf
+            - --ctx-size
+            - "32768"
+            - --n-gpu-layers
+            - "99"
+            - --threads
+            - "3"
+            - --threads-batch
+            - "3"
+            - --ubatch-size
+            - "1024"
+            - --flash-attn
+            - --cache-type-k
+            - q4_0
+            - --cache-type-v
+            - q4_0
+            - --no-warmup
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8082"
           resources:
             requests:
               cpu: 2000m
@@ -216,6 +334,12 @@ app-template:
         http:
           port: 8081
           protocol: HTTP
+    glm:
+      controller: glm
+      ports:
+        http:
+          port: 8082
+          protocol: HTTP
 
   ingress:
     main:
@@ -256,6 +380,25 @@ app-template:
         - hosts:
             - *tqhost
           secretName: turboquant-tls
+    glm:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: &glmhost glm.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: glm
+                port: http
+      tls:
+        - hosts:
+            - *glmhost
+          secretName: glm-tls
 
   persistence:
     data:
@@ -271,6 +414,11 @@ app-template:
           check-model-ready:
             - path: /models
           turboquant:
+            - path: /models
+        glm:
+          check-model-ready:
+            - path: /models
+          glm:
             - path: /models
         downloader:
           downloader:
