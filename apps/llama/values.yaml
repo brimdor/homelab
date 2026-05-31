@@ -53,6 +53,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+          command: ["/app/llama-server"]
           args:
             - --server
             - --model
@@ -132,6 +133,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+          command: ["/app/llama-server"]
           args:
             - --server
             - --model
@@ -207,6 +209,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+          command: ["/app/llama-server"]
           args:
             - --server
             - --model
