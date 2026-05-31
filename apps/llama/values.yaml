@@ -67,7 +67,6 @@ app-template:
             - "3"
             - --ubatch-size
             - "1024"
-            - --flash-attn
             - --cache-type-k
             - q4_0
             - --cache-type-v
@@ -221,7 +220,6 @@ app-template:
             - "3"
             - --ubatch-size
             - "1024"
-            - --flash-attn
             - --cache-type-k
             - q4_0
             - --cache-type-v
