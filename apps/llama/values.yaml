@@ -52,6 +52,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+            LD_LIBRARY_PATH: "/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.8/targets/x86_64-linux/lib"
           resources:
             requests:
               cpu: 2000m
@@ -107,6 +108,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+            LD_LIBRARY_PATH: "/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.8/targets/x86_64-linux/lib"
           resources:
             requests:
               cpu: 2000m
@@ -169,6 +171,7 @@ app-template:
             NVIDIA_DRIVER_CAPABILITIES: "all"
             NVIDIA_DISABLE_REQUIRE: "true"
             NVIDIA_REQUIRE_CUDA: "cuda>=12.0"
+            LD_LIBRARY_PATH: "/usr/lib/x86_64-linux-gnu:/usr/local/cuda-12.8/targets/x86_64-linux/lib"
           resources:
             requests:
               cpu: 2000m
