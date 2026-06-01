@@ -9,12 +9,11 @@ app-template:
           nameOverride: main
           image:
             repository: localhost/odysseus
-            tag: v2
+            tag: v3
             pullPolicy: IfNotPresent
           env:
             TZ: "America/Chicago"
-            PUID: "99"
-            PGID: "100"
+            DATABASE_URL: "sqlite:////app/data/app.db"
             APP_BIND:
               valueFrom:
                 secretKeyRef:
@@ -43,7 +42,6 @@ app-template:
             SECURE_COOKIES: "true"
             LOCALHOST_BYPASS: "false"
             ALLOWED_ORIGINS: "https://odysseus.eaglepass.io"
-            DATABASE_URL: "sqlite:///app/data/app.db"
             LLM_HOST: "localhost"
             SEARXNG_INSTANCE: "http://localhost:8080"
             CHROMADB_HOST: "localhost"
