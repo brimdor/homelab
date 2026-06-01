@@ -1,0 +1,10 @@
+apiVersion: v2
+name: odysseus
+description: Helm chart for deploying Odysseus AI workspace via bjw-s app-template
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts
