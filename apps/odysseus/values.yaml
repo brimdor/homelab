@@ -1,0 +1,143 @@
+# https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: main
+          image:
+            repository: localhost/odysseus
+            tag: v2
+            pullPolicy: IfNotPresent
+          env:
+            TZ: "America/Chicago"
+            PUID: "99"
+            PGID: "100"
+            APP_BIND:
+              valueFrom:
+                secretKeyRef:
+                  name: "odysseus-secrets"
+                  key: "app-bind"
+            APP_PORT:
+              valueFrom:
+                secretKeyRef:
+                  name: "odysseus-secrets"
+                  key: "app-port"
+            AUTH_ENABLED:
+              valueFrom:
+                secretKeyRef:
+                  name: "odysseus-secrets"
+                  key: "auth-enabled"
+            ODYSSEUS_ADMIN_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "odysseus-secrets"
+                  key: "admin-user"
+            ODYSSEUS_ADMIN_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "odysseus-secrets"
+                  key: "admin-password"
+            SECURE_COOKIES: "true"
+            LOCALHOST_BYPASS: "false"
+            ALLOWED_ORIGINS: "https://odysseus.eaglepass.io"
+            DATABASE_URL: "sqlite:///app/data/app.db"
+            LLM_HOST: "localhost"
+            SEARXNG_INSTANCE: "http://localhost:8080"
+            CHROMADB_HOST: "localhost"
+            CHROMADB_PORT: "8100"
+            REQUEST_HARD_TIMEOUT: "45"
+            CLEANUP_INTERVAL_HOURS: "24"
+            ODYSSEUS_INPROCESS_POLLERS: "1"
+            ODYSSEUS_INPROCESS_TASKS: "1"
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /api/health
+              port: 7000
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /api/health
+              port: 7000
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: HTTP
+              path: /api/health
+              port: 7000
+              spec:
+                initialDelaySeconds: 15
+                periodSeconds: 5
+                timeoutSeconds: 5
+                failureThreshold: 60
+          resources:
+            limits:
+              cpu: "4"
+              memory: "8192Mi"
+            requests:
+              cpu: "1"
+              memory: "2048Mi"
+
+  service:
+    main:
+      primary: true
+      controller: main
+      ports:
+        http:
+          port: 7000
+          protocol: HTTP
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "256m"
+        nginx.ingress.kubernetes.io/proxy-connect-timeout: "120"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+      hosts:
+        - host: &Host odysseus.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *Host
+          secretName: odysseus-tls-certificate
+
+  persistence:
+    data:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/odysseus
+      globalMounts:
+        - path: /app/data
+
+  defaultPodOptions:
+    labels:
+      app.kubernetes.io/name: odysseus
+    nodeSelector:
+      kubernetes.io/hostname: totodile
+    annotations:
+      operator.1password.io/item-path: "vaults/server/items/e3ofopo2co5yhfdojt46nindmi"
+      operator.1password.io/item-name: "odysseus-secrets"
