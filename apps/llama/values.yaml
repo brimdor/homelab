@@ -284,62 +284,11 @@ app-template:
 
   ingress:
     main:
-      enabled: true
-      className: nginx
-      annotations:
-        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: &host llama.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                identifier: main
-                port: http
-      tls:
-        - hosts:
-            - *host
-          secretName: llama-tls
+      enabled: false
     turboquant:
-      enabled: true
-      className: nginx
-      annotations:
-        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: &tqhost turboquant.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                identifier: turboquant
-                port: http
-      tls:
-        - hosts:
-            - *tqhost
-          secretName: turboquant-tls
+      enabled: false
     glm:
-      enabled: true
-      className: nginx
-      annotations:
-        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-      hosts:
-        - host: &glmhost glm.eaglepass.io
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                identifier: glm
-                port: http
-      tls:
-        - hosts:
-            - *glmhost
-          secretName: glm-tls
+      enabled: false
 
   persistence:
     data:
