@@ -67,15 +67,19 @@ argocd-apps:
                 - /spec/data/0/remoteRef/conversionStrategy
                 - /spec/data/0/remoteRef/decodingStrategy
                 - /spec/data/0/remoteRef/metadataPolicy
+                - /spec/data/0/remoteRef/nullBytePolicy
                 - /spec/data/1/remoteRef/conversionStrategy
                 - /spec/data/1/remoteRef/decodingStrategy
                 - /spec/data/1/remoteRef/metadataPolicy
+                - /spec/data/1/remoteRef/nullBytePolicy
                 - /spec/data/2/remoteRef/conversionStrategy
                 - /spec/data/2/remoteRef/decodingStrategy
                 - /spec/data/2/remoteRef/metadataPolicy
+                - /spec/data/2/remoteRef/nullBytePolicy
                 - /spec/data/3/remoteRef/conversionStrategy
                 - /spec/data/3/remoteRef/decodingStrategy
                 - /spec/data/3/remoteRef/metadataPolicy
+                - /spec/data/3/remoteRef/nullBytePolicy
             - group: apps
               kind: StatefulSet
               jqPathExpressions:
@@ -141,15 +145,19 @@ argocd-apps:
                 - /spec/data/0/remoteRef/conversionStrategy
                 - /spec/data/0/remoteRef/decodingStrategy
                 - /spec/data/0/remoteRef/metadataPolicy
+                - /spec/data/0/remoteRef/nullBytePolicy
                 - /spec/data/1/remoteRef/conversionStrategy
                 - /spec/data/1/remoteRef/decodingStrategy
                 - /spec/data/1/remoteRef/metadataPolicy
+                - /spec/data/1/remoteRef/nullBytePolicy
                 - /spec/data/2/remoteRef/conversionStrategy
                 - /spec/data/2/remoteRef/decodingStrategy
                 - /spec/data/2/remoteRef/metadataPolicy
+                - /spec/data/2/remoteRef/nullBytePolicy
                 - /spec/data/3/remoteRef/conversionStrategy
                 - /spec/data/3/remoteRef/decodingStrategy
                 - /spec/data/3/remoteRef/metadataPolicy
+                - /spec/data/3/remoteRef/nullBytePolicy
             - group: apps
               kind: StatefulSet
               jqPathExpressions:
