@@ -17,11 +17,9 @@ app-template:
             limits:
               cpu: 2
               memory: "8192Mi"
-              nvidia.com/gpu: 1
             requests:
               cpu: 500m
               memory: "2048Mi"
-              nvidia.com/gpu: 1
   service:
     main:
       primary: true
