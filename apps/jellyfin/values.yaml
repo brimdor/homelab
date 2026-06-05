@@ -11,13 +11,17 @@ app-template:
             PUID: "99"
             PGID: "100"
             TZ: "America/Chicago"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
           resources:
             limits:
               cpu: 2
-              memory: "4096Mi"
+              memory: "8192Mi"
+              nvidia.com/gpu: 1
             requests:
               cpu: 500m
-              memory: "1024Mi"
+              memory: "2048Mi"
+              nvidia.com/gpu: 1
   service:
     main:
       primary: true
@@ -101,6 +105,7 @@ app-template:
           main:
             - path: /data/tv_custom
   defaultPodOptions:
+    runtimeClassName: nvidia
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
