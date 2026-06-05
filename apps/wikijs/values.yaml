@@ -77,6 +77,51 @@ app-template:
                 secretKeyRef:
                   name: "wikijs-secrets"
                   key: "ssh-private-key"
+        fix-git-sync:
+          image:
+            repository: busybox
+            tag: "1.38.0"
+            pullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              REPO="/wiki/data/repo"
+              echo "[fix-git-sync] Checking git sync health..."
+              if [ ! -d "$REPO/.git" ]; then
+                echo "[fix-git-sync] No repo found. Skipping."
+                exit 0
+              fi
+              cd "$REPO"
+              # Set merge strategy instead of rebase (prevents rebase conflicts)
+              git config pull.rebase false
+              git config push.autoSetupRemote true
+              # Silence SSH warnings
+              echo -e "Host github.com\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null" > /home/node/.ssh/config
+              chmod 600 /home/node/.ssh/config
+              chown root:1000 /home/node/.ssh/config
+              # Check for stuck rebase
+              if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+                echo "[fix-git-sync] Stuck rebase detected. Aborting..."
+                git rebase --abort || true
+              fi
+              # Pull+merge latest origin before starting wiki
+              if git remote get-url origin >/dev/null 2>&1; then
+                echo "[fix-git-sync] Pulling latest from origin..."
+                git fetch origin 2>&1 || true
+                git merge origin/main --no-edit 2>&1 || {
+                  echo "[fix-git-sync] MERGE FAILED. Attempting reset to origin..."
+                  git reset --hard origin/main
+                }
+                git branch --set-upstream-to=origin/main main 2>/dev/null || true
+              fi
+              echo "[fix-git-sync] Done."
+          volumeMounts:
+            - name: wikijs-data
+              mountPath: /wiki/data
+            - name: ssh-key
+              mountPath: /home/node/.ssh
       containers:
         main:
           image:
