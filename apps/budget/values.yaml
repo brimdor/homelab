@@ -7,14 +7,14 @@ app-template:
           image:
             repository: docker.io/brimdor/budget-frontend
             tag: latest
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
         backend:
           image:
             repository: docker.io/brimdor/budget-backend
             tag: latest
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             PORT: "3001"
@@ -75,6 +75,8 @@ app-template:
           backend:
             - path: /app/data
   defaultPodOptions:
+    nodeSelector:
+      kubernetes.io/hostname: cyndaquil
     hostAliases:
       - ip: "127.0.0.1"
         hostnames:

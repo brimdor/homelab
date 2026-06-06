@@ -148,6 +148,8 @@ app-template:
       type: statefulset
       replicas: 1
       pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/atb6uu3xrclvwjwgxms4xeekoy"
           operator.1password.io/item-name: "secrets"

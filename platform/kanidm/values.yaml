@@ -1,4 +1,7 @@
 app-template:
+  defaultPodOptions:
+    nodeSelector:
+      kubernetes.io/hostname: pikachu
   controllers:
     main:
       type: statefulset

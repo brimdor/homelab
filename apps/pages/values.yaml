@@ -9,7 +9,7 @@ app-template:
       initContainers:
         restore:
           image:
-            repository: busybox
+            repository: 10.0.20.11:32309/library/busybox
             tag: latest
             pullPolicy: IfNotPresent
           command:
