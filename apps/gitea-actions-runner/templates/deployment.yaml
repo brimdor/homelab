@@ -1,6 +1,6 @@
+{{- $existingTokenSecret := .Values.existingTokenSecret | default dict }}
 apiVersion: apps/v1
 kind: Deployment
-{{- $existingTokenSecret := .Values.existingTokenSecret | default dict }}
 metadata:
   name: {{ include "gitea-actions-runner.fullname" . }}
   labels:
