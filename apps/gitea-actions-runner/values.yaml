@@ -1,0 +1,26 @@
+replicas: 1
+
+image:
+  repository: gitea/act_runner
+  tag: 0.6.1
+  pullPolicy: IfNotPresent
+
+gitea:
+  instanceURL: https://git.eaglepass.io
+  name: kubernetes-runner
+
+labels:
+  - "ubuntu-latest:docker://node:20-bookworm"
+  - "ubuntu-22.04:docker://node:20-bookworm"
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2
+    memory: 2Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

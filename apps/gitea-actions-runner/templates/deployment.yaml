@@ -27,8 +27,8 @@ spec:
             - name: GITEA_RUNNER_REGISTRATION_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "gitea-actions-runner.fullname" . }}-token
-                  key: token
+                  name: {{ .Values.existingTokenSecret.secretName | default (include "gitea-actions-runner.fullname" . "-token") }}
+                  key: {{ .Values.existingTokenSecret.secretKey | default "token" }}
             - name: GITEA_RUNNER_LABELS
               value: {{ join "," .Values.labels | quote }}
           volumeMounts:
