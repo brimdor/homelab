@@ -117,11 +117,6 @@ app-template:
                 git branch --set-upstream-to=origin/main main 2>/dev/null || true
               fi
               echo "[fix-git-sync] Done."
-          volumeMounts:
-            - name: wikijs-data
-              mountPath: /wiki/data
-            - name: ssh-key
-              mountPath: /home/node/.ssh
       containers:
         main:
           image:
@@ -318,6 +313,8 @@ app-template:
         wikijs:
           decode-ssh-key:
             - path: /home/node/.ssh
+          fix-git-sync:
+            - path: /home/node/.ssh
           main:
             - path: /home/node/.ssh
     wikijs-data:
@@ -328,6 +325,8 @@ app-template:
       advancedMounts:
         wikijs:
           main:
+            - path: /wiki/data
+          fix-git-sync:
             - path: /wiki/data
           backup-db:
             - path: /backup
