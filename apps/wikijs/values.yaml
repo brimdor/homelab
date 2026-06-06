@@ -89,6 +89,10 @@ app-template:
               set -e
               REPO="/wiki/data/repo"
               echo "[fix-git-sync] Checking git sync health..."
+              if ! command -v git >/dev/null 2>&1; then
+                echo "[fix-git-sync] git not found in init image. Skipping git repair."
+                exit 0
+              fi
               if [ ! -d "$REPO/.git" ]; then
                 echo "[fix-git-sync] No repo found. Skipping."
                 exit 0

@@ -36,7 +36,6 @@ rook-ceph-cluster:
           devices:
             - name: sdb
         # bulbasaur excluded: osd.4 device has recurring BlueFS stalled-read alerts
-        - name: chikorita
         - name: cyndaquil
         - name: growlithe
         - name: sprigatito
