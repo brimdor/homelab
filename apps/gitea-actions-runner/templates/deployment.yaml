@@ -1,5 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
+{{- $existingTokenSecret := .Values.existingTokenSecret | default dict }}
 metadata:
   name: {{ include "gitea-actions-runner.fullname" . }}
   labels:
@@ -27,8 +28,8 @@ spec:
             - name: GITEA_RUNNER_REGISTRATION_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.existingTokenSecret.secretName | default (include "gitea-actions-runner.fullname" . "-token") }}
-                  key: {{ .Values.existingTokenSecret.secretKey | default "token" }}
+                  name: {{ default (printf "%s-token" (include "gitea-actions-runner.fullname" .)) $existingTokenSecret.secretName }}
+                  key: {{ default "token" $existingTokenSecret.secretKey }}
             - name: GITEA_RUNNER_LABELS
               value: {{ join "," .Values.labels | quote }}
           volumeMounts:
