@@ -1,0 +1,40 @@
+# Static PV + PVC binding /backup (the postgres pg_dump) to the NAS.
+# The wiki share on Unraid (10.0.40.3) is exported via NFS and the
+# 'wikijs/' subdir holds the live pg_dump. This survives any Ceph RBD
+# rebuild, so a fresh wikijs deploy can auto-restore from it.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: wikijs-backup-pv
+  labels:
+    app.kubernetes.io/name: wikijs
+    app.kubernetes.io/component: backup
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-static
+  nfs:
+    server: 10.0.40.3
+    path: /mnt/user/wiki/wikijs
+  mountOptions:
+    - hard
+    - nfsvers=3
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wikijs-backup
+  labels:
+    app.kubernetes.io/name: wikijs
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: nfs-static
+  volumeName: wikijs-backup-pv

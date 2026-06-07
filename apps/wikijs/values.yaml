@@ -334,6 +334,15 @@ app-template:
             - path: /wiki/data
           fix-git-sync:
             - path: /wiki/data
+    wikijs-backup:
+      # Static NFS-backed PVC bound to the 'wiki' share on the Unraid NAS
+      # (10.0.40.3) at /mnt/user/wiki/wikijs. Survives a Ceph RBD rebuild so
+      # the postgres pg_dump + honey-bee.txt sentinel stay durable across
+      # cluster repairs. The static PV is in templates/pvc-wikijs-backup.yaml.
+      type: persistentVolumeClaim
+      existingClaim: wikijs-backup
+      advancedMounts:
+        wikijs:
           backup-db:
             - path: /backup
           restore-db:
