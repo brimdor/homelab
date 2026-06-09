@@ -90,4 +90,4 @@ spec:
         - name: config
           nfs:
             server: {{ .Values.volumes.nfs.server }}
-            path: /mnt/user/jfa-go_config
+            path: {{ .Values.volumes.nfs.path }}
