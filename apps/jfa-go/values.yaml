@@ -3,7 +3,7 @@ app:
 
 image:
   repository: hrfee/jfa-go
-  tag: v0.6.0
+  tag: latest
   policy: Always
 
 # jfa-go runs on port 8056 by default (8057 for TLS). We serve through Cloudflare
