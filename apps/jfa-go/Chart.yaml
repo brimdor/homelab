@@ -1,0 +1,5 @@
+apiVersion: v2
+name: jfa-go
+description: Jellyfin Account Go (jfa-go) — Jellyfin user management + JellySeerr module (v0.6.0+, "Small features, fixes, Jellyseerr")
+version: 0.0.1
+appVersion: "0.6.0"

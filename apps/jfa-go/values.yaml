@@ -1,0 +1,104 @@
+app:
+  name: jfa-go
+
+image:
+  repository: hrfee/jfa-go
+  tag: v0.6.0
+  policy: Always
+
+# jfa-go runs on port 8056 by default (8057 for TLS). We serve through Cloudflare
+# at jfa.eaglepass.io (wildcard *.eaglepass.io catches it), so no TLS in-container.
+env:
+  TZ: "America/Chicago"
+  # Path inside the container for the persistent data dir (config + db).
+  JFA_DATA: "/data"
+  # Base URL used in invite links. Must match the public ingress host.
+  JFA_BASE_URL: "https://jfa.eaglepass.io"
+  # Where the jfa-go UI sends invites / password-reset links.
+  JFA_FROM_ADDRESS: "[email protected]"
+  # Jellyfin is the primary server jfa-go talks to. URL is the cluster-internal
+  # service so the container can reach it without leaving k3s.
+  JELLYFIN_URL: "http://jellyfin.jellyfin.svc.cluster.local:8096"
+  # Public Jellyfin URL (shown in user-facing links).
+  JELLYFIN_PUBLIC_URL: "https://jellyfin.eaglepass.io"
+  # Sonarr/Radarr are wired into the JellySeerr module so users can request
+  # media straight from the jfa-go web UI. In-cluster service URLs.
+  SONARR_URL: "http://sonarr.sonarr.svc.cluster.local:8989"
+  RADARR_URL: "http://radarr.radarr.svc.cluster.local:7878"
+  # Quality / language defaults for new requests. Matches Doplarr's settings
+  # so behavior is consistent regardless of which interface a user uses.
+  RADARR_QUALITY_PROFILE: "Any"
+  RADARR_LANGUAGE_PROFILE: "English"
+  SONARR_QUALITY_PROFILE: "Any"
+  SONARR_LANGUAGE_PROFILE: "English"
+  PARTIAL_SEASONS: "true"
+
+# All API keys come from existing 1Password items via the OnePasswordItem CRD.
+# We reuse the same 1P items the doplarr deployment uses — single source of truth.
+opSecret:
+  RADARR__API:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "rb3gyodqcqxl7votw2tdvwgmeq"
+    secretName: "radarr-api"
+    key: "api_key"
+  SONARR__API:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "ywvxjd4w3u3nnoedkwfymwaokm"
+    secretName: "sonarr-api"
+    key: "api_key"
+  JELLYFIN__API:
+    # Jellyfin API key is per-user. The doplarr deployment doesn't need one,
+    # so jfa-go gets its own dedicated 1P item that we will populate after the
+    # first run (see README in this directory). For now, a placeholder key is
+    # stored in 1P (item id a3yzrul4r46gteyt4gbv3cwm7m); jfa-go will start
+    # in "needs setup" mode and prompt for the real key via the web UI on
+    # first visit. After updating 1P, run:
+    #   op item edit "jfa-go jellyfin api" api_key=<new_key>
+    #   kubectl rollout restart deploy/jfa-go -n jfa-go
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "a3yzrul4r46gteyt4gbv3cwm7m"
+    secretName: "jellyfin-api"
+    key: "api_key"
+
+# Persistent storage for jfa-go's config + SQLite db. NFS to Unraid.
+volumeMounts:
+  config:
+    name: "config"
+    mountPath: "/data"
+
+volumes:
+  nfs:
+    enabled: "true"
+    name: "config"
+    server: "10.0.40.3"
+    path: "/mnt/user/jfa-go_config"
+
+# Service + Ingress (Cloudflare wildcard *.eaglepass.io catches jfa.eaglepass.io)
+service:
+  main:
+    primary: true
+    ports:
+      http:
+        port: 8056
+        protocol: HTTP
+
+ingress:
+  main:
+    enabled: true
+    className: nginx
+    annotations:
+      external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: jfa.eaglepass.io
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: main
+              port: 8056
+    tls:
+      - hosts:
+          - jfa.eaglepass.io
+        secretName: jfa-tls-certificate
