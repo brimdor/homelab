@@ -89,5 +89,5 @@ spec:
       volumes:
         - name: config
           nfs:
-            server: 10.0.40.3
+            server: {{ .Values.volumes.nfs.server }}
             path: /mnt/user/jfa-go_config
