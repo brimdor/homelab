@@ -9,12 +9,11 @@ spec:
   # Generous minReadySeconds to keep ArgoCD from racing the pod through
   # the readiness gate on every re-sync while the JVM is still warming up.
   minReadySeconds: 30
-  # We want zero-downtime intent even though we have a single replica —
-  # the pod is stateful only in the sense that a clean Discord session
-  # close matters. The `preStop` sleep + terminationGracePeriodSeconds
-  # handle that.
-  strategy:
-    type: Recreate
+  # Default RollingUpdate is fine for a single-replica deployment — with
+  # replicas: 1, the rolling update is effectively a recreate anyway
+  # (you can't have two pods running). We keep RollingUpdate explicitly
+  # so ArgoCD's server-side apply has a stable field to merge into.
+  strategy: {}
   selector:
     matchLabels:
       app: "{{ .Values.app.name }}"
