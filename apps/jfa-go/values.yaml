@@ -71,7 +71,7 @@ volumes:
     enabled: "true"
     name: "config"
     server: "10.0.40.3"
-    path: "/mnt/user/jfa-go_config"
+    path: "/mnt/user/apps/jfa-go_config"
 
 # Service + Ingress (Cloudflare wildcard *.eaglepass.io catches jfa.eaglepass.io)
 service:
