@@ -3,8 +3,12 @@ app:
 
 image:
   repository: lscr.io/linuxserver/doplarr
-  tag: latest
-  policy: Always
+  # Pinned to v3.8.0-ls140. `latest` rolls the pod on every upstream image push,
+  # which severs the Discord gateway session and triggers the
+  # "Got invalid session payload, reconnecting shard 0" loop in discljord.
+  # See apps/doplarr/README.md for upgrade procedure.
+  tag: v3.8.0-ls140
+  policy: IfNotPresent
 
 env:
   UID: 99
@@ -49,3 +53,58 @@ volumes:
     name: "config"
     server: "10.0.40.3"
     path: "/mnt/user/doplarr_config"
+
+# --- Pod lifecycle tuning ----------------------------------------------------
+# discljord (the Discord library doplarr uses) needs time to send a clean
+# WebSocket close-frame when the pod is terminated, otherwise the gateway
+# keeps the old session handle alive until it eventually expires, and the
+# next reconnect hits "invalid session payload". This has nothing to do with
+# our cluster; it is purely about how the pod is shut down.
+terminationGracePeriodSeconds: 60
+
+# Comma-separated tolerations so this single-replica pod can land on any
+# worker (it is stateless; NFS is the only state).
+tolerations: []
+
+resources:
+  # doplarr is a tiny JVM app; the defaults keep it stable and stop the
+  # kernel from OOM-thrashing it on the smaller workers.
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# Probes: exec-based, not TCP-based. The LSIO doplarr image does NOT bind
+# a public TCP port (it is a Discord bot only; the embedded Jetty server
+# is purely internal). A TCP-socket probe would always fail and the
+# kubelet would kill the pod repeatedly, which would *cause* the very
+# "invalid session" loop we are trying to prevent.
+#
+# Instead we use `pgrep` to confirm the doplarr JVM is alive, and a
+# generous startup grace to let the bot reach "Discord connection
+# successful" before liveness kicks in.
+startupProbe:
+  enabled: true
+  exec:
+    # Match only the JVM running the doplarr jar — the s6 supervisor wrapper
+    # has "svc-doplarr" in its command and would otherwise keep the probe
+    # green even if the JVM has died.
+    command: ["/bin/sh", "-c", "pgrep -f 'java.*doplarr\\.jar' >/dev/null"]
+  failureThreshold: 30
+  periodSeconds: 3
+livenessProbe:
+  enabled: true
+  exec:
+    command: ["/bin/sh", "-c", "pgrep -f 'java.*doplarr\\.jar' >/dev/null"]
+  initialDelaySeconds: 90
+  periodSeconds: 60
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# Pre-stop sleep: discljord needs ~10s to flush its gateway state and
+# close the WebSocket cleanly. Without this, SIGTERM hits the JVM
+# immediately and the next reconnect is flagged as invalid.
+lifecycle:
+  preStopSleepSeconds: 15
