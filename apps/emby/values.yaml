@@ -36,7 +36,9 @@ app-template:
             # follows Emby's 4.10 pre-releases, which have shown
             # audio-muxer queue regressions that the LTS line does
             # not. If you need 4.10 features, update deliberately.
-            tag: 4.9.1.80-ls406
+            # 4.9.5.0 is the latest Emby 4.9.x server; ls282 is the
+            # corresponding LinuxServer.io image build number.
+            tag: 4.9.5.0-ls282
             pullPolicy: IfNotPresent
           env:
             PUID: "99"

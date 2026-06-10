@@ -12,7 +12,7 @@ session directories that Emby itself fails to garbage-collect.
 
 ### 1. Image is pinned, not `beta`
 
-`tag: 4.9.1.80-ls406` rather than `beta`. The `beta` tag follows
+`tag: 4.9.5.0-ls282` rather than `beta`. The `beta` tag follows
 Emby's 4.10 pre-releases. 4.10 ships an ffmpeg wrapper change that
 narrowed the audio muxer's packet-queue tolerance; combined with
 the EAC3→AC3 audio path that the LSIO image defaults to, this
@@ -138,7 +138,7 @@ curl -s https://hub.docker.com/v2/repositories/linuxserver/emby/tags/ \
   | python3 -c "import json,sys; [print(t['name'],t['last_updated'][:10]) for t in json.load(sys.stdin)['results'] if 'beta' not in t['name'] and '4.9' in t['name']]"
 
 # 2. Bump the tag in values.yaml and commit
-$EDITOR values.yaml   # change `tag: 4.9.1.80-ls406`
+$EDITOR values.yaml   # change `tag: 4.9.5.0-ls282`
 
 # 3. Commit + push
 cd /home/echo/Documents/Github/homelab
