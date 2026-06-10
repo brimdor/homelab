@@ -121,8 +121,14 @@ The Emby server listens on 8096 (HTTP) and 8920 (HTTPS), and
 internally opens several other ports for the dashboard, plugin
 host, and SSDP. A TCP-socket probe on 8096 flaps when a transcode
 session pins the .NET thread pool, especially under the audio
-crash loop in (2). An `exec` probe matching `EmbyServer\.dll`
-is reliable and matches the doplarr chart's pattern.
+crash loop in (2). An `exec` probe matching the running EmbyServer
+binary is reliable and follows the doplarr chart's pattern.
+
+Important: the LinuxServer Emby image runs EmbyServer as a
+**native AOT .NET binary** on Linux — the executable is
+`/app/emby/system/EmbyServer`, NOT `EmbyServer.dll` as it is on
+Windows. The probe must match the actual binary name, not the
+`EmbyServer.dll` string from the Windows docs.
 
 `startupProbe` failureThreshold is 60 × periodSeconds 5 = 5 min,
 which covers the first-boot metadata-library scan on a large

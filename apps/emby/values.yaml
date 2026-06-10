@@ -108,24 +108,31 @@ app-template:
           # `custom: true` is required because bjw-s probe types
           # are limited to TCP/HTTP/HTTPS/GRPC/AUTO; we want
           # raw `exec` so we can run pgrep.
+          # The LinuxServer Emby image runs EmbyServer as a
+          # native AOT .NET binary (NOT EmbyServer.dll on
+          # Linux), so we match the absolute path. The startup
+          # probe has timeout=10s because pgrep + sh startup
+          # costs ~50-100ms but cold library scans can stall
+          # the .NET GC for a few seconds.
           probes:
             startup:
               enabled: true
               custom: true
               spec:
                 exec:
-                  command: ["/bin/sh", "-c", "pgrep -f 'EmbyServer\\.dll' >/dev/null"]
+                  command: ["/bin/sh", "-c", "pgrep -f '/app/emby/system/EmbyServer' >/dev/null"]
                 failureThreshold: 60
                 periodSeconds: 5
+                timeoutSeconds: 10
             liveness:
               enabled: true
               custom: true
               spec:
                 exec:
-                  command: ["/bin/sh", "-c", "pgrep -f 'EmbyServer\\.dll' >/dev/null"]
+                  command: ["/bin/sh", "-c", "pgrep -f '/app/emby/system/EmbyServer' >/dev/null"]
                 initialDelaySeconds: 120
                 periodSeconds: 60
-                timeoutSeconds: 5
+                timeoutSeconds: 10
                 failureThreshold: 6
   service:
     main:
