@@ -65,11 +65,19 @@ app-template:
           # The emby-config-patch ConfigMap (see
           # templates/configmap.yaml) is mounted via
           # persistence.emby-config-patch.advancedMounts below.
-          # The postStart hook copies /config-patch/encoding.xml
-          # into place on startup, then runs
-          # /config-patch/cleanup-transcode-temp.sh to clear the
-          # 17 GiB of accumulated session dirs that Emby's
-          # built-in cleanup leaves behind.
+          # The postStart hook:
+          #   1. installs the patched encoding.xml
+          #   2. installs the patched system.xml (bitrate cap,
+          #      simultaneous-stream limit, local-network subnets)
+          #   3. runs the first-pass cleanup of stale transcode
+          #      temp dirs (17 GiB of stale session dirs were
+          #      observed on 2026-06-10 because Emby's built-in
+          #      cleanup is unreliable)
+          #   4. runs cache-warm.sh to pre-populate the kernel
+          #      page cache with the first 64 MiB of every
+          #      recently-played file, so the first direct-stream
+          #      of a 4K MKV after a pod restart hits the page
+          #      cache instead of the cold-NFS 50 MB/s path
           lifecycle:
             postStart:
               exec:
@@ -92,12 +100,41 @@ app-template:
                     else
                       echo "[emby-patch] WARN: /config-patch/encoding.xml missing"
                     fi
-                    # 3. First-pass cleanup of stale transcode temp
+                    # 3. Install the patched system.xml (Emby
+                    #    writes a new file there on every start,
+                    #    so we must overlay our values AFTER the
+                    #    first start completes. We do that here.)
+                    if [ -f /config-patch/system.xml ]; then
+                      # The postStart fires before Emby finishes
+                      # its own initial write of system.xml, so
+                      # we may need to retry. We use a 60s window.
+                      for i in $(seq 1 30); do
+                        if [ -f /config/config/system.xml ]; then
+                          cp -f /config-patch/system.xml /config/config/system.xml
+                          echo "[emby-patch] installed patched system.xml"
+                          break
+                        fi
+                        sleep 2
+                      done
+                      if [ ! -f /config/config/system.xml ]; then
+                        echo "[emby-patch] WARN: Emby's system.xml never appeared; patch deferred to next start"
+                      fi
+                    fi
+                    # 4. First-pass cleanup of stale transcode temp
                     if [ -x /config-patch/cleanup-transcode-temp.sh ]; then
                       /config-patch/cleanup-transcode-temp.sh || \
                         echo "[emby-patch] WARN: cleanup exited non-zero"
                     else
                       echo "[emby-patch] WARN: cleanup script missing"
+                    fi
+                    # 5. Cache warm (best-effort, can be slow on
+                    #    big libraries so we don't fail the pod
+                    #    start if it errors)
+                    if [ -x /config-patch/cache-warm.sh ]; then
+                      timeout 600 /config-patch/cache-warm.sh || \
+                        echo "[emby-patch] WARN: cache-warm exited non-zero or timed out"
+                    else
+                      echo "[emby-patch] WARN: cache-warm script missing"
                     fi
           # Health probes: pgrep on the EmbyServer dotnet process,
           # not a TCP socket. The LinuxServer s6-overlay does not

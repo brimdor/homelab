@@ -74,6 +74,71 @@ ConfigMap) over `/config/config/encoding.xml` on every pod start.
 The file remains owned by Emby post-start, so the user can still
 tweak settings in the Web UI and have them persist.
 
+### 2a. 4K HDR transcode overloads the GTX 1650 (2026-06-10 follow-up)
+
+The original "audio muxer overflow" fix above addresses the
+*symptom* but the underlying cause is that Emby was asking the
+GTX 1650 to do 4K HDR HEVC → 4K H.264 at 11.6 Mbps. The
+transcode session runs 12 simultaneous ffmpeg processes (1
+video + 1 audio + 3 subtitle extractions + HLS segments) and
+the NVENC encoder queue saturates around 2-3 concurrent 4K
+sessions. The audio muxer then overflows again.
+
+**Throughput observed on sprigatito (2026-06-10):**
+
+| Path | Cold | Hot |
+|---|---|---|
+| NFS read of source file (single stream) | **97 MB/s** | 7.8 GB/s (page cache) |
+| NFS read (2 concurrent streams) | **51 MB/s each** | 200 MB/s |
+| NFS read (3 concurrent streams) | 50 MB/s each | n/a |
+| Ceph RBD write 512 MiB (transcode temp) | **17.5 MB/s** | n/a |
+| Ceph RBD read 512 MiB | 90 MB/s | 8.2 GB/s |
+| Network to NAS (10.0.40.3) | 0.62 ms RTT | n/a |
+
+The NFS server (Unraid) caps at ~50 MB/s per concurrent
+direct-stream read. The Ceph RBD PVC is fine for 5 Mbps
+transcoded output (17.5 MB/s writes is 28× headroom). The
+GPU is the bottleneck, not the disks or network.
+
+**Fixes (added 2026-06-10):**
+
+- `EncodingThreadCount=2` (was 0=auto/all-cores) so one
+  transcode doesn't pin all 4 cores of the M700.
+- `SimultaneousStreamLimit=3` in `system.xml` (was 0=unlimited)
+  so Emby refuses a 4th concurrent 4K transcode rather than
+  queueing and crashing the 3rd.
+- `RemoteClientBitrateLimit=8000000` (was 12 Mbps) so 4K
+  sources are downscaled to 1080p H.264 at 8 Mbps rather
+  than 4K H.264 at 11.6 Mbps. 8 Mbps is plenty for the
+  LAN client and cuts the encoder load roughly in half.
+- `LocalNetworkSubnets=10.0.0.0/16,192.168.0.0/16,172.16.0.0/12`
+  so LAN clients are treated as local rather than remote
+  (and the conservative remote bitrate policy doesn't apply
+  to a 1 Gbps LAN).
+
+### 2b. Direct-stream cold NFS reads stall (2026-06-10 follow-up)
+
+**Symptom:** on a fresh pod (or after a 30-min gap), the first
+direct-stream of a 4K HDR MKV from NFS at 10.0.40.3 stalls
+for 7-15 seconds. The Mac/Firefox client repeatedly issues
+fresh `Range: bytes=N-` requests, which re-read from NFS cold.
+
+**Cause:** the page cache is empty; the first 2.4 GB read of
+a 4K HDR MKV from Unraid NFS takes ~50 MB/s × 2.4 GB = 48 s
+under cold cache, and the client times out before the kernel
+gets the data through.
+
+**Fix:** `cache-warm.sh` in the ConfigMap runs as part of
+the postStart hook. It reads the first 64 MiB of every
+video file modified in the last 7 days (skipping files
+> 40 GiB) into the page cache. The page cache then serves
+the first chunks from RAM instead of NFS.
+
+The cost: 64 MiB × N files, where N is the number of
+recently-modified video files (typically 50-200, so
+3-12 GiB of sequential reads; bounded by the 600 s
+`timeout` in the postStart).
+
 ### 3. `/config/transcoding-temp/` accumulates session directories
 
 **Symptom:** the 40 GiB `/config` RWO PVC was at 71% (12 GiB free)
