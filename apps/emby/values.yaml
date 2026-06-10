@@ -120,9 +120,11 @@ app-template:
                         echo "[emby-patch] WARN: Emby's system.xml never appeared; patch deferred to next start"
                       fi
                     fi
-                    # 4. First-pass cleanup of stale transcode temp
-                    if [ -x /config-patch/cleanup-transcode-temp.sh ]; then
-                      /config-patch/cleanup-transcode-temp.sh || \
+                    # 4. First-pass cleanup of stale transcode temp.
+                    #    Invoke via `sh` because the configMap
+                    #    mount is 0o644 (no execute bit).
+                    if [ -f /config-patch/cleanup-transcode-temp.sh ]; then
+                      sh /config-patch/cleanup-transcode-temp.sh || \
                         echo "[emby-patch] WARN: cleanup exited non-zero"
                     else
                       echo "[emby-patch] WARN: cleanup script missing"
@@ -130,8 +132,8 @@ app-template:
                     # 5. Cache warm (best-effort, can be slow on
                     #    big libraries so we don't fail the pod
                     #    start if it errors)
-                    if [ -x /config-patch/cache-warm.sh ]; then
-                      timeout 600 /config-patch/cache-warm.sh || \
+                    if [ -f /config-patch/cache-warm.sh ]; then
+                      timeout 600 sh /config-patch/cache-warm.sh || \
                         echo "[emby-patch] WARN: cache-warm exited non-zero or timed out"
                     else
                       echo "[emby-patch] WARN: cache-warm script missing"
@@ -221,11 +223,18 @@ app-template:
             - path: /config
     # The patch ConfigMap. We mount the entire map at
     # /config-patch and let the postStart hook pick out the
-    # files it needs (encoding.xml, cleanup-transcode-temp.sh).
+    # files it needs (encoding.xml, system.xml, cache-warm.sh,
+    # cleanup-transcode-temp.sh).
     # The ConfigMap is created by templates/configmap.yaml
     # because bjw-s `configMaps:` doesn't auto-mount; `type: configMap`
     # on a persistence item is the supported way to reference
     # an existing ConfigMap as a volume.
+    #
+    # The cache-warm.sh and cleanup-transcode-temp.sh scripts
+    # are invoked via `sh /config-patch/<name>` from the
+    # postStart hook because bjw-s's persistence configMap
+    # mount uses mode 0o644 (no execute bit). The mount is
+    # read-only tmpfs so we can't chmod either.
     emby-config-patch:
       type: configMap
       name: emby-config-patch

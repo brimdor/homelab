@@ -204,35 +204,39 @@ data:
   #
   # Excluded: files >40 GiB (mostly full 4K remux sets; warm-
   # reading them is wasteful and can starve the NFS server).
+  #
+  # POSIX note: the postStart invokes this via `sh`, so we
+  # avoid bash-only features like `read -d ''`. We use
+  # `find -exec dd` which is portable.
   cache-warm.sh: |
     #!/bin/sh
     set -eu
-    WARM_BYTES="${EMBY_CACHE_WARM_BYTES:-67108864}"  # 64 MiB
+    WARM_BLOCKS="${EMBY_CACHE_WARM_BLOCKS:-65536}"  # 64 MiB at 1 KiB each
     MAX_AGE_DAYS="${EMBY_CACHE_WARM_MAX_AGE_DAYS:-7}"
     MAX_FILE_BYTES="${EMBY_CACHE_WARM_MAX_FILE_BYTES:-42949672960}"  # 40 GiB
     ROOTS="/data/movies /data/tv /data/movies_custom /data/tv_custom /data/music"
     WARMED=0
-    SKIPPED=0
     FAILED=0
     START=$(date +%s)
-    TMP_LIST=$(mktemp)
-    trap 'rm -f "$TMP_LIST"' EXIT
-    # Build the candidate list first so the subshell in the
-    # while loop doesn't lose the counters.
     for root in $ROOTS; do
       [ -d "$root" ] || continue
+      # -print0 is portable; the -exec runs dd once per file,
+      # which avoids the shell loop. The dd -of=/dev/null means
+      # the data goes to the bit bucket; what we care about is
+      # that the kernel page cache is filled.
       find "$root" -type f \
         \( -name '*.mkv' -o -name '*.mp4' -o -name '*.m4v' -o -name '*.webm' \) \
         -mtime "-${MAX_AGE_DAYS}" \
         -size "-${MAX_FILE_BYTES}"c 2>/dev/null \
-        -print0 >> "$TMP_LIST"
+        -exec sh -c '
+            for f do
+              if dd if="$f" of=/dev/null bs=1024 count="${EMBY_CACHE_WARM_BLOCKS:-65536}" status=none 2>/dev/null; then
+                :  # success
+              else
+                echo "dd failed: $f" >&2
+              fi
+            done
+        ' sh {} +
     done
-    while IFS= read -r -d '' f; do
-      if dd if="$f" of=/dev/null bs=1M count=64 status=none 2>/dev/null; then
-        WARMED=$((WARMED + 1))
-      else
-        FAILED=$((FAILED + 1))
-      fi
-    done < "$TMP_LIST"
     END=$(date +%s)
-    echo "[cache-warm] warmed=$WARMED skipped=$SKIPPED failed=$FAILED in $((END-START))s"
+    echo "[cache-warm] done in $((END-START))s"
