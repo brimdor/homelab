@@ -39,18 +39,12 @@
 #     muxer overflow.
 #
 #     Fix: lower the per-session concurrency envelope by
-#     (a) bumping EncodingThreadCount to 2 (was 0=auto, which
-#         could pin all 4 cores per session),
-#     (b) capping SimultaneousStreamLimit to 3 in system.xml
-#         (was 0=unlimited),
-#     (c) lowering the global remote bitrate cap from 12 Mbps
-#         to 8 Mbps (8 Mbps is enough for 1080p HEVC, which
-#         is the realistic delivery target for the LAN client
-#         on 1 Gbps),
-#     (d) marking the LAN as "local" via LocalNetworkSubnets
-#         so Emby treats the 10.0.0.0/16 LAN clients as local
-#         and applies the local-network policy (which is more
-#         generous than the remote one).
+#     bumping EncodingThreadCount to 2 (was 0=auto, which
+#     could pin all 4 cores per session). Do not replace
+#     /config/config/system.xml from a ConfigMap: Emby requires
+#     the full generated file, and writing a partial system.xml
+#     causes the server process to start and exit cleanly in a
+#     tight loop.
 #
 #  4. Direct-stream: 4K HDR over NFS gets ~50 MB/s cold, stalls
 #     --------------------------------------------------------
@@ -77,8 +71,10 @@
 # The config files are owned by the patch because the bjw-s
 # app-template copies ConfigMap data into a read-only mount;
 # the postStart hook then `cp -f` it onto the writable
-# /config/config/encoding.xml and /config/config/system.xml so
-# Emby can still persist any future changes from the Web UI.
+# /config/config/encoding.xml so Emby can still persist any
+# future changes from the Web UI. system.xml is deliberately
+# left under Emby's ownership and restored from backup when
+# needed.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -124,37 +120,6 @@ data:
       <EnableSoftwareToneMapping>false</EnableSoftwareToneMapping>
       <EnableHevcEncoding>false</EnableHevcEncoding>
     </EncodingOptions>
-
-  # system.xml overrides: the simultaneous-stream cap, the
-  # remote bitrate ceiling, and the local-network subnet list.
-  # These three together keep the GPU from being asked to do
-  # 4K HDR at 11.6 Mbps while the LAN client gets the same
-  # generous local-network policy it would on a 1 Gbps LAN.
-  system.xml: |
-    <?xml version="1.0"?>
-    <ServerConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-      <!-- Was 0 (= unlimited). The GTX 1650 on sprigatito can
-           sustain 2-3 simultaneous 4K H.264 NVENC sessions.
-           Above 3, the audio muxer queue overflows and ffmpeg
-           crashes every few minutes (see issue 1). -->
-      <SimultaneousStreamLimit>3</SimultaneousStreamLimit>
-      <!-- Was 12000000 (12 Mbps). 8 Mbps is sufficient for
-           1080p HEVC delivery which is the realistic target
-           for the LAN client; capping at 8 forces 4K sources
-           to downscale rather than attempt 4K-output H.264 at
-           11.6 Mbps. -->
-      <RemoteClientBitrateLimit>8000000</RemoteClientBitrateLimit>
-      <!-- Was empty. The 10.0.0.0/16 LAN covers the 10.0.1.x
-           clients (FireTV at 10.0.1.229, onn box at 10.0.5.61,
-           etc.). Without this, every client is treated as
-           "remote" and Emby applies the conservative remote
-           bitrate policy even when serving over 1 Gbps LAN. -->
-      <LocalNetworkSubnets>
-        <string>10.0.0.0/16</string>
-        <string>192.168.0.0/16</string>
-        <string>172.16.0.0/12</string>
-      </LocalNetworkSubnets>
-    </ServerConfiguration>
 
   # See header comment for the rationale.
   cleanup-transcode-temp.sh: |

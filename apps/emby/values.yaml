@@ -67,13 +67,11 @@ app-template:
           # persistence.emby-config-patch.advancedMounts below.
           # The postStart hook:
           #   1. installs the patched encoding.xml
-          #   2. installs the patched system.xml (bitrate cap,
-          #      simultaneous-stream limit, local-network subnets)
-          #   3. runs the first-pass cleanup of stale transcode
+          #   2. runs the first-pass cleanup of stale transcode
           #      temp dirs (17 GiB of stale session dirs were
           #      observed on 2026-06-10 because Emby's built-in
           #      cleanup is unreliable)
-          #   4. runs cache-warm.sh to pre-populate the kernel
+          #   3. runs cache-warm.sh to pre-populate the kernel
           #      page cache with the first 64 MiB of every
           #      recently-played file, so the first direct-stream
           #      of a 4K MKV after a pod restart hits the page
@@ -100,27 +98,7 @@ app-template:
                     else
                       echo "[emby-patch] WARN: /config-patch/encoding.xml missing"
                     fi
-                    # 3. Install the patched system.xml (Emby
-                    #    writes a new file there on every start,
-                    #    so we must overlay our values AFTER the
-                    #    first start completes. We do that here.)
-                    if [ -f /config-patch/system.xml ]; then
-                      # The postStart fires before Emby finishes
-                      # its own initial write of system.xml, so
-                      # we may need to retry. We use a 60s window.
-                      for i in $(seq 1 30); do
-                        if [ -f /config/config/system.xml ]; then
-                          cp -f /config-patch/system.xml /config/config/system.xml
-                          echo "[emby-patch] installed patched system.xml"
-                          break
-                        fi
-                        sleep 2
-                      done
-                      if [ ! -f /config/config/system.xml ]; then
-                        echo "[emby-patch] WARN: Emby's system.xml never appeared; patch deferred to next start"
-                      fi
-                    fi
-                    # 4. First-pass cleanup of stale transcode temp.
+                    # 3. First-pass cleanup of stale transcode temp.
                     #    Invoke via `sh` because the configMap
                     #    mount is 0o644 (no execute bit).
                     if [ -f /config-patch/cleanup-transcode-temp.sh ]; then
@@ -129,7 +107,7 @@ app-template:
                     else
                       echo "[emby-patch] WARN: cleanup script missing"
                     fi
-                    # 5. Cache warm (best-effort, can be slow on
+                    # 4. Cache warm (best-effort, can be slow on
                     #    big libraries so we don't fail the pod
                     #    start if it errors)
                     if [ -f /config-patch/cache-warm.sh ]; then
@@ -223,7 +201,7 @@ app-template:
             - path: /config
     # The patch ConfigMap. We mount the entire map at
     # /config-patch and let the postStart hook pick out the
-    # files it needs (encoding.xml, system.xml, cache-warm.sh,
+    # files it needs (encoding.xml, cache-warm.sh,
     # cleanup-transcode-temp.sh).
     # The ConfigMap is created by templates/configmap.yaml
     # because bjw-s `configMaps:` doesn't auto-mount; `type: configMap`
