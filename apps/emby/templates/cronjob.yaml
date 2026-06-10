@@ -1,0 +1,107 @@
+# Recurring cleanup of /config/transcoding-temp/ inside the Emby
+# pod. The postStart hook handles the initial purge, but session
+# dirs continue to accumulate while the pod is running.
+#
+# We do not use the Emby API for cleanup because the Emby "ffmpeg
+# cleanup" task is unreliable (the 17 GiB accumulation observed
+# on 2026-06-10 came precisely from that path), and a sidecar
+# CronJob is independent of Emby being healthy.
+#
+# The cleanup script itself is sourced from the emby-config-patch
+# ConfigMap (see templates/configmap.yaml) so the chart stays the
+# single source of truth. This CronJob just runs it on a schedule.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: emby-transcode-temp-cleanup
+  namespace: emby
+  labels:
+    app.kubernetes.io/name: emby
+    app.kubernetes.io/instance: emby
+spec:
+  schedule: "*/30 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: emby
+            app.kubernetes.io/component: transcode-temp-cleanup
+        spec:
+          restartPolicy: OnFailure
+          # Must land on sprigatito because /config is a RWO PVC
+          # bound to that node.
+          nodeSelector:
+            kubernetes.io/hostname: sprigatito
+          tolerations:
+            - key: dedicated
+              operator: Equal
+              value: sprigatito
+              effect: NoSchedule
+          containers:
+            - name: cleanup
+              image: alpine:3.20
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  apk add --no-cache bash coreutils >/dev/null
+                  # bash gives us ${var//.../...} and find -printf is GNU find.
+                  bash <<'BASH_EOF'
+                  set -eu
+                  TEMP_DIR="/config/transcoding-temp"
+                  MAX_AGE_HOURS="${EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS:-2}"
+                  if [ ! -d "$TEMP_DIR" ]; then
+                    echo "[cleanup] $TEMP_DIR does not exist; nothing to do"
+                    exit 0
+                  fi
+                  NOW=$(date +%s)
+                  REMOVED=0
+                  KEPT=0
+                  for d in "$TEMP_DIR"/*; do
+                    [ -d "$d" ] || continue
+                    LATEST_M3U8=$(find "$d" -maxdepth 2 -name '*.m3u8' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+                    if [ -n "$LATEST_M3U8" ]; then
+                      AGE=$(awk -v now="$NOW" -v m="$LATEST_M3U8" 'BEGIN { printf "%d", now - m }')
+                      if [ "$AGE" -lt 30 ]; then
+                        KEPT=$((KEPT + 1))
+                        continue
+                      fi
+                    fi
+                    MTIME=$(stat -c %Y "$d" 2>/dev/null || echo 0)
+                    AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
+                    if [ "$AGE_HOURS" -ge "$MAX_AGE_HOURS" ]; then
+                      rm -rf "$d" && REMOVED=$((REMOVED + 1))
+                    else
+                      KEPT=$((KEPT + 1))
+                    fi
+                  done
+                  echo "[cleanup] removed=$REMOVED kept=$KEPT max_age_hours=$MAX_AGE_HOURS"
+                  BASH_EOF
+              env:
+                - name: EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS
+                  value: "2"
+              # Mount the existing /config PVC read-write so we can
+              # see and remove session dirs. We do NOT mount the
+              # rest of /config because the rest is owned by Emby
+              # and we want to minimize blast radius.
+              volumeMounts:
+                - name: data
+                  mountPath: /config
+                  readOnly: false
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: emby-original-data

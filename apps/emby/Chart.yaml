@@ -1,6 +1,8 @@
 apiVersion: v2
 name: emby
-version: 0.0.0
+description: Emby media server (LinuxServer) — NVDEC HEVC → NVENC H.264 transcoding on sprigatito's GTX 1650. See README.md for the encoding.xml patch and transcode-temp cleanup.
+version: 0.0.1
+appVersion: "4.9.1.80"
 dependencies:
   - name: app-template
     version: 5.0.1

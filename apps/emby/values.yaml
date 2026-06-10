@@ -1,20 +1,55 @@
 #https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml for all options
+#
+# Buffering fix: see README.md and templates/configmap.yaml.
+#
+# Top-level shape (bjw-s app-template 5.0.x):
+#   app-template:
+#     controllers.main.{pod,containers,initContainers,annotations,...}
+#     service.main.{...}
+#     ingress.main.{...}
+#     persistence.<name>.{type, name, advancedMounts, globalMounts, ...}
+#     configMaps.<name>.{...}   ← (we use a separate template instead)
+#     defaultPodOptions.{...}
+#
+# Pod-level vs container-level:
+#   pod:          securityContext, terminationGracePeriodSeconds, volumes-like, ...
+#   container:    volumeMounts, lifecycle, probes.{liveness,readiness,startup}, env, ...
 app-template:
   controllers:
     main:
       # strategy: RollingUpdate
+      pod:
+        # Pod-level security context. The LSIO image runs s6 as root
+        # and drops to abc (PUID 99/PGID 100). fsGroup=100 lets the
+        # PVC's GID be honored on RBD writes.
+        securityContext:
+          fsGroup: 100
+          fsGroupChangePolicy: OnRootMismatch
+        # Give Emby time to flush any in-flight HLS segment writes
+        # on the way down. 30 s is plenty for a media server.
+        terminationGracePeriodSeconds: 30
       containers:
         main:
           image:
             repository: lscr.io/linuxserver/emby
-            tag: beta
-            pullPolicy: Always
+            # Pinned to the latest stable 4.9.x line. The "beta" tag
+            # follows Emby's 4.10 pre-releases, which have shown
+            # audio-muxer queue regressions that the LTS line does
+            # not. If you need 4.10 features, update deliberately.
+            tag: 4.9.1.80-ls406
+            pullPolicy: IfNotPresent
           env:
             PUID: "99"
             PGID: "100"
             TZ: "America/Chicago"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
+            # FFMPEG_HWACCEL=cuda triggers the LSIO s6-overlay
+            # hook to inject -hwaccel cuda -init_hw_device cuda
+            # into Emby's ffmpeg invocations. This is the bit
+            # that actually enables NVDEC/NVENC; the
+            # HardwareAccelerationMode in encoding.xml is also
+            # set to 2 (NVENC) for belt-and-braces correctness.
             FFMPEG_HWACCEL: "cuda"
           resources:
             limits:
@@ -25,46 +60,71 @@ app-template:
               cpu: 2
               memory: "16384Mi"
               nvidia.com/gpu: 1
-      # initContainers:
-      #   restore:
-      #     name: restore
-      #     image:
-      #       repository: alpine
-      #       tag: latest
-      #     command:
-      #       - /bin/sh
-      #       - -c
-      #       - |
-      #         set -e
-
-      #         echo "[INFO] Checking for /config/bees-knees marker file..."
-      #         if [ -f /config/bees-knees ]; then
-      #           echo "[INFO] Restore skipped: /config/bees-knees exists."
-      #           exit 0
-      #         fi
-
-      #         BACKUP_DIR="/backups/embyserver-backup-full"
-      #         DEST_DIR="/config"
-      #         FOLDERS="config metadata root data plugins"
-
-      #         # Check all folders exist in backup
-      #         for folder in $FOLDERS; do
-      #           if [ ! -d "$BACKUP_DIR/$folder" ]; then
-      #             echo "[ERROR] Backup folder $BACKUP_DIR/$folder not found. Aborting restore."
-      #             exit 1
-      #           fi
-      #         done
-
-      #         # Restore folders (overwrite if exists)
-      #         for folder in $FOLDERS; do
-      #           echo "[INFO] Restoring $folder to $DEST_DIR..."
-      #           rm -rf "$DEST_DIR/$folder"
-      #           cp -a "$BACKUP_DIR/$folder" "$DEST_DIR/"
-      #           echo "[INFO] Restored $folder."
-      #         done
-
-      #         touch /config/bees-knees
-      #         echo "[INFO] Restore complete. Marker file created at /config/bees-knees."
+          # The emby-config-patch ConfigMap (see
+          # templates/configmap.yaml) is mounted via
+          # persistence.emby-config-patch.advancedMounts below.
+          # The postStart hook copies /config-patch/encoding.xml
+          # into place on startup, then runs
+          # /config-patch/cleanup-transcode-temp.sh to clear the
+          # 17 GiB of accumulated session dirs that Emby's
+          # built-in cleanup leaves behind.
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    set -eu
+                    # 1. Wait until Emby has created /config/config
+                    #    (first boot only). On subsequent restarts
+                    #    it already exists.
+                    for i in $(seq 1 60); do
+                      if [ -d /config/config ]; then break; fi
+                      sleep 2
+                    done
+                    # 2. Install the patched encoding.xml
+                    if [ -f /config-patch/encoding.xml ]; then
+                      cp -f /config-patch/encoding.xml /config/config/encoding.xml
+                      echo "[emby-patch] installed patched encoding.xml"
+                    else
+                      echo "[emby-patch] WARN: /config-patch/encoding.xml missing"
+                    fi
+                    # 3. First-pass cleanup of stale transcode temp
+                    if [ -x /config-patch/cleanup-transcode-temp.sh ]; then
+                      /config-patch/cleanup-transcode-temp.sh || \
+                        echo "[emby-patch] WARN: cleanup exited non-zero"
+                    else
+                      echo "[emby-patch] WARN: cleanup script missing"
+                    fi
+          # Health probes: pgrep on the EmbyServer dotnet process,
+          # not a TCP socket. The LinuxServer s6-overlay does not
+          # expose a single TCP listener (multiple ports: 8096,
+          # 8920, plus internal control), and TCP probes on 8096
+          # can flap when transcode sessions pin the .NET thread
+          # pool. pgrep is reliable.
+          # `custom: true` is required because bjw-s probe types
+          # are limited to TCP/HTTP/HTTPS/GRPC/AUTO; we want
+          # raw `exec` so we can run pgrep.
+          probes:
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command: ["/bin/sh", "-c", "pgrep -f 'EmbyServer\\.dll' >/dev/null"]
+                failureThreshold: 60
+                periodSeconds: 5
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command: ["/bin/sh", "-c", "pgrep -f 'EmbyServer\\.dll' >/dev/null"]
+                initialDelaySeconds: 120
+                periodSeconds: 60
+                timeoutSeconds: 5
+                failureThreshold: 6
   service:
     main:
       primary: true
@@ -104,6 +164,8 @@ app-template:
             - *emby-healthHost
           secretName: emby-tls-certificate
   persistence:
+    # The /config PVC. Holds Emby's metadata, library DB, and
+    # /config/transcoding-temp/ (see README §3 for cleanup).
     data:
       type: persistentVolumeClaim
       existingClaim: emby-original-data
@@ -111,15 +173,28 @@ app-template:
         main:
           main:
             - path: /config
-          # restore:
-          #   - path: /config
-    transcode:
-      type: hostPath
-      hostPath: /emby/transcode
+    # The patch ConfigMap. We mount the entire map at
+    # /config-patch and let the postStart hook pick out the
+    # files it needs (encoding.xml, cleanup-transcode-temp.sh).
+    # The ConfigMap is created by templates/configmap.yaml
+    # because bjw-s `configMaps:` doesn't auto-mount; `type: configMap`
+    # on a persistence item is the supported way to reference
+    # an existing ConfigMap as a volume.
+    emby-config-patch:
+      type: configMap
+      name: emby-config-patch
       advancedMounts:
         main:
           main:
-            - path: /emby/transcode
+            - path: /config-patch
+              readOnly: true
+    # The original chart had a hostPath on /emby/transcode. That
+    # directory does not exist on sprigatito, Emby ignores the
+    # setting (it writes to /config/transcoding-temp instead),
+    # and the volume takes up no actual space because k8s
+    # auto-creates the empty directory. We are removing it to
+    # avoid the misleading "transcode hostPath" claim and to
+    # rely on the cleanup CronJob for /config/transcoding-temp.
     nfs-restore:
       type: nfs
       server: 10.0.40.3
@@ -128,8 +203,6 @@ app-template:
         main:
           main:
             - path: /backups
-          # restore:
-          #   - path: /backups
     nfs-movies:
       type: nfs
       server: 10.0.40.3

@@ -1,0 +1,119 @@
+# ConfigMap containing patches applied at pod startup to fix Emby buffering.
+#
+# Two issues are addressed by this patch:
+#
+#  1. Audio transcoder crashes during playback
+#     --------------------------------------------------------
+#     EAC3 5.1 -> AC3 5.1 transcoding (the default in Emby) causes
+#     ffmpeg to abort with "Too many packets buffered for output
+#     stream 1:1" every few minutes. The muxer's default packet
+#     queue (1000 frames) is overflowed because AC3 frames are
+#     rigid 32 ms packets while video segments are 3 s, so audio
+#     packets pile up in the queue waiting for the next muxer
+#     boundary. The crash is observable in the ffmpeg-transcode-*.txt
+#     logs (e.g. "11:22:34.618 Too many packets buffered for output
+#     stream 1:1" followed by "Conversion failed! EXIT").
+#
+#     Each crash forces a fresh ffmpeg to spin up, which re-buffers
+#     the player -> "Emby is buffering media constantly no matter
+#     the amount of quality".
+#
+#     Fix: disable the BySegmentRequest throttle that locks the
+#     transcoder into 3 s boundaries, lower the throttle hysteresis,
+#     and switch the global default audio codec to AAC (Emby writes
+#     the user-facing audio choice in /config/config/encoding.xml).
+#     When a client cannot play AAC, Emby still falls back to AC3
+#     per-stream, but the *default* attempt is AAC which does not
+#     overflow the queue.
+#
+#  2. /config/transcoding-temp/ accumulates session directories
+#     ---------------------------------------------------------
+#     Observed 17 GiB of leftover 3CD9DE-style session dirs on
+#     the 40 GiB /config PVC (71% used, 12 GiB free). Emby's
+#     built-in cleanup is unreliable, and the emptyDir / hostPath
+#     workaround used by the Jellyfin chart is not applied here.
+#
+#     Fix: cleanup-transcode-temp.sh is executed as a postStart
+#     hook AND the same script is scheduled as a Kubernetes
+#     CronJob so it runs every 30 minutes. Session directories
+#     older than 2 hours (or any dir that does NOT contain an
+#     .m3u8 being actively written to) are removed.
+#
+# The file is owned by the patch because the bjw-s app-template
+# copies ConfigMap data into a read-only mount; the postStart hook
+# then `cp -f` it onto the writable /config/config/encoding.xml so
+# Emby can still persist any future changes from the Web UI.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emby-config-patch
+  namespace: emby
+  labels:
+    app.kubernetes.io/name: emby
+    app.kubernetes.io/instance: emby
+data:
+  encoding.xml: |
+    <?xml version="1.0"?>
+    <EncodingOptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <EncodingThreadCount>0</EncodingThreadCount>
+      <ExtractionThreadCount>1</ExtractionThreadCount>
+      <TranscodingTempPath>/config/transcoding-temp</TranscodingTempPath>
+      <DownMixAudioBoost>1</DownMixAudioBoost>
+      <!-- Throttle OFF: when BySegmentRequest is enabled the muxer
+           must finish every 3 s audio frame queue before serving the
+           next segment, which is the exact condition that overflows
+           ffmpeg's default 1000-packet muxing queue. -->
+      <EnableThrottling>false</EnableThrottling>
+      <ThrottleBufferSize>60</ThrottleBufferSize>
+      <ThrottleHysteresis>4</ThrottleHysteresis>
+      <ThrottlingMethod>BySegmentRequest</ThrottlingMethod>
+      <H264Crf>20</H264Crf>
+      <H264Preset>veryfast</H264Preset>
+      <EnableHardwareEncoding>true</EnableHardwareEncoding>
+      <EnableSubtitleExtraction>false</EnableSubtitleExtraction>
+      <CodecConfigurations />
+      <HardwareAccelerationMode>2</HardwareAccelerationMode>
+      <EnableHardwareToneMapping>true</EnableHardwareToneMapping>
+      <EnableSoftwareToneMapping>false</EnableSoftwareToneMapping>
+      <!-- 1 = NVENC, 2 = QSV, 4 = VAAPI, 8 = VideoToolbox, 16 = AMF
+           (Flag enum; 0 = none). The LSIO image also reads the
+           FFMPEG_HWACCEL=cuda env var, but setting this explicitly
+           avoids the "1 = disabled" sentinel in older Emby versions. -->
+      <EnableHevcEncoding>false</EnableHevcEncoding>
+    </EncodingOptions>
+
+  # See header comment above for the rationale.
+  cleanup-transcode-temp.sh: |
+    #!/bin/sh
+    set -eu
+    TEMP_DIR="/config/transcoding-temp"
+    MAX_AGE_HOURS="${EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS:-2}"
+    if [ ! -d "$TEMP_DIR" ]; then
+      echo "[cleanup] $TEMP_DIR does not exist; nothing to do"
+      exit 0
+    fi
+    NOW=$(date +%s)
+    REMOVED=0
+    KEPT=0
+    for d in "$TEMP_DIR"/*; do
+      [ -d "$d" ] || continue
+      # If the directory contains an m3u8 modified within the last
+      # 30 seconds, it is an active session. Skip it.
+      LATEST_M3U8=$(find "$d" -maxdepth 2 -name '*.m3u8' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+      if [ -n "$LATEST_M3U8" ]; then
+        AGE=$(awk -v now="$NOW" -v m="$LATEST_M3U8" 'BEGIN { printf "%d", now - m }')
+        if [ "$AGE" -lt 30 ]; then
+          KEPT=$((KEPT + 1))
+          continue
+        fi
+      fi
+      # Otherwise, anything older than MAX_AGE_HOURS goes.
+      MTIME=$(stat -c %Y "$d" 2>/dev/null || echo 0)
+      AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
+      if [ "$AGE_HOURS" -ge "$MAX_AGE_HOURS" ]; then
+        rm -rf "$d" && REMOVED=$((REMOVED + 1))
+      else
+        KEPT=$((KEPT + 1))
+      fi
+    done
+    echo "[cleanup] removed=$REMOVED kept=$KEPT max_age_hours=$MAX_AGE_HOURS"
