@@ -10,3 +10,12 @@ book/
 *kubeconfig.yaml
 Chart.lock
 n8n-charts-examples/*.opencode
+
+# Local recon artifacts can contain operational details, IPs, logs,
+# issue bodies, and other information that should not be mirrored publicly.
+reports/context-pack-*/
+reports/status-report-*.md
+reports/maintenance-data-*.yaml
+reports/maintenance-data-*.json
+reports/maintenance-issue-body-*.md
+reports/maintenance-report-*.html
