@@ -22,7 +22,7 @@ metadata:
 spec:
   schedule: "*/30 * * * *"
   successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
