@@ -93,7 +93,10 @@ data:
            and the other 2 NVENC sessions. 2 leaves headroom. -->
       <EncodingThreadCount>2</EncodingThreadCount>
       <ExtractionThreadCount>1</ExtractionThreadCount>
-      <TranscodingTempPath>/config/transcoding-temp</TranscodingTempPath>
+      <!-- Local SSD transcode temp on sprigatito. Mounted via hostPath
+           at /emby/transcode to keep high-churn segment writes off the
+           40 GiB Ceph-backed /config PVC. -->
+      <TranscodingTempPath>/emby/transcode/transcoding-temp</TranscodingTempPath>
       <DownMixAudioBoost>1</DownMixAudioBoost>
       <!-- Throttle OFF: BySegmentRequest is the default
            ThrottlingMethod, but when the transcoder is gated
@@ -121,40 +124,51 @@ data:
       <EnableHevcEncoding>false</EnableHevcEncoding>
     </EncodingOptions>
 
-  # See header comment for the rationale.
+  # See header comment for the rationale. Cleans both the legacy
+  # /config/transcoding-temp path and the new /emby/transcode
+  # local-SSD path.
   cleanup-transcode-temp.sh: |
     #!/bin/sh
     set -eu
-    TEMP_DIR="/config/transcoding-temp"
+    # Clean both the legacy PVC path and the new local-SSD path so the
+    # script works across a rolling restart and old sessions are not
+    # stranded on /config.
+    TEMP_DIRS="/emby/transcode/transcoding-temp /config/transcoding-temp"
     MAX_AGE_HOURS="${EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS:-2}"
-    if [ ! -d "$TEMP_DIR" ]; then
-      echo "[cleanup] $TEMP_DIR does not exist; nothing to do"
-      exit 0
-    fi
     NOW=$(date +%s)
-    REMOVED=0
-    KEPT=0
-    for d in "$TEMP_DIR"/*; do
-      [ -d "$d" ] || continue
-      # If the directory contains an m3u8 modified within the
-      # last 30 seconds, it is an active session. Skip it.
-      LATEST_M3U8=$(find "$d" -maxdepth 2 -name '*.m3u8' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
-      if [ -n "$LATEST_M3U8" ]; then
-        AGE=$(awk -v now="$NOW" -v m="$LATEST_M3U8" 'BEGIN { printf "%d", now - m }')
-        if [ "$AGE" -lt 30 ]; then
-          KEPT=$((KEPT + 1))
-          continue
+    TOTAL_REMOVED=0
+    TOTAL_KEPT=0
+    for TEMP_DIR in $TEMP_DIRS; do
+      if [ ! -d "$TEMP_DIR" ]; then
+        continue
+      fi
+      REMOVED=0
+      KEPT=0
+      for d in "$TEMP_DIR"/*; do
+        [ -d "$d" ] || continue
+        # If the directory contains an m3u8 modified within the
+        # last 30 seconds, it is an active session. Skip it.
+        LATEST_M3U8=$(find "$d" -maxdepth 2 -name '*.m3u8' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+        if [ -n "$LATEST_M3U8" ]; then
+          AGE=$(awk -v now="$NOW" -v m="$LATEST_M3U8" 'BEGIN { printf "%d", now - m }')
+          if [ "$AGE" -lt 30 ]; then
+            KEPT=$((KEPT + 1))
+            continue
+          fi
         fi
-      fi
-      MTIME=$(stat -c %Y "$d" 2>/dev/null || echo 0)
-      AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
-      if [ "$AGE_HOURS" -ge "$MAX_AGE_HOURS" ]; then
-        rm -rf "$d" && REMOVED=$((REMOVED + 1))
-      else
-        KEPT=$((KEPT + 1))
-      fi
+        MTIME=$(stat -c %Y "$d" 2>/dev/null || echo 0)
+        AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
+        if [ "$AGE_HOURS" -ge "$MAX_AGE_HOURS" ]; then
+          rm -rf "$d" && REMOVED=$((REMOVED + 1))
+        else
+          KEPT=$((KEPT + 1))
+        fi
+      done
+      echo "[cleanup] dir=$TEMP_DIR removed=$REMOVED kept=$KEPT max_age_hours=$MAX_AGE_HOURS"
+      TOTAL_REMOVED=$((TOTAL_REMOVED + REMOVED))
+      TOTAL_KEPT=$((TOTAL_KEPT + KEPT))
     done
-    echo "[cleanup] removed=$REMOVED kept=$KEPT max_age_hours=$MAX_AGE_HOURS"
+    echo "[cleanup] total removed=$TOTAL_REMOVED kept=$TOTAL_KEPT"
 
   # Cache warm: read the first 64 MiB of recently-played files
   # into the kernel page cache. This eliminates the cold-NFS

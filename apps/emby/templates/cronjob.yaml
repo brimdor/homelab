@@ -1,6 +1,7 @@
-# Recurring cleanup of /config/transcoding-temp/ inside the Emby
-# pod. The postStart hook handles the initial purge, but session
-# dirs continue to accumulate while the pod is running.
+# Recurring cleanup of /emby/transcode/transcoding-temp/ (and any
+# legacy /config/transcoding-temp/ dirs left from before the local
+# SSD migration). The postStart hook handles the initial purge, but
+# session dirs continue to accumulate while the pod is running.
 #
 # We do not use the Emby API for cleanup because the Emby "ffmpeg
 # cleanup" task is unreliable (the 17 GiB accumulation observed
@@ -34,8 +35,8 @@ spec:
             app.kubernetes.io/component: transcode-temp-cleanup
         spec:
           restartPolicy: OnFailure
-          # Must land on sprigatito because /config is a RWO PVC
-          # bound to that node.
+          # Must land on sprigatito because both the /config PVC
+          # (RWO) and the local transcode directory live on that node.
           nodeSelector:
             kubernetes.io/hostname: sprigatito
           tolerations:
@@ -54,45 +55,54 @@ spec:
                   # bash gives us ${var//.../...} and find -printf is GNU find.
                   bash <<'BASH_EOF'
                   set -eu
-                  TEMP_DIR="/config/transcoding-temp"
+                  # Clean both the legacy PVC path and the new local-SSD path.
+                  TEMP_DIRS="/emby/transcode/transcoding-temp /config/transcoding-temp"
                   MAX_AGE_HOURS="${EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS:-2}"
-                  if [ ! -d "$TEMP_DIR" ]; then
-                    echo "[cleanup] $TEMP_DIR does not exist; nothing to do"
-                    exit 0
-                  fi
                   NOW=$(date +%s)
-                  REMOVED=0
-                  KEPT=0
-                  for d in "$TEMP_DIR"/*; do
-                    [ -d "$d" ] || continue
-                    LATEST_M3U8=$(find "$d" -maxdepth 2 -name '*.m3u8' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
-                    if [ -n "$LATEST_M3U8" ]; then
-                      AGE=$(awk -v now="$NOW" -v m="$LATEST_M3U8" 'BEGIN { printf "%d", now - m }')
-                      if [ "$AGE" -lt 30 ]; then
-                        KEPT=$((KEPT + 1))
-                        continue
+                  TOTAL_REMOVED=0
+                  TOTAL_KEPT=0
+                  for TEMP_DIR in $TEMP_DIRS; do
+                    if [ ! -d "$TEMP_DIR" ]; then
+                      continue
+                    fi
+                    REMOVED=0
+                    KEPT=0
+                    for d in "$TEMP_DIR"/*; do
+                      [ -d "$d" ] || continue
+                      LATEST_M3U8=$(find "$d" -maxdepth 2 -name '*.m3u8' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+                      if [ -n "$LATEST_M3U8" ]; then
+                        AGE=$(awk -v now="$NOW" -v m="$LATEST_M3U8" 'BEGIN { printf "%d", now - m }')
+                        if [ "$AGE" -lt 30 ]; then
+                          KEPT=$((KEPT + 1))
+                          continue
+                        fi
                       fi
-                    fi
-                    MTIME=$(stat -c %Y "$d" 2>/dev/null || echo 0)
-                    AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
-                    if [ "$AGE_HOURS" -ge "$MAX_AGE_HOURS" ]; then
-                      rm -rf "$d" && REMOVED=$((REMOVED + 1))
-                    else
-                      KEPT=$((KEPT + 1))
-                    fi
+                      MTIME=$(stat -c %Y "$d" 2>/dev/null || echo 0)
+                      AGE_HOURS=$(( (NOW - MTIME) / 3600 ))
+                      if [ "$AGE_HOURS" -ge "$MAX_AGE_HOURS" ]; then
+                        rm -rf "$d" && REMOVED=$((REMOVED + 1))
+                      else
+                        KEPT=$((KEPT + 1))
+                      fi
+                    done
+                    echo "[cleanup] dir=$TEMP_DIR removed=$REMOVED kept=$KEPT max_age_hours=$MAX_AGE_HOURS"
+                    TOTAL_REMOVED=$((TOTAL_REMOVED + REMOVED))
+                    TOTAL_KEPT=$((TOTAL_KEPT + KEPT))
                   done
-                  echo "[cleanup] removed=$REMOVED kept=$KEPT max_age_hours=$MAX_AGE_HOURS"
+                  echo "[cleanup] total removed=$TOTAL_REMOVED kept=$TOTAL_KEPT"
                   BASH_EOF
               env:
                 - name: EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS
                   value: "2"
               # Mount the existing /config PVC read-write so we can
-              # see and remove session dirs. We do NOT mount the
-              # rest of /config because the rest is owned by Emby
-              # and we want to minimize blast radius.
+              # see and remove any legacy session dirs. Also mount
+              # the local-SSD transcode path.
               volumeMounts:
                 - name: data
                   mountPath: /config
+                  readOnly: false
+                - name: emby-transcode-temp
+                  mountPath: /emby/transcode
                   readOnly: false
               resources:
                 requests:
@@ -105,3 +115,7 @@ spec:
             - name: data
               persistentVolumeClaim:
                 claimName: emby-original-data
+            - name: emby-transcode-temp
+              hostPath:
+                path: /var/lib/emby-transcode
+                type: DirectoryOrCreate

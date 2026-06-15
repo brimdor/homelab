@@ -91,14 +91,17 @@ app-template:
                       if [ -d /config/config ]; then break; fi
                       sleep 2
                     done
-                    # 2. Install the patched encoding.xml
+                    # 2. Ensure the local-SSD transcode directory exists
+                    #    (hostPath is bind-mounted, but create it defensively).
+                    mkdir -p /emby/transcode/transcoding-temp
+                    # 3. Install the patched encoding.xml
                     if [ -f /config-patch/encoding.xml ]; then
                       cp -f /config-patch/encoding.xml /config/config/encoding.xml
                       echo "[emby-patch] installed patched encoding.xml"
                     else
                       echo "[emby-patch] WARN: /config-patch/encoding.xml missing"
                     fi
-                    # 3. First-pass cleanup of stale transcode temp.
+                    # 4. First-pass cleanup of stale transcode temp.
                     #    Invoke via `sh` because the configMap
                     #    mount is 0o644 (no execute bit).
                     if [ -f /config-patch/cleanup-transcode-temp.sh ]; then
@@ -107,7 +110,7 @@ app-template:
                     else
                       echo "[emby-patch] WARN: cleanup script missing"
                     fi
-                    # 4. Cache warm (best-effort, can be slow on
+                    # 5. Cache warm (best-effort, can be slow on
                     #    big libraries so we don't fail the pod
                     #    start if it errors)
                     if [ -f /config-patch/cache-warm.sh ]; then
@@ -191,7 +194,8 @@ app-template:
           secretName: emby-tls-certificate
   persistence:
     # The /config PVC. Holds Emby's metadata, library DB, and
-    # /config/transcoding-temp/ (see README §3 for cleanup).
+    # (legacy) /config/transcoding-temp/ until the pod restarts
+    # and the patched encoding.xml redirects temp to local SSD.
     data:
       type: persistentVolumeClaim
       existingClaim: emby-original-data
@@ -199,6 +203,17 @@ app-template:
         main:
           main:
             - path: /config
+    # Local SSD transcode temp. Mounted from a dedicated directory
+    # on sprigatito's root SSD (/var/lib/emby-transcode) to keep
+    # high-churn HLS segment writes off the 40 GiB Ceph-backed
+    # /config PVC. See README §4 for provisioning details.
+    emby-transcode-temp:
+      type: hostPath
+      hostPath: /var/lib/emby-transcode
+      advancedMounts:
+        main:
+          main:
+            - path: /emby/transcode
     # The patch ConfigMap. We mount the entire map at
     # /config-patch and let the postStart hook pick out the
     # files it needs (encoding.xml, cache-warm.sh,
@@ -221,13 +236,6 @@ app-template:
           main:
             - path: /config-patch
               readOnly: true
-    # The original chart had a hostPath on /emby/transcode. That
-    # directory does not exist on sprigatito, Emby ignores the
-    # setting (it writes to /config/transcoding-temp instead),
-    # and the volume takes up no actual space because k8s
-    # auto-creates the empty directory. We are removing it to
-    # avoid the misleading "transcode hostPath" claim and to
-    # rely on the cleanup CronJob for /config/transcoding-temp.
     nfs-restore:
       type: nfs
       server: 10.0.40.3
