@@ -1,6 +1,7 @@
 app-template:
   controllers:
     cloudflared:
+      replicas: 2
       containers:
         app:
           image:
