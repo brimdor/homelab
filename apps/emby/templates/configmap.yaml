@@ -111,7 +111,7 @@ data:
       <H264Crf>20</H264Crf>
       <H264Preset>veryfast</H264Preset>
       <EnableHardwareEncoding>true</EnableHardwareEncoding>
-      <EnableSubtitleExtraction>false</EnableSubtitleExtraction>
+      <EnableSubtitleExtraction>true</EnableSubtitleExtraction>
       <CodecConfigurations />
       <!-- 1 = NVENC, 2 = QSV, 4 = VAAPI, 8 = VideoToolbox, 16 = AMF
            (Flag enum; 0 = none). The LSIO image also reads
@@ -121,7 +121,11 @@ data:
       <HardwareAccelerationMode>2</HardwareAccelerationMode>
       <EnableHardwareToneMapping>true</EnableHardwareToneMapping>
       <EnableSoftwareToneMapping>false</EnableSoftwareToneMapping>
-      <EnableHevcEncoding>false</EnableHevcEncoding>
+      <!-- HEVC: enabled to reduce bitrate by ~50% for the same
+           visual quality on compatible clients. The GTX 1650
+           supports NVENC HEVC. Clients that cannot play HEVC
+           will fall back to H.264 direct/transcode paths. -->
+      <EnableHevcEncoding>true</EnableHevcEncoding>
     </EncodingOptions>
 
   # See header comment for the rationale. Cleans both the legacy
