@@ -57,12 +57,15 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: 2026-04-23-v1-canary
+            tag: issue-18-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog-canary.eaglepass.io
-            CORS_ORIGIN: https://backlog-canary.eaglepass.io
+            FASTAPI_HOST: "0.0.0.0"
+            FASTAPI_PORT: "8000"
+            FASTAPI_CORS_ORIGINS: https://backlog-canary.eaglepass.io
+            FASTAPI_ENV: production
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
@@ -97,8 +100,8 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
-                  port: 3000
+                  path: /health/live
+                  port: 8000
                 initialDelaySeconds: 15
                 periodSeconds: 10
             readiness:
@@ -106,15 +109,15 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
-                  port: 3000
+                  path: /health/ready
+                  port: 8000
                 initialDelaySeconds: 10
                 periodSeconds: 10
 
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "2026-04-24-v2-canary"
+            tag: "issue-18-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -149,7 +152,7 @@ app-template:
       controller: main
       ports:
         http:
-          port: 3000
+          port: 8000
           protocol: HTTP
     database:
       controller: main
