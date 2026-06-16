@@ -121,6 +121,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
+            BACKEND_URL: "http://localhost:8000"
           probes:
             liveness:
               enabled: true
@@ -182,6 +183,30 @@ app-template:
             - backlog-canary.eaglepass.io
           secretName: backlog-companion-canary-tls
 
+  configMaps:
+    nginx:
+      enabled: true
+      data:
+        default.conf: |
+          server {
+            listen 80;
+            server_name _;
+            root /usr/share/nginx/html;
+            index index.html;
+
+            location / {
+              try_files $uri $uri/ /index.html;
+            }
+
+            location /api/ {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
+          }
+
   persistence:
     data:
       type: persistentVolumeClaim
@@ -191,6 +216,14 @@ app-template:
         main:
           database:
             - path: /var/lib/mysql
+    nginx-conf:
+      type: configMap
+      identifier: nginx
+      advancedMounts:
+        main:
+          frontend:
+            - path: /etc/nginx/conf.d
+              readOnly: true
 
   defaultPodOptions:
     securityContext:
