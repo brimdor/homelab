@@ -1,0 +1,126 @@
+# Scribe canary chart values.
+#
+# Mirrors apps/scribe/values.yaml with the following deliberate changes:
+#   1. Different ingress host (scribe-canary.eaglepass.io) so canary traffic
+#      is isolated from production.
+#   2. Different ingress TLS secret (scribe-canary-tls) for independent
+#      certificate issuance.
+#   3. image.tag = "canary" so the registry's canary tag is picked up.
+#   4. Lower resource limits so a bad canary cannot starve production nodes.
+#   5. Smaller PVC (2Gi) since canary data is regenerated on every rollout.
+#   6. SCRIBE_GIT_BRANCH=next so the canary exercises upcoming vault content.
+#   7. SCRIBE_LOG_LEVEL=DEBUG for better diagnostics.
+#   8. Webhook secret left unset — the backend's signature check is optional
+#      and the existing scribe-canary-secrets Secret does not contain a
+#      webhook-secret key. If/when webhook verification is needed, add the
+#      key to the Secret and re-enable the env entry below.
+
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: scribe-canary
+          image:
+            repository: 10.0.20.11:32309/scribe
+            tag: canary
+            pullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            TZ: America/Chicago
+            SCRIBE_GIT_URL: https://github.com/eaglepass/scribe-vault.git
+            SCRIBE_GIT_BRANCH: next
+            SCRIBE_GIT_POLL_SECONDS: "60"
+            SCRIBE_LOG_LEVEL: DEBUG
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /health/live
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /health/ready
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: HTTP
+              path: /health/live
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                failureThreshold: 30
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          securityContext:
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+
+  service:
+    main:
+      primary: true
+      controller: main
+      ports:
+        http:
+          port: 8000
+          protocol: HTTP
+          targetPort: http
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        scribe.eaglepass.io/track: canary
+        scribe.eaglepass.io/owner: vanguard
+      hosts:
+        - host: scribe-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - scribe-canary.eaglepass.io
+          secretName: scribe-canary-tls
+
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      storageClass: standard-rwo
+      size: 2Gi
+      globalMounts:
+        - path: /data
+          readOnly: false
+
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-name: "scribe-secrets-canary"
+    labels:
+      scribe.eaglepass.io/track: canary
