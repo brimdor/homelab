@@ -56,16 +56,12 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: 2026-05-06-v1-prod
+            tag: "registration-500-fix-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
-            FASTAPI_HOST: "0.0.0.0"
-            FASTAPI_PORT: "8000"
-            FASTAPI_LOG_LEVEL: info
-            FASTAPI_ENV: production
-            FASTAPI_CORS_ORIGINS: "https://backlog.eaglepass.io"
+            PORT: "3000"
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
@@ -101,7 +97,7 @@ app-template:
               spec:
                 httpGet:
                   path: /health/live
-                  port: 8000
+                  port: 3000
                 initialDelaySeconds: 15
                 periodSeconds: 10
             readiness:
@@ -110,18 +106,18 @@ app-template:
               spec:
                 httpGet:
                   path: /health/ready
-                  port: 8000
+                  port: 3000
                 initialDelaySeconds: 10
                 periodSeconds: 10
 
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "issue-18-canary"
+            tag: "registration-500-fix-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
-            BACKEND_URL: "http://localhost:8000"
+            BACKEND_URL: "http://localhost:3000"
           probes:
             liveness:
               enabled: true
@@ -153,7 +149,7 @@ app-template:
       controller: main
       ports:
         http:
-          port: 8000
+          port: 3000
           protocol: HTTP
     database:
       controller: main
