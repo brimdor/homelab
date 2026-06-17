@@ -1,7 +1,7 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      strategy: Recreate
       containers:
         database:
           image:
@@ -56,12 +56,16 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: issue-18-canary
+            tag: 2026-05-06-v1-prod
             pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
-            PORT: "3000"
+            FASTAPI_HOST: "0.0.0.0"
+            FASTAPI_PORT: "8000"
+            FASTAPI_LOG_LEVEL: info
+            FASTAPI_ENV: production
+            FASTAPI_CORS_ORIGINS: "https://backlog.eaglepass.io"
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
@@ -97,7 +101,7 @@ app-template:
               spec:
                 httpGet:
                   path: /health/live
-                  port: 3000
+                  port: 8000
                 initialDelaySeconds: 15
                 periodSeconds: 10
             readiness:
@@ -106,7 +110,7 @@ app-template:
               spec:
                 httpGet:
                   path: /health/ready
-                  port: 3000
+                  port: 8000
                 initialDelaySeconds: 10
                 periodSeconds: 10
 
@@ -117,7 +121,7 @@ app-template:
             pullPolicy: Always
           env:
             TZ: America/Chicago
-            BACKEND_URL: "http://localhost:3000"
+            BACKEND_URL: "http://localhost:8000"
           probes:
             liveness:
               enabled: true
@@ -149,7 +153,7 @@ app-template:
       controller: main
       ports:
         http:
-          port: 3000
+          port: 8000
           protocol: HTTP
     database:
       controller: main
