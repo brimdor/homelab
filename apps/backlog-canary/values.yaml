@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "registration-500-fix-canary"
+            tag: "issue-18-status-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -114,7 +114,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "mobile-library-canary"
+            tag: "issue-18-status-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
