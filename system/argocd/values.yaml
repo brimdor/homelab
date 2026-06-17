@@ -86,6 +86,12 @@ argocd-apps:
                 - .spec.persistentVolumeClaimRetentionPolicy
                 - .spec.volumeClaimTemplates
                 - .spec.template.spec.containers[].resources
+            - group: ""
+              kind: PersistentVolumeClaim
+              jsonPointers:
+                - /spec/storageClassName
+                - /spec/volumeName
+                - /spec/volumeMode
             - group: ceph.rook.io
               kind: CephCluster
               jqPathExpressions:
@@ -164,6 +170,12 @@ argocd-apps:
                 - .spec.persistentVolumeClaimRetentionPolicy
                 - .spec.volumeClaimTemplates
                 - .spec.template.spec.containers[].resources
+            - group: ""
+              kind: PersistentVolumeClaim
+              jsonPointers:
+                - /spec/storageClassName
+                - /spec/volumeName
+                - /spec/volumeMode
             - group: ceph.rook.io
               kind: CephCluster
               jqPathExpressions:
