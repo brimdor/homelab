@@ -184,6 +184,8 @@ app-template:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 5Gi
+      storageClass: standard-rwo
+      volumeName: pvc-88b21884-a8ae-426e-b650-d449805220c0
       advancedMounts:
         main:
           database:
