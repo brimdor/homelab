@@ -1,0 +1,119 @@
+# Scribe production chart values.
+#
+# Scribe is a single-container app: uvicorn serves the React SPA on "/" and
+# the JSON API under "/api/*". The container exposes port 8000.
+#
+# The git vault repo, branch, and poll interval are configured via env vars
+# (SCRIBE_GIT_URL, SCRIBE_GIT_BRANCH, SCRIBE_GIT_POLL_SECONDS) so the chart
+# itself stays decoupled from any specific vault.
+#
+# NOTE: Webhook secret left unset. The Scribe backend treats SCRIBE_WEBHOOK_SECRET
+# as optional — when unset, /api/webhook accepts unauthenticated requests. Add
+# the secret and re-enable the env entry below if signature verification is
+# needed.
+
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: scribe
+          image:
+            repository: 10.0.20.11:32309/scribe
+            tag: latest
+            pullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            TZ: America/Chicago
+            SCRIBE_GIT_URL: https://github.com/eaglepass/scribe-vault.git
+            SCRIBE_GIT_BRANCH: main
+            SCRIBE_GIT_POLL_SECONDS: "300"
+            SCRIBE_LOG_LEVEL: INFO
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /health/live
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /health/ready
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: HTTP
+              path: /health/live
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                failureThreshold: 30
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+
+  service:
+    main:
+      primary: true
+      controller: main
+      ports:
+        http:
+          port: 8000
+          protocol: HTTP
+          targetPort: http
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      hosts:
+        - host: scribe.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - scribe.eaglepass.io
+          secretName: scribe-tls
+
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      storageClass: standard-rwo
+      size: 5Gi
+      globalMounts:
+        - path: /data
+          readOnly: false
+
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-name: "scribe-secrets"
