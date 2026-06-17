@@ -56,12 +56,12 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: 2026-04-24-v1-prod
+            tag: issue-18-canary
             pullPolicy: Always
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
-            CORS_ORIGIN: https://backlog.eaglepass.io
+            PORT: "3000"
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
@@ -96,7 +96,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/live
                   port: 3000
                 initialDelaySeconds: 15
                 periodSeconds: 10
@@ -105,7 +105,7 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
+                  path: /health/ready
                   port: 3000
                 initialDelaySeconds: 10
                 periodSeconds: 10
@@ -113,10 +113,11 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "2026-04-24-v2-prod"
+            tag: "issue-18-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
+            BACKEND_URL: "http://localhost:3000"
           probes:
             liveness:
               enabled: true
