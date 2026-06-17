@@ -36,6 +36,9 @@ app-template:
             SCRIBE_GIT_BRANCH: next
             SCRIBE_GIT_POLL_SECONDS: "60"
             SCRIBE_LOG_LEVEL: DEBUG
+          envFrom:
+            - secretRef:
+                name: scribe-secrets
           probes:
             liveness:
               enabled: true
