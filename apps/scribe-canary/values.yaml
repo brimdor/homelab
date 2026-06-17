@@ -121,6 +121,7 @@ app-template:
     securityContext:
       fsGroup: 1000
     annotations:
-      operator.1password.io/item-name: "scribe-secrets-canary"
+      operator.1password.io/item-name: "scribe-secrets"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/icq2m4uzu6niy5o44uzckhvpem"
     labels:
       scribe.eaglepass.io/track: canary
