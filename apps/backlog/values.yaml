@@ -113,7 +113,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "registration-500-fix-canary"
+            tag: "mobile-library-canary"
             pullPolicy: Always
           env:
             TZ: America/Chicago
