@@ -61,7 +61,11 @@ app-template:
           env:
             TZ: America/Chicago
             HOST_URL: https://backlog.eaglepass.io
-            CORS_ORIGIN: https://backlog.eaglepass.io
+            FASTAPI_HOST: "0.0.0.0"
+            FASTAPI_PORT: "8000"
+            FASTAPI_LOG_LEVEL: info
+            FASTAPI_ENV: production
+            FASTAPI_CORS_ORIGINS: "https://backlog.eaglepass.io"
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
@@ -96,8 +100,8 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
-                  port: 3000
+                  path: /health/live
+                  port: 8000
                 initialDelaySeconds: 15
                 periodSeconds: 10
             readiness:
@@ -105,8 +109,8 @@ app-template:
               custom: true
               spec:
                 httpGet:
-                  path: /
-                  port: 3000
+                  path: /health/ready
+                  port: 8000
                 initialDelaySeconds: 10
                 periodSeconds: 10
 
@@ -148,7 +152,7 @@ app-template:
       controller: main
       ports:
         http:
-          port: 3000
+          port: 8000
           protocol: HTTP
     database:
       controller: main
