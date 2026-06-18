@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "issue-18-status-vocab-canonical"
+            tag: "issue-18-admin-user-management"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -114,7 +114,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "issue-18-admin-responsive-fix"
+            tag: "issue-18-admin-user-management"
             pullPolicy: Always
           env:
             TZ: America/Chicago
