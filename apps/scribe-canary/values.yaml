@@ -32,10 +32,15 @@ app-template:
               name: http
           env:
             TZ: America/Chicago
-            SCRIBE_GIT_URL: https://github.com/eaglepass/scribe-vault.git
+            SCRIBE_GIT_URL: https://github.com/brimdor/scribe.git
             SCRIBE_GIT_BRANCH: next
             SCRIBE_GIT_POLL_SECONDS: "60"
             SCRIBE_LOG_LEVEL: DEBUG
+            SCRIBE_GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: github-pat
           probes:
             liveness:
               enabled: true
@@ -121,6 +126,6 @@ app-template:
     securityContext:
       fsGroup: 1000
     annotations:
-      operator.1password.io/item-name: "scribe-secrets-canary"
+      operator.1password.io/item-name: "scribe-secrets"
     labels:
       scribe.eaglepass.io/track: canary

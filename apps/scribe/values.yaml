@@ -29,7 +29,7 @@ app-template:
               name: http
           env:
             TZ: America/Chicago
-            SCRIBE_GIT_URL: https://github.com/eaglepass/scribe-vault.git
+            SCRIBE_GIT_URL: https://github.com/brimdor/scribe.git
             SCRIBE_GIT_BRANCH: main
             SCRIBE_GIT_POLL_SECONDS: "300"
             SCRIBE_LOG_LEVEL: INFO
