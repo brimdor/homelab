@@ -114,7 +114,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "obsidian-palette-fix"
+            tag: "issue-18-steam-accordion-clean"
             pullPolicy: Always
           env:
             TZ: America/Chicago
