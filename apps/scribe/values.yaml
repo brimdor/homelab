@@ -33,6 +33,9 @@ app-template:
             SCRIBE_GIT_BRANCH: main
             SCRIBE_GIT_POLL_SECONDS: "300"
             SCRIBE_LOG_LEVEL: INFO
+          envFrom:
+            - secretRef:
+                name: scribe-secrets
           probes:
             liveness:
               enabled: true
@@ -117,3 +120,4 @@ app-template:
       fsGroup: 1000
     annotations:
       operator.1password.io/item-name: "scribe-secrets"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/icq2m4uzu6niy5o44uzckhvpem"
