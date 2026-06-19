@@ -38,9 +38,11 @@ app-template:
             SCRIBE_GIT_BRANCH: main
             SCRIBE_GIT_POLL_SECONDS: "60"
             SCRIBE_LOG_LEVEL: DEBUG
-          envFrom:
-            - secretRef:
-                name: scribe-secrets
+            SCRIBE_GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: github-pat
           probes:
             liveness:
               enabled: true
