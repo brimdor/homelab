@@ -8,7 +8,9 @@
 #   3. image.tag = "canary" so the registry's canary tag is picked up.
 #   4. Lower resource limits so a bad canary cannot starve production nodes.
 #   5. Smaller PVC (2Gi) since canary data is regenerated on every rollout.
-#   6. SCRIBE_GIT_BRANCH=next so the canary exercises upcoming vault content.
+#   6. SCRIBE_GIT_BRANCH=main so the canary tracks the same content as prod
+#      (the new vault at brimdor/scribe.git only has `main`; no `next` branch
+#      yet — track main until a `next` branch is created in the source vault).
 #   7. SCRIBE_LOG_LEVEL=DEBUG for better diagnostics.
 #   8. Webhook secret left unset — the backend's signature check is optional
 #      and the existing scribe-canary-secrets Secret does not contain a
@@ -33,7 +35,7 @@ app-template:
           env:
             TZ: America/Chicago
             SCRIBE_GIT_URL: https://github.com/brimdor/scribe.git
-            SCRIBE_GIT_BRANCH: next
+            SCRIBE_GIT_BRANCH: main
             SCRIBE_GIT_POLL_SECONDS: "60"
             SCRIBE_LOG_LEVEL: DEBUG
             SCRIBE_GITHUB_TOKEN:
