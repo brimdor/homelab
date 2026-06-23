@@ -11,18 +11,19 @@ app-template:
           nameOverride: eaglepass-news
           image:
             repository: 10.0.20.11:32309/eaglepass-news
-            tag: "2025-05-16-v8"
+            tag: "2026-06-22-rss-pipeline"
             pullPolicy: Always
           ports:
-            - containerPort: 8501
+            - containerPort: 3000
               name: http
           env:
             TZ: America/Chicago
+            PORT: "3000"
           probes:
             liveness:
               enabled: true
               type: HTTP
-              path: /_stcore/health
+              path: /api/newsletter/items
               spec:
                 initialDelaySeconds: 30
                 periodSeconds: 60
@@ -30,7 +31,7 @@ app-template:
             readiness:
               enabled: true
               type: HTTP
-              path: /_stcore/health
+              path: /api/newsletter/items
               spec:
                 initialDelaySeconds: 5
                 periodSeconds: 10
@@ -46,7 +47,7 @@ app-template:
       primary: true
       ports:
         http:
-          port: 8501
+          port: 3000
           protocol: HTTP
   persistence:
     data:
