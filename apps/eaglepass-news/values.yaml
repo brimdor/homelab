@@ -49,14 +49,12 @@ app-template:
         http:
           port: 3000
           protocol: HTTP
-  persistence:
-    data:
-      type: persistentVolumeClaim
-      storageClass: standard-rwo
-      accessMode: ReadWriteOnce
-      size: 1Gi
-      globalMounts:
-        - path: /app/data
+  # No persistence: the Node.js server reads daily JSONs from the image
+  # (/app/data/daily baked in at build time). The previous PVC mount at
+  # /app/data was inherited from the Streamlit deployment (eaglepass_news.db)
+  # and shadows the bundled daily files, causing the server to fall back to
+  # the 3-item fixture instead of the 16 RSS articles. Daily JSONs are
+  # refreshed by rebuilding the image, not via runtime writes.
   ingress:
     main:
       enabled: true
