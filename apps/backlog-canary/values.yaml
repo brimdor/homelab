@@ -114,7 +114,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "issue-18-pagination-icons-399201d"
+            tag: "issue-18-page-limit-ef1f791"
             pullPolicy: Always
           env:
             TZ: America/Chicago
