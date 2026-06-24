@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "fix-scan-admin-panel-v2-8a33e7c"
+            tag: "main-20260624-27be772"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -114,7 +114,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "fix-scan-admin-panel-v2-8a33e7c"
+            tag: "main-20260624-27be772"
             pullPolicy: Always
           env:
             TZ: America/Chicago
