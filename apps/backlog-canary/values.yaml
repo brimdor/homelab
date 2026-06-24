@@ -114,7 +114,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-20260624-itad-on"
+            tag: "main-20260624-itad-arg-fix"
             pullPolicy: Always
           env:
             TZ: America/Chicago
