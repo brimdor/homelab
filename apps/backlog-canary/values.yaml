@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "issue-18-steam-ratelimit-3e796f5"
+            tag: "feat-page-limit-dropdown-a3802ab"
             pullPolicy: Always
           env:
             TZ: America/Chicago
