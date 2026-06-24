@@ -119,6 +119,7 @@ app-template:
           env:
             TZ: America/Chicago
             BACKEND_URL: "http://localhost:3000"
+            VITE_FEATURE_ITAD_DEALS: "true"
           probes:
             liveness:
               enabled: true
