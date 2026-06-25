@@ -66,6 +66,7 @@ app-template:
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
+            ITAD_API_KEY: "29a6c15b033cf7ba61e7581ddfd9e78e8d28d5a6"
             DB_USER:
               valueFrom:
                 secretKeyRef:
