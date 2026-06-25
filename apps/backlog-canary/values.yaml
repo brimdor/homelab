@@ -116,7 +116,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "itad-platforms-fix-374cbc6"
+            tag: "main-20260625-cd7e8d8"
             pullPolicy: Always
           env:
             TZ: America/Chicago
