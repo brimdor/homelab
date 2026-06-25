@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "main-20260625-cecd17f"
+            tag: "main-20260625-dbd8fe8"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -67,8 +67,7 @@ app-template:
             DB_PORT: "3306"
             ADMIN_MODE: "true"
             ITAD_API_KEY: "29a6c15b033cf7ba61e7581ddfd9e78e8d28d5a6"
-            ITAD_SCAN_BATCH_SIZE: "10"
-            CANARY_DEBUG_ITAD_OVERVIEW: "true"
+            ITAD_SCAN_BATCH_SIZE: "200"
             DB_USER:
               valueFrom:
                 secretKeyRef:
@@ -117,7 +116,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-20260625-e4b7c34"
+            tag: "main-20260625-dbd8fe8"
             pullPolicy: Always
           env:
             TZ: America/Chicago
