@@ -65,6 +65,12 @@ app-template:
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
+            ITAD_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: itad-api-key
+            ITAD_SCAN_BATCH_SIZE: "200"
             DB_USER:
               valueFrom:
                 secretKeyRef:
