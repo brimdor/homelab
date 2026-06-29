@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "main-2834877"
+            tag: "main-2c36088"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -120,7 +120,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-2834877"
+            tag: "main-2c36088"
             pullPolicy: Always
           env:
             TZ: America/Chicago
