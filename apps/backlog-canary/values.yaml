@@ -120,7 +120,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-7f991df"
+            tag: "main-b560ee6"
             pullPolicy: Always
           env:
             TZ: America/Chicago
