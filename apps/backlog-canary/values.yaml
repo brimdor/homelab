@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "main-68454b8"
+            tag: "main-088e996"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -92,6 +92,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: jwt-secret
+            JWT_EXPIRY: "24h"
             ENCRYPTION_KEY:
               valueFrom:
                 secretKeyRef:
