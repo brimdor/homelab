@@ -125,6 +125,7 @@ app-template:
           env:
             TZ: America/Chicago
             BACKEND_URL: "http://localhost:3000"
+            VITE_FEATURE_GUILD_DASHBOARD_HORIZONTAL_LANES: "true"
             VITE_FEATURE_ITAD_DEALS: "true"
           probes:
             liveness:
