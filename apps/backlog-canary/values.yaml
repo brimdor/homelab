@@ -121,12 +121,13 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-759f9cc"
+            tag: "main-759f9cc-guildsdeals-on"
             pullPolicy: Always
           env:
             TZ: America/Chicago
             BACKEND_URL: "http://localhost:3000"
             VITE_FEATURE_ITAD_DEALS: "true"
+            VITE_FEATURE_GUILDS: "true"
           probes:
             liveness:
               enabled: true
