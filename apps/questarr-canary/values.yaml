@@ -1,0 +1,154 @@
+# Questarr canary Helm chart.
+#
+# Mirrors apps/questarr/values.yaml with the following deliberate changes:
+#   1. nameOverride: questarr-canary
+#   2. image.tag: dev (tracks upstream main nightly), pullPolicy: Always
+#   3. Ingress host: questarr-canary.eaglepass.io
+#   4. TLS secret: questarr-canary-tls
+#   5. CORS/app URL: https://questarr-canary.eaglepass.io
+#   6. Secret name: questarr-canary-secrets (independent JWT + encryption keys)
+#   7. Lower resource limits so a runaway canary cannot starve production nodes
+#   8. Smaller PVC (2Gi) since canary data is regenerated on every wipe
+#   9. NODE_ENV: development for more verbose diagnostics
+#   10. Canary label questarr.eaglepass.io/track: canary
+#   11. Separate 1Password item path for questarr-canary-secrets
+
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      containers:
+        main:
+          nameOverride: questarr-canary
+          image:
+            repository: registry.eaglepass.io/questarr
+            tag: dev
+            pullPolicy: Always
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            TZ: America/Chicago
+            PORT: "5000"
+            HOST: "0.0.0.0"
+            NODE_ENV: development
+            SQLITE_DB_PATH: /app/data/sqlite.db
+            JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: questarr-canary-secrets
+                  key: jwt-secret
+            CREDENTIALS_ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: questarr-canary-secrets
+                  key: credentials-encryption-key
+            IGDB_CLIENT_ID:
+              valueFrom:
+                secretKeyRef:
+                  name: questarr-canary-secrets
+                  key: igdb-client-id
+            IGDB_CLIENT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: questarr-canary-secrets
+                  key: igdb-client-secret
+            NEXUSMODS_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: questarr-canary-secrets
+                  key: nexusmods-api-key
+            ALLOWED_ORIGINS: https://questarr-canary.eaglepass.io
+            APP_URL: https://questarr-canary.eaglepass.io
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /api/health
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /api/ready
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: HTTP
+              path: /api/health
+              spec:
+                initialDelaySeconds: 20
+                periodSeconds: 10
+                failureThreshold: 30
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+
+  service:
+    main:
+      primary: true
+      controller: main
+      ports:
+        http:
+          port: 5000
+          protocol: HTTP
+          targetPort: http
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        questarr.eaglepass.io/track: canary
+        questarr.eaglepass.io/owner: vanguard
+      hosts:
+        - host: questarr-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - questarr-canary.eaglepass.io
+          secretName: questarr-canary-tls
+
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 2Gi
+      storageClass: standard-rwo
+      globalMounts:
+        - path: /app/data
+          readOnly: false
+
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 1000
+    annotations:
+      operator.1password.io/item-name: "questarr-canary-secrets"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/rvrt5b57l76ynjmmxsnteoazmu"
+    labels:
+      questarr.eaglepass.io/track: canary
