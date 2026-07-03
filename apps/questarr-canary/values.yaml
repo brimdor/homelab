@@ -74,7 +74,7 @@ app-template:
             readiness:
               enabled: true
               type: HTTP
-              path: /api/ready
+              path: /api/health
               spec:
                 initialDelaySeconds: 5
                 periodSeconds: 10
