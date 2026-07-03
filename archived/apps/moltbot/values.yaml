@@ -160,7 +160,7 @@ app-template:
         - hosts:
             - *host
           secretName: moltbot-tls-certificate
-        
+
   persistence:
     config:
       enabled: true
@@ -402,7 +402,7 @@ app-template:
               }
               // If we have 'at' string and NO 'atMs', we keep 'at'.
               // We also keep 'tz' if present.
-              // Clean up: if we have valid atMs, we might strictly prefer that, 
+              // Clean up: if we have valid atMs, we might strictly prefer that,
               // but for debugging/visibility it's nice to keep 'at' string if it was provided.
               // The original code deleted 'at'.
               // if ("at" in next) delete next.at; <--- Removed this deletion
@@ -732,7 +732,7 @@ app-template:
                   label: "Cron",
                   name: "cron",
                   description: `Manage Gateway cron jobs (status/list/add/update/remove/run/runs) and send wake events.
-          
+
           ACTIONS:
           - status: Check cron scheduler status
           - list: List jobs (use includeDisabled:true to include disabled)
@@ -742,7 +742,7 @@ app-template:
           - run: Trigger job immediately (requires jobId)
           - runs: Get job run history (requires jobId)
           - wake: Send wake event (requires text, optional mode)
-          
+
           JOB SCHEMA (for add action):
           {
             "name": "string (optional)",
@@ -751,7 +751,7 @@ app-template:
             "sessionTarget": "main" | "isolated",  // Required
             "enabled": true | false   // Optional, default true
           }
-          
+
           SCHEDULE TYPES (schedule.kind):
           - "at": One-shot at specific time.
             Preferred input:
@@ -766,21 +766,21 @@ app-template:
             { "kind": "every", "everyMs": <interval-ms>, "anchorMs": <optional-start-ms> }
           - "cron": Cron expression
             { "kind": "cron", "expr": "<cron-expression>", "tz": "<optional-timezone>" }
-          
+
           PAYLOAD TYPES (payload.kind):
           - "systemEvent": Injects text as system event into session
             { "kind": "systemEvent", "text": "<message>" }
           - "agentTurn": Runs agent with message (isolated sessions only)
             { "kind": "agentTurn", "message": "<prompt>", "model": "<optional>", "thinking": "<optional>", "timeoutSeconds": <optional>, "deliver": <optional-bool>, "channel": "<optional>", "to": "<optional>", "bestEffortDeliver": <optional-bool> }
-          
+
           CRITICAL CONSTRAINTS:
           - sessionTarget="main" REQUIRES payload.kind="systemEvent"
           - sessionTarget="isolated" REQUIRES payload.kind="agentTurn"
-          
+
           WAKE MODES (for wake action):
           - "next-heartbeat" (default): Wake on next heartbeat
           - "now": Wake immediately
-          
+
           Use jobId as the canonical identifier; id is accepted for compatibility. Use contextMessages (0-10) to add previous messages as context to the job text.`,
                   parameters: CronToolSchema,
                   execute: async (_toolCallId, args) => {

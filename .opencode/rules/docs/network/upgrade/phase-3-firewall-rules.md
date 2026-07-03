@@ -1,7 +1,7 @@
 # PHASE 3: Firewall Rules Configuration (SIMPLIFIED)
 
-**Estimated Duration**: 15 minutes  
-**Downtime Risk**: Low  
+**Estimated Duration**: 15 minutes
+**Downtime Risk**: Low
 **Human Required**: ❌ Automated via config file
 
 ---

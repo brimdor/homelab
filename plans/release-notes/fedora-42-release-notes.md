@@ -33,7 +33,7 @@ See the [upstream release announcement](https://lxqt-project.org/release/2024/11
 
 
 ### KDE Plasma is now a full Edition
-Fedora Linux 42 promotes the Fedora KDE Plasma Desktop variant to full Edition status. 
+Fedora Linux 42 promotes the Fedora KDE Plasma Desktop variant to full Edition status.
 
 
 ### FEX emulator on Fedora
@@ -82,8 +82,8 @@ The ibus-libpinyin 1.16 library has been updated to version 1.16 in Fedora 42. N
 
 ### X86 MIPI camera hardware enablement
 
-Ferdora 42 expands out of the box support for additional integrated cameras found on x86 laptops and tablets. 
-This change is part of an ongoing effort in camera enablement on Fedora, and follows a similar change in 
+Ferdora 42 expands out of the box support for additional integrated cameras found on x86 laptops and tablets.
+This change is part of an ongoing effort in camera enablement on Fedora, and follows a similar change in
 [Fedora 41](https://docs.fedoraproject.org/en-US/fedora/f41/release-notes/desktop/#ipu6-cameras).
 
 ---
@@ -188,7 +188,7 @@ For more iformation, see the [upstream release notes](https://tip.golang.org/doc
 
 
 ### Tcl/Tk 9
-Tcl (Tool Command Language) and Tk (TCL graphical toolkit) have been rebased to version 9 in Fedora 42. There are some major incompatibilities and it's unrealistic to port all depending packages, so compat Tcl/Tk 8 packages (`tcl8` and `tk8`) have been provided. 
+Tcl (Tool Command Language) and Tk (TCL graphical toolkit) have been rebased to version 9 in Fedora 42. There are some major incompatibilities and it's unrealistic to port all depending packages, so compat Tcl/Tk 8 packages (`tcl8` and `tk8`) have been provided.
 
 New features include:
 
@@ -204,9 +204,9 @@ For more information about this release, see the [upstream release notes](https:
 ### GNOME Shell extension Dependency Generator
 Fedora 42 provides a new GNOME Shell extension dependency generator, packaged as `gnome-shell-extension-rpm-macros`.
 
-GNOME Shell extensions ship with a `metadata.json` that lists the supported versions of GNOME Shell. This data was previously unused in Fedora when packaging an extension, unless the package maintainer explicitly transfered this information to the spec -- and then kept it up to date. 
+GNOME Shell extensions ship with a `metadata.json` that lists the supported versions of GNOME Shell. This data was previously unused in Fedora when packaging an extension, unless the package maintainer explicitly transfered this information to the spec -- and then kept it up to date.
 
-Starting with Fedora 42, the binary RPM automatically declares its dependency on the correct versions of GNOME Shell, ensuring that we will discover after mass rebuild if some extensions need to be updated because they will FTI. This results in an improved user experience for Fedora users, because extensions that install are now more likely to work. 
+Starting with Fedora 42, the binary RPM automatically declares its dependency on the correct versions of GNOME Shell, ensuring that we will discover after mass rebuild if some extensions need to be updated because they will FTI. This results in an improved user experience for Fedora users, because extensions that install are now more likely to work.
 
 
 ### Intel Compute Runtime upgrade and hardware cut-off
@@ -254,7 +254,7 @@ See the [upstream documentation](https://numpy.org/devdocs/release/2.0.0-notes.h
 ### Django 5.1
 The Django stack has been updated to version 5.1 in Fedora 42.
 
-Similar to the packaging approach for the Python interpreter itself, Fedora is moving to a single source RPM for each Django major version. The major version initially shipped with a given Fedora release will have unsuffixed binary packages (e.g. `python3-django`), while any newer or older versions will have suffixed binary packages (e.g. `python3-django5`). Suffixed packages (source and binary) will only list the major version (so `python-django5` instead of `python-django5.1`). 
+Similar to the packaging approach for the Python interpreter itself, Fedora is moving to a single source RPM for each Django major version. The major version initially shipped with a given Fedora release will have unsuffixed binary packages (e.g. `python3-django`), while any newer or older versions will have suffixed binary packages (e.g. `python3-django5`). Suffixed packages (source and binary) will only list the major version (so `python-django5` instead of `python-django5.1`).
 
 For information about the 5.1 release, see the [upstream release notes](https://docs.djangoproject.com/en/5.2/releases/5.1/).
 
@@ -265,8 +265,8 @@ The `python3.8` package will be retired without replacement from Fedora Linux 42
 Note that `python3.6` will remain available for the foreseeable future to support developers who target RHEL 8.
 
 
-### Retirement of Py03 v0.19, v0.20 and v0.21 
-The packages for obsolete versions of PyO3 (v0.21, v0.20, and v0.19), the Rust bindings for CPython and PyPy, were removed from Fedora. All Python packages that contain native Python extensions written in Rust are now built with PyO3 v0.22 or later, bringing official support for Python 3.13 and / or support for running on a "free-threaded" Python interpreter. 
+### Retirement of Py03 v0.19, v0.20 and v0.21
+The packages for obsolete versions of PyO3 (v0.21, v0.20, and v0.19), the Rust bindings for CPython and PyPy, were removed from Fedora. All Python packages that contain native Python extensions written in Rust are now built with PyO3 v0.22 or later, bringing official support for Python 3.13 and / or support for running on a "free-threaded" Python interpreter.
 
 
 ### python-pytest-runner is now deprecated
@@ -282,13 +282,13 @@ To migrate, follow these steps:
 
 
 ### Zbus v1 retirement
-The packages for v1 of the `zbus` crate (and the packages for v2 of the `zvariant` crate) have been retired from Fedora 42. Dependent packages are to be ported to a non-obsolete version of these libraries (i.e. zbus v4 or v5) or to be retired as well. 
+The packages for v1 of the `zbus` crate (and the packages for v2 of the `zvariant` crate) have been retired from Fedora 42. Dependent packages are to be ported to a non-obsolete version of these libraries (i.e. zbus v4 or v5) or to be retired as well.
 
 Rust library packages are not intended to be installed on end-user systems, and are almost exclusively installed in ephemeral build environments (i.e. mock chroots), so this change should not have any impact on end users.
 
 
 ### gtk3-rs is now deprecated
-The Rust bindings for GTK3 are obsolete and officially unmaintained. The packages for them have been marked as deprecated to prevent new packages that depend on them from being added to Fedora, and they will be removed from a future release. 
+The Rust bindings for GTK3 are obsolete and officially unmaintained. The packages for them have been marked as deprecated to prevent new packages that depend on them from being added to Fedora, and they will be removed from a future release.
 
 ---
 ## File: feedback.adoc
@@ -456,7 +456,7 @@ include::partial$entities.adoc[]
 You can find additional notes in the [upstream documentation](https://anaconda-installer.readthedocs.io/en/latest/release-notes.html#fedora-42).
 
 #### Anaconda WebUI enabled by default on Workstation
-Fedora 42 Workstation Edition now has a new installer user interface, based on PatternFly. It changes the previous "Hub & Spoke" model to a "Wizard" style interface with a sequence of steps that must be completed in order. It also provides a simplified built-in help in a side panel instead of the previous separate window with fully featured documentation. 
+Fedora 42 Workstation Edition now has a new installer user interface, based on PatternFly. It changes the previous "Hub & Spoke" model to a "Wizard" style interface with a sequence of steps that must be completed in order. It also provides a simplified built-in help in a side panel instead of the previous separate window with fully featured documentation.
 
 .First screen of the new UI
 
@@ -486,9 +486,9 @@ Images for the RISC-V alternative architecture with unofficial support are now a
 
 
 ### Unification of `/usr/bin` and `/usr/sbin`
-In Fedora 42, the `/usr/sbin` directory becomes a symlink to `bin`, which means paths like `/usr/bin/foo` and `/usr/sbin/foo` point to the same place. `/bin` and `/sbin` are already symlinks to `/usr/bin` and `/usr/sbin`, so effectively `/bin/foo` and `/sbin/foo` also point to the same place. `/usr/sbin` will be removed from the default `$PATH`. The same change is also done to make `/usr/local/sbin` point to `/bin`, effectively making `/usr/local/bin/foo` and `/usr/local/sbin/foo` point to the same place. 
+In Fedora 42, the `/usr/sbin` directory becomes a symlink to `bin`, which means paths like `/usr/bin/foo` and `/usr/sbin/foo` point to the same place. `/bin` and `/sbin` are already symlinks to `/usr/bin` and `/usr/sbin`, so effectively `/bin/foo` and `/sbin/foo` also point to the same place. `/usr/sbin` will be removed from the default `$PATH`. The same change is also done to make `/usr/local/sbin` point to `/bin`, effectively making `/usr/local/bin/foo` and `/usr/local/sbin/foo` point to the same place.
 
-The definition of `%_sbindir` has been changed to `%_bindir`, so packages will start using the new directory after a rebuild without any further action. 
+The definition of `%_sbindir` has been changed to `%_bindir`, so packages will start using the new directory after a rebuild without any further action.
 
 Maintainers may stop using `%_sbindir`, but don't need to.
 
@@ -499,28 +499,28 @@ On Fedora 42, the boot-splash (plymouth) now defaults to using the EFI firmware 
 
 Since the EFI framebuffer does not provide the screen's DPI, plymouth now guesses whether 2x hiDPI scaling should be used or not based on the screen's resolution. So Fedora 42 may use a different scaling factor for the bootsplash than before, this only impacts the bootsplash.
 
-The old behavior of waiting for the GPU driver to load before showing the splash can be restored by running: 
+The old behavior of waiting for the GPU driver to load before showing the splash can be restored by running:
 
 [,console]
 ----
-sudo grubby --update-kernel=ALL --args="plymouth.use-simpledrm=0" 
+sudo grubby --update-kernel=ALL --args="plymouth.use-simpledrm=0"
 ----
 
-Alternatively, the guessed hiDPI scale-factor can be overridden by running: 
+Alternatively, the guessed hiDPI scale-factor can be overridden by running:
 
 [,console]
 ----
-sudo grubby --update-kernel=ALL --args="plymouth.force-scale=1" 
+sudo grubby --update-kernel=ALL --args="plymouth.force-scale=1"
 ----
 
-Change `=1` to `=2` to force 2x scaling. Note if this is used the specified scale-factor will apply to all displays. 
+Change `=1` to `=2` to force 2x scaling. Note if this is used the specified scale-factor will apply to all displays.
 
-Alternatively, instead of using the kernel commandline these settings can be configured through editing `/etc/plymouth/plymouthd.conf`. Uncomment the `[Daemon]` line and then add lines with: 
+Alternatively, instead of using the kernel commandline these settings can be configured through editing `/etc/plymouth/plymouthd.conf`. Uncomment the `[Daemon]` line and then add lines with:
 
 * `UseSimpledrm=1` and/or
 * `DeviceScale=1` or `DeviceScale=2`
 
-After editing `/etc/plymouth/plymouthd.conf`, the initrd must be regenerated to include the updated file by running `sudo dracut -f`. 
+After editing `/etc/plymouth/plymouthd.conf`, the initrd must be regenerated to include the updated file by running `sudo dracut -f`.
 
 ### `fips-mode-setup` has been removed from Fedora
 
@@ -535,7 +535,7 @@ The `fips-mode-setup` utility has been removed from Fedora. To operate a system 
 fips = true
 ----
 +
-An example blueprint file to achieve this is:  
+An example blueprint file to achieve this is:
 +
 ----
 name = "fedora42-fips"
@@ -596,7 +596,7 @@ Starting with Fedora 42, Fedora Atomic Desktop is no longer available for the PP
 
 
 ### Retire Zezere Provisioning Server (IoT)
-Previous Fedora IoT releases used the Zezere provisioning server for initial configuration. However, this approach caused problems for some users, notably those using IPv6. Starting with Fedora 42, Zezere has been replaced with `systemd-firstboot`. Users who have been unable to use Zezere will have an easier and more straightforward way to configure their system, resulting in less frustration during the critical first boot experience. 
+Previous Fedora IoT releases used the Zezere provisioning server for initial configuration. However, this approach caused problems for some users, notably those using IPv6. Starting with Fedora 42, Zezere has been replaced with `systemd-firstboot`. Users who have been unable to use Zezere will have an easier and more straightforward way to configure their system, resulting in less frustration during the critical first boot experience.
 
 The Getting Started section of the [Fedora IoT documentation](https://docs.fedoraproject.org/en-US/iot/ignition/) has been updated to reflect this change.
 
@@ -610,7 +610,7 @@ This change helps align Fedora CoreOS with the ongoing [Bootable Containers](htt
 ### Distributing Kickstart Files as OCI Artifacts
 Fedora distributed as bootable container ships via [OCI registry](https://quay.io/repository/fedora/fedora-bootc?tab=tags). Installation is typically done by conversion into a VM image or ISO installer via [osbuild](https://osbuild.org/) (image builder), however, booting from network is a useful workflow for bare-metal fleet deployments. Required files to perform such installation were previously not available in the OCI repository that could be fetched from registry in a similar manner as the bootable container. This changes in Fedora 42.
 
-Previously, Kickstart files were only available in the Fedora RPM repository and it could be cumbersome to find appropriate RPM repository version and extract needed files instead of fetching all the needed assets from the registry only. Fedora 42 introduces an OCI repository with the files in question for each Fedora stable version. 
+Previously, Kickstart files were only available in the Fedora RPM repository and it could be cumbersome to find appropriate RPM repository version and extract needed files instead of fetching all the needed assets from the registry only. Fedora 42 introduces an OCI repository with the files in question for each Fedora stable version.
 
 Kickstart files will also continue to be distributed in RPM repositories.
 
@@ -621,7 +621,7 @@ See the [Change page](https://fedoraproject.org/wiki/Changes/KickstartOciArtifac
 
 Fedora now provides WSL (Windows Subsystem for Linux) images. They are available for download on the [Getfedora cloud page](https://fedoraproject.org/cloud/download).
 
-WSL is a Windows subsystem that allows Windows users to easily run multiple guest Linux distributions as containers inside a single virtual machine managed by a Windows host. 
+WSL is a Windows subsystem that allows Windows users to easily run multiple guest Linux distributions as containers inside a single virtual machine managed by a Windows host.
 
 The Fedora base container can already be used with WSL, but it is not ideal as it intentionally excludes documentation and non-essential tools, which this cloud image provides.
 
@@ -646,13 +646,13 @@ For more details see the [upstream documentation](https://docs.ansible.com/ansib
 
 Intel Software Guard Extensions (SGX) is a piece of technology that enables creation of execution enclaves. Their memory is encrypted and thus protected from all other code running on the CPU, including System Management Mode (SMM), firmware, the kernel and user space.
 
-This Fedora update provides the SGX host software stack, architectural enclaves and development packages. The change focuses on *general* software infrastructure enablement. The aim is to introduce applications and features in the future, which will have a dependency on SGX. 
+This Fedora update provides the SGX host software stack, architectural enclaves and development packages. The change focuses on *general* software infrastructure enablement. The aim is to introduce applications and features in the future, which will have a dependency on SGX.
 
 
 ### Managing expired PGP keys in DNF5
 Fedora 42 introduces a new way to handle installing RPM packages from repositories while outdated PGP keys are present in the system. Previously, such keys had to be removed manually by running `rpmkeys --delete`. Starting with this release, expired keys will be detected automatically before any DNF transaction and handled appropriately using a new libDNF5 plugin which is enabled by default.
 
-For those using interactive mode, a prompt will now appear informing them about each outdated key on the system and asking for confirmation to remove it. For non-interactive users, there will be no change to the workflow. 
+For those using interactive mode, a prompt will now appear informing them about each outdated key on the system and asking for confirmation to remove it. For non-interactive users, there will be no change to the workflow.
 
 
 ### Fedora supports Copy on Write functionality
@@ -727,15 +727,15 @@ Apache Traffic Server (trafficserver) in Fedora has been upgraded to version 10.
 
 
 ### Bpfman added to Fedora
-Fedora 42 provides the bpfman package. 
+Fedora 42 provides the bpfman package.
 
 Bpfman is a software stack simplifying the management of eBPF programs in Kubernetes clusters or on individual hosts. It comprises a system daemon (`bpfman`), eBPF Custom Resource Definitions (CRDs), an agent (`bpfman-agent`), and an operator (`bpfman-operator`). Developed in Rust on the Aya library, bpfman offers improved security, visibility, multi-program support, and enhanced productivity for developers.
 
-For Fedora, integrating bpfman would streamline eBPF program loading. It enhances security by restricting privileges to the controlled bpfman daemon, simplifies deployment in Kubernetes clusters, and offers improved visibility into running eBPF programs. This integration aligns with Fedora's commitment to providing efficient and secure solutions, making it easier for users to leverage the benefits of eBPF in their systems. 
+For Fedora, integrating bpfman would streamline eBPF program loading. It enhances security by restricting privileges to the controlled bpfman daemon, simplifies deployment in Kubernetes clusters, and offers improved visibility into running eBPF programs. This integration aligns with Fedora's commitment to providing efficient and secure solutions, making it easier for users to leverage the benefits of eBPF in their systems.
 
 
 ### Firewalld IPv6_rpfilter now defaults to `loose` on Workstations
-Fedora Workstation variants use connectivity checks by default. These checks can fail for multi-homed (e.g. LAN + Wi-Fi) hosts where firewalld uses `IPv6_rpfilter=strict`. Therefore, starting in Fedora 42, Fedora Workstation now defaults to `IPv6_rpfilter=loose` to allow connectivity checks to function as intended. 
+Fedora Workstation variants use connectivity checks by default. These checks can fail for multi-homed (e.g. LAN + Wi-Fi) hosts where firewalld uses `IPv6_rpfilter=strict`. Therefore, starting in Fedora 42, Fedora Workstation now defaults to `IPv6_rpfilter=loose` to allow connectivity checks to function as intended.
 
 For systems upgrading to Fedora 42, the new value of `IPv6_rpfilter` depends on whether the user has customized `/etc/firewalld/firewalld.conf`. If not, then the RPM upgrade process will update the configuration to `IPv6_rpfilter=loose.` If yes, then the existing configuration will be retained.
 
@@ -743,15 +743,15 @@ Note that this change is a deviation from firewalld upstream, which continues to
 
 
 ### cockpit-navigator replaced with cockpit-files
-Fedora 42 replaces the Cockpit Navigator plugin with Cockpit Files. Last year the Cockpit project released a new officially supported Cockpit Files plugin intended to provide a modern alternative to the existing Cockpit navigator plugin. The latest release (14) supports everything which Cockpit navigator did except the creation of symlinks which is planned to be implemented. 
+Fedora 42 replaces the Cockpit Navigator plugin with Cockpit Files. Last year the Cockpit project released a new officially supported Cockpit Files plugin intended to provide a modern alternative to the existing Cockpit navigator plugin. The latest release (14) supports everything which Cockpit navigator did except the creation of symlinks which is planned to be implemented.
 
-Replacing `cockpit-navigator` with `cockpit-files` leads to a visual change within Cockpit: the Navigator menu entry will be replaced with a new File browser menu entry under Tools. 
+Replacing `cockpit-navigator` with `cockpit-files` leads to a visual change within Cockpit: the Navigator menu entry will be replaced with a new File browser menu entry under Tools.
 
-The UI of `cockpit-files` is different from `cockpit-navigator` but offers the same functionality with the exception of symlink creation. `cockpit-files` uses PatternFly as UI toolkit, making the user experience more consistent. 
+The UI of `cockpit-files` is different from `cockpit-navigator` but offers the same functionality with the exception of symlink creation. `cockpit-files` uses PatternFly as UI toolkit, making the user experience more consistent.
 
 
 ### Confidential Virtualization Host with AMD SEV-SNP
-Fedora 42 enables virtualization hosts to launch confidential virtual machines using AMD's SEV-SNP technology. Confidential virtualization prevents admins with root shell access, or a compromised host software stack, from accessing memory of any running guest. SEV-SNP is an evolution of previously provided SEV and SEV-ES technologies providing stronger protection and unlocking new features such as a secure virtual TPM. 
+Fedora 42 enables virtualization hosts to launch confidential virtual machines using AMD's SEV-SNP technology. Confidential virtualization prevents admins with root shell access, or a compromised host software stack, from accessing memory of any running guest. SEV-SNP is an evolution of previously provided SEV and SEV-ES technologies providing stronger protection and unlocking new features such as a secure virtual TPM.
 
 
 ### Optimized binaries for the x86_64 architecture
@@ -760,7 +760,7 @@ Fedora now provides a mechanism for automatically loading binaries optimized for
 
 ### Retirement of PostgreSQL 15
 
-PostgreSQL version 15 will be retired from Fedora 42 since there are newer versions (16 and 17). Version 16 is already the default version (announced in PostgreSQL 16 change), and version 17 would be the alternative. 
+PostgreSQL version 15 will be retired from Fedora 42 since there are newer versions (16 and 17). Version 16 is already the default version (announced in PostgreSQL 16 change), and version 17 would be the alternative.
 
 If you still have not upgraded to the default stream 16, you should follow the standard upgrade strategy:
 
@@ -802,7 +802,7 @@ Previously, the `git` package was complex, divided into multiple sub-packages, a
 
 
 ### Live media now use the EROFS filesystem instead of SquashFS
-Fedora Linux live environments now use the Enhanced Read-Only FileSystem (EROFS), a modern, feature-rich read-only filesystem. 
+Fedora Linux live environments now use the Enhanced Read-Only FileSystem (EROFS), a modern, feature-rich read-only filesystem.
 
 
 ### `pam_ssh_agent_auth` removed from Fedora

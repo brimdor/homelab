@@ -9,7 +9,7 @@ Labels:           app=nfs-subdir-external-provisioner
                   release=nfs-client-provisioner
 Annotations:      <none>
 Status:           Running
-IP:               
+IP:
 IPs:              <none>
 Controlled By:    ReplicaSet/nfs-client-provisioner-nfs-subdir-external-provisioner-8546c7cb6f
 Containers:
@@ -35,11 +35,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-txzrd (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   nfs-subdir-external-provisioner-root:
     Type:      NFS (an NFS mount that lasts the lifetime of a pod)

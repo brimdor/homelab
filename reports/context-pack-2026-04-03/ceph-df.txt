@@ -2,7 +2,7 @@
 CLASS     SIZE    AVAIL     USED  RAW USED  %RAW USED
 ssd    3.0 TiB  1.6 TiB  1.4 TiB   1.4 TiB      46.84
 TOTAL  3.0 TiB  1.6 TiB  1.4 TiB   1.4 TiB      46.84
- 
+
 --- POOLS ---
 POOL                   ID  PGS   STORED  OBJECTS     USED  %USED  MAX AVAIL
 standard-rwo            1  128  717 GiB  185.24k  1.4 TiB  55.17    582 GiB

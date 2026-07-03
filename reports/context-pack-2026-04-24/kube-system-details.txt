@@ -72,16 +72,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-n2fgx (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-n2fgx:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -96,14 +96,14 @@ Events:                      <none>
 logs --previous:
 Error from server (BadRequest): previous terminated container "debugger" in pod "node-debugger-charmander-c9jrc" not found
 logs current:
-10.0.20.11:32309/pages:2025-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:2a9e3e0a26841a3c5ba138644dd9dfd3d15b7b8cb6e32f7b02acb165917c426d 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:2026-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:f411e3f3b4033699b694ad71f4e21cb047b1231bee1e91e13634f4288a432c53 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:2026-04-14v2-prod                                                                                            application/vnd.oci.image.manifest.v1+json                sha256:09c1ce0bf2590554f0bb3397792d7bcbb5d65eaf1783e1d7caedc842eb885b8d 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:2026-04-22-v1-prod                                                                                           application/vnd.oci.image.manifest.v1+json                sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b 51.6 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:canary                                                                                                       application/vnd.oci.image.manifest.v1+json                sha256:09275ee57dc0a40e07ee38ef7a3a914d5592a12b59b621ce90aa0dfa0a8ebd7f 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2025-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:2a9e3e0a26841a3c5ba138644dd9dfd3d15b7b8cb6e32f7b02acb165917c426d 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:2026-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:f411e3f3b4033699b694ad71f4e21cb047b1231bee1e91e13634f4288a432c53 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:2026-04-14v2-prod                                                                                            application/vnd.oci.image.manifest.v1+json                sha256:09c1ce0bf2590554f0bb3397792d7bcbb5d65eaf1783e1d7caedc842eb885b8d 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:2026-04-22-v1-prod                                                                                           application/vnd.oci.image.manifest.v1+json                sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b 51.6 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:canary                                                                                                       application/vnd.oci.image.manifest.v1+json                sha256:09275ee57dc0a40e07ee38ef7a3a914d5592a12b59b621ce90aa0dfa0a8ebd7f 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
 ctr: content digest sha256:9da841cba2d188205a2fa437c08e0f3819d6de84dae71e78e70515e282f44e6e: not found
-manifest-sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b: waiting        |[32m[0m--------------------------------------| 
-elapsed: 0.1 s                                                                    total:   0.0 B (0.0 B/s)                                         
+manifest-sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b: waiting        |[32m[0m--------------------------------------|
+elapsed: 0.1 s                                                                    total:   0.0 B (0.0 B/s)
 describe:
 Name:             node-debugger-charmander-c9jrc
 Namespace:        default
@@ -143,16 +143,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-qhft6 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-qhft6:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -207,16 +207,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-m8bcm (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-m8bcm:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -279,16 +279,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-hrzwp (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-hrzwp:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -351,16 +351,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jmv27 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-jmv27:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -414,16 +414,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-gvpqk (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-gvpqk:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -486,16 +486,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-n5f5f (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-n5f5f:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -558,16 +558,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-sz9z7 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-sz9z7:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -630,16 +630,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-mwcvg (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-mwcvg:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -702,16 +702,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-hwm24 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-hwm24:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607

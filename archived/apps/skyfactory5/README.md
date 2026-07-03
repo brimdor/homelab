@@ -101,4 +101,3 @@ For a quickstart guide to setting up a Kubernetes cluster and deploying
 Minecraft servers using this Helm Chart see:
 
 [gilesknap/k3s-minecraft](https://github.com/gilesknap/k3s-minecraft)
-

@@ -263,7 +263,7 @@ app-template:
               shortcut: go
               categories: [general]
               disabled: false
-            
+
             - name: mojeek
               engine: mojeek
               shortcut: mjk
@@ -584,7 +584,7 @@ app-template:
               shortcut: toot
               categories: ["social media"]
               disabled: false
-            
+
             ####### MISC ENGINES ########
             - name: minecraft wiki
               engine: mediawiki
@@ -597,7 +597,7 @@ app-template:
               about:
                 website: https://minecraft.wiki/
                 wikidata_id: Q105533483
-            
+
             ######### DISABLED ENGINES #########
             - name: brave
               engine: brave

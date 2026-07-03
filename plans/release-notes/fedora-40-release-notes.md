@@ -83,7 +83,7 @@ See the [upstream release notes](https://releases.llvm.org/18.1.0/docs/ReleaseNo
 
 
 ### GNU toolchain updates
-The GNU Compiler Collection, GNU Binary Utilities, GNU C Library, and the GNU Debugger make up the core part of the GNU Toolchain and it is useful for our users to transition these components as a complete implementation when making a new release of Fedora. 
+The GNU Compiler Collection, GNU Binary Utilities, GNU C Library, and the GNU Debugger make up the core part of the GNU Toolchain and it is useful for our users to transition these components as a complete implementation when making a new release of Fedora.
 
 Components of the GNU Toolchain (gcc, glibc, binutils, gdb) have been updated to the following versions in Fedora 40:
 
@@ -104,7 +104,7 @@ For full details, see the [upstream NEWS](https://github.com/ruby/ruby/blob/ruby
 
 
 ### java-21-openjdk as the system JDK
-The system JDK has been updated from version 17 to version 21 in Fedora 40. 
+The system JDK has been updated from version 17 to version 21 in Fedora 40.
 
 For more information about Java 21, see the [JDK 21 release notes](https://www.oracle.com/java/technologies/javase/21-relnote-issues.html), and the [migration guide](https://docs.oracle.com/en/java/javase/21/migrate/index.html).
 
@@ -451,7 +451,7 @@ Note that you can still use DNF without filelists metadata when querying file pr
 ### wget2 as wget
 The `wget` command in Fedora 40 uses Wget2.
 
-GNU Wget2 is the successor to GNU Wget providing a modern implementation of wget backed by a new library: `libwget2`. The intent to switch from wget 1.x to wget2 is to switch to an implementation that is more actively developed and provides a richer interface for leveraging wget's functionality. 
+GNU Wget2 is the successor to GNU Wget providing a modern implementation of wget backed by a new library: `libwget2`. The intent to switch from wget 1.x to wget2 is to switch to an implementation that is more actively developed and provides a richer interface for leveraging wget's functionality.
 
 
 ### Enable IPv4 address conflict detection by default in NetworkManager

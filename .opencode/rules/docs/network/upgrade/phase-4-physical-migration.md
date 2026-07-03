@@ -1,6 +1,6 @@
 # PHASE 4: Physical Migration (Rolling Transition)
-**Estimated Duration**: 2-4 hours  
-**Downtime Risk**: Moderate (per-device, not full network)  
+**Estimated Duration**: 2-4 hours
+**Downtime Risk**: Moderate (per-device, not full network)
 **Human Required**: ✅ Physical cable management
 
 > [!CAUTION]
@@ -44,7 +44,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Test basic connectivity
    ping 10.0.0.1    # Should respond (OPNSense itself)
-   
+
    # Test VLAN interfaces are up
    # In OPNSense: Interfaces → Overview
    # All VLAN interfaces should show "up"
@@ -56,10 +56,10 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Check IP assignment
    ip addr  # Should get 10.0.20.x IP
-   
+
    # Test gateway
    ping 10.0.20.1   # OPNSense VLAN 20 gateway
-   
+
    # Test internet
    ping 8.8.8.8
    curl -I https://google.com
@@ -99,10 +99,10 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Check IP address
    ip addr show eth0  # Should show 10.0.40.3
-   
+
    # Verify gateway
    ip route           # Default gateway should be 10.0.40.1
-   
+
    # Test internet connectivity
    ping 8.8.8.8
    ```
@@ -137,7 +137,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Verify current cluster state
    kubectl get nodes -o wide
-   
+
    # ash should show current IP 10.0.20.10 and "Ready" status
    ```
 
@@ -163,7 +163,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Try multiple times - may take a moment to stabilize
    kubectl get nodes -o wide
-   
+
    # ash should now show 10.0.20.10 IP
    # Status should be "Ready" (may briefly show "NotReady")
    ```
@@ -210,7 +210,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
 1. **Check current cluster state**
    ```bash
    kubectl get nodes -o wide | grep -E "NAME|Ready"
-   
+
    # All other migrated nodes should show "Ready"
    ```
 
@@ -223,7 +223,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Monitor node status (repeat for up to 2 minutes)
    kubectl get nodes -o wide
-   
+
    # Node should transition:
    # NotReady → Ready
    # IP should change to 10.0.20.XX
@@ -233,7 +233,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Check for any pods stuck on this node
    kubectl get pods -A -o wide | grep [node_name]
-   
+
    # All pods should be Running
    ```
 
@@ -282,7 +282,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    ```bash
    # Wait 30-60 seconds, then try SSH
    ssh pi@[new_ip]
-   
+
    # Or ping
    ping [new_ip]
    ```
@@ -342,7 +342,7 @@ The migration follows a "critical-first" approach to maintain remote access and 
    - Available ports: 4-6
 
 2. **Evaluate need for additional ports**
-   
+
    **Option A: Remove Linksys Entirely** (Recommended)
    - Pros: Simpler architecture, no unmanaged segment
    - Cons: Limited expansion room

@@ -14,9 +14,9 @@ Renovate tried to run on this repository, but found these problems.
 ---
 
 > ⚠️ **Warning**
-> 
+>
 > Renovate failed to look up the following dependencies: `Failed to look up helm package renovate`.
-> 
+>
 > Files affected: `platform/renovate/Chart.yaml`
 
 ---
@@ -1124,5 +1124,3 @@ The following updates are blocked by an existing closed PR. To recreate the PR, 
 
 </blockquote>
 </details>
-
-

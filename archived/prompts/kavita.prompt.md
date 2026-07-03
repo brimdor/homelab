@@ -9,7 +9,7 @@ Chart Type: bjw-s Chart
 Reason (decision logic only): No maintained upstream Helm Chart meeting homelab conventions; therefore bjw-s Chart is required.
 
 Authoritative Application Entry: /home/coder/homelab/plan_create/projects.yaml (section: Kavita)
-Documentation references (for context only, no external fetches needed): 
+Documentation references (for context only, no external fetches needed):
 - https://kavitareader.com
 - https://github.com/Kareadita/Kavita
 - https://github.com/Kareadita/Kavita/blob/develop/Dockerfile

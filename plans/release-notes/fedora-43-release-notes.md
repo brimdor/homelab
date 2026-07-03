@@ -12,7 +12,7 @@ include::partial$entities.adoc[]
 
 
 ### GNOME now uses Wayland only
-The GNOME X11 session has been removed from Fedora Linux. Users previously using GNOME on X11 will be transparently upgraded to the GNOME Wayland session. X11 applications are still supported on GNOME. 
+The GNOME X11 session has been removed from Fedora Linux. Users previously using GNOME on X11 will be transparently upgraded to the GNOME Wayland session. X11 applications are still supported on GNOME.
 
 
 ### Set default fallback monospace font
@@ -24,19 +24,19 @@ If you were relying on old behavior, you can use `fonts-tweak-tool` to specify t
 
 
 ### gdk-pixbuf2 now uses Glycin sandboxed image loading
-`gdk-pixbuf2` now depends on Glycin, the sandboxed image loading framework, which greatly improves security. 
-The intent is to provide the same user experience as before, but much has changed behind the scenes. 
-All built-in pixbuf loaders have been removed in favor of the Glycin pixbuf loader. 
-Most external pixbuf loaders are now obsolete, as Glycin supports the same image formats. 
+`gdk-pixbuf2` now depends on Glycin, the sandboxed image loading framework, which greatly improves security.
+The intent is to provide the same user experience as before, but much has changed behind the scenes.
+All built-in pixbuf loaders have been removed in favor of the Glycin pixbuf loader.
+Most external pixbuf loaders are now obsolete, as Glycin supports the same image formats.
 
 Accordingly, `avif-pixbuf-loader` from `libavif`, `heif-pixbuf-loader` from `libheif`, `jxl-pixbuf-loader` from `libjxl`,
-`rsvg-pixbuf-loader` from `librsvg`, and the standalone package `webp-pixbuf-loader` have all been removed from the distribution. 
-Additionally, `gdk-pixbuf-thumbnailer` has been removed in favor of `glycin-thumbnailer`. `libvaif`, `libjxl`, and `librsvg` no longer provide thumbnailers, since they depend on `gdk-pixbuf-thumbnailer`. 
+`rsvg-pixbuf-loader` from `librsvg`, and the standalone package `webp-pixbuf-loader` have all been removed from the distribution.
+Additionally, `gdk-pixbuf-thumbnailer` has been removed in favor of `glycin-thumbnailer`. `libvaif`, `libjxl`, and `librsvg` no longer provide thumbnailers, since they depend on `gdk-pixbuf-thumbnailer`.
 `libheif` still provides its own standalone thumbnailer, although it is redundant with the Glycin thumbnailer.
 
 
 ### Noto color emoji now use COLR
-Noto Color Emoji fonts in Fedora now use the [COLRv1](https://learn.microsoft.com/en-us/typography/opentype/spec/colr) format. The COLRv1 format is a color scalable font compared with the previous color bitmap fonts. 
+Noto Color Emoji fonts in Fedora now use the [COLRv1](https://learn.microsoft.com/en-us/typography/opentype/spec/colr) format. The COLRv1 format is a color scalable font compared with the previous color bitmap fonts.
 
 Users should not notice any changes except for a smaller file size.
 
@@ -56,7 +56,7 @@ For more information, see the [upstream "What's new" document](https://docs.pyth
 
 
 #### python-async-timeout is now deprecated
-The `python-async-timeout` package has been deprecated in Fedora. Developers are encouraged to migrate to asyncio.Timeout in Python 3.11+ for improved compatibility with the standard library. 
+The `python-async-timeout` package has been deprecated in Fedora. Developers are encouraged to migrate to asyncio.Timeout in Python 3.11+ for improved compatibility with the standard library.
 
 
 #### python-nose retired
@@ -76,7 +76,7 @@ Also see the upstream release notes for [GCC](https://gcc.gnu.org/gcc-15/changes
 
 #### Gold linker deprecated
 The Gold linker has been deprecated and will eventually be removed from Fedora entirely due to upstream development having stopped.
-Three other linkers are still available to developers (`ld.bfd`, `lld` and `mold`), so there is still plenty of choice. 
+Three other linkers are still available to developers (`ld.bfd`, `lld` and `mold`), so there is still plenty of choice.
 
 
 ### Golang 1.25
@@ -121,11 +121,11 @@ The Tomcat application server has been upgraded to version 10.1 in Fedora 43.
 Changes in this version include:
 
 * Apache Tomcat 10.1.x requires Java 11 or later.
-* Specification API Breaking Changes: There is a significant breaking change between Tomcat 9.0.x and Tomcat 10.1.x. 
-The Java package used by the specification APIs has changed from `++javax.*++` to `++jakarta.*++`. 
-It will be necessary to recompile web applications against the new APIs. 
+* Specification API Breaking Changes: There is a significant breaking change between Tomcat 9.0.x and Tomcat 10.1.x.
+The Java package used by the specification APIs has changed from `++javax.*++` to `++jakarta.*++`.
+It will be necessary to recompile web applications against the new APIs.
 See the [Change page on the Fedora Wiki](https://fedoraproject.org/wiki/Changes/Tomcat10ChangeProposal#Upgrade/compatibility_impact) for details.
-* Other Specification API changes: 
+* Other Specification API changes:
 ** Jakarta Servlet 6.0 API: The Java package has changed from `javax.servlet` to `jakarta.servlet`. A new method, `Cookie.setAttribute(String name, String value)` has been added. The process for decoding and normalizing URIs has been clarified. New methods and classes have been added to provide access to unique identifiers for the current request and/or associated connection.
 ** Jakarta Server Pages 3.1 API: The Java package has changed from `javax.servlet.jsp` to `jakarta.servlet.jsp`. Added an option to raise a `PropertyNotFoundException` when an EL expression contains an unknown identifier.
 ** Jakarta Expression Language 5.0: The Java package has changed from `javax.el` to `jakarta.el`. The EL API now uses generics where appropriate. The deprecated `MethodExpression.isParmetersProvided()` method has been removed from the API.
@@ -151,7 +151,7 @@ For full information about this release, see the [upstream release notes](https:
 ### The Hare programming language
 
 Fedora 43 introduces packages for Hare, a systems programming language designed to be simple, stable, and robust.
-Hare uses a static type system, manual memory management, and a minimal runtime. It is well-suited to writing operating systems, system tools, compilers, networking software, and other low-level, high performance tasks. 
+Hare uses a static type system, manual memory management, and a minimal runtime. It is well-suited to writing operating systems, system tools, compilers, networking software, and other low-level, high performance tasks.
 
 The Hare toolchain on Fedora includes:
 
@@ -169,7 +169,7 @@ The `hare` source package includes the following:
 * `hare-stdlib` (standard library)
 * `hare-rpm-macros` (packaging utilities)
 
-In addition, a `hare-update` package is provided to assist Hare developers dealing with breaking changes when a new Hare release is available, until the language and its standard library become stable. 
+In addition, a `hare-update` package is provided to assist Hare developers dealing with breaking changes when a new Hare release is available, until the language and its standard library become stable.
 
 For more information about Hare, see the [upstream documentation](https://harelang.org/documentation/) and [specification](https://harelang.org/specification). A [tutorial](https://harelang.org/tutorial) is also available on the official website.
 
@@ -198,7 +198,7 @@ For detailed information, see the [upstream release notes for TBB 2022.1.0 and T
 
 
 ### Perl 5.42
-Fedora 43 provides Perl 5.42.0, a new stable release that focuses on improving performance, refining existing features, and adding new experimental capabilities. 
+Fedora 43 provides Perl 5.42.0, a new stable release that focuses on improving performance, refining existing features, and adding new experimental capabilities.
 
 **Core enhancements**
 
@@ -217,7 +217,7 @@ Fedora 43 provides Perl 5.42.0, a new stable release that focuses on improving p
 
 * This release also includes performance improvements to the `tr///` operator, updates to Unicode 16.0 support, and various bug fixes related to locale handling, `goto`, and `eval`.
 
-For more detailed information, refer to the official [perldelta for 5.42.0](For more detailed information, refer to the official perldelta for 5.42.0 documentation. ) documentation. 
+For more detailed information, refer to the official [perldelta for 5.42.0](For more detailed information, refer to the official perldelta for 5.42.0 documentation. ) documentation.
 
 
 ### Maven 4
@@ -244,16 +244,16 @@ In Fedora 43, they are completely removed.
 
 
 ### Debuginfod IMA verification
-The `debuginfod` client tools used to auto-download debuginfo & source code into tools like `gdb` now cryptographically verify the integrity of the downloaded files from the Fedora debuginfod server. 
-This setting is appropriate for normal Fedora koji-signed release/update RPMs. 
+The `debuginfod` client tools used to auto-download debuginfo & source code into tools like `gdb` now cryptographically verify the integrity of the downloaded files from the Fedora debuginfod server.
+This setting is appropriate for normal Fedora koji-signed release/update RPMs.
 However if your workflow also involves unsigned flatpak RPMs (`++%dist ".fc#app#"++`), then you may need to manually remove `ima:enforcing` from your `$DEBUGINFOD_URLS`.
 
 
 ### Free Pascal cross-compilers
-Fedora Linux 43 ships with cross-compilation support for the Free Pascal Compiler, through several new packages. 
-Users interested in cross-compiling for MS Windows should install the `fpc-units-x86_64-win64` or `fpc-units-i386-win32 packages`. 
-For cross-compiling for Linux to other architectures, install the appropraite `fpc-units-$ARCH-linux` package. 
-Note that you may need to perform some extra steps if you want your cross-compiled Pascal programs to link against external libraries. 
+Fedora Linux 43 ships with cross-compilation support for the Free Pascal Compiler, through several new packages.
+Users interested in cross-compiling for MS Windows should install the `fpc-units-x86_64-win64` or `fpc-units-i386-win32 packages`.
+For cross-compiling for Linux to other architectures, install the appropraite `fpc-units-$ARCH-linux` package.
+Note that you may need to perform some extra steps if you want your cross-compiled Pascal programs to link against external libraries.
 
 ---
 ## File: feedback.adoc
@@ -425,7 +425,7 @@ Existing 32-bit UEFI systems with MBR-partitioned disks can be upgraded like nor
 
 #### Anaconda now uses DNF5
 
-Fedora as a whole has switched to DNF5 in the 41 release for general package management and image building. 
+Fedora as a whole has switched to DNF5 in the 41 release for general package management and image building.
 Starting with Fedora 43, Anaconda is now also using DNF5 on the backend. The change should not be visible to most users.
 
 #### Modularity support removal
@@ -435,9 +435,9 @@ This change is related to the switch to DNF5, as DNF5 no longer supports modular
 
 #### Default /boot partition is now 2G
 
-Fedora Linux 43 has raised the size of the default `/boot` partition to 2 GiB. 
-This is to accommodate increases in boot data over the past several releases and to maintain a usable experience. 
-Users of older releases may be advised to consider reinstalling instead of upgrading to increase the `/boot` partition size. 
+Fedora Linux 43 has raised the size of the default `/boot` partition to 2 GiB.
+This is to accommodate increases in boot data over the past several releases and to maintain a usable experience.
+Users of older releases may be advised to consider reinstalling instead of upgrading to increase the `/boot` partition size.
 
 ### Automatic updates by default on Fedora Kinoite
 
@@ -455,7 +455,7 @@ a number of significant enhancements and modifications.
 #### stratisd
 
 For `stratisd`, the release makes improvements to the Stratis support for mounting
-filesystems at boot. It introduces a new systemd unit file, 
+filesystems at boot. It introduces a new systemd unit file,
 `stratis-fstab-setup-with-network@.service`, which should be used when a filesystem's pool
 requires unlocking with the network present, as is the case when a pool is encrypted using
 NBDE (network-bound disk encryption). The fstab entry for the filesystem must include the
@@ -488,17 +488,17 @@ D-Bus property on the affected pool with an error message if the key is not load
 For `stratis-cli`, the release fixes a bug where a user would be unable to start an
 encrypted pool previously created with any Stratis release less than 3.8.0.
 
-`stratis-cli` also exposes more information about a stopped pool in its detail view. 
+`stratis-cli` also exposes more information about a stopped pool in its detail view.
 
 
 ### Confidential Virtualization Host for Intel TDX
-Fedora virtualization hosts running on suitably configured Intel Xeon hardware now have the ability to launch confidential virtual machines using the Intel TDX feature. 
+Fedora virtualization hosts running on suitably configured Intel Xeon hardware now have the ability to launch confidential virtual machines using the Intel TDX feature.
 
-Fedora has provided support for launching confidential virtual machines using KVM on x86_64 hosts for several years, using the SEV and SEV-ES technologies available from AMD CPUs, and since Fedora 41, using the SEV-SNP technology. In the Fedora 42 release, support for the Intel SGX platform was introduced, and this change builds on that work to allow creation of Intel TDX guests on Fedora hosts. Intel TDX provides confidential virtualization functionality that is on a par with the recent AMD SEV-SNP support. 
+Fedora has provided support for launching confidential virtual machines using KVM on x86_64 hosts for several years, using the SEV and SEV-ES technologies available from AMD CPUs, and since Fedora 41, using the SEV-SNP technology. In the Fedora 42 release, support for the Intel SGX platform was introduced, and this change builds on that work to allow creation of Intel TDX guests on Fedora hosts. Intel TDX provides confidential virtualization functionality that is on a par with the recent AMD SEV-SNP support.
 
 
 ### PostgreSQL 18
-PostgreSQL in Fedora 43 (the `postgresql` and `libpq` components) has been upgraded to major version 18. This continues the versioned packaging structure introduced in Fedora 40. 
+PostgreSQL in Fedora 43 (the `postgresql` and `libpq` components) has been upgraded to major version 18. This continues the versioned packaging structure introduced in Fedora 40.
 
 See the [upstream release notes](https://www.postgresql.org/docs/18/release-18.html) for more information and notes on migration.
 
@@ -512,7 +512,7 @@ Starting from 389-ds-base version 3.1.3, the 389 Directory Server no longer supp
 Directory server instances created since Fedora 40 and using the default LMDB database are not impacted (that is typically the case for FreeIPA users).
 However, users still using BerkeleyDB (either because they have not yet migrated or because they explicitly choose to use BerkeleyDB) are required to migrate to LMDB.
 
-If this step is not done, the instance will not be able to start after the upgrade, and the following error message is displayed in the dirsrv error log and in the system journal: 
+If this step is not done, the instance will not be able to start after the upgrade, and the following error message is displayed in the dirsrv error log and in the system journal:
 
 [,console]
 ----
@@ -527,7 +527,7 @@ The Dovecot e-mails server has been updated to version 2.4 in Fedora 43. This is
 
 Note that Dovecot 2.4 configuration is not totally compatible with the previous version (2.3). See the [Upgrading Dovecot CE from 2.3 to 2.4](https://doc.dovecot.org/2.4.1/installation/upgrade/2.3-to-2.4.html) document upstream.
 
-For more information about this release, see the [upstream release notes](https://github.com/dovecot/core/releases/tag/2.4.0). 
+For more information about this release, see the [upstream release notes](https://github.com/dovecot/core/releases/tag/2.4.0).
 
 
 ### MySQL 8.4 as default
@@ -554,7 +554,7 @@ Fedora 43 updates the RPM packaging system to version 6.0. This release provides
 * Support for signing with Sequoia-sq as an alternative to GnuPG.
 
 For full information about this release, see the [upstream release notes](https://rpm.org/wiki/Releases/6.0.0). The [Road to RPM 6.0](https://github.com/rpm-software-management/rpm/discussions/3602) post also provides details in a more easily digestible format.
-Slightly smaller (in the range of a few megabytes) initrd sizes and faster boots. See https://github.com/coreos/fedora-coreos-tracker/issues/1247#issuecomment-1179490347 for some measurements. We did the change in Fedora CoreOS to reduce the size of the initrd to save disk space in the /boot partition. 
+Slightly smaller (in the range of a few megabytes) initrd sizes and faster boots. See https://github.com/coreos/fedora-coreos-tracker/issues/1247#issuecomment-1179490347 for some measurements. We did the change in Fedora CoreOS to reduce the size of the initrd to save disk space in the /boot partition.
 
 
 ### initrd is now compressed by zstd by default
@@ -562,11 +562,11 @@ The compression algorithm used by `dracut` when generating an initrd has been ch
 
 
 ### YASM is deprecated and has been replaced with NASM
-The YASM assembler has been deprecated and no new packages should depend on it. Packages that require it to build are now built using NASM where possible. 
+The YASM assembler has been deprecated and no new packages should depend on it. Packages that require it to build are now built using NASM where possible.
 
 
 ### Modular packaging for GnuPG2
-The previously monolithic GnuPG package (`gnupg2`) has been modularized, with several tools and non-essential utilities having been split into separate subpackages. The non-essential utilities (in `gnupg2-utils`) and some services that are unused on most systems are no longer installed by default. 
+The previously monolithic GnuPG package (`gnupg2`) has been modularized, with several tools and non-essential utilities having been split into separate subpackages. The non-essential utilities (in `gnupg2-utils`) and some services that are unused on most systems are no longer installed by default.
 
 
 ### SSSD Identity Provider (IdP) support

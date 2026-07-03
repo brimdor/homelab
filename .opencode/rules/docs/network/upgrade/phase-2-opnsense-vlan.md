@@ -1,6 +1,6 @@
 # PHASE 2: OPNSense VLAN Configuration
-**Estimated Duration**: 60-90 minutes  
-**Downtime Risk**: Low (during interface assignment)  
+**Estimated Duration**: 60-90 minutes
+**Downtime Risk**: Low (during interface assignment)
 **Human Required**: ✅ Web UI configuration
 
 ---
@@ -268,7 +268,7 @@
 
 
 3. **Add reservations for all K8s workers**
-   
+
    Repeat the add process for each node (all in subnet 10.0.20.0/24):
 
    | HW Address         | IP Address   | Hostname   |

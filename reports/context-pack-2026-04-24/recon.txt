@@ -36,13 +36,13 @@ second-brain-canary   Synced        Progressing
   cluster:
     id:     13c20377-d801-43f9-aebd-59f62df5dad1
     health: HEALTH_OK
- 
+
   services:
     mon: 3 daemons, quorum h,l,m (age 5h) [leader: h]
     mgr: a(active, since 5h), standbys: b
     mds: 1/1 daemons up, 1 hot standby
     osd: 7 osds: 7 up (since 4h), 5 in (since 5h); 23 remapped pgs
- 
+
   data:
     volumes: 1/1 healthy
     pools:   4 pools, 177 pgs
@@ -52,12 +52,12 @@ second-brain-canary   Synced        Progressing
              154 active+clean
              22  active+remapped+backfill_wait
              1   active+remapped+backfilling
- 
+
   io:
     client:   7.8 KiB/s rd, 13 KiB/s wr, 9 op/s rd, 1 op/s wr
     recovery: 5.3 MiB/s, 1 objects/s
- 
+
   progress:
     Global Recovery Event (5h)
       [========================....] (remaining: 45m)
- 
+

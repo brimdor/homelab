@@ -12,17 +12,17 @@ squirtle     Ready    control-plane,etcd,master   426d   v1.33.6+k3s1   10.0.20.
 totodile     Ready    <none>                      426d   v1.33.6+k3s1   10.0.20.17    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
 
 === Top Nodes ===
-NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
-arcanine     486m         6%       6933Mi          10%         
-bulbasaur    582m         14%      3655Mi          23%         
-charmander   1004m        25%      4945Mi          20%         
-chikorita    528m         13%      4881Mi          15%         
-cyndaquil    289m         7%       4534Mi          28%         
-growlithe    563m         14%      7675Mi          23%         
-pikachu      453m         11%      3708Mi          23%         
-sprigatito   308m         7%       4133Mi          12%         
-squirtle     1078m        26%      4715Mi          29%         
-totodile     266m         6%       2482Mi          15%         
+NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+arcanine     486m         6%       6933Mi          10%
+bulbasaur    582m         14%      3655Mi          23%
+charmander   1004m        25%      4945Mi          20%
+chikorita    528m         13%      4881Mi          15%
+cyndaquil    289m         7%       4534Mi          28%
+growlithe    563m         14%      7675Mi          23%
+pikachu      453m         11%      3708Mi          23%
+sprigatito   308m         7%       4133Mi          12%
+squirtle     1078m        26%      4715Mi          29%
+totodile     266m         6%       2482Mi          15%
 
 === All Pods ===
 NAMESPACE           NAME                                                              READY   STATUS                 RESTARTS          AGE

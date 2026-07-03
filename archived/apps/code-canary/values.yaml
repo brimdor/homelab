@@ -59,7 +59,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /home/coder  
+            - path: /home/coder
   defaultPodOptions:
     hostname: *host
     securityContext:

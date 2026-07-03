@@ -367,5 +367,3 @@ Each node will be drained, wiped, and re-provisioned via PXE with a fresh Fedora
     *   Restore manifests from Git (ArgoCD).
     *   Restore PVC data from external backups (Velero/Restic if available).
     *   Restore Etcd from Snapshot.
-
-

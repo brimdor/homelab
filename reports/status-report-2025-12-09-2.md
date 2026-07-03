@@ -1,7 +1,7 @@
 # Homelab Status Report - 2025-12-09 (Evening Update)
 
 ## Executive Summary
-**Overall Status**: 🟡 YELLOW  
+**Overall Status**: 🟡 YELLOW
 **Summary**: **Significant improvement from earlier report.** All homelab systems are operational with all 10 Kubernetes nodes online. Critical Ceph daemon crashes (629) from earlier have been resolved - all 7 OSDs are now up and operational. Remaining warnings are minor: slow BlueStore operations on 1 OSD and low disk space on 3 monitors (d, f, g). System moved from critical storage issues to manageable warnings.
 
 ## Detailed Status
@@ -20,7 +20,7 @@ None detected. ✅ **Previous critical issues resolved** (629 OSD crashes, 2 OSD
 ### Warnings (Yellow)
 - [ ] **Issue**: 1 OSD experiencing slow BlueStore operations
   - **Impact**: Minor performance degradation on write operations
-  - **Fix**: 
+  - **Fix**:
     1. Identify slow OSD: `kubectl exec -n rook-ceph deploy/rook-ceph-tools -- ceph health detail`
     2. Check disk health on affected node
     3. Monitor disk I/O performance
@@ -28,7 +28,7 @@ None detected. ✅ **Previous critical issues resolved** (629 OSD crashes, 2 OSD
 
 - [ ] **Issue**: Monitors d, f, g low on available disk space
   - **Nodes affected**: Likely squirtle, bulbasaur, growlithe based on monitor naming
-  - **Fix**: 
+  - **Fix**:
     1. Check monitor disk usage: `kubectl exec -n rook-ceph deploy/rook-ceph-tools -- ceph df`
     2. Clean up old monitor data if safe
     3. Consider expanding monitor storage capacity

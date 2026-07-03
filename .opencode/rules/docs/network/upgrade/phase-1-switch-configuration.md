@@ -1,6 +1,6 @@
 # PHASE 1: TPLink Switch Initial Configuration
-**Estimated Duration**: 45-90 minutes  
-**Downtime Risk**: None (switch not yet in production)  
+**Estimated Duration**: 45-90 minutes
+**Downtime Risk**: None (switch not yet in production)
 **Human Required**: ✅ Physical connection, web UI access
 
 ---
@@ -31,23 +31,23 @@
    - [ ] **[HUMAN ACTION]** Disconnect laptop from any other networks (WiFi off)
 
 3. **Configure laptop static IP**
-   
+
    **Linux:**
    ```bash
    # Find your ethernet interface name first
    ip link show
-   
+
    # Common names: enp0s31f6, eno1, enp3s0
    # Replace <interface> with your actual interface name
-   
+
    sudo ip addr flush dev <interface>
    sudo ip addr add 192.168.0.100/24 dev <interface>
    sudo ip link set <interface> up
-   
+
    # Verify
    ip addr show <interface>
    ```
-   
+
    **Windows:**
    ```
    1. Open Control Panel → Network and Sharing Center
@@ -95,7 +95,7 @@
      - Subnet Mask: `255.255.255.0`
      - Default Gateway: `10.0.0.1`
    - [ ] **[HUMAN ACTION]** Click Save/Apply
-   
+
    > [!CAUTION]
    > After changing switch IP, you will lose connection. Reconfigure your laptop to 10.0.0.100/24 to reconnect.
 
@@ -140,7 +140,7 @@
    - Create LAG1 with Ports 23, 24 — Mode: **Static** (not LACP)
 
 2. **Configure LAG1 VLAN membership**
-   
+
    For each VLAN, set LAG1 (Ports 23-24) status:
 
    | VLAN | LAG1 Status |

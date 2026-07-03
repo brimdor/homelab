@@ -21,7 +21,7 @@ app-template:
                 ls -lh "$LLAMA_ARG_MODEL"
                 exit 0
               fi
-              
+
               # Wait for the model to be downloaded
               echo "Waiting for model to be downloaded..."
               until [ -s "$LLAMA_ARG_MODEL" ]; do

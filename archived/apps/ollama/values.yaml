@@ -206,7 +206,7 @@ ollama:
         paths:
           - path: /
             pathType: Prefix
-    
+
   #   # -- TLS configuration
     tls:
       - secretName: ollama-tls
@@ -517,7 +517,7 @@ modelPuller:
       # ========================================
       # Echo - System Administration Agent
       # Script: templates/_model-echo.tpl
-      # ======================================== 
+      # ========================================
       echo:
         enabled: true
         base: "qwen3.5:9b"

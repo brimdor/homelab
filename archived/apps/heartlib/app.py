@@ -30,28 +30,28 @@ def generate_music(lyrics: str, tags: str, max_length_sec: int, temperature: flo
         missing = check_models()
         if missing:
             return None, f"Missing model files: {', '.join(missing)}. Please download models to {MODEL_PATH}"
-        
+
         # Import here to avoid startup errors if models missing
         from heartlib.generation import HeartMuLaGenerator
-        
+
         # Initialize generator
         generator = HeartMuLaGenerator(
             model_path=MODEL_PATH,
             version="3B"
         )
-        
+
         # Create temp files for input
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as lyrics_file:
             lyrics_file.write(lyrics)
             lyrics_path = lyrics_file.name
-        
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tags_file:
             tags_file.write(tags)
             tags_path = tags_file.name
-        
+
         # Generate output path
         output_file = os.path.join(OUTPUT_PATH, "generated_music.mp3")
-        
+
         # Generate music
         generator.generate(
             lyrics_path=lyrics_path,
@@ -62,20 +62,20 @@ def generate_music(lyrics: str, tags: str, max_length_sec: int, temperature: flo
             topk=topk,
             cfg_scale=cfg_scale
         )
-        
+
         # Cleanup temp files
         os.unlink(lyrics_path)
         os.unlink(tags_path)
-        
+
         return output_file, "Music generated successfully!"
-        
+
     except Exception as e:
         return None, f"Error generating music: {str(e)}"
 
 def get_status():
     """Get current system status"""
     status = []
-    
+
     # Check GPU
     if torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)
@@ -83,14 +83,14 @@ def get_status():
         status.append(f"✅ GPU: {gpu_name} ({gpu_memory:.1f} GB)")
     else:
         status.append("❌ GPU: Not available")
-    
+
     # Check models
     missing = check_models()
     if not missing:
         status.append("✅ Models: All loaded")
     else:
         status.append(f"⚠️ Models: Missing {len(missing)} files")
-    
+
     return "\n".join(status)
 
 # Example lyrics
@@ -116,14 +116,14 @@ with gr.Blocks(title="HeartLib - Music Generation", theme=gr.themes.Soft()) as d
     # 🎵 HeartLib Music Generator
     Generate music from lyrics and tags using the HeartMuLa foundation model.
     """)
-    
+
     with gr.Row():
         with gr.Column():
             gr.Markdown("### System Status")
             status_text = gr.Textbox(value=get_status(), label="", interactive=False, lines=3)
             refresh_btn = gr.Button("🔄 Refresh Status", size="sm")
             refresh_btn.click(fn=get_status, outputs=status_text)
-    
+
     with gr.Row():
         with gr.Column(scale=2):
             lyrics_input = gr.Textbox(
@@ -137,7 +137,7 @@ with gr.Blocks(title="HeartLib - Music Generation", theme=gr.themes.Soft()) as d
                 placeholder="piano,happy,pop",
                 value=EXAMPLE_TAGS
             )
-        
+
         with gr.Column(scale=1):
             max_length = gr.Slider(
                 minimum=30,
@@ -167,23 +167,23 @@ with gr.Blocks(title="HeartLib - Music Generation", theme=gr.themes.Soft()) as d
                 step=0.1,
                 label="CFG Scale"
             )
-    
+
     generate_btn = gr.Button("🎼 Generate Music", variant="primary", size="lg")
-    
+
     with gr.Row():
         audio_output = gr.Audio(label="Generated Music", type="filepath")
         status_output = gr.Textbox(label="Status", lines=2)
-    
+
     generate_btn.click(
         fn=generate_music,
         inputs=[lyrics_input, tags_input, max_length, temperature, topk, cfg_scale],
         outputs=[audio_output, status_output]
     )
-    
+
     gr.Markdown("""
     ---
     **Note**: First generation may take longer as models are loaded into GPU memory.
-    
+
     Models should be downloaded to the `/models` directory. See [HeartMuLa documentation](https://github.com/HeartMuLa/heartlib) for download instructions.
     """)
 

@@ -131,7 +131,7 @@ app-template:
         - hosts:
             - *Host
           secretName: eggs-tls-certificate
-  
+
   defaultPodOptions:
     # hostname: *host
     # securityContext:

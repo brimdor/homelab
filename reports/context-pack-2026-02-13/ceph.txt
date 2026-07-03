@@ -72,23 +72,23 @@ HEALTH_WARN 1 mgr modules have recently crashed
     id:     13c20377-d801-43f9-aebd-59f62df5dad1
     health: HEALTH_WARN
             1 mgr modules have recently crashed
- 
+
   services:
     mon: 3 daemons, quorum f,h,j (age 6h) [leader: f]
     mgr: a(active, since 7m), standbys: b
     mds: 1/1 daemons up, 1 hot standby
     osd: 7 osds: 7 up (since 6h), 7 in (since 2w)
- 
+
   data:
     volumes: 1/1 healthy
     pools:   4 pools, 177 pgs
     objects: 162.66k objects, 630 GiB
     usage:   1.2 TiB used, 2.2 TiB / 3.4 TiB avail
     pgs:     177 active+clean
- 
+
   io:
     client:   852 B/s rd, 22 KiB/s wr, 1 op/s rd, 3 op/s wr
- 
+
 ---SEPARATOR---
 HEALTH_WARN 1 mgr modules have recently crashed
 [WRN] RECENT_MGR_MODULE_CRASH: 1 mgr modules have recently crashed
@@ -98,7 +98,7 @@ HEALTH_WARN 1 mgr modules have recently crashed
 CLASS     SIZE    AVAIL     USED  RAW USED  %RAW USED
 ssd    3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      36.25
 TOTAL  3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      36.25
- 
+
 --- POOLS ---
 POOL                   ID  PGS   STORED  OBJECTS     USED  %USED  MAX AVAIL
 standard-rwo            1  128  629 GiB  162.63k  1.2 TiB  40.42    927 GiB
@@ -107,19 +107,19 @@ standard-rwx-data0      3   32   44 KiB        0   88 KiB      0    927 GiB
 .mgr                    4    1   32 MiB        9   97 MiB      0    618 GiB
 ---SEPARATOR---
 ID   CLASS  WEIGHT   TYPE NAME            STATUS  REWEIGHT  PRI-AFF
- -1         3.40022  root default                                  
- -5         1.33429      host arcanine                             
+ -1         3.40022  root default
+ -5         1.33429      host arcanine
   2    ssd  0.86850          osd.2            up   1.00000  1.00000
   8    ssd  0.46579          osd.8            up   1.00000  1.00000
- -7         0.40279      host bulbasaur                            
+ -7         0.40279      host bulbasaur
   4    ssd  0.40279          osd.4            up   1.00000  1.00000
- -3         0.40279      host chikorita                            
+ -3         0.40279      host chikorita
   0    ssd  0.40279          osd.0            up   1.00000  1.00000
- -9         0.40279      host cyndaquil                            
+ -9         0.40279      host cyndaquil
   1    ssd  0.40279          osd.1            up   1.00000  1.00000
--11         0.45479      host growlithe                            
+-11         0.45479      host growlithe
   6    ssd  0.45479          osd.6            up   1.00000  1.00000
--13         0.40279      host sprigatito                           
+-13         0.40279      host sprigatito
   7    ssd  0.40279          osd.7            up   1.00000  1.00000
 ---SEPARATOR---
 177 pgs: 177 active+clean; 630 GiB data, 1.2 TiB used, 2.2 TiB / 3.4 TiB avail; 1.2 KiB/s rd, 34 KiB/s wr, 7 op/s

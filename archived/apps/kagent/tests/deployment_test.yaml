@@ -231,7 +231,7 @@ tests:
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
-          content: "namespace-1,namespace-2" 
+          content: "namespace-1,namespace-2"
 
   - it: should add additional environment variables to doc2vec container
     set:
@@ -253,7 +253,7 @@ tests:
           content:
             name: LOG_FORMAT
             value: "json"
-          
+
   - it: should add additional environment variables to tools container
     set:
       tools:

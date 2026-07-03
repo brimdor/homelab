@@ -19,9 +19,9 @@ The following updates have been manually edited so Renovate will no longer make 
 ---
 
 > ⚠️ **Warning**
-> 
+>
 > Renovate failed to look up the following dependencies: `Failed to look up docker package 10.0.20.11:32309/backlog_backend: no-result`, `Failed to look up docker package 10.0.20.11:32309/backlog_frontend: no-result`, `Failed to look up docker package 10.0.20.11:32309/nibble: no-result`, `Failed to look up docker package 10.0.20.11:32309/opencode-server: no-result`, `Failed to look up docker package 10.0.20.11:32309/pages: no-result`, `Failed to look up docker package 10.0.20.11:32309/podwave: no-result`, `Failed to look up docker package 10.0.20.11:32309/scribe: no-result`, `Failed to look up docker package 10.0.20.11:32309/second-brain: no-result`.
-> 
+>
 > Files affected: `apps/backlog-canary/values.yaml`, `apps/backlog/values.yaml`, `apps/nibble-canary/values.yaml`, `apps/nibble/values.yaml`, `apps/opencode-server/values.yaml`, `apps/pages/values.yaml`, `apps/podwave/values.yaml`, `apps/scribe-canary/values.yaml`, `apps/scribe/values.yaml`, `apps/second-brain-canary/values.yaml`, `apps/second-brain/values.yaml`
 
 ---
@@ -1346,5 +1346,3 @@ The following updates are blocked by an existing closed PR. To recreate the PR, 
 
 </blockquote>
 </details>
-
-

@@ -135,7 +135,7 @@ kubectl get pods -A --no-headers | grep -v "Running\|Completed" || true
 
 - [ ] **A1 P2**: Review and merge PR #54 - Non-major dependency updates
   - **Goal**: Apply minor/patch dependency updates (grafana, kube-prometheus-stack, ollama, supabase)
-  - **Commands**: 
+  - **Commands**:
     ```bash
     # Via Gitea UI: https://git.eaglepass.io/ops/homelab/pulls/54
     # Or via API with token:
@@ -150,7 +150,7 @@ kubectl get pods -A --no-headers | grep -v "Running\|Completed" || true
 
 - [ ] **A2 P2**: Review and merge PR #55 - Renovate to v46
   - **Goal**: Update Renovate bot to v46 (major version)
-  - **Commands**: 
+  - **Commands**:
     ```bash
     # Via Gitea UI: https://git.eaglepass.io/ops/homelab/pulls/55
     # Or via API with token:
@@ -165,7 +165,7 @@ kubectl get pods -A --no-headers | grep -v "Running\|Completed" || true
 
 - [ ] **A3 P3**: Monitor growlithe InvalidDiskCapacity warning
   - **Goal**: Verify warning resolves or escalate if persistent
-  - **Commands**: 
+  - **Commands**:
     ```bash
     kubectl describe node growlithe | grep -A5 Conditions
     kubectl get events -A --field-selector involvedObject.name=growlithe | grep InvalidDiskCapacity

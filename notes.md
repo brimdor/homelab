@@ -10,14 +10,14 @@
 `kubectl get secret dex.grafana -n global-secrets -o jsonpath='{.data.client_secret}' | base64 --decode && echo`
 
 ### Reset Grafana Admin Password
-This will reset the password to 'admin'. Reset it in Grafana after login.  
+This will reset the password to 'admin'. Reset it in Grafana after login.
 `export KUBECONFIG=./metal/kubeconfig.yaml && kubectl -n grafana exec -it $(kubectl get pods -n grafana --no-headers | grep grafana | awk '{print $1}') -- /bin/sh -c 'grafana cli admin reset-admin-password admin'`
 
 ### KanIDM
-User - admin  
-`export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account admin`  
+User - admin
+`export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account admin`
 
-User - idm_admin  
+User - idm_admin
 `export KUBECONFIG=./metal/kubeconfig.yaml && kubectl exec -it -n kanidm statefulset/kanidm -- kanidmd recover-account idm_admin`
 
 ### Registry
@@ -27,13 +27,13 @@ User - idm_admin
 `kubectl get secret woodpecker.agent -n global-secrets -o jsonpath='{.data.secret}' | base64 --decode && echo`
 
 ## 1Password Connect Setup
-The token does not need to be base64 encoded prior to creating the secret.  
-The json file does need to be encoded first.  
+The token does not need to be base64 encoded prior to creating the secret.
+The json file does need to be encoded first.
 
 `read -sp "Enter the token: " token
 kubectl create secret generic onepassword-token \
   --from-literal=token="$token" \
-  -n global-secrets`  
+  -n global-secrets`
 
 `read -sp "Enter the contents of the JSON (for 1password-credentials): " json_data
 encoded_json=$(echo -n "$json_data" | base64)
@@ -42,7 +42,7 @@ kubectl create secret generic op-credentials \
   -n global-secrets`
 
 ### Troubleshoot the secrets for Connect
-`kubectl -n global-secrets get secrets op-credentials -o json | jq -r '.data."1password-credentials.json"' | base64 -d | base64 -d`  
+`kubectl -n global-secrets get secrets op-credentials -o json | jq -r '.data."1password-credentials.json"' | base64 -d | base64 -d`
 
 `kubectl -n global-secrets get secrets onepassword-token -o json | jq -r '.data."token"' | base64 -d`
 
@@ -58,7 +58,7 @@ kubectl create secret generic op-credentials \
 `kubectl exec -n radarr $(kubectl get pods -n radarr -l app=radarr -o jsonpath='{.items[0].metadata.name}') -- sed -i 's|<AuthenticationMethod>.*</AuthenticationMethod>|<AuthenticationMethod>External</AuthenticationMethod>|' /config/config.xml && kubectl rollout restart deployment/radarr-deployment -n radarr`
 
 ### Stop Auto-Heal and Set Manual-Sync
-`argocd login argocd.eaglepass.io --grpc-web --no-verify`  
+`argocd login argocd.eaglepass.io --grpc-web --no-verify`
 `argocd proj windows add fixing -k deny --schedule "* * * * *" --duration 24h --namespaces * --manual-sync`
 
 ### Start Auto-Heal and Set Auto-Sync
@@ -68,17 +68,17 @@ kubectl create secret generic op-credentials \
 `kubectl scale deployment (name of deployment)-deployment --replicas=(count) -n (namespace)`
 
 ### Gitea Repo Fix
-`argocd app set gitea --repo https://github.com/brimdor/homelab`  
+`argocd app set gitea --repo https://github.com/brimdor/homelab`
 `argocd app sync gitea`
 
 ### Internal Cluster DNS Resolution
 > In-cluster DNS resolution works hierarchically:
-> 
+>
 > - `loki` → service `loki` in the **same namespace**
 > - `loki.loki` → service `loki` in namespace `loki`
 > - `loki.loki.svc.cluster.local` → fully qualified domain name (FQDN)
-> 
-> All of these point to the same thing inside the cluster, but  
+>
+> All of these point to the same thing inside the cluster, but
 > **`loki.loki` is the sweet spot** when you’re in a different namespace and still want it short.
 
 ### Draining and Removing a Node
@@ -94,7 +94,7 @@ ssh root@<node-ip> 'shutdown now'
 ## ARCHIVED
 
 ### Node Restarts Stuck
-`kubectl -n longhorn-system get pods -o wide | grep instance-manager`  
+`kubectl -n longhorn-system get pods -o wide | grep instance-manager`
 `kubectl -n longhorn-system delete pod instance-manager<fill in> --force`
 
 ## Backup
@@ -138,4 +138,4 @@ kubectl -n argocd patch applicationset root \
   ssh root@<node-ip>
   wipefs -a /dev/sda3
 
-  to check system stats - inxi 
+  to check system stats - inxi

@@ -74,13 +74,13 @@ HEALTH_OK
   cluster:
     id:     13c20377-d801-43f9-aebd-59f62df5dad1
     health: HEALTH_OK
- 
+
   services:
     mon: 3 daemons, quorum h,l,m (age 5h) [leader: h]
     mgr: a(active, since 5h), standbys: b
     mds: 1/1 daemons up, 1 hot standby
     osd: 7 osds: 7 up (since 5h), 5 in (since 5h); 23 remapped pgs
- 
+
   data:
     volumes: 1/1 healthy
     pools:   4 pools, 177 pgs
@@ -90,15 +90,15 @@ HEALTH_OK
              154 active+clean
              22  active+remapped+backfill_wait
              1   active+remapped+backfilling
- 
+
   io:
     client:   1.7 KiB/s rd, 35 KiB/s wr, 2 op/s rd, 2 op/s wr
     recovery: 5.0 MiB/s, 1 objects/s
- 
+
   progress:
     Global Recovery Event (5h)
       [========================....] (remaining: 45m)
- 
+
 
 === Ceph health detail ===
 HEALTH_OK
@@ -108,7 +108,7 @@ HEALTH_OK
 CLASS     SIZE    AVAIL     USED  RAW USED  %RAW USED
 ssd    2.6 TiB  1.5 TiB  1.1 TiB   1.1 TiB      42.79
 TOTAL  2.6 TiB  1.5 TiB  1.1 TiB   1.1 TiB      42.79
- 
+
 --- POOLS ---
 POOL                   ID  PGS   STORED  OBJECTS     USED  %USED  MAX AVAIL
 standard-rwo            1  128  593 GiB  152.79k  1.2 TiB  49.90    596 GiB
@@ -118,19 +118,19 @@ standard-rwx-data0      3   32   51 KiB        0  102 KiB      0    596 GiB
 
 === Ceph osd tree ===
 ID   CLASS  WEIGHT   TYPE NAME            STATUS  REWEIGHT  PRI-AFF
- -1         3.40022  root default                                  
- -5         1.33429      host arcanine                             
+ -1         3.40022  root default
+ -5         1.33429      host arcanine
   2    ssd  0.86850          osd.2            up   1.00000  1.00000
   8    ssd  0.46579          osd.8            up   1.00000  1.00000
- -7         0.40279      host bulbasaur                            
+ -7         0.40279      host bulbasaur
   4    ssd  0.40279          osd.4            up         0  1.00000
- -3         0.40279      host chikorita                            
+ -3         0.40279      host chikorita
   0    ssd  0.40279          osd.0            up         0  1.00000
- -9         0.40279      host cyndaquil                            
+ -9         0.40279      host cyndaquil
   1    ssd  0.40279          osd.1            up   1.00000  1.00000
--11         0.45479      host growlithe                            
+-11         0.45479      host growlithe
   6    ssd  0.45479          osd.6            up   1.00000  1.00000
--13         0.40279      host sprigatito                           
+-13         0.40279      host sprigatito
   7    ssd  0.40279          osd.7            up   1.00000  1.00000
 
 === Ceph pg stat ===

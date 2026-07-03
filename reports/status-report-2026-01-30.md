@@ -1,7 +1,7 @@
 # Homelab Status Report - 2026-01-30 (Evening Update)
 
-**Generated**: 2026-01-30 19:10 CST  
-**Source**: opencode /homelab-recon  
+**Generated**: 2026-01-30 19:10 CST
+**Source**: opencode /homelab-recon
 **Cluster**: eaglepass-prod (K3s v1.33.6+k3s1)
 
 ---

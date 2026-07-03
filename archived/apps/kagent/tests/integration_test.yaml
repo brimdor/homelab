@@ -101,4 +101,4 @@ tests:
           value: 3
       - equal:
           path: spec.template.spec.containers[0].image
-          value: cr.kagent.dev/kagent-dev/kagent/controller:v1.0.0 
+          value: cr.kagent.dev/kagent-dev/kagent/controller:v1.0.0

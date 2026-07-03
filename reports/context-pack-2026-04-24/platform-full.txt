@@ -133,11 +133,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-6ckvj (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   webhook-cert:
     Type:        Secret (a volume populated by a Secret)
@@ -308,11 +308,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-b4w6g (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   config-volume:
     Type:        Secret (a volume populated by a Secret)
@@ -336,7 +336,7 @@ Volumes:
     Optional:    false
   alertmanager-monitoring-system-kube-pro-alertmanager-db:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   config:
     Type:      ConfigMap (a volume populated by a ConfigMap)
@@ -416,11 +416,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-7ch4n (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   tls-secret:
     Type:        Secret (a volume populated by a Secret)
@@ -482,11 +482,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-bf9r5 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   kube-api-access-bf9r5:
     Type:                    Projected (a volume that contains injected data from multiple sources)
@@ -553,24 +553,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -636,24 +636,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -719,24 +719,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -802,24 +802,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -885,24 +885,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -968,24 +968,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -1051,24 +1051,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -1134,24 +1134,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -1217,24 +1217,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -1300,24 +1300,24 @@ Containers:
       /host/sys from sys (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   proc:
     Type:          HostPath (bare host directory volume)
     Path:          /proc
-    HostPathType:  
+    HostPathType:
   sys:
     Type:          HostPath (bare host directory volume)
     Path:          /sys
-    HostPathType:  
+    HostPathType:
   root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
 QoS Class:         BestEffort
 Node-Selectors:    kubernetes.io/os=linux
 Tolerations:       :NoSchedule op=Exists
@@ -1453,11 +1453,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-vgjzp (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   config:
     Type:        Secret (a volume populated by a Secret)
@@ -1489,7 +1489,7 @@ Volumes:
     Optional:    false
   prometheus-monitoring-system-kube-pro-prometheus-db:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   kube-api-access-vgjzp:
     Type:                    Projected (a volume that contains injected data from multiple sources)
@@ -1609,11 +1609,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-448sj (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   config:
     Type:      ConfigMap (a volume populated by a ConfigMap)
@@ -1621,15 +1621,15 @@ Volumes:
     Optional:  false
   storage:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   search:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   sc-dashboard-volume:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   sc-dashboard-provider:
     Type:      ConfigMap (a volume populated by a ConfigMap)
@@ -1637,7 +1637,7 @@ Volumes:
     Optional:  false
   sc-datasources-volume:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   kube-api-access-448sj:
     Type:                    Projected (a volume that contains injected data from multiple sources)

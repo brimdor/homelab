@@ -1,4 +1,4 @@
-#https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml 
+#https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
   controllers:
     main:
@@ -65,7 +65,7 @@ app-template:
         main:
           main:
             - path: /astrotux/AstroneerServer/Astro/Saved
-  
+
   defaultPodOptions:
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/rfgjiop6iwlwxyefyz7cqjli2u"

@@ -128,4 +128,3 @@ Key evidence:
 - reports/context-pack-2026-01-31/storage-ceph.txt
 
 Maintenance issue: https://git.eaglepass.io/ops/homelab/issues/53
-

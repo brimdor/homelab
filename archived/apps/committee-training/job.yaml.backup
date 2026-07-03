@@ -1,6 +1,6 @@
 # Committee Training Kubernetes Job
 # Runs on Arcanine node (RTX 3090, 24GB VRAM)
-# 
+#
 # Usage:
 #   kubectl apply -f job.yaml
 #   kubectl logs -f job/committee-pretrain -n committee-training
@@ -79,13 +79,13 @@ spec:
     spec:
       # Required for Arcanine node with GPU
       runtimeClassName: nvidia
-      
+
       # Toleration for Arcanine taint
       tolerations:
         - key: "dedicated"
           value: "arcanine"
           effect: "NoSchedule"
-      
+
       # Schedule on Arcanine node
       affinity:
         nodeAffinity:
@@ -96,9 +96,9 @@ spec:
                     operator: In
                     values:
                       - "arcanine"
-      
+
       restartPolicy: Never
-      
+
       # Init container to verify code is synced
       initContainers:
         - name: verify-code
@@ -123,11 +123,11 @@ spec:
           volumeMounts:
             - name: code
               mountPath: /code
-      
+
       containers:
         - name: trainer
           image: pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
-          
+
           # GPU resources
           resources:
             limits:
@@ -136,7 +136,7 @@ spec:
             requests:
               memory: 32Gi
               cpu: "4"
-          
+
           env:
             - name: NVIDIA_VISIBLE_DEVICES
               value: "all"
@@ -180,12 +180,12 @@ spec:
                 configMapKeyRef:
                   name: committee-training-config
                   key: WANDB_PROJECT
-          
+
           command: ["/bin/bash", "-c"]
           args:
             - |
               set -e
-              
+
               echo "============================================"
               echo "Committee Model Training - Homelab Cluster"
               echo "============================================"
@@ -193,57 +193,57 @@ spec:
               echo "Phase: $TRAINING_PHASE"
               echo "Debug: $DEBUG_MODE"
               echo ""
-              
+
               # Check GPU
               python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0)}')"
               nvidia-smi
               echo ""
-              
+
               # Install dependencies (training-only, no build tools needed)
               echo "Installing dependencies..."
               cd /code/committee/training
               pip install -q -r requirements-training.txt
               pip install -q flash-attn --no-build-isolation || echo "Flash attention not available, continuing..."
-              
+
               # Set PYTHONPATH
               export PYTHONPATH="/code/committee/training/src:$PYTHONPATH"
-              
+
               # Change to the committee root directory for correct config paths
               cd /code/committee
-              
+
               # Build training command (run from training directory)
               TRAIN_CMD="python training/scripts/train.py --phase $TRAINING_PHASE --output-dir /checkpoints"
-              
+
               if [ "$DEBUG_MODE" = "true" ]; then
                 TRAIN_CMD="$TRAIN_CMD --debug --max-steps 100"
               fi
-              
+
               if [ -n "$RESUME_FROM_CHECKPOINT" ]; then
                 TRAIN_CMD="$TRAIN_CMD --resume $RESUME_FROM_CHECKPOINT"
               fi
-              
+
               if [ "$MAX_STEPS" != "0" ] && [ -n "$MAX_STEPS" ]; then
                 TRAIN_CMD="$TRAIN_CMD --max-steps $MAX_STEPS"
               fi
-              
+
               echo "Running: $TRAIN_CMD"
               echo "============================================"
-              
+
               $TRAIN_CMD
-              
+
               echo ""
               echo "============================================"
               echo "Training complete!"
               echo "Checkpoints saved to: /checkpoints"
               ls -la /checkpoints/
               echo "============================================"
-          
+
           volumeMounts:
             - name: code
               mountPath: /code
             - name: checkpoints
               mountPath: /checkpoints
-      
+
       volumes:
         - name: code
           persistentVolumeClaim:

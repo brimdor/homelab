@@ -141,7 +141,7 @@ app-template:
             - path: /mnt/backup
           restore:
             - path: /mnt/backup
-  
+
   defaultPodOptions:
     securityContext:
       fsGroup: 10001

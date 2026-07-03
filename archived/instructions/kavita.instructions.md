@@ -21,7 +21,7 @@ Justification (per determination logic only): Kavita has existing Docker images 
   - Repo root: https://github.com/bjw-s-labs/helm-charts/tree/app-template-<current-release>
   - Baseline common values: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.yaml
   - Baseline schema: https://github.com/bjw-s-labs/helm-charts/blob/app-template-<current-release>/charts/library/common/values.schema.json
-- Helm best practices (for values.yaml configurability and schema): 
+- Helm best practices (for values.yaml configurability and schema):
   - https://helm.sh/docs/topics/charts/
   - https://helm.sh/docs/chart_best_practices/
 

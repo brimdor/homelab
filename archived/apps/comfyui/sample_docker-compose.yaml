@@ -13,9 +13,9 @@ services:
         IMAGE_BASE: ${IMAGE_BASE:-ghcr.io/ai-dock/python:${PYTHON_VERSION:-3.10}-v2-cuda-12.1.1-base-22.04}
       tags:
         - "ghcr.io/ai-dock/comfyui:${IMAGE_TAG:-pytorch-${PYTORCH_VERSION:-2.3.0}-py3.10-v2-cuda-12.1.1-base-22.04}"
-        
+
     image: ghcr.io/ai-dock/comfyui:${IMAGE_TAG:-pytorch-${PYTORCH_VERSION:-2.3.0}-py3.10-v2-cuda-12.1.1-base-22.04}
-    
+
     ## For Nvidia GPU's - You probably want to uncomment this
     #deploy:
     #  resources:
@@ -24,19 +24,19 @@ services:
     #        - driver: nvidia
     #          count: all
     #          capabilities: [gpu]
-    
+
     devices:
       - "/dev/dri:/dev/dri"
       ## For AMD GPU
       #- "/dev/kfd:/dev/kfd"
-      
-              
+
+
     volumes:
       ## Workspace
       - ./workspace:${WORKSPACE:-/workspace/}:rshared
       # You can share /workspace/storage with other non-ComfyUI containers. See README
       #- /path/to/common_storage:${WORKSPACE:-/workspace/}storage/:rshared
-      
+
       # Will echo to root-owned authorized_keys file;
       # Avoids changing local file owner
       - ./config/authorized_keys:/root/.ssh/authorized_keys_mount
@@ -55,7 +55,7 @@ services:
         # Syncthing
         - ${SYNCTHING_UI_PORT_HOST:-8384}:${SYNCTHING_UI_PORT_HOST:-8384}
         - ${SYNCTHING_TRANSPORT_PORT_HOST:-22999}:${SYNCTHING_TRANSPORT_PORT_HOST:-22999}
-   
+
     environment:
         # Don't enclose values in quotes
         - AUTO_UPDATE=${AUTO_UPDATE:-false}

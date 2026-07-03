@@ -25,7 +25,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: mongo_root_password
-            MONGO_URL: 
+            MONGO_URL:
               value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@rocket-mongo:27017/rocketchat?replicaSet=rs0"
             MONGO_OPLOG_URL:
               value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@rocket-mongo:27017/local?replicaSet=rs0"

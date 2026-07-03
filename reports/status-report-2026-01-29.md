@@ -1,6 +1,6 @@
 # Homelab Status Report (2026-01-29)
 
-Generated: 2026-01-29 23:05:54 
+Generated: 2026-01-29 23:05:54
 Evidence dir: `/tmp/homelab-recon-20260129-230151`
 
 ## Evidence Archive
@@ -72,20 +72,20 @@ NAME                SYNC STATUS   HEALTH STATUS
   cluster:
     id:     13c20377-d801-43f9-aebd-59f62df5dad1
     health: HEALTH_OK
- 
+
   services:
     mon: 3 daemons, quorum f,h,j (age 5h) [leader: f]
     mgr: b(active, since 5h), standbys: a
     mds: 1/1 daemons up, 1 hot standby
     osd: 7 osds: 7 up (since 5h), 7 in (since 36h)
- 
+
   data:
     volumes: 1/1 healthy
     pools:   4 pools, 177 pgs
     objects: 157.51k objects, 610 GiB
     usage:   1.2 TiB used, 2.2 TiB / 3.4 TiB avail
     pgs:     177 active+clean
- 
+
   io:
     client:   1.1 KiB/s rd, 120 KiB/s wr, 2 op/s rd, 10 op/s wr
 ```
@@ -206,16 +206,16 @@ totodile     Ready    <none>                      342d   v1.33.6+k3s1   10.0.20.
 ## `11_top_nodes.txt`
 
 ```text
-NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
-arcanine     303m         3%       4908Mi          7%          
-bulbasaur    515m         12%      5432Mi          34%         
-charmander   700m         17%      5038Mi          21%         
-chikorita    331m         8%       4642Mi          14%         
-cyndaquil    293m         7%       2957Mi          18%         
-growlithe    395m         9%       3016Mi          9%          
-pikachu      271m         6%       3264Mi          20%         
-sprigatito   182m         4%       6405Mi          20%         
-squirtle     585m         14%      4647Mi          29%         
+NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+arcanine     303m         3%       4908Mi          7%
+bulbasaur    515m         12%      5432Mi          34%
+charmander   700m         17%      5038Mi          21%
+chikorita    331m         8%       4642Mi          14%
+cyndaquil    293m         7%       2957Mi          18%
+growlithe    395m         9%       3016Mi          9%
+pikachu      271m         6%       3264Mi          20%
+sprigatito   182m         4%       6405Mi          20%
+squirtle     585m         14%      4647Mi          29%
 totodile     412m         10%      4251Mi          26%
 ```
 
@@ -884,20 +884,20 @@ HEALTH_OK
   cluster:
     id:     13c20377-d801-43f9-aebd-59f62df5dad1
     health: HEALTH_OK
- 
+
   services:
     mon: 3 daemons, quorum f,h,j (age 5h) [leader: f]
     mgr: b(active, since 5h), standbys: a
     mds: 1/1 daemons up, 1 hot standby
     osd: 7 osds: 7 up (since 5h), 7 in (since 36h)
- 
+
   data:
     volumes: 1/1 healthy
     pools:   4 pools, 177 pgs
     objects: 157.51k objects, 610 GiB
     usage:   1.2 TiB used, 2.2 TiB / 3.4 TiB avail
     pgs:     177 active+clean
- 
+
   io:
     client:   1.2 KiB/s rd, 64 KiB/s wr, 2 op/s rd, 5 op/s wr
 ```
@@ -915,7 +915,7 @@ HEALTH_OK
 CLASS     SIZE    AVAIL     USED  RAW USED  %RAW USED
 ssd    3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.08
 TOTAL  3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.08
- 
+
 --- POOLS ---
 POOL                   ID  PGS   STORED  OBJECTS     USED  %USED  MAX AVAIL
 standard-rwo            1  128  609 GiB  157.47k  1.2 TiB  39.51    932 GiB
@@ -928,19 +928,19 @@ standard-rwx-data0      3   32      0 B        0      0 B      0    932 GiB
 
 ```text
 ID   CLASS  WEIGHT   TYPE NAME            STATUS  REWEIGHT  PRI-AFF
- -1         3.40022  root default                                  
- -5         1.33429      host arcanine                             
+ -1         3.40022  root default
+ -5         1.33429      host arcanine
   2    ssd  0.86850          osd.2            up   1.00000  1.00000
   8    ssd  0.46579          osd.8            up   1.00000  1.00000
- -7         0.40279      host bulbasaur                            
+ -7         0.40279      host bulbasaur
   4    ssd  0.40279          osd.4            up   1.00000  1.00000
- -3         0.40279      host chikorita                            
+ -3         0.40279      host chikorita
   0    ssd  0.40279          osd.0            up   1.00000  1.00000
- -9         0.40279      host cyndaquil                            
+ -9         0.40279      host cyndaquil
   1    ssd  0.40279          osd.1            up   1.00000  1.00000
--11         0.45479      host growlithe                            
+-11         0.45479      host growlithe
   6    ssd  0.45479          osd.6            up   1.00000  1.00000
--13         0.40279      host sprigatito                           
+-13         0.40279      host sprigatito
   7    ssd  0.40279          osd.7            up   1.00000  1.00000
 ```
 

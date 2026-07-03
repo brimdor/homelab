@@ -13,7 +13,7 @@
 ### 2.1 Metal Layer
 *   **Status**: **GREEN**
 *   **Nodes**: 10/10 Nodes Ready.
-*   **Resources**: 
+*   **Resources**:
     *   CPU: < 20% on all nodes.
     *   Memory: < 35% on all nodes.
 *   **Reachability**: All nodes accessible via Controller.

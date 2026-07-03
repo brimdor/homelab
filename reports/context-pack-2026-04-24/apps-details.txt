@@ -37,16 +37,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-qhft6 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-qhft6:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -59,14 +59,14 @@ Tolerations:                 op=Exists
 Events:                      <none>
 
 === Logs default/node-debugger-charmander-c9jrc ===
-10.0.20.11:32309/pages:2025-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:2a9e3e0a26841a3c5ba138644dd9dfd3d15b7b8cb6e32f7b02acb165917c426d 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:2026-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:f411e3f3b4033699b694ad71f4e21cb047b1231bee1e91e13634f4288a432c53 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:2026-04-14v2-prod                                                                                            application/vnd.oci.image.manifest.v1+json                sha256:09c1ce0bf2590554f0bb3397792d7bcbb5d65eaf1783e1d7caedc842eb885b8d 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:2026-04-22-v1-prod                                                                                           application/vnd.oci.image.manifest.v1+json                sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b 51.6 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
-10.0.20.11:32309/pages:canary                                                                                                       application/vnd.oci.image.manifest.v1+json                sha256:09275ee57dc0a40e07ee38ef7a3a914d5592a12b59b621ce90aa0dfa0a8ebd7f 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed                                 
+10.0.20.11:32309/pages:2025-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:2a9e3e0a26841a3c5ba138644dd9dfd3d15b7b8cb6e32f7b02acb165917c426d 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:2026-04-14v1-canary                                                                                          application/vnd.oci.image.manifest.v1+json                sha256:f411e3f3b4033699b694ad71f4e21cb047b1231bee1e91e13634f4288a432c53 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:2026-04-14v2-prod                                                                                            application/vnd.oci.image.manifest.v1+json                sha256:09c1ce0bf2590554f0bb3397792d7bcbb5d65eaf1783e1d7caedc842eb885b8d 47.9 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:2026-04-22-v1-prod                                                                                           application/vnd.oci.image.manifest.v1+json                sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b 51.6 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
+10.0.20.11:32309/pages:canary                                                                                                       application/vnd.oci.image.manifest.v1+json                sha256:09275ee57dc0a40e07ee38ef7a3a914d5592a12b59b621ce90aa0dfa0a8ebd7f 39.1 MiB  linux/amd64                                                                                                                         io.cri-containerd.image=managed
 ctr: content digest sha256:9da841cba2d188205a2fa437c08e0f3819d6de84dae71e78e70515e282f44e6e: not found
-manifest-sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b: waiting        |[32m[0m--------------------------------------| 
-elapsed: 0.1 s                                                                    total:   0.0 B (0.0 B/s)                                         
+manifest-sha256:278149fa5b52a438a213c00198261e644a824ac398d8a83f4153540e1da8730b: waiting        |[32m[0m--------------------------------------|
+elapsed: 0.1 s                                                                    total:   0.0 B (0.0 B/s)
 
 === Describe default/node-debugger-charmander-d9nkw ===
 Name:             node-debugger-charmander-d9nkw
@@ -107,16 +107,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-m8bcm (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-m8bcm:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -169,16 +169,16 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-gvpqk (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   host-root:
     Type:          HostPath (bare host directory volume)
     Path:          /
-    HostPathType:  
+    HostPathType:
   kube-api-access-gvpqk:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
@@ -244,11 +244,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-twb4s (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   data:
     Type:      NFS (an NFS mount that lasts the lifetime of a pod)
@@ -493,4 +493,3 @@ Events:
 2026/04/24 13:12:43 [crit] 2306#2306: *688 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
 2026/04/24 13:12:43 [crit] 2306#2306: *688 stat() "/usr/share/nginx/html/" failed (116: Stale file handle), client: 10.0.0.177, server: _, request: "GET / HTTP/1.1", host: "10.0.0.229:80"
 10.0.0.177 - - [24/Apr/2026:13:12:43 -0500] "GET / HTTP/1.1" 200 10616 "-" "kube-probe/1.33" "-"
-

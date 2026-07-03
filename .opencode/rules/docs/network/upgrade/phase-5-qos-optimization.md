@@ -1,6 +1,6 @@
 # PHASE 5: QoS and Traffic Optimization
-**Estimated Duration**: 30-45 minutes  
-**Downtime Risk**: None  
+**Estimated Duration**: 30-45 minutes
+**Downtime Risk**: None
 **Human Required**: ⚠️ Policy review
 
 ---
@@ -61,7 +61,7 @@
 
 4. **Create Rules to classify traffic**
    - [ ] **[HUMAN ACTION]** Go to `Firewall` → `Shaper` → `Rules`
-   
+
    **Rule: VLAN 40 (Storage) to Critical Pipe**
    ```
    Interface: Storage
@@ -104,11 +104,11 @@
    - [ ] **[HUMAN ACTION]** Go to `Interfaces` → `[Cluster-Prod]`
    - [ ] **[HUMAN ACTION]** Set MTU to: 9000
    - [ ] **[HUMAN ACTION]** Click Save
-   
+
    - [ ] **[HUMAN ACTION]** Go to `Interfaces` → `[Storage]`
    - [ ] **[HUMAN ACTION]** Set MTU to: 9000
    - [ ] **[HUMAN ACTION]** Click Save
-   
+
    - [ ] **[HUMAN ACTION]** Apply changes
 
 3. **Configure UNRAID NAS**
@@ -122,11 +122,11 @@
    ```bash
    # SSH to node
    ssh user@10.0.20.XX
-   
+
    # Edit network configuration (method depends on OS)
    # For Ubuntu/Debian with netplan:
    sudo nano /etc/netplan/00-installer-config.yaml
-   
+
    # Add mtu: 9000 under the ethernet interface
    # Example:
    # network:
@@ -134,7 +134,7 @@
    #     eth0:
    #       mtu: 9000
    #       dhcp4: true
-   
+
    # Apply changes
    sudo netplan apply
    ```
@@ -143,7 +143,7 @@
    ```bash
    # From K8s node to NAS, test with large packet
    ping -M do -s 8972 10.0.40.3
-   
+
    # If successful (no fragmentation), jumbo frames are working
    # If fails with "message too long", MTU mismatch exists
    ```

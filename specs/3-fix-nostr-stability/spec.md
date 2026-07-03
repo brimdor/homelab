@@ -1,8 +1,8 @@
 # Specification: Fix Nostr Stability
 
-**Feature ID**: 3-fix-nostr-stability  
-**Status**: Draft  
-**Created**: 2026-02-03  
+**Feature ID**: 3-fix-nostr-stability
+**Status**: Draft
+**Created**: 2026-02-03
 **Author**: OpenCode Agent
 
 ---
@@ -31,8 +31,8 @@ The current implementation lacks automatic reconnection logic - when the subscri
 ## User Stories
 
 ### US-1: Reliable Nostr Messaging
-**As** a homelab operator  
-**I want** the Nostr channel to remain functional indefinitely  
+**As** a homelab operator
+**I want** the Nostr channel to remain functional indefinitely
 **So that** I can communicate with OpenClaw via Nostr without interruptions
 
 **Acceptance Criteria**:
@@ -41,8 +41,8 @@ The current implementation lacks automatic reconnection logic - when the subscri
 - Recovery time is less than 2 minutes
 
 ### US-2: Health Visibility
-**As** a homelab operator  
-**I want** to see Nostr health status  
+**As** a homelab operator
+**I want** to see Nostr health status
 **So that** I can monitor the system's reliability
 
 **Acceptance Criteria**:

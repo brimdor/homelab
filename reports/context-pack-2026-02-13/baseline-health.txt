@@ -10,17 +10,17 @@ sprigatito   Ready    <none>                      176d   v1.33.6+k3s1   10.0.20.
 squirtle     Ready    control-plane,etcd,master   356d   v1.33.6+k3s1   10.0.20.12    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
 totodile     Ready    <none>                      356d   v1.33.6+k3s1   10.0.20.17    <none>        Fedora Linux 39 (Thirty Nine)   6.11.9-100.fc39.x86_64   containerd://2.1.5-k3s1.33
 ---SEPARATOR---
-NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
-arcanine     231m         2%       4376Mi          6%          
-bulbasaur    660m         16%      4918Mi          30%         
-charmander   829m         20%      6459Mi          27%         
-chikorita    247m         6%       2876Mi          8%          
-cyndaquil    233m         5%       2292Mi          14%         
-growlithe    374m         9%       3444Mi          10%         
-pikachu      622m         15%      1859Mi          11%         
-sprigatito   168m         4%       3149Mi          9%          
-squirtle     794m         19%      5166Mi          32%         
-totodile     276m         6%       2340Mi          14%         
+NAME         CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+arcanine     231m         2%       4376Mi          6%
+bulbasaur    660m         16%      4918Mi          30%
+charmander   829m         20%      6459Mi          27%
+chikorita    247m         6%       2876Mi          8%
+cyndaquil    233m         5%       2292Mi          14%
+growlithe    374m         9%       3444Mi          10%
+pikachu      622m         15%      1859Mi          11%
+sprigatito   168m         4%       3149Mi          9%
+squirtle     794m         19%      5166Mi          32%
+totodile     276m         6%       2340Mi          14%
 ---SEPARATOR---
 ALL_PODS_HEALTHY
 ---SEPARATOR---

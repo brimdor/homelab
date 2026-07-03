@@ -270,4 +270,3 @@ ssh brimdor@10.0.20.10 "KUBECONFIG=~/homelab/metal/kubeconfig.yaml kubectl get p
 
 **Closed By**: PENDING
 **Closed Date**: PENDING
-

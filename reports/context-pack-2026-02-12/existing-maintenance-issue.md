@@ -345,4 +345,3 @@ kubectl get pods -A --no-headers | grep -v "Running\|Completed" || true
 
 **Closed By**: PENDING
 **Closed Date**: PENDING
-

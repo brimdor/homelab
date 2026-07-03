@@ -5,4 +5,3 @@ CoreDNS is running at https://10.0.20.50:6443/api/v1/namespaces/kube-system/serv
 Metrics-server is running at https://10.0.20.50:6443/api/v1/namespaces/kube-system/services/https:metrics-server:https/proxy
 
 To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
-

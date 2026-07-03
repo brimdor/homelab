@@ -115,7 +115,7 @@ If your NAS is currently connected to a single port and you're adding the second
    ```bash
    # From any device on the network
    ping 10.0.40.3
-   
+
    # Check NAS web UI is accessible
    curl -sI http://10.0.40.3 | head -1
    ```

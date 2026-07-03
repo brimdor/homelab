@@ -119,4 +119,4 @@ tests:
           value: RELEASE-NAME
       - equal:
           path: metadata.labels["app.kubernetes.io/managed-by"]
-          value: Helm 
+          value: Helm

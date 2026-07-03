@@ -1,4 +1,4 @@
-#https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml 
+#https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
   controllers:
     main:
@@ -128,7 +128,7 @@ app-template:
             - path: /mnt/backup
           restore:
             - path: /mnt/backup
-  
+
   defaultPodOptions:
     hostname: *host
     securityContext:

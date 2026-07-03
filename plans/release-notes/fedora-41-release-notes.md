@@ -20,15 +20,15 @@ For more information about `mokutil`, see [Fedora Quick Docs](https://docs.fedor
 
 
 ### Fedora Miracle window manager & spin
-This release introduces the Fedora Miracle Window Manager Spin. The Fedora Miracle Window Manager Spin aims to provide the premiere Miracle window manager experience on top of Fedora Linux, the leading edge platform for developers and users alike. 
+This release introduces the Fedora Miracle Window Manager Spin. The Fedora Miracle Window Manager Spin aims to provide the premiere Miracle window manager experience on top of Fedora Linux, the leading edge platform for developers and users alike.
 
-The Miracle window manager is a tiling window manager based on the Mir compositor library. While it is a newer project, it contains many useful features such as a manual tiling algorithm, floating window manager support, support for many Wayland protocols, proprietary Nvidia driver support, and much more. Miracle will provide Fedora Linux with a high-quality Wayland experience built with support for all kinds of platforms, including low-end ARM and x86 devices. On top of this, Fedora Linux will be the first distribution to provide a Miracle-based spin, ensuring that it will become the de facto distribution for running Miracle. 
+The Miracle window manager is a tiling window manager based on the Mir compositor library. While it is a newer project, it contains many useful features such as a manual tiling algorithm, floating window manager support, support for many Wayland protocols, proprietary Nvidia driver support, and much more. Miracle will provide Fedora Linux with a high-quality Wayland experience built with support for all kinds of platforms, including low-end ARM and x86 devices. On top of this, Fedora Linux will be the first distribution to provide a Miracle-based spin, ensuring that it will become the de facto distribution for running Miracle.
 
 To try Miracle, install the `miracle-wm` package and select it at login, or install using the new spin available at link:++https://fedoraproject.org/++.
 
 
 ### IBus Chewing for Traditional Chinese (Taiwan) desktop by default
-Fedora 41 changes the default input method for Traditional Chinese (Taiwan), the `zh_TW` locale, from `ibus-libzhuyin` to `ibus-chewing`. `ibus-chewing` is the ibus front-end of the `libchewing` library. Chewing (新酷音, link:++https://chewing.im/++) is one of the most popular and featureful IM among `zh_TW` users. 
+Fedora 41 changes the default input method for Traditional Chinese (Taiwan), the `zh_TW` locale, from `ibus-libzhuyin` to `ibus-chewing`. `ibus-chewing` is the ibus front-end of the `libchewing` library. Chewing (新酷音, link:++https://chewing.im/++) is one of the most popular and featureful IM among `zh_TW` users.
 
 
 ### Workstation edition media are now Wayland only
@@ -36,7 +36,7 @@ Starting with Fedora 41, the Workstation edition install media only contain Wayl
 
 
 ### KDE Plasma Mobile spin
-This release brings the Fedora KDE Plasma Mobile Spin and its corresponding Atomic variant: Kinoite Mobile. Built on the foundations of KDE Plasma Desktop, KDE Plasma Mobile and Kinoite Mobile bring its flexibility to a mobile form factor. Although originally geared towards phones, the touch friendly interface works very well on tablets and 2-in-1 laptops. 
+This release brings the Fedora KDE Plasma Mobile Spin and its corresponding Atomic variant: Kinoite Mobile. Built on the foundations of KDE Plasma Desktop, KDE Plasma Mobile and Kinoite Mobile bring its flexibility to a mobile form factor. Although originally geared towards phones, the touch friendly interface works very well on tablets and 2-in-1 laptops.
 
 
 ### TaskWarrior 3
@@ -193,7 +193,7 @@ ROCm 6.2 is the latest iteration of AMD's compute libraries that work with the l
 
 
 ### Python 2 retired
-The `python2.7` package has been retired without replacement from Fedora Linux 41. There will be no Python 2 in Fedora 41 or later, other than PyPy. Packages requiring python2.7 on runtime or buildtime will have to be updated to use Python 3, or be retired as well. 
+The `python2.7` package has been retired without replacement from Fedora Linux 41. There will be no Python 2 in Fedora 41 or later, other than PyPy. Packages requiring python2.7 on runtime or buildtime will have to be updated to use Python 3, or be retired as well.
 
 
 ### Golang 1.23
@@ -246,12 +246,12 @@ For more details, see the [upstream release notes](https://perldoc.perl.org/perl
 
 ### NodeJS 22.0
 
-Fedora 41 now ships with Node.js 22.x as the default Node.js JavaScript server-side engine. If your applications are not yet ready for this newer version, they will need to be modified to depend on the compatibility package `nodejs20` and to rely on `/usr/bin/node20` instead of `/usr/bin/node` for operation. 
+Fedora 41 now ships with Node.js 22.x as the default Node.js JavaScript server-side engine. If your applications are not yet ready for this newer version, they will need to be modified to depend on the compatibility package `nodejs20` and to rely on `/usr/bin/node20` instead of `/usr/bin/node` for operation.
 
 
 ### Haskell GHC 9.6 and Stackage LTS 22
 
-For Fedora 41, the main GHC Haskell compiler package have been from version 9.4.5 to the latest stable 9.6.6 release (rebasing the ghc package from the ghc9.6 package). Along with this, Haskell packages in Stackage (the stable Haskell source package distribution) have been updated from the versions in LTS 21 to latest LTS 22 release. Haskell packages not in Stackage have been updated to the latest appropriate version in the upstream Hackage package repository. 
+For Fedora 41, the main GHC Haskell compiler package have been from version 9.4.5 to the latest stable 9.6.6 release (rebasing the ghc package from the ghc9.6 package). Along with this, Haskell packages in Stackage (the stable Haskell source package distribution) have been updated from the versions in LTS 21 to latest LTS 22 release. Haskell packages not in Stackage have been updated to the latest appropriate version in the upstream Hackage package repository.
 
 For full information about this release, see the [upstream release notes](https://downloads.haskell.org/~ghc/9.6.6/docs/users_guide/9.6.1-notes.html) and [migration guide](https://gitlab.haskell.org/ghc/ghc/-/wikis/migration/9.6).
 
@@ -259,7 +259,7 @@ For full information about this release, see the [upstream release notes](https:
 ### GNU Toolchain update
 The GNU toolchain in Fedora 41 has been updated to:
 
-* GNU C Compiler (`gcc`) 14.1+ 
+* GNU C Compiler (`gcc`) 14.1+
 * GNU Binary Utilities (`binutils`) 2.42+
 * GNU C Library (`glibc`) 2.40
 * GNU Debugger (`gdb`) 14+
@@ -450,12 +450,12 @@ The default package manager in Fedora 41 is DNF 5. This is a large upgrade that 
 
 * **Reduced footprint**: The dnf5 package is a fully-featured package manager that doesn't require Python dependencies. It also reduces the number of software management tools in Fedora by replacing both the dnf and microdnf packages. The installation size of the `dnf5` stack in an empty container is approximately 60% smaller than the dnf installation.
 +
-Additionally, in previous Fedora releases, `dnf`, `microdnf`, and `PackageKit` used their own caches, leading to significant metadata redundancy. With `dnf5` and `dnf5daemon`, which share metadata, this redundancy will be eliminated. 
-* **Faster query processing**: The processing of package metadata is now significantly faster. Executing commands such as `repoquery` to list packages available in repositories is now twice as fast compared to `dnf`. Similarly, operations like listing dependencies or parsing numerous command-line arguments are notably expedited, potentially saving users seconds to tens of seconds in waiting time for the results. 
-* **Lowered maintenance costs**: Many functional duplicates in dnf were eliminated during the development of the new `dnf5` package manager. This was partly because the integration of the original `PackageKit` and `dnf` libraries into the original `libdnf` library was never completed. Plugins are now included in the same package as the core functionality. 
-* **Consolidated and streamlined API**: The API for managing packages, working with repositories, and solving package dependencies is now consolidated into a single component, providing a unified solution. The original dnf API underwent a review process, during which unused workflows and obsolete methods were removed, while improving usability for users. 
-* **Enhanced command-line outputs**: Transaction tables now offer more detailed information, verbose scriptlet outputs are redirected and organized by package name into log files, individual commands come with their own man pages, bash completion has been enhanced, and numerous other improvements have been made. 
-* **Unified user experience**: Consistent user experience is now offered to users across servers, workstations, and containers, as `dnf5` is the sole package manager deployed there. Existing `dnf`, `yum`, and `microdnf` commands are linked to `dnf5`, while compatibility aliases for essential use cases will be provided to facilitate migration. Configuration files are now shared among `dnf5` components. API users will encounter unified code style and naming conventions. Various scripting language interfaces are now provided from a single source using SWIG bindings (formerly CPython and SWIG). 
+Additionally, in previous Fedora releases, `dnf`, `microdnf`, and `PackageKit` used their own caches, leading to significant metadata redundancy. With `dnf5` and `dnf5daemon`, which share metadata, this redundancy will be eliminated.
+* **Faster query processing**: The processing of package metadata is now significantly faster. Executing commands such as `repoquery` to list packages available in repositories is now twice as fast compared to `dnf`. Similarly, operations like listing dependencies or parsing numerous command-line arguments are notably expedited, potentially saving users seconds to tens of seconds in waiting time for the results.
+* **Lowered maintenance costs**: Many functional duplicates in dnf were eliminated during the development of the new `dnf5` package manager. This was partly because the integration of the original `PackageKit` and `dnf` libraries into the original `libdnf` library was never completed. Plugins are now included in the same package as the core functionality.
+* **Consolidated and streamlined API**: The API for managing packages, working with repositories, and solving package dependencies is now consolidated into a single component, providing a unified solution. The original dnf API underwent a review process, during which unused workflows and obsolete methods were removed, while improving usability for users.
+* **Enhanced command-line outputs**: Transaction tables now offer more detailed information, verbose scriptlet outputs are redirected and organized by package name into log files, individual commands come with their own man pages, bash completion has been enhanced, and numerous other improvements have been made.
+* **Unified user experience**: Consistent user experience is now offered to users across servers, workstations, and containers, as `dnf5` is the sole package manager deployed there. Existing `dnf`, `yum`, and `microdnf` commands are linked to `dnf5`, while compatibility aliases for essential use cases will be provided to facilitate migration. Configuration files are now shared among `dnf5` components. API users will encounter unified code style and naming conventions. Various scripting language interfaces are now provided from a single source using SWIG bindings (formerly CPython and SWIG).
 
 For information about this release, see the [upstream DNF5 documentation](https://dnf5.readthedocs.io/en/latest/), particularly the [list of changes between DNF and DNF5](https://dnf5.readthedocs.io/en/latest/changes_from_dnf4.7.html). Developers should also check the [DBus API bindings for dnfdaemon](https://dnf5.readthedocs.io/en/latest/dnf_daemon/dnf5daemon_dbus_api.8.html).
 
@@ -463,7 +463,7 @@ For information about this release, see the [upstream DNF5 documentation](https:
 ### RPM 4.20
 RPM in Fedora 41 has been updated to version 4.20, which provides a number of improvements, such as:
 
-* Hands-free packaging 
+* Hands-free packaging
 ** Declarative build system
 ** Dynamic spec generation extended
 ** File trigger scriptlet arguments
@@ -479,7 +479,7 @@ See the [upstream release notes](https://rpm.org/wiki/Releases/4.20.0) for detai
 ### DNF and bootc in Image Mode Fedora variants
 Starting with Fedora 41, the Fedora Atomic Desktops, Fedora CoreOS and Fedora IOT will ship `bootc` and DNF5 as part of the image. Now you can use `dnf` commands as part of container builds that use these Fedora variants as the base image. While `rpm-ostree` is still available, you can now use `bootc` to manage your image mode deployments and updates.
 
-When running dnf on a booted image mode system, DNF will give a better error message pointing to the available tools on your booted system to accomplish your task. This is the start of a process to enable DNF with `rpm-ostree` features and the re-focus on `bootc` to manage image mode deployments. 
+When running dnf on a booted image mode system, DNF will give a better error message pointing to the available tools on your booted system to accomplish your task. This is the start of a process to enable DNF with `rpm-ostree` features and the re-focus on `bootc` to manage image mode deployments.
 
 
 ### SPDX Migration
@@ -522,7 +522,7 @@ Note that this change also affects all users with local custom network-scripts t
 
 ### Access to all versions of Kubernetes and its related components
 
-Starting with Fedora 41, all supported versions of Kubernetes, CRI-O and CRI-Tools will be available concurrently. As an example, Fedora 41 has the following Kubernetes RPMs at release: 
+Starting with Fedora 41, all supported versions of Kubernetes, CRI-O and CRI-Tools will be available concurrently. As an example, Fedora 41 has the following Kubernetes RPMs at release:
 
 * `kubernetes1.29`
 * `kubernetes1.30`
@@ -594,7 +594,7 @@ To support `dm-vdo` targets, the `vdo` user tool package provides the following 
 
 Additional diagnostic tools are also included in the `vdo` package. However, they are rarely needed for normal operation.
 
-Although not required, it is strongly recommended that `lvm2` be used to manage vdo volumes. See the `lvm2` documentation for more information. 
+Although not required, it is strongly recommended that `lvm2` be used to manage vdo volumes. See the `lvm2` documentation for more information.
 
 If you have a vdo volume created with the kvdo module, be sure to refer to the [kvdo documentation](https://github.com/dm-vdo/kvdo) for important considerations prior to attempting to upgrade to a `dm-vdo` target.
 
@@ -627,7 +627,7 @@ You can revert to previous default behavior either system-wide by using `update-
 
 
 ### Reproducible Package Builds
-Fedora package builds are now more deterministic, bringing the distribution closer to the goal of achieving fully reproducible builds for all of its packages. 
+Fedora package builds are now more deterministic, bringing the distribution closer to the goal of achieving fully reproducible builds for all of its packages.
 
 For more information, see [Fedora's Reproducible Builds documentation](https://docs.fedoraproject.org/en-US/reproducible-builds/).
 
@@ -641,11 +641,11 @@ This change has some potential compatibility impact; see the [Change page](https
 ### Redis has been replaced with Valkey
 Redis has been replaced with Valkey in Fedora 41 due to Redis' license change to RASLv2/SSPL which rendered it incompatible with Free and Open Source principles. Valkey is a full replacement of Redis which preserves the original BSD licensing.
 
-When upgrading to Fedora Linux 41, systems with `redis` installed will be switched to `valkey` via the `valkey-compat` package. The change should be mostly transparent to users as the `valkey-compat` package provides config and data migration for most common configurations. The `valkey` systemd units will have aliases for `redis` to ease the migration for users. 
+When upgrading to Fedora Linux 41, systems with `redis` installed will be switched to `valkey` via the `valkey-compat` package. The change should be mostly transparent to users as the `valkey-compat` package provides config and data migration for most common configurations. The `valkey` systemd units will have aliases for `redis` to ease the migration for users.
 
 
 ### OpenSSL engine support deprecated
-Support for OpenSSL engines is deprecated in Fedora 41. Engines are not FIPS compatible and corresponding API is deprecated since OpenSSL 3.0. Those currently using OpenSSL engines should switch to using providers. 
+Support for OpenSSL engines is deprecated in Fedora 41. Engines are not FIPS compatible and corresponding API is deprecated since OpenSSL 3.0. Those currently using OpenSSL engines should switch to using providers.
 
 ---
 ## File: welcome.adoc

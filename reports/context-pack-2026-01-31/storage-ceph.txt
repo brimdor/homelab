@@ -75,23 +75,23 @@ HEALTH_OK
   cluster:
     id:     13c20377-d801-43f9-aebd-59f62df5dad1
     health: HEALTH_OK
- 
+
   services:
     mon: 3 daemons, quorum f,h,j (age 52m) [leader: f]
     mgr: b(active, since 28h), standbys: a
     mds: 1/1 daemons up, 1 hot standby
     osd: 7 osds: 7 up (since 108m), 7 in (since 3d)
- 
+
   data:
     volumes: 1/1 healthy
     pools:   4 pools, 177 pgs
     objects: 157.54k objects, 610 GiB
     usage:   1.2 TiB used, 2.2 TiB / 3.4 TiB avail
     pgs:     177 active+clean
- 
+
   io:
     client:   852 B/s rd, 21 KiB/s wr, 1 op/s rd, 2 op/s wr
- 
+
 
 == ceph health detail ==
 2026-01-31T12:49:49-06:00
@@ -103,7 +103,7 @@ HEALTH_OK
 CLASS     SIZE    AVAIL     USED  RAW USED  %RAW USED
 ssd    3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.15
 TOTAL  3.4 TiB  2.2 TiB  1.2 TiB   1.2 TiB      35.15
- 
+
 --- POOLS ---
 POOL                   ID  PGS   STORED  OBJECTS     USED  %USED  MAX AVAIL
 standard-rwo            1  128  609 GiB  157.50k  1.2 TiB  39.56    930 GiB
@@ -114,19 +114,19 @@ standard-rwx-data0      3   32  1.0 KiB        0  2.1 KiB      0    930 GiB
 == ceph osd tree ==
 2026-01-31T12:49:52-06:00
 ID   CLASS  WEIGHT   TYPE NAME            STATUS  REWEIGHT  PRI-AFF
- -1         3.40022  root default                                  
- -5         1.33429      host arcanine                             
+ -1         3.40022  root default
+ -5         1.33429      host arcanine
   2    ssd  0.86850          osd.2            up   1.00000  1.00000
   8    ssd  0.46579          osd.8            up   1.00000  1.00000
- -7         0.40279      host bulbasaur                            
+ -7         0.40279      host bulbasaur
   4    ssd  0.40279          osd.4            up   1.00000  1.00000
- -3         0.40279      host chikorita                            
+ -3         0.40279      host chikorita
   0    ssd  0.40279          osd.0            up   1.00000  1.00000
- -9         0.40279      host cyndaquil                            
+ -9         0.40279      host cyndaquil
   1    ssd  0.40279          osd.1            up   1.00000  1.00000
--11         0.45479      host growlithe                            
+-11         0.45479      host growlithe
   6    ssd  0.45479          osd.6            up   1.00000  1.00000
--13         0.40279      host sprigatito                           
+-13         0.40279      host sprigatito
   7    ssd  0.40279          osd.7            up   1.00000  1.00000
 
 == ceph pg stat ==

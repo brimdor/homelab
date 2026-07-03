@@ -86,7 +86,7 @@ Pod Template:
    transcode:
     Type:          HostPath (bare host directory volume)
     Path:          /emby/transcode
-    HostPathType:  
+    HostPathType:
 Conditions:
   Type           Status  Reason
   ----           ------  ------

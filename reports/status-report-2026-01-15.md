@@ -1,6 +1,6 @@
 # Homelab Status Report - 2026-01-15
 
-**Generated**: 2026-01-15 13:55 CST (Updated)  
+**Generated**: 2026-01-15 13:55 CST (Updated)
 **Overall Status**: 🟢 **GREEN**
 
 ---
@@ -35,8 +35,8 @@ All cluster layers are operating nominally. No critical issues detected.
 | squirtle | Ready | 16% | 25% | control-plane |
 | totodile | Ready | 13% | 39% | worker |
 
-**Cluster Version**: K3s v1.33.6+k3s1  
-**Kernel**: 6.11.9-100.fc39.x86_64  
+**Cluster Version**: K3s v1.33.6+k3s1
+**Kernel**: 6.11.9-100.fc39.x86_64
 **OS**: Fedora Linux 39
 
 ### System Layer (Core Services)

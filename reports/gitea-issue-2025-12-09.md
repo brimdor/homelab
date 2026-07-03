@@ -29,7 +29,7 @@ Significant improvement from earlier critical status. All 10 Kubernetes nodes op
 - ✅ Resource usage healthy (CPU 2-16%, RAM 5-34%)
 - ✅ Highest load: charmander (16% CPU, 34% RAM)
 
-### 🟡 System Layer - YELLOW  
+### 🟡 System Layer - YELLOW
 - ✅ Kubernetes v1.33.6+k3s1 uniform across all nodes
 - ✅ Cilium CNI operational on all 10 nodes
 - ⚠️ **Ceph HEALTH_WARN** (improved from critical):

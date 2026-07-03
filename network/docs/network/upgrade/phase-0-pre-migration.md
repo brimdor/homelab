@@ -1,6 +1,6 @@
 # PHASE 0: Pre-Migration Preparation
-**Estimated Duration**: 30-60 minutes  
-**Downtime Risk**: None  
+**Estimated Duration**: 30-60 minutes
+**Downtime Risk**: None
 **Human Required**: ✅ Backup verification
 
 ---
@@ -71,10 +71,10 @@
    ```bash
    # SSH into UNRAID or access console
    ssh root@10.0.40.3
-   
+
    # Check Docker containers
    docker ps | grep twingate
-   
+
    # Verify connector is running (should show "Up" status)
    ```
 
@@ -88,7 +88,7 @@
    ```bash
    # Get connector container IDs
    docker ps --filter name=twingate --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
-   
+
    # Note the container names for potential recovery
    ```
 
@@ -122,10 +122,10 @@
    ```bash
    # SSH to OPNSense or access console
    ssh root@10.0.0.1
-   
+
    # List network interfaces
    ifconfig | grep -E "^[a-z]"
-   
+
    # Or in web UI: Interfaces → Overview
    # Document which port is WAN vs LAN
    ```
@@ -152,7 +152,7 @@
    echo "=== Pre-Migration Network Test ==="
    echo "Date: $(date)"
    echo ""
-   
+
    declare -A hosts=(
      ["OPNSense"]="10.0.0.1"
      ["UNRAID"]="10.0.40.3"
@@ -162,7 +162,7 @@
      ["bulbasaur"]="10.0.50.123"
      ["pikachu"]="10.0.50.124"
    )
-   
+
    for name in "${!hosts[@]}"; do
      ip="${hosts[$name]}"
      if ping -c 1 -W 2 "$ip" &>/dev/null; then
@@ -177,7 +177,7 @@
    ```bash
    # Check all nodes
    kubectl get nodes -o wide
-   
+
    # Verify all nodes show "Ready"
    kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}'
    ```
@@ -186,10 +186,10 @@
    ```bash
    # ArgoCD
    curl -sI https://argocd.eaglepass.io | head -1
-   
-   # Gitea  
+
+   # Gitea
    curl -sI https://git.eaglepass.io | head -1
-   
+
    # Grafana
    curl -sI https://grafana.eaglepass.io | head -1
    ```

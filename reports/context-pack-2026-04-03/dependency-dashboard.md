@@ -13,9 +13,9 @@ Renovate tried to run on this repository, but found these problems.
 ---
 
 > ⚠️ **Warning**
-> 
+>
 > Renovate failed to look up the following dependencies: `Failed to look up docker package 10.0.20.11:32309/podwave: no-result`.
-> 
+>
 > Files affected: `apps/podwave-canary/values.yaml`, `apps/podwave/values.yaml`
 
 ---
@@ -1247,5 +1247,3 @@ The following updates are blocked by an existing closed PR. To recreate the PR, 
 
 </blockquote>
 </details>
-
-

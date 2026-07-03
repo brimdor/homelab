@@ -1,6 +1,6 @@
 # PHASE 6: Verification and Testing
-**Estimated Duration**: 30-60 minutes  
-**Downtime Risk**: None  
+**Estimated Duration**: 30-60 minutes
+**Downtime Risk**: None
 **Human Required**: ✅ Validation review
 
 ---
@@ -14,11 +14,11 @@
    ```bash
    # Gateway test
    ping 10.0.10.1
-   
+
    # Internet test
    ping 8.8.8.8
    curl -sI https://google.com | head -1
-   
+
    # DNS test
    nslookup google.com 10.0.10.1
    ```
@@ -29,11 +29,11 @@
    ```bash
    # Gateway test
    ping 10.0.20.1
-   
+
    # Internet test
    ping 8.8.8.8
    curl -sI https://google.com | head -1
-   
+
    # DNS test
    nslookup google.com
    ```
@@ -61,7 +61,7 @@
    ```bash
    # Check IP assignment
    # Should be 10.0.50.x
-   
+
    # Internet test
    ping 8.8.8.8
    ```
@@ -80,7 +80,7 @@
    ping -c 3 -W 2 10.0.20.10   # K8s controller
    ping -c 3 -W 2 10.0.40.3    # NAS
    ping -c 3 -W 2 10.0.0.2    # Switch management
-   
+
    # This should SUCCEED
    ping -c 3 8.8.8.8           # Internet
    ```
@@ -91,10 +91,10 @@
    ```bash
    # This should SUCCEED (storage allowed)
    ping -c 3 10.0.40.3
-   
+
    # Test NFS access
    showmount -e 10.0.40.3
-   
+
    # Test SMB access
    smbclient -L 10.0.40.3 -N
    ```
@@ -119,7 +119,7 @@
 1. **Verify all nodes**
    ```bash
    kubectl get nodes -o wide
-   
+
    # All nodes should show:
    # STATUS: Ready
    # IPs in 10.0.20.x range
@@ -129,7 +129,7 @@
 2. **Check system pods**
    ```bash
    kubectl get pods -n kube-system
-   
+
    # All pods should be Running or Completed
    ```
    - [ ] All kube-system pods healthy
@@ -137,7 +137,7 @@
 3. **Check all namespaces**
    ```bash
    kubectl get pods -A | grep -v Running | grep -v Completed
-   
+
    # Should return only header or empty
    ```
    - [ ] No pods in error state
@@ -145,7 +145,7 @@
 4. **Verify services**
    ```bash
    kubectl get svc -A
-   
+
    # Verify ClusterIP and external services are assigned
    ```
    - [ ] All services have endpoints
@@ -153,7 +153,7 @@
 5. **Check ingress**
    ```bash
    kubectl get ingress -A
-   
+
    # Verify ingress resources are present
    ```
    - [ ] Ingress resources configured
@@ -169,7 +169,7 @@
    ```bash
    # Check Twingate containers
    docker ps | grep twingate
-   
+
    # Both connectors should show "Up"
    ```
 

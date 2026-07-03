@@ -40,6 +40,6 @@ cd "$BUILD_DIR"
 podman build --tls-verify=false -t "$FULL_IMAGE" .
 
 echo ">>> Pushing Image to Registry..."
-podman push --tls-verify=false "$FULL_IMAGE" 
+podman push --tls-verify=false "$FULL_IMAGE"
 
 echo ">>> Done! Image pushed to $FULL_IMAGE"

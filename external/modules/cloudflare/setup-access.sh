@@ -2,7 +2,7 @@
 # ============================================================================
 # Manual Cloudflare Access setup for citadel.eaglepass.io
 # Run this if you don't have Terraform handy or need to apply immediately.
-# Prerequisite: A Cloudflare API Token with "Cloudflare Zero Trust:Edit" 
+# Prerequisite: A Cloudflare API Token with "Cloudflare Zero Trust:Edit"
 # and "Account:Read" permissions.
 # ============================================================================
 

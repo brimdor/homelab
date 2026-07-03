@@ -186,15 +186,15 @@
 
 
 ##### Action Items (Tasks):
-- [ ] **1. Review Ceph OSDs:** 
+- [ ] **1. Review Ceph OSDs:**
   - Execute: `kubectl -n rook-ceph exec deploy/rook-ceph-tools -- bash -c 'ceph pg dump' && ceph osd crush tree`.
   - Action goal: Confirm `DB_DEVICE_STALLED_READ` alert is resolved.
-- [ ] **2. Update Muted Alert** (48-hour period). 
+- [ ] **2. Update Muted Alert** (48-hour period).
 - [ ] **3. Run Maintenance Checks** and ensure cluster status remains **GREEN**.
-  
+
 
 ##### Log References:
-- Event records indicate 
+- Event records indicate
   - No direct failures reported.
   - No impact on cluster connectivity.
 
