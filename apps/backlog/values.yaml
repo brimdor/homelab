@@ -56,7 +56,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "main-cd8c4bc"
+            tag: "main-9d9ca41"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -120,7 +120,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-cd8c4bc-guildsdeals-on"
+            tag: "main-9d9ca41-guildsdeals-on"
             pullPolicy: Always
           env:
             TZ: America/Chicago
