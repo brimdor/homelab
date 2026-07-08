@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "main-08cb6be"
+            tag: "main-b21e9ff"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -66,6 +66,7 @@ app-template:
             DB_HOST: localhost
             DB_PORT: "3306"
             ADMIN_MODE: "true"
+            EPIC_SYNC_ENABLED: "true"
             ITAD_API_KEY:
               valueFrom:
                 secretKeyRef:
@@ -121,7 +122,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-08cb6be-guildsdeals-on"
+            tag: "main-b21e9ff-guildsdeals-epicon"
             pullPolicy: Always
           env:
             TZ: America/Chicago
