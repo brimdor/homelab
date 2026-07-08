@@ -7,7 +7,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/podwave
-            tag: "issue-1-canary"
+            tag: "main-80ca85e"
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
