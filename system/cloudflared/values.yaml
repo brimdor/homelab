@@ -1,7 +1,7 @@
 app-template:
   controllers:
     cloudflared:
-      replicas: 4
+      replicas: 2
       containers:
         app:
           image:
@@ -23,14 +23,9 @@ app-template:
           no-autoupdate: true
           ingress:
             - hostname: 'citadel.eaglepass.io'
-              service: http://10.0.30.100:8000
+              service: https://command-central.tail18136a.ts.net:443
               originRequest:
                 noTLSVerify: true
-                connectTimeout: 10s
-                tlsTimeout: 10s
-                tcpKeepAlive: 30s
-                keepAliveTimeout: 90s
-                keepAliveConnections: 10
             - hostname: 'hermes-webhook.eaglepass.io'
               service: http://10.0.30.100:8644
               originRequest:
