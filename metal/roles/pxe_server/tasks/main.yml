@@ -1,12 +1,13 @@
-- name: Get Docker info
-  docker_host_info: {}
+- name: Check if Docker is available
+  ansible.builtin.command: docker info --format '{{.OperatingSystem}}'
   register: docker_info_result
+  changed_when: false
 
 - name: Ensure Docker is running on a supported operating system
-  fail:
+  ansible.builtin.fail:
     msg: Docker host networking driver only works on Linux hosts, and is not supported on Docker Desktop for Mac or Windows (you can use a Linux VM with bridged networking instead)
   when:
-    - docker_info_result.host_info.OperatingSystem == "Docker Desktop"
+    - "'Docker Desktop' in docker_info_result.stdout"
 
 - name: Download boot image
   ansible.builtin.get_url:
@@ -64,7 +65,8 @@
   loop: "{{ groups['metal'] }}"
 
 - name: Start the ephemeral PXE server
-  community.docker.docker_compose:
-    project_src: "{{ role_path }}/files"
-    state: present
-    build: true
+  ansible.builtin.shell:
+    cmd: "docker compose --project-directory {{ role_path }}/files up -d --build"
+    chdir: "{{ role_path }}/files"
+  register: compose_up
+  changed_when: "'Started' in compose_up.stdout or 'Creating' in compose_up.stdout or 'Recreating' in compose_up.stdout"
