@@ -95,6 +95,11 @@
   until: k3s_service is succeeded
   retries: 5
 
+- name: Wait for k3s to generate kubeconfig
+  ansible.builtin.wait_for:
+    path: "{{ k3s_kubeconfig_file }}"
+    timeout: 120
+
 - name: Get Kubernetes config file
   run_once: true
   ansible.builtin.slurp:
