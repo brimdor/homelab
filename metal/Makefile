@@ -16,7 +16,12 @@ default: boot cluster nodes
 boot: ~/.ssh/id_ed25519
 	ansible-playbook \
 		--inventory inventories/${env}.yml \
+		--tags pxe \
+		boot.yml
+	ansible-playbook \
+		--inventory inventories/${env}.yml \
 		$(limit_arg) \
+		--skip-tags pxe \
 		boot.yml
 
 cluster:
