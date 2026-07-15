@@ -1,5 +1,5 @@
 - name: Check if Docker is available
-  ansible.builtin.command: docker info --format '{{.OperatingSystem}}'
+  ansible.builtin.shell: docker info --format '{{ "{{" }}.OperatingSystem{{ "}}" }}'
   register: docker_info_result
   changed_when: false
 
