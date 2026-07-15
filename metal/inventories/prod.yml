@@ -37,6 +37,13 @@ metal:
             disk: sda,
             network_interface: eno1,
           }
+        chikorita:
+          {
+            ansible_host: 10.0.20.15,
+            mac: "6C:4B:90:60:29:C4",
+            disk: sda,
+            network_interface: eno1,
+          }
         cyndaquil:
           {
             ansible_host: 10.0.20.16,
