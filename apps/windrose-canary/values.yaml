@@ -1,0 +1,131 @@
+# Canary Windrose server.
+# Reuses the same 1Password item as production for boot-only smoke tests.
+# A separate 1Password item (windrose-canary-secrets) should be created once
+# an isolated canary invite code is needed.
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 0
+      pod:
+        securityContext:
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+      containers:
+        main:
+          image:
+            repository: registry.eaglepass.io/windrose/windrose-server-docker
+            tag: 644cc3901250
+            pullPolicy: IfNotPresent
+          env:
+            TZ: America/Chicago
+            PUID: "1000"
+            PGID: "1000"
+            INVITE_CODE:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: invite-code
+            SERVER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: server-password
+            SERVER_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: owner-name
+            USE_DIRECT_CONNECTION: "true"
+            SERVER_PORT: "7777"
+            DIRECT_CONNECTION_PROXY_ADDRESS: "0.0.0.0"
+            USER_SELECTED_REGION: "EU"
+            MAX_PLAYERS: "4"
+            GENERATE_SETTINGS: "true"
+            WINDROSE_PLUS_ENABLED: "false"
+            UE4SS_ENABLED: "false"
+            UPDATE_ON_START: "false"
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: true
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 4Gi
+            limits:
+              cpu: 4000m
+              memory: 12Gi
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                initialDelaySeconds: 360
+                periodSeconds: 60
+                timeoutSeconds: 10
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                initialDelaySeconds: 360
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 3
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                failureThreshold: 60
+                periodSeconds: 5
+                timeoutSeconds: 10
+          ports:
+            - name: game-tcp
+              containerPort: 7777
+              protocol: TCP
+            - name: game-udp
+              containerPort: 7777
+              protocol: UDP
+  service:
+    main:
+      primary: true
+      controller: main
+      ports:
+        game-tcp:
+          port: 7777
+          protocol: TCP
+        game-udp:
+          port: 7777
+          protocol: UDP
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      existingClaim: windrose-canary-data
+      advancedMounts:
+        main:
+          main:
+            - path: /home/steam/server-files
+  defaultPodOptions:
+    hostNetwork: true
+    dnsPolicy: ClusterFirstWithHostNet
+    nodeSelector:
+      kubernetes.io/hostname: cyndaquil
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/faayy3w4hnmhnifqsr7pmf5xxe"
+      operator.1password.io/item-name: "secrets"

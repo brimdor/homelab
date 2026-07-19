@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: windrose-canary-data
+  namespace: windrose-canary
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-rwx
+  resources:
+    requests:
+      storage: 50Gi
