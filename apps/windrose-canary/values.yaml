@@ -128,5 +128,5 @@ app-template:
     nodeSelector:
       kubernetes.io/hostname: cyndaquil
     annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/faayy3w4hnmhnifqsr7pmf5xxe"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4yvgaf774xiakjmabidcsoshl4"
       operator.1password.io/item-name: "secrets"
