@@ -50,7 +50,7 @@ app-template:
             GENERATE_SETTINGS: "true"
             WINDROSE_PLUS_ENABLED: "false"
             UE4SS_ENABLED: "false"
-            UPDATE_ON_START: "false"
+            UPDATE_ON_START: "true"
           command:
             - /bin/bash
             - -c
