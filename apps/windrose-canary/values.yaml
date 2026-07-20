@@ -41,8 +41,13 @@ app-template:
             USER_SELECTED_REGION: ""
             MAX_PLAYERS: "4"
             GENERATE_SETTINGS: "true"
-            WINDROSE_PLUS_ENABLED: "false"
-            UE4SS_ENABLED: "false"
+            WINDROSE_PLUS_ENABLED: "true"
+            WINDROSE_PLUS_DASHBOARD_PORT: "8781"
+            WINDROSE_PLUS_RCON_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: rcon-password
             UPDATE_ON_START: "true"
           command:
             - /bin/bash
@@ -71,11 +76,11 @@ app-template:
             allowPrivilegeEscalation: true
           resources:
             requests:
-              cpu: 100m
-              memory: 512Mi
+              cpu: 1000m
+              memory: 4Gi
             limits:
-              cpu: 500m
-              memory: 2Gi
+              cpu: 2000m
+              memory: 8Gi
           probes:
             liveness:
               enabled: true
@@ -122,6 +127,9 @@ app-template:
             - name: game-udp
               containerPort: 7777
               protocol: UDP
+            - name: dashboard
+              containerPort: 8781
+              protocol: TCP
   service:
     main:
       primary: true
@@ -133,6 +141,9 @@ app-template:
         game-udp:
           port: 7777
           protocol: UDP
+        dashboard:
+          port: 8781
+          protocol: TCP
   persistence:
     data:
       type: persistentVolumeClaim
@@ -146,8 +157,20 @@ app-template:
             - path: /home/steam/server-files
   defaultPodOptions:
     dnsPolicy: ClusterFirst
-    nodeSelector:
-      kubernetes.io/hostname: cyndaquil
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: arcanine
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - "arcanine"
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4yvgaf774xiakjmabidcsoshl4"
       operator.1password.io/item-name: "secrets"
