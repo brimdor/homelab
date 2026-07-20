@@ -6,7 +6,7 @@ app-template:
   controllers:
     main:
       strategy: Recreate
-      replicas: 0
+      replicas: 1
       pod:
         securityContext:
           fsGroup: 1000
