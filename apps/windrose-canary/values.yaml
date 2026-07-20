@@ -19,8 +19,8 @@ app-template:
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
-            PUID: "99"
-            PGID: "100"
+            PUID: "1000"
+            PGID: "1000"
             INVITE_CODE:
               valueFrom:
                 secretKeyRef:
@@ -40,10 +40,32 @@ app-template:
             P2P_PROXY_ADDRESS: "127.0.0.1"
             USER_SELECTED_REGION: ""
             MAX_PLAYERS: "4"
-            GENERATE_SETTINGS: "false"
+            GENERATE_SETTINGS: "true"
             WINDROSE_PLUS_ENABLED: "false"
             UE4SS_ENABLED: "false"
             UPDATE_ON_START: "false"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              # Patch WorldDescription.json to "Easy" (calm seas) whenever it
+              # appears. The image's start.sh generates it with "Medium" during
+              # first-boot, then launches the server which reads it to create
+              # the world. This loop ensures "Easy" is written before the
+              # server reads it for world creation.
+              (
+                while true; do
+                  WD=$(find /home/steam/server-files/R5/Saved/SaveProfiles -name WorldDescription.json 2>/dev/null | head -1)
+                  if [ -n "$WD" ]; then
+                    cur=$(tr -d '\r' < "$WD" | jq -r '.WorldDescription.WorldPresetType // ""')
+                    if [ "$cur" != "Easy" ]; then
+                      tr -d '\r' < "$WD" | jq '.WorldDescription.WorldPresetType = "Easy" | .WorldDescription.WorldSettings = {}' > "${WD}.tmp" && mv "${WD}.tmp" "$WD"
+                    fi
+                  fi
+                  sleep 1
+                done
+              ) &
+              exec /home/steam/server/init.sh
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
