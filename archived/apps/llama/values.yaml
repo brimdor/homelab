@@ -113,10 +113,8 @@ app-template:
             requests:
               cpu: 2000m
               memory: 16Gi
-              nvidia.com/gpu: 1
             limits:
               memory: 24Gi
-              nvidia.com/gpu: 1
 
     glm:
       replicas: 0
