@@ -51,27 +51,6 @@ app-template:
             UPDATE_ON_START: "true"
             NVIDIA_VISIBLE_DEVICES: "all"
             NVIDIA_DRIVER_CAPABILITIES: "all"
-          command:
-            - /bin/bash
-            - -c
-            - |
-              # Patch ALL WorldDescription.json files to "Easy" (calm seas)
-              # whenever they appear. The image's start.sh generates them with
-              # "Medium" during first-boot, then launches the server which reads
-              # them to create worlds. The server may create multiple worlds,
-              # so we patch every WorldDescription.json we find, continuously.
-              (
-                while true; do
-                  find /home/steam/server-files/R5/Saved/SaveProfiles -name WorldDescription.json 2>/dev/null | while IFS= read -r WD; do
-                    cur=$(tr -d '\r' < "$WD" | jq -r '.WorldDescription.WorldPresetType // ""' 2>/dev/null)
-                    if [ "$cur" != "Easy" ]; then
-                      tr -d '\r' < "$WD" | jq '.WorldDescription.WorldPresetType = "Easy" | .WorldDescription.WorldSettings = {}' > "${WD}.tmp" && mv "${WD}.tmp" "$WD"
-                    fi
-                  done
-                  sleep 0.5
-                done
-              ) &
-              exec /home/steam/server/init.sh
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
