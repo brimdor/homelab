@@ -26,8 +26,8 @@ app-template:
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
-            PUID: "1000"
-            PGID: "1000"
+            PUID: "99"
+            PGID: "100"
             INVITE_CODE:
               valueFrom:
                 secretKeyRef:
