@@ -221,6 +221,26 @@ app-template:
         dashboard:
           port: 8780
           protocol: TCP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: windrose.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: dashboard
+      tls:
+        - hosts:
+            - windrose.eaglepass.io
+          secretName: windrose-tls
   persistence:
     data:
       type: persistentVolumeClaim
