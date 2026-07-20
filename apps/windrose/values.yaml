@@ -45,7 +45,7 @@ app-template:
                   key: owner-name
             USE_DIRECT_CONNECTION: "false"
             P2P_PROXY_ADDRESS: "127.0.0.1"
-            USER_SELECTED_REGION: "EU"
+            USER_SELECTED_REGION: ""
             MAX_PLAYERS: "4"
             GENERATE_SETTINGS: "false"
             WINDROSE_PLUS_ENABLED: "false"
