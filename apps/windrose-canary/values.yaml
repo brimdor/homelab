@@ -48,21 +48,20 @@ app-template:
             - /bin/bash
             - -c
             - |
-              # Patch WorldDescription.json to "Easy" (calm seas) whenever it
-              # appears. The image's start.sh generates it with "Medium" during
-              # first-boot, then launches the server which reads it to create
-              # the world. This loop ensures "Easy" is written before the
-              # server reads it for world creation.
+              # Patch ALL WorldDescription.json files to "Easy" (calm seas)
+              # whenever they appear. The image's start.sh generates them with
+              # "Medium" during first-boot, then launches the server which reads
+              # them to create worlds. The server may create multiple worlds,
+              # so we patch every WorldDescription.json we find, continuously.
               (
                 while true; do
-                  WD=$(find /home/steam/server-files/R5/Saved/SaveProfiles -name WorldDescription.json 2>/dev/null | head -1)
-                  if [ -n "$WD" ]; then
-                    cur=$(tr -d '\r' < "$WD" | jq -r '.WorldDescription.WorldPresetType // ""')
+                  find /home/steam/server-files/R5/Saved/SaveProfiles -name WorldDescription.json 2>/dev/null | while IFS= read -r WD; do
+                    cur=$(tr -d '\r' < "$WD" | jq -r '.WorldDescription.WorldPresetType // ""' 2>/dev/null)
                     if [ "$cur" != "Easy" ]; then
                       tr -d '\r' < "$WD" | jq '.WorldDescription.WorldPresetType = "Easy" | .WorldDescription.WorldSettings = {}' > "${WD}.tmp" && mv "${WD}.tmp" "$WD"
                     fi
-                  fi
-                  sleep 1
+                  done
+                  sleep 0.5
                 done
               ) &
               exec /home/steam/server/init.sh
