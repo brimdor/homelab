@@ -137,6 +137,76 @@ app-template:
             - name: dashboard
               containerPort: 8780
               protocol: TCP
+        backup:
+          image:
+            repository: alpine
+            tag: latest
+          env:
+            TZ: America/Chicago
+            MAX_BACKUPS: "10"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              sleep 60
+              mkdir -p /mnt/backup/windrose
+              while true; do
+                ts=$(date +%Y-%m-%d_%H-%M-%S)
+                backup_file="/mnt/backup/windrose/windrose-${ts}.tar.gz"
+                tmp_file="${backup_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up windrose server-files to $backup_file"
+                if tar --exclude="lost+found" --exclude="*.log" -czf "$tmp_file" -C /home/steam/server-files . \
+                  && tar -tzf "$tmp_file" >/dev/null 2>&1; then
+                  mv -f "$tmp_file" "$backup_file"
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup complete: $(ls -lh "$backup_file" | awk '{print $5}')"
+                else
+                  echo "[WARN] tar verification failed; skipping."
+                  rm -f "$tmp_file"
+                fi
+                cnt=$(ls -1 /mnt/backup/windrose/windrose-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/windrose/windrose-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+                next_midnight=$(date -d "tomorrow 00:00" +%s 2>/dev/null || date -v+1d -v0H -v0M -v0S +%s)
+                now=$(date +%s)
+                sleep_seconds=$((next_midnight - now))
+                if [ "$sleep_seconds" -le 0 ]; then sleep_seconds=86400; fi
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Next backup in ${sleep_seconds}s"
+                sleep "$sleep_seconds"
+              done
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting windrose config restore check"
+              if [ ! -f /home/steam/server-files/.restored ]; then
+                latest_backup=$(ls -t /mnt/backup/windrose/windrose-*.tar.gz 2>/dev/null | head -n 1 || true)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring windrose server-files from: $latest_backup"
+                  tar -xzf "$latest_backup" -C /home/steam/server-files
+                  touch /home/steam/server-files/.restored
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore complete"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Fresh start."
+                  touch /home/steam/server-files/.restored
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Marker exists."
+              fi
   service:
     main:
       primary: true
@@ -162,6 +232,20 @@ app-template:
         main:
           main:
             - path: /home/steam/server-files
+          backup:
+            - path: /home/steam/server-files
+          restore:
+            - path: /home/steam/server-files
+    nfs-backups:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/windrose
+      advancedMounts:
+        main:
+          backup:
+            - path: /mnt/backup
+          restore:
+            - path: /mnt/backup
   defaultPodOptions:
     dnsPolicy: ClusterFirst
     tolerations:
