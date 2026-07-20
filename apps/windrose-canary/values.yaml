@@ -91,7 +91,7 @@ app-template:
                     - /bin/sh
                     - -c
                     - 'pgrep "wine" > /dev/null'
-                failureThreshold: 60
+                failureThreshold: 120
                 periodSeconds: 5
                 timeoutSeconds: 10
           ports:
@@ -118,7 +118,7 @@ app-template:
       enabled: true
       accessMode: ReadWriteOnce
       size: 50Gi
-      storageClass: nfs-rwx
+      storageClass: standard-rwo
       advancedMounts:
         main:
           main:
