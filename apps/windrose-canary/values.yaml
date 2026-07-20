@@ -44,7 +44,7 @@ app-template:
             GENERATE_SETTINGS: "true"
             WINDROSE_PLUS_ENABLED: "false"
             UE4SS_ENABLED: "false"
-            UPDATE_ON_START: "false"
+            UPDATE_ON_START: "true"
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
@@ -97,21 +97,23 @@ app-template:
                 timeoutSeconds: 10
           ports:
             - name: game-tcp
-              containerPort: 7777
+              containerPort: 7778
               protocol: TCP
+              hostPort: 7778
             - name: game-udp
-              containerPort: 7777
+              containerPort: 7778
               protocol: UDP
+              hostPort: 7778
   service:
     main:
       primary: true
       controller: main
       ports:
         game-tcp:
-          port: 7777
+          port: 7778
           protocol: TCP
         game-udp:
-          port: 7777
+          port: 7778
           protocol: UDP
   persistence:
     data:
