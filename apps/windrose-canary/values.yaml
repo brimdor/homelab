@@ -14,8 +14,8 @@ app-template:
       containers:
         main:
           image:
-            repository: 10.0.20.11:32309/windrose/windrose-server-docker
-            tag: 644cc3901250
+            repository: indifferentbroccoli/windrose-server-docker
+            tag: latest
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
