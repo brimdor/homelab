@@ -36,9 +36,8 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: owner-name
-            USE_DIRECT_CONNECTION: "true"
-            SERVER_PORT: "7777"
-            DIRECT_CONNECTION_PROXY_ADDRESS: "0.0.0.0"
+            USE_DIRECT_CONNECTION: "false"
+            P2P_PROXY_ADDRESS: "127.0.0.1"
             USER_SELECTED_REGION: "EU"
             MAX_PLAYERS: "4"
             GENERATE_SETTINGS: "true"
@@ -97,35 +96,35 @@ app-template:
                 timeoutSeconds: 10
           ports:
             - name: game-tcp
-              containerPort: 7778
+              containerPort: 7777
               protocol: TCP
-              hostPort: 7778
             - name: game-udp
-              containerPort: 7778
+              containerPort: 7777
               protocol: UDP
-              hostPort: 7778
   service:
     main:
       primary: true
       controller: main
       ports:
         game-tcp:
-          port: 7778
+          port: 7777
           protocol: TCP
         game-udp:
-          port: 7778
+          port: 7777
           protocol: UDP
   persistence:
     data:
       type: persistentVolumeClaim
-      existingClaim: windrose-canary-data
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 50Gi
+      storageClass: nfs-rwx
       advancedMounts:
         main:
           main:
             - path: /home/steam/server-files
   defaultPodOptions:
-    hostNetwork: true
-    dnsPolicy: ClusterFirstWithHostNet
+    dnsPolicy: ClusterFirst
     nodeSelector:
       kubernetes.io/hostname: cyndaquil
     annotations:

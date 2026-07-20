@@ -43,9 +43,8 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: owner-name
-            USE_DIRECT_CONNECTION: "true"
-            SERVER_PORT: "7777"
-            DIRECT_CONNECTION_PROXY_ADDRESS: "0.0.0.0"
+            USE_DIRECT_CONNECTION: "false"
+            P2P_PROXY_ADDRESS: "127.0.0.1"
             USER_SELECTED_REGION: "EU"
             MAX_PLAYERS: "4"
             GENERATE_SETTINGS: "true"
@@ -106,11 +105,9 @@ app-template:
             - name: game-tcp
               containerPort: 7777
               protocol: TCP
-              hostPort: 7777
             - name: game-udp
               containerPort: 7777
               protocol: UDP
-              hostPort: 7777
   service:
     main:
       primary: true
@@ -134,8 +131,7 @@ app-template:
           main:
             - path: /home/steam/server-files
   defaultPodOptions:
-    hostNetwork: true
-    dnsPolicy: ClusterFirstWithHostNet
+    dnsPolicy: ClusterFirst
     nodeSelector:
       kubernetes.io/hostname: cyndaquil
     annotations:
