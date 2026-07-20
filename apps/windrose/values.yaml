@@ -1,0 +1,143 @@
+# Windrose dedicated server production chart.
+# Uses the indifferentbroccoli/windrose-server-docker image mirrored to the
+# homelab registry.  The image's own entrypoint (/home/steam/server/init.sh)
+# must run as root briefly to `usermod` the steam user to PUID/PGID, then it
+# `su`s to steam before launching Wine.  Do NOT override command/args and do
+# NOT set runAsUser: 1000 at the container level — that would break the
+# usermod/su flow and prevent the Wine server from starting.
+#
+# This is the only homelab chart that intentionally starts as root inside the
+# container; see policies/windrose-podsecurity.yaml for the namespace-level
+# Pod Security baseline exemption.
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      pod:
+        securityContext:
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+      containers:
+        main:
+          image:
+            repository: indifferentbroccoli/windrose-server-docker
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            TZ: America/Chicago
+            PUID: "1000"
+            PGID: "1000"
+            INVITE_CODE:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: invite-code
+            SERVER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: server-password
+            SERVER_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: owner-name
+            USE_DIRECT_CONNECTION: "true"
+            SERVER_PORT: "7777"
+            DIRECT_CONNECTION_PROXY_ADDRESS: "0.0.0.0"
+            USER_SELECTED_REGION: "EU"
+            MAX_PLAYERS: "4"
+            GENERATE_SETTINGS: "true"
+            WINDROSE_PLUS_ENABLED: "false"
+            UE4SS_ENABLED: "false"
+            UPDATE_ON_START: "false"
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: true
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 4Gi
+            limits:
+              cpu: 4000m
+              memory: 12Gi
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                initialDelaySeconds: 360
+                periodSeconds: 60
+                timeoutSeconds: 10
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                initialDelaySeconds: 360
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 3
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                failureThreshold: 60
+                periodSeconds: 5
+                timeoutSeconds: 10
+          ports:
+            - name: game-tcp
+              containerPort: 7777
+              protocol: TCP
+              hostPort: 7777
+            - name: game-udp
+              containerPort: 7777
+              protocol: UDP
+              hostPort: 7777
+  service:
+    main:
+      primary: true
+      controller: main
+      ports:
+        game-tcp:
+          port: 7777
+          protocol: TCP
+        game-udp:
+          port: 7777
+          protocol: UDP
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 50Gi
+      storageClass: nfs-rwx
+      advancedMounts:
+        main:
+          main:
+            - path: /home/steam/server-files
+  defaultPodOptions:
+    hostNetwork: true
+    dnsPolicy: ClusterFirstWithHostNet
+    nodeSelector:
+      kubernetes.io/hostname: cyndaquil
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/faayy3w4hnmhnifqsr7pmf5xxe"
+      operator.1password.io/item-name: "secrets"
