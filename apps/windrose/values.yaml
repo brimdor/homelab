@@ -47,10 +47,10 @@ app-template:
             P2P_PROXY_ADDRESS: "127.0.0.1"
             USER_SELECTED_REGION: "EU"
             MAX_PLAYERS: "4"
-            GENERATE_SETTINGS: "true"
+            GENERATE_SETTINGS: "false"
             WINDROSE_PLUS_ENABLED: "false"
             UE4SS_ENABLED: "false"
-            UPDATE_ON_START: "true"
+            UPDATE_ON_START: "false"
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
