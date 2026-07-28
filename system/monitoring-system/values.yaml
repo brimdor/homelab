@@ -4,10 +4,6 @@ kube-prometheus-stack:
       enabled: false
       patch:
         enabled: false
-  prometheus-node-exporter:
-    tolerations:
-      - effect: NoSchedule
-        operator: Exists
   grafana:
     enabled: false
     forceDeployDatasources: true
