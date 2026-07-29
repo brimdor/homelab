@@ -27,41 +27,51 @@ data:
     ######################
     # Profiles: a list of different profiles, each with a list of apps
     ######################
-    # The default profile, this is what is going to be showed in Moonlight clients
     [[profiles]]
     id = "moonlight-profile-id"
 
     [[profiles.apps]]
-    title = "Wolf UI"
     start_virtual_compositor = true
-    # The Wolf UI app talks to the main Wolf process over
-    # /var/run/wolf/wolf.sock (a unix socket the supervisord
-    # in the main Wolf image exposes). This bind mount is
-    # required or the UI will fail to start.
+    title = "Wolf UI"
+
     [profiles.apps.runner]
-    base_create_json = '''{
+    type = "docker"
+    name = "Wolf-UI"
+    image = "ghcr.io/games-on-whales/wolf-ui:main"
+    base_create_json = '{
       "HostConfig": {
         "IpcMode": "host",
         "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
         "Privileged": false,
         "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
       }
-    }'''
+    }'
     devices = ["/var/run/wolf/wolf.sock:/var/run/wolf/wolf.sock"]
-    docker_image = "ghcr.io/games-on-whales/wolf-ui:main"
-    env = []
+    env = [
+      "GOW_REQUIRED_DEVICES=/dev/input/event* /dev/dri/* /dev/nvidia*",
+      "WOLF_SOCKET_PATH=/var/run/wolf/wolf.sock",
+      "WOLF_UI_AUTOUPDATE=False",
+      "LOGLEVEL=INFO"
+    ]
     mounts = ["/var/run/wolf/wolf.sock:/var/run/wolf/wolf.sock"]
-    name = "wolf-ui-app"
+    ports = []
 
     [[profiles.apps]]
-    title = "Steam"
     start_virtual_compositor = true
-    # Steam Big Picture inside a containerized Sway session.
-    # Proton + MangoHud pre-installed. Per-game launch via
-    # STEAM_STARTUP_FLAGS env var.
-    docker_image = "ghcr.io/games-on-whales/steam:edge"
-    # Game library: mount the NAS-shared games directory.
-    # /mnt/games is the standard path in GoW base-app images.
+    title = "Steam"
+
+    [profiles.apps.runner]
+    type = "docker"
+    name = "Steam"
+    image = "ghcr.io/games-on-whales/steam:edge"
+    base_create_json = '{
+      "HostConfig": {
+        "IpcMode": "host",
+        "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+        "Privileged": false,
+        "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+      }
+    }'
     devices = [
       "/mnt/user/games:/mnt/games:rw",
       "/etc/wolf/profile_data/main/Steam:/home/retro:rw"
@@ -71,15 +81,25 @@ data:
       "/mnt/user/games:/mnt/games:rw",
       "/etc/wolf/profile_data/main/Steam:/home/retro:rw"
     ]
-    name = "steam-app"
+    ports = []
 
     [[profiles.apps]]
-    title = "Desktop"
     start_virtual_compositor = true
-    # Fallback: a generic Xfce desktop for non-Steam apps
-    # (browser, files, settings). Uses Sway by default.
-    docker_image = "ghcr.io/games-on-whales/xfce:edge"
+    title = "Desktop"
+
+    [profiles.apps.runner]
+    type = "docker"
+    name = "Desktop"
+    image = "ghcr.io/games-on-whales/xfce:edge"
+    base_create_json = '{
+      "HostConfig": {
+        "IpcMode": "host",
+        "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+        "Privileged": false,
+        "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+      }
+    }'
     devices = ["/etc/wolf/profile_data/main/Desktop:/home/retro:rw"]
     env = []
     mounts = ["/etc/wolf/profile_data/main/Desktop:/home/retro:rw"]
-    name = "desktop-app"
+    ports = []
