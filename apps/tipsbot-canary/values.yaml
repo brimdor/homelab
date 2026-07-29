@@ -7,11 +7,14 @@ app-template:
         securityContext:
           fsGroup: 65532
           fsGroupChangePolicy: OnRootMismatch
+        annotations:
+          operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/pgafelsw5c2p4oj7czfmt2do3q"
+          operator.1password.io/item-name: "secrets"
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/brimdor/tipsbot
-            tag: main-51ced71
+            tag: v0.1.2-rc.1
             pullPolicy: Always
           ports:
             - containerPort: 8080
@@ -85,11 +88,7 @@ app-template:
     backup:
       enabled: true
       size: 10Gi
-      storageClass: nfs-rwx
+      storageClass: standard-rwx
       accessMode: ReadWriteMany
       globalMounts:
         - path: /backup
-  defaultPodOptions:
-    annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/pgafelsw5c2p4oj7czfmt2do3q"
-      operator.1password.io/item-name: "secrets"
