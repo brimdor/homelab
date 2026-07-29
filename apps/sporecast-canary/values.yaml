@@ -19,7 +19,7 @@ app-template:
           nameOverride: backend
           image:
             repository: 10.0.20.11:32309/sporecast-backend
-            tag: canary
+            tag: dce4fcb
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -84,7 +84,7 @@ app-template:
           nameOverride: frontend
           image:
             repository: 10.0.20.11:32309/sporecast-frontend
-            tag: canary
+            tag: canary-dce4fcb
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
