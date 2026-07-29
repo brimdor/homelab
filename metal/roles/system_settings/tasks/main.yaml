@@ -9,16 +9,23 @@
     state: present
     reload: true
 
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
 - name: Ensure ICMP is allowed in firewalld
   ansible.posix.firewalld:
     icmp_block: echo-request
     state: disabled
     permanent: true
-    immediate: true
-  ignore_errors: true
+    immediate: "{{ ansible_facts.services['firewalld.service'].state == 'running' }}"
+  when: "'firewalld.service' in ansible_facts.services"
 
-- name: Ensure ICMP is allowed in UFW
-  community.general.ufw:
-    rule: allow
-    proto: icmp
-  ignore_errors: true
+- name: Check if UFW is installed
+  ansible.builtin.stat:
+    path: /usr/sbin/ufw
+  register: ufw_binary
+
+- name: Report UFW ICMP policy
+  ansible.builtin.debug:
+    msg: UFW manages ICMP through before.rules; no explicit rule is required.
+  when: ufw_binary.stat.exists

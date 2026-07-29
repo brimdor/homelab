@@ -15,6 +15,23 @@
 #
 #     Fix: disable throttling, set HWA=2 (NVENC), keep H264Crf=20.
 #
+#  1b. Embedded movie subtitle extraction stalls playback startup
+#     -----------------------------------------------------------
+#     Observed on 2026-07-27 while troubleshooting movie playback:
+#     multiple movies started and immediately stopped while Emby Web
+#     waited on /Subtitles/.../Stream.vtt.  Logs showed repeated
+#     60 s client-disconnect responses and ffmpeg-subtitle_extract
+#     runs against large 2160p movie MKVs.  TV episodes continued
+#     playing because they were direct-streamed without this embedded
+#     subtitle extraction path.
+#
+#     Fix: disable Emby's embedded subtitle extraction.  This favors
+#     starting video playback reliably over converting internal movie
+#     subtitle tracks to WebVTT in-process.  External/text subtitles
+#     can still be served by clients that support them; embedded image
+#     subtitles may need to be turned off or handled by a client that
+#     can decode them directly.
+#
 #  2. /config/transcoding-temp/ accumulates session directories
 #     ---------------------------------------------------------
 #     Observed 17 GiB of leftover session dirs on the 40 GiB
@@ -111,7 +128,7 @@ data:
       <H264Crf>20</H264Crf>
       <H264Preset>veryfast</H264Preset>
       <EnableHardwareEncoding>true</EnableHardwareEncoding>
-      <EnableSubtitleExtraction>true</EnableSubtitleExtraction>
+      <EnableSubtitleExtraction>false</EnableSubtitleExtraction>
       <CodecConfigurations />
       <!-- 1 = NVENC, 2 = QSV, 4 = VAAPI, 8 = VideoToolbox, 16 = AMF
            (Flag enum; 0 = none). The LSIO image also reads

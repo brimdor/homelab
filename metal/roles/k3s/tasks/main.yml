@@ -28,12 +28,14 @@
 
 - name: Check if k3s token file exists on the first node
   run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"
   ansible.builtin.stat:
     path: "{{ k3s_token_file }}"
   register: k3s_token_file_stat
 
 - name: Generate k3s token file on the first node if not exist yet
   run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"
   when: not k3s_token_file_stat.stat.exists
   ansible.builtin.copy:
     content: "{{ lookup('community.general.random_string', length=32) }}"
@@ -42,6 +44,7 @@
 
 - name: Get k3s token from the first node
   run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"
   ansible.builtin.slurp:
     src: "{{ k3s_token_file }}"
   register: k3s_token_base64
@@ -75,6 +78,9 @@
     - src: kube-vip.yaml.j2
       dest: "{{ k3s_data_dir }}/agent/pod-manifests/kube-vip.yaml"
 
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
 - name: Stop legacy k3s installer services
   ansible.builtin.systemd:
     name: "{{ item }}"
@@ -83,7 +89,7 @@
   loop:
     - k3s-agent.service
     - k3s-server.service
-  ignore_errors: true
+  when: item in ansible_facts.services
 
 - name: Enable k3s service
   ansible.builtin.systemd:
@@ -96,15 +102,33 @@
   retries: 5
 
 - name: Wait for k3s to generate kubeconfig
+  run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"
   ansible.builtin.wait_for:
     path: "{{ k3s_kubeconfig_file }}"
     timeout: 120
 
 - name: Get Kubernetes config file
   run_once: true
+  delegate_to: "{{ groups['masters'][0] }}"
   ansible.builtin.slurp:
     src: "{{ k3s_kubeconfig_file }}"
   register: kubeconfig_base64
+
+- name: Check local Kubernetes config path
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/kubeconfig.yaml"
+  delegate_to: localhost
+  run_once: true
+  register: local_kubeconfig_path
+
+- name: Remove invalid local Kubernetes config directory
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/kubeconfig.yaml"
+    state: absent
+  delegate_to: localhost
+  run_once: true
+  when: local_kubeconfig_path.stat.isdir | default(false)
 
 - name: Write Kubernetes config file with the correct cluster address
   ansible.builtin.copy:
@@ -113,3 +137,25 @@
     mode: 0600
   delegate_to: localhost
   run_once: true
+
+- name: Check Kubernetes node registration
+  ansible.builtin.command: "kubectl get node {{ inventory_hostname }}"
+  delegate_to: localhost
+  register: k3s_node_registration
+  changed_when: false
+  failed_when: false
+
+- name: Restart k3s if Kubernetes node registration is missing
+  ansible.builtin.systemd:
+    name: k3s
+    state: restarted
+  when: k3s_node_registration.rc != 0
+
+- name: Wait for Kubernetes node registration
+  ansible.builtin.command: "kubectl get node {{ inventory_hostname }}"
+  delegate_to: localhost
+  register: k3s_node_registration_wait
+  changed_when: false
+  until: k3s_node_registration_wait.rc == 0
+  retries: 18
+  delay: 10
