@@ -5,6 +5,9 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: sporecast-canary.eaglepass.io
+    external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
 spec:
   ingressClassName: traefik
   tls:
