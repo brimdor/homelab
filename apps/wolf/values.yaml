@@ -148,6 +148,29 @@ app-template:
               memory: 512Mi
           securityContext:
             privileged: true
+          # postStart hook: seed /etc/wolf/cfg/ with the
+          # ConfigMap's config.toml on every pod start. Wolf
+          # auto-migrates the config (v0 -> v7) and renames
+          # the file in place, so the destination must be
+          # writable. We use `cp -n` so the seed only runs
+          # if the file doesn't already exist (idempotent).
+          # If the file already exists (e.g. from a prior
+          # pod's emptyDir), we leave it alone.
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - >-
+                      set -e;
+                      mkdir -p /etc/wolf/cfg;
+                      if [ ! -f /etc/wolf/cfg/config.toml ] && [ -f /etc/wolf-seed/config.toml ]; then
+                        cp /etc/wolf-seed/config.toml /etc/wolf/cfg/config.toml;
+                        echo "[wolf-init] seeded /etc/wolf/cfg/config.toml from ConfigMap";
+                      else
+                        echo "[wolf-init] /etc/wolf/cfg/config.toml already exists, skipping seed";
+                      fi
 
   # Service for the WebUI only (port 47989). The streaming ports
   # are exposed via the LoadBalancer Service in templates/service-streaming.yaml.
@@ -188,22 +211,22 @@ app-template:
           secretName: wolf-tls-certificate
 
   # Mount the wolf-config ConfigMap (created by
-  # templates/configmap-wolf.yaml) at /etc/wolf/cfg/ so Wolf
-  # reads config.toml from there. The ConfigMap is mounted
-  # read-only; Wolf only writes the per-profile state directory
-  # and the TLS keypair, both of which go under /etc/wolf/
-  # (the emptyDir volume below).
+  # templates/configmap-wolf.yaml) as a seed at /etc/wolf-seed/.
+  # A postStart hook (declared in the controller) copies
+  # /etc/wolf-seed/config.toml into /etc/wolf/cfg/ on first
+  # start. The /etc/wolf/cfg/ directory must be writable
+  # because Wolf's auto-migration (v0 -> v7) renames the
+  # config.toml in place.
   #
-  # Order matters: the emptyDir at /etc/wolf is mounted first
-  # (parent directory), and the ConfigMap is mounted second at
-  # /etc/wolf/cfg (subdirectory). K8s mounts volumes in
-  # declaration order, so we list the emptyDir first.
+  # The emptyDir at /etc/wolf is mounted FIRST as a writable
+  # parent. The ConfigMap is mounted at a *different* path
+  # (/etc/wolf-seed, not /etc/wolf/cfg) to avoid the read-only
+  # conflict that crashed Wolf on first deploy.
   persistence:
-    # Writable /etc/wolf for state and TLS keypair. EmptyDir is
-    # acceptable here: Wolf regenerates the keypair on every
-    # start, and per-profile state is regenerated as clients
-    # reconnect. If the pod is rescheduled, users re-pair
-    # (the same as a fresh install).
+    # Writable /etc/wolf for state, TLS keypair, and the
+    # migrated config.toml. EmptyDir is acceptable: Wolf
+    # regenerates the keypair on every start, and per-profile
+    # state is regenerated as clients reconnect.
     etc-wolf-state:
       enabled: true
       type: emptyDir
@@ -212,8 +235,9 @@ app-template:
           main:
             - path: /etc/wolf
 
-    # Read-only config from the ConfigMap. Mounted at the
-    # /etc/wolf/cfg subdirectory of the emptyDir.
+    # Read-only config seed from the ConfigMap. The postStart
+    # hook (see containers.main.lifecycle below) copies the
+    # file into the writable /etc/wolf/cfg/ on first start.
     wolf-config:
       enabled: true
       type: configMap
@@ -223,7 +247,7 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /etc/wolf/cfg
+            - path: /etc/wolf-seed
               readOnly: true
 
     # Host's Docker socket — Wolf speaks to the daemon here.
