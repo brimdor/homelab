@@ -143,9 +143,18 @@ app-template:
               # Wolf itself is small (PulseAudio + GStreamer + wolf binary).
               # 4Gi is enough headroom for the embedded supervisor.
               memory: "4Gi"
+              # Request 1 NVIDIA GPU. The nvidia-device-plugin
+              # requires this resource request to (a) inject the
+              # NVIDIA_* env vars (NVIDIA_VISIBLE_DEVICES=all,
+              # NVIDIA_DRIVER_CAPABILITIES=all) and (b) bind the
+              # GPU devices into the container. Without this
+              # request, Wolf falls back to software encoders
+              # (x265/aom) instead of NVENC.
+              nvidia.com/gpu: 1
             requests:
               cpu: 200m
               memory: 512Mi
+              nvidia.com/gpu: 1
           securityContext:
             privileged: true
           # postStart hook: seed /etc/wolf/cfg/ with the
