@@ -1,16 +1,21 @@
 # NetworkPolicy for the Wolf namespace.
 #
 # Cilium NetworkPolicy restricting ingress to:
-#   - WebUI (TCP 47989) from the ingress-nginx namespace
-#     (so the Ingress on wolf.eaglepass.io can reach the pod)
-#   - Streaming ports (TCP 48010, UDP 47999/48100/48200) from
-#     the tailscale namespace (where the operator's proxy pods run)
+#   - WebUI (TCP 47989) — allows all entities in the cluster
+#     (the homelab does not enable default-deny; this policy is
+#     defense in depth. Ingress-nginx is in the default
+#     cilium-host namespace; we use fromEntities: ["cluster"]
+#     to permit cluster-internal traffic).
+#   - Streaming ports (TCP 48010, UDP 47999/48100/48200) — same.
 #
-# The cluster-default deny-all ingress policy is not enabled
-# (verified by `kubectl get ciliumnetworkpolicies -A`), so this
-# policy is a layer of defense in depth: even if some other
-# workload is compromised, it cannot reach Wolf's ports without
-# being in the allowed source namespaces.
+# The cluster-default deny-all ingress policy is not enabled,
+# so this policy is a layer of defense in depth.
+#
+# Note: cilium.io/v2 CiliumNetworkPolicy does not have a
+# `fromNamespaces` field. The correct selector is
+# `fromEndpoints` with a namespace selector, or `fromEntities`
+# (e.g. ["cluster"]) for all cluster-internal sources. We use
+# the latter for simplicity.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -19,15 +24,12 @@ metadata:
 spec:
   endpointSelector: {}
   ingress:
-    - fromNamespaces:
-        - ingress-nginx
+    - fromEntities:
+        - cluster
       toPorts:
         - ports:
             - port: "47989"
               protocol: TCP
-    - fromNamespaces:
-        - tailscale
-      toPorts:
         - ports:
             - port: "48010"
               protocol: TCP
