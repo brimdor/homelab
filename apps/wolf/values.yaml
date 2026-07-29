@@ -165,29 +165,28 @@ app-template:
               nvidia.com/gpu: 1
           securityContext:
             privileged: true
-          # postStart hook: seed /etc/wolf/cfg/ with the
-          # ConfigMap's config.toml on every pod start. Wolf
-          # auto-migrates the config (v0 -> v7) and renames
-          # the file in place, so the destination must be
-          # writable. We use `cp -n` so the seed only runs
-          # if the file doesn't already exist (idempotent).
-          # If the file already exists (e.g. from a prior
-          # pod's emptyDir), we leave it alone.
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - /bin/sh
-                  - -c
-                  - >-
-                      set -e;
-                      mkdir -p /etc/wolf/cfg;
-                      if [ ! -f /etc/wolf/cfg/config.toml ] && [ -f /etc/wolf-seed/config.toml ]; then
-                        cp /etc/wolf-seed/config.toml /etc/wolf/cfg/config.toml;
-                        echo "[wolf-init] seeded /etc/wolf/cfg/config.toml from ConfigMap";
-                      else
-                        echo "[wolf-init] /etc/wolf/cfg/config.toml already exists, skipping seed";
-                      fi
+          # No postStart hook needed: when the wolf-config
+          # ConfigMap is mounted (currently disabled — see
+          # persistence.wolf-config comment above), Wolf's
+          # auto-migration would need a writable destination.
+          # The hook below is a no-op without the seed mount,
+          # so it's commented out.
+          #
+          # lifecycle:
+          #   postStart:
+          #     exec:
+          #       command:
+          #         - /bin/sh
+          #         - -c
+          #         - >-
+          #             set -e;
+          #             mkdir -p /etc/wolf/cfg;
+          #             if [ ! -f /etc/wolf/cfg/config.toml ] && [ -f /etc/wolf-seed/config.toml ]; then
+          #               cp /etc/wolf-seed/config.toml /etc/wolf/cfg/config.toml;
+          #               echo "[wolf-init] seeded /etc/wolf/cfg/config.toml from ConfigMap";
+          #             else
+          #               echo "[wolf-init] /etc/wolf/cfg/config.toml already exists, skipping seed";
+          #             fi
 
   # Service for the WebUI only (port 47989). The streaming ports
   # are exposed via the LoadBalancer Service in templates/service-streaming.yaml.
@@ -255,17 +254,30 @@ app-template:
     # Read-only config seed from the ConfigMap. The postStart
     # hook (see containers.main.lifecycle below) copies the
     # file into the writable /etc/wolf/cfg/ on first start.
-    wolf-config:
-      enabled: true
-      type: configMap
-      # Use Release.Name explicitly to disambiguate from the
-      # `.Release.Name` template expression's leading dot.
-      name: "{{ .Release.Name }}-wolf-config"
-      advancedMounts:
-        main:
-          main:
-            - path: /etc/wolf-seed
-              readOnly: true
+    #
+    # CURRENTLY DISABLED: providing a custom config.toml overrides
+    # the image's default, which has all the gstreamer encoder
+    # pipelines pre-configured. To customize the app catalog
+    # (apps under [[profiles.apps]]) we need a v7 config file
+    # with the encoder sections, but the upstream default is large
+    # and complex. For the initial deploy, let Wolf use the
+    # image's built-in default config — the app catalog has
+    # Wolf UI, Steam, and a Test ball app. Users can customize
+    # later by mounting a custom config via a ConfigMap.
+    #
+    # To re-enable: uncomment the wolf-config block below and
+    # update templates/configmap-wolf.yaml with the full upstream
+    # default (https://raw.githubusercontent.com/games-on-whales/wolf/stable/src/moonlight-server/state/default/config.v7.toml)
+    # plus the desired customizations.
+    # wolf-config:
+    #   enabled: true
+    #   type: configMap
+    #   name: "{{ .Release.Name }}-wolf-config"
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /etc/wolf-seed
+    #           readOnly: true
 
     # NVIDIA encode library. The nvidia runtime class injects
     # libcuda and friends, but does NOT include libnvidia-encode
