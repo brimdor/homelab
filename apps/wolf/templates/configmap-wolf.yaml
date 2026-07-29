@@ -38,14 +38,7 @@ data:
     type = "docker"
     name = "Wolf-UI"
     image = "ghcr.io/games-on-whales/wolf-ui:main"
-    base_create_json = '{
-      "HostConfig": {
-        "IpcMode": "host",
-        "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
-        "Privileged": false,
-        "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
-      }
-    }'
+    base_create_json = '{ "HostConfig": { "IpcMode": "host", "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"], "Privileged": false, "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"] } }'
     devices = ["/var/run/wolf/wolf.sock:/var/run/wolf/wolf.sock"]
     env = [
       "GOW_REQUIRED_DEVICES=/dev/input/event* /dev/dri/* /dev/nvidia*",
@@ -64,14 +57,7 @@ data:
     type = "docker"
     name = "Steam"
     image = "ghcr.io/games-on-whales/steam:edge"
-    base_create_json = '{
-      "HostConfig": {
-        "IpcMode": "host",
-        "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
-        "Privileged": false,
-        "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
-      }
-    }'
+    base_create_json = '{ "HostConfig": { "IpcMode": "host", "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"], "Privileged": false, "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"] } }'
     devices = [
       "/mnt/user/games:/mnt/games:rw",
       "/etc/wolf/profile_data/main/Steam:/home/retro:rw"
@@ -91,14 +77,7 @@ data:
     type = "docker"
     name = "Desktop"
     image = "ghcr.io/games-on-whales/xfce:edge"
-    base_create_json = '{
-      "HostConfig": {
-        "IpcMode": "host",
-        "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
-        "Privileged": false,
-        "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
-      }
-    }'
+    base_create_json = '{ "HostConfig": { "IpcMode": "host", "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"], "Privileged": false, "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"] } }'
     devices = ["/etc/wolf/profile_data/main/Desktop:/home/retro:rw"]
     env = []
     mounts = ["/etc/wolf/profile_data/main/Desktop:/home/retro:rw"]
