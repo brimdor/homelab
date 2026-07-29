@@ -25,8 +25,8 @@ url --url="http://{{ ansible_default_ipv4.address }}/os"
 firstboot --disable
 # Do not configure the X Window System
 skipx
-# Enable NTP
-services --enabled="chronyd"
+# Enable NTP and SSH
+services --enabled="chronyd,sshd"
 # System timezone
 timezone {{ timezone }} --utc
 
@@ -48,20 +48,30 @@ firewall --disabled
 openssh-server
 %end
 
-# Create a raw partition for Ceph using the remaining space
-# Using a post script because there is no built-in feature in Kickstart
-# The three empty lines are equivalent to pressing Enter to use the default values for:
-# - Partition number
-# - First sector
-# - Last sector
-%post
-fdisk /dev/{{ hostvars[item]['disk'] }} << EOF
-new
+# Create a raw partition for Ceph using the remaining space (see %post below)
+%post --erroronfail
+# Create a raw partition for Ceph using the remaining disk space.
+# Uses sgdisk for reliability across fdisk versions; falls back to fdisk.
+if command -v sgdisk >/dev/null 2>&1; then
+    sgdisk --new=3:0:0 --typecode=3:8E00 /dev/{{ hostvars[item]['disk'] }} || true
+else
+    echo -e "n\n3\n\n\nw" | fdisk /dev/{{ hostvars[item]['disk'] }} || true
+fi
 
+# Ensure sshd is enabled in the INSTALLED system (not the installer environment).
+# Anaconda mounts the installed root at /mnt/sysimage during %post.
+# systemctl enable in %post targets the installer, not the installed system,
+# so we create the systemd symlink manually + via chroot.
+mkdir -p /mnt/sysimage/etc/systemd/system/multi-user.target.wants
+ln -sf /usr/lib/systemd/system/sshd.service /mnt/sysimage/etc/systemd/system/multi-user.target.wants/sshd.service
+chroot /mnt/sysimage systemctl enable sshd.service 2>/dev/null || true
+chroot /mnt/sysimage systemctl enable sshd.socket 2>/dev/null || true
 
+# Also ensure the installed system knows its hostname.
+echo "{{ hostvars[item]['inventory_hostname'] }}" > /mnt/sysimage/etc/hostname 2>/dev/null || true
 
-write
-EOF
+# Signal to the controller that %post ran (visible in http server logs)
+curl -s -m 10 "http://{{ ansible_default_ipv4.address }}/init-config/{{ hostvars[item]['mac'] | lower }}.ks?post=done&host={{ hostvars[item]['inventory_hostname'] }}" >/dev/null 2>&1 || true
 %end
 
 reboot
