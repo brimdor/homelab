@@ -1,0 +1,66 @@
+# Tailscale L3 Ingress Service for the Moonlight streaming ports.
+#
+# The streaming protocol (Moonlight) uses:
+#   - TCP 48010  - RTSP control
+#   - UDP 47999  - Control
+#   - UDP 48100  - Video (RTP)
+#   - UDP 48200  - Audio (RTP)
+#
+# The Tailscale Kubernetes Operator (platform/tailscale) deploys
+# ingress proxy pods that DNAT traffic from the tailnet to the
+# endpoints of this Service. The proxy pods advertise a MagicDNS
+# hostname (configured via the tailscale.com/hostname annotation)
+# to the tailnet — `wolf.tail18136a.ts.net`.
+#
+# Because the Wolf pod uses hostNetwork: true, the pod's network
+# namespace is the same as the host's. The pod's IP is therefore
+# the node's IP (10.0.20.19), and K8s auto-populates the
+# Endpoints with the correct address. The operator then DNATs
+# tailnet traffic to those endpoints.
+#
+# This Service does NOT touch Cloudflare. The entire traffic path is:
+#   Moonlight client (tailnet)
+#     → Tailscale WireGuard
+#     → Tailscale ingress proxy pod (tailnet IP)
+#     → DNAT to the Service endpoint
+#     → arcanine:10.0.20.19 (hostNetwork-bound Wolf pod)
+apiVersion: v1
+kind: Service
+metadata:
+  name: wolf-streaming
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # HA: route through the shared ingress-proxies ProxyGroup
+    # defined in templates/proxygroup.yaml. The operator deploys
+    # the proxy StatefulSet when the first Service or Ingress
+    # references it.
+    tailscale.com/proxy-group: ingress-proxies
+    # MagicDNS hostname on the tailnet.
+    tailscale.com/hostname: wolf
+    tailscale.com/tags: tag:k8s-homelab,tag:streaming
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  ports:
+    - name: rtsp
+      port: 48010
+      targetPort: 48010
+      protocol: TCP
+    - name: control
+      port: 47999
+      targetPort: 47999
+      protocol: UDP
+    - name: video
+      port: 48100
+      targetPort: 48100
+      protocol: UDP
+    - name: audio
+      port: 48200
+      targetPort: 48200
+      protocol: UDP
+  selector:
+    # Match the Wolf pod via the labels the bjw-s app-template chart
+    # applies. With hostNetwork: true, the auto-generated Endpoints
+    # point at the node's IP, which is exactly what we want.
+    app.kubernetes.io/name: wolf
+    app.kubernetes.io/instance: {{ .Release.Name }}

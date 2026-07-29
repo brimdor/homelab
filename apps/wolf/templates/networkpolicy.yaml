@@ -1,0 +1,42 @@
+# NetworkPolicy for the Wolf namespace.
+#
+# Cilium NetworkPolicy restricting ingress to:
+#   - WebUI (TCP 47989) from the ingress-nginx namespace
+#     (so the Ingress on wolf.eaglepass.io can reach the pod)
+#   - Streaming ports (TCP 48010, UDP 47999/48100/48200) from
+#     the tailscale namespace (where the operator's proxy pods run)
+#
+# The cluster-default deny-all ingress policy is not enabled
+# (verified by `kubectl get ciliumnetworkpolicies -A`), so this
+# policy is a layer of defense in depth: even if some other
+# workload is compromised, it cannot reach Wolf's ports without
+# being in the allowed source namespaces.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: wolf
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromNamespaces:
+        - ingress-nginx
+      toPorts:
+        - ports:
+            - port: "47989"
+              protocol: TCP
+    - fromNamespaces:
+        - tailscale
+      toPorts:
+        - ports:
+            - port: "48010"
+              protocol: TCP
+        - ports:
+            - port: "47999"
+              protocol: UDP
+        - ports:
+            - port: "48100"
+              protocol: UDP
+        - ports:
+            - port: "48200"
+              protocol: UDP

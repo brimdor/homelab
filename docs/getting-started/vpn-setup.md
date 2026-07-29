@@ -28,6 +28,15 @@ from the [admin console](https://login.tailscale.com/admin/machines).
 
 You can now connect to your homelab via Tailscale and [invite user to your Tailscale network](https://tailscale.com/kb/1371/invite-users).
 
+!!! note "Game streaming"
+
+    The Tailscale Kubernetes Operator (see `platform/tailscale/`) also
+    exposes the Wolf game streaming service to the tailnet at
+    `wolf.tail18136a.ts.net`. The Moonlight streaming ports (TCP 48010,
+    UDP 47999/48100/48200) ride WireGuard to tailnet clients so they
+    don't have to traverse Cloudflare (which does not support UDP).
+    See `docs/streaming/` for the full workflow.
+
 ## Wireguard (requires port-forwarding)
 
 Update the peer list in `apps/wireguard/values.yaml`:

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: wolf
+description: Wolf (Games-on-Whales) — Moonlight-compatible game streaming server that spawns per-session Docker containers with GPU access. Runs on arcanine (RTX 3090) with the nvidia runtime class. WebUI is exposed on wolf.eaglepass.io via the existing cloudflared tunnel; streaming ports are exposed into the homelab tailnet (tail18136a.ts.net) via the Tailscale Kubernetes Operator.
+type: application
+version: 0.1.0
+appVersion: "stable"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts
