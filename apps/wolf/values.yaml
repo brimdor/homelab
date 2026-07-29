@@ -52,8 +52,11 @@ app-template:
     main:
       replicas: 1
       type: deployment
-      strategy:
-        type: Recreate
+      # Recreate strategy ensures the new pod starts only after the
+      # old one is gone. Required because Wolf binds to hostNetwork
+      # ports; if two pods ran simultaneously, port conflicts would
+      # prevent the new one from starting.
+      strategy: Recreate
       pod:
         # Pin to arcanine (Lenovo M900 + RTX 3090).
         # The arcanine node has the taint `dedicated=arcanine:NoSchedule`
@@ -63,10 +66,10 @@ app-template:
         runtimeClassName: nvidia
         hostNetwork: true
         dnsPolicy: ClusterFirstWithHostNet
-        # Privileged is required for mknod and for the runner to
-        # create child containers with the host's devices.
-        securityContext:
-          privileged: true
+        # Privileged is set at the container level (see
+        # controllers.main.containers.main.securityContext below).
+        # Pod-level securityContext only accepts fsGroup, runAsUser,
+        # runAsGroup, etc. — not privileged.
         tolerations:
           - key: dedicated
             operator: Equal
@@ -184,21 +187,42 @@ app-template:
             - *wolfHost
           secretName: wolf-tls-certificate
 
-  # PVC for /etc/wolf. The cluster's nfs-rwx storage class
-  # provisions a sub-directory on the UNRAID NAS at
-  # 10.0.40.3:/mnt/user/heartlib/<pvc-uuid>/. 1 Gi is plenty
-  # for config.toml, per-profile state, and the TLS keypair.
+  # Mount the wolf-config ConfigMap (created by
+  # templates/configmap-wolf.yaml) at /etc/wolf/cfg/ so Wolf
+  # reads config.toml from there. The ConfigMap is mounted
+  # read-only; Wolf only writes the per-profile state directory
+  # and the TLS keypair, both of which go under /etc/wolf/
+  # (the emptyDir volume below).
+  #
+  # Order matters: the emptyDir at /etc/wolf is mounted first
+  # (parent directory), and the ConfigMap is mounted second at
+  # /etc/wolf/cfg (subdirectory). K8s mounts volumes in
+  # declaration order, so we list the emptyDir first.
   persistence:
-    etc-wolf:
+    # Writable /etc/wolf for state and TLS keypair. EmptyDir is
+    # acceptable here: Wolf regenerates the keypair on every
+    # start, and per-profile state is regenerated as clients
+    # reconnect. If the pod is rescheduled, users re-pair
+    # (the same as a fresh install).
+    etc-wolf-state:
       enabled: true
-      type: persistentVolumeClaim
-      storageClass: nfs-rwx
-      accessMode: ReadWriteMany
-      size: 1Gi
+      type: emptyDir
       advancedMounts:
         main:
           main:
             - path: /etc/wolf
+
+    # Read-only config from the ConfigMap. Mounted at the
+    # /etc/wolf/cfg subdirectory of the emptyDir.
+    wolf-config:
+      enabled: true
+      type: configMap
+      name: {{ .Release.Name }}-wolf-config
+      advancedMounts:
+        main:
+          main:
+            - path: /etc/wolf/cfg
+              readOnly: true
 
     # Host's Docker socket — Wolf speaks to the daemon here.
     # Without this mount, Wolf's runner cannot create child containers.
@@ -221,74 +245,3 @@ app-template:
         main:
           main:
             - path: /var/run/wolf
-
-  # ConfigMap for Wolf's /etc/wolf/cfg/config.toml. Mounted
-  # read-only so Wolf cannot accidentally corrupt it (Wolf only
-  # writes the per-profile state directory, not the config).
-  configMaps:
-    wolf-config:
-      enabled: true
-      data:
-        config.toml: |
-          # Wolf config — see https://games-on-whales.github.io/wolf/stable/user/configuration.html
-          #
-          # Streaming defaults (negotiated per-session with the Moonlight client):
-          #   - Video: NVENC H.264 / HEVC, 1080p60 default
-          #   - Audio: Opus fullband, low-delay
-          #   - Input: virtual mouse/keyboard/gamepad via inputtino
-          support_hevc = true
-          support_av1 = true
-          packet_size = 1024
-          fec_percentage = 50
-
-          # Run UID/GID defaults; clients can override after first pairing.
-          default_run_uid = 1000
-          default_run_gid = 1000
-
-          # Stop the spawned game container when the streaming session ends.
-          # Critical for GPU VRAM release. Already also set as WOLF_STOP_CONTAINER_ON_EXIT=TRUE.
-          stop_container_on_exit = true
-
-          # HTTPS keypair. Auto-generated on first start if not present.
-          # We pre-generate in /etc/wolf via the PVC.
-          https_port = 47984
-
-          [[profiles]]
-          name = "main"
-
-          [[profiles.apps]]
-          title = "Wolf UI"
-          image = "ghcr.io/games-on-whales/wolf-ui:main"
-          # The Wolf UI app talks to the main Wolf process over
-          # /var/run/wolf/wolf.sock (a unix socket the supervisord
-          # in the main Wolf image exposes). This bind mount is
-          # required or the UI will fail to start.
-          mounts = ["/var/run/wolf/wolf.sock:/var/run/wolf/wolf.sock"]
-          run_in_x11 = false
-
-          [[profiles.apps]]
-          title = "Steam"
-          # Steam Big Picture inside a containerized Sway session.
-          # Proton + MangoHud pre-installed. Per-game launch via
-          # STEAM_STARTUP_FLAGS env var.
-          image = "ghcr.io/games-on-whales/steam:edge"
-          # Game library: mount the NAS-shared games directory.
-          # /mnt/games is the standard path in GoW base-app images.
-          mounts = [
-            "/mnt/user/games:/mnt/games:rw",
-            "/etc/wolf/profile_data/main/Steam:/home/retro:rw",
-          ]
-          env = { STEAM_ARGS = "-silent" }
-
-          [[profiles.apps]]
-          title = "Desktop"
-          # Fallback: a generic Xfce desktop for non-Steam apps
-          # (browser, files, settings). Uses Sway by default.
-          image = "ghcr.io/games-on-whales/xfce:edge"
-          mounts = ["/etc/wolf/profile_data/main/Desktop:/home/retro:rw"]
-      advancedMounts:
-        main:
-          main:
-            - path: /etc/wolf/cfg/config.toml
-              subPath: config.toml
-              readOnly: true
