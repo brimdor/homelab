@@ -217,7 +217,9 @@ app-template:
     wolf-config:
       enabled: true
       type: configMap
-      name: {{ .Release.Name }}-wolf-config
+      # Use Release.Name explicitly to disambiguate from the
+      # `.Release.Name` template expression's leading dot.
+      name: "{{ .Release.Name }}-wolf-config"
       advancedMounts:
         main:
           main:
