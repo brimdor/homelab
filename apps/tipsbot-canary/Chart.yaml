@@ -1,0 +1,10 @@
+apiVersion: v2
+name: tipsbot-canary
+description: Canary deployment of TipsBot
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: "@bjw-s"
+    alias: app-template
