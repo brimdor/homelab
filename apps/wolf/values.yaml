@@ -116,6 +116,14 @@ app-template:
             TZ: "America/Chicago"
             PUID: "1000"
             PGID: "1000"
+            # NVIDIA env. The K3s nvidia runtime class only sets
+            # NVIDIA_VISIBLE_DEVICES automatically. We need to set
+            # the library path and driver capabilities ourselves so
+            # the GStreamer nvcodec plugin can find libnvidia-encode
+            # and friends.
+            NVIDIA_DRIVER_CAPABILITIES: "compute,utility,video,graphics,compat32"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            LD_LIBRARY_PATH: "/usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib64"
             # Pinned to arcanine's render node. Verified at deploy
             # time — see README. If the GPU ever moves to a different
             # card, this needs updating.
@@ -257,6 +265,26 @@ app-template:
         main:
           main:
             - path: /etc/wolf-seed
+              readOnly: true
+
+    # NVIDIA encode library. The nvidia runtime class injects
+    # libcuda and friends, but does NOT include libnvidia-encode
+    # (the NVENC library). Without this, the GStreamer nvcodec
+    # plugin can't load and Wolf falls back to x265/aom software
+    # encoders. Mount the host's libnvidia-encode into the
+    # container at the standard path where GStreamer searches
+    # for it. The versioned .so.560.35.05 file is mounted as the
+    # generic .so.1 symlink path.
+    nvidia-encode:
+      enabled: true
+      type: hostPath
+      hostPath: /usr/lib64/libnvidia-encode.so.560.35.05
+      advancedMounts:
+        main:
+          main:
+            - path: /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1
+              readOnly: true
+            - path: /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.560.35.05
               readOnly: true
 
     # Host's Docker socket — Wolf speaks to the daemon here.

@@ -1,11 +1,12 @@
-# Wolf's config.toml — defines the streaming server behavior and
-# the per-profile app catalog. Wolf reads this file on startup;
-# changes require a pod restart (ArgoCD triggers a rolling update
-# when the ConfigMap checksum changes).
+# Wolf config — see https://games-on-whales.github.io/wolf/stable/user/configuration.html
 #
-# See https://games-on-whales.github.io/wolf/stable/user/configuration.html
-# for the full schema. Streaming defaults are negotiated per-session
-# with the Moonlight client; this file sets the server-side defaults.
+# This is the v7 schema. Wolf auto-migrates from v0 (legacy)
+# on first start, but only if the v0 file is well-formed.
+# Writing a v7 file directly avoids the migration step.
+#
+# Streaming defaults (negotiated per-session with the Moonlight
+# client): NVENC H.264 / HEVC, 1080p60. Audio: Opus fullband.
+# Input: virtual mouse/keyboard/gamepad via inputtino.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -16,57 +17,69 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
   config.toml: |
-    # Streaming defaults (negotiated per-session with the Moonlight client):
-    #   - Video: NVENC H.264 / HEVC, 1080p60 default
-    #   - Audio: Opus fullband, low-delay
-    #   - Input: virtual mouse/keyboard/gamepad via inputtino
-    support_hevc = true
-    support_av1 = true
-    packet_size = 1024
-    fec_percentage = 50
+    # The name that will be displayed in Moonlight
+    hostname = "Wolf"
+    # The version of this config file
+    config_version = 7
+    # A list of paired clients that will be allowed to stream
+    paired_clients = []
 
-    # Run UID/GID defaults; clients can override after first pairing.
-    default_run_uid = 1000
-    default_run_gid = 1000
-
-    # Stop the spawned game container when the streaming session ends.
-    # Critical for GPU VRAM release. Already also set as WOLF_STOP_CONTAINER_ON_EXIT=TRUE.
-    stop_container_on_exit = true
-
-    # HTTPS keypair. Auto-generated on first start if not present.
-    # We pre-generate in /etc/wolf via the PVC.
-    https_port = 47984
-
+    ######################
+    # Profiles: a list of different profiles, each with a list of apps
+    ######################
+    # The default profile, this is what is going to be showed in Moonlight clients
     [[profiles]]
-    name = "main"
+    id = "moonlight-profile-id"
 
     [[profiles.apps]]
     title = "Wolf UI"
-    image = "ghcr.io/games-on-whales/wolf-ui:main"
+    start_virtual_compositor = true
     # The Wolf UI app talks to the main Wolf process over
     # /var/run/wolf/wolf.sock (a unix socket the supervisord
     # in the main Wolf image exposes). This bind mount is
     # required or the UI will fail to start.
+    [profiles.apps.runner]
+    base_create_json = '''{
+      "HostConfig": {
+        "IpcMode": "host",
+        "CapAdd": ["NET_RAW", "MKNOD", "NET_ADMIN", "SYS_ADMIN", "SYS_NICE"],
+        "Privileged": false,
+        "DeviceCgroupRules": ["c 13:* rmw", "c 244:* rmw"]
+      }
+    }'''
+    devices = ["/var/run/wolf/wolf.sock:/var/run/wolf/wolf.sock"]
+    docker_image = "ghcr.io/games-on-whales/wolf-ui:main"
+    env = []
     mounts = ["/var/run/wolf/wolf.sock:/var/run/wolf/wolf.sock"]
-    run_in_x11 = false
+    name = "wolf-ui-app"
 
     [[profiles.apps]]
     title = "Steam"
+    start_virtual_compositor = true
     # Steam Big Picture inside a containerized Sway session.
     # Proton + MangoHud pre-installed. Per-game launch via
     # STEAM_STARTUP_FLAGS env var.
-    image = "ghcr.io/games-on-whales/steam:edge"
+    docker_image = "ghcr.io/games-on-whales/steam:edge"
     # Game library: mount the NAS-shared games directory.
     # /mnt/games is the standard path in GoW base-app images.
+    devices = [
+      "/mnt/user/games:/mnt/games:rw",
+      "/etc/wolf/profile_data/main/Steam:/home/retro:rw"
+    ]
+    env = ["STEAM_ARGS=-silent"]
     mounts = [
       "/mnt/user/games:/mnt/games:rw",
-      "/etc/wolf/profile_data/main/Steam:/home/retro:rw",
+      "/etc/wolf/profile_data/main/Steam:/home/retro:rw"
     ]
-    env = { STEAM_ARGS = "-silent" }
+    name = "steam-app"
 
     [[profiles.apps]]
     title = "Desktop"
+    start_virtual_compositor = true
     # Fallback: a generic Xfce desktop for non-Steam apps
     # (browser, files, settings). Uses Sway by default.
-    image = "ghcr.io/games-on-whales/xfce:edge"
+    docker_image = "ghcr.io/games-on-whales/xfce:edge"
+    devices = ["/etc/wolf/profile_data/main/Desktop:/home/retro:rw"]
+    env = []
     mounts = ["/etc/wolf/profile_data/main/Desktop:/home/retro:rw"]
+    name = "desktop-app"
