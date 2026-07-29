@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: sporecast-backend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: sporecast-backend
