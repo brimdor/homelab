@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sporecast-backup
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: sqlite-backup
+              image: alpine:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  apk add --no-cache sqlite &&
+                  mkdir -p /backup &&
+                  sqlite3 /data/sporecast.db ".backup '/backup/sporecast-$(date +%Y%m%d-%H%M%S).db'" &&
+                  find /backup -name 'sporecast-*.db' -mtime +14 -delete
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: sporecast-data
+            - name: backup
+              persistentVolumeClaim:
+                claimName: sporecast-backup
