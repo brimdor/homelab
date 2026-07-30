@@ -28,7 +28,7 @@ app-template:
             TZ: America/Chicago
             ENVIRONMENT: staging
             LOG_LEVEL: info
-            DATABASE_URL: "postgres://threads@postgres.postgres.svc.cluster.local:5432/threads?sslmode=require"
+            DATABASE_URL: "postgres://threads@postgres.postgres.svc.cluster.local:5432/threads?sslmode=disable"
             S3_ENDPOINT: "http://threads-canary-minio:9000"
             S3_BUCKET: "threads-packs"
             S3_ACCESS_KEY:
