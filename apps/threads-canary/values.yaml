@@ -19,7 +19,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/threads
-            tag: ""
+            tag: "22547a6"
             pullPolicy: Always
           ports:
             - containerPort: 8080
