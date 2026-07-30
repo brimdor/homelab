@@ -1,0 +1,10 @@
+apiVersion: v2
+name: sporecast
+description: Sporecast MVP — backend (Go) + frontend (nginx SPA) production. Public ingress via homelab-tunnel.
+type: application
+version: 0.1.0
+appVersion: "0.5.3-rc.1"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts/

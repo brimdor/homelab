@@ -1,0 +1,200 @@
+# Sporecast production chart — bjw-s app-template v5.0.1
+# Mirrors canary with production-tier settings: single replica (RWO data),
+# Recreate strategy (single backend pod), production host + URL.
+app-template:
+  controllers:
+    main:
+      type: deployment
+      # Backend uses an RWO RBD data PVC — only one pod can mount it.
+      # Use Recreate strategy so a rolling update briefly downscales to 0
+      # before bringing the new pod up (no multi-attach, no crashloop on
+      # two pods fighting for the same volume).
+      strategy: Recreate
+      replicas: 1
+      pod:
+        terminationGracePeriodSeconds: 30
+        # Distroless backend image runs as uid 65532 (nonroot:nonroot).
+        # The cluster's RWO RBD volume is mounted by kubelet as root:root,
+        # so the backend cannot create sporecast.db without the fsGroup
+        # alignment + OnRootMismatch so the existing volume is NOT re-chowned.
+        securityContext:
+          fsGroup: 65532
+          fsGroupChangePolicy: OnRootMismatch
+      containers:
+        main:
+          nameOverride: backend
+          image:
+            repository: 10.0.20.11:32309/sporecast-backend
+            tag: 3abb851
+            pullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          # Container-level runAsUser/Group override the pod fsGroup for the
+          # actual process. Required because Go's sqlite ping fails with
+          # "unable to open database file: out of memory (14)" if the
+          # server tries to bind() to :8080 as a non-matching uid.
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+          env:
+            DATA_DIR: /data
+            BACKUP_DIR: /backup
+            BACKUP_INTERVAL_HOURS: "24"
+            BATCH_WINDOW_MINUTES: "5"
+            OPEN_METEO_TIMEOUT_SECONDS: "10"
+            ZIPPOPOTAM_BASE_URL: https://api.zippopotam.us
+            OPEN_METEO_BASE_URL: https://air-quality-api.open-meteo.com/v1/air-quality
+            POLLEN_COM_BASE_URL: https://www.pollen.com/api/forecast/current/pollen
+            POLLEN_COM_TIMEOUT_SECONDS: "10"
+            SPORECAST_BASE_URL: https://sporecast.eaglepass.io
+            WEBHOOK_TIMEOUT_SECONDS: "10"
+            WEBHOOK_MAX_FAILURES: "5"
+            ZIP_CACHE_TTL_HOURS: "168"
+            INACTIVE_CLEANUP_DAYS: "90"
+            LISTEN_ADDR: :8080
+            LOG_LEVEL: info
+            METRICS_ENABLED: "true"
+            SUPPORTED_COUNTRIES: US,DE,FR,GB
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /api/health/live
+              port: http
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /api/health/ready
+              port: http
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+    frontend:
+      type: deployment
+      replicas: 1
+      containers:
+        main:
+          nameOverride: frontend
+          image:
+            repository: 10.0.20.11:32309/sporecast-frontend
+            tag: 3abb851
+            pullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /
+              port: http
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /
+              port: http
+              spec:
+                initialDelaySeconds: 2
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+
+  service:
+    main:
+      controller: main
+      primary: false
+      ports:
+        http:
+          port: 8080
+          targetPort: http
+    frontend:
+      controller: frontend
+      primary: true
+      ports:
+        http:
+          port: 80
+          targetPort: http
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: sporecast.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: frontend
+                port: http
+      tls:
+        - hosts:
+            - sporecast.eaglepass.io
+          secretName: sporecast-tls
+
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      enabled: true
+      size: 1Gi
+      # Cluster reality: 'longhorn' does NOT exist in this cluster
+      # (Rook-Ceph RBD is the RWO provisioner, class name 'standard-rwo').
+      storageClass: standard-rwo
+      accessMode: ReadWriteOnce
+      # Mount the RWO data PVC to the backend ONLY. The frontend (nginx)
+      # does not need /data. Mounting it via globalMounts causes RBD
+      # multi-attach errors when the backend schedules to a node different
+      # from the frontend (the frontend still holds the RBD attachment,
+      # which blocks the backend from attaching on another node).
+      # bjw-s advancedMounts schema: advancedMounts.<controller>.<container>
+      # where the container key is the ORIGINAL chart key (containers.main),
+      # NOT the nameOverride value (backend).
+      advancedMounts:
+        main:
+          main:
+            - path: /data
+    backup:
+      type: persistentVolumeClaim
+      enabled: true
+      size: 10Gi
+      # Cluster reality: 'nfs-client' does NOT exist in this cluster
+      # (the real NFS client provisioner class is 'nfs-rwx').
+      storageClass: nfs-rwx
+      accessMode: ReadWriteMany
+      # Same reasoning as data above — /backup is a backend-only path.
+      advancedMounts:
+        main:
+          main:
+            - path: /backup
