@@ -1,0 +1,268 @@
+# Windrose dedicated server production chart.
+# Uses the indifferentbroccoli/windrose-server-docker image mirrored to the
+# homelab registry.  The image's own entrypoint (/home/steam/server/init.sh)
+# must run as root briefly to `usermod` the steam user to PUID/PGID, then it
+# `su`s to steam before launching Wine.  Do NOT override command/args and do
+# NOT set runAsUser: 1000 at the container level — that would break the
+# usermod/su flow and prevent the Wine server from starting.
+#
+# This is the only homelab chart that intentionally starts as root inside the
+# container; see policies/windrose-podsecurity.yaml for the namespace-level
+# Pod Security baseline exemption.
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      pod:
+        securityContext:
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+      containers:
+        main:
+          image:
+            repository: indifferentbroccoli/windrose-server-docker
+            tag: latest
+            pullPolicy: IfNotPresent
+          env:
+            TZ: America/Chicago
+            PUID: "1000"
+            PGID: "1000"
+            INVITE_CODE:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: invite-code
+            SERVER_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: server-password
+            SERVER_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: owner-name
+            USE_DIRECT_CONNECTION: "false"
+            P2P_PROXY_ADDRESS: "127.0.0.1"
+            USER_SELECTED_REGION: ""
+            MAX_PLAYERS: "4"
+            GENERATE_SETTINGS: "true"
+            WINDROSE_PLUS_ENABLED: "true"
+            WINDROSE_PLUS_DASHBOARD_PORT: "8780"
+            WINDROSE_PLUS_RCON_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: rcon-password
+            UPDATE_ON_START: "true"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: true
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 8Gi
+            limits:
+              cpu: 4000m
+              memory: 16Gi
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                initialDelaySeconds: 360
+                periodSeconds: 60
+                timeoutSeconds: 10
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                initialDelaySeconds: 360
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 3
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pgrep "wine" > /dev/null'
+                failureThreshold: 120
+                periodSeconds: 5
+                timeoutSeconds: 10
+          ports:
+            - name: game-tcp
+              containerPort: 7777
+              protocol: TCP
+            - name: game-udp
+              containerPort: 7777
+              protocol: UDP
+            - name: dashboard
+              containerPort: 8780
+              protocol: TCP
+        backup:
+          image:
+            repository: alpine
+            tag: latest
+          env:
+            TZ: America/Chicago
+            MAX_BACKUPS: "10"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              sleep 60
+              mkdir -p /mnt/backup/windrose
+              while true; do
+                ts=$(date +%Y-%m-%d_%H-%M-%S)
+                backup_file="/mnt/backup/windrose/windrose-${ts}.tar.gz"
+                tmp_file="${backup_file}.tmp"
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backing up windrose server-files to $backup_file"
+                if tar --exclude="lost+found" --exclude="*.log" -czf "$tmp_file" -C /home/steam/server-files . \
+                  && tar -tzf "$tmp_file" >/dev/null 2>&1; then
+                  mv -f "$tmp_file" "$backup_file"
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Backup complete: $(ls -lh "$backup_file" | awk '{print $5}')"
+                else
+                  echo "[WARN] tar verification failed; skipping."
+                  rm -f "$tmp_file"
+                fi
+                cnt=$(ls -1 /mnt/backup/windrose/windrose-*.tar.gz 2>/dev/null | wc -l)
+                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
+                  ls -t /mnt/backup/windrose/windrose-*.tar.gz | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
+                fi
+                next_midnight=$(date -d "tomorrow 00:00" +%s 2>/dev/null || date -v+1d -v0H -v0M -v0S +%s)
+                now=$(date +%s)
+                sleep_seconds=$((next_midnight - now))
+                if [ "$sleep_seconds" -le 0 ]; then sleep_seconds=86400; fi
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Next backup in ${sleep_seconds}s"
+                sleep "$sleep_seconds"
+              done
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      initContainers:
+        restore:
+          image:
+            repository: alpine
+            tag: latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[$(date +%Y-%m-%d_%H-%M-%S)] Starting windrose config restore check"
+              if [ ! -f /home/steam/server-files/.restored ]; then
+                latest_backup=$(ls -t /mnt/backup/windrose/windrose-*.tar.gz 2>/dev/null | head -n 1 || true)
+                if [ -n "$latest_backup" ]; then
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restoring windrose server-files from: $latest_backup"
+                  tar -xzf "$latest_backup" -C /home/steam/server-files
+                  touch /home/steam/server-files/.restored
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore complete"
+                else
+                  echo "[$(date +%Y-%m-%d_%H-%M-%S)] No backup found. Fresh start."
+                  touch /home/steam/server-files/.restored
+                fi
+              else
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Restore skipped. Marker exists."
+              fi
+  service:
+    main:
+      primary: true
+      controller: main
+      ports:
+        game-tcp:
+          port: 7777
+          protocol: TCP
+        game-udp:
+          port: 7777
+          protocol: UDP
+        dashboard:
+          port: 8780
+          protocol: TCP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: windrose.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: dashboard
+      tls:
+        - hosts:
+            - windrose.eaglepass.io
+          secretName: windrose-tls
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 50Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        main:
+          main:
+            - path: /home/steam/server-files
+          backup:
+            - path: /home/steam/server-files
+          restore:
+            - path: /home/steam/server-files
+    nfs-backups:
+      type: nfs
+      server: 10.0.40.3
+      path: /mnt/user/windrose
+      advancedMounts:
+        main:
+          backup:
+            - path: /mnt/backup
+          restore:
+            - path: /mnt/backup
+  defaultPodOptions:
+    dnsPolicy: ClusterFirst
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: arcanine
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - "arcanine"
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/faayy3w4hnmhnifqsr7pmf5xxe"
+      operator.1password.io/item-name: "secrets"

@@ -1,0 +1,63 @@
+# Tailscale Kubernetes Operator — homelab configuration
+#
+# Why this chart is here:
+# The homelab's Wolf game streaming app (apps/wolf) needs to expose its UDP
+# streaming ports (47999, 48100, 48200) and TCP control (48010) to clients
+# that are not on the homelab LAN (e.g. a phone on cellular).
+#
+# Cloudflare cannot proxy arbitrary UDP — neither the orange-cloud DNS
+# proxy nor `cloudflared` tunnels support it. Tailscale's WireGuard
+# data plane carries both TCP and UDP transparently. The Tailscale
+# Kubernetes Operator's L3 Ingress feature deploys proxy pods that
+# DNAT tailnet traffic to a backend Service, which is exactly the
+# pattern we need for Moonlight.
+#
+# One-time setup (Tailscale admin console):
+#   1. Visit https://login.tailscale.com/admin/settings/trust-credentials
+#   2. Generate an OAuth client with `write` scope on:
+#        - General/Services (with `tag:k8s-operator`)
+#        - Devices/Core    (with `tag:k8s-operator`)
+#        - Keys/Auth Keys  (with `tag:k8s-operator`)
+#   3. Visit https://login.tailscale.com/admin/acls/file
+#   4. Add to `tagOwners`:
+#        "tagOwners": { "tag:k8s-operator": [], "tag:k8s": ["tag:k8s-operator"] }
+#   5. Store the client_id and client_secret in the 1Password `secrets`
+#      item as `ts-oauth-client-id` and `ts-oauth-client-secret`.
+#      The `templates/externalsecret.yaml` pulls them into a Secret in
+#      the `tailscale` namespace that the operator consumes.
+
+tailscale-operator:
+  namespace: tailscale
+
+  # OAuth client ID and secret are populated from a Secret by the operator
+  # chart's templating. The Secret is created by `templates/externalsecret.yaml`
+  # from 1Password.
+  oauth:
+    clientId: ""
+    clientSecret: ""
+
+  installCRDs: true
+
+  operatorConfig:
+    # Tags applied to the operator's own device in the tailnet.
+    # `tag:k8s-operator` matches what the Tailscale ACL tagOwners entry
+    # above grants ownership to.
+    defaultTags:
+      - tag:k8s-operator
+    image:
+      repository: tailscale/k8s-operator
+      tag: ""
+      pullPolicy: IfNotPresent
+    logging: "info"
+    hostname: "tailscale-operator"
+
+  # Proxy pod defaults (used by all Ingress/ProxyGroup resources the
+  # operator creates). The `tag:k8s-homelab` tag is what we will filter
+  # on in the Tailscale ACL to permit client devices to reach the
+  # streaming service.
+  proxyConfig:
+    image:
+      repository: tailscale/tailscale
+      tag: ""
+    defaultTags: "tag:k8s-homelab"
+    firewallMode: auto

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: sporecast-canary
+description: Sporecast MVP — backend (Go) + frontend (nginx SPA) canary. Public ingress via homelab-tunnel.
+type: application
+version: 0.4.0-rc.1
+appVersion: "0.1.0"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts/

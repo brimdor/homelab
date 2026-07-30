@@ -1,0 +1,44 @@
+# NetworkPolicy for the Wolf namespace.
+#
+# Cilium NetworkPolicy restricting ingress to:
+#   - WebUI (TCP 47989) — allows all entities in the cluster
+#     (the homelab does not enable default-deny; this policy is
+#     defense in depth. Ingress-nginx is in the default
+#     cilium-host namespace; we use fromEntities: ["cluster"]
+#     to permit cluster-internal traffic).
+#   - Streaming ports (TCP 48010, UDP 47999/48100/48200) — same.
+#
+# The cluster-default deny-all ingress policy is not enabled,
+# so this policy is a layer of defense in depth.
+#
+# Note: cilium.io/v2 CiliumNetworkPolicy does not have a
+# `fromNamespaces` field. The correct selector is
+# `fromEndpoints` with a namespace selector, or `fromEntities`
+# (e.g. ["cluster"]) for all cluster-internal sources. We use
+# the latter for simplicity.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: wolf
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromEntities:
+        - cluster
+      toPorts:
+        - ports:
+            - port: "47989"
+              protocol: TCP
+        - ports:
+            - port: "48010"
+              protocol: TCP
+        - ports:
+            - port: "47999"
+              protocol: UDP
+        - ports:
+            - port: "48100"
+              protocol: UDP
+        - ports:
+            - port: "48200"
+              protocol: UDP

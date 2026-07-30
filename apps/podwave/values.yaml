@@ -10,8 +10,8 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/podwave
-            tag: "latest"
-            pullPolicy: IfNotPresent
+            tag: "main-224463d-20260728"
+            pullPolicy: Always
           ports:
             - name: http
               containerPort: 3000

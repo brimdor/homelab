@@ -6,7 +6,7 @@ app-template:
   controllers:
     main:
       strategy: Recreate
-      replicas: 0
+      replicas: 1
       pod:
         securityContext:
           fsGroup: 1000
@@ -14,8 +14,8 @@ app-template:
       containers:
         main:
           image:
-            repository: registry.eaglepass.io/windrose/windrose-server-docker
-            tag: 644cc3901250
+            repository: indifferentbroccoli/windrose-server-docker
+            tag: latest
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
@@ -36,26 +36,32 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: owner-name
-            USE_DIRECT_CONNECTION: "true"
-            SERVER_PORT: "7777"
-            DIRECT_CONNECTION_PROXY_ADDRESS: "0.0.0.0"
-            USER_SELECTED_REGION: "EU"
+            USE_DIRECT_CONNECTION: "false"
+            P2P_PROXY_ADDRESS: "127.0.0.1"
+            USER_SELECTED_REGION: ""
             MAX_PLAYERS: "4"
             GENERATE_SETTINGS: "true"
-            WINDROSE_PLUS_ENABLED: "false"
-            UE4SS_ENABLED: "false"
-            UPDATE_ON_START: "false"
+            WINDROSE_PLUS_ENABLED: "true"
+            WINDROSE_PLUS_DASHBOARD_PORT: "8781"
+            WINDROSE_PLUS_RCON_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: rcon-password
+            UPDATE_ON_START: "true"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            NVIDIA_DRIVER_CAPABILITIES: "all"
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
             allowPrivilegeEscalation: true
           resources:
             requests:
-              cpu: 2000m
+              cpu: 1000m
               memory: 4Gi
             limits:
-              cpu: 4000m
-              memory: 12Gi
+              cpu: 2000m
+              memory: 8Gi
           probes:
             liveness:
               enabled: true
@@ -92,7 +98,7 @@ app-template:
                     - /bin/sh
                     - -c
                     - 'pgrep "wine" > /dev/null'
-                failureThreshold: 60
+                failureThreshold: 120
                 periodSeconds: 5
                 timeoutSeconds: 10
           ports:
@@ -102,6 +108,9 @@ app-template:
             - name: game-udp
               containerPort: 7777
               protocol: UDP
+            - name: dashboard
+              containerPort: 8781
+              protocol: TCP
   service:
     main:
       primary: true
@@ -113,19 +122,56 @@ app-template:
         game-udp:
           port: 7777
           protocol: UDP
+        dashboard:
+          port: 8780
+          protocol: TCP
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+        - host: windrose-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: dashboard
+      tls:
+        - hosts:
+            - windrose-canary.eaglepass.io
+          secretName: windrose-canary-tls
   persistence:
     data:
       type: persistentVolumeClaim
-      existingClaim: windrose-canary-data
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 50Gi
+      storageClass: standard-rwo
       advancedMounts:
         main:
           main:
             - path: /home/steam/server-files
   defaultPodOptions:
-    hostNetwork: true
-    dnsPolicy: ClusterFirstWithHostNet
-    nodeSelector:
-      kubernetes.io/hostname: cyndaquil
+    dnsPolicy: ClusterFirst
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: arcanine
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - "arcanine"
     annotations:
-      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/faayy3w4hnmhnifqsr7pmf5xxe"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/4yvgaf774xiakjmabidcsoshl4"
       operator.1password.io/item-name: "secrets"

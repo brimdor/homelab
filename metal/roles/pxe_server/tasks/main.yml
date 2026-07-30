@@ -1,12 +1,13 @@
-- name: Get Docker info
-  docker_host_info: {}
+- name: Check if Docker is available
+  ansible.builtin.shell: docker info --format '{{ "{{" }}.OperatingSystem{{ "}}" }}'
   register: docker_info_result
+  changed_when: false
 
 - name: Ensure Docker is running on a supported operating system
-  fail:
+  ansible.builtin.fail:
     msg: Docker host networking driver only works on Linux hosts, and is not supported on Docker Desktop for Mac or Windows (you can use a Linux VM with bridged networking instead)
   when:
-    - docker_info_result.host_info.OperatingSystem == "Docker Desktop"
+    - "'Docker Desktop' in docker_info_result.stdout"
 
 - name: Download boot image
   ansible.builtin.get_url:
@@ -16,9 +17,32 @@
     mode: 0644
   register: iso
 
+- name: Remove stale extracted OS files if ISO changed
+  ansible.builtin.file:
+    path: "{{ role_path }}/files/data/os"
+    state: absent
+  when: iso.changed
+
+- name: Remove stale ISO files that no longer match the configured URL
+  ansible.builtin.shell:
+    cmd: "rm -f {{ role_path }}/files/data/iso/*.iso"
+  args:
+    removes: "{{ role_path }}/files/data/iso"
+  changed_when: false
+  when: iso.changed
+
+- name: Re-download boot image after cleanup
+  ansible.builtin.get_url:
+    url: "{{ iso_url }}"
+    dest: "{{ role_path }}/files/data/iso/{{ iso_url | basename }}"
+    checksum: "{{ iso_checksum }}"
+    mode: 0644
+  register: iso_final
+  when: iso.changed
+
 - name: Extract boot image
   ansible.builtin.command:
-    cmd: "xorriso -osirrox on -indev {{ iso.dest }} -extract / {{ role_path }}/files/data/os"
+    cmd: "xorriso -osirrox on -indev {{ role_path }}/files/data/iso/{{ iso_url | basename }} -extract / {{ role_path }}/files/data/os"
     creates: "{{ role_path }}/files/data/os/.treeinfo"
 
 - name: Generate dnsmasq config
@@ -36,12 +60,13 @@
 - name: Generate init config for each machine
   ansible.builtin.template:
     src: kickstart.ks.j2
-    dest: "{{ role_path }}/files/data/init-config/{{ hostvars[item]['mac'] }}.ks"
+    dest: "{{ role_path }}/files/data/init-config/{{ hostvars[item]['mac'] | lower }}.ks"
     mode: 0644
   loop: "{{ groups['metal'] }}"
 
 - name: Start the ephemeral PXE server
-  community.docker.docker_compose:
-    project_src: "{{ role_path }}/files"
-    state: present
-    build: true
+  ansible.builtin.shell:
+    cmd: "docker compose --project-directory {{ role_path }}/files up -d --build"
+    chdir: "{{ role_path }}/files"
+  register: compose_up
+  changed_when: "'Started' in compose_up.stdout or 'Creating' in compose_up.stdout or 'Recreating' in compose_up.stdout"

@@ -1,0 +1,322 @@
+# Wolf (Games-on-Whales) — homelab configuration
+#
+# Why this chart looks the way it does:
+#
+# 1. PRIVILEGED + HOST NETWORK + MANY HOST MOUNTS
+#    Wolf is a streaming server that spawns per-session Docker containers.
+#    To do this, it needs:
+#      - Access to the host's Docker socket (so it can speak the
+#        Docker Engine HTTP API and create child containers)
+#      - Access to /dev/dri, /dev/uinput, /dev/uhid (for the
+#        GStreamer render node and inputtino virtual inputs)
+#      - hostNetwork: true so the streaming ports (47999, 48010,
+#        48100, 48200) bind directly to the node's network stack
+#        (lowest latency, no NAT)
+#      - privileged: true to do mknod for virtual devices
+#    This is the documented upstream design (see Wolf's
+#    docker/wolf.Dockerfile and src/moonlight-server/runners/docker.cpp).
+#    The pod is pinned to the dedicated arcanine GPU node via
+#    taint toleration + node affinity, so it cannot accidentally
+#    land elsewhere.
+#
+# 2. RUNTIME CLASS = NVIDIA
+#    The nvidia runtime (provided by the cluster's GPU operator
+#    via system/gpu-operator/) injects /dev/nvidia*, /dev/dri/renderD*,
+#    and /dev/nvidia-uvm* into the pod. Wolf's GStreamer pipeline
+#    picks them up automatically.
+#
+# 3. RENDER NODE
+#    Wolf needs to know which /dev/dri/renderD* node is the
+#    NVIDIA GPU. On arcanine this is /dev/dri/renderD128 (verified
+#    at deploy time by `ls -l /sys/class/drm/renderD*/device/driver`).
+#
+# 4. STORAGE
+#    /etc/wolf is on a PVC backed by the cluster's nfs-rwx storage
+#    class (which writes to the UNRAID NAS at 10.0.40.3:/mnt/user/heartlib).
+#    This holds Wolf's config.toml, the per-profile per-user state
+#    directory (profile_data/<profile>/<app>/), and the auto-generated
+#    WebUI TLS keypair.
+#
+# 5. NETWORK EXPOSURE (two paths)
+#    - WebUI (port 47989) is exposed via the standard Service +
+#      Ingress pattern. The Ingress (wolf.eaglepass.io) goes through
+#      the existing cloudflared tunnel. Small bytes; no ToS concern.
+#    - Streaming ports (TCP 48010, UDP 47999/48100/48200) are exposed
+#      as a separate Service of type LoadBalancer with
+#      loadBalancerClass: tailscale. The Tailscale operator (see
+#      platform/tailscale) deploys ingress proxy pods that DNAT
+#      tailnet traffic to this Service. NO Cloudflare involvement.
+
+app-template:
+  controllers:
+    main:
+      replicas: 1
+      type: deployment
+      # Recreate strategy ensures the new pod starts only after the
+      # old one is gone. Required because Wolf binds to hostNetwork
+      # ports; if two pods ran simultaneously, port conflicts would
+      # prevent the new one from starting.
+      strategy: Recreate
+      pod:
+        # Pin to arcanine (Lenovo M900 + RTX 3090).
+        # The arcanine node has the taint `dedicated=arcanine:NoSchedule`
+        # and the label `kubernetes.io/hostname=arcanine`. The bjw-s
+        # chart defaults `tolerations: []` to be empty so we set it
+        # explicitly here.
+        runtimeClassName: nvidia
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        # Privileged is set at the container level (see
+        # controllers.main.containers.main.securityContext below).
+        # Pod-level securityContext only accepts fsGroup, runAsUser,
+        # runAsGroup, etc. — not privileged.
+        tolerations:
+          - key: dedicated
+            operator: Equal
+            value: arcanine
+            effect: NoSchedule
+        # Belt-and-suspenders: even with the taint, also pin to
+        # the exact node so this can never be scheduled elsewhere.
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values:
+                        - arcanine
+        # Wolf is single-instance; the pod IS the service. If it
+        # gets rescheduled (which the above prevents), the streaming
+        # ports on the old node will not be served. Recreate strategy
+        # ensures the new pod starts only after the old one is gone.
+        terminationGracePeriodSeconds: 30
+      containers:
+        main:
+          nameOverride: main
+          image:
+            repository: ghcr.io/games-on-whales/wolf
+            tag: stable
+            pullPolicy: Always
+          # Probes are disabled: Wolf's HTTP health check is on /pin
+          # but probes from the kubelet would compete with the
+          # Moonlight client traffic. The pod's liveness is observed
+          # via ArgoCD's `Synced+Healthy` and the deployment's
+          # `status.availableReplicas`. Manual restart via
+          # `kubectl rollout restart deploy/wolf -n wolf` if Wolf
+          # itself misbehaves.
+          probes:
+            liveness:
+              enabled: false
+            readiness:
+              enabled: false
+            startup:
+              enabled: false
+          env:
+            TZ: "America/Chicago"
+            PUID: "1000"
+            PGID: "1000"
+            # NVIDIA env. The K3s nvidia runtime class only sets
+            # NVIDIA_VISIBLE_DEVICES automatically. We need to set
+            # the library path and driver capabilities ourselves so
+            # the GStreamer nvcodec plugin can find libnvidia-encode
+            # and friends.
+            NVIDIA_DRIVER_CAPABILITIES: "compute,utility,video,graphics,compat32"
+            NVIDIA_VISIBLE_DEVICES: "all"
+            LD_LIBRARY_PATH: "/usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib64"
+            # Pinned to arcanine's render node. Verified at deploy
+            # time — see README. If the GPU ever moves to a different
+            # card, this needs updating.
+            WOLF_RENDER_NODE: "/dev/dri/renderD128"
+            # Wolf talks to the host's Docker daemon via this socket.
+            # The runner auto-injects `Runtime: nvidia` into child
+            # container HostConfig when the render node is NVIDIA
+            # and NVIDIA_DRIVER_VOLUME_NAME is unset (see Wolf's
+            # src/moonlight-server/runners/docker.cpp).
+            WOLF_DOCKER_SOCKET: "/var/run/docker.sock"
+            # Tear down the child game container when the streaming
+            # session ends, releasing the GPU. Without this, child
+            # containers leak across sessions.
+            WOLF_STOP_CONTAINER_ON_EXIT: "TRUE"
+            # Default run UID/GID for newly paired clients (matches
+            # the GoW base-app's `retro` user). Per-client override
+            # is set after first pairing in the Wolf UI.
+            WOLF_DEFAULT_RUN_UID: "1000"
+            WOLF_DEFAULT_RUN_GID: "1000"
+            # Use the zero-copy path; required for low-latency H.264/HEVC
+            # with the NVIDIA encoder.
+            WOLF_USE_ZERO_COPY: "TRUE"
+          resources:
+            limits:
+              # Wolf itself is small (PulseAudio + GStreamer + wolf binary).
+              # 4Gi is enough headroom for the embedded supervisor.
+              memory: "4Gi"
+              # Request 1 NVIDIA GPU. The nvidia-device-plugin
+              # requires this resource request to (a) inject the
+              # NVIDIA_* env vars (NVIDIA_VISIBLE_DEVICES=all,
+              # NVIDIA_DRIVER_CAPABILITIES=all) and (b) bind the
+              # GPU devices into the container. Without this
+              # request, Wolf falls back to software encoders
+              # (x265/aom) instead of NVENC.
+              nvidia.com/gpu: 1
+            requests:
+              cpu: 200m
+              memory: 512Mi
+              nvidia.com/gpu: 1
+          securityContext:
+            privileged: true
+          # No postStart hook needed: when the wolf-config
+          # ConfigMap is mounted (currently disabled — see
+          # persistence.wolf-config comment above), Wolf's
+          # auto-migration would need a writable destination.
+          # The hook below is a no-op without the seed mount,
+          # so it's commented out.
+          #
+          # lifecycle:
+          #   postStart:
+          #     exec:
+          #       command:
+          #         - /bin/sh
+          #         - -c
+          #         - >-
+          #             set -e;
+          #             mkdir -p /etc/wolf/cfg;
+          #             if [ ! -f /etc/wolf/cfg/config.toml ] && [ -f /etc/wolf-seed/config.toml ]; then
+          #               cp /etc/wolf-seed/config.toml /etc/wolf/cfg/config.toml;
+          #               echo "[wolf-init] seeded /etc/wolf/cfg/config.toml from ConfigMap";
+          #             else
+          #               echo "[wolf-init] /etc/wolf/cfg/config.toml already exists, skipping seed";
+          #             fi
+
+  # Service for the WebUI only (port 47989). The streaming ports
+  # are exposed via the LoadBalancer Service in templates/service-streaming.yaml.
+  service:
+    main:
+      controller: main
+      ports:
+        http:
+          port: 47989
+          targetPort: 47989
+          protocol: TCP
+
+  # Ingress for wolf.eaglepass.io. Goes through the existing
+  # cloudflared tunnel (see system/cloudflared/values.yaml) which
+  # already has a wildcard `*.eaglepass.io` route to ingress-nginx.
+  # Only carries HTTPS for the WebUI (small bytes).
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        # Trigger external-dns to create the DNS record in Cloudflare.
+        # The cloudflared tunnel already serves the *.eaglepass.io
+        # wildcard so no need to add cloudflare-proxied.
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+      hosts:
+        - host: &wolfHost wolf.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - *wolfHost
+          secretName: wolf-tls-certificate
+
+  # Mount the wolf-config ConfigMap (created by
+  # templates/configmap-wolf.yaml) as a seed at /etc/wolf-seed/.
+  # A postStart hook (declared in the controller) copies
+  # /etc/wolf-seed/config.toml into /etc/wolf/cfg/ on first
+  # start. The /etc/wolf/cfg/ directory must be writable
+  # because Wolf's auto-migration (v0 -> v7) renames the
+  # config.toml in place.
+  #
+  # The emptyDir at /etc/wolf is mounted FIRST as a writable
+  # parent. The ConfigMap is mounted at a *different* path
+  # (/etc/wolf-seed, not /etc/wolf/cfg) to avoid the read-only
+  # conflict that crashed Wolf on first deploy.
+  persistence:
+    # Writable /etc/wolf for state, TLS keypair, and the
+    # migrated config.toml. EmptyDir is acceptable: Wolf
+    # regenerates the keypair on every start, and per-profile
+    # state is regenerated as clients reconnect.
+    etc-wolf-state:
+      enabled: true
+      type: emptyDir
+      advancedMounts:
+        main:
+          main:
+            - path: /etc/wolf
+
+    # Read-only config seed from the ConfigMap. The postStart
+    # hook (see containers.main.lifecycle below) copies the
+    # file into the writable /etc/wolf/cfg/ on first start.
+    #
+    # CURRENTLY DISABLED: providing a custom config.toml overrides
+    # the image's default, which has all the gstreamer encoder
+    # pipelines pre-configured. To customize the app catalog
+    # (apps under [[profiles.apps]]) we need a v7 config file
+    # with the encoder sections, but the upstream default is large
+    # and complex. For the initial deploy, let Wolf use the
+    # image's built-in default config — the app catalog has
+    # Wolf UI, Steam, and a Test ball app. Users can customize
+    # later by mounting a custom config via a ConfigMap.
+    #
+    # To re-enable: uncomment the wolf-config block below and
+    # update templates/configmap-wolf.yaml with the full upstream
+    # default (https://raw.githubusercontent.com/games-on-whales/wolf/stable/src/moonlight-server/state/default/config.v7.toml)
+    # plus the desired customizations.
+    # wolf-config:
+    #   enabled: true
+    #   type: configMap
+    #   name: "{{ .Release.Name }}-wolf-config"
+    #   advancedMounts:
+    #     main:
+    #       main:
+    #         - path: /etc/wolf-seed
+    #           readOnly: true
+
+    # NVIDIA encode library. The nvidia runtime class injects
+    # libcuda and friends, but does NOT include libnvidia-encode
+    # (the NVENC library). Without this, the GStreamer nvcodec
+    # plugin can't load and Wolf falls back to x265/aom software
+    # encoders. Mount the host's libnvidia-encode into the
+    # container at the standard path where GStreamer searches
+    # for it. The versioned .so.560.35.05 file is mounted as the
+    # generic .so.1 symlink path.
+    nvidia-encode:
+      enabled: true
+      type: hostPath
+      hostPath: /usr/lib64/libnvidia-encode.so.560.35.05
+      advancedMounts:
+        main:
+          main:
+            - path: /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1
+              readOnly: true
+            - path: /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.560.35.05
+              readOnly: true
+
+    # Host's Docker socket — Wolf speaks to the daemon here.
+    # Without this mount, Wolf's runner cannot create child containers.
+    docker-socket:
+      enabled: true
+      type: hostPath
+      hostPath: /var/run/docker.sock
+      advancedMounts:
+        main:
+          main:
+            - path: /var/run/docker.sock
+
+    # /var/run/wolf holds the `wolf.sock` unix socket that the
+    # spawned app containers (and Wolf UI) use to talk to Wolf.
+    # EmptyDir is fine here — it's runtime state, not config.
+    wolf-runtime:
+      enabled: true
+      type: emptyDir
+      advancedMounts:
+        main:
+          main:
+            - path: /var/run/wolf

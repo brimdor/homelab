@@ -1,0 +1,21 @@
+# Tailscale ProxyGroup for HA ingress.
+#
+# The Tailscale Kubernetes Operator deploys proxy pods (a StatefulSet)
+# that DNAT tailnet traffic to backend Services. Multiple replicas
+# give high availability: if one proxy pod restarts, the others
+# continue serving.
+#
+# This is a cluster-scoped resource (not namespaced). The
+# `tailscale.com/proxy-group: ingress-proxies` annotation on the
+# wolf-streaming Service binds it to this ProxyGroup.
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroup
+metadata:
+  name: ingress-proxies
+spec:
+  type: ingress
+  replicas: 2
+  tags:
+    - tag:k8s-homelab
+    - tag:streaming
+  # Default tags for any child resources.

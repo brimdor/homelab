@@ -179,4 +179,41 @@
         dest: "/sbin/ldconfig.real"
         state: link
 
+    # ── nvidia-drm MODESET (required for Wolf games-on-whales GStreamer) ─────────
+    # Wolf's GStreamer pipeline needs the nvidia-drm kernel module loaded with
+    # modeset=1 so a usable render node is exposed. Without this, Wolf cannot
+    # enumerate the GPU and the pod will fail to start. Idempotent: skips if
+    # the parameter is already present in the grub line.
+
+    - name: Check whether nvidia-drm.modeset=1 is already in the grub line
+      shell: grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | grep -q 'nvidia-drm\.modeset=1'
+      register: grub_modeset_check
+      changed_when: false
+      failed_when: false
+
+    - name: Append nvidia-drm.modeset=1 to GRUB_CMDLINE_LINUX_DEFAULT
+      ansible.builtin.replace:
+        path: /etc/default/grub
+        regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT="(?:(?!nvidia-drm\.modeset=1).)*)"'
+        replace: '\1 nvidia-drm.modeset=1"'
+      when: grub_modeset_check.rc != 0
+      register: grub_modeset_line
+
+    - name: Regenerate grub2 config
+      command: grub2-mkconfig -o /boot/grub2/grub.cfg
+      when: grub_modeset_line.changed
+      register: grub_mkconfig
+
+    - name: Reboot to apply nvidia-drm.modeset=1
+      reboot:
+        reboot_timeout: 600
+        test_command: 'cat /sys/module/nvidia_drm/parameters/modeset'
+      when: grub_modeset_line.changed
+
+    - name: Verify nvidia-drm modeset is enabled after reboot
+      command: cat /sys/module/nvidia_drm/parameters/modeset
+      register: nvidia_drm_modeset
+      changed_when: false
+      failed_when: nvidia_drm_modeset.stdout.strip() != 'Y'
+
   when: gpu_type is defined

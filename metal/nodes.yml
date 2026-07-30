@@ -8,8 +8,8 @@
     - docker
     - cronjobs
     - role: virtualization
-      when: "{{ hostvars[inventory_hostname].has_virtualization | default(false) }}"
+      when: hostvars[inventory_hostname].has_virtualization | default(false)
       tags: virtualization
     - role: display_config
-      when: "{{ hostvars[inventory_hostname].has_display | default(false) }}"
+      when: hostvars[inventory_hostname].has_display | default(false)
       tags: display_config

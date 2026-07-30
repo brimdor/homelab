@@ -2,7 +2,8 @@
 book/
 .github/instructions
 .github/prompts
-
+.opencode
+.hermes
 *.iso
 *.log
 *.png

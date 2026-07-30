@@ -1,0 +1,9 @@
+apiVersion: v2
+name: omni-tools-canary
+description: Canary deployment for OmniTools (client-side React/Vite toolkit), tracking upstream main
+type: application
+version: 0.1.0
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts

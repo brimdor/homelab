@@ -38,7 +38,7 @@ app-template:
           nameOverride: pages-canary
           image:
             repository: 10.0.20.11:32309/pages
-            tag: "2026-04-28-t3-canary"
+            tag: "2026-07-13-v1-canary"
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
