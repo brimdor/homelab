@@ -164,8 +164,15 @@ app-template:
       # (Rook-Ceph RBD is the RWO provisioner, class name 'standard-rwo').
       storageClass: standard-rwo
       accessMode: ReadWriteOnce
-      globalMounts:
-        - path: /data
+      # Mount the RWO data PVC to the backend ONLY. The frontend (nginx)
+      # does not need /data. Mounting it via globalMounts causes RBD
+      # multi-attach errors when the backend schedules to a node different
+      # from the frontend (the frontend still holds the RBD attachment,
+      # which blocks the backend from attaching on another node).
+      advancedMounts:
+        main:
+          backend:
+            - path: /data
     backup:
       type: persistentVolumeClaim
       enabled: true
@@ -174,5 +181,8 @@ app-template:
       # (the real NFS client provisioner class is 'nfs-rwx').
       storageClass: nfs-rwx
       accessMode: ReadWriteMany
-      globalMounts:
-        - path: /backup
+      # Same reasoning as data above — /backup is a backend-only path.
+      advancedMounts:
+        main:
+          backend:
+            - path: /backup
