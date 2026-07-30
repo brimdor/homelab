@@ -20,7 +20,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/sporecast-backend
             tag: 09ab763
-            pullPolicy: IfNotPresent
+            pullPolicy: Always
           ports:
             - containerPort: 8080
               name: http
