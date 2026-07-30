@@ -1,0 +1,277 @@
+app-template:
+  global:
+    alwaysAppendIdentifierToResourceName: false
+  controllers:
+    main:
+      forceRename: threads-canary
+      type: deployment
+      strategy: RollingUpdate
+      replicas: 1
+      pod:
+        terminationGracePeriodSeconds: 30
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          fsGroup: 65532
+          fsGroupChangePolicy: OnRootMismatch
+      containers:
+        main:
+          image:
+            repository: 10.0.20.11:32309/threads
+            tag: "22547a6"
+            pullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            TZ: America/Chicago
+            ENVIRONMENT: staging
+            LOG_LEVEL: info
+            DATABASE_URL: "postgres://threads@postgres.postgres.svc.cluster.local:5432/threads?sslmode=require"
+            S3_ENDPOINT: "http://threads-canary-minio:9000"
+            S3_BUCKET: "threads-packs"
+            S3_ACCESS_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: s3-access-key
+            S3_SECRET_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: s3-secret-key
+            BYOM_ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: byom-encryption-key
+            GOOGLE_CLIENT_ID:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: google-client-id
+            GOOGLE_CLIENT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: google-client-secret
+            SESSION_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: session-secret
+            GOOGLE_REDIRECT_URL: "https://threads-canary.eaglepass.io/api/v1/auth/google/callback"
+          probes:
+            liveness:
+              enabled: true
+              type: HTTP
+              path: /api/v1/health/live
+              port: http
+              spec:
+                initialDelaySeconds: 15
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: HTTP
+              path: /api/v1/health/ready
+              port: http
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: HTTP
+              path: /api/v1/health/live
+              port: http
+              spec:
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                failureThreshold: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: [ALL]
+
+    minio:
+      type: statefulset
+      enabled: true
+      replicas: 1
+      containers:
+        minio:
+          image:
+            repository: docker.io/minio/minio
+            tag: "RELEASE.2024-09-13T20-26-02Z"
+          args:
+            - server
+            - /data
+            - --console-address=:9001
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9001
+              name: console
+          env:
+            MINIO_ROOT_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: s3-access-key
+            MINIO_ROOT_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: threads-canary-secrets
+                  key: s3-secret-key
+          probes:
+            liveness:
+              type: HTTP
+              path: /minio/health/live
+              port: api
+              spec:
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              type: HTTP
+              path: /minio/health/ready
+              port: api
+              spec:
+                initialDelaySeconds: 5
+                periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: [ALL]
+
+  service:
+    main:
+      forceRename: threads-canary
+      primary: true
+      controller: main
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+          targetPort: http
+    minio:
+      controller: minio
+      ports:
+        api:
+          port: 9000
+          protocol: HTTP
+          targetPort: api
+        console:
+          port: 9001
+          protocol: HTTP
+          targetPort: console
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        threads.eaglepass.io/track: canary
+        threads.eaglepass.io/owner: vanguard
+      hosts:
+        - host: threads-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - threads-canary.eaglepass.io
+          secretName: threads-canary-tls
+
+  persistence:
+    minio-data:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      storageClass: standard-rwo
+      size: 5Gi
+      advancedMounts:
+        minio:
+          minio:
+            - path: /data
+
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes:
+        - Ingress
+        - Egress
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ingress-nginx
+            ports:
+              - protocol: TCP
+                port: 8080
+        egress:
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - protocol: UDP
+                port: 53
+              - protocol: TCP
+                port: 53
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: postgres
+            ports:
+              - protocol: TCP
+                port: 5432
+          - to:
+              - podSelector: {}
+            ports:
+              - protocol: TCP
+                port: 9000
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except:
+                    - 10.0.0.0/8
+                    - 172.16.0.0/12
+                    - 192.168.0.0/16
+            ports:
+              - protocol: TCP
+                port: 443
+
+  defaultPodOptions:
+    securityContext:
+      fsGroup: 65532
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/klgtclyw2ctf435fa65t4eb5be"
+      operator.1password.io/item-name: "threads-canary-secrets"
+    labels:
+      threads.eaglepass.io/track: canary
+      threads.eaglepass.io/owner: vanguard
