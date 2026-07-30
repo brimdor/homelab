@@ -2,8 +2,8 @@ apiVersion: v2
 name: threads-canary
 description: Canary deployment for PodWave — Bible study app
 type: application
-version: 0.1.0
+version: 0.1.1-rc.1
 dependencies:
   - name: app-template
-    version: 5.0.1
+    version: 0.1.1-rc.1
     repository: https://bjw-s-labs.github.io/helm-charts/
