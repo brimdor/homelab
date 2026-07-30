@@ -169,9 +169,12 @@ app-template:
       # multi-attach errors when the backend schedules to a node different
       # from the frontend (the frontend still holds the RBD attachment,
       # which blocks the backend from attaching on another node).
+      # bjw-s advancedMounts schema: advancedMounts.<controller>.<container>
+      # where the container key is the ORIGINAL chart key (containers.main),
+      # NOT the nameOverride value (backend).
       advancedMounts:
         main:
-          backend:
+          main:
             - path: /data
     backup:
       type: persistentVolumeClaim
@@ -184,5 +187,5 @@ app-template:
       # Same reasoning as data above — /backup is a backend-only path.
       advancedMounts:
         main:
-          backend:
+          main:
             - path: /backup
