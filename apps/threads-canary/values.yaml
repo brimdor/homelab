@@ -214,8 +214,10 @@ app-template:
       accessMode: ReadWriteOnce
       storageClass: standard-rwo
       size: 5Gi
-      globalMounts:
-        - path: /data
+      advancedMounts:
+        minio:
+          minio:
+            - path: /data
 
   networkpolicies:
     main:
