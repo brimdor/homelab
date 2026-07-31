@@ -311,3 +311,22 @@ app-template:
         operator: Equal
         value: sprigatito
         effect: NoSchedule
+
+# -----------------------------------------------------------------------------
+# Stale ffmpeg watchdog (CronJob, see templates/cronjob-stale-ffmpeg.yaml)
+# -----------------------------------------------------------------------------
+# Kills Emby-spawned ffmpeg processes that have been orphaned (Emby gave up
+# on them but the OS process kept running). Observed on 2026-07-31: a libx264
+# fallback transcode ran for >6 hours after Emby's watchdog abandoned it,
+# blocking subsequent HTTP 500 responses to new transcode requests.
+#
+# Defaults below are deliberately conservative: 2 hours of process age AND
+# 5 minutes of m3u8 staleness. Both gates must be true before a process is
+# killed. A 3-hour 4K HDR transcode takes ~16 minutes on NVENC, so 2 hours
+# of age never matches a legitimate encode in practice.
+staleFfmpegWatchdog:
+  schedule: "*/15 * * * *"          # every 15 minutes
+  maxAgeSeconds: 7200                # 2 hours
+  m3u8StaleSeconds: 300              # 5 minutes
+  graceSeconds: 30                   # SIGTERM -> SIGKILL grace period
+  enabled: true

@@ -180,6 +180,74 @@ Inspection of the running pod showed:
 This chart removes the volume. The cleanup CronJob (3) is the
 real solution to "transcode temp filling up".
 
+### 4a. Stale-ffmpeg watchdog (added 2026-07-31)
+
+Observed on 2026-07-31: a libx264 fallback transcode (PID 4698
+at etime 06:14:23) had been running for 6+ hours after Emby's
+own internal watchdog gave up on it. Emby's logs showed
+`Previous transcoding attempt failed. Falling back to software
+transcoding.` and then abandoned the orphaned process. New
+transcode requests subsequently collided with the orphan and
+returned HTTP 500 (`FfRunException: Error starting ffmpeg`).
+The orphan had to be killed manually before HTTP 200 returned.
+
+`templates/cronjob-stale-ffmpeg.yaml` adds a sibling CronJob
+that runs every 15 minutes on `sprigatito` with `hostPID: true`
+and:
+
+1. Snapshots Emby-spawned ffmpeg processes (cmdline must
+   contain `/app/emby/bin/ffmpeg` so test scripts and unrelated
+   ffmpegs are never matched).
+2. For each, parses the output session dir from the trailing
+   `.ts` argument (supports both the legacy `/config/...` PVC
+   path and the local-SSD `/emby/transcode/...` path).
+3. Skips processes below the age threshold
+   (`EMBY_STALE_FFMPEG_MAX_AGE_SECONDS`, default 2 hours) or
+   whose output dir's newest `.m3u8` was written within
+   `EMBY_STALE_FFMPEG_M3U8_STALE_SECONDS` (default 5 minutes).
+4. Sends SIGTERM to the rest, waits
+   `EMBY_STALE_FFMPEG_GRACE_SECONDS` (default 30s), then SIGKILL.
+
+The two-gate design means legitimate long-running transcodes
+are never touched: a 3-hour 4K HDR movie finishes in ~16
+minutes on NVENC, well below the 2-hour ceiling; and even if
+something did cross 2 hours, an actively-progressing transcode
+keeps rewriting its m3u8 every few seconds so the staleness
+gate catches it.
+
+**RBAC:** none. `hostPID: true` lets the CronJob see and signal
+the Emby pod's ffmpeg PIDs directly without `kubectl exec`.
+The pod is locked to `sprigatito` via `nodeSelector` +
+`toleration`, so blast radius is one node.
+
+**History cleanup is the existing CronJob's job**
+(`templates/cronjob.yaml`, runs every 30 min). The two
+CronJobs are intentionally separate: process kill is a safety
+mechanism that should fire often and aggressively; dir cleanup
+is maintenance that should fire often and conservatively.
+Bundling them would require either weakening one or weakening
+the other.
+
+**Tuning knobs** (set in `values.yaml` under
+`staleFfmpegWatchdog.*`):
+
+- `schedule`: cron expression, default `*/15 * * * *`.
+- `maxAgeSeconds`: default 7200 (2h). Don't lower below ~30m
+  or a long 4K HDR encode could be killed mid-stream.
+- `m3u8StaleSeconds`: default 300 (5m). Lower to ~60 if you
+  want faster reaction to truly stuck encodes; raise if you
+  see false positives during buffer-fill pauses.
+- `graceSeconds`: default 30. SIGTERM gives ffmpeg time to
+  flush the current segment and close the .ts file cleanly.
+
+To run the watchdog on demand without waiting for the cron
+schedule:
+
+```bash
+kubectl -n emby create job --from cronjob/emby-stale-ffmpeg-watchdog manual-$RANDOM
+kubectl -n emby logs -l job-name=manual-$RANDOM --tail=20
+```
+
 ### 5. Health probes use `pgrep`, not TCP
 
 The Emby server listens on 8096 (HTTP) and 8920 (HTTPS), and
@@ -253,6 +321,11 @@ kubectl -n emby exec deploy/emby -c main -- du -sh /config/transcoding-temp
 
 # 4. CronJob ran recently
 kubectl get jobs -n emby -l app.kubernetes.io/component=transcode-temp-cleanup
+
+# 5. Stale-ffmpeg watchdog ran recently (no orphans)
+kubectl get jobs -n emby -l app.kubernetes.io/component=stale-ffmpeg-watchdog
+# Expected log line: [watchdog] emby_ffmpeg_processes=N killed=K kept=K no_match=0
+# (K should always be 0 in steady state; if K > 0 an orphan was cleaned up)
 ```
 
 If (2) still fires, capture the failing `ffmpeg-transcode-*.txt`
