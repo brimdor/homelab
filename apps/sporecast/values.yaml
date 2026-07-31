@@ -25,7 +25,7 @@ app-template:
           nameOverride: backend
           image:
             repository: 10.0.20.11:32309/sporecast-backend
-            tag: 3abb851
+            tag: a3fe7c8
             pullPolicy: Always
           ports:
             - containerPort: 8080
@@ -93,7 +93,7 @@ app-template:
           nameOverride: frontend
           image:
             repository: 10.0.20.11:32309/sporecast-frontend
-            tag: 3abb851
+            tag: a3fe7c8
             pullPolicy: Always
           ports:
             - containerPort: 80
