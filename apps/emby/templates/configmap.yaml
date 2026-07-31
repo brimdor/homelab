@@ -240,3 +240,136 @@ data:
     done
     END=$(date +%s)
     echo "[cache-warm] done in $((END-START))s"
+
+  # Stale ffmpeg watchdog: kills orphaned ffmpeg processes that Emby spawned
+  # but no longer owns. On 2026-07-31 we observed libx264 fallback transcodes
+  # running for >6 hours after Emby's own watchdog abandoned them, blocking
+  # subsequent transcode requests with HTTP 500.
+  #
+  # Detection: snapshot ffmpeg processes whose cmdline contains
+  # `/app/emby/bin/ffmpeg` (the LSIO-shipped binary; never matches unrelated
+  # ffmpegs). For each, parse the trailing `.ts` arg as the output session dir.
+  # Kill the process if (1) it has been alive longer than MAX_AGE_SECONDS
+  # (default 2h) AND (2) the newest .m3u8 in its output dir is older than
+  # M3U8_STALE_SECONDS (default 5min). The m3u8 check usually doesn't fire from
+  # the watchdog pod's filesystem view (the Emby pod's /emby/transcode is a
+  # hostPath/subpath invisible to sibling containers), so the age threshold is
+  # the primary gate.
+  #
+  # Kill sequence: SIGTERM -> wait GRACE_SECONDS (default 30) -> SIGKILL.
+  #
+  # Why these defaults are safe: NVENC on the GTX 1650 encodes 1080p H.264 at
+  # ~8x real-time, so a 3-hour 4K HDR transcode finishes in ~16 minutes.
+  # MAX_AGE_SECONDS=7200 (2h) never matches a legitimate encode. The m3u8
+  # staleness check is a second safety layer in case MAX_AGE_SECONDS is
+  # lowered.
+  #
+  # POSIX-only: the script runs on Alpine's busybox ash via `sh`.
+  stale-ffmpeg-watchdog.sh: |
+    #!/bin/sh
+    set -eu
+    MAX_AGE_SECONDS="${EMBY_STALE_FFMPEG_MAX_AGE_SECONDS:-7200}"
+    M3U8_STALE_SECONDS="${EMBY_STALE_FFMPEG_M3U8_STALE_SECONDS:-300}"
+    GRACE_SECONDS="${EMBY_STALE_FFMPEG_GRACE_SECONDS:-30}"
+    NOW=$(date +%s)
+    echo "[watchdog] max_age=${MAX_AGE_SECONDS}s m3u8_stale=${M3U8_STALE_SECONDS}s grace=${GRACE_SECONDS}s now=${NOW}"
+
+    # Locate the Emby server process. If Emby isn't running on this host,
+    # bail out (we don't want to kill test ffmpegs from a different workload).
+    EMBY_PID=$(ps -eo pid,cmd 2>/dev/null | awk '$2 ~ /EmbyServer$/ { print $1; exit }')
+    if [ -z "$EMBY_PID" ]; then
+      echo "[watchdog] no EmbyServer process on this host, nothing to do"
+      exit 0
+    fi
+    echo "[watchdog] emby_server_pid=$EMBY_PID"
+
+    # Snapshot Emby-spawned ffmpeg processes. The cmdline must contain
+    # /app/emby/bin/ffmpeg (the LSIO-shipped binary) so we never match
+    # test scripts or unrelated ffmpegs.
+    SNAP=$(mktemp)
+    trap 'rm -f "$SNAP"' EXIT
+    ps -eo pid,etimes,ppid,cmd 2>/dev/null | awk '$4 ~ /\/app\/emby\/bin\/ffmpeg/' > "$SNAP"
+    FFMPEG_COUNT=$(wc -l < "$SNAP")
+    echo "[watchdog] emby_ffmpeg_processes=$FFMPEG_COUNT"
+
+    KILLED=0
+    KEPT=0
+    NO_MATCH=0
+    # Note: 'PPID' is a bash reserved variable (parent PID of the shell); the
+    # hostPID pod runs /bin/sh but we keep the rename for safety in case the
+    # script is ever moved to bash.
+    PARENT_PID=""
+    while IFS= read -r LINE; do
+      [ -z "$LINE" ] && continue
+      PID=$(echo "$LINE" | awk '{print $1}')
+      ELAPSED=$(echo "$LINE" | awk '{print $2}')
+      PARENT_PID=$(echo "$LINE" | awk '{print $3}')
+      CMD=$(echo "$LINE" | cut -d' ' -f4-)
+      case "$CMD" in
+        *"/app/emby/bin/ffmpeg"*) ;;
+        *) continue ;;
+      esac
+
+      # Extract the output session dir from the trailing `.ts` arg.
+      # Two paths are supported: the legacy /config PVC path and the current
+      # local-SSD path on sprigatito.
+      OUTDIR=$(echo "$CMD" | sed -n 's|.*\(/config/transcoding-temp/[^/]*\)/[^/]*\.ts.*|\1|p')
+      if [ -z "$OUTDIR" ]; then
+        OUTDIR=$(echo "$CMD" | sed -n 's|.*\(/emby/transcode/transcoding-temp/[^/]*\)/[^/]*\.ts.*|\1|p')
+      fi
+      if [ -z "$OUTDIR" ]; then
+        NO_MATCH=$((NO_MATCH + 1))
+        continue
+      fi
+
+      # Below the age threshold: leave it alone.
+      if [ "$ELAPSED" -lt "$MAX_AGE_SECONDS" ]; then
+        KEPT=$((KEPT + 1))
+        continue
+      fi
+
+      # Past the age threshold: check if m3u8 is being actively written
+      # (i.e. playback is progressing).
+      M3U8_STALE_REASON=""
+      if [ ! -d "$OUTDIR" ]; then
+        M3U8_STALE_REASON="no_outdir"
+      else
+        LATEST_M3U8_TS=$(find "$OUTDIR" -maxdepth 2 -name '*.m3u8' -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+        if [ -z "$LATEST_M3U8_TS" ]; then
+          M3U8_STALE_REASON="no_m3u8"
+        else
+          M3U8_AGE=$(awk -v now="$NOW" -v m="$LATEST_M3U8_TS" 'BEGIN { printf "%d", now - m }')
+          if [ "$M3U8_AGE" -gt "$M3U8_STALE_SECONDS" ]; then
+            M3U8_STALE_REASON="m3u8_age=${M3U8_AGE}s"
+          fi
+        fi
+      fi
+
+      if [ -z "$M3U8_STALE_REASON" ]; then
+        KEPT=$((KEPT + 1))
+        continue
+      fi
+
+      echo "[watchdog] pid=$PID elapsed=${ELAPSED}s outdir=$OUTDIR stale($M3U8_STALE_REASON) -> SIGTERM"
+      if kill -TERM "$PID" 2>/dev/null; then
+        WAITED=0
+        while [ "$WAITED" -lt "$GRACE_SECONDS" ]; do
+          if ! kill -0 "$PID" 2>/dev/null; then
+            echo "[watchdog] pid=$PID exited after ${WAITED}s"
+            break
+          fi
+          sleep 1
+          WAITED=$((WAITED + 1))
+        done
+        if kill -0 "$PID" 2>/dev/null; then
+          echo "[watchdog] pid=$PID still alive after ${GRACE_SECONDS}s, sending SIGKILL"
+          kill -KILL "$PID" 2>/dev/null || true
+          sleep 2
+        fi
+        KILLED=$((KILLED + 1))
+      else
+        echo "[watchdog] pid=$PID kill failed (already gone)"
+      fi
+    done < "$SNAP"
+
+    echo "[watchdog] killed=$KILLED kept=$KEPT no_match=$NO_MATCH"

@@ -154,8 +154,110 @@ app-template:
                 periodSeconds: 60
                 timeoutSeconds: 10
                 failureThreshold: 6
+    # ---------------------------------------------------------------------------
+    # CronJob controllers (bjw-s app-template).
+    #
+    # Both schedules, gates, and script bodies are pure-bjw-s — no hand-written
+    # templates in the chart. Scripts live in the emby-config-patch ConfigMap
+    # (templates/configmap.yaml) and are mounted via persistence items below.
+    # ---------------------------------------------------------------------------
+
+    # Recurring cleanup of /emby/transcode/transcoding-temp/ (and any
+    # legacy /config/transcoding-temp/ dirs). Runs every 30 minutes.
+    # The cleanup script is sourced from the emby-config-patch ConfigMap
+    # (cleanup-transcode-temp.sh) so the chart is the single source of
+    # truth — see templates/configmap.yaml.
+    transcode-temp-cleanup:
+      type: cronjob
+      enabled: true
+      cronjob:
+        schedule: "*/30 * * * *"
+        concurrencyPolicy: Forbid
+        successfulJobsHistory: 1
+        failedJobsHistory: 1
+        backoffLimit: 1
+        activeDeadlineSeconds: 600
+      # Default restartPolicy for CronJobs is "Never". We use "OnFailure"
+      # so a transient mount issue (NFS hiccup) gets retried before
+      # the next 30-min cycle.
+      pod:
+        restartPolicy: OnFailure
+      containers:
+        cleanup:
+          image:
+            repository: alpine
+            tag: "3.20"
+            pullPolicy: IfNotPresent
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - sh /config-patch/cleanup-transcode-temp.sh
+          env:
+            - name: EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS
+              value: "2"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+    # Kills orphaned ffmpeg processes that Emby gave up on but didn't kill.
+    # Observed on 2026-07-31: libx264 fallback transcodes ran for >6 hours
+    # and blocked new transcode requests with HTTP 500. See
+    # templates/configmap.yaml -> stale-ffmpeg-watchdog.sh for the script.
+    # hostPID: true lets the CronJob see and signal Emby's ffmpeg PIDs
+    # without kubectl exec. Pod is locked to sprigatito via defaultPodOptions.
+    stale-ffmpeg-watchdog:
+      type: cronjob
+      enabled: true
+      cronjob:
+        schedule: "*/15 * * * *"
+        concurrencyPolicy: Forbid
+        successfulJobsHistory: 1
+        failedJobsHistory: 1
+        backoffLimit: 0
+        activeDeadlineSeconds: 300
+      pod:
+        # Default restartPolicy for CronJobs is Never. Keep it.
+        restartPolicy: Never
+        # hostPID gives us access to Emby's ffmpeg PIDs across the
+        # pod boundary without needing kubectl exec or RBAC.
+        hostPID: true
+      containers:
+        watchdog:
+          image:
+            repository: alpine
+            tag: "3.20"
+            pullPolicy: IfNotPresent
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - sh /config-patch/stale-ffmpeg-watchdog.sh
+          env:
+            # Defaults are documented in the script source
+            # (templates/configmap.yaml -> stale-ffmpeg-watchdog.sh).
+            # Tune here if 2h / 5min / 30s are wrong for your environment.
+            - name: EMBY_STALE_FFMPEG_MAX_AGE_SECONDS
+              value: "7200"
+            - name: EMBY_STALE_FFMPEG_M3U8_STALE_SECONDS
+              value: "300"
+            - name: EMBY_STALE_FFMPEG_GRACE_SECONDS
+              value: "30"
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+
   service:
     main:
+      # After adding the two CronJob controllers, bjw-s can no longer
+      # auto-detect which controller this service targets. Pin to `main`.
+      controller: main
       primary: true
       ports:
         http:
@@ -207,6 +309,8 @@ app-template:
     # The /config PVC. Holds Emby's metadata, library DB, and
     # (legacy) /config/transcoding-temp/ until the pod restarts
     # and the patched encoding.xml redirects temp to local SSD.
+    # Also mounted by the transcode-temp-cleanup CronJob so it can
+    # see and remove legacy session dirs.
     data:
       type: persistentVolumeClaim
       existingClaim: emby-original-data
@@ -214,16 +318,23 @@ app-template:
         main:
           main:
             - path: /config
+        transcode-temp-cleanup:
+          cleanup:
+            - path: /config
     # Local SSD transcode temp. Mounted from a dedicated directory
     # on sprigatito's root SSD (/var/lib/emby-transcode) to keep
     # high-churn HLS segment writes off the 40 GiB Ceph-backed
     # /config PVC. See README §4 for provisioning details.
+    # Also mounted by the transcode-temp-cleanup CronJob.
     emby-transcode-temp:
       type: hostPath
       hostPath: /var/lib/emby-transcode
       advancedMounts:
         main:
           main:
+            - path: /emby/transcode
+        transcode-temp-cleanup:
+          cleanup:
             - path: /emby/transcode
     # The patch ConfigMap. We mount the entire map at
     # /config-patch and let the postStart hook pick out the
@@ -233,6 +344,11 @@ app-template:
     # because bjw-s `configMaps:` doesn't auto-mount; `type: configMap`
     # on a persistence item is the supported way to reference
     # an existing ConfigMap as a volume.
+    #
+    # Mounted on:
+    #   - main: postStart hook invokes sh /config-patch/<script>
+    #   - transcode-temp-cleanup: runs cleanup-transcode-temp.sh
+    #   - stale-ffmpeg-watchdog: runs stale-ffmpeg-watchdog.sh
     #
     # The cache-warm.sh and cleanup-transcode-temp.sh scripts
     # are invoked via `sh /config-patch/<name>` from the
@@ -245,6 +361,14 @@ app-template:
       advancedMounts:
         main:
           main:
+            - path: /config-patch
+              readOnly: true
+        transcode-temp-cleanup:
+          cleanup:
+            - path: /config-patch
+              readOnly: true
+        stale-ffmpeg-watchdog:
+          watchdog:
             - path: /config-patch
               readOnly: true
     nfs-restore:
@@ -312,21 +436,7 @@ app-template:
         value: sprigatito
         effect: NoSchedule
 
-# -----------------------------------------------------------------------------
-# Stale ffmpeg watchdog (CronJob, see templates/cronjob-stale-ffmpeg.yaml)
-# -----------------------------------------------------------------------------
-# Kills Emby-spawned ffmpeg processes that have been orphaned (Emby gave up
-# on them but the OS process kept running). Observed on 2026-07-31: a libx264
-# fallback transcode ran for >6 hours after Emby's watchdog abandoned it,
-# blocking subsequent HTTP 500 responses to new transcode requests.
-#
-# Defaults below are deliberately conservative: 2 hours of process age AND
-# 5 minutes of m3u8 staleness. Both gates must be true before a process is
-# killed. A 3-hour 4K HDR transcode takes ~16 minutes on NVENC, so 2 hours
-# of age never matches a legitimate encode in practice.
-staleFfmpegWatchdog:
-  schedule: "*/15 * * * *"          # every 15 minutes
-  maxAgeSeconds: 7200                # 2 hours
-  m3u8StaleSeconds: 300              # 5 minutes
-  graceSeconds: 30                   # SIGTERM -> SIGKILL grace period
-  enabled: true
+# (stale-ffmpeg-watchdog tuning knobs are now inline in the bjw-s controller
+# under app-template.controllers.stale-ffmpeg-watchdog.containers.watchdog.env
+# above. See templates/configmap.yaml -> stale-ffmpeg-watchdog.sh for defaults
+# and the rationale for 2h / 5min / 30s.)

@@ -149,10 +149,12 @@ frequently misses.
 
 **Fix:**
 
-- `templates/cronjob.yaml` — a `CronJob` that runs every 30 minutes
-  on `sprigatito`, mounting the `emby-original-data` PVC
-  read-write, and removing session directories whose `.m3u8` was
-  last modified more than 30 s ago and whose mtime is older than
+- `app-template.controllers.transcode-temp-cleanup` — a bjw-s `CronJob`
+  controller running every 30 minutes on `sprigatito`. It mounts the
+  `emby-original-data` PVC read-write and runs
+  `cleanup-transcode-temp.sh` (from the `emby-config-patch` ConfigMap)
+  to remove session directories whose `.m3u8` was last modified
+  more than 30 s ago and whose mtime is older than
   `EMBY_TRANSCODE_TEMP_MAX_AGE_HOURS` (default 2).
 - The same cleanup script is also run as a one-shot in the
   pod's `postStart` hook so the first 17 GiB is purged on the
@@ -191,9 +193,9 @@ transcode requests subsequently collided with the orphan and
 returned HTTP 500 (`FfRunException: Error starting ffmpeg`).
 The orphan had to be killed manually before HTTP 200 returned.
 
-`templates/cronjob-stale-ffmpeg.yaml` adds a sibling CronJob
-that runs every 15 minutes on `sprigatito` with `hostPID: true`
-and:
+`app-template.controllers.stale-ffmpeg-watchdog` adds a sibling
+bjw-s `CronJob` controller that runs every 15 minutes on `sprigatito`
+with `hostPID: true` and:
 
 1. Snapshots Emby-spawned ffmpeg processes (cmdline must
    contain `/app/emby/bin/ffmpeg` so test scripts and unrelated
@@ -208,6 +210,11 @@ and:
 4. Sends SIGTERM to the rest, waits
    `EMBY_STALE_FFMPEG_GRACE_SECONDS` (default 30s), then SIGKILL.
 
+The script itself lives in the `emby-config-patch` ConfigMap
+(`templates/configmap.yaml` → `stale-ffmpeg-watchdog.sh`) and is
+POSIX `/bin/sh` so it runs on Alpine's busybox ash with no extra
+packages.
+
 The two-gate design means legitimate long-running transcodes
 are never touched: a 3-hour 4K HDR movie finishes in ~16
 minutes on NVENC, well below the 2-hour ceiling; and even if
@@ -218,27 +225,30 @@ gate catches it.
 **RBAC:** none. `hostPID: true` lets the CronJob see and signal
 the Emby pod's ffmpeg PIDs directly without `kubectl exec`.
 The pod is locked to `sprigatito` via `nodeSelector` +
-`toleration`, so blast radius is one node.
+`toleration` inherited from `defaultPodOptions`, so blast
+radius is one node.
 
 **History cleanup is the existing CronJob's job**
-(`templates/cronjob.yaml`, runs every 30 min). The two
-CronJobs are intentionally separate: process kill is a safety
-mechanism that should fire often and aggressively; dir cleanup
-is maintenance that should fire often and conservatively.
-Bundling them would require either weakening one or weakening
-the other.
+(`app-template.controllers.transcode-temp-cleanup`, runs every
+30 min). The two CronJobs are intentionally separate: process
+kill is a safety mechanism that should fire often and
+aggressively; dir cleanup is maintenance that should fire often
+and conservatively. Bundling them would require either
+weakening one or weakening the other.
 
 **Tuning knobs** (set in `values.yaml` under
-`staleFfmpegWatchdog.*`):
+`app-template.controllers.stale-ffmpeg-watchdog.containers.watchdog.env`):
 
-- `schedule`: cron expression, default `*/15 * * * *`.
-- `maxAgeSeconds`: default 7200 (2h). Don't lower below ~30m
-  or a long 4K HDR encode could be killed mid-stream.
-- `m3u8StaleSeconds`: default 300 (5m). Lower to ~60 if you
-  want faster reaction to truly stuck encodes; raise if you
-  see false positives during buffer-fill pauses.
-- `graceSeconds`: default 30. SIGTERM gives ffmpeg time to
-  flush the current segment and close the .ts file cleanly.
+- `EMBY_STALE_FFMPEG_MAX_AGE_SECONDS` (default 7200 = 2h). Don't
+  lower below ~1800 (30m) or a long 4K HDR encode could be
+  killed mid-stream.
+- `EMBY_STALE_FFMPEG_M3U8_STALE_SECONDS` (default 300 = 5m).
+  Lower to ~60 if you want faster reaction to truly stuck
+  encodes; raise if you see false positives during buffer-fill
+  pauses.
+- `EMBY_STALE_FFMPEG_GRACE_SECONDS` (default 30). SIGTERM
+  gives ffmpeg time to flush the current segment and close the
+  .ts file cleanly.
 
 To run the watchdog on demand without waiting for the cron
 schedule:
