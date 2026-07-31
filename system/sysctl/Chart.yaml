@@ -1,0 +1,14 @@
+apiVersion: v2
+name: sysctl
+description: Host kernel sysctl tuning for QUIC/HLS throughput (cloudflared)
+type: application
+version: 0.1.0
+appVersion: "1.0"
+keywords:
+  - sysctl
+  - network
+  - performance
+  - quic
+  - cloudflared
+maintainers:
+  - name: homelab

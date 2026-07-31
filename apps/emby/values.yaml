@@ -172,6 +172,17 @@ app-template:
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         cert-manager.io/cluster-issuer: letsencrypt-prod
+        # Streaming tuning — HLS segments are 2-10 MB. Defaults are 4k/4k buffers
+        # which causes nginx to buffer entire upstream response before relaying.
+        # proxy-buffering: off relays chunks as they arrive (required for
+        # streaming media). proxy-buffer-size bumped for segment payloads.
+        nginx.ingress.kubernetes.io/proxy-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+        nginx.ingress.kubernetes.io/proxy-buffers-number: "8"
+        # Long timeouts so Emby's session/manifest polling and live streams
+        # don't get cut by default 60s nginx timeouts.
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       hosts:
         - host: &embyHost emby.eaglepass.io
           paths:

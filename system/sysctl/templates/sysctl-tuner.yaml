@@ -1,0 +1,116 @@
+{{- /*
+sysctl-tuner DaemonSet.
+
+Runs once per node, applies sysctls from .Values.sysctls at runtime
+(so no reboot required), and persists them to /etc/sysctl.d/ on the
+host so they survive reboots.
+
+Privileged + hostNetwork required to write to /proc/sys and /etc/sysctl.d.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sysctl-tuning
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: sysctl
+    app.kubernetes.io/component: tuner
+data:
+  90-cloudflared-tuning.conf: |
+    # Managed by homelab IaC — DO NOT EDIT
+    # Host kernel tuning for QUIC/HLS throughput (cloudflared).
+    # See system/sysctl/values.yaml for rationale.
+    {{- range $key, $val := .Values.sysctls }}
+    {{ $key }} = {{ $val }}
+    {{- end }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: sysctl-tuner
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: sysctl
+    app.kubernetes.io/component: tuner
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sysctl
+      app.kubernetes.io/component: tuner
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sysctl
+        app.kubernetes.io/component: tuner
+    spec:
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: tuner
+          image: alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              echo "[sysctl-tuner] starting on $(hostname)"
+
+              # Persist to host /etc/sysctl.d/ so values survive reboots
+              mkdir -p /host/etc/sysctl.d
+              cp /etc/sysctl.d-tuning/90-cloudflared-tuning.conf /host/etc/sysctl.d/90-cloudflared-tuning.conf
+              echo "[sysctl-tuner] persisted 90-cloudflared-tuning.conf to /host/etc/sysctl.d/"
+
+              # Apply at runtime so we don't need a reboot.
+              # NOTE: key=value must be ONE quoted shell argument so multi-value
+              # keys like net.ipv4.udp_mem="1024000 8388608 16777216" parse
+              # as a single sysctl argument (sysctl -w takes KEY=VAL pairs;
+              # extra positional args become separate key attempts).
+              {{- range $key, $val := .Values.sysctls }}
+              if sysctl -w "{{ $key }}={{ $val }}" 2>/dev/null; then
+                echo "[sysctl-tuner] applied {{ $key }}={{ $val }}"
+              else
+                echo "[sysctl-tuner] WARN: could not apply {{ $key }}={{ $val }}" >&2
+              fi
+              {{- end }}
+
+              # Sanity-check the QUIC-critical values
+              echo "[sysctl-tuner] effective values:"
+              sysctl net.core.rmem_max net.core.wmem_max net.ipv4.udp_rmem_min net.ipv4.udp_wmem_min net.ipv4.tcp_congestion_control || true
+
+              echo "[sysctl-tuner] done"
+              # Stay alive so kubectl logs works and so we re-apply if the
+              # pod is restarted (e.g. node reboot)
+              exec sleep infinity
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: host-etc-sysctl-d
+              mountPath: /host/etc/sysctl.d
+              readOnly: false
+            - name: tuning-config
+              mountPath: /etc/sysctl.d-tuning
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+      volumes:
+        - name: host-etc-sysctl-d
+          hostPath:
+            path: /etc/sysctl.d
+            type: Directory
+        - name: tuning-config
+          configMap:
+            name: sysctl-tuning

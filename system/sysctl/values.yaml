@@ -1,0 +1,51 @@
+# Host kernel sysctls applied by this DaemonSet.
+#
+# Why these values:
+#
+#   net.core.rmem_max / net.core.wmem_max
+#     Raised from Fedora default of 212992 (208 KB) to 7.5 MB.
+#     Required by QUIC (used by cloudflared): cloudflared wants 7 MB UDP
+#     receive buffers but currently only gets 416 KB, throttling per-flow
+#     throughput. Confirmed via cloudflared log:
+#       failed to sufficiently increase receive buffer size
+#       (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB)
+#     See: https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes
+#          https://github.com/cloudflare/cloudflared/issues/522
+#
+#   net.ipv4.udp_rmem_min / net.ipv4.udp_wmem_min
+#     Per-socket UDP receive/send buffer minimums (autotune range).
+#
+#   net.ipv4.udp_mem
+#     Global UDP memory budget (min/pressure/max in pages).
+#
+#   net.core.default_qdisc: fq
+#     Pairs with BBR for low-latency, fair queueing.
+#
+#   net.ipv4.tcp_congestion_control: bbr
+#     Modern congestion control. Significantly better throughput than
+#     cubic for high-bandwidth, long-RTT paths.
+#
+#   net.ipv4.tcp_rmem / tcp_wmem
+#     TCP autotune ranges. Max bumped to 6 MB so BBR has room.
+sysctls:
+  net.core.rmem_max: "7500000"
+  net.core.wmem_max: "7500000"
+  net.ipv4.udp_rmem_min: "8192"
+  net.ipv4.udp_wmem_min: "8192"
+  # net.ipv4.udp_mem expects 3 space-separated values (pages: min/pressure/max)
+  # 1 page = 4096 bytes. These = 4 GB / 32 GB / 64 GB of UDP memory budget.
+  net.ipv4.udp_mem: "1024000 8388608 16777216"
+  net.core.default_qdisc: "fq"
+  net.ipv4.tcp_congestion_control: "bbr"
+  net.ipv4.tcp_rmem: "4096 87380 6291456"
+  net.ipv4.tcp_wmem: "4096 65536 6291456"
+
+# Match the existing cluster node selector (all linux nodes).
+nodeSelector:
+  kubernetes.io/os: linux
+
+# Tolerations allow this to run on every node including those with taints.
+# Without these, the DaemonSet would skip dedicated/control-plane nodes and
+# the sysctls wouldn't apply there.
+tolerations:
+  - operator: Exists
