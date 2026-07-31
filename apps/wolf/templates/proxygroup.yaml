@@ -8,6 +8,11 @@
 # This is a cluster-scoped resource (not namespaced). The
 # `tailscale.com/proxy-group: ingress-proxies` annotation on the
 # wolf-streaming Service binds it to this ProxyGroup.
+#
+# Disabled when the Tailscale operator is not running (e.g. OAuth
+# credentials not yet provisioned). Set `tailscaleProxyGroup.enabled:
+# true` in values.yaml to re-enable.
+{{- if .Values.tailscaleProxyGroup.enabled | default false }}
 apiVersion: tailscale.com/v1alpha1
 kind: ProxyGroup
 metadata:
@@ -19,3 +24,4 @@ spec:
     - tag:k8s-homelab
     - tag:streaming
   # Default tags for any child resources.
+{{- end }}

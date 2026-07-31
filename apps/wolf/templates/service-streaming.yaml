@@ -24,6 +24,11 @@
 #     → Tailscale ingress proxy pod (tailnet IP)
 #     → DNAT to the Service endpoint
 #     → arcanine:10.0.20.19 (hostNetwork-bound Wolf pod)
+#
+# Disabled when the Tailscale operator is not running (e.g. OAuth
+# credentials not yet provisioned). Set `tailscaleProxyGroup.enabled:
+# true` in values.yaml to re-enable.
+{{- if .Values.tailscaleProxyGroup.enabled | default false }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -64,3 +69,4 @@ spec:
     # point at the node's IP, which is exactly what we want.
     app.kubernetes.io/name: wolf
     app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
