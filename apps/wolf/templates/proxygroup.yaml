@@ -12,7 +12,7 @@
 # Disabled when the Tailscale operator is not running (e.g. OAuth
 # credentials not yet provisioned). Set `tailscaleProxyGroup.enabled:
 # true` in values.yaml to re-enable.
-{{- if .Values.tailscaleProxyGroup.enabled | default false }}
+{{- if (dig "tailscaleProxyGroup" "enabled" false .Values) }}
 apiVersion: tailscale.com/v1alpha1
 kind: ProxyGroup
 metadata:
