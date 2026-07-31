@@ -117,11 +117,14 @@ spec:
                   KILLED=0
                   KEPT=0
                   NO_MATCH=0
+                  # Note: avoid 'PPID' as a local var name; it's a bash reserved
+                  # variable holding the parent PID of the current shell.
+                  PARENT_PID=""
                   while IFS= read -r LINE; do
                     [ -z "$LINE" ] && continue
                     PID=$(echo "$LINE" | awk '{print $1}')
                     ELAPSED=$(echo "$LINE" | awk '{print $2}')
-                    PPID=$(echo "$LINE" | awk '{print $3}')
+                    PARENT_PID=$(echo "$LINE" | awk '{print $3}')
                     CMD=$(echo "$LINE" | cut -d' ' -f4-)
                     case "$CMD" in
                       *"/app/emby/bin/ffmpeg"*) ;;
