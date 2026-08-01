@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/brimdor/tipsbot
-            tag: v0.2.1-rc.2
+            tag: v0.2.2-rc.1
             pullPolicy: Always
           ports:
             - containerPort: 8080
@@ -41,6 +41,10 @@ app-template:
                   name: secrets
                   key: admin-password
             TIPS_CF_ACCESS: "false"
+            # Canary domain (tipsbot-canary.eaglepass.io) has no real Cloudflare Access at the edge.
+            # Do not trust Cf-Access-User-Email here; rely on X-Admin-Email (from SPA build) instead.
+            # If canary is later moved behind real Cloudflare Access, flip this to "true".
+            TIPS_TRUST_CF_HEADERS: "false"
           probes:
             liveness:
               type: HTTP
