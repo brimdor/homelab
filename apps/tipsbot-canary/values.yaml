@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/brimdor/tipsbot
-            tag: v0.2.2-rc.1
+            tag: v0.2.3-rc.1
             pullPolicy: Always
           ports:
             - containerPort: 8080
