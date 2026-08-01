@@ -40,7 +40,7 @@ app-template:
                 secretKeyRef:
                   name: secrets
                   key: admin-password
-            TIPS_CF_ACCESS: "true"
+            TIPS_CF_ACCESS: "false"
           probes:
             liveness:
               type: HTTP
