@@ -14,8 +14,14 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/brimdor/tipsbot
-            tag: v0.3.0-rc.1
+            tag: v0.3.0-rc.2
             pullPolicy: Always
+            # Canary only — see docs/SPEC-cloudflare-access.md §1. The
+            # canary image at this tag was built with the build arg
+            # `VITE_ADMIN_EMAIL=canary-admin@eaglepass.io`; that is a
+            # Docker build-time concept (not a K8s Pod field) and is not
+            # propagated by app-template's image schema. Do not copy this
+            # identity into homelab/apps/tipsbot/values.yaml.
           ports:
             - containerPort: 8080
               name: http
