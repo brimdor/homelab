@@ -38,8 +38,8 @@ app-template:
             # not. If you need 4.10 features, update deliberately.
             # 4.9.5.0 is the latest Emby 4.9.x server; ls282 is the
             # corresponding LinuxServer.io image build number.
-            tag: 4.9.5.0-ls282
-            pullPolicy: IfNotPresent
+            tag: latest
+            pullPolicy: Always
           env:
             PUID: "99"
             PGID: "100"
