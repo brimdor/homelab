@@ -38,14 +38,7 @@ tailscale-operator:
 
   installCRDs: true
 
-  # Operator is disabled until valid Tailscale OAuth credentials are provided.
-  # The operator-oauth secret currently contains placeholder values.
-  # To re-enable:
-  #   1. Generate OAuth client at https://login.tailscale.com/admin/settings/trust-credentials
-  #   2. Create secrets ts-oauth-client-id and ts-oauth-client-secret in global-secrets namespace
-  #   3. Remove this replicaCount override
   operatorConfig:
-    replicas: 0
     # Tags applied to the operator's own device in the tailnet.
     # `tag:k8s-operator` matches what the Tailscale ACL tagOwners entry
     # above grants ownership to.

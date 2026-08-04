@@ -138,24 +138,34 @@
   delegate_to: localhost
   run_once: true
 
-- name: Check Kubernetes node registration
-  ansible.builtin.command: "kubectl get node {{ inventory_hostname }}"
+- name: Check Kubernetes node readiness
+  ansible.builtin.command:
+    cmd: >-
+      kubectl get node {{ inventory_hostname }}
+      -o jsonpath={.status.conditions[?(@.type=="Ready")].status}
   delegate_to: localhost
-  register: k3s_node_registration
+  register: k3s_node_readiness
   changed_when: false
   failed_when: false
 
-- name: Restart k3s if Kubernetes node registration is missing
+- name: Restart k3s if Kubernetes node is missing or not ready
   ansible.builtin.systemd:
     name: k3s
     state: restarted
-  when: k3s_node_registration.rc != 0
+  when: >-
+    k3s_node_readiness.rc != 0 or
+    k3s_node_readiness.stdout != "True"
 
-- name: Wait for Kubernetes node registration
-  ansible.builtin.command: "kubectl get node {{ inventory_hostname }}"
+- name: Wait for Kubernetes node readiness
+  ansible.builtin.command:
+    cmd: >-
+      kubectl get node {{ inventory_hostname }}
+      -o jsonpath={.status.conditions[?(@.type=="Ready")].status}
   delegate_to: localhost
-  register: k3s_node_registration_wait
+  register: k3s_node_readiness_wait
   changed_when: false
-  until: k3s_node_registration_wait.rc == 0
+  until: >-
+    k3s_node_readiness_wait.rc == 0 and
+    k3s_node_readiness_wait.stdout == "True"
   retries: 18
   delay: 10
