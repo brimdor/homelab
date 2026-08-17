@@ -36,8 +36,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: "{{ .Values.image.policy }}"
           # doplarr_rs is a single static binary. Run it directly so signals
-          # (SIGTERM) hit the Rust process, not a shell wrapper.
-          command: ["/usr/local/bin/doplarr"]
+          # (SIGTERM) hit the Rust process, not a shell wrapper. The Nix-built
+          # image puts the binary at /bin/doplarr (not /usr/local/bin/doplarr).
+          command: ["/bin/doplarr"]
           args: ["/config.toml"]
           env:
             - name: TZ

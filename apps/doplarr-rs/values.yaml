@@ -112,20 +112,26 @@ resources:
     cpu: "500m"
     memory: "256Mi"
 
-# Probes: exec-based pgrep against the doplarr_rs binary. Same rationale
-# as the old chart — doplarr_rs does not bind a public TCP port (it's a
-# Discord bot only; the Discord gateway is a WebSocket outbound), so a
-# TCP-socket probe would always fail and cycle the pod unnecessarily.
+# Probes: exec-based, invoking the binary directly (the doplarr_rs image
+# does NOT ship a shell — `/bin/sh` is absent, so we can't use the shell
+# `pgrep` pattern the old Clojure doplarr chart used). The Rust binary
+# exits 0 on `--help` and on a clean Discord disconnect; a probe that
+# just runs `/bin/doplarr --help` is a cheap sanity check that the
+# binary is present, runnable, and its CLI parser hasn't regressed.
+#
+# As with the old chart, a TCP-socket probe is not viable — doplarr_rs
+# does not bind a TCP port (Discord bot only; gateway is an outbound
+# WebSocket).
 startupProbe:
   enabled: true
   exec:
-    command: ["/bin/sh", "-c", "pgrep -f '^/usr/local/bin/doplarr' >/dev/null"]
+    command: ["/bin/doplarr", "--help"]
   failureThreshold: 30
   periodSeconds: 3
 livenessProbe:
   enabled: true
   exec:
-    command: ["/bin/sh", "-c", "pgrep -f '^/usr/local/bin/doplarr' >/dev/null"]
+    command: ["/bin/doplarr", "--help"]
   initialDelaySeconds: 30
   periodSeconds: 60
   timeoutSeconds: 5

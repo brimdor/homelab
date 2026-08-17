@@ -86,18 +86,23 @@ one bot to register a given slash-command name.** The plan is:
 - **`image.tag` is pinned** to `v4.6.0`. `latest` would roll the pod on
   every upstream image push, which severs the Discord gateway session
   and forces an immediate reconnect.
-- **`command: ["/usr/local/bin/doplarr"]`** runs the Rust binary directly
+- **`command: ["/bin/doplarr"]`** runs the Rust binary directly
   (no shell wrapper), so SIGTERM from Kubernetes hits the process
-  cleanly. The old Clojure doplarr needed a 15s preStop sleep because
-  `discljord` took ~10s to flush its gateway state; doplarr_rs (using
-  `twilight`) doesn't need that — we still set `preStopSleepSeconds: 5`
-  for symmetry.
+  cleanly. The Nix-built image puts the binary at `/bin/doplarr`,
+  *not* `/usr/local/bin/doplarr` (the LSIO convention). The old
+  Clojure doplarr needed a 15s preStop sleep because `discljord`
+  took ~10s to flush its gateway state; doplarr_rs (using `twilight`)
+  doesn't need that — we still set `preStopSleepSeconds: 5` for
+  symmetry.
 - **`terminationGracePeriodSeconds: 30`** (vs. 60 in the old chart) — the
   Rust binary shuts down in <2s under normal conditions.
-- **Probes are exec-based** (`pgrep -f '^/usr/local/bin/doplarr'`). The
-  image doesn't bind a TCP port (Discord bot only; gateway is an
-  outbound WebSocket), so a TCP-socket probe would always fail and
-  cycle the pod, which would sever the Discord session.
+- **Probes are exec-based**, invoking `/bin/doplarr --help` directly.
+  The Nix-built image ships **no shell** (no `/bin/sh`), so the
+  `pgrep` pattern the old chart used would fail. `/bin/doplarr --help`
+  exits 0 cleanly, so it's a cheap sanity check that the binary is
+  present and runnable. As with the old chart, a TCP-socket probe is
+  not viable — doplarr_rs does not bind a TCP port (Discord bot only;
+  gateway is an outbound WebSocket).
 - **No NFS volume.** Doplarr_rs is stateless — the only persistent
   state is in the user's Radarr/Sonarr instances, which it talks to
   over HTTP. The `/config.toml` mount is read-only from a ConfigMap.
