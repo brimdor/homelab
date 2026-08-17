@@ -1,0 +1,6 @@
+apiVersion: v2
+name: doplarr-rs
+description: Discord *arr request bot (Rust rewrite of Doplarr)
+type: application
+version: 0.1.0
+appVersion: "4.6.0"

@@ -1,0 +1,139 @@
+app:
+  name: doplarr-rs
+
+image:
+  repository: ghcr.io/activexray/doplarr_rs
+  # Pinned to v4.6.0 (latest stable as of 2026-08-01). The `latest` tag moves
+  # and would re-roll the pod every upstream release, severing the Discord
+  # gateway session and forcing an immediate reconnect. See README for the
+  # upgrade procedure.
+  tag: v4.6.0
+  policy: IfNotPresent
+
+env:
+  TZ: "America/Chicago"
+
+# Log level for doplarr_rs. The Rust binary takes a plain string (not the
+# `:keyword` form the Clojure version used). Use one of: error, warn, info,
+# debug, trace. Per-backend filter syntax ("doplarr=debug") also works.
+logLevel: "info"
+
+# When true, successful requests are announced in the channel for everyone
+# to see (the old `:embed` style). When false, bot responses are ephemeral
+# (only visible to the requester) — equivalent to the old `:none` style.
+publicFollowup: true
+
+# List of Discord slash-command backends. Each entry creates one
+# `/request <media>` command. Order is preserved in the rendered TOML.
+#
+# Required keys:
+#   media      - slash-command name (must be unique across all backends)
+#   type       - "Radarr" | "Sonarr"
+#   url        - cluster-internal or public URL of the *arr instance
+# Optional keys:
+#   qualityProfile - locks requests to a specific profile (string, must
+#                    match exactly what's in the *arr UI)
+#   rootfolder     - locks requests to a specific root folder (string)
+#   monitorType    - Radarr only: movieOnly | movieAndCollection | none
+#   minimumAvailability - Radarr only: tba | announced | inCinemas | released
+#   seasonFolders  - Sonarr only: bool
+#   allowSpecials  - Sonarr only: bool (offer Season 0)
+#   allowAllSeasons - Sonarr/Radarr: bool (offer "All Seasons" option)
+#   seriesType     - Sonarr only: standard | daily | anime
+#
+# The `apiKeyEnvVar` field is the name of the env var that doplarr_rs will
+# see at runtime; that env var is populated via secretKeyRef from a K8s
+# Secret that the 1Password Operator materializes from a 1Password item
+# (see `opSecret` below).
+backends:
+  - media: movie
+    type: Radarr
+    url: https://radarr.eaglepass.io
+    apiKeyEnvVar: RADARR_API_KEY
+    qualityProfile: Any
+  - media: series
+    type: Sonarr
+    url: https://sonarr.eaglepass.io
+    apiKeyEnvVar: SONARR_API_KEY
+    qualityProfile: Any
+    allowAllSeasons: true
+
+# 1Password → K8s Secret wiring. Each entry below produces:
+#   (a) a OnePasswordItem CR in the release namespace, and
+#   (b) a K8s Secret (auto-created by the 1Password Connect Operator) of
+#       the same name, whose key is referenced by the deployment's env
+#       `secretKeyRef`.
+#
+# The DISCORD__TOKEN secret below is doplarr-rs-specific. The RADARR__API
+# and SONARR__API items are the SAME 1Password vault items the legacy
+# `apps/doplarr` and `apps/jfa-go` deployments use — single source of truth
+# for the keys. Note the K8s Secret *names* are distinct
+# (`discord-token-rs`, `radarr-api-rs`, `sonarr-api-rs`) because they live
+# in a different namespace; OnePasswordItem CRs create a Secret whose name
+# matches the CR's metadata.name.
+opSecret:
+  discordToken:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "mcc37qj3yzweznruznh3qwlqta"
+    secretName: "discord-token-rs"
+    envVar: "DISCORD_TOKEN"
+    key: "password"
+  radarrApi:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "rb3gyodqcqxl7votw2tdvwgmeq"
+    secretName: "radarr-api-rs"
+    envVar: "RADARR_API_KEY"
+    key: "api_key"
+  sonarrApi:
+    vault: "4uaua4a45yuhnwhehp5bwylmti"
+    item: "ywvxjd4w3u3nnoedkwfymwaokm"
+    secretName: "sonarr-api-rs"
+    envVar: "SONARR_API_KEY"
+    key: "api_key"
+
+# Mount the rendered TOML ConfigMap as a read-only file at /config.toml
+# (doplarr_rs reads its config from /config.toml by default).
+config:
+  mountPath: /config.toml
+
+# doplarr_rs is stateless; no NFS volume is needed. The Rust binary writes
+# a starter config to /config.toml if one isn't mounted — but we always
+# mount one, so this is a no-op.
+
+tolerations: []
+
+resources:
+  # doplarr_rs is a small Rust binary; these limits match the old Clojure
+  # doplarr chart so behavior on the same workers is consistent.
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+# Probes: exec-based pgrep against the doplarr_rs binary. Same rationale
+# as the old chart — doplarr_rs does not bind a public TCP port (it's a
+# Discord bot only; the Discord gateway is a WebSocket outbound), so a
+# TCP-socket probe would always fail and cycle the pod unnecessarily.
+startupProbe:
+  enabled: true
+  exec:
+    command: ["/bin/sh", "-c", "pgrep -f '^/usr/local/bin/doplarr' >/dev/null"]
+  failureThreshold: 30
+  periodSeconds: 3
+livenessProbe:
+  enabled: true
+  exec:
+    command: ["/bin/sh", "-c", "pgrep -f '^/usr/local/bin/doplarr' >/dev/null"]
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# Rust processes shut down cleanly on SIGTERM without the discljord
+# grace-period dance the old Clojure doplarr needed. A short preStop sleep
+# is still nice for Discord to see a clean disconnect.
+terminationGracePeriodSeconds: 30
+lifecycle:
+  preStopSleepSeconds: 5

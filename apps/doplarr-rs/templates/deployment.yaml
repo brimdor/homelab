@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.app.name }}"
+  labels:
+    app: "{{ .Values.app.name }}"
+spec:
+  replicas: 1
+  # Give ArgoCD a stable field to merge into and avoid mid-startup kills.
+  minReadySeconds: 10
+  # Single replica → rolling update is effectively a recreate. Use the
+  # default strategy explicitly so ArgoCD server-side apply has a stable
+  # field. (The old Clojure doplarr chart pinned strategy.type: Recreate;
+  # doplarr_rs is stateless and the Rust binary shuts down cleanly on
+  # SIGTERM, so RollingUpdate with maxSurge=0,maxUnavailable=1 is fine.)
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: "{{ .Values.app.name }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Values.app.name }}"
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: "{{ .Values.app.name }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.policy }}"
+          # doplarr_rs is a single static binary. Run it directly so signals
+          # (SIGTERM) hit the Rust process, not a shell wrapper.
+          command: ["/usr/local/bin/doplarr"]
+          args: ["/config.toml"]
+          env:
+            - name: TZ
+              value: "{{ .Values.env.TZ }}"
+            # Secrets — resolved from K8s Secrets that the 1Password Connect
+            # Operator materializes from 1Password vault items. The TOML
+            # rendered into the ConfigMap references these via ${VAR}.
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.discordToken.secretName }}"
+                  key: "{{ .Values.opSecret.discordToken.key }}"
+            - name: RADARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.radarrApi.secretName }}"
+                  key: "{{ .Values.opSecret.radarrApi.key }}"
+            - name: SONARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.opSecret.sonarrApi.secretName }}"
+                  key: "{{ .Values.opSecret.sonarrApi.key }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            exec:
+              command: {{ toYaml .Values.startupProbe.exec.command | nindent 16 }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command: {{ toYaml .Values.livenessProbe.exec.command | nindent 16 }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.lifecycle.preStopSleepSeconds }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.lifecycle.preStopSleepSeconds }}"]
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: "{{ .Values.config.mountPath }}"
+              subPath: config.toml
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: "{{ .Values.app.name }}-config"
