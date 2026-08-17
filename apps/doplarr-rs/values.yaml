@@ -66,8 +66,8 @@ backends:
 #
 # The DISCORD__TOKEN secret below is doplarr-rs-specific. The RADARR__API
 # and SONARR__API items are the SAME 1Password vault items the legacy
-# `apps/doplarr` and `apps/jfa-go` deployments use — single source of truth
-# for the keys. Note the K8s Secret *names* are distinct
+# `archived/apps/doplarr` and `apps/jfa-go` deployments use — single
+# source of truth for the keys. Note the K8s Secret *names* are distinct
 # (`discord-token-rs`, `radarr-api-rs`, `sonarr-api-rs`) because they live
 # in a different namespace; OnePasswordItem CRs create a Secret whose name
 # matches the CR's metadata.name.

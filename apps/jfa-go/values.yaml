@@ -25,7 +25,7 @@ env:
   # media straight from the jfa-go web UI. In-cluster service URLs.
   SONARR_URL: "http://sonarr.sonarr.svc.cluster.local:8989"
   RADARR_URL: "http://radarr.radarr.svc.cluster.local:7878"
-  # Quality / language defaults for new requests. Matches Doplarr's settings
+  # Quality / language defaults for new requests. Matches Doplarr_rs's settings
   # so behavior is consistent regardless of which interface a user uses.
   RADARR_QUALITY_PROFILE: "Any"
   RADARR_LANGUAGE_PROFILE: "English"
@@ -34,7 +34,7 @@ env:
   PARTIAL_SEASONS: "true"
 
 # All API keys come from existing 1Password items via the OnePasswordItem CRD.
-# We reuse the same 1P items the doplarr deployment uses — single source of truth.
+# We reuse the same 1P items the doplarr-rs deployment uses — single source of truth.
 opSecret:
   RADARR__API:
     vault: "4uaua4a45yuhnwhehp5bwylmti"
@@ -47,7 +47,7 @@ opSecret:
     secretName: "sonarr-api"
     key: "api_key"
   JELLYFIN__API:
-    # Jellyfin API key is per-user. The doplarr deployment doesn't need one,
+    # Jellyfin API key is per-user. The doplarr-rs deployment doesn't need one,
     # so jfa-go gets its own dedicated 1P item that we will populate after the
     # first run (see README in this directory). For now, a placeholder key is
     # stored in 1P (item id a3yzrul4r46gteyt4gbv3cwm7m); jfa-go will start

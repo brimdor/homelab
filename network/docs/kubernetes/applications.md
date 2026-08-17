@@ -56,7 +56,7 @@ These services have no ingress and are only accessible within the Kubernetes clu
 |-------------|--------------|---------|-------------|
 | Qdrant | `qdrant.qdrant.svc.cluster.local` | 6333, 6334 | Vector database |
 | Ollama | `ollama.ollama.svc.cluster.local` | 11434 | LLM inference server |
-| Doplarr | - | - | Discord bot (no service needed) |
+| Doplarr_rs | - | - | Discord bot (no service needed) |
 | 1Password Connect | NodePort | - | Secrets management |
 
 **To access cluster-only services:**

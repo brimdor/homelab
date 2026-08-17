@@ -53,11 +53,11 @@ creating the first admin account. After that:
    - Create a single-use invite for yourself
    - Click the invite link → sign up → you're in Jellyfin with the right access
 
-## Why a separate from Doplarr
+## Why a separate from Doplarr_rs
 
-Doplarr stays. The two are complementary:
+Doplarr_rs stays. The two are complementary:
 
-- **Doplarr** = Discord bot. You request a movie in your Discord server.
+- **Doplarr_rs** = Discord bot. You request a movie in your Discord server.
 - **jfa-go / JellySeerr** = Web UI. Family members sign in at jfa.eaglepass.io
   and request from any browser. No Discord required.
 

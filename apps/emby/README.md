@@ -265,7 +265,7 @@ internally opens several other ports for the dashboard, plugin
 host, and SSDP. A TCP-socket probe on 8096 flaps when a transcode
 session pins the .NET thread pool, especially under the audio
 crash loop in (2). An `exec` probe matching the running EmbyServer
-binary is reliable and follows the doplarr chart's pattern.
+binary is reliable and follows the doplarr-rs chart's pattern.
 
 Important: the LinuxServer Emby image runs EmbyServer as a
 **native AOT .NET binary** on Linux — the executable is

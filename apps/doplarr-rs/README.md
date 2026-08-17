@@ -3,8 +3,9 @@
 Discord bot that bridges to Radarr/Sonarr for one-click media requests.
 This is the **Rust rewrite** ([activexray/doplarr_rs](https://github.com/activexray/doplarr_rs))
 of the original Clojure [Doplarr](https://github.com/kiranshila/Doplarr) that
-ships from this repo at `apps/doplarr/`. The original project is archived
-upstream and no longer receives updates; this chart replaces it.
+previously shipped from this repo at `apps/doplarr/` (now archived under
+`archived/apps/doplarr/`). The original project is archived upstream and
+no longer receives updates; this chart replaces it.
 
 ## Why this exists
 
@@ -16,17 +17,17 @@ for the legacy `RADARR__URL` / `SONARR__URL` / `DISCORD__TOKEN` env vars
 (`allow_specials`, `series_type`, `monitor_type`, `minimum_availability`)
 the Clojure version never had.
 
-## How it differs from `apps/doplarr`
+## How it differs from `apps/doplarr` (the archived chart)
 
-| Concern | `apps/doplarr` (Clojure, archived) | `apps/doplarr-rs` (this) |
+| Concern | `archived/apps/doplarr` (Clojure, retired) | `apps/doplarr-rs` (this) |
 |---|---|---|
 | Image | `lscr.io/linuxserver/doplarr:v3.8.0-ls140` | `ghcr.io/activexray/doplarr_rs:v4.6.0` |
 | Language | Clojure/JVM | Rust (single static binary) |
-| Namespace | `doplarr` | `doplarr-rs` (side-by-side during migration) |
+| Namespace | `doplarr` (now pruned by ArgoCD) | `doplarr-rs` (active) |
 | Config | Env vars only | `config.toml` mounted from a ConfigMap, with `${VAR}` interpolation for secrets at runtime |
 | Discord library | `discljord` (JVM, needs long shutdown grace) | `twilight` (Rust, clean SIGTERM) |
 | Secrets | Same 1Password items: `discord-token`, `radarr-api`, `sonarr-api` | Same 1Password items, different K8s Secret names (`discord-token-rs`, etc.) because they live in a different namespace |
-| `/request` commands | `/movie`, `/series` | `/movie`, `/series` (same names; old doplarr must be scaled to 0 first or commands collide in Discord) |
+| `/request` commands | `/movie`, `/series` | `/movie`, `/series` (same names; no collision now that the old bot is gone) |
 
 ## Why the TOML config (instead of env-only)
 
@@ -58,27 +59,28 @@ because:
 
 There is no plaintext secret anywhere in this chart.
 
-## Coexistence with `apps/doplarr`
+## Coexistence with `apps/doplarr` (migration history)
 
-During the migration window both bots are deployed. **Discord only allows
-one bot to register a given slash-command name.** The plan is:
+The original Doplarr chart (`apps/doplarr/`) was archived to
+`archived/apps/doplarr/` once doplarr_rs was verified working in
+production. The two coexisted side-by-side during the migration window
+because **Discord only allows one bot to register a given slash-command
+name per guild**. The migration sequence was:
 
 1. Deploy `apps/doplarr-rs/` (this chart). Both bots run; old Clojure bot
-   owns `/movie` and `/series`; new Rust bot tries to register the same
-   names. Discord's behavior in this overlap is "last writer wins" —
-   which is why we keep them on different namespaces but **scale the old
-   one to 0 replicas before testing the new one in Discord**.
-2. Scale the old `apps/doplarr` deployment to 0 replicas:
-   ```bash
-   kubectl scale -n doplarr deploy/doplarr --replicas=0
-   ```
-   Old bot's gateway disconnects; new bot's commands register within
-   ~60s of the old pod going away.
-3. Verify a real `/movie` and `/series` request in Discord. Both succeed.
-4. Move `apps/doplarr/` → `archived/apps/doplarr/`. ArgoCD prunes the old
-   namespace automatically (the `root` ApplicationSet only watches
-   `apps/*`, `platform/*`, `system/*`).
-5. Update cross-references in `apps/jfa-go/README.md`,
+   owns `/movie` and `/series`; new Rust bot registers the same names.
+   Discord's behavior in this overlap is "last writer wins" — which is
+   why we keep them on different namespaces but the **old bot's
+   commands take precedence in Discord until the old pod is gone**.
+2. Verify a real `/movie` and `/series` request in Discord through
+   `kubectl logs -n doplarr-rs -l app=doplarr-rs --tail=20` — the
+   request lands on whichever bot Discord picks for that name.
+3. Move `apps/doplarr/` → `archived/apps/doplarr/`. ArgoCD prunes the
+   old namespace automatically (the `root` ApplicationSet only watches
+   `apps/*`, `platform/*`, `system/*`), so the old pod terminates and
+   the old bot's slash-command registrations disappear from Discord
+   within ~60s.
+4. Update cross-references in `apps/jfa-go/README.md`,
    `apps/emby/README.md`, and `network/docs/kubernetes/applications.md`.
 
 ## Why this chart looks the way it does
