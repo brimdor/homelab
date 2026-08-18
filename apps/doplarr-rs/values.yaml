@@ -52,16 +52,28 @@ publicFollowup: true
 #   allowAllSeasons - Sonarr/Radarr: bool (offer "All Seasons" option)
 #   seriesType     - Sonarr only: standard | daily | anime
 #
+# Any optional key you OMIT stays a user-facing Discord prompt at request
+# time. Pin all four Radarr fields and the user only has to pick the movie.
+#
 # The `apiKeyEnvVar` field is the name of the env var that doplarr_rs will
 # see at runtime; that env var is populated via secretKeyRef from a K8s
 # Secret that the 1Password Operator materializes from a 1Password item
 # (see `opSecret` below).
 backends:
+  # /movie — fully pinned so the user never sees a Radarr prompt. We supply
+  # every Radarr "decision" field up front; the bot submits the request with
+  # these defaults and the user only has to pick the movie itself.
   - media: movie
     type: Radarr
     url: https://radarr.eaglepass.io
     apiKeyEnvVar: RADARR_API_KEY
     qualityProfile: Any
+    monitorType: movieOnly
+    minimumAvailability: released
+  # /series — quality is pinned; the season picker is always shown by design
+  # (Sonarr needs to know per-request which seasons to monitor). allowAllSeasons
+  # = true adds an "All Seasons" option at the top of the picker so users can
+  # request the whole show in one click.
   - media: series
     type: Sonarr
     url: https://sonarr.eaglepass.io
