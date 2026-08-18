@@ -3,11 +3,22 @@ app:
 
 image:
   repository: ghcr.io/activexray/doplarr_rs
-  # Pinned to v4.6.0 (latest stable as of 2026-08-01). The `latest` tag moves
-  # and would re-roll the pod every upstream release, severing the Discord
-  # gateway session and forcing an immediate reconnect. See README for the
-  # upgrade procedure.
-  tag: v4.6.0
+  # Pinned to `main` (git f98f581-d65a31d5, built 2026-08-09). v4.6.0 is the
+  # latest stable release (2026-08-01) but has two regressions observed in
+  # production on 2026-08-17:
+  #   1. interaction responses intermittently fail with HTTP 400
+  #      {"code":"MESSAGE_CANNOT_USE_LEGACY_FIELDS_WITH_COMPONENTS_V2"}
+  #      after a search completes, breaking the /movie and /series flow
+  #   2. "Interaction has already been acknowledged" (code 40060) when the
+  #      user selects an already-requested item
+  # `main` adds `ack_component_interaction` (DeferredUpdateMessage) before
+  # the early_stop `update_string_message` call, which fixes #2 and is
+  # believed to be related to #1. See README for the upgrade back to a
+  # stable release once upstream ships one.
+  #
+  # NOTE: `main` is a single-arch (amd64) image. Do not schedule this
+  # workload onto arm64 nodes until upstream publishes a multi-arch build.
+  tag: main
   policy: IfNotPresent
 
 env:
