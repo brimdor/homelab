@@ -66,7 +66,13 @@ app-template:
             CODEX_MODEL: gpt-5.6-terra
             CODEX_AUTH_TIMEOUT_SECONDS: "60"
             CODEX_ANALYSIS_TIMEOUT_SECONDS: "300"
-            GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/scribe-github-app.pem
+            # NOTE: GITHUB_APP_PRIVATE_KEY_PATH intentionally omitted.
+            # Setting any one of {GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY_PATH,
+            # GITHUB_APP_SLUG} requires all three (config.ts validates the
+            # trio). The 1Password item only ships GITHUB_TOKEN (legacy), so
+            # the GitHub App integration is disabled until Chris provisions
+            # the full trio. The emptyDir /run/secrets mount remains in
+            # place so adding the env + secret later is a one-line change.
             # Operator allowlist for scribe issue-propose slash command.
             # Plain env (not a secret); replace with comma-separated numeric
             # Discord user IDs.
