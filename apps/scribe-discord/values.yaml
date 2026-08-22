@@ -38,12 +38,15 @@ app-template:
             # The bjw-s chart's default pullPolicy (IfNotPresent) is fine
             # because the operator pre-pushes the image before helm upgrade.
             repository: 10.0.20.11:32309/scribe
-            # Immutable short SHA from `git rev-parse --short HEAD` on
+            # Immutable full commit SHA from `git rev-parse HEAD` on
             # the upstream brimdor/scribe repo's main branch at deploy
-            # time. Built locally with podman and pushed to zot.
+            # time. Built locally with podman and pushed to zot at
+            # 10.0.20.11:32309/scribe:<full-sha>. The full-SHA tag is
+            # content-addressable (collisions are infeasible) so ArgoCD
+            # re-syncs only when this string changes.
             # Never "latest" — rolling tags cause Discord session
             # invalidation (see doplarr postmortem).
-            tag: ded126e
+            tag: ded126ea3db5a9d9eb0da0ab8fe8de3b4d52e340
             pullPolicy: IfNotPresent
           # NO ports: block — Scribe binds nothing.
           env:
