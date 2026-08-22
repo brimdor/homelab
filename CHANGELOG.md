@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- apps/scribe-discord: Discord voice transcription bot (bjw-s app-template 5.0.1; outbound-only, no Service, no Ingress)
+
 ## [v0.1.1-rc.1] — 2026-07-29 — Canary release candidate
 
 ### Fixed

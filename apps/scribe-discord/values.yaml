@@ -1,0 +1,237 @@
+# Scribe (Discord bot) chart values.
+#
+# Scribe is an outbound-only worker: it connects to Discord's gateway,
+# optionally Ollama / Codex for analysis, and optionally GitHub for issue
+# publication. It binds no port and serves no HTTP traffic. Therefore:
+#   - NO `service:` block
+#   - NO `ingress:` block
+#   - NO `ports:` block on the container
+#   - NetworkPolicy is Egress-only
+#
+# Secrets are materialized by the 1Password Operator into a Secret named
+# `scribe-secrets`; this chart only references them via `valueFrom.secretKeyRef`.
+# The literal token/key material NEVER appears in this file.
+#
+# Chart-specific notes (override the spec.md skeleton):
+#   - tmp.sizeLimit = 64Mi (plan.md Adjustment #1; spec.md R1 calls out
+#     that the 16Mi compose default is too tight for Codex workspace scratch
+#     under the cluster's emptyDir quota).
+#   - retain: true on /app/data (PVC is irreplaceable: retained FLAC audio
+#     plus Codex OAuth cache; helm uninstall MUST NOT silently destroy it).
+
+app-template:
+  controllers:
+    main:
+      strategy: Recreate
+      replicas: 1
+      pod:
+        terminationGracePeriodSeconds: 60
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+      containers:
+        main:
+          image:
+            repository: ghcr.io/brimdor/scribe
+            # REPLACE at deploy time. Format: <version> or <sha256-abbrev>.
+            # Never "latest" — rolling tags cause Discord session invalidation
+            # (see doplarr postmortem; cite from README).
+            tag: __IMMUTABLE_SHA_OR_VERSION__
+            pullPolicy: IfNotPresent
+          # NO ports: block — Scribe binds nothing.
+          env:
+            # ---- non-secret runtime config ----------------------------------
+            TZ: America/Chicago
+            NODE_ENV: production
+            # Storage / whisper / codex paths are baked into the image; do
+            # not override here. (See scribe/Dockerfile for canonical paths.)
+            TRANSCRIPTION_PROVIDER: whisper
+            WHISPER_THREADS: "4"
+            WHISPER_TIMEOUT_SECONDS: "300"
+            SCRIBE_TRANSCRIPTION_CONCURRENCY: "4"
+            SCRIBE_LOG_LEVEL: info
+            TEXT_PROVIDER: ollama
+            # In-cluster Ollama default; if Chris runs Ollama externally,
+            # override this value (the NetworkPolicy egress rule already
+            # permits 443/80 to the internet).
+            OLLAMA_BASE_URL: http://ollama.ollama.svc.cluster.local:11434
+            OLLAMA_MODEL: gpt-oss:20b
+            CODEX_MODEL: gpt-5.6-terra
+            CODEX_AUTH_TIMEOUT_SECONDS: "60"
+            CODEX_ANALYSIS_TIMEOUT_SECONDS: "300"
+            GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/scribe-github-app.pem
+            # Operator allowlist for scribe issue-propose slash command.
+            # Plain env (not a secret); replace with comma-separated numeric
+            # Discord user IDs.
+            SCRIBE_OPERATOR_USER_IDS: "<operator-id-list>"
+            # ---- secrets via valueFrom.secretKeyRef -------------------------
+            # The Secret `scribe-secrets` is materialized by the 1Password
+            # Operator from the item named "scribe-secrets" (see annotations
+            # under `defaultPodOptions` below).
+            DISCORD_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: discord-token
+            DISCORD_APPLICATION_ID:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: discord-application-id
+            OLLAMA_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: ollama-api-key
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: github-token
+            GITHUB_APP_PRIVATE_KEY_BASE64:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: github-app-private-key
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command: ["node", "dist/scripts/healthcheck.js"]
+                initialDelaySeconds: 90
+                periodSeconds: 60
+                timeoutSeconds: 5
+                failureThreshold: 6
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command: ["node", "dist/scripts/healthcheck.js"]
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 3
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command: ["node", "dist/scripts/healthcheck.js"]
+                periodSeconds: 10
+                failureThreshold: 30
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - >-
+                    set -e;
+                    if [ -n "$GITHUB_APP_PRIVATE_KEY_BASE64" ]; then
+                      echo "$GITHUB_APP_PRIVATE_KEY_BASE64" | base64 -d > /run/secrets/scribe-github-app.pem;
+                      chmod 0600 /run/secrets/scribe-github-app.pem;
+                      chown 1000:1000 /run/secrets/scribe-github-app.pem;
+                    fi
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+
+  # NO service: block — Scribe has no listener.
+  # NO ingress: block — Scribe is outbound-only.
+
+  persistence:
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      # forceRename pins the PVC name to `scribe-discord-data` rather than
+      # the bjw-s default of `<release-name>` (= `scribe-discord`). The spec
+      # and runbook both reference `scribe-discord-data`; the explicit name
+      # is also operationally important because operators delete the PVC
+      # by name on decommission (helm uninstall does NOT remove it).
+      forceRename: scribe-discord-data
+      accessMode: ReadWriteOnce
+      storageClass: standard-rwo
+      size: 10Gi
+      retain: true
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
+    tmp:
+      enabled: true
+      type: emptyDir
+      # Raised from the compose default of 16Mi to 64Mi to leave headroom
+      # for the Codex workspace scratch under emptyDir quota (spec R1).
+      sizeLimit: 64Mi
+      advancedMounts:
+        main:
+          main:
+            - path: /tmp
+    github-app-pem:
+      enabled: true
+      type: emptyDir
+      sizeLimit: 1Mi
+      advancedMounts:
+        main:
+          main:
+            - path: /run/secrets
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-name: "scribe-secrets"
+      # CHRIS: paste the 1Password item-path here (Operator > Items >
+      # scribe-secrets > Copy path). Format: vaults/<vault-id>/items/<item-id>.
+      # Until this is replaced, the pod will sit in CreateContainerConfigError
+      # because the Secret cannot be materialized.
+      operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      # Egress-only by design; no Ingress rule. Scribe is outbound-only.
+      policyTypes: [Egress]
+      rules:
+        egress:
+          # DNS to kube-system (or anywhere in-cluster; broad on purpose).
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - { protocol: UDP, port: 53 }
+              - { protocol: TCP, port: 53 }
+          # Discord gateway + provider APIs (HTTPS) + arbitrary webhooks.
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except:
+                    - 10.0.0.0/8
+                    - 172.16.0.0/12
+                    - 192.168.0.0/16
+            ports:
+              - { protocol: TCP, port: 443 }
+              - { protocol: TCP, port: 80 }
+          # In-cluster Ollama. If Ollama runs outside the cluster, this
+          # rule is harmless (no traffic to match); the HTTPS egress rule
+          # above covers external Ollama Cloud endpoints.
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ollama
+            ports:
+              - { protocol: TCP, port: 11434 }

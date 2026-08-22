@@ -29,3 +29,47 @@
 - Cursor rules: none found (`.cursor/rules/`, `.cursorrules`). Copilot rules: none found (`.github/copilot-instructions.md`).
 - Never alter any code in ~/Documents/Github/paperclip
 - When building a new image for paperclip, always pull from the upstream in ~/Documents/Github/paperclip to make sure we have the latest codebase/features/etc.
+
+## Helm charts (app-template v5.0.1)
+
+New and migrated apps use the bjw-s `app-template` library chart v5.0.1.
+Apps currently on 5.0.1:
+
+- backlog-tracker
+- budget, budget-canary
+- eaglepass-news
+- emby
+- explorers-hub
+- humbleai, humbleai-canary, humbleai-demo
+- jellyfin
+- jovo, jovo-canary
+- nibble, nibble-canary
+- omni-tools, omni-tools-canary
+- openwebui
+- outline
+- pages, pages-canary
+- podwave, podwave-canary
+- postgres
+- radarr
+- sabnzbd
+- scribe-discord
+- searxng
+- second-brain, second-brain-canary
+- sonarr
+- sporecast, sporecast-canary
+- strata, strata-canary
+- threads-canary
+- tipsbot-canary
+- wikijs
+- wolf
+
+Still on the legacy 4.6.2 layout (migration candidates; not broken, just
+pre-v5):
+
+- backlog, backlog-canary
+- questarr-canary
+- scribe, scribe-canary
+
+The `*-canary` siblings mirror their stable counterparts and follow the
+same template version when the stable chart is on 5.0.1.
+
