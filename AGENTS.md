@@ -323,16 +323,63 @@ Also prove the changed application's actual behavior. Kubernetes readiness alone
 
 ## High-value reference files
 
-- Overall architecture: `docs/reference/architecture/overview.md`
-- Production inventory: `metal/inventories/prod.yml`
-- Metal entrypoints: `Makefile`, `metal/Makefile`, `metal/cluster.yml`, `metal/nodes.yml`
-- k3s and registry config: `metal/roles/k3s/`
-- Cilium/LB config: `metal/roles/cilium/`
-- Argo bootstrap and ApplicationSets: `system/bootstrap.yml`, `system/argocd/values.yaml`, `system/argocd/values-seed.yaml`
-- Ceph/storage classes: `system/rook-ceph/values.yaml`
-- External infrastructure: `external/main.tf`, `external/modules/`, `external/Makefile`
-- App chart workflow: `.agent/workflows/build_charts.md`
-- Application governance: `.agent/rules/HOMELAB_applications.md`
-- Mandatory health rules: `.agent/rules/foundational-rules.md`
-- CI and validation: `.woodpecker/`, `.pre-commit-config.yaml`, `test/Makefile`
-- Network source and runbooks: `network/configs/`, `network/docs/`
+| `apps/<app>/Chart.yaml`, values.yaml, templates, or repo-owned scripts
+  → render, lint, and review the desired-state diff
+  → commit the change
+  → push/merge it to Gitea master
+  → Argo CD reads Gitea and reconciles the cluster
+  → verify Argo sync, rollout, health, and application behavior
+```
+
+- Do not deploy an application change by editing a live Deployment, StatefulSet, Pod, ConfigMap, Secret, Application, or container.
+- Do not use manual `helm upgrade`, `kubectl set image`, `kubectl edit`, or container-local file edits as the normal change path.
+- A live emergency action is temporary mitigation only. Encode the resulting desired state in this repo, push it to Gitea, and verify Argo CD reconciliation before declaring the work complete.
+- Gitea is the authoritative GitOps remote. GitHub receives a backup mirror and must not be treated as an alternate production source, promotion path, or place to land a homelab change instead of Gitea.
+
+## Agent-specific rules
+- Apply mandatory homelab rules from `.agent/rules/foundational-rules.md` and app governance in `.agent/rules/HOMELAB_applications.md`.
+- Cursor rules: none found (`.cursor/rules/`, `.cursorrules`). Copilot rules: none found (`.github/copilot-instructions.md`).
+- Never alter any code in ~/Documents/Github/paperclip
+- When building a new image for paperclip, always pull from the upstream in ~/Documents/Github/paperclip to make sure we have the latest codebase/features/etc.
+
+## Helm charts (app-template v5.0.1)
+
+New and migrated apps use the bjw-s `app-template` library chart v5.0.1.
+Apps currently on 5.0.1:
+
+- backlog-tracker
+- budget, budget-canary
+- eaglepass-news
+- emby
+- explorers-hub
+- humbleai, humbleai-canary, humbleai-demo
+- jellyfin
+- jovo, jovo-canary
+- nibble, nibble-canary
+- omni-tools, omni-tools-canary
+- openwebui
+- outline
+- pages, pages-canary
+- podwave, podwave-canary
+- postgres
+- radarr
+- sabnzbd
+- scribe-discord
+- searxng
+- second-brain, second-brain-canary
+- sonarr
+- sporecast, sporecast-canary
+- strata, strata-canary
+- threads-canary
+- tipsbot-canary
+- wikijs
+- wolf
+
+Still on the legacy 4.6.2 layout (migration candidates; not broken, just
+pre-v5):
+
+- backlog, backlog-canary
+- questarr-canary
+
+The `*-canary` siblings mirror their stable counterparts and follow the
+same template version when the stable chart is on 5.0.1.
