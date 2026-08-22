@@ -34,11 +34,16 @@ app-template:
       containers:
         main:
           image:
-            repository: ghcr.io/brimdor/scribe
-            # REPLACE at deploy time. Format: <version> or <sha256-abbrev>.
-            # Never "latest" — rolling tags cause Discord session invalidation
-            # (see doplarr postmortem; cite from README).
-            tag: __IMMUTABLE_SHA_OR_VERSION__
+            # Cluster pulls anonymously from local zot; no auth required.
+            # The bjw-s chart's default pullPolicy (IfNotPresent) is fine
+            # because the operator pre-pushes the image before helm upgrade.
+            repository: 10.0.20.11:32309/scribe
+            # Immutable short SHA from `git rev-parse --short HEAD` on
+            # the upstream brimdor/scribe repo's main branch at deploy
+            # time. Built locally with podman and pushed to zot.
+            # Never "latest" — rolling tags cause Discord session
+            # invalidation (see doplarr postmortem).
+            tag: ded126e
             pullPolicy: IfNotPresent
           # NO ports: block — Scribe binds nothing.
           env:
@@ -67,34 +72,41 @@ app-template:
             # Discord user IDs.
             SCRIBE_OPERATOR_USER_IDS: "<operator-id-list>"
             # ---- secrets via valueFrom.secretKeyRef -------------------------
-            # The Secret `scribe-secrets` is materialized by the 1Password
-            # Operator from the item named "scribe-secrets" (see annotations
-            # under `defaultPodOptions` below).
+            # The Secret `scribe-discord-secrets` is materialized by the
+            # 1Password Operator from the item named "scribe-discord-secrets"
+            # (see annotations under `defaultPodOptions` below). This is a
+            # SEPARATE item from the legacy markdown-vault-viewer's
+            # `scribe-secrets` (item icq2m4uzu6niy5o44uzckhvpem), which is
+            # owned by the now-archived scribe Deployment.
+            #
+            # Note: the 1Password item uses UPPER_SNAKE_CASE field names
+            # (the operator syncs field name verbatim to Secret data key).
+            # The env var name below is independent of the Secret key.
             DISCORD_TOKEN:
               valueFrom:
                 secretKeyRef:
-                  name: scribe-secrets
-                  key: discord-token
+                  name: scribe-discord-secrets
+                  key: DISCORD_TOKEN
             DISCORD_APPLICATION_ID:
               valueFrom:
                 secretKeyRef:
-                  name: scribe-secrets
-                  key: discord-application-id
+                  name: scribe-discord-secrets
+                  key: DISCORD_APPLICATION_ID
             OLLAMA_API_KEY:
               valueFrom:
                 secretKeyRef:
-                  name: scribe-secrets
-                  key: ollama-api-key
+                  name: scribe-discord-secrets
+                  key: OLLAMA_API_KEY
             GITHUB_TOKEN:
               valueFrom:
                 secretKeyRef:
-                  name: scribe-secrets
-                  key: github-token
-            GITHUB_APP_PRIVATE_KEY_BASE64:
-              valueFrom:
-                secretKeyRef:
-                  name: scribe-secrets
-                  key: github-app-private-key
+                  name: scribe-discord-secrets
+                  key: GITHUB_TOKEN
+            # NOTE: GITHUB_APP_PRIVATE_KEY_BASE64 intentionally omitted.
+            # The 1Password item `scribe-discord-secrets` does not include
+            # a github-app-private-key field; only legacy GITHUB_TOKEN is
+            # provisioned. Re-add this env (and the corresponding 1Password
+            # field) when Chris configures the GitHub App integration.
           probes:
             liveness:
               enabled: true
@@ -194,12 +206,11 @@ app-template:
 
   defaultPodOptions:
     annotations:
-      operator.1password.io/item-name: "scribe-secrets"
-      # CHRIS: paste the 1Password item-path here (Operator > Items >
-      # scribe-secrets > Copy path). Format: vaults/<vault-id>/items/<item-id>.
-      # Until this is replaced, the pod will sit in CreateContainerConfigError
-      # because the Secret cannot be materialized.
-      operator.1password.io/item-path: "vaults/<vault-id>/items/<item-id>"
+      operator.1password.io/item-name: "scribe-discord-secrets"
+      # 1Password item created 2026-08-21 by Buster; the existing legacy
+      # `scribe-secrets` item (icq2m4uzu6niy5o44uzckhvpem) remains for the
+      # now-archived markdown-vault-viewer scribe chart.
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/fy3v2ffvtmfvnsc2mhlbdujh24"
 
   networkpolicies:
     main:

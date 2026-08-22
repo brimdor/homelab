@@ -17,43 +17,50 @@ products with different code bases, secrets, and topology.
 
 ## Prerequisites
 
-- Kubernetes namespace `scribe` exists (the chart will not create it).
+- Kubernetes namespace `scribe-discord` exists (the chart will not create it
+  automatically; create with `kubectl create namespace scribe-discord`).
 - The [1Password Operator](https://github.com/1Password/onepassword-operator)
   is installed cluster-wide and has permission to materialize Secrets in the
-  `scribe` namespace.
+  `scribe-discord` namespace.
 - `standard-rwo` StorageClass is present (Longhorn or equivalent; supports
   `ReadWriteOnce` with `retain` semantics).
 - `helm` v3.14+ on the operator's PATH.
-- Network access from the cluster to `ghcr.io` to pull
-  `ghcr.io/brimdor/scribe` (no auth required; the image is public).
+- Network access from the cluster to the local zot registry at
+  `10.0.20.11:32309` (anonymous pull).
 
 ## 1Password setup
 
-Scribe pulls all sensitive config from a single Secret named `scribe-secrets`,
-materialized by the 1Password Operator from an item of the same name.
+Scribe pulls all sensitive config from a single Secret named
+`scribe-discord-secrets`, materialized by the 1Password Operator from an
+item of the same name.
 
-1. In 1Password, create a new item:
-   - **Title:** `scribe-secrets`
-   - **Vault:** the same vault used for other homelab apps
-     (`vaults/4uaua4a45yuhnwhehp5bwylmti/` is the common cluster-wide choice).
+1. In 1Password, the item already exists at
+   `vaults/4uaua4a45yuhnwhehp5bwylmti/items/fy3v2ffvtmfvnsc2mhlbdujh24`
+   (title `scribe-discord-secrets`, created 2026-08-21). This is SEPARATE
+   from the legacy `scribe-secrets` item
+   (`icq2m4uzu6niy5o44uzckhvpem`) owned by the archived markdown-vault-viewer
+   `scribe` chart.
 2. Add the following fields, one per Secret key. The Secret key matches the
    field name verbatim.
 
-   | Field name                  | Type     | Required | Notes                                                  |
-   | --------------------------- | -------- | -------- | ------------------------------------------------------ |
-   | `discord-token`             | Password | Yes      | Discord bot token.                                     |
-   | `discord-application-id`    | Password | Yes      | Discord application (snowflake) ID.                    |
-   | `ollama-api-key`            | Password | Optional | Empty if `OLLAMA_BASE_URL` points at the in-cluster Ollama. |
-   | `github-token`              | Password | Optional | Legacy fallback. Empty if GitHub App is used.          |
-   | `github-app-private-key`    | Password | Optional | Base64-encoded PEM. The operator does not transform; the chart decodes. Empty if GitHub App is not used. |
-   | `scribe-operator-user-ids`  | Password | Optional | Comma-separated numeric Discord user IDs allowed to issue commands. Can also be a plain env in `values.yaml`. |
+   | Field name                | Type     | Required | Notes                                                  |
+   | ------------------------- | -------- | -------- | ------------------------------------------------------ |
+   | `DISCORD_TOKEN`           | Password | Yes      | Discord bot token.                                     |
+   | `DISCORD_APPLICATION_ID`  | Password | Yes      | Discord application (snowflake) ID.                    |
+   | `DISCORD_DEV_GUILD_ID`    | Password | Optional | Restrict slash-command registration to a single guild. |
+   | `OPENAI_API_KEY`          | Password | Optional | Codex/OpenAI provider key.                             |
+   | `OLLAMA_API_KEY`          | Password | Optional | Empty if `OLLAMA_BASE_URL` points at the in-cluster Ollama. |
+   | `GITHUB_TOKEN`            | Password | Optional | Legacy fallback. Empty if GitHub App is used.          |
+   | `GITHUB_APP_PRIVATE_KEY_BASE64` | Password | Optional | Base64-encoded PEM. Re-add this field AND the corresponding env entry in `values.yaml` to enable GitHub App integration. |
 
-3. Open the item in the Operator UI and **Copy path**. The path is the
-   string `vaults/<vault-id>/items/<item-id>`.
-4. **Paste into `defaultPodOptions.annotations.operator.1password.io/item-path`**
-   in `apps/scribe-discord/values.yaml`, replacing the
-   `vaults/<vault-id>/items/<item-id>` placeholder.
-5. Set `image.tag` in `values.yaml` to an immutable tag (a version or
+   Note: field names are UPPER_SNAKE_CASE per the existing 1Password item
+   convention (this chart's `secretKeyRef.key` values match these field
+   names verbatim). Env var names in the running pod are independent of
+   the Secret key.
+3. The `operator.1password.io/item-path` annotation in
+   `defaultPodOptions.annotations` is pre-populated to the path above;
+   no manual paste is required.
+4. Set `image.tag` in `values.yaml` to an immutable tag (a version or
    `<sha256-abbrev>`). Never `latest`.
 
 ## Install
@@ -61,14 +68,14 @@ materialized by the 1Password Operator from an item of the same name.
 ```bash
 cd apps/scribe-discord
 helm dependency update        # one-time: pulls app-template-5.0.1.tgz
-helm install scribe-discord . --namespace scribe --create-namespace
+helm install scribe-discord . --namespace scribe-discord --create-namespace
 ```
 
 Check pod readiness:
 
 ```bash
-kubectl -n scribe get pods -l app.kubernetes.io/name=scribe-discord -w
-kubectl -n scribe describe deploy scribe-discord
+kubectl -n scribe-discord get pods -l app.kubernetes.io/name=scribe-discord -w
+kubectl -n scribe-discord describe deploy scribe-discord
 ```
 
 A successful boot shows `1/1 Running` and the exec healthcheck passing every
@@ -80,7 +87,7 @@ A successful boot shows `1/1 Running` and the exec healthcheck passing every
 ```bash
 # 1. Edit values.yaml: set image.tag to the new immutable SHA.
 # 2. Apply.
-helm upgrade scribe-discord . --namespace scribe
+helm upgrade scribe-discord . --namespace scribe-discord
 ```
 
 Rolling tags cause Discord session invalidation (the bot reconnects but loses
