@@ -1,94 +1,125 @@
+# Scribe production chart values.
+#
+# Scribe is a single-container app: uvicorn serves the React SPA on "/" and
+# the JSON API under "/api/*". The container exposes port 8000.
+#
+# The git vault repo, branch, and poll interval are configured via env vars
+# (SCRIBE_GIT_URL, SCRIBE_GIT_BRANCH, SCRIBE_GIT_POLL_SECONDS) so the chart
+# itself stays decoupled from any specific vault.
+#
+# NOTE: Webhook secret left unset. The Scribe backend treats SCRIBE_WEBHOOK_SECRET
+# as optional — when unset, /api/webhook accepts unauthenticated requests. Add
+# the secret and re-enable the env entry below if signature verification is
+# needed.
+
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      strategy: Recreate
       replicas: 1
       containers:
         main:
           nameOverride: scribe
           image:
             repository: 10.0.20.11:32309/scribe
-            tag: "2026-04-06-v3"
-            pullPolicy: Always
+            tag: bf543f5
+            pullPolicy: IfNotPresent
           ports:
-            - containerPort: 8787
+            - containerPort: 8000
               name: http
-          workingDir: /app
           env:
-            NODE_ENV: production
-            PORT: "8787"
-            SCRIBE_DB_PATH: /app/server/data/scribe.db
-            SCRIBE_SESSION_TTL_HOURS: "24"
-            SCRIBE_REPO_SYNC_ROOT: /app/server/repos
-            OLLAMA_BASE_URL: "http://localai.localai.svc.cluster.local:8080"
             TZ: America/Chicago
-          envFrom:
-            - secretRef:
-                name: scribe-secrets
+            SCRIBE_GIT_URL: https://github.com/brimdor/scribe.git
+            SCRIBE_GIT_BRANCH: main
+            SCRIBE_GIT_POLL_SECONDS: "300"
+            SCRIBE_LOG_LEVEL: INFO
+            SCRIBE_GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-secrets
+                  key: github-pat
           probes:
             liveness:
               enabled: true
+              type: HTTP
+              path: /health/live
               spec:
-                tcpSocket:
-                  port: 8787
                 initialDelaySeconds: 30
-                periodSeconds: 30
+                periodSeconds: 60
+                failureThreshold: 3
             readiness:
               enabled: true
+              type: HTTP
+              path: /health/ready
               spec:
-                tcpSocket:
-                  port: 8787
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: HTTP
+              path: /health/live
+              spec:
                 initialDelaySeconds: 10
                 periodSeconds: 10
+                failureThreshold: 30
           resources:
             limits:
-              cpu: 2
-              memory: 4096Mi
+              cpu: 500m
+              memory: 512Mi
             requests:
-              cpu: 0.5
-              memory: 1024Mi
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+
   service:
     main:
       primary: true
+      controller: main
       ports:
         http:
-          port: 8787
+          port: 8000
           protocol: HTTP
+          targetPort: http
+
   ingress:
     main:
       enabled: true
       className: nginx
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       hosts:
         - host: scribe.eaglepass.io
           paths:
             - path: /
               pathType: Prefix
+              service:
+                identifier: main
+                port: http
       tls:
         - hosts:
             - scribe.eaglepass.io
           secretName: scribe-tls
+
   persistence:
     data:
       enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
+      storageClass: standard-rwo
       size: 5Gi
-      storageClass: standard-rwo
       globalMounts:
-        - path: /app/server/data
-    repos:
-      enabled: true
-      type: persistentVolumeClaim
-      accessMode: ReadWriteOnce
-      size: 10Gi
-      storageClass: standard-rwo
-      globalMounts:
-        - path: /app/server/repos
+        - path: /data
+          readOnly: false
+
   defaultPodOptions:
     securityContext:
       fsGroup: 1000
     annotations:
-      operator.1password.io/item-path: vaults/4uaua4a45yuhnwhehp5bwylmti/items/scribe-secrets
-      operator.1password.io/item-name: secrets
+      operator.1password.io/item-name: "scribe-secrets"
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/icq2m4uzu6niy5o44uzckhvpem"
