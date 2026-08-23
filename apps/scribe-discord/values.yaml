@@ -255,3 +255,55 @@ app-template:
                     name: ollama
             ports:
               - { protocol: TCP, port: 11434 }
+
+  # -------------------------------------------------------------------------
+  # Discord slash-command registration automation (pre-install, pre-upgrade
+  # Helm hook Job). Renders a separate Job from a hand-authored template at
+  # templates/commands-register-job.yaml because the bjw-s `app-template`
+  # library does not expose helm.sh/hook annotations through its `controllers:`
+  # schema. The Job runs the same `dist/scripts/register-commands.js` binary
+  # the bot ships with, using the same `scribe-discord-secrets` Secret, so
+  # no new secrets are introduced. See spec-discord-command-registration-
+  # automation/spec.md for the full contract.
+  # -------------------------------------------------------------------------
+  commands:
+    register:
+      # Toggle the entire feature on/off. Default true so the chart
+      # "just works" out of the box; operators set false to drop the
+      # Job entirely (e.g., during a Discord-side incident or when
+      # they prefer to manage registration manually).
+      enabled: true
+      # When true and the release action is "upgrade", the script
+      # is replaced at render time with a no-op shell command that
+      # exits 0 immediately, so the hook does not re-PUT the command
+      # on every rolling upgrade. This is the chart's "I'm trusting
+      # the prior registration" escape hatch. Default false: every
+      # install/upgrade re-PUTs, which is correct because the command
+      # body is idempotent and the script does a full replace.
+      skipOnUpgrade: false
+      # Hard upper bound on the hook Job. Discord's PUT is normally
+      # <2s; 120s leaves room for cold start of the node image and
+      # a single transient 429 retry handled by the Job's backoffLimit.
+      activeDeadlineSeconds: 120
+      # Job retry budget. The script is idempotent (PUT, not POST),
+      # so 3 is generous; this is the chart's "transient network
+      # blip" forgiveness, not a retry loop.
+      backoffLimit: 3
+      resources:
+        requests: { cpu: 50m, memory: 64Mi }
+        limits:   { cpu: 200m, memory: 128Mi }
+      # Empty-by-default additional pod annotations operators may
+      # need (e.g., for image-pull secrets in air-gapped clusters).
+      podAnnotations: {}
+      # Same image as the bot. The operator is expected to mirror
+      # `controllers.main.containers.main.image` here. A mismatch is
+      # a configuration error and will be flagged by AC-3.
+      image:
+        repository: 10.0.20.11:32309/scribe
+        tag: ded126ea3db5a9d9eb0da0ab8fe8de3b4d52e340
+        pullPolicy: IfNotPresent
+      # Optional serviceAccount override; if empty, the Pod uses the
+      # chart's default ServiceAccount. The default SA already has
+      # the `scribe-discord-secrets` Secret accessible because the
+      # bot's main container reads from it; no extra RBAC is needed.
+      serviceAccount: ""

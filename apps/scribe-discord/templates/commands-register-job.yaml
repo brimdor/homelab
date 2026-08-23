@@ -1,0 +1,115 @@
+{{- /*
+  Discord slash-command registration hook.
+
+  Renders a batch/v1 Job that runs the same `dist/scripts/register-commands.js`
+  binary the bot ships with, using the same `scribe-discord-secrets` Secret,
+  before the chart's bot Deployment is installed or upgraded. The Job is a
+  pure `pre-install,pre-upgrade` Helm hook: a non-zero exit aborts the
+  `helm install` / `helm upgrade`, so a failed registration cannot ship a bot
+  with a stale command set.
+
+  The bjw-s `app-template` library does not expose `helm.sh/hook:*`
+  annotations through its `controllers:` schema, so this template is
+  hand-authored rather than driven by `app-template.controllers.<name>`.
+  See spec-discord-command-registration-automation/spec.md for the
+  architecture, risks, and acceptance criteria; see plan.md for the
+  derivation of every field.
+
+  Implementation note: the values root key is literally `app-template`
+  (with a hyphen), which Helm's template engine parses as a subtraction
+  expression if written as `.Values.app-template`. Use the `index`
+  function instead to keep the dash a literal key.
+*/ -}}
+{{- if (index .Values "app-template").commands.register.enabled -}}
+{{- $cfg := (index .Values "app-template").commands.register -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: scribe-discord-register
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/component: command-registration
+    app.kubernetes.io/part-of: scribe-discord
+  annotations:
+    # Helm hook: run before the bot's Deployment is installed/upgraded.
+    # Lower weight = earlier than other pre-install hooks. The chart has
+    # no other hooks today; if one is added later, this weight must stay
+    # numerically below the new one.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    # Delete the Job before the next hook phase and on success. On
+    # failure, leave the Job pod for `kubectl describe job` to inspect.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ $cfg.backoffLimit }}
+  activeDeadlineSeconds: {{ $cfg.activeDeadlineSeconds }}
+  template:
+    metadata:
+      annotations:
+        {{- with $cfg.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      restartPolicy: Never
+      {{- with $cfg.serviceAccount }}
+      serviceAccountName: {{ . }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: register
+          image: "{{ $cfg.image.repository }}:{{ $cfg.image.tag }}"
+          imagePullPolicy: {{ $cfg.image.pullPolicy }}
+          {{- if $cfg.skipOnUpgrade }}
+          # Render-time decision (helm.sh/hook-weight orders the hook, but
+          # --is-upgrade determines the command). When skipOnUpgrade is
+          # true, the Job still runs as a hook so the release lifecycle is
+          # unchanged, but it exits 0 immediately without contacting
+          # Discord.
+          command: ["sh", "-c", "echo 'skipOnUpgrade=true; registration skipped on upgrade' && exit 0"]
+          {{- else }}
+          command: ["node", "dist/scripts/register-commands.js"]
+          {{- end }}
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-discord-secrets
+                  key: DISCORD_TOKEN
+            - name: DISCORD_APPLICATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-discord-secrets
+                  key: DISCORD_APPLICATION_ID
+            - name: DISCORD_DEV_GUILD_ID
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-discord-secrets
+                  key: DISCORD_DEV_GUILD_ID
+                  # Optional so a globally-scoped bot (no dev guild) does
+                  # not cause the Job to fail at env-resolution time.
+                  optional: true
+          resources:
+            requests:
+              cpu: {{ $cfg.resources.requests.cpu }}
+              memory: {{ $cfg.resources.requests.memory }}
+            limits:
+              cpu: {{ $cfg.resources.limits.cpu }}
+              memory: {{ $cfg.resources.limits.memory }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+{{- end -}}

@@ -94,6 +94,60 @@ Rolling tags cause Discord session invalidation (the bot reconnects but loses
 voice channel binding; see the doplarr postmortem). **Always pin to an
 immutable SHA.** The chart does not enforce this — operator discipline only.
 
+## How do I know command registration succeeded?
+
+`helm install` (and `helm upgrade`) runs a `pre-install,pre-upgrade` Helm
+hook Job (`scribe-discord-register`) before the bot's Deployment is
+installed or upgraded. The Job runs the same
+`dist/scripts/register-commands.js` binary the bot ships with, against the
+same `scribe-discord-secrets` Secret, so the registration is automatic —
+no `docker compose run`, no `npm run commands:register`, no manual
+operator follow-up.
+
+If anything in the hook fails (bad credentials, network blip, Discord
+4xx/5xx), the Job's exit code is non-zero and Helm aborts the rollout.
+The bot pod is NOT deployed until the hook completes successfully.
+
+To verify the registration on a freshly-applied release:
+
+1. Read the hook Job's logs:
+
+   ```bash
+   kubectl logs -n scribe job/scribe-discord-register --tail=50
+   ```
+
+   Expect a line like `Registered /scribe for the development guild.` (when
+   `DISCORD_DEV_GUILD_ID` is set in the 1Password item) or `Registered
+   /scribe globally.` (when it is not). Anything else, especially a
+   `ScribeError(...)` line, indicates a real failure — investigate before
+   retrying `helm upgrade`.
+
+2. Re-run the release and watch the Job transition to `Complete`:
+
+   ```bash
+   helm upgrade scribe-discord . --namespace scribe
+   kubectl get jobs -n scribe -l app.kubernetes.io/component=command-registration
+   ```
+
+   Expect one row `scribe-discord-register` with `COMPLETIONS 1/1`. The
+   `helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded`
+   annotation removes the Job on success, so a missing row after a green
+   release is the expected steady state.
+
+3. In the target Discord guild, type `/scribe`. It appears within 60
+   seconds for guild-scoped registrations (when `DISCORD_DEV_GUILD_ID`
+   is set) or within roughly one hour for global registrations (this is
+   a Discord-side propagation delay, not a chart delay).
+
+To opt out of the automatic registration — for example during a
+Discord-side incident or a coordinated credential rotation — set
+`app-template.commands.register.enabled: false` in `values.yaml` and
+re-render. The chart produces zero Jobs in that mode (verified byte-
+identical to a baseline render without the hook). To keep the
+registration running on install but skip the PUT on subsequent upgrades,
+set `app-template.commands.register.skipOnUpgrade: true` instead; the
+hook Job is rendered but exits 0 immediately without contacting Discord.
+
 ## GitHub App PEM
 
 Scribe reads the GitHub App private key from
