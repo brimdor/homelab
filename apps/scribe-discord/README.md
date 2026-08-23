@@ -47,7 +47,7 @@ item of the same name.
    | ------------------------- | -------- | -------- | ------------------------------------------------------ |
    | `DISCORD_TOKEN`           | Password | Yes      | Discord bot token.                                     |
    | `DISCORD_APPLICATION_ID`  | Password | Yes      | Discord application (snowflake) ID.                    |
-   | `DISCORD_DEV_GUILD_ID`    | Password | Optional | Restrict slash-command registration to a single guild. |
+   | `DISCORD_DEV_GUILD_ID`    | Password | Yes (empty-string OK) | Restrict slash-command registration to a single guild. Empty string (`""`) registers globally — see [How do I know command registration succeeded?](#how-do-i-know-command-registration-succeeded) §Prerequisites. |
    | `OPENAI_API_KEY`          | Password | Optional | Codex/OpenAI provider key.                             |
    | `OLLAMA_API_KEY`          | Password | Optional | Empty if `OLLAMA_BASE_URL` points at the in-cluster Ollama. |
    | `GITHUB_TOKEN`            | Password | Optional | Legacy fallback. Empty if GitHub App is used.          |
@@ -96,24 +96,24 @@ immutable SHA.** The chart does not enforce this — operator discipline only.
 
 ## How do I know command registration succeeded?
 
-`helm install` (and `helm upgrade`) runs a `pre-install,pre-upgrade` Helm
+`helm install` (and `helm upgrade`) renders a `pre-install,pre-upgrade` Helm
 hook Job (`scribe-discord-register`) before the bot's Deployment is
 installed or upgraded. The Job runs the same
 `dist/scripts/register-commands.js` binary the bot ships with, against the
-same `scribe-discord-secrets` Secret, so the registration is automatic —
-no `docker compose run`, no `npm run commands:register`, no manual
-operator follow-up.
+same `scribe-discord-secrets` Secret, so the registration is automatic — no
+`docker compose run`, no `npm run commands:register`, no manual operator
+follow-up.
 
 If anything in the hook fails (bad credentials, network blip, Discord
-4xx/5xx), the Job's exit code is non-zero and Helm aborts the rollout.
-The bot pod is NOT deployed until the hook completes successfully.
+4xx/5xx), the Job's exit code is non-zero and Helm aborts the rollout. The
+bot pod is NOT deployed until the hook completes successfully.
 
-To verify the registration on a freshly-applied release:
+### Verifying a successful registration
 
 1. Read the hook Job's logs:
 
    ```bash
-   kubectl logs -n scribe job/scribe-discord-register --tail=50
+   kubectl logs -n scribe-discord job/scribe-discord-register --tail=50
    ```
 
    Expect a line like `Registered /scribe for the development guild.` (when
@@ -125,8 +125,8 @@ To verify the registration on a freshly-applied release:
 2. Re-run the release and watch the Job transition to `Complete`:
 
    ```bash
-   helm upgrade scribe-discord . --namespace scribe
-   kubectl get jobs -n scribe -l app.kubernetes.io/component=command-registration
+   helm upgrade scribe-discord . --namespace scribe-discord
+   kubectl get jobs -n scribe-discord
    ```
 
    Expect one row `scribe-discord-register` with `COMPLETIONS 1/1`. The
@@ -134,19 +134,97 @@ To verify the registration on a freshly-applied release:
    annotation removes the Job on success, so a missing row after a green
    release is the expected steady state.
 
-3. In the target Discord guild, type `/scribe`. It appears within 60
-   seconds for guild-scoped registrations (when `DISCORD_DEV_GUILD_ID`
-   is set) or within roughly one hour for global registrations (this is
-   a Discord-side propagation delay, not a chart delay).
+3. In the target Discord guild, type `/scribe`. It appears within 60 seconds
+   for guild-scoped registrations (when `DISCORD_DEV_GUILD_ID` is set in
+   the 1Password item) or within roughly one hour for global registrations
+   (this is a Discord-side propagation delay, not a chart delay).
 
-To opt out of the automatic registration — for example during a
-Discord-side incident or a coordinated credential rotation — set
-`app-template.commands.register.enabled: false` in `values.yaml` and
-re-render. The chart produces zero Jobs in that mode (verified byte-
-identical to a baseline render without the hook). To keep the
-registration running on install but skip the PUT on subsequent upgrades,
-set `app-template.commands.register.skipOnUpgrade: true` instead; the
-hook Job is rendered but exits 0 immediately without contacting Discord.
+### Prerequisites
+
+The 1Password item must contain three Secret keys (the chart references
+all three via `valueFrom.secretKeyRef`):
+
+| Secret key            | Required | Notes                                                              |
+| --------------------- | -------- | ------------------------------------------------------------------ |
+| `DISCORD_TOKEN`       | Yes      | Discord bot token.                                                 |
+| `DISCORD_APPLICATION_ID` | Yes   | Discord application (snowflake) ID.                                |
+| `DISCORD_DEV_GUILD_ID` | Yes     | **Must be present even when running the bot globally.** Empty string (`""`) is fine — the script treats an empty value as undefined and registers globally. The bjw-s schema forbids `optional: true` on `secretKeyRef`, so a missing key (vs. an empty-string key) is a hard Job startup failure. |
+
+To provision an empty-string `DISCORD_DEV_GUILD_ID` in the 1Password item:
+
+```bash
+op item edit 'scribe-discord-secrets' \
+  'DISCORD_DEV_GUILD_ID='
+```
+
+This makes the bot register globally (no per-guild restriction).
+
+### Disabling registration
+
+To temporarily drop the registration Job (e.g., during a Discord-side
+incident or a coordinated credential rotation), pass `false` to the
+controller's `enabled` flag on the helm command line:
+
+```bash
+helm upgrade scribe-discord . --namespace scribe-discord \
+  --set app-template.controllers.register.enabled=false
+```
+
+This renders zero Jobs (verified at render time). The sibling
+`networkpolicies.register` NetworkPolicy still renders (using
+`podSelector: app.kubernetes.io/controller: register`) so any leftover Job
+pods from prior runs can still reach Discord for cleanup retries; the policy
+becomes a no-op once those pods terminate.
+
+The `app-template.commands.register.enabled` key in `values.yaml` is a
+documented intent flag — it does NOT affect the rendered manifest on its
+own because the bjw-s `app-template` library reads the render-time
+`controllers.<name>.enabled` flag, not a sibling `commands.*.enabled`
+toggle. The kill switch is the controller's own `enabled` flag.
+
+### skipOnUpgrade escape hatch
+
+To keep the registration running on install but skip the PUT on subsequent
+upgrades, edit the literal-comment toggle in `values.yaml`:
+
+```yaml
+containers:
+  register:
+    # Default mode (skipOnUpgrade: false): re-PUT on every install/upgrade.
+    command:
+      - node
+      - dist/scripts/register-commands.js
+    # ---- skipOnUpgrade: true (uncomment this block and comment the block above) ----
+    # command:
+    #   - sh
+    #   - -c
+    #   - "echo 'skipOnUpgrade=true; registration skipped on upgrade' && exit 0"
+```
+
+Comment the first `command:` block and uncomment the second.
+`controllers.X.command` is not a Helm-templated block, so a
+`{{- if ... }}` wrapper cannot switch between the two at render time; the
+literal-comment toggle is the only library-compliant way to do this. The
+`app-template.commands.register.skipOnUpgrade` flag in `values.yaml` is
+grep-able documentation of intent but does not affect the rendered
+manifest.
+
+### Architectural notes
+
+- **No hand-authored `templates/` file.** The chart uses only
+  `Chart.yaml` and `values.yaml`; the bjw-s `app-template` library
+  renders the Job. This is mandated by the parent Helm spec's
+  constitution §2.
+- **Image inheritance.** The Job's container image is set via
+  `controllers.register.defaultContainerOptions.image` with
+  `defaultContainerOptionsStrategy: merge`. The library does not support
+  `image: {}` (it rejects empty image maps at render time), so the
+  image tag MUST mirror `controllers.main.containers.main.image.tag` in
+  `values.yaml`. Bump in lockstep on deploys.
+- **NetworkPolicy.** A sibling `networkpolicies.register` block (using
+  `podSelector` rather than `controller:` to keep the policy decoupled
+  from the controller's enabled state) mirrors the main controller's
+  egress rules so the Job can reach Discord's REST API.
 
 ## GitHub App PEM
 
