@@ -2,15 +2,26 @@
 #
 # Scribe is an outbound-only worker: it connects to Discord's gateway,
 # optionally Ollama / Codex for analysis, and optionally GitHub for issue
-# publication. It binds no port and serves no HTTP traffic. Therefore:
-#   - NO `service:` block
-#   - NO `ingress:` block
-#   - NO `ports:` block on the container
-#   - NetworkPolicy is Egress-only
+# publication. It additionally exposes a single, read-mostly configuration
+# WebUI at https://scribe.eaglepass.io for the deploying operator (gated
+# by Cloudflare Access, email allowlist enforced at the edge; the
+# allowlist is NOT duplicated in the bot's code). The WebUI binds one
+# in-process TCP port (3000) inside the existing Pod. The only inbound
+# path to the WebUI is via ingress-nginx (NetworkPolicy `policyTypes:
+# [Ingress, Egress]` with a single ingress rule allowing the
+# `ingress-nginx` namespace on TCP/3000). See
+# spec/spec-webui-configuration/spec.md and AGENTS.md "Deployment
+# topology" for the amendment to the "no inbound/listening port"
+# invariant. The WebUI does NOT start/stop sessions, does NOT publish
+# GitHub issues, and NEVER accepts or returns secret material.
+#
+# Per AGENTS.md there is NO canary chart for Scribe; the WebUI is exposed
+# only in this production chart, not in a canary chart.
 #
 # Secrets are materialized by the 1Password Operator into a Secret named
-# `scribe-secrets`; this chart only references them via `valueFrom.secretKeyRef`.
-# The literal token/key material NEVER appears in this file.
+# `scribe-discord-secrets`; this chart only references them via
+# `valueFrom.secretKeyRef`. The literal token/key material NEVER appears in
+# this file.
 #
 # Chart-specific notes (override the spec.md skeleton):
 #   - tmp.sizeLimit = 64Mi (plan.md Adjustment #1; spec.md R1 calls out
@@ -23,6 +34,8 @@
 #   (AD-7 hook-delete-policy garbage-collects the first successful Job's
 #   pod logs within ~5 minutes; the recovery worker needs an in-window
 #   `kubectl logs job/scribe-discord-register --tail=50` to satisfy AC-2).
+# WebUI image: dcc74ba (PR #7, spec/spec-webui-configuration). Adds the
+# embedded node:http server, /api/v1/* surface, and the static SPA.
 
 app-template:
   controllers:
@@ -51,9 +64,8 @@ app-template:
             # re-syncs only when this string changes.
             # Never "latest" — rolling tags cause Discord session
             # invalidation (see doplarr postmortem).
-            tag: b01f2ca4acf2e1ec7d682d209b260236752ddf3b
+            tag: dcc74ba22dfb75b8dff3908c25690f8b946205e0
             pullPolicy: IfNotPresent
-          # NO ports: block — Scribe binds nothing.
           env:
             # ---- non-secret runtime config ----------------------------------
             TZ: America/Chicago
@@ -121,6 +133,27 @@ app-template:
             # a github-app-private-key field; only legacy GITHUB_TOKEN is
             # provisioned. Re-add this env (and the corresponding 1Password
             # field) when Chris configures the GitHub App integration.
+            # ---- Configuration WebUI (see spec/spec-webui-configuration) ----
+            # Embedded node:http server (port 3000) gated by Cloudflare
+            # Access at scribe.eaglepass.io. The default for
+            # SCRIBE_WEBUI_ENABLED is `false` in code so a developer
+            # running `tsx src/index.ts` locally with no env gets no
+            # WebUI; this chart explicitly sets it `true`.
+            SCRIBE_WEBUI_ENABLED:
+              value: "true"
+            SCRIBE_WEBUI_PORT:
+              value: "3000"
+            SCRIBE_PUBLIC_HOSTNAME:
+              value: "scribe.eaglepass.io"
+            SCRIBE_CF_ACCESS:
+              value: "true"
+            # Optional dev override; accepts X-Admin-Email instead of
+            # Cf-Access-User-Email when true. MUST be `false` in
+            # production; Cloudflare Access strips spoofed headers
+            # on the public path, so this is safe in prod but a
+            # defence-in-depth measure.
+            SCRIBE_WEBUI_DEV_AUTH:
+              value: "false"
           probes:
             liveness:
               enabled: true
@@ -186,6 +219,20 @@ app-template:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+          # The embedded node:http server binds ONE in-process port
+          # (3000) for the configuration WebUI at https://scribe.eaglepass.io.
+          # The server is gated by Cloudflare Access (header
+          # Cf-Access-User-Email, allowlist enforced at the edge). The
+          # port is reachable only via the ingress-nginx Service
+          # (NetworkPolicy restricts ingress to the ingress-nginx
+          # namespace on TCP/3000). See spec/spec-webui-configuration/spec.md
+          # §3.1, §8.1 and AGENTS.md "Deployment topology" for the
+          # amendment. The hook Job container does NOT expose 3000
+          # (it has no ports: block).
+          ports:
+            - name: webui
+              containerPort: 3000
+              protocol: TCP
 
     # ---------------------------------------------------------------------
     # Discord slash-command registration automation (pre-install,
@@ -265,11 +312,15 @@ app-template:
       # `controllers.main.containers.main.image.tag`; bump in lockstep.
       # This is duplication in `values.yaml` text only — the rendered
       # manifest has exactly one `image: <repo>:<tag>` line per Pod.
+      # Updated for dcc74ba (Scribe Configuration WebUI, PR #7): the
+      # WebUI image also ships register-commands.js, so this mirror
+      # ensures the hook Job re-PUTs the slash command manifest on
+      # every upgrade.
       defaultContainerOptionsStrategy: merge
       defaultContainerOptions:
         image:
           repository: 10.0.20.11:32309/scribe
-          tag: b01f2ca4acf2e1ec7d682d209b260236752ddf3b
+          tag: dcc74ba22dfb75b8dff3908c25690f8b946205e0
           pullPolicy: IfNotPresent
       containers:
         register:
@@ -365,8 +416,72 @@ app-template:
       # in place (AC-5).
       skipOnUpgrade: false
 
-  # NO service: block — Scribe has no listener.
-  # NO ingress: block — Scribe is outbound-only.
+  # ---------------------------------------------------------------------
+  # Configuration WebUI Service + Ingress (scribe.eaglepass.io).
+  # ---------------------------------------------------------------------
+  # The embedded node:http server (port 3000) is exposed via a
+  # ClusterIP Service fronted by an nginx ingress. The Service is
+  # ClusterIP only — there is no LoadBalancer. The Cloudflare Tunnel
+  # terminates at the cluster's ingress-nginx; nginx routes the
+  # `scribe.eaglepass.io` host to the Service. Cloudflare Access
+  # gates the request at the edge; the bot only sees requests with
+  # the `Cf-Access-User-Email` header set.
+  # See spec/spec-webui-configuration/spec.md §8.2-8.3.
+  service:
+    main:
+      # Two enabled controllers exist (`main` Deployment + `register` Job),
+      # so the library's automatic controller detection is ambiguous and
+      # `controller: main` is REQUIRED (per `lib/service/_validate.tpl`).
+      # The library bails out with "Service 'main': controller field is
+      # required" otherwise. The hook Job does not expose port 3000 so
+      # an Endpoints match against it would produce a no-op Service
+      # anyway; this is the library-compliant explicit-binding pattern
+      # (cf. Emby's `service.main.controller: main`).
+      controller: main
+      primary: true
+      ports:
+        webui:
+          # ClusterIP service port = container port = 3000. The
+          # `targetPort` references the named container port
+          # defined on `controllers.main.containers.main.ports`.
+          port: 3000
+          protocol: TCP
+          targetPort: webui
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        # External-DNS: publish `scribe.eaglepass.io` via the
+        # homelab tunnel (CNAME to the cloudflared service). The
+        # tunnel carries HTTPS to the cluster's ingress-nginx.
+        external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        # Cloudflare proxies the record so the WebUI benefits from
+        # the Access policy on the public path.
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        # TLS cert via cert-manager + Let's Encrypt production issuer.
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        # Conservative body size: the API caps JSON at 64 KiB
+        # (src/web/server.ts). 128k leaves margin for headers.
+        nginx.ingress.kubernetes.io/proxy-body-size: "128k"
+        # API responds in milliseconds; 30s is a comfortable timeout.
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+      hosts:
+        - host: scribe.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: 3000
+      tls:
+        - hosts:
+            - scribe.eaglepass.io
+          # Secret populated by cert-manager (letsencrypt-prod) at
+          # the first successful certificate issuance. Operator
+          # does NOT pre-create this secret.
+          secretName: scribe-webui-tls
 
   persistence:
     data:
@@ -417,9 +532,29 @@ app-template:
     main:
       enabled: true
       controller: main
-      # Egress-only by design; no Ingress rule. Scribe is outbound-only.
-      policyTypes: [Egress]
+      # Egress-only by design for outbound traffic (Discord, Ollama,
+      # etc.). Ingress is added for the configuration WebUI
+      # (scribe.eaglepass.io -> ingress-nginx -> Pod:3000). The only
+      # ingress path is from the `ingress-nginx` namespace on TCP/3000.
+      # Direct pod-to-pod ingress is denied by the absence of any
+      # `podSelector: {}` or other `namespaceSelector: {}` rule that
+      # matches other namespaces. See
+      # spec/spec-webui-configuration/spec.md §8.6.
+      policyTypes: [Ingress, Egress]
       rules:
+        ingress:
+          # Cloudflare Tunnel terminates at ingress-nginx, which then
+          # routes the `scribe.eaglepass.io` host to the `main` Service
+          # on port 3000. Allow the ingress-nginx namespace to reach
+          # the Pod on that single port. No other source is allowed
+          # by this rule; the lack of any other ingress rule means
+          # all other ingress is denied.
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: ingress-nginx
+            ports:
+              - { protocol: TCP, port: 3000 }
         egress:
           # DNS to kube-system (or anywhere in-cluster; broad on purpose).
           - to:

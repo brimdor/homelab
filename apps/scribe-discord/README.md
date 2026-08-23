@@ -3,13 +3,18 @@
 Helm chart for the **Scribe Discord voice transcription bot** on the homelab
 Kubernetes cluster. Scribe is an outbound-only worker — it connects to Discord's
 gateway, optionally to Ollama / Codex for analysis, and optionally to GitHub for
-issue publication. It binds no port and serves no HTTP traffic.
+issue publication. It additionally exposes a single, read-mostly **configuration
+WebUI** at `https://scribe.eaglepass.io` for the deploying operator, gated by
+Cloudflare Access (email allowlist enforced at the edge). See
+[Configuration WebUI](#configuration-webui) below.
 
 The chart uses the bjw-s `app-template` library chart v5.0.1 (the homelab
 standard) and produces a single-replica Deployment with an exec-based
 healthcheck, a `ReadWriteOnce` PVC for durable state, an `emptyDir` for `/tmp`,
-and 1Password-Operator-sourced secrets. It renders **zero Services, zero
-Ingresses**, and an **egress-only** `NetworkPolicy`.
+and 1Password-Operator-sourced secrets. The WebUI binding (port 3000) is
+served by a ClusterIP `Service` fronted by an `Ingress` (class `nginx`); the
+Pod's `NetworkPolicy` admits traffic from the `ingress-nginx` namespace on
+TCP/3000 and nothing else.
 
 The directory `apps/scribe-discord/` is distinct from `apps/scribe/` (the
 markdown vault viewer, served at `scribe.eaglepass.io`). They are separate
@@ -258,6 +263,102 @@ kubectl delete pvc -n scribe scribe-discord-data
 Back up `/app/data` (a `kubectl cp` snapshot of the PVC, or a Velero backup)
 before deleting the PVC.
 
+## Configuration WebUI
+
+The Scribe process embeds a small `node:http` server (stdlib only) that
+serves the configuration WebUI on TCP/3000 inside the bot Pod. The WebUI
+is the **operator-facing** surface for the deployment: it lets the
+operator (Chris) review and edit per-guild settings, see session
+history, manage storage (audio purge), and inspect the audit log. It
+does **not** start/stop/retry voice sessions and does **not** publish
+GitHub issues — those paths are Discord-only.
+
+### Topology
+
+```
+Cloudflare Access (brimdor.cloudflareaccess.com, Google IdP, allowlist)
+  -> homelab-tunnel.eaglepass.io (Cloudflare Tunnel)
+  -> ingress-nginx (cluster)
+  -> scribe-discord ClusterIP Service (port 3000)
+  -> scribe-discord Pod (container port 3000, embedded node:http)
+```
+
+- The Service is `ClusterIP` only (no `LoadBalancer`).
+- The Ingress is `class: nginx`, host `scribe.eaglepass.io`, TLS via
+  cert-manager (`letsencrypt-prod`); the cert is materialized in the
+  `scribe-webui-tls` Secret on first successful issuance.
+- The `NetworkPolicy` `policyTypes: [Ingress, Egress]` admits only
+  traffic from the `ingress-nginx` namespace on TCP/3000. Direct
+  pod-to-pod ingress from any other namespace is denied.
+- The bot consumes the `Cf-Access-User-Email` header injected by
+  Cloudflare Access. Spoofed headers on the public path are stripped
+  by the Cloudflare Tunnel. The allowlist is **not** duplicated in the
+  bot's code; it is the operator's responsibility to maintain the
+  email allowlist in the Cloudflare Access dashboard.
+
+### Enabling / disabling
+
+The WebUI is controlled by the `SCRIBE_WEBUI_ENABLED` env var on the
+bot container. The chart sets it to `"true"` so the WebUI is on by
+default. To turn it off (e.g., during a Cloudflare-side incident),
+override at install/upgrade time:
+
+```bash
+helm upgrade scribe-discord . --namespace scribe-discord \
+  --set-json 'app-template.controllers.main.containers.main.env.SCRIBE_WEBUI_ENABLED={"value":"false"}'
+```
+
+When `SCRIBE_WEBUI_ENABLED=false`, the embedded server does not bind
+port 3000 and the chart's `Service` and `Ingress` still render but
+serve 503 from the upstream (no Pod is ready on the port). The chart
+does not currently render the Service/Ingress conditionally on
+`SCRIBE_WEBUI_ENABLED`; if a future change makes the Service
+conditional, the existing `service.main.controller: main` annotation
+keeps the library-compliant binding against the bot Pod.
+
+### Cloudflare Access dashboard steps
+
+1. Open the Cloudflare Zero Trust dashboard for the
+   `brimdor.cloudflareaccess.com` zone.
+2. Add a new application of type **Self-hosted**.
+3. Application domain: `scribe.eaglepass.io`.
+4. Identity providers: Google (the IdP that authenticates the
+   operator's Google account).
+5. Allowlist: `chrisnelsonx@gmail.com` (the only address that may
+   reach the WebUI today; add new addresses here, NOT in the bot
+   code).
+6. Session duration: 24h (or as preferred).
+
+The bot only enforces that the `Cf-Access-User-Email` header is
+present; it does not validate the email against an allowlist. The
+allowlist lives at the edge and is the sole gate.
+
+### Health and readiness
+
+- The existing exec-based healthcheck (`node dist/scripts/healthcheck.js`)
+  remains in place; it checks the in-container readiness file
+  (`/tmp/scribe-ready`) and is the source of truth for "the process
+  started."
+- The embedded HTTP server exposes `GET /api/v1/ready` (unauthenticated)
+  and `GET /api/v1/health`. The `ready` endpoint returns `200` only when
+  both the Discord client is `ready` AND the embedded server is bound.
+  Operators can curl it from inside the cluster to verify the WebUI
+  side of the deployment:
+  ```bash
+  kubectl exec -n scribe-discord deploy/scribe-discord-main -c main -- \
+    curl -s http://localhost:3000/api/v1/ready
+  ```
+
+### What the WebUI does NOT do
+
+- It does not start, stop, or retry voice sessions.
+- It does not publish GitHub issues.
+- It does not accept secret material as input (no API key, token, or
+  password fields).
+- It does not return secret material in any response. The
+  `/api/v1/host-config` endpoint returns only booleans
+  (`<secretName>Configured: true|false`).
+
 ## Validation
 
 Render the chart locally and run the spec's 14-point acceptance suite.
@@ -267,50 +368,55 @@ cd apps/scribe-discord
 helm dependency update
 helm template scribe-discord . --namespace scribe > /tmp/scribe-discord-rendered.yaml
 
-# 1. Zero Services
-helm template scribe-discord . -n scribe | grep -E '^kind: Service$' | wc -l       # expect 0
-# 2. Zero Ingresses
-helm template scribe-discord . -n scribe | grep -E '^kind: Ingress$' | wc -l      # expect 0
+# 1. ONE Service (the WebUI ClusterIP)
+helm template scribe-discord . -n scribe | grep -E '^kind: Service$' | wc -l       # expect 1
+# 2. ONE Ingress (the WebUI ingress)
+helm template scribe-discord . -n scribe | grep -E '^kind: Ingress$' | wc -l      # expect 1
 # 3. Exactly one Deployment
 helm template scribe-discord . -n scribe | grep -E '^kind: Deployment$' | wc -l   # expect 1
-# 4. No containerPort entries (Scribe binds nothing)
-helm template scribe-discord . -n scribe | grep -E 'containerPort:' | wc -l       # expect 0
+# 4. ONE containerPort entry (3000/tcp on the main container; the hook Job has none)
+helm template scribe-discord . -n scribe | grep -E 'containerPort:' | wc -l       # expect 1
 # 5. PVC: 10Gi, standard-rwo, retain (helm.sh/resource-policy: keep)
 helm template scribe-discord . -n scribe | grep -E 'storage: "10Gi"|storageClassName: "standard-rwo"|helm.sh/resource-policy: keep' | sort -u
 # 6. Probes are exec only
-helm template scribe-discord . -n scribe | grep -E 'httpGet:|tcpSocket:' | wc -l  # expect 0
-helm template scribe-discord . -n scribe | grep -E 'node.*healthcheck' | wc -l    # expect 3
+helm template scribe-discord . -n scribe | grep -cE 'httpGet:|tcpSocket:'  # expect 0
+helm template scribe-discord . -n scribe | grep -cE 'dist/scripts/healthcheck\.js'  # expect 3
 # 7. Pod securityContext
-helm template scribe-discord . -n scribe | grep -E 'runAsNonRoot: true|runAsUser: 1000|runAsGroup: 1000|fsGroup: 1000' | wc -l   # expect >= 4
+helm template scribe-discord . -n scribe | grep -cE 'runAsNonRoot: true|runAsUser: 1000|runAsGroup: 1000|fsGroup: 1000'  # expect >= 4
 # 8. Container securityContext
-helm template scribe-discord . -n scribe | grep -E 'readOnlyRootFilesystem: true|allowPrivilegeEscalation: false|capabilities:|drop:' | wc -l   # expect >= 4
+helm template scribe-discord . -n scribe | grep -cE 'readOnlyRootFilesystem: true|allowPrivilegeEscalation: false|capabilities:|drop:'  # expect >= 4
 # 9. terminationGracePeriodSeconds: 60
-helm template scribe-discord . -n scribe | grep 'terminationGracePeriodSeconds: 60' | wc -l   # expect 1
+helm template scribe-discord . -n scribe | grep -cE 'terminationGracePeriodSeconds: 60'  # expect 1
 # 10. 1Password annotations
-helm template scribe-discord . -n scribe | grep -E 'operator.1password.io/item-(name|path)' | wc -l   # expect 2
-# 11. Secret env entries reference scribe-secrets
-helm template scribe-discord . -n scribe | grep -E 'name: scribe-secrets' | wc -l   # expect >= 5 (one per sensitive env var)
+helm template scribe-discord . -n scribe | grep -cE 'operator.1password.io/item-(name|path)'  # expect 2 (one name, one path) per pod
+# 11. Secret env entries reference scribe-discord-secrets
+helm template scribe-discord . -n scribe | grep -cE 'name: scribe-discord-secrets'  # expect >= 4 (one per sensitive env var + the 1Password annotation)
 # 12. postStart writes the PEM
-helm template scribe-discord . -n scribe | grep -E 'base64 -d.*scribe-github-app.pem' | wc -l   # expect 1
-# 13. NetworkPolicy: Egress only, no Ingress rule
-helm template scribe-discord . -n scribe | grep -E 'policyTypes:|Ingress:'   # expect only policyTypes with Egress; no Ingress:
+helm template scribe-discord . -n scribe | grep -cE 'base64 -d.*scribe-github-app\.pem'  # expect 1
+# 13. NetworkPolicy: Ingress AND Egress; the Ingress rule matches ingress-nginx on TCP/3000
+helm template scribe-discord . -n scribe | grep -E 'policyTypes:|kubernetes.io/metadata.name: ingress-nginx'  # expect both
 # 14. Zero literal secrets in chart sources
-grep -rE 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN' apps/scribe-discord/ --exclude-dir=charts | wc -l   # expect 0
+grep -rE 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN' apps/scribe-discord/ --exclude-dir=charts | wc -l  # expect 0
+# 15. WebUI env entries (SCRIBE_WEBUI_ENABLED, SCRIBE_PUBLIC_HOSTNAME, SCRIBE_CF_ACCESS)
+helm template scribe-discord . -n scribe | grep -E 'name: SCRIBE_WEBUI_ENABLED|name: SCRIBE_PUBLIC_HOSTNAME|name: SCRIBE_CF_ACCESS'  # expect 3 names
+helm template scribe-discord . -n scribe | grep -E 'value: "true"|value: scribe\.eaglepass\.io' | grep -E 'SCRIBE_WEBUI_ENABLED|SCRIBE_PUBLIC_HOSTNAME|SCRIBE_CF_ACCESS'  # expect 3 values (true, scribe.eaglepass.io, true)
 ```
 
-A green run on all 14 produces a chart that satisfies every acceptance
-criterion in `scribe/spec/spec-discord-helm-deploy/spec.md` §"Acceptance Criteria".
+A green run on all 15 produces a chart that satisfies every acceptance
+criterion in `scribe/spec/spec-webui-configuration/spec.md` §"Acceptance
+Criteria".
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `CreateContainerConfigError` | 1Password `item-path` is wrong, item is empty, or the operator cannot read the item. | Verify the annotation in `values.yaml` matches the Operator UI's "Copy path" output for the `scribe-secrets` item. Check `kubectl describe op` for the OnePasswordItem CR. |
-| `ImagePullBackOff` | `image.tag` is invalid or the registry denied pull. | `kubectl get pod -n scribe -o jsonpath='{.spec.containers[0].image}'`; verify the tag exists at `ghcr.io/brimdor/scribe:<tag>`. |
-| Liveness/readiness probe fails | Discord token invalid, or the bot is rate-limited by Discord, or the 1Password `discord-token` field is mis-keyed. | `kubectl logs -n scribe deploy/scribe-discord`; the bot logs a clear `[discord] invalid token` or `[discord] rate limit exceeded` line. |
+| `ImagePullBackOff` | `image.tag` is invalid or the registry denied pull. | `kubectl get pod -n scribe-discord -o jsonpath='{.spec.containers[0].image}'`; verify the tag exists at `10.0.20.11:32309/scribe:<tag>`. |
+| Liveness/readiness probe fails | Discord token invalid, or the bot is rate-limited by Discord, or the 1Password `discord-token` field is mis-keyed. | `kubectl logs -n scribe-discord deploy/scribe-discord`; the bot logs a clear `[discord] invalid token` or `[discord] rate limit exceeded` line. |
 | First `scribe issue-propose` fails with `github_app_not_configured` | The `github-app-private-key` field is empty, or the postStart hasn't run yet. | Verify the 1Password field; wait one tick after pod ready and retry. |
 | Codex ENOSPC in logs | `/tmp/scribe-codex-workspace` is filling the emptyDir. | `tmp.sizeLimit: 64Mi` is the current setting; raise it in `values.yaml` if the workspace regularly exceeds that. |
-| PVC stuck in `Terminating` after `helm uninstall` | `helm.sh/resource-policy: keep` is doing its job (intentional). | Manual decommission only: `kubectl delete pvc -n scribe scribe-discord-data`. |
+| PVC stuck in `Terminating` after `helm uninstall` | `helm.sh/resource-policy: keep` is doing its job (intentional). | Manual decommission only: `kubectl delete pvc -n scribe-discord scribe-discord-data`. |
+| WebUI returns 502/503 | The `scribe-discord` Pod is not yet ready, or the embedded server is not yet bound. | `kubectl logs -n scribe-discord deploy/scribe-discord-main`; expect a `WebServer listening on port 3000` line within the first ~5s of pod startup. Verify `SCRIBE_WEBUI_ENABLED=true` in the rendered env. |
 
 ## Canary / dev-typed variant
 
@@ -336,6 +442,7 @@ This is intentionally not in the production chart.
   expectations (PEM path, env contract).
 - `scribe/AGENTS.md` — product-level deployment topology and constraints.
 - `homelab/apps/podwave/` — closest pattern reference (app-template v5.0.1
-  with ingress + service; the Scribe chart deliberately omits both).
+  with ingress + service; the Scribe chart now follows the same pattern
+  for the configuration WebUI).
 - `homelab/AGENTS.md` §"Helm Chart Standard" — why every homelab chart uses
   bjw-s app-template.
