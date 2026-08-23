@@ -46,7 +46,7 @@ app-template:
             # re-syncs only when this string changes.
             # Never "latest" — rolling tags cause Discord session
             # invalidation (see doplarr postmortem).
-            tag: ded126ea3db5a9d9eb0da0ab8fe8de3b4d52e340
+            tag: b01f2ca4acf2e1ec7d682d209b260236752ddf3b
             pullPolicy: IfNotPresent
           # NO ports: block — Scribe binds nothing.
           env:
@@ -264,7 +264,7 @@ app-template:
       defaultContainerOptions:
         image:
           repository: 10.0.20.11:32309/scribe
-          tag: ded126ea3db5a9d9eb0da0ab8fe8de3b4d52e340
+          tag: b01f2ca4acf2e1ec7d682d209b260236752ddf3b
           pullPolicy: IfNotPresent
       containers:
         register:
