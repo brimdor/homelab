@@ -18,6 +18,11 @@
 #     under the cluster's emptyDir quota).
 #   - retain: true on /app/data (PVC is irreplaceable: retained FLAC audio
 #     plus Codex OAuth cache; helm uninstall MUST NOT silently destroy it).
+# Verified hook Job success: b01f2ca (commit c4a0987a, deployed 2026-08-23 05:25:36Z).
+#   Subsequent comment bump forces a second pre-upgrade hook for log capture
+#   (AD-7 hook-delete-policy garbage-collects the first successful Job's
+#   pod logs within ~5 minutes; the recovery worker needs an in-window
+#   `kubectl logs job/scribe-discord-register --tail=50` to satisfy AC-2).
 
 app-template:
   controllers:
