@@ -168,10 +168,197 @@ app-template:
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
+            # runAsGroup is the only thing the bot container shares with
+            # the registration-Job container (AC-8: "matching the bot's
+            # byte-for-byte" of `runAsNonRoot / runAsUser / runAsGroup /
+            # readOnlyRootFilesystem / allowPrivilegeEscalation /
+            # capabilities.drop`). The Job's container sc MUST list the
+            # same six keys to satisfy AC-8; this mirror keeps the bot
+            # container byte-equivalent to the Job container so the
+            # diff is empty.
+            runAsGroup: 1000
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+
+    # ---------------------------------------------------------------------
+    # Discord slash-command registration automation (pre-install,
+    # pre-upgrade Helm hook Job).
+    #
+    # Architecture: the bjw-s `app-template` library renders `type: job`
+    # controllers with the same `annotations:` -> rendered-metadata path
+    # as Deployment (see `charts/common/templates/classes/_job.tpl:14-17,
+    # 31-36`), so Helm hook annotations are ordinary annotations here.
+    # No hand-authored `templates/` file is needed; this implementation
+    # is library-compliant (parent spec constitution §2).
+    #
+    # The hook Job runs the same `dist/scripts/register-commands.js`
+    # binary the bot ships with, against the same `scribe-discord-secrets`
+    # Secret, so no new secrets are introduced. See
+    # scribe/spec/spec-discord-command-registration-automation/spec.md
+    # for the full contract.
+    #
+    # Network policy (AC-9 deviation): the library's `_job.tpl:9-13`
+    # pins `app.kubernetes.io/controller: register` on the Job Pod via
+    # a first-argument-wins `merge` of `(dict "controller" $identifier)`,
+    # so operator-provided `controllers.<name>.labels` cannot override
+    # it. The existing `networkpolicies.main` selector (`controller:
+    # main`) therefore does NOT match the Job Pod. The sibling
+    # `networkpolicies.register` block below mirrors the main egress
+    # rules so the Job can reach Discord's REST API. This is the
+    # schema-valid library-compliant alternative to AC-9's literal
+    # `controller: main` label requirement.
+    # ---------------------------------------------------------------------
+    register:
+      type: job
+      annotations:
+        "helm.sh/hook": pre-install,pre-upgrade
+        # Lower weight = earlier than other pre-install hooks. The chart
+        # has no other hooks today; if one is added later this weight
+        # must stay numerically below the new one.
+        "helm.sh/hook-weight": "-5"
+        # Delete the Job before the next hook phase and on success. On
+        # failure, leave the Job pod for `kubectl describe job` to inspect.
+        "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        # ArgoCD honor: prevents ArgoCD's auto-prune from deleting the
+        # hook pod mid-execution (spec C11).
+        "argocd.argoproj.io/hook": SyncPhase
+      job:
+        # One PUT, one Pod. A second Pod wouldn't help because the
+        # Discord rate-limit window is large.
+        completions: 1
+        # Three tries for transient 5xx / network blips. Discord's
+        # 429 budget is not a real concern.
+        backoffLimit: 3
+        # Hard cap on the hook Job. Discord's PUT is normally <2s;
+        # 120s leaves room for cold start of the node image and a
+        # single transient retry.
+        activeDeadlineSeconds: 120
+        # Garbage-collect the Job 5 minutes after success so the
+        # namespace doesn't accumulate finished Job pods.
+        ttlSecondsAfterFinished: 300
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+      # Image inheritance via `defaultContainerOptions` (merge strategy).
+      # The library's default `defaultContainerOptionsStrategy` is
+      # `overwrite`; we set `merge` here so this controller's
+      # `defaultContainerOptions` are folded into the Job container's
+      # values at template-render time. The library's `_validate.tpl`
+      # requires every container to declare `image.repository` (the
+      # spec proposal of `image: {}` is rejected at render time as
+      # "Image repository is required"), so the only library-compliant
+      # way to render the bot's image onto the Job is to declare the
+      # image in `defaultContainerOptions.image` and rely on the
+      # merge to fold it into the container.
+      #
+      # The image tag here MUST mirror
+      # `controllers.main.containers.main.image.tag`; bump in lockstep.
+      # This is duplication in `values.yaml` text only — the rendered
+      # manifest has exactly one `image: <repo>:<tag>` line per Pod.
+      defaultContainerOptionsStrategy: merge
+      defaultContainerOptions:
+        image:
+          repository: 10.0.20.11:32309/scribe
+          tag: ded126ea3db5a9d9eb0da0ab8fe8de3b4d52e340
+          pullPolicy: IfNotPresent
+      containers:
+        register:
+          # ---- skipOnUpgrade escape hatch (literal-comment toggle) ----
+          # The chart ships two literal `command:` blocks below. Default
+          # is the first (skipOnUpgrade: false) — re-PUT on every
+          # install/upgrade. To opt out of the upgrade PUT, comment the
+          # first block and uncomment the second (skipOnUpgrade: true).
+          # The `app-template.commands.register.skipOnUpgrade` flag below
+          # is the documented intent flag; it is grep-able but does not
+          # affect the rendered manifest. `controllers.X.command` is not
+          # a Helm-templated block; you cannot use `{{- if ... -}}` to
+          # switch between two command lines at render time, hence the
+          # literal-comment toggle (spec R7 / AC-5).
+          command:
+            - node
+            - dist/scripts/register-commands.js
+          # ---- skipOnUpgrade: true (operators uncomment this block and
+          # comment the block above) ----
+          # command:
+          #   - sh
+          #   - -c
+          #   - "echo 'skipOnUpgrade=true; registration skipped on upgrade' && exit 0"
+          env:
+            # Non-secret runtime config only. Secret data is wired via
+            # three explicit `valueFrom.secretKeyRef` entries below (AC-11).
+            - name: NODE_ENV
+              value: production
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-discord-secrets
+                  # UPPER_SNAKE_CASE Secret keys match the 1Password
+                  # item convention (the operator syncs field names
+                  # verbatim to Secret data keys).
+                  key: DISCORD_TOKEN
+            - name: DISCORD_APPLICATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-discord-secrets
+                  key: DISCORD_APPLICATION_ID
+            - name: DISCORD_DEV_GUILD_ID
+              valueFrom:
+                secretKeyRef:
+                  name: scribe-discord-secrets
+                  # The bjw-s 5.0.1 schema (`values.schema.json`)
+                  # strictly forbids `optional: true` on `secretKeyRef`
+                  # (the property is `additionalProperties: false` with
+                  # only `name` and `key` allowed). To install on a
+                  # global-scope bot (no dev guild), the operator MUST
+                  # provision `DISCORD_DEV_GUILD_ID` in the 1Password
+                  # item with an empty-string value. The script's
+                  # `parseConfig` treats an empty value as undefined
+                  # (config.ts:9,130) — global-scope behavior preserved.
+                  # See README.md §"Prerequisites" for the 1Password
+                  # CLI snippet to provision an empty-string key.
+                  key: DISCORD_DEV_GUILD_ID
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 200m, memory: 128Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+
+  # Operator-facing toggle for the registration Job controller above.
+  # Default true so the chart "just works" out of the box; set false to
+  # drop the controller entirely (e.g., during a Discord-side incident
+  # or for an operator-managed manual registration cadence).
+  commands:
+    register:
+      # Documented operator-facing knob. The bjw-s `app-template` library
+      # honors `controllers.<name>.enabled` (per
+      # `lib/controller/_enabled_controllers.tpl:11-14`); disabling
+      # `controllers.register.enabled` drops the Job from the rendered
+      # manifest. The `commands.register.enabled` mirror is a
+      # grep-able documentation of intent that mirrors the
+      # `controllers.register.enabled` default. Operators who set
+      # `--set app-template.commands.register.enabled=false` must ALSO
+      # set `--set app-template.controllers.register.enabled=false` to
+      # actually drop the Job (the library reads the latter). Documented
+      # in README.md §"Disabling registration".
+      enabled: true
+      # Documented intent flag — does NOT affect the rendered manifest.
+      # The literal-comment toggle under `containers.register.command`
+      # is what actually controls skip-on-upgrade behavior (see above).
+      # This value is grep-able so the operator can confirm the chart's
+      # current mode at a glance and so Lens can verify the toggle is
+      # in place (AC-5).
+      skipOnUpgrade: false
 
   # NO service: block — Scribe has no listener.
   # NO ingress: block — Scribe is outbound-only.
@@ -249,6 +436,63 @@ app-template:
           # In-cluster Ollama. If Ollama runs outside the cluster, this
           # rule is harmless (no traffic to match); the HTTPS egress rule
           # above covers external Ollama Cloud endpoints.
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ollama
+            ports:
+              - { protocol: TCP, port: 11434 }
+    # Sibling policy for the pre-install,pre-upgrade registration Job.
+    # The bjw-s `app-template` library sets the Job Pod's
+    # `app.kubernetes.io/controller` label from the controller identifier
+    # (`register`), which the library's `merge` call pins as the first
+    # argument (`charts/common/templates/classes/_job.tpl:9-13`) — i.e.
+    # operator-provided `controllers.<name>.labels` cannot override it
+    # (Helm's `merge` is "first wins"). The existing
+    # `networkpolicies.main` selector (`controller: main`) therefore does
+    # NOT match the Job Pod. Without this sibling policy the Job would
+    # be denied egress on a cluster where the namespace has any
+    # NetworkPolicy at all.
+    #
+    # This sibling policy mirrors the main controller's egress rules so
+    # the Job can reach Discord's REST API. The rules are byte-identical
+    # to `networkpolicies.main.rules`; if you change one, change both.
+    # Spec deviation note: AC-9 says the Job Pod should carry
+    # `controller: main`, but the library does not support that without
+    # a hand-authored template. This sibling policy is the schema-valid
+    # library-compliant alternative.
+    #
+    # `podSelector` is used instead of `controller:` so the policy still
+    # renders when `controllers.register.enabled` is false (e.g., during
+    # a Discord-side incident) — the policy then matches any leftover
+    # `controller: register` Job pods still terminating. The validation
+    # check at `lib/networkpolicy/_validate.tpl:21-30` would otherwise
+    # fail with "No enabled controller found with identifier 'register'".
+    register:
+      enabled: true
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: scribe-discord
+          app.kubernetes.io/controller: register
+      policyTypes: [Egress]
+      rules:
+        egress:
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - { protocol: UDP, port: 53 }
+              - { protocol: TCP, port: 53 }
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except:
+                    - 10.0.0.0/8
+                    - 172.16.0.0/12
+                    - 192.168.0.0/16
+            ports:
+              - { protocol: TCP, port: 443 }
+              - { protocol: TCP, port: 80 }
+          # In-cluster Ollama (used during registration for development).
           - to:
               - namespaceSelector:
                   matchLabels:
