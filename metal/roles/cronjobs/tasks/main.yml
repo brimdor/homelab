@@ -31,6 +31,15 @@
     job: "/usr/bin/touch /var/run/reboot-required"
     state: present
 
+- name: Set up weekly k3s image cache pruning
+  cron:
+    name: Weekly k3s image cache pruning
+    minute: 30
+    hour: 3
+    weekday: 0
+    job: "/usr/local/bin/k3s crictl rmi --prune >/var/log/k3s-image-prune.log 2>&1"
+    state: present
+
 - name: Restart Cronie Service
   service:
     name: crond
