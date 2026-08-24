@@ -606,6 +606,12 @@ node-feature-discovery:
         value: arcanine
         effect: NoSchedule
     config:
+      core:
+        # Arcanine's USB capture device can block NFD v0.16.6's long-running
+        # discovery loop. USB labels are unused; retain every other source.
+        featureSources:
+          - all
+          - -usb
       sources:
         pci:
           deviceClassWhitelist:
