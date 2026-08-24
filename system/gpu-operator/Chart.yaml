@@ -1,10 +1,10 @@
 apiVersion: v2
-appVersion: v23.9.1
+appVersion: v24.3.0
 dependencies:
   - condition: nfd.enabled
     name: node-feature-discovery
     repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
-    version: 0.18.3
+    version: v0.15.4
 description: NVIDIA GPU Operator creates/configures/manages GPUs atop Kubernetes
 home: https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/overview.html
 icon: https://assets.nvidiagrid.net/ngc/logos/GPUoperator.png
@@ -16,8 +16,8 @@ keywords:
   - deep learning
   - monitoring
   - tesla
-kubeVersion: '>= 1.16.0-0'
+kubeVersion: ">= 1.16.0-0"
 name: gpu-operator
 sources:
   - https://github.com/NVIDIA/gpu-operator
-version: v23.9.1
+version: 24.3.0

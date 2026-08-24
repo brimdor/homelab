@@ -9,10 +9,6 @@ nfd:
   enabled: true
   nodefeaturerules: false
 
-# deprecated: use PodSecurityAdmission (PSA) controls instead
-psp:
-  enabled: false
-
 psa:
   enabled: false
 
@@ -53,7 +49,7 @@ validator:
   repository: nvcr.io/nvidia/cloud-native
   image: gpu-operator-validator
   # If version is not specified, then default is to use chart.AppVersion
-  # version: ""
+  #version: ""
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env: []
@@ -72,7 +68,7 @@ operator:
   repository: nvcr.io/nvidia
   image: gpu-operator
   # If version is not specified, then default is to use chart.AppVersion
-  # version: ""
+  #version: ""
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   priorityClassName: system-node-critical
@@ -87,7 +83,7 @@ operator:
   initContainer:
     image: cuda
     repository: nvcr.io/nvidia
-    version: 12.3.1-base-ubi8
+    version: 12.4.1-base-ubi8
     imagePullPolicy: IfNotPresent
   tolerations:
     - key: "node-role.kubernetes.io/master"
@@ -147,7 +143,7 @@ driver:
   usePrecompiled: false
   repository: nvcr.io/nvidia
   image: driver
-  version: "535.129.03"
+  version: "550.54.15"
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   startupProbe:
@@ -195,7 +191,9 @@ driver:
   manager:
     image: k8s-driver-manager
     repository: nvcr.io/nvidia/cloud-native
-    version: v0.6.5
+    # When choosing a different version of k8s-driver-manager, DO NOT downgrade to a version lower than v0.6.4
+    # to ensure k8s-driver-manager stays compatible with gpu-operator starting from v24.3.0
+    version: v0.6.8
     imagePullPolicy: IfNotPresent
     env:
       - name: ENABLE_GPU_POD_EVICTION
@@ -233,6 +231,7 @@ toolkit:
   enabled: true
   repository: nvcr.io/nvidia/k8s
   image: container-toolkit
+  # K3s uses containerd config v3; retain the newer toolkit that supports it.
   version: v1.17.9-ubuntu20.04
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
@@ -248,7 +247,7 @@ devicePlugin:
   enabled: true
   repository: nvcr.io/nvidia
   image: k8s-device-plugin
-  version: v0.14.3-ubi8
+  version: v0.15.0-ubi8
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   args: []
@@ -295,6 +294,10 @@ devicePlugin:
     default: ""
     # Data section for the ConfigMap to create (i.e only applies when create=true)
     data: {}
+  # MPS related configuration for the plugin
+  mps:
+    # MPS root path on the host
+    root: "/run/nvidia/mps"
 
 # standalone dcgm hostengine
 dcgm:
@@ -302,7 +305,7 @@ dcgm:
   enabled: false
   repository: nvcr.io/nvidia/cloud-native
   image: dcgm
-  version: 3.3.0-1-ubuntu22.04
+  version: 3.3.5-1-ubuntu22.04
   imagePullPolicy: IfNotPresent
   hostPort: 5555
   args: []
@@ -313,7 +316,7 @@ dcgmExporter:
   enabled: true
   repository: nvcr.io/nvidia/k8s
   image: dcgm-exporter
-  version: 3.3.0-3.2.0-ubuntu22.04
+  version: 3.3.5-3.4.1-ubuntu22.04
   imagePullPolicy: IfNotPresent
   env:
     - name: DCGM_EXPORTER_LISTEN
@@ -339,8 +342,8 @@ dcgmExporter:
 gfd:
   enabled: true
   repository: nvcr.io/nvidia
-  image: gpu-feature-discovery
-  version: v0.8.2-ubi8
+  image: k8s-device-plugin
+  version: v0.15.0-ubi8
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env:
@@ -354,7 +357,7 @@ migManager:
   enabled: true
   repository: nvcr.io/nvidia/cloud-native
   image: k8s-mig-manager
-  version: v0.5.5-ubuntu20.04
+  version: v0.7.0-ubuntu20.04
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env:
@@ -372,7 +375,7 @@ nodeStatusExporter:
   repository: nvcr.io/nvidia/cloud-native
   image: gpu-operator-validator
   # If version is not specified, then default is to use chart.AppVersion
-  # version: ""
+  #version: ""
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   resources: {}
@@ -382,6 +385,16 @@ gds:
   repository: nvcr.io/nvidia/cloud-native
   image: nvidia-fs
   version: "2.17.5"
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  env: []
+  args: []
+
+gdrcopy:
+  enabled: false
+  repository: nvcr.io/nvidia/cloud-native
+  image: gdrdrv
+  version: "v2.4.1"
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env: []
@@ -399,7 +412,9 @@ vgpuManager:
   driverManager:
     image: k8s-driver-manager
     repository: nvcr.io/nvidia/cloud-native
-    version: v0.6.4
+    # When choosing a different version of k8s-driver-manager, DO NOT downgrade to a version lower than v0.6.4
+    # to ensure k8s-driver-manager stays compatible with gpu-operator starting from v24.3.0
+    version: v0.6.8
     imagePullPolicy: IfNotPresent
     env:
       - name: ENABLE_GPU_POD_EVICTION
@@ -411,7 +426,7 @@ vgpuDeviceManager:
   enabled: true
   repository: nvcr.io/nvidia/cloud-native
   image: vgpu-device-manager
-  version: "v0.2.4"
+  version: "v0.2.6"
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env: []
@@ -423,7 +438,7 @@ vfioManager:
   enabled: true
   repository: nvcr.io/nvidia
   image: cuda
-  version: 12.3.1-base-ubi8
+  version: 12.4.1-base-ubi8
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env: []
@@ -431,7 +446,9 @@ vfioManager:
   driverManager:
     image: k8s-driver-manager
     repository: nvcr.io/nvidia/cloud-native
-    version: v0.6.2
+    # When choosing a different version of k8s-driver-manager, DO NOT downgrade to a version lower than v0.6.4
+    # to ensure k8s-driver-manager stays compatible with gpu-operator starting from v24.3.0
+    version: v0.6.8
     imagePullPolicy: IfNotPresent
     env:
       - name: ENABLE_GPU_POD_EVICTION
@@ -444,12 +461,12 @@ kataManager:
   config:
     artifactsDir: "/opt/nvidia-gpu-operator/artifacts/runtimeclasses"
     runtimeClasses:
-      - name: kata-qemu-nvidia-gpu
+      - name: kata-nvidia-gpu
         nodeSelector: {}
         artifacts:
           url: nvcr.io/nvidia/cloud-native/kata-gpu-artifacts:ubuntu22.04-535.54.03
           pullSecret: ""
-      - name: kata-qemu-nvidia-gpu-snp
+      - name: kata-nvidia-gpu-snp
         nodeSelector:
           "nvidia.com/cc.capable": "true"
         artifacts:
@@ -457,7 +474,7 @@ kataManager:
           pullSecret: ""
   repository: nvcr.io/nvidia/cloud-native
   image: k8s-kata-manager
-  version: v0.1.2
+  version: v0.2.0
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env: []
@@ -467,7 +484,7 @@ sandboxDevicePlugin:
   enabled: true
   repository: nvcr.io/nvidia
   image: kubevirt-gpu-device-plugin
-  version: v1.2.4
+  version: v1.2.7
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   args: []
