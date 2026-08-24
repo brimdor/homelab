@@ -39,6 +39,10 @@ tailscale-operator:
   installCRDs: true
 
   operatorConfig:
+    # The synchronized OAuth credential is currently rejected by Tailscale.
+    # Keep the real operator stopped until the credential is rotated; a fake
+    # sleeping operator masks the fault and must not be used as health.
+    replicas: 0
     # Tags applied to the operator's own device in the tailnet.
     # `tag:k8s-operator` matches what the Tailscale ACL tagOwners entry
     # above grants ownership to.

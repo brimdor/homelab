@@ -37,6 +37,11 @@ goes through Tailscale.
   `recorders.tailscale.com`, `tailscale.com/ingress`, etc.
 - Secret: `operator-oauth` (managed by ExternalSecret, sourced from 1Password)
 
+The pinned upstream chart is stored under `vendor/tailscale-operator`. The only
+local patch makes the operator replica count configurable because upstream
+1.98.9 hard-codes one replica. Keep `operatorConfig.replicas: 0` while the OAuth
+client is invalid; set it to `1` only after verifying the rotated credential.
+
 ## One-time setup (Tailscale admin console)
 
 Before the chart can install successfully, two Tailscale-admin tasks

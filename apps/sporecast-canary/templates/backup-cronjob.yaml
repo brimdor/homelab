@@ -21,6 +21,17 @@ spec:
             app.kubernetes.io/component: backup
         spec:
           restartPolicy: OnFailure
+          # The application data PVC is Ceph RBD (ReadWriteOnce). Keep the
+          # backup pod on the application's node so the volume is never
+          # multi-attached when the scheduler chooses a different worker.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/controller: main
+                      app.kubernetes.io/instance: "{{ .Release.Name }}"
+                  topologyKey: kubernetes.io/hostname
           containers:
             - name: sqlite-backup
               image: alpine:3.20
