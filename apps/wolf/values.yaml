@@ -210,9 +210,8 @@ app-template:
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
         # Trigger external-dns to create the DNS record in Cloudflare.
-        # The cloudflared tunnel already serves the *.eaglepass.io
-        # wildcard so no need to add cloudflare-proxied.
         external-dns.alpha.kubernetes.io/target: "homelab-tunnel.eaglepass.io"
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       hosts:
         - host: &wolfHost wolf.eaglepass.io
           paths:
