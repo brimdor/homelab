@@ -6,7 +6,8 @@
     - inxi
     - podman
     - docker
-    - cronjobs
+    - role: cronjobs
+      tags: cronjobs
     - role: virtualization
       when: hostvars[inventory_hostname].has_virtualization | default(false)
       tags: virtualization
