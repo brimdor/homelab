@@ -1,0 +1,207 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ .Release.Name }}-backup"
+  labels:
+    app.kubernetes.io/name: "{{ .Release.Name }}"
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "*/30 * * * *"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 900
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: "{{ .Release.Name }}"
+            app.kubernetes.io/instance: "{{ .Release.Name }}"
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          # The live SQLite PVC is Ceph RBD (ReadWriteOnce). Co-locate the
+          # backup pod with Strata so the volume is never attached to two nodes.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/controller: main
+                      app.kubernetes.io/instance: "{{ .Release.Name }}"
+                  topologyKey: kubernetes.io/hostname
+          containers:
+            - name: sqlite-backup
+              image: 10.0.20.11:32309/strata:canary-edc0b26-20260825@sha256:e4eb49e63182f9fdd11f8d2a50cc1d701f40131ed44351a9ee840a62c37d75f5
+              imagePullPolicy: IfNotPresent
+              command: ["node"]
+              args:
+                - --input-type=module
+                - -e
+                - |
+                  import Database from "better-sqlite3";
+                  import {
+                    createReadStream,
+                    createWriteStream,
+                    mkdirSync,
+                    readdirSync,
+                    renameSync,
+                    rmSync,
+                    statSync,
+                    unlinkSync,
+                    writeFileSync,
+                  } from "node:fs";
+                  import { createHash } from "node:crypto";
+                  import { pipeline } from "node:stream/promises";
+                  import { createGzip } from "node:zlib";
+
+                  const sourcePath = "/data/strata.sqlite";
+                  const workPath = "/work/strata.sqlite";
+                  const backupDir = "/backup/automated-backups";
+                  const stamp = new Date().toISOString()
+                    .replaceAll("-", "")
+                    .replaceAll(":", "")
+                    .replace(/\.\d{3}Z$/, "Z");
+                  const baseName = `strata-${stamp}.sqlite.gz`;
+                  const partialPath = `${backupDir}/.${baseName}.partial`;
+                  const backupPath = `${backupDir}/${baseName}`;
+                  const manifestPath = `${backupPath}.manifest.json`;
+                  const manifestPartialPath = `${manifestPath}.partial`;
+                  const tables = [
+                    "users",
+                    "workspaces",
+                    "boards",
+                    "lists",
+                    "cards",
+                    "board_memberships",
+                    "workspace_memberships",
+                    "audit_events",
+                    "workspace_admin_grants",
+                    "board_admin_grants",
+                  ];
+                  const inspect = database => ({
+                    quickCheck: database.pragma("quick_check", { simple: true }),
+                    counts: Object.fromEntries(tables.map(table => [
+                      table,
+                      database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
+                    ])),
+                  });
+
+                  mkdirSync(backupDir, { recursive: true });
+                  rmSync(workPath, { force: true });
+                  rmSync(partialPath, { force: true });
+                  rmSync(manifestPartialPath, { force: true });
+
+                  try {
+                    const source = new Database(sourcePath, {
+                      readonly: true,
+                      fileMustExist: true,
+                    });
+                    const sourceState = inspect(source);
+                    if (sourceState.quickCheck !== "ok") {
+                      throw new Error(`Source integrity check failed: ${sourceState.quickCheck}`);
+                    }
+                    await source.backup(workPath);
+                    source.close();
+
+                    const snapshot = new Database(workPath, {
+                      readonly: true,
+                      fileMustExist: true,
+                    });
+                    const snapshotState = inspect(snapshot);
+                    snapshot.close();
+                    if (
+                      snapshotState.quickCheck !== "ok"
+                      || JSON.stringify(snapshotState.counts) !== JSON.stringify(sourceState.counts)
+                    ) {
+                      throw new Error("Snapshot verification failed");
+                    }
+
+                    await pipeline(
+                      createReadStream(workPath),
+                      createGzip({ level: 9 }),
+                      createWriteStream(partialPath, { flags: "wx" }),
+                    );
+
+                    const hash = createHash("sha256");
+                    await new Promise((resolve, reject) => {
+                      const stream = createReadStream(partialPath);
+                      stream.on("data", chunk => hash.update(chunk));
+                      stream.on("end", resolve);
+                      stream.on("error", reject);
+                    });
+
+                    const sha256 = hash.digest("hex");
+                    renameSync(partialPath, backupPath);
+                    writeFileSync(manifestPartialPath, `${JSON.stringify({
+                      createdAt: new Date().toISOString(),
+                      file: baseName,
+                      compressedBytes: statSync(backupPath).size,
+                      sha256,
+                      quickCheck: snapshotState.quickCheck,
+                      counts: snapshotState.counts,
+                    }, null, 2)}\n`, { flag: "wx" });
+                    renameSync(manifestPartialPath, manifestPath);
+
+                    const retentionCutoff = Date.now() - (14 * 24 * 60 * 60 * 1000);
+                    for (const entry of readdirSync(backupDir)) {
+                      if (
+                        /^strata-\d{8}T\d{6}Z\.sqlite\.gz(?:\.manifest\.json)?$/.test(entry)
+                        && statSync(`${backupDir}/${entry}`).mtimeMs < retentionCutoff
+                      ) {
+                        unlinkSync(`${backupDir}/${entry}`);
+                      }
+                    }
+
+                    console.log(JSON.stringify({
+                      backup: backupPath,
+                      sha256,
+                      counts: snapshotState.counts,
+                    }));
+                  } finally {
+                    rmSync(workPath, { force: true });
+                    rmSync(partialPath, { force: true });
+                    rmSync(manifestPartialPath, { force: true });
+                  }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+                - name: backup
+                  mountPath: /backup
+                - name: work
+                  mountPath: /work
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: "{{ .Release.Name }}-data"
+            - name: backup
+              nfs:
+                server: 10.0.40.3
+                path: /mnt/user/strata
+            - name: work
+              emptyDir:
+                sizeLimit: 1Gi
