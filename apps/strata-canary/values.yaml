@@ -6,8 +6,8 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/strata
-            tag: canary-f94bb5d-20260825
-            digest: sha256:a6f3ece36402e39b29d026f12cc3081a1f956d14a5c9cae72e7574837b74a764
+            tag: canary-edc0b26-20260825
+            digest: sha256:939bc8c3f01373efc277b1632b94f7031e8b91b655d1b8ad6daec8f41d3ba9f1
             pullPolicy: Always
           env:
             TZ: America/Chicago
