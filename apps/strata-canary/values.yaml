@@ -2,6 +2,9 @@ app-template:
   controllers:
     main:
       replicas: 1
+      pod:
+        annotations:
+          strata.eaglepass.io/reset-at: "2026-08-25T18:25:20Z"
       containers:
         main:
           image:
