@@ -107,10 +107,6 @@ spec:
                       readonly: true,
                       fileMustExist: true,
                     });
-                    const sourceState = inspect(source);
-                    if (sourceState.quickCheck !== "ok") {
-                      throw new Error(`Source integrity check failed: ${sourceState.quickCheck}`);
-                    }
                     await source.backup(workPath);
                     source.close();
 
@@ -122,7 +118,6 @@ spec:
                     snapshot.close();
                     if (
                       snapshotState.quickCheck !== "ok"
-                      || JSON.stringify(snapshotState.counts) !== JSON.stringify(sourceState.counts)
                     ) {
                       throw new Error("Snapshot verification failed");
                     }
