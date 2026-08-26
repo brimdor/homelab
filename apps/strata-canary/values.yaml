@@ -4,7 +4,7 @@ app-template:
       replicas: 1
       pod:
         annotations:
-          strata.eaglepass.io/reset-at: "2026-08-25T18:25:20Z"
+          strata.eaglepass.io/reset-at: "2026-08-26T13:09:00Z"
       containers:
         main:
           image:
