@@ -43,9 +43,11 @@ gitea:
       resources:
         requests:
           cpu: 100m
+          ephemeral-storage: 50Mi
           memory: 128Mi
         limits:
           cpu: 500m
+          ephemeral-storage: 2Gi
           memory: 192Mi
   postgresql-ha:
     enabled: false
@@ -56,7 +58,9 @@ gitea:
       resources:
         requests:
           cpu: 100m
+          ephemeral-storage: 50Mi
           memory: 128Mi
         limits:
           cpu: 500m
+          ephemeral-storage: 2Gi
           memory: 192Mi
