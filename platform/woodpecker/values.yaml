@@ -19,6 +19,10 @@ woodpecker:
       WOODPECKER_GITEA_URL: https://git.eaglepass.io
       WOODPECKER_OPEN: "true"
       WOODPECKER_ADMIN: gitea_admin
+      # SQLite permits only one writer. Woodpecker's default pool allows 100
+      # connections, which caused intermittent database-lock health failures.
+      WOODPECKER_DATABASE_MAX_CONNECTIONS: "1"
+      WOODPECKER_DATABASE_IDLE_CONNECTIONS: "1"
     ingress:
       enabled: true
       annotations:

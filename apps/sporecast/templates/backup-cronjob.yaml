@@ -6,7 +6,11 @@ metadata:
     app.kubernetes.io/name: "{{ .Release.Name }}"
     app.kubernetes.io/component: backup
 spec:
-  schedule: "0 2 * * *"
+  # Run before the Monday/Wednesday/Friday 01:45-07:00 node reboot window.
+  # The backup requires same-node affinity with the RWO-backed app pod, so a
+  # 02:00 run can remain unschedulable while that node is drained.
+  schedule: "30 0 * * *"
+  timeZone: America/Chicago
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
   concurrencyPolicy: Forbid
