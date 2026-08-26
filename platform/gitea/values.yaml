@@ -39,8 +39,24 @@ gitea:
       tag: "16.6.0-debian-12-r2"
     persistence:
       storageClass: standard-rwo
+    primary:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 192Mi
   postgresql-ha:
     enabled: false
   valkey-cluster:
     cluster:
       nodes: 6
+    valkey:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 192Mi

@@ -1,0 +1,5 @@
+volsync:
+  metrics:
+    # The ServiceMonitor has no bearer token; permit the cluster-internal
+    # ClusterIP metrics endpoint to be scraped by Prometheus.
+    disableAuth: true

@@ -1,4 +1,18 @@
 kube-prometheus-stack:
+  # k3s embeds the scheduler and controller manager and runs Cilium as the
+  # kube-proxy replacement, so these upstream scrape targets do not exist.
+  defaultRules:
+    rules:
+      kubeControllerManager: false
+      kubeProxy: false
+      kubeSchedulerAlerting: false
+      kubeSchedulerRecording: false
+  kubeControllerManager:
+    enabled: false
+  kubeProxy:
+    enabled: false
+  kubeScheduler:
+    enabled: false
   prometheusOperator:
     admissionWebhooks:
       enabled: false
