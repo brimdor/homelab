@@ -21,6 +21,12 @@ rook-ceph-cluster:
     # integration on v20.2.0.
     enabled: true
     createPrometheusRules: true
+    prometheusRuleOverrides:
+      # kube-prometheus-stack already owns node filesystem capacity alerts with
+      # current free-space gates; the Ceph duplicate remains firing for up to
+      # 48 hours after a successful image-prune recovery.
+      CephNodeDiskspaceWarning:
+        disabled: true
   cephClusterSpec:
     cephVersion:
       image: quay.io/ceph/ceph:v20.2.1
