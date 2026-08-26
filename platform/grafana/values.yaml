@@ -14,9 +14,15 @@ grafana:
     dashboards:
       enabled: true
       searchNamespace: monitoring-system
+      # Both k8s-sidecars share the pod network namespace. Give each health
+      # server a distinct port so the datasource sidecar does not fail to bind.
+      env:
+        HEALTH_PORT: "8084"
     datasources:
       enabled: true
       searchNamespace: monitoring-system
+      env:
+        HEALTH_PORT: "8082"
   envFromSecret: grafana-secrets
   grafana.ini:
     server:
