@@ -168,12 +168,7 @@ app-template:
   persistence:
     data:
       type: persistentVolumeClaim
-      enabled: true
-      size: 1Gi
-      # Cluster reality: 'longhorn' does NOT exist in this cluster
-      # (Rook-Ceph RBD is the RWO provisioner, class name 'standard-rwo').
-      storageClass: standard-rwo
-      accessMode: ReadWriteOnce
+      existingClaim: "{{ .Release.Name }}"
       # Mount the RWO data PVC to the backend ONLY. The frontend (nginx)
       # does not need /data. Mounting it via globalMounts causes RBD
       # multi-attach errors when the backend schedules to a node different
