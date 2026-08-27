@@ -4,6 +4,9 @@ app-template:
   controllers:
     main:
       type: deployment
+      # Backend uses an RWO RBD data PVC — prevent overlapping SQLite writers
+      # during deployment replacement.
+      strategy: Recreate
       replicas: 1
       pod:
         terminationGracePeriodSeconds: 30
@@ -33,7 +36,10 @@ app-template:
             runAsGroup: 65532
           env:
             DATA_DIR: /data
-            BACKUP_DIR: /backup
+            # Keep the backend's internal snapshots on the Ceph data volume.
+            # The NAS backup PVC is mounted only by the CronJob so an Unraid
+            # export refresh cannot leave a stale, long-lived NFS mount here.
+            BACKUP_DIR: /data/backups
             BACKUP_INTERVAL_HOURS: "24"
             BATCH_WINDOW_MINUTES: "5"
             OPEN_METEO_TIMEOUT_SECONDS: "10"
@@ -180,16 +186,3 @@ app-template:
         main:
           main:
             - path: /data
-    backup:
-      type: persistentVolumeClaim
-      enabled: true
-      size: 10Gi
-      # Cluster reality: 'nfs-client' does NOT exist in this cluster
-      # (the real NFS client provisioner class is 'nfs-rwx').
-      storageClass: nfs-rwx
-      accessMode: ReadWriteMany
-      # Same reasoning as data above — /backup is a backend-only path.
-      advancedMounts:
-        main:
-          main:
-            - path: /backup
