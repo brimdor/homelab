@@ -11,13 +11,17 @@ spec:
   # 02:00 run can remain unschedulable while that node is drained.
   schedule: "30 0 * * *"
   timeZone: America/Chicago
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1
+  # Finished pods keep their NFS mounts until Kubernetes removes the Job.
+  # Do not retain them: stale Unraid file handles otherwise leak into the
+  # next backup pod through the node's shared NFS client state.
+  successfulJobsHistoryLimit: 0
+  failedJobsHistoryLimit: 0
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
       backoffLimit: 1
       activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 60
       template:
         metadata:
           labels:
