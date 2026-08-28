@@ -7,7 +7,7 @@ app-template:
       # Backend uses an RWO RBD data PVC — prevent overlapping SQLite writers
       # during deployment replacement.
       strategy: Recreate
-      replicas: 1
+      replicas: 0
       pod:
         terminationGracePeriodSeconds: 30
         # Distroless backend image runs as uid 65532 (nonroot:nonroot).
