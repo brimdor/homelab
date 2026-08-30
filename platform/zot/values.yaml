@@ -1,7 +1,4 @@
 zot:
-  # Temporary maintenance downscale while consolidating registry data onto
-  # cache-only Unraid storage to eliminate stale NFS file handles.
-  replicaCount: 0
   ingress:
     enabled: true
     annotations:
