@@ -1,4 +1,11 @@
 grafana:
+  # Use a generated, persistent credential instead of the chart's random
+  # render-time password, which otherwise changes the pod template on every
+  # Argo CD repository revision and causes an unnecessary rollout.
+  admin:
+    existingSecret: grafana-secrets
+    userKey: admin-user
+    passwordKey: admin-password
   ingress:
     enabled: true
     ingressClassName: nginx
