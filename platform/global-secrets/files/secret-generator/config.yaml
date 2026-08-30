@@ -25,6 +25,13 @@
       length: 32
       special: false
 
+# Grafana
+- name: grafana.admin
+  data:
+    - key: password
+      length: 32
+      special: true
+
 # Registry
 - name: registry.admin
   data:
