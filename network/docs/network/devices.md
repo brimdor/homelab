@@ -9,16 +9,28 @@
 | TPLink AX5400 | `10.0.10.3` | 10 | `6c:5a:b0:db:45:80` | Access Point | TP-Link AX5400 | Wireless AP, broadcasts VLAN 50 |
 | UNRAID | `10.0.40.3` | 40 | `00:e0:4c:17:87:83` | NAS Server | Zimaboard 832 | Storage + Twingate host |
 
+### UNRAID NFS storage contract
+
+The Kubernetes `nfs-rwx` provisioner uses the `heartlib` share. Keep this
+share on the `cache` pool with **Use cache pool = Only**. Moving live NFS
+subdirectories between cache and array disks changes the backing Unraid SHFS
+file handles and can make mounted volumes fail with `stale file handle`.
+
+The `nfs-rwx` StorageClass and its persistent volumes use the `nosharecache`
+mount option so a stale mount for one volume is not reused by another volume
+from the same export. Before changing the share placement, quiesce every
+writer, consolidate each PVC directory onto one backing filesystem, verify the
+copy, restart NFS, and then restart the workloads.
+
 ## Kubernetes Cluster (VLAN 20 - Cluster-Prod)
 
 | Device Name | IP Address | MAC Address | Device Type | Make/Model | Role | Notes |
 |-------------|------------|-------------|-------------|------------|------|-------|
 | ash | `10.0.20.10` | `DC:A6:32:D2:C5:48` | SBC | Raspberry Pi 4 | **Controller** | SSH access for cluster management |
-| charmander | `10.0.20.11` | `00:23:24:B0:FF:03` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
-| squirtle | `10.0.20.12` | `00:23:24:E2:1F:A1` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
-| bulbasaur | `10.0.20.13` | `00:23:24:E2:0D:EA` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
+| charmander | `10.0.20.11` | `00:23:24:B0:FF:03` | Mini PC | Lenovo ThinkCentre M700 | Control plane | |
+| squirtle | `10.0.20.12` | `00:23:24:E2:1F:A1` | Mini PC | Lenovo ThinkCentre M700 | Control plane | |
+| bulbasaur | `10.0.20.13` | `00:23:24:E2:0D:EA` | Mini PC | Lenovo ThinkCentre M700 | Control plane | |
 | pikachu | `10.0.20.14` | `E0:4F:43:24:0B:53` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
-| chikorita | `10.0.20.15` | `6C:4B:90:60:29:C4` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
 | cyndaquil | `10.0.20.16` | `6C:4B:90:5F:8E:43` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
 | totodile | `10.0.20.17` | `6C:4B:90:5B:A3:56` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
 | growlithe | `10.0.20.18` | `6C:4B:90:5B:6E:6D` | Mini PC | Lenovo ThinkCentre M700 | Worker | |
@@ -26,7 +38,9 @@
 | sprigatito | `10.0.20.20` | `4c:cc:6a:34:dc:6d` | Mini PC | Lenovo ThinkCentre M700 | Worker | NVIDIA GTX 1650 |
 
 ### Cluster Summary
-- **Total Nodes**: 11 (1 controller + 10 workers)
+- **Active Kubernetes Nodes**: 9 (3 control-plane + 6 workers)
+- **Management Controller**: ash (not a Kubernetes node)
+- **Removed Node**: chikorita (`10.0.20.15`), retained in inventory comments for possible repair
 - **Control Plane API**: `https://10.0.20.50:6443`
 - **GPU Nodes**: 2 (arcanine with RTX 3090, sprigatito with GTX 1650)
 
@@ -51,7 +65,7 @@
 | 4 | 20 | Access | squirtle | `10.0.20.12` |
 | 5 | 20 | Access | bulbasaur | `10.0.20.13` |
 | 6 | 20 | Access | pikachu | `10.0.20.14` |
-| 7 | 20 | Access | chikorita | `10.0.20.15` |
+| 7 | 20 | Access | (spare; former chikorita) | `10.0.20.15` |
 | 8 | 20 | Access | cyndaquil | `10.0.20.16` |
 | 9 | 20 | Access | totodile | `10.0.20.17` |
 | 10 | 20 | Access | growlithe | `10.0.20.18` |
