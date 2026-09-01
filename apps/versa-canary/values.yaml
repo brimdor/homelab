@@ -1,0 +1,211 @@
+app-template:
+  global:
+    alwaysAppendIdentifierToResourceName: false
+
+  controllers:
+    main:
+      forceRename: versa-canary
+      type: deployment
+      strategy: Recreate
+      replicas: 1
+      initContainers:
+        migrate:
+          image:
+            repository: 10.0.20.11:32309/versa
+            tag: "b43b362"
+            digest: sha256:129f034962ce2ff00d4acce38b4585005709df506cd5e9b0a4d74a6e1db3a234
+            pullPolicy: Always
+          command:
+            - npm
+            - run
+            - migrate
+          env: &versa-env
+            TZ: America/Chicago
+            NODE_ENV: production
+            VERSA_PUBLIC_URL: https://versa-canary.eaglepass.io
+            VERSA_BOOTSTRAP_OWNER_EMAIL: chrisnelsonx@gmail.com
+            VERSA_TIME_ZONE: America/Chicago
+            OLLAMA_BASE_URL: https://ollama.com
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: versa-canary-secrets
+                  key: database-url
+            VERSA_CONFIG_ENCRYPTION_KEY_BASE64:
+              valueFrom:
+                secretKeyRef:
+                  name: versa-canary-secrets
+                  key: config-encryption-key-base64
+            CF_ACCESS_TEAM_DOMAIN:
+              valueFrom:
+                secretKeyRef:
+                  name: versa-canary-secrets
+                  key: cf-access-team-domain
+            CF_ACCESS_AUDIENCE:
+              valueFrom:
+                secretKeyRef:
+                  name: versa-canary-secrets
+                  key: cf-access-audience
+          securityContext: &container-security
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: [ALL]
+      containers:
+        web:
+          image: &versa-image
+            repository: 10.0.20.11:32309/versa
+            tag: "b43b362"
+            digest: sha256:129f034962ce2ff00d4acce38b4585005709df506cd5e9b0a4d74a6e1db3a234
+            pullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          env: *versa-env
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: http
+                initialDelaySeconds: 10
+                periodSeconds: 20
+                timeoutSeconds: 5
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /readyz
+                  port: http
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 5
+                failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext: *container-security
+        worker:
+          image: *versa-image
+          command:
+            - npm
+            - run
+            - worker
+          env: *versa-env
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext: *container-security
+
+  service:
+    main:
+      forceRename: versa-canary
+      primary: true
+      controller: main
+      ports:
+        http:
+          port: 80
+          protocol: HTTP
+          targetPort: http
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        versa.eaglepass.io/track: canary
+      hosts:
+        - host: versa-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service:
+                identifier: main
+                port: http
+      tls:
+        - hosts:
+            - versa-canary.eaglepass.io
+          secretName: versa-canary-tls
+
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes:
+        - Ingress
+        - Egress
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ingress-nginx
+            ports:
+              - protocol: TCP
+                port: 3000
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: kube-system
+            ports:
+              - protocol: UDP
+                port: 53
+              - protocol: TCP
+                port: 53
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: postgres
+            ports:
+              - protocol: TCP
+                port: 5432
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except:
+                    - 10.0.0.0/8
+                    - 172.16.0.0/12
+                    - 192.168.0.0/16
+            ports:
+              - protocol: TCP
+                port: 443
+
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+      seccompProfile:
+        type: RuntimeDefault
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/cuosf3wgqh37aftv2plmatna6e"
+      operator.1password.io/item-name: versa-canary-secrets
+    labels:
+      versa.eaglepass.io/track: canary

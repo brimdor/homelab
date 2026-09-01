@@ -101,3 +101,57 @@ resource "cloudflare_zero_trust_access_policy" "arc_tracker_allow" {
     }
   }
 }
+
+# =============================================================================
+# Cloudflare Zero Trust Access — Versa
+# =============================================================================
+# The production marketing page remains public. Cloudflare Access protects the
+# application surface, while Versa keeps newly authenticated accounts pending
+# until an administrator approves them.
+# ------------------------------------------------------------------------------
+
+resource "cloudflare_zero_trust_access_application" "versa" {
+  account_id                = var.cloudflare_account_id
+  name                      = "Versa"
+  domain                    = "versa.eaglepass.io/app*"
+  type                      = "self_hosted"
+  session_duration          = "24h"
+  allowed_idps              = ["facd56ad-71fa-4cf3-98a0-ac986681b252"]
+  auto_redirect_to_identity = true
+  app_launcher_visible      = true
+  policies = [{
+    id         = cloudflare_zero_trust_access_policy.versa_allow_google.id
+    precedence = 1
+  }]
+}
+
+resource "cloudflare_zero_trust_access_policy" "versa_allow_google" {
+  account_id       = var.cloudflare_account_id
+  name             = "Versa Google Sign-In"
+  decision         = "allow"
+  session_duration = "24h"
+  include          = [{ everyone = {} }]
+}
+
+resource "cloudflare_zero_trust_access_application" "versa_canary" {
+  account_id                = var.cloudflare_account_id
+  name                      = "Versa Canary"
+  domain                    = "versa-canary.eaglepass.io"
+  type                      = "self_hosted"
+  session_duration          = "24h"
+  allowed_idps              = ["facd56ad-71fa-4cf3-98a0-ac986681b252"]
+  auto_redirect_to_identity = true
+  app_launcher_visible      = false
+  policies = [{
+    id         = cloudflare_zero_trust_access_policy.versa_canary_owner.id
+    precedence = 1
+  }]
+}
+
+resource "cloudflare_zero_trust_access_policy" "versa_canary_owner" {
+  account_id       = var.cloudflare_account_id
+  name             = "Versa Canary Owner"
+  decision         = "allow"
+  session_duration = "24h"
+  include          = [{ email = { email = "chrisnelsonx@gmail.com" } }]
+}

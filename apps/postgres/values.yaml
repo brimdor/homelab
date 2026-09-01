@@ -58,6 +58,36 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "threads-postgres-password"
+            VERSA_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-postgres-db"
+            VERSA_POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-postgres-user"
+            VERSA_POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-postgres-password"
+            VERSA_CANARY_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-canary-postgres-db"
+            VERSA_CANARY_POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-canary-postgres-user"
+            VERSA_CANARY_POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-canary-postgres-password"
         db-backup:
           image:
             repository: postgres
@@ -87,6 +117,16 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "paperclip-postgres-db"
+            VERSA_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-postgres-db"
+            VERSA_CANARY_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-canary-postgres-db"
           dependsOn:
             - main
           command:
@@ -140,8 +180,22 @@ app-template:
                   echo "[WARN] Paperclip database ${PAPERCLIP_POSTGRES_DB} does not exist yet; skipping backup."
                 fi
 
+                if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Atqc "SELECT 1 FROM pg_database WHERE datname = '$VERSA_POSTGRES_DB'" | grep -q '^1$'; then
+                  backup_database "$VERSA_POSTGRES_DB" "versa-prod" "$ts"
+                else
+                  echo "[WARN] Versa database ${VERSA_POSTGRES_DB} does not exist yet; skipping backup."
+                fi
+
+                if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Atqc "SELECT 1 FROM pg_database WHERE datname = '$VERSA_CANARY_POSTGRES_DB'" | grep -q '^1$'; then
+                  backup_database "$VERSA_CANARY_POSTGRES_DB" "versa-canary" "$ts"
+                else
+                  echo "[WARN] Versa canary database ${VERSA_CANARY_POSTGRES_DB} does not exist yet; skipping backup."
+                fi
+
                 prune_backups db
                 prune_backups paperclip
+                prune_backups versa-prod
+                prune_backups versa-canary
                 sleep 600
               done
         db-bootstrap:
@@ -197,6 +251,36 @@ app-template:
                 secretKeyRef:
                   name: "secrets"
                   key: "threads-postgres-password"
+            VERSA_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-postgres-db"
+            VERSA_POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-postgres-user"
+            VERSA_POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-postgres-password"
+            VERSA_CANARY_POSTGRES_DB:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-canary-postgres-db"
+            VERSA_CANARY_POSTGRES_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-canary-postgres-user"
+            VERSA_CANARY_POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: "secrets"
+                  key: "versa-canary-postgres-password"
           dependsOn:
             - main
           command:
@@ -240,6 +324,36 @@ app-template:
               SQL
 
                 echo "[$(date +%Y-%m-%d_%H-%M-%S)] Threads bootstrap reconciliation complete."
+
+                psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
+                  -v app_db="$VERSA_POSTGRES_DB" \
+                  -v app_user="$VERSA_POSTGRES_USER" \
+                  -v app_password="$VERSA_POSTGRES_PASSWORD" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
+              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
+              SELECT format('ALTER DATABASE %I OWNER TO %I', :'app_db', :'app_user') \gexec
+              SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', :'app_db', :'app_user') \gexec
+              SQL
+
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Versa bootstrap reconciliation complete."
+
+                psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
+                  -v app_db="$VERSA_CANARY_POSTGRES_DB" \
+                  -v app_user="$VERSA_CANARY_POSTGRES_USER" \
+                  -v app_password="$VERSA_CANARY_POSTGRES_PASSWORD" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
+              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
+              SELECT format('ALTER DATABASE %I OWNER TO %I', :'app_db', :'app_user') \gexec
+              SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', :'app_db', :'app_user') \gexec
+              SQL
+
+                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Versa canary bootstrap reconciliation complete."
                 sleep 3600
               done
       initContainers:
@@ -296,6 +410,60 @@ app-template:
               echo "[INITDB] Paperclip restore complete."
               EOF
                 chmod +x /work/20-restore-paperclip.sh
+                restore_count=$((restore_count + 1))
+              fi
+
+              latest_versa_dump=$(ls -t /mnt/backup/db/versa-prod-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_versa_dump" ] && [ -s "$latest_versa_dump" ]; then
+                echo "[INIT] Using Versa dump: $latest_versa_dump"
+                cp "$latest_versa_dump" /work/versa.dump
+                cat <<'EOF' > /work/30-restore-versa.sh
+              #!/bin/sh
+              set -e
+              echo "[INITDB] Ensuring Versa role and database exist before restore"
+              export PGPASSWORD="$POSTGRES_PASSWORD"
+              psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -v app_db="$VERSA_POSTGRES_DB" \
+                -v app_user="$VERSA_POSTGRES_USER" \
+                -v app_password="$VERSA_POSTGRES_PASSWORD" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
+              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
+              SQL
+              echo "[INITDB] Restoring Versa database from /docker-entrypoint-initdb.d/versa.dump"
+              pg_restore -U "$POSTGRES_USER" -d "$VERSA_POSTGRES_DB" /docker-entrypoint-initdb.d/versa.dump || echo "[INITDB] Versa pg_restore completed with warnings (non-fatal)"
+              echo "[INITDB] Versa restore complete."
+              EOF
+                chmod +x /work/30-restore-versa.sh
+                restore_count=$((restore_count + 1))
+              fi
+
+              latest_versa_canary_dump=$(ls -t /mnt/backup/db/versa-canary-*.dump 2>/dev/null | head -n 1 || true)
+              if [ -n "$latest_versa_canary_dump" ] && [ -s "$latest_versa_canary_dump" ]; then
+                echo "[INIT] Using Versa canary dump: $latest_versa_canary_dump"
+                cp "$latest_versa_canary_dump" /work/versa-canary.dump
+                cat <<'EOF' > /work/40-restore-versa-canary.sh
+              #!/bin/sh
+              set -e
+              echo "[INITDB] Ensuring Versa canary role and database exist before restore"
+              export PGPASSWORD="$POSTGRES_PASSWORD"
+              psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -v app_db="$VERSA_CANARY_POSTGRES_DB" \
+                -v app_user="$VERSA_CANARY_POSTGRES_USER" \
+                -v app_password="$VERSA_CANARY_POSTGRES_PASSWORD" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
+              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
+              SQL
+              echo "[INITDB] Restoring Versa canary database from /docker-entrypoint-initdb.d/versa-canary.dump"
+              pg_restore -U "$POSTGRES_USER" -d "$VERSA_CANARY_POSTGRES_DB" /docker-entrypoint-initdb.d/versa-canary.dump || echo "[INITDB] Versa canary pg_restore completed with warnings (non-fatal)"
+              echo "[INITDB] Versa canary restore complete."
+              EOF
+                chmod +x /work/40-restore-versa-canary.sh
                 restore_count=$((restore_count + 1))
               fi
 
