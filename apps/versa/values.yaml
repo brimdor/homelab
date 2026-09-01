@@ -141,19 +141,19 @@ app-template:
         ingress:
           - from:
               - namespaceSelector:
-                  matchLabels: {name: ingress-nginx}
+                  matchLabels: {kubernetes.io/metadata.name: ingress-nginx}
             ports:
               - {protocol: TCP, port: 3000}
         egress:
           - to:
               - namespaceSelector:
-                  matchLabels: {name: kube-system}
+                  matchLabels: {kubernetes.io/metadata.name: kube-system}
             ports:
               - {protocol: UDP, port: 53}
               - {protocol: TCP, port: 53}
           - to:
               - namespaceSelector:
-                  matchLabels: {name: postgres}
+                  matchLabels: {kubernetes.io/metadata.name: postgres}
             ports:
               - {protocol: TCP, port: 5432}
           - to:
