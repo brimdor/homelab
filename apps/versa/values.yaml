@@ -1,13 +1,13 @@
-# Production is intentionally staged but disabled. Promotion requires an explicit
-# approval of the exact canary image digest and a follow-up change enabling the
-# controller, service, ingress, and network policy.
+# Production is enabled only through the approved Versa release pipeline. The
+# migrate, web, and worker containers must remain pinned to one Canary-proven
+# immutable digest.
 app-template:
   global:
     alwaysAppendIdentifierToResourceName: false
 
   controllers:
     main:
-      enabled: false
+      enabled: true
       forceRename: versa
       type: deployment
       strategy: Recreate
@@ -16,8 +16,8 @@ app-template:
         migrate:
           image:
             repository: 10.0.20.11:32309/versa
-            tag: "4129d8f"
-            digest: sha256:4801084ff063d49345961467cfb3cceaf6c9177a1198834a72074bc6e697e7c8
+            tag: "d364535"
+            digest: sha256:190314d20f2e01ea7c76bcda3942f6a8ee7b392564961c0fd441b699fb51b13a
             pullPolicy: Always
           command: [npm, run, migrate]
           env: &versa-env
@@ -56,8 +56,8 @@ app-template:
         web:
           image: &versa-image
             repository: 10.0.20.11:32309/versa
-            tag: "4129d8f"
-            digest: sha256:4801084ff063d49345961467cfb3cceaf6c9177a1198834a72074bc6e697e7c8
+            tag: "d364535"
+            digest: sha256:190314d20f2e01ea7c76bcda3942f6a8ee7b392564961c0fd441b699fb51b13a
             pullPolicy: Always
           ports:
             - containerPort: 3000
@@ -100,7 +100,7 @@ app-template:
 
   service:
     main:
-      enabled: false
+      enabled: true
       forceRename: versa
       primary: true
       controller: main
@@ -112,7 +112,7 @@ app-template:
 
   ingress:
     main:
-      enabled: false
+      enabled: true
       className: nginx
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -134,7 +134,7 @@ app-template:
 
   networkpolicies:
     main:
-      enabled: false
+      enabled: true
       controller: main
       policyTypes: [Ingress, Egress]
       rules:
