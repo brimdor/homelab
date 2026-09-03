@@ -12,8 +12,8 @@ app-template:
         migrate:
           image:
             repository: 10.0.20.11:32309/versa
-            tag: "a32d273"
-            digest: sha256:ce50f95449a1a2a3c6d668fa4690a03798c4ee68a1f12f4104d2f18e2499029f
+            tag: "1b0aa9e"
+            digest: sha256:d450648badd4a6962e4ffd22a2c84a0d0f1937e16d722e24519d72d8cec8a210
             pullPolicy: Always
           command:
             - npm
@@ -57,8 +57,8 @@ app-template:
         web:
           image: &versa-image
             repository: 10.0.20.11:32309/versa
-            tag: "a32d273"
-            digest: sha256:ce50f95449a1a2a3c6d668fa4690a03798c4ee68a1f12f4104d2f18e2499029f
+            tag: "1b0aa9e"
+            digest: sha256:d450648badd4a6962e4ffd22a2c84a0d0f1937e16d722e24519d72d8cec8a210
             pullPolicy: Always
           ports:
             - containerPort: 3000
