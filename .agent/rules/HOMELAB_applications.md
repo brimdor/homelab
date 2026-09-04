@@ -40,6 +40,8 @@ sync_note: Governance for application lifecycle and code modifications.
 
 - **Build Scripts**: Build logic resides in `apps/<app-name>/scripts/build.sh` within the homelab repository.
 - **Dockerfile Management**: If we need a custom Dockerfile, it lives in the homelab repository or is generated during the build process. Do not rely on the upstream Dockerfile remaining compatible with our needs.
+- **Build Isolation**: Kubernetes nodes are workload hosts, not ad-hoc image builders. Run builds on an external development workstation or governed CI builder, publish the immutable result to the registry, and allow Kubernetes to pull it through declared GitOps state and normal scheduling.
+- **Post-Production Cleanup**: A self-built application release is incomplete until its new Production deployment and the whole cluster are green, every active GitOps digest reference has been resolved and protected, older unreferenced manifests have been purged from Zot, registry garbage collection has run when required, the retained Production digest remains pullable, and health is green again. Never delete a referenced digest or clean images before Production is healthy.
 
 ---
 
@@ -52,7 +54,7 @@ When we need to modify the behavior of an external application (like fixing a bu
 1.  **Analyze Source**: Clone the upstream repo locally to understand the code.
 2.  **Develop Fix**: Create the fix locally and verify it (e.g., via unit tests).
 3.  **Compile & Extract**: If the app is compiled (TypeScript/Go/etc.), build the artifacts.
-4.  **Inject via ConfigMap**: 
+4.  **Inject via ConfigMap**:
     - Create a `patches` ConfigMap in the application's `values.yaml` (in the homelab repo).
     - Paste the **compiled/final code** into the ConfigMap data.
     - Use `volumeMounts` (or `advancedMounts`) to overlay the patched file onto the container's filesystem at runtime (e.g., mounting `/app/dist/foo.js`).
@@ -86,6 +88,6 @@ Standard structure for `apps/<app-name>/`:
 
 - **Source**: External repo (locally at `~/Documents/Github/moltbot`).
 - **Image**: Built via `apps/moltbot/scripts/build.sh`.
-- **Modifications**: 
+- **Modifications**:
     - **Forbidden**: Editing `src/...` in the moltbot repo and committing it there.
     - **Required**: Editing `values.yaml` in the homelab repo to mount patched JS files into `/app/dist/...`.

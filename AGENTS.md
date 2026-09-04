@@ -33,6 +33,8 @@ edit apps/<app>/Chart.yaml, values.yaml, templates, or repo-owned scripts
 
 - Do not deploy an application change by editing a live Deployment, StatefulSet, Pod, ConfigMap, Secret, Application, or container.
 - Do not use manual `helm upgrade`, `kubectl set image`, `kubectl edit`, or container-local file edits as the normal change path.
+- Do not use Kubernetes nodes as ad-hoc container build hosts. Build application images on an external development workstation or governed CI builder, publish them to the registry, and let Kubernetes nodes only pull and run the declared images through normal scheduling.
+- Application release workflows that own self-built images must clean up after a successful Production update. Only after Production and the whole cluster are green, resolve every active GitOps digest reference, purge older unreferenced manifests from Zot, run registry garbage collection when required, verify the retained Production digest remains pullable, and repeat the health checks. Never delete a referenced digest.
 - A live emergency action is temporary mitigation only. Encode the resulting desired state in this repo, push it to Gitea, and verify Argo CD reconciliation before declaring the work complete.
 - Gitea is the authoritative GitOps remote. GitHub receives a backup mirror and must not be treated as an alternate production source, promotion path, or place to land a homelab change instead of Gitea.
 
