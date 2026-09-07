@@ -161,6 +161,18 @@ Production and canary directories are independent Argo CD Applications with inde
 4. Render and diff the production chart.
 5. Roll back by reverting the Git commit or restoring the previous immutable image/configuration; do not rely on an unrecorded live Helm rollback for an Argo-managed release.
 
+### Strata release approval gate
+
+Changes to Strata follow the canary-first workflow in `docs/how-to-guides/release-strata.md`. This is required for both application-source changes and deployment-only changes affecting `apps/strata-canary` or `apps/strata`.
+
+- Deploy every candidate to `strata-canary` before changing `strata` production. A canary deployment requires its own validated commit on Gitea `master` so Argo CD can reconcile it; this operational commit does not authorize production promotion.
+- After canary is healthy, provide the user a concise manual test checklist derived from the actual source, image, configuration, schema, and dependency diff. Include the always-required smoke and regression checks from the runbook, but do not substitute a generic checklist for change-specific tests.
+- The approval candidate is the exact tuple of application source tree, immutable image digest, and canary deployment configuration commit. Record those identifiers when requesting approval.
+- Treat findings as blocking. Remediate them in source or desired state, deploy a new canary candidate, rerun automated and live checks, and provide a refreshed manual checklist.
+- Require explicit user approval before merging the application change or promoting it to production. Tests, a healthy rollout, silence, or approval of an earlier candidate are not approval.
+- Any source, image, dependency, rendered configuration, rebase, merge resolution, or documentation change included in the release after approval invalidates that approval. Restart canary validation for the new candidate.
+- Promote the approved image by digest without rebuilding it. Preserve production-only hostnames, cookie names, seed settings, storage, secrets, and resource policy. Commit and push the production chart change to Gitea, refresh `strata`, and complete the live all-green and application-behavior gates.
+
 ### External source and custom images
 
 - External application repositories remain upstream-authoritative. Local clones are disposable workspaces for source analysis and builds, not a second source of truth.
