@@ -81,6 +81,9 @@ app-template:
             PROVIDER_SECRET_KEY:
               valueFrom:
                 secretKeyRef: {name: pointguide-canary-secrets, key: provider-secret-key}
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef: {name: pointguide-canary-secrets, key: github-token}
             DATABASE_URL:
               valueFrom:
                 secretKeyRef: {name: pointguide-canary-secrets, key: database-url}
