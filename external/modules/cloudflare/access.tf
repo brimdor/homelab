@@ -155,3 +155,56 @@ resource "cloudflare_zero_trust_access_policy" "versa_canary_owner" {
   session_duration = "24h"
   include          = [{ email = { email = "chrisnelsonx@gmail.com" } }]
 }
+
+# =============================================================================
+# Cloudflare Zero Trust Access — PointGuide
+# =============================================================================
+# PointGuide performs its own account approval and role authorization after
+# Cloudflare verifies a Google identity. Canary remains Owner-only.
+# ------------------------------------------------------------------------------
+
+resource "cloudflare_zero_trust_access_application" "pointguide" {
+  account_id                = var.cloudflare_account_id
+  name                      = "PointGuide"
+  domain                    = "pointguide.eaglepass.io"
+  type                      = "self_hosted"
+  session_duration          = "24h"
+  allowed_idps              = ["facd56ad-71fa-4cf3-98a0-ac986681b252"]
+  auto_redirect_to_identity = true
+  app_launcher_visible      = true
+  policies = [{
+    id         = cloudflare_zero_trust_access_policy.pointguide_allow_google.id
+    precedence = 1
+  }]
+}
+
+resource "cloudflare_zero_trust_access_policy" "pointguide_allow_google" {
+  account_id       = var.cloudflare_account_id
+  name             = "PointGuide Google Sign-In"
+  decision         = "allow"
+  session_duration = "24h"
+  include          = [{ everyone = {} }]
+}
+
+resource "cloudflare_zero_trust_access_application" "pointguide_canary" {
+  account_id                = var.cloudflare_account_id
+  name                      = "PointGuide Canary"
+  domain                    = "pointguide-canary.eaglepass.io"
+  type                      = "self_hosted"
+  session_duration          = "24h"
+  allowed_idps              = ["facd56ad-71fa-4cf3-98a0-ac986681b252"]
+  auto_redirect_to_identity = true
+  app_launcher_visible      = false
+  policies = [{
+    id         = cloudflare_zero_trust_access_policy.pointguide_canary_owner.id
+    precedence = 1
+  }]
+}
+
+resource "cloudflare_zero_trust_access_policy" "pointguide_canary_owner" {
+  account_id       = var.cloudflare_account_id
+  name             = "PointGuide Canary Owner"
+  decision         = "allow"
+  session_duration = "24h"
+  include          = [{ email = { email = "chrisnelsonx@gmail.com" } }]
+}

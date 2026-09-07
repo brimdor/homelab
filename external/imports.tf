@@ -21,3 +21,25 @@ import {
   to = module.cloudflare.cloudflare_zero_trust_access_policy.versa_canary_owner
   id = "${var.cloudflare_account_id}/d564444b-9b5e-439c-a4e5-1f0cf97648d7"
 }
+
+# PointGuide Access resources follow the same API-bootstrap-and-adopt path as
+# Versa while the broader provider-v5 migration remains incomplete.
+import {
+  to = module.cloudflare.cloudflare_zero_trust_access_application.pointguide
+  id = "accounts/${var.cloudflare_account_id}/dbb92eeb-ceb2-49ae-a497-a4a82a71c633"
+}
+
+import {
+  to = module.cloudflare.cloudflare_zero_trust_access_policy.pointguide_allow_google
+  id = "${var.cloudflare_account_id}/70f82692-4d74-462e-bf1e-1db0292f8b87"
+}
+
+import {
+  to = module.cloudflare.cloudflare_zero_trust_access_application.pointguide_canary
+  id = "accounts/${var.cloudflare_account_id}/60224322-5e72-4f0b-97d8-bacad17f7ed8"
+}
+
+import {
+  to = module.cloudflare.cloudflare_zero_trust_access_policy.pointguide_canary_owner
+  id = "${var.cloudflare_account_id}/95be941a-e716-462e-a111-0ff093b95f81"
+}
