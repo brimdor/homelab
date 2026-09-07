@@ -52,8 +52,8 @@ app-template:
           dependsOn: corpus
           image: &pointguide-image
             repository: 10.0.20.11:32309/pointguide
-            tag: "2a8abd1"
-            digest: sha256:4ddbc6a970875c5e7d0f6774d1f1a5193da6fa0770516be6db13e863b52bf388
+            tag: "9915ea3"
+            digest: sha256:c64b1e1573f0822acefcaf16aff68d506086215ce7a33ecb7bf5be4eb340626f
             pullPolicy: Always
           command: [./node_modules/.bin/tsx, scripts/migrate.ts]
           env:
