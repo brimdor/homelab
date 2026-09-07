@@ -158,6 +158,7 @@ app-template:
           env:
             POSTGRES_USER: pointguide
             POSTGRES_DB: pointguide
+            PGDATA: /var/lib/postgresql/data/pgdata
             POSTGRES_PASSWORD:
               valueFrom:
                 secretKeyRef: {name: pointguide-canary-secrets, key: postgres-password}
