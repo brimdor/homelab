@@ -1,0 +1,302 @@
+app-template:
+  global:
+    alwaysAppendIdentifierToResourceName: false
+
+  controllers:
+    main:
+      forceRename: pointguide
+      type: deployment
+      strategy: Recreate
+      replicas: 1
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile: {type: RuntimeDefault}
+        terminationGracePeriodSeconds: 30
+      initContainers:
+        corpus:
+          image:
+            repository: docker.io/alpine/git
+            tag: "2.49.1"
+            digest: sha256:53a6239398162098fed2f49a46512f9cbba9e3f31b9f2cea4fa90129ee069a99
+            pullPolicy: IfNotPresent
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              export GIT_ASKPASS=/tmp/pointguide-askpass
+              printf '#!/bin/sh\ncase "$1" in *Username*) echo x-access-token ;; *) echo "$GITHUB_TOKEN" ;; esac\n' > "$GIT_ASKPASS"
+              chmod 700 "$GIT_ASKPASS"
+              git clone --no-checkout https://github.com/PointCommunity/pointaudio.git /workspace/repository
+              git -C /workspace/repository fetch --depth=1 origin "$CORPUS_COMMIT"
+              git -C /workspace/repository worktree add --detach /workspace/web "$CORPUS_COMMIT"
+              git -C /workspace/repository worktree add --detach /workspace/worker "$CORPUS_COMMIT"
+              git -C /workspace/worker config user.name "PointGuide Agent"
+              git -C /workspace/worker config user.email "pointguide@eaglepass.io"
+              test "$(git -C /workspace/web rev-parse HEAD)" = "$CORPUS_COMMIT"
+              rm "$GIT_ASKPASS"
+          env:
+            GIT_TERMINAL_PROMPT: "0"
+            CORPUS_COMMIT: cc1f67121a8fed2fbfc6a7dfab0f974a44bd022d
+            GITHUB_TOKEN:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: github-token}
+          securityContext: &container-security
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities: {drop: [ALL]}
+        migrate:
+          dependsOn: corpus
+          image: &pointguide-image
+            repository: 10.0.20.11:32309/pointguide
+            tag: "12e683a"
+            digest: sha256:9a773f92bb26718665ccee63737aacfa6c1e9e3edd7873df54ca8350b00ae01f
+            pullPolicy: Always
+          command: [./node_modules/.bin/tsx, scripts/migrate.ts]
+          env:
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: database-url}
+          securityContext: *container-security
+      containers:
+        web:
+          image: *pointguide-image
+          ports:
+            - containerPort: 3000
+              name: http
+          env: &pointguide-env
+            TZ: America/Chicago
+            NODE_ENV: production
+            APP_BASE_URL: https://pointguide.eaglepass.io
+            AUTH_MODE: cloudflare
+            CF_ACCESS_TEAM_DOMAIN:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: cf-access-team-domain}
+            CF_ACCESS_AUDIENCE:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: cf-access-audience}
+            PROVIDER_SECRET_KEY:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: provider-secret-key}
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: database-url}
+            CORPUS_ROOT: /workspace/web
+            CORPUS_COMMIT: cc1f67121a8fed2fbfc6a7dfab0f974a44bd022d
+            CORPUS_MANIFEST: research/midas-m32/checksums.sha256
+            REVIEW_ENABLED: "false"
+            LIVE_PROVIDERS_ENABLED: "true"
+            GIT_WRITES_ENABLED: "false"
+            WEB_SEARCH_ENABLED: "false"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /api/healthz, port: http}
+                initialDelaySeconds: 10
+                periodSeconds: 20
+                timeoutSeconds: 5
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /api/readyz, port: http}
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /api/healthz, port: http}
+                periodSeconds: 5
+                failureThreshold: 60
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext: *container-security
+        worker:
+          image: *pointguide-image
+          command: [/bin/sh, -ec]
+          args:
+            - gh auth setup-git && exec ./node_modules/.bin/tsx scripts/worker.ts
+          env:
+            <<: *pointguide-env
+            GIT_WRITES_ENABLED: "true"
+            POINTAUDIO_CHECKOUT: /workspace/worker
+            GH_TOKEN:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: github-token}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext: *container-security
+
+    postgres:
+      forceRename: pointguide-postgres
+      type: statefulset
+      replicas: 1
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          fsGroup: 999
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile: {type: RuntimeDefault}
+        terminationGracePeriodSeconds: 30
+      containers:
+        main:
+          image:
+            repository: docker.io/library/postgres
+            tag: "17-alpine"
+            digest: sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee
+            pullPolicy: IfNotPresent
+          env:
+            POSTGRES_USER: pointguide
+            POSTGRES_DB: pointguide
+            PGDATA: /var/lib/postgresql/data/pgdata
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef: {name: pointguide-secrets, key: postgres-password}
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec: {command: [pg_isready, -U, pointguide, -d, pointguide]}
+                initialDelaySeconds: 15
+                periodSeconds: 20
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec: {command: [pg_isready, -U, pointguide, -d, pointguide]}
+                initialDelaySeconds: 5
+                periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities: {drop: [ALL]}
+
+  service:
+    main:
+      enabled: true
+      forceRename: pointguide
+      primary: true
+      controller: main
+      ports:
+        http: {port: 80, protocol: HTTP, targetPort: http}
+    postgres:
+      enabled: true
+      forceRename: postgres
+      controller: postgres
+      ports:
+        postgres: {port: 5432, protocol: TCP, targetPort: 5432}
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        pointguide.eaglepass.io/track: production
+      hosts:
+        - host: pointguide.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service: {identifier: main, port: http}
+      tls:
+        - hosts: [pointguide.eaglepass.io]
+          secretName: pointguide-tls
+
+  persistence:
+    postgres-data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        postgres:
+          main:
+            - path: /var/lib/postgresql/data
+    codex-data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 2Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        main:
+          web:
+            - path: /home/node/.codex
+    workspace:
+      type: emptyDir
+      advancedMounts:
+        main:
+          corpus:
+            - path: /workspace
+          web:
+            - path: /workspace
+              readOnly: true
+          worker:
+            - path: /workspace
+
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes: [Ingress, Egress]
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels: {kubernetes.io/metadata.name: ingress-nginx}
+            ports:
+              - {protocol: TCP, port: 3000}
+        egress:
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - {protocol: UDP, port: 53}
+              - {protocol: TCP, port: 53}
+          - to:
+              - podSelector:
+                  matchLabels: {app.kubernetes.io/controller: postgres}
+            ports:
+              - {protocol: TCP, port: 5432}
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+            ports:
+              - {protocol: TCP, port: 443}
+    postgres:
+      enabled: true
+      controller: postgres
+      policyTypes: [Ingress]
+      rules:
+        ingress:
+          - from:
+              - podSelector:
+                  matchLabels: {app.kubernetes.io/controller: main}
+            ports:
+              - {protocol: TCP, port: 5432}
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/nm3s5vpoy3ntjng7drmyj2pdza"
+      operator.1password.io/item-name: pointguide-secrets
+    labels:
+      pointguide.eaglepass.io/track: production
