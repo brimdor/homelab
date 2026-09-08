@@ -1,0 +1,346 @@
+app-template:
+  global:
+    alwaysAppendIdentifierToResourceName: false
+
+  controllers:
+    main:
+      forceRename: pointview-canary
+      type: deployment
+      strategy: Recreate
+      replicas: 1
+      pod:
+        securityContext: &pointview-pod-security
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          fsGroup: 10001
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile: {type: RuntimeDefault}
+        terminationGracePeriodSeconds: 30
+      initContainers:
+        migrate:
+          image: &pointview-image
+            repository: 10.0.20.11:32309/pointview
+            tag: "f557c56"
+            digest: sha256:e3d7f39259168edeb16a31f08c7ea0f36a461bfdfcf4358c78218ba551ba878f
+            pullPolicy: Always
+          args: [migrate]
+          env: &pointview-env
+            TZ: America/Chicago
+            NODE_ENV: production
+            POINTVIEW_BASE_URL: https://pointview-canary.eaglepass.io
+            POINTVIEW_AUDIENCE: pointview
+            POINTVIEW_SOURCE_REVISION: f557c567a62658b6aa4d9f78eb1491a350b32361
+            POINTVIEW_TRIAGE_WRITES_ENABLED: "false"
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: database-url}
+            SESSION_SECRET:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: session-secret}
+            CF_ACCESS_TEAM_DOMAIN:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: cf-access-team-domain}
+            CF_ACCESS_AUD:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: cf-access-audience}
+            ATTACHMENT_ROOT: /var/lib/pointview/attachments
+            GITHUB_APP_ID:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: github-app-id}
+            GITHUB_APP_INSTALLATION_ID:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: github-app-installation-id}
+            GITHUB_APP_PRIVATE_KEY:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: github-app-private-key}
+            OPENAI_API_KEY:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: openai-api-key}
+          securityContext: &pointview-container-security
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+      containers:
+        web:
+          image: *pointview-image
+          ports:
+            - containerPort: 3000
+              name: http
+          env: *pointview-env
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /api/health, port: http}
+                initialDelaySeconds: 10
+                periodSeconds: 20
+                timeoutSeconds: 5
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /api/health, port: http}
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /api/health, port: http}
+                periodSeconds: 5
+                failureThreshold: 60
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext: *pointview-container-security
+
+    postgres:
+      forceRename: pointview-canary-postgres
+      type: statefulset
+      replicas: 1
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          fsGroup: 999
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile: {type: RuntimeDefault}
+        terminationGracePeriodSeconds: 30
+      containers:
+        main:
+          image:
+            repository: docker.io/library/postgres
+            tag: "17-alpine"
+            digest: sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee
+            pullPolicy: IfNotPresent
+          env:
+            POSTGRES_USER: pointview
+            POSTGRES_DB: pointview
+            PGDATA: /var/lib/postgresql/data/pgdata
+            POSTGRES_PASSWORD:
+              valueFrom:
+                secretKeyRef: {name: pointview-canary-secrets, key: postgres-password}
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                exec: {command: [pg_isready, -U, pointview, -d, pointview]}
+                initialDelaySeconds: 15
+                periodSeconds: 20
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec: {command: [pg_isready, -U, pointview, -d, pointview]}
+                initialDelaySeconds: 5
+                periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities: {drop: [ALL]}
+
+    triage:
+      forceRename: pointview-canary-triage
+      type: cronjob
+      cronjob:
+        schedule: "0 3 * * *"
+        timeZone: America/Chicago
+        concurrencyPolicy: Forbid
+        successfulJobsHistory: 3
+        failedJobsHistory: 3
+        backoffLimit: 0
+        activeDeadlineSeconds: 21600
+      pod:
+        restartPolicy: Never
+        securityContext: *pointview-pod-security
+      containers:
+        triage:
+          image: *pointview-image
+          args: [triage]
+          env: *pointview-env
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext: *pointview-container-security
+
+    retention:
+      forceRename: pointview-canary-retention
+      type: cronjob
+      cronjob:
+        schedule: "30 4 * * *"
+        timeZone: America/Chicago
+        concurrencyPolicy: Forbid
+        successfulJobsHistory: 3
+        failedJobsHistory: 3
+        backoffLimit: 1
+        activeDeadlineSeconds: 3600
+      pod:
+        restartPolicy: Never
+        securityContext: *pointview-pod-security
+      containers:
+        retention:
+          image: *pointview-image
+          args: [retention]
+          env: *pointview-env
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext: *pointview-container-security
+
+  service:
+    main:
+      enabled: true
+      forceRename: pointview-canary
+      primary: true
+      controller: main
+      ports:
+        http: {port: 80, protocol: HTTP, targetPort: http}
+    postgres:
+      enabled: true
+      forceRename: postgres
+      controller: postgres
+      ports:
+        postgres: {port: 5432, protocol: TCP, targetPort: 5432}
+
+  ingress:
+    main:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: 52m
+        pointview.eaglepass.io/track: canary
+      hosts:
+        - host: pointview-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service: {identifier: main, port: http}
+      tls:
+        - hosts: [pointview-canary.eaglepass.io]
+          secretName: pointview-canary-tls
+
+  persistence:
+    postgres-data:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: standard-rwo
+      advancedMounts:
+        postgres:
+          main:
+            - path: /var/lib/postgresql/data
+    attachments:
+      type: persistentVolumeClaim
+      accessMode: ReadWriteMany
+      size: 10Gi
+      storageClass: standard-rwx
+      advancedMounts:
+        main:
+          web:
+            - path: /var/lib/pointview/attachments
+        triage:
+          triage:
+            - path: /var/lib/pointview/attachments
+        retention:
+          retention:
+            - path: /var/lib/pointview/attachments
+    temp:
+      type: emptyDir
+      advancedMounts:
+        main:
+          migrate:
+            - path: /tmp
+          web:
+            - path: /tmp
+        triage:
+          triage:
+            - path: /tmp
+        retention:
+          retention:
+            - path: /tmp
+
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes: [Ingress, Egress]
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels: {kubernetes.io/metadata.name: ingress-nginx}
+            ports:
+              - {protocol: TCP, port: 3000}
+        egress: &application-egress
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - {protocol: UDP, port: 53}
+              - {protocol: TCP, port: 53}
+          - to:
+              - podSelector:
+                  matchLabels: {app.kubernetes.io/controller: postgres}
+            ports:
+              - {protocol: TCP, port: 5432}
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+            ports:
+              - {protocol: TCP, port: 443}
+    triage:
+      enabled: true
+      controller: triage
+      policyTypes: [Egress]
+      rules:
+        egress: *application-egress
+    retention:
+      enabled: true
+      controller: retention
+      policyTypes: [Egress]
+      rules:
+        egress:
+          - to:
+              - namespaceSelector: {}
+            ports:
+              - {protocol: UDP, port: 53}
+              - {protocol: TCP, port: 53}
+          - to:
+              - podSelector:
+                  matchLabels: {app.kubernetes.io/controller: postgres}
+            ports:
+              - {protocol: TCP, port: 5432}
+    postgres:
+      enabled: true
+      controller: postgres
+      policyTypes: [Ingress]
+      rules:
+        ingress:
+          - from:
+              - podSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/controller
+                      operator: In
+                      values: [main, triage, retention]
+            ports:
+              - {protocol: TCP, port: 5432}
+
+  defaultPodOptions:
+    annotations:
+      operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/cmvuggs7jzzc34mrmdi7fz7p6a"
+      operator.1password.io/item-name: pointview-canary-secrets
+    labels:
+      pointview.eaglepass.io/track: canary
