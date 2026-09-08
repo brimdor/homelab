@@ -9,8 +9,8 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/strata
-            tag: d1be0c3
-            digest: sha256:4c73a104347f5f08fd2834a5c10dd09a88884725d910638340537f2c8a3fba58
+            tag: df18e6b
+            digest: sha256:0fa0c131119f8ec3905ccaa60c1c4c0ff78356456b0f666d636e44e0c2f3fd5f
             pullPolicy: Always
           env:
             TZ: America/Chicago
