@@ -21,8 +21,8 @@ app-template:
         migrate:
           image: &pointview-image
             repository: 10.0.20.11:32309/pointview
-            tag: "da69d85"
-            digest: sha256:af86ccd8a92a8b3a8e5d29a9abf3ff495a28cc44b57cf4c2af9006aa62486bc8
+            tag: "33be4c6"
+            digest: sha256:9b72bff8c59e79b232c7e5d20347edf7e8f369612d4396ee1469d6f8ab70506a
             pullPolicy: Always
           args: [migrate]
           env: &pointview-env
@@ -30,7 +30,7 @@ app-template:
             NODE_ENV: production
             POINTVIEW_BASE_URL: https://pointview-canary.eaglepass.io
             POINTVIEW_AUDIENCE: pointview
-            POINTVIEW_SOURCE_REVISION: da69d85efc9c51e795086a6d783a90ef815d2fb6
+            POINTVIEW_SOURCE_REVISION: 33be4c6eab12b10f7d35286fd43986f020e1d9e9
             POINTVIEW_TRIAGE_WRITES_ENABLED: "false"
             DATABASE_URL:
               valueFrom:
@@ -54,9 +54,9 @@ app-template:
             GITHUB_APP_PRIVATE_KEY:
               valueFrom:
                 secretKeyRef: {name: pointview-canary-secrets, key: github-app-private-key}
-            OPENAI_API_KEY:
+            POINTVIEW_CREDENTIAL_ENCRYPTION_KEY:
               valueFrom:
-                secretKeyRef: {name: pointview-canary-secrets, key: openai-api-key}
+                secretKeyRef: {name: pointview-canary-secrets, key: pointview-credential-encryption-key}
           securityContext: &pointview-container-security
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
