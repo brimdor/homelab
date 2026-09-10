@@ -21,8 +21,8 @@ app-template:
         migrate:
           image: &pointview-image
             repository: 10.0.20.11:32309/pointview
-            tag: "9d917e1"
-            digest: sha256:c20b08e6ff362025a07a81b459834b11e5647995644584b14b11e5598aa87466
+            tag: "de890b9"
+            digest: sha256:87f17e98013c7e93485b0d2e8784c79395b8abb1a8e0f6386b0ccc09f02d8c47
             pullPolicy: Always
           args: [migrate]
           env: &pointview-env
@@ -30,7 +30,7 @@ app-template:
             NODE_ENV: production
             POINTVIEW_BASE_URL: https://pointview-canary.eaglepass.io
             POINTVIEW_AUDIENCE: pointview
-            POINTVIEW_SOURCE_REVISION: 9d917e1b9f4159da446d22334c2406147e6c34a3
+            POINTVIEW_SOURCE_REVISION: de890b9d6e8095e8cf23f4d615e430ca072ce981
             POINTVIEW_TRIAGE_WRITES_ENABLED: "true"
             DATABASE_URL:
               valueFrom:
