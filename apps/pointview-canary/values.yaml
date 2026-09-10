@@ -31,7 +31,7 @@ app-template:
             POINTVIEW_BASE_URL: https://pointview-canary.eaglepass.io
             POINTVIEW_AUDIENCE: pointview
             POINTVIEW_SOURCE_REVISION: 71a212cf576704e4f7fff20a364a5914d9a2087c
-            POINTVIEW_TRIAGE_WRITES_ENABLED: "false"
+            POINTVIEW_TRIAGE_WRITES_ENABLED: "true"
             DATABASE_URL:
               valueFrom:
                 secretKeyRef: {name: pointview-canary-secrets, key: database-url}
