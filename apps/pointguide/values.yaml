@@ -28,12 +28,55 @@ app-template:
           args:
             - |
               export GIT_ASKPASS=/tmp/pointguide-askpass
+              [ ! -e "$GIT_ASKPASS" ] && [ ! -L "$GIT_ASKPASS" ] || exit 1
+              umask 077
+              trap 'rm -f "$GIT_ASKPASS"' EXIT
+              trap 'exit 1' HUP INT TERM
+              git() { command git -c core.hooksPath=/dev/null "$@"; }
+              fail() { printf '%s\n' "Corpus initialization refused: $1" >&2; exit 1; }
+              case "$CORPUS_COMMIT" in
+                *[!0-9a-f]*|'') fail 'invalid commit pin' ;;
+              esac
+              [ "${#CORPUS_COMMIT}" -eq 40 ] || fail 'invalid commit pin'
+              for path in /workspace/repository /workspace/web /workspace/worker; do
+                [ ! -L "$path" ] || fail 'symbolic-link workspace path'
+              done
+              if [ -e /workspace/repository ]; then
+                [ -d /workspace/repository/.git ] || fail 'repository state is not reusable'
+                [ ! -L /workspace/repository/.git ] || fail 'symbolic-link git directory'
+                [ "$(git -C /workspace/repository rev-parse --show-toplevel)" = /workspace/repository ] || fail 'unexpected repository root'
+                [ "$(git -C /workspace/repository remote get-url origin)" = https://github.com/PointCommunity/pointaudio.git ] || fail 'unexpected repository origin'
+              else
+                [ ! -e /workspace/web ] && [ ! -e /workspace/worker ] || fail 'worktrees without repository'
+              fi
+              verify_worktree() {
+                [ ! -L "$1/.git" ] || fail 'symbolic-link worktree metadata'
+                [ "$(git -C "$1" rev-parse --show-toplevel)" = "$1" ] || fail 'unexpected worktree root'
+                [ "$(git -C "$1" rev-parse --path-format=absolute --git-common-dir)" = /workspace/repository/.git ] || fail 'unexpected worktree repository'
+                [ "$(git -C "$1" rev-parse HEAD)" = "$CORPUS_COMMIT" ] || fail 'unexpected worktree commit'
+                retained_status=$(git -C "$1" status --porcelain --untracked-files=all) || fail 'cannot inspect worktree status'
+                [ -z "$retained_status" ] || fail 'worktree has retained changes'
+              }
+              for path in /workspace/web /workspace/worker; do
+                if [ -e "$path" ]; then verify_worktree "$path"; fi
+              done
+              # Expand credentials only when Git invokes the helper, never here.
+              # shellcheck disable=SC2016
               printf '#!/bin/sh\ncase "$1" in *Username*) echo x-access-token ;; *) echo "$GITHUB_TOKEN" ;; esac\n' > "$GIT_ASKPASS"
               chmod 700 "$GIT_ASKPASS"
-              git clone --no-checkout https://github.com/PointCommunity/pointaudio.git /workspace/repository
-              git -C /workspace/repository fetch --depth=1 origin "$CORPUS_COMMIT"
-              git -C /workspace/repository worktree add --detach /workspace/web "$CORPUS_COMMIT"
-              git -C /workspace/repository worktree add --detach /workspace/worker "$CORPUS_COMMIT"
+              if [ ! -e /workspace/repository ]; then
+                git clone --no-checkout https://github.com/PointCommunity/pointaudio.git /workspace/repository
+              fi
+              if ! git -C /workspace/repository cat-file -e "$CORPUS_COMMIT^{commit}" 2>/dev/null; then
+                git -C /workspace/repository fetch --depth=1 origin "$CORPUS_COMMIT"
+              fi
+              git -C /workspace/repository cat-file -e "$CORPUS_COMMIT^{commit}"
+              for path in /workspace/web /workspace/worker; do
+                if [ ! -e "$path" ]; then
+                  git -C /workspace/repository worktree add --detach "$path" "$CORPUS_COMMIT"
+                fi
+                verify_worktree "$path"
+              done
               git -C /workspace/worker config user.name "PointGuide Agent"
               git -C /workspace/worker config user.email "pointguide@eaglepass.io"
               test "$(git -C /workspace/web rev-parse HEAD)" = "$CORPUS_COMMIT"
@@ -52,8 +95,8 @@ app-template:
           dependsOn: corpus
           image: &pointguide-image
             repository: 10.0.20.11:32309/pointguide
-            tag: "9915ea3"
-            digest: sha256:c64b1e1573f0822acefcaf16aff68d506086215ce7a33ecb7bf5be4eb340626f
+            tag: "5b27f61"
+            digest: sha256:9a908debf770a9093800e9ba2e2313d365213d5dcccc19cbb9350ad99ee2df5b
             pullPolicy: Always
           command: [./node_modules/.bin/tsx, scripts/migrate.ts]
           env:
