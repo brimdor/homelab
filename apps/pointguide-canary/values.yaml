@@ -54,7 +54,8 @@ app-template:
                 [ "$(git -C "$1" rev-parse --show-toplevel)" = "$1" ] || fail 'unexpected worktree root'
                 [ "$(git -C "$1" rev-parse --path-format=absolute --git-common-dir)" = /workspace/repository/.git ] || fail 'unexpected worktree repository'
                 [ "$(git -C "$1" rev-parse HEAD)" = "$CORPUS_COMMIT" ] || fail 'unexpected worktree commit'
-                [ -z "$(git -C "$1" status --porcelain --untracked-files=all)" ] || fail 'worktree has retained changes'
+                retained_status=$(git -C "$1" status --porcelain --untracked-files=all) || fail 'cannot inspect worktree status'
+                [ -z "$retained_status" ] || fail 'worktree has retained changes'
               }
               for path in /workspace/web /workspace/worker; do
                 if [ -e "$path" ]; then verify_worktree "$path"; fi

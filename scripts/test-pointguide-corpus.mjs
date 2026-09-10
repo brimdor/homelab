@@ -173,3 +173,20 @@ test('corrupt worktree metadata fails closed with all files preserved', t => {
   assert.equal(readFileSync(join(web, 'corpus.txt'), 'utf8'), 'immutable corpus\n');
   f.failure(result, /Corpus initialization refused: unexpected worktree root/);
 });
+
+test('a corrupt worker index fails closed instead of interpreting failed status as clean', t => {
+  const f = fixture(t);
+  f.success(f.run());
+  const worker = join(f.workspace, 'worker');
+  const index = git(worker, 'rev-parse', '--path-format=absolute', '--git-path', 'index');
+  const corrupt = Buffer.from('deliberately invalid git index\n');
+  writeFileSync(index, corrupt);
+  assert.equal(git(worker, 'rev-parse', 'HEAD'), f.commit, 'HEAD remains independently valid');
+  const status = spawnSync('git', ['-C', worker, 'status', '--porcelain', '--untracked-files=all'], { encoding: 'utf8' });
+  assert.notEqual(status.status, 0, 'Corrupt index must actually make status fail');
+  assert.equal(status.stdout, '', 'Failed status has empty stdout, which is not proof of cleanliness');
+  const result = f.run();
+  assert.deepEqual(readFileSync(index), corrupt, 'Corrupt index evidence remains untouched');
+  assert.equal(readFileSync(join(worker, 'corpus.txt'), 'utf8'), 'immutable corpus\n');
+  f.failure(result, /Corpus initialization refused: .*status/);
+});
