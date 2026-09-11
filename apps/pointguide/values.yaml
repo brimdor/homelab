@@ -201,7 +201,7 @@ app-template:
         main:
           image:
             repository: docker.io/library/postgres
-            tag: "17-alpine"
+            tag: "18-alpine"
             digest: sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee
             pullPolicy: IfNotPresent
           env:
