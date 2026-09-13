@@ -1,0 +1,95 @@
+app-template:
+  global:
+    alwaysAppendIdentifierToResourceName: false
+  controllers:
+    main:
+      forceRename: tamalotl-canary
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      pod:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101
+          runAsGroup: 101
+          fsGroup: 101
+          seccompProfile: {type: RuntimeDefault}
+      containers:
+        web:
+          image:
+            repository: 10.0.20.11:32309/tamalotl
+            tag: canary-57798584c157681f0f753812b1a60cb7af2eb5a0
+            digest: sha256:5ed0f83c693ae0a00b13a11c27d11e23bec5186a2f7d60ae1894ae9ba882f3d7
+            pullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /healthz, port: http}
+                periodSeconds: 20
+                timeoutSeconds: 3
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /healthz, port: http}
+                periodSeconds: 5
+                timeoutSeconds: 3
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet: {path: /healthz, port: http}
+                periodSeconds: 2
+                failureThreshold: 30
+  service:
+    main:
+      forceRename: tamalotl-canary
+      controller: main
+      ports:
+        http: {port: 80, protocol: HTTP, targetPort: http}
+  ingress:
+    main:
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+      hosts:
+        - host: tamalotl-canary.eaglepass.io
+          paths:
+            - path: /
+              pathType: Prefix
+              service: {identifier: main, port: http}
+      tls:
+        - hosts: [tamalotl-canary.eaglepass.io]
+          secretName: tamalotl-canary-tls
+  persistence:
+    temp:
+      type: emptyDir
+      sizeLimit: 16Mi
+      globalMounts:
+        - path: /tmp
+  networkpolicies:
+    main:
+      controller: main
+      policyTypes: [Ingress, Egress]
+      rules:
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels: {kubernetes.io/metadata.name: ingress-nginx}
+            ports:
+              - {protocol: TCP, port: 8080}
+        egress: []
