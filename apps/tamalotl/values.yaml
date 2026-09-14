@@ -18,8 +18,8 @@ app-template:
         web:
           image:
             repository: 10.0.20.11:32309/tamalotl
-            tag: canary-d5ec53389c00c0cc57b7b0a30eef3da5ba4455fa
-            digest: sha256:a432746b17d37847e8d818ce97fba1e0a2fe35bb5080543e866f32821b23b4ee
+            tag: canary-b2f2f6552cdefbd6224f0d2640ba53e51a3bac43
+            digest: sha256:4a2c269b7978baa7dfdf541f5ce33fb59921aff3138999240d000f22778db71f
             pullPolicy: IfNotPresent
           ports:
             - name: http
