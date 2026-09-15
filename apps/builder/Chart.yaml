@@ -1,0 +1,10 @@
+apiVersion: v2
+name: builder
+description: PointSite Builder production — private native SQLite workspace
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: app-template
+    version: 5.0.1
+    repository: https://bjw-s-labs.github.io/helm-charts/
