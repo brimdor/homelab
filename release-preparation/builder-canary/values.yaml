@@ -22,7 +22,7 @@ app-template:
             ENVIRONMENT: canary
             APP_VERSION: native-0.1.0
             BUILDER_ORIGIN: https://builder-canary.eaglepass.io
-            STAGING_REPOSITORY: PointCommunity/pointsite-staging
+            STAGING_REPOSITORY: PointCommunity/pointsite-staging-canary
             PRODUCTION_ENABLED: "false"
             DRAFT_STORAGE_FORMAT: compact-v1
             DATA_DIRECTORY: /data/workspace
