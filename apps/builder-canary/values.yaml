@@ -11,8 +11,8 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/pointsite-builder
-            tag: 99782f88af74669904fdc6cc2ab51cfeef322fc0
-            digest: sha256:d7eb611aa02efc2878b680bdcbd6bc241bd03e2d4fff49e66d2f9079fa8d29cb
+            tag: 80ef8c43ad9f02d16cc79f7706aa5cd16488a198
+            digest: sha256:974c4dcd31cb1f21ad6cfb40e3ad76947a7b8f6aa75861fb14e3fd7e925eb51b
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
@@ -22,7 +22,7 @@ app-template:
             ENVIRONMENT: canary
             APP_VERSION: native-0.1.0
             BUILDER_ORIGIN: https://builder-canary.eaglepass.io
-            STAGING_REPOSITORY: PointCommunity/pointsite-staging
+            STAGING_REPOSITORY: PointCommunity/pointsite-staging-canary
             PRODUCTION_ENABLED: "false"
             DRAFT_STORAGE_FORMAT: compact-v1
             DATA_DIRECTORY: /data/workspace
