@@ -384,7 +384,6 @@ Apps currently on 5.0.1:
 - sonarr
 - sporecast, sporecast-canary
 - strata, strata-canary
-- threads-canary
 - tipsbot-canary
 - wikijs
 - wolf
