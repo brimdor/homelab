@@ -11,8 +11,8 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/pointsite-builder
-            tag: 1bdf5ba938f83d4c28767a9e28952092fcd6c16d
-            digest: sha256:5daa3be67d56cf084e55c6c3639731a0fe45e95e816714843f42576e2b3f209a
+            tag: 0e15887d3c7844edfff33e0ed0f5f02dbadccd8d
+            digest: sha256:9f8c9d8a93164f072bc9e37b1b56faf2cb9b478fead0f731b69bcd60fde2fc65
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
@@ -23,7 +23,8 @@ app-template:
             APP_VERSION: native-0.1.0
             BUILDER_ORIGIN: https://builder-canary.eaglepass.io
             STAGING_REPOSITORY: PointCommunity/pointsite-staging-canary
-            PRODUCTION_ENABLED: "false"
+            # Issue 70: enables only pointsite-canary, never pointsite.
+            PRODUCTION_ENABLED: "true"
             DRAFT_STORAGE_FORMAT: compact-v1
             DATA_DIRECTORY: /data/workspace
             RECOVERY_DIRECTORY: /recovery/control
