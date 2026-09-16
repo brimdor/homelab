@@ -23,7 +23,8 @@ app-template:
             APP_VERSION: native-0.1.0
             BUILDER_ORIGIN: https://builder-canary.eaglepass.io
             STAGING_REPOSITORY: PointCommunity/pointsite-staging-canary
-            PRODUCTION_ENABLED: "false"
+            # Issue 70: enables only pointsite-canary, never pointsite.
+            PRODUCTION_ENABLED: "true"
             DRAFT_STORAGE_FORMAT: compact-v1
             DATA_DIRECTORY: /data/workspace
             RECOVERY_DIRECTORY: /recovery/control
