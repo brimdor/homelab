@@ -11,8 +11,8 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/pointsite-builder
-            tag: 0ad185130183cafa94bf7371fc893fe3044e90cc
-            digest: sha256:7404d37fd970a5fe94c7ba804ddd85a260b6df270a10449da4e74f16f3d85d1c
+            tag: a02aac8e0aa1d77501fb1184874c4b198756bad3
+            digest: sha256:eba054a2467a8b7e199a4121609d7ef8be27dd80838d37ba3f3a9ebcdf07e036
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
