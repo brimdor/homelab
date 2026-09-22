@@ -95,8 +95,8 @@ app-template:
           dependsOn: corpus
           image: &pointguide-image
             repository: 10.0.20.11:32309/pointguide
-            tag: "515645e"
-            digest: sha256:2e31d424353f3a6d1c00e9d884a668c303c5a1b0bd5f5e20994d76688e05f722
+            tag: "0351b50"
+            digest: sha256:af091b7cab6a96df9faaf8451c6365484bc906c209f2c9cb944f8ccbab015551
             pullPolicy: Always
           command: [./node_modules/.bin/tsx, scripts/migrate.ts]
           env:
@@ -286,6 +286,8 @@ app-template:
       advancedMounts:
         main:
           web:
+            - path: /home/node/.codex
+          worker:
             - path: /home/node/.codex
     workspace:
       type: emptyDir
