@@ -95,8 +95,8 @@ app-template:
           dependsOn: corpus
           image: &pointguide-image
             repository: 10.0.20.11:32309/pointguide
-            tag: "db1e72b"
-            digest: sha256:74fd47d4c6c91f201d315843944fcfe7f88eeb82d16fd7df3ef32d5e38cda34b
+            tag: "883c6b3"
+            digest: sha256:f24d76f573792c2e3dbd858aadc047d57cc37adf70b2e67a39c576734e52c5c2
             pullPolicy: Always
           command: [./node_modules/.bin/tsx, scripts/migrate.ts]
           env:
@@ -181,7 +181,7 @@ app-template:
                 secretKeyRef: {name: pointguide-canary-secrets, key: github-token}
           resources:
             requests: {cpu: 50m, memory: 128Mi}
-            limits: {cpu: 500m, memory: 512Mi}
+            limits: {cpu: 500m, memory: 1Gi}
           securityContext: *container-security
 
     postgres:
@@ -255,6 +255,7 @@ app-template:
       className: nginx
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/proxy-body-size: "40m"
         external-dns.alpha.kubernetes.io/target: homelab-tunnel.eaglepass.io
         external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
         pointguide.eaglepass.io/track: canary
