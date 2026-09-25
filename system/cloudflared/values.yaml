@@ -30,6 +30,10 @@ app-template:
               service: http://10.0.30.100:8644
               originRequest:
                 noTLSVerify: true
+            - hostname: 'builder.eaglepass.io'
+              service: http://45.33.2.134:3000
+              originRequest:
+                httpHostHeader: builder.eaglepass.io
             - hostname: '*.eaglepass.io'
               service: https://ingress-nginx-controller.ingress-nginx
               originRequest:
