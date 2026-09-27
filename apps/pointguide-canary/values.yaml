@@ -83,7 +83,7 @@ app-template:
               rm "$GIT_ASKPASS"
           env:
             GIT_TERMINAL_PROMPT: "0"
-            CORPUS_COMMIT: 7dc6d5a58e17c1b8dc762621f06078dfd58ed81a
+            CORPUS_COMMIT: 86273318f55c4c58c1dfad40b2c294edf9dd5fbf
             GITHUB_TOKEN:
               valueFrom:
                 secretKeyRef: {name: pointguide-canary-secrets, key: github-token}
@@ -95,8 +95,8 @@ app-template:
           dependsOn: corpus
           image: &pointguide-image
             repository: 10.0.20.11:32309/pointguide
-            tag: "a9df3d9"
-            digest: sha256:f1e45ecc611027e44d7f0ac0ad3939c36a5f32628bd95451c08a2a537a6e3035
+            tag: "82b9312"
+            digest: sha256:0a5ac10b2d34011f3316a7ef8601e54d96c3f6b8d8a73298840eab46ee0f8894
             pullPolicy: Always
           command: [./node_modules/.bin/tsx, scripts/migrate.ts]
           env:
@@ -131,7 +131,7 @@ app-template:
               valueFrom:
                 secretKeyRef: {name: pointguide-canary-secrets, key: database-url}
             CORPUS_ROOT: /workspace/web
-            CORPUS_COMMIT: 7dc6d5a58e17c1b8dc762621f06078dfd58ed81a
+            CORPUS_COMMIT: 86273318f55c4c58c1dfad40b2c294edf9dd5fbf
             CORPUS_MANIFEST: research/midas-m32/checksums.sha256
             REVIEW_ENABLED: "false"
             LIVE_PROVIDERS_ENABLED: "true"
