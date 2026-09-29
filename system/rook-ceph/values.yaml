@@ -29,7 +29,7 @@ rook-ceph-cluster:
         disabled: true
   cephClusterSpec:
     cephVersion:
-      image: quay.io/ceph/ceph:v20.2.1
+      image: quay.io/ceph/ceph:v21.1.1
       imagePullPolicy: IfNotPresent
     storage:
       useAllNodes: false
