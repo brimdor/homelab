@@ -1,5 +1,8 @@
 argo-cd:
   global:
+    # Take the same-branch security fixes without changing the chart schema.
+    image:
+      tag: v3.4.11
     domain: argocd.eaglepass.io
   configs:
     params:

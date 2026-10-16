@@ -279,6 +279,13 @@ library. `livenessProbe` initialDelaySeconds 120 gives Emby
 time to bind its sockets before the kubelet starts killing on
 probe failure.
 
+## Ingress health alias
+
+Both `emby.eaglepass.io` and `emby-health.eaglepass.io` use the HTTP backend
+on port 8096. NGINX terminates public TLS. Port 8920 is Emby's optional native
+HTTPS listener; it was not listening during the 2026-10-13 investigation and
+must not be used as an HTTP ingress backend.
+
 ## Upgrading the image
 
 ```bash

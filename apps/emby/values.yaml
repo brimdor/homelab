@@ -299,7 +299,7 @@ app-template:
               pathType: Prefix
               service:
                 identifier: main
-                port: 8920
+                port: 8096
       tls:
         - hosts:
             - *embyHost
