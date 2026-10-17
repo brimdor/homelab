@@ -110,12 +110,6 @@ argocd-apps:
               kind: ApplicationSet
               jqPathExpressions:
                 - .spec.template.spec.syncPolicy.retry
-            - group: apps
-              kind: StatefulSet
-              name: matrix-postgresql
-              namespace: matrix
-              jqPathExpressions:
-                - .spec.template.spec.containers[] | select(.name == "postgresql") | .image
           syncPolicy:
             automated:
               prune: true
@@ -194,12 +188,6 @@ argocd-apps:
               kind: ApplicationSet
               jqPathExpressions:
                 - .spec.template.spec.syncPolicy.retry
-            - group: apps
-              kind: StatefulSet
-              name: matrix-postgresql
-              namespace: matrix
-              jqPathExpressions:
-                - .spec.template.spec.containers[] | select(.name == "postgresql") | .image
           syncPolicy:
             automated:
               prune: true
