@@ -4,10 +4,12 @@
 import argparse
 from contextlib import contextmanager
 import fcntl
+import io
 import json
 import os
 from pathlib import Path
 import re
+import shlex
 import signal
 import stat
 import subprocess
@@ -130,6 +132,138 @@ def command(argv):
     return result
 
 
+def unit_property(name):
+    result = command(["systemctl", "show", "docker.service", f"--property={name}", "--value"])
+    if result.stderr:
+        raise RepairError(ERROR)
+    return result.stdout.decode("utf-8")
+
+
+def assignments(text):
+    result = {}
+    for token in shlex.split(text):
+        name, separator, value = token.partition("=")
+        if not separator or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) or "\x00" in value:
+            raise RepairError(ERROR)
+        result[name] = value
+    return result
+
+
+def environment_file_assignments(text):
+    """Parse one assignment per line, with only whole-value multiline quoting."""
+    result = {}
+    stream = io.StringIO(text)
+    for line in stream:
+        if not line.strip() or line.lstrip().startswith(("#", ";")):
+            continue
+        name, separator, value = line.partition("=")
+        name = name.strip(" \t\r\n")
+        if not separator or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) or "\x00" in value:
+            raise RepairError(ERROR)
+        value = value.lstrip(" \t\r")
+        if value.startswith(("'", '"')):
+            quote, position = value[0], 1
+            while True:
+                if position >= len(value):
+                    continuation = stream.readline()
+                    if not continuation or "\x00" in continuation:
+                        raise RepairError(ERROR)
+                    value += continuation
+                char = value[position]
+                if quote == '"' and char == "\\":
+                    # Only the escape forms shared with shlex are supported.
+                    if position + 1 >= len(value) or value[position + 1] not in ('"', "\\"):
+                        raise RepairError(ERROR)
+                    position += 2
+                    continue
+                if char == quote:
+                    if value[position + 1:].strip(" \t\r\n"):
+                        raise RepairError(ERROR)
+                    tokens = shlex.split(value[:position + 1])
+                    if len(tokens) != 1:
+                        raise RepairError(ERROR)
+                    value = tokens[0]
+                    break
+                position += 1
+        else:
+            # Spaces remain part of this value, not another assignment. Shell
+            # quoting/continuations inside an unquoted value are unsupported.
+            if any(char in value for char in "'\"\\"):
+                raise RepairError(ERROR)
+            value = value.strip(" \t\r\n")
+        result[name] = value
+    return result
+
+
+def owns_live_restore():
+    effective = unit_property("ExecStart")
+    snapshot = {"properties": {"ExecStart": effective}, "files": []}
+    literal = re.search(r"(?:^|\s)--live-restore(?:=[^;\s]+)?(?=\s|;|$)", effective)
+    reference = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
+    references = list(reference.finditer(effective))
+    if not literal:
+        if "$" in reference.sub("", effective):
+            raise RepairError(ERROR)
+        for match in references:
+            if ((match.start() and not effective[match.start() - 1].isspace())
+                    or (match.end() < len(effective) and effective[match.end()] not in " \t\r\n;")):
+                raise RepairError(ERROR)
+        if not references:
+            return False, snapshot
+
+    properties = snapshot["properties"]
+    for name in ("Environment", "EnvironmentFiles", "UnsetEnvironment"):
+        properties[name] = unit_property(name)
+    if properties["UnsetEnvironment"].strip():
+        raise RepairError(ERROR)
+    if literal:
+        return True, snapshot
+    environment = assignments(properties["Environment"])
+    files = shlex.split(properties["EnvironmentFiles"])
+    if len(files) % 2:
+        raise RepairError(ERROR)
+    for filename, optional in zip(files[::2], files[1::2]):
+        if (not filename.startswith("/") or any(char in filename for char in "*?[]%$\x00")
+                or optional not in ("(ignore_errors=yes)", "(ignore_errors=no)")):
+            raise RepairError(ERROR)
+        path = Path(filename)
+        try:
+            before, content = read_regular(path)
+        except FileNotFoundError:
+            if optional != "(ignore_errors=yes)":
+                raise RepairError(ERROR) from None
+            snapshot["files"].append((path, None, None))
+            continue
+        snapshot["files"].append((path, before, content))
+        environment.update(environment_file_assignments(content.decode("utf-8")))
+
+    owned = False
+    for match in references:
+        value = environment.get(match.group(1) or match.group(2), "")
+        if any(char in value for char in "$`\x00"):
+            raise RepairError(ERROR)
+        # ${NAME} is one literal systemd argument; $NAME splits option words.
+        tokens = [value] if match.group(1) else shlex.split(value)
+        owned |= any(re.fullmatch(r"--live-restore(?:=[^\s]+)?", token) is not None for token in tokens)
+    return owned, snapshot
+
+
+def options_unchanged(snapshot):
+    for name, value in snapshot["properties"].items():
+        if unit_property(name) != value:
+            raise RepairError(ERROR)
+    for path, before, content in snapshot["files"]:
+        if before is not None:
+            unchanged(path, before, content)
+        else:
+            with bounded_read():
+                try:
+                    path.lstat()
+                except FileNotFoundError:
+                    continue
+                raise RepairError(ERROR)
+
+
 def unique_object(pairs):
     result = {}
     for key, value in pairs:
@@ -155,15 +289,15 @@ def reconcile(config="/etc/docker/daemon.json", daemon="/usr/bin/dockerd"):
         settings = json.loads(content, object_pairs_hook=unique_object, parse_constant=invalid_constant)
         if not isinstance(settings, dict):
             raise RepairError(ERROR)
-        effective = command(["systemctl", "show", "docker.service", "--property=ExecStart", "--value"])
-        if effective.stderr:
-            raise RepairError(ERROR)
-        if not re.search(r"(?:^|\s)--live-restore(?:=[^;\s]+)?(?=\s|;|$)", effective.stdout.decode("utf-8")):
+        owned, option_snapshot = owns_live_restore()
+        if not owned:
             return result
         with daemon_lock(path.parent / LOCK_NAME):
+            options_unchanged(option_snapshot)
             unchanged(path, before, content)
             if "live-restore" not in settings:
                 command([str(daemon), "--validate", "--config-file", str(path)])
+                options_unchanged(option_snapshot)
                 unchanged(path, before, content)
                 result.update(validated=True, reconciled=True)
                 return result
@@ -173,9 +307,11 @@ def reconcile(config="/etc/docker/daemon.json", daemon="/usr/bin/dockerd"):
             del settings["live-restore"]
             candidate = private_file(path, "candidate", (json.dumps(settings, indent=2, allow_nan=False) + "\n").encode("utf-8"))
             command([str(daemon), "--validate", "--config-file", candidate])
+            options_unchanged(option_snapshot)
             unchanged(path, before, content)
             backup = private_file(path, "backup", content)
             sync_directory(path.parent)
+            options_unchanged(option_snapshot)
             unchanged(path, before, content)
             os.replace(candidate, path)
             candidate = None

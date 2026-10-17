@@ -18,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import stat
 import subprocess
 import sys
@@ -81,18 +82,22 @@ def fake_command(args):
 
 class RepairFixture:
     def __init__(self, content=None, flag="--live-restore", *, validation_error=False,
-                 read_error=False, mutate=None, timeout=False):
+                 read_error=False, mutate=None, timeout=False, environment="", unset_environment=""):
         self.root = Path(tempfile.mkdtemp(prefix="daemon-reconcile-")).resolve()
         self.config = self.root / "daemon.json"
         if content is not None:
             self.config.write_text(content)
             self.config.chmod(0o644)
         self.flag = flag
+        self.environment = environment
+        self.environment_files = ""
+        self.unset_environment = unset_environment
         self.validation_error = validation_error
         self.read_error = read_error
         self.mutate = mutate
         self.timeout = timeout
         self.commands = []
+        self.property_reads = []
 
     def dispatch(self, argv, **kwargs):
         self.commands.append(argv)
@@ -101,9 +106,16 @@ class RepairFixture:
         secret = b"https://synthetic-user:synthetic-password@proxy.example.test"
         if self.timeout:
             raise subprocess.TimeoutExpired(argv, 30, output=secret, stderr=secret)
-        if argv == ["systemctl", "show", "docker.service", "--property=ExecStart", "--value"]:
-            output = ("{ path=/usr/bin/dockerd ; argv[]=/usr/bin/dockerd " + self.flag + " ; }").encode()
-            return subprocess.CompletedProcess(argv, int(self.read_error), output,
+        if argv[:3] == ["systemctl", "show", "docker.service"]:
+            properties = {
+                "--property=ExecStart": "{ path=/usr/bin/dockerd ; argv[]=/usr/bin/dockerd " + self.flag + " ; }",
+                "--property=Environment": self.environment,
+                "--property=EnvironmentFiles": self.environment_files,
+                "--property=UnsetEnvironment": self.unset_environment,
+            }
+            assert len(argv) == 5 and argv[-1] == "--value" and argv[3] in properties
+            self.property_reads.append((argv[3], properties[argv[3]]))
+            return subprocess.CompletedProcess(argv, int(self.read_error), properties[argv[3]].encode(),
                                                secret if self.read_error else b"")
         assert argv[:3] == ["/fake/dockerd", "--validate", "--config-file"] and len(argv) == 4
         candidate = Path(argv[3])
@@ -119,6 +131,17 @@ class RepairFixture:
 
     def backups(self):
         return list(self.root.glob(".daemon.json.backup-*"))
+
+    def validations(self):
+        return [command for command in self.commands
+                if command[:3] == ["/fake/dockerd", "--validate", "--config-file"]]
+
+    def add_env_file(self, content, name="docker.env", *, optional=False):
+        path = self.root / name
+        if content is not None:
+            path.write_text(content)
+        self.environment_files += f" {shlex.quote(str(path))} (ignore_errors={'yes' if optional else 'no'})"
+        return path
 
 
 class Fixture:
@@ -234,8 +257,12 @@ class HostServiceRepairTests(unittest.TestCase):
         self.assertTrue(all(p["gather_facts"] is False and "roles" not in p for p in plays))
         self.assertEqual(plays[0]["tasks"][0]["ansible.builtin.import_tasks"], "roles/docker/tasks/daemon_config.yml")
         self.assertEqual(plays[1]["tasks"][0]["ansible.builtin.import_tasks"], "roles/display_config/tasks/retire_system_units.yml")
-        self.assertEqual(plays[0]["tasks"][1]["ansible.builtin.systemd_service"], {
+        self.assertEqual(plays[0]["tasks"][-1]["ansible.builtin.systemd_service"], {
             "name": "docker", "enabled": True, "state": "started"})
+        self.assertEqual(plays[0]["tasks"][1]["ansible.builtin.assert"]["that"], [
+            "(docker_daemon_repair.stdout | from_json).validated",
+            "(docker_daemon_repair.stdout | from_json).reconciled"])
+        self.assertEqual(len(plays[0]["tasks"]), 3)
 
     def test_docker_source_privacy_validation_and_failure_gate(self):
         tasks = load(DOCKER / "daemon_config.yml")
@@ -277,7 +304,7 @@ class HostServiceRepairTests(unittest.TestCase):
                                          "reconciled": True, "backup_path": str(backups[0])})
                 self.assertEqual(fixture.run(), {"changed": False, "validated": True,
                                                 "reconciled": True, "backup_path": None})
-                self.assertEqual(fixture.commands[-1][-1], str(fixture.config))
+                self.assertEqual(fixture.validations()[-1][-1], str(fixture.config))
                 self.assertEqual(fixture.backups(), backups)
                 self.assertFalse(list(fixture.root.glob(".daemon.json.candidate-*")))
 
@@ -294,6 +321,204 @@ class HostServiceRepairTests(unittest.TestCase):
                 self.assertEqual(list(fixture.root.iterdir()), files)
                 self.assertEqual(len(fixture.commands), 0 if content is None else 1)
 
+    def test_multiline_fedora_options_resolve_without_exporting_environment(self):
+        original = {"live-restore": True, "runtimes": {"nvidia": {"path": "nvidia-container-runtime"}}}
+        fixture = RepairFixture(json.dumps(original), "$OPTIONS")
+        fixture.add_env_file(
+            "# Public synthetic Fedora sysconfig fixture\n"
+            "OPTIONS='--log-driver=journald\n"
+            "  --live-restore\n"
+            "  --label=\"public fixture\"'\n"
+            "UNUSED='$(synthetic-not-executed)'\n", optional=True)
+        result = fixture.run()
+        self.assertEqual((result["changed"], result["validated"], result["reconciled"]), (True, True, True))
+        self.assertEqual(json.loads(fixture.config.read_text()), {"runtimes": original["runtimes"]})
+        self.assertEqual(set(result), {"changed", "validated", "reconciled", "backup_path"})
+        properties = [name for name, value in fixture.property_reads]
+        expected = ["--property=ExecStart", "--property=Environment", "--property=EnvironmentFiles",
+                    "--property=UnsetEnvironment"]
+        self.assertEqual(properties[:4], expected)
+        self.assertEqual(set(properties), set(expected))
+        self.assertTrue(all(properties.count(name) >= 2 for name in expected))
+        self.assertFalse(fixture.run()["changed"])
+        self.assertEqual(len(fixture.backups()), 1)
+
+    def test_referenced_environment_values_require_exact_flag_tokens(self):
+        cases = [(reference, option, True) for reference in ("$OPTIONS", "${OPTIONS}")
+                 for option in ("--live-restore", "--live-restore=true", "--live-restore=false")]
+        cases += [("$OPTIONS", "--label='note --live-restore'", False),
+                  ("$OPTIONS", "--label=--live-restore", False),
+                  ("$OPTIONS", "--live-restore-extra", False),
+                  ("${OPTIONS}", "--debug --live-restore", False)]
+        for reference, option, owned in cases:
+            with self.subTest(reference=reference, option=option):
+                fixture = RepairFixture('{"live-restore":true}', reference,
+                                        environment="OPTIONS=" + shlex.quote(option))
+                self.assertEqual(fixture.run()["reconciled"], owned)
+        fixture = RepairFixture('{"live-restore":true}', "$OPTIONS",
+                                environment="UNUSED=--live-restore OPTIONS=--debug")
+        self.assertFalse(fixture.run()["reconciled"])
+        self.assertFalse((fixture.root / repair.LOCK_NAME).exists())
+
+    def test_environment_file_assignments_are_line_based(self):
+        content = ("# Comment with an unmatched ' quote\n"
+                   '; Comment with an unmatched " quote\n'
+                   "UNUSED=note OPTIONS=--live-restore\n"
+                   "EMPTY=\n"
+                   "  OPTIONS = '--debug\n--live-restore'  \n")
+        self.assertEqual(repair.environment_file_assignments(content), {
+            "UNUSED": "note OPTIONS=--live-restore", "EMPTY": "", "OPTIONS": "--debug\n--live-restore"})
+        fixture = RepairFixture('{"live-restore":true}', "$OPTIONS")
+        fixture.add_env_file("UNUSED=note OPTIONS=--live-restore\n")
+        result = fixture.run()
+        self.assertEqual((result["changed"], result["validated"], result["reconciled"]), (False, False, False))
+        self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+        self.assertFalse((fixture.root / repair.LOCK_NAME).exists())
+
+    def test_environment_file_rejects_inner_quotes_concatenation_and_continuations(self):
+        for content in ("OPTIONS=--label='note --live-restore'\n",
+                        'OPTIONS=--label="note --live-restore"\n',
+                        "OPTIONS='--live-restore'junk\n",
+                        "OPTIONS='--live-restore'' --debug'\n",
+                        "OPTIONS='--live-restore' # trailing comment\n",
+                        "OPTIONS=--live-restore\\\n MORE=--debug\n",
+                        'OPTIONS="--live-restore\\\n--debug"\n'):
+            with self.subTest(content=content):
+                fixture = RepairFixture('{"live-restore":true}', "$OPTIONS")
+                fixture.add_env_file(content)
+                with self.assertRaisesRegex(repair.RepairError, "^Docker daemon reconciliation failed\\.$"):
+                    fixture.run()
+                self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+                self.assertFalse(fixture.backups())
+                self.assertFalse((fixture.root / repair.LOCK_NAME).exists())
+
+    def test_nonempty_unset_environment_fails_closed(self):
+        for reference in ("--live-restore", "$OPTIONS"):
+            for unset in ("OPTIONS", "OPTIONS=--live-restore"):
+                with self.subTest(reference=reference, unset=unset):
+                    fixture = RepairFixture('{"live-restore":true}', reference,
+                                            environment="OPTIONS=--live-restore", unset_environment=unset)
+                    with self.assertRaises(repair.RepairError):
+                        fixture.run()
+                    self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+                    self.assertFalse(fixture.backups())
+                    self.assertFalse((fixture.root / repair.LOCK_NAME).exists())
+
+    def test_changed_unit_properties_refuse_write_or_already_repaired_success(self):
+        for reference in ("--live-restore", "$OPTIONS"):
+            for content in ('{"live-restore":true}', '{"runtimes":{}}'):
+                for attribute, value in (("flag", "--debug"), ("environment", "OPTIONS=--debug"),
+                                         ("environment_files", "/changed (ignore_errors=yes)"),
+                                         ("unset_environment", "OPTIONS")):
+                    with self.subTest(reference=reference, content=content, attribute=attribute):
+                        fixture = RepairFixture(content, reference, environment="OPTIONS=--live-restore")
+
+                        def mutate(path):
+                            setattr(fixture, attribute, value)
+
+                        fixture.mutate = mutate
+                        with self.assertRaisesRegex(repair.RepairError, "^Docker daemon reconciliation failed\\.$"):
+                            fixture.run()
+                        self.assertEqual(len(fixture.validations()), 1)
+                        self.assertEqual(fixture.config.read_text(), content)
+                        self.assertFalse(fixture.backups())
+                        self.assertFalse(list(fixture.root.glob(".daemon.json.candidate-*")))
+
+    def test_environment_file_order_overrides_unit_environment(self):
+        for last_option in ("--debug", "--live-restore"):
+            with self.subTest(last_option=last_option):
+                fixture = RepairFixture('{"live-restore":true}', "$OPTIONS",
+                                        environment="OPTIONS=" + ("--live-restore" if last_option == "--debug" else "--debug"))
+                fixture.add_env_file("OPTIONS=--live-restore\n", "first.env")
+                fixture.add_env_file(f"OPTIONS={last_option}\n", "second.env")
+                result = fixture.run()
+                self.assertEqual(result["reconciled"], last_option == "--live-restore")
+                if last_option == "--debug":
+                    self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+                    self.assertFalse(fixture.backups())
+                    self.assertFalse((fixture.root / repair.LOCK_NAME).exists())
+
+    def test_missing_environment_files_require_explicit_optional_metadata(self):
+        for optional in (True, False):
+            with self.subTest(optional=optional):
+                fixture = RepairFixture('{"live-restore":true}', "$OPTIONS",
+                                        environment="OPTIONS=--live-restore")
+                fixture.add_env_file(None, optional=optional)
+                if optional:
+                    self.assertTrue(fixture.run()["reconciled"])
+                else:
+                    with self.assertRaises(repair.RepairError):
+                        fixture.run()
+                    self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+                    self.assertFalse((fixture.root / repair.LOCK_NAME).exists())
+
+    def test_stale_environment_file_and_optional_file_appearance_fail_closed(self):
+        for mutation in ("content", "inode", "optional-appeared"):
+            with self.subTest(mutation=mutation):
+                fixture = RepairFixture('{"live-restore":true}', "$OPTIONS",
+                                        environment="OPTIONS=--live-restore")
+                env = fixture.add_env_file(None if mutation == "optional-appeared" else "OPTIONS=--live-restore\n",
+                                           optional=mutation == "optional-appeared")
+
+                def mutate(path):
+                    if mutation == "inode":
+                        replacement = fixture.root / "replacement.env"
+                        replacement.write_bytes(env.read_bytes())
+                        os.replace(replacement, env)
+                    else:
+                        env.write_text("OPTIONS=--debug\n")
+
+                fixture.mutate = mutate
+                with self.assertRaises(repair.RepairError):
+                    fixture.run()
+                self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+                self.assertFalse(fixture.backups())
+                self.assertFalse(list(fixture.root.glob(".daemon.json.candidate-*")))
+
+    def test_environment_is_rechecked_after_backup_before_replacement(self):
+        fixture = RepairFixture('{"live-restore":true}', "$OPTIONS")
+        env = fixture.add_env_file("OPTIONS=--live-restore\n")
+        private_file = repair.private_file
+
+        def change_after_backup(path, kind, content):
+            name = private_file(path, kind, content)
+            if kind == "backup":
+                env.write_text("OPTIONS=--debug\n")
+            return name
+
+        with mock.patch.object(repair, "private_file", side_effect=change_after_backup):
+            with self.assertRaises(repair.RepairError):
+                fixture.run()
+        self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+        self.assertEqual(len(fixture.backups()), 1)
+
+    def test_environment_parser_failures_and_symlinks_are_sanitized(self):
+        for failure in ("unit-quote", "file-quote", "assignment", "metadata", "substitution", "value-expansion", "symlink"):
+            with self.subTest(failure=failure):
+                fixture = RepairFixture('{"live-restore":true}', "$OPTIONS")
+                if failure == "unit-quote":
+                    fixture.environment = 'OPTIONS="synthetic-password'
+                elif failure in ("file-quote", "assignment"):
+                    fixture.add_env_file('OPTIONS="synthetic-password' if failure == "file-quote"
+                                         else "export OPTIONS=synthetic-password\n")
+                elif failure == "metadata":
+                    fixture.environment_files = "/synthetic-password (ignore_errors=maybe)"
+                elif failure == "substitution":
+                    fixture.flag = "${OPTIONS:-synthetic-password}"
+                elif failure == "value-expansion":
+                    fixture.environment = "OPTIONS=" + shlex.quote("$UNSUPPORTED --live-restore synthetic-password")
+                else:
+                    target = fixture.root / "target.env"
+                    target.write_text("OPTIONS=--live-restore\n")
+                    fixture.add_env_file(None, optional=True).symlink_to(target)
+                stdout, stderr = io.StringIO(), io.StringIO()
+                with mock.patch.object(repair.subprocess, "run", side_effect=fixture.dispatch):
+                    with redirect_stdout(stdout), redirect_stderr(stderr):
+                        rc = repair.main(["--config", str(fixture.config), "--daemon", "/fake/dockerd"])
+                self.assertEqual((rc, stdout.getvalue(), stderr.getvalue()), (1, "", repair.ERROR + "\n"))
+                self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
+                self.assertFalse(fixture.backups())
+
     def test_already_repaired_file_validates_without_config_writes(self):
         content = '{"runtimes":{"nvidia":{"path":"nvidia-container-runtime"}}}'
         fixture = RepairFixture(content)
@@ -302,7 +527,7 @@ class HostServiceRepairTests(unittest.TestCase):
                                         "reconciled": True, "backup_path": None})
         self.assertEqual(fixture.config.read_text(), content)
         self.assertEqual(fixture.config.stat().st_mtime_ns, before.st_mtime_ns)
-        self.assertEqual(fixture.commands[-1], ["/fake/dockerd", "--validate", "--config-file", str(fixture.config)])
+        self.assertEqual(fixture.validations()[-1], ["/fake/dockerd", "--validate", "--config-file", str(fixture.config)])
         lock = fixture.root / repair.LOCK_NAME
         self.assertEqual(set(fixture.root.iterdir()), {fixture.config, lock})
         self.assertEqual(lock.read_bytes(), b"")

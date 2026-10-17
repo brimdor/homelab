@@ -7,6 +7,13 @@
     - name: Reconcile the CLI-owned Docker live-restore directive
       ansible.builtin.import_tasks: roles/docker/tasks/daemon_config.yml
 
+    - name: Require validated reconciliation of the investigated Docker conflict
+      ansible.builtin.assert:
+        that:
+          - (docker_daemon_repair.stdout | from_json).validated
+          - (docker_daemon_repair.stdout | from_json).reconciled
+        fail_msg: Docker configuration reconciliation was not proven; refusing to start the investigated service.
+
     - name: Start Docker after its configuration has been validated
       ansible.builtin.systemd_service:
         name: docker
