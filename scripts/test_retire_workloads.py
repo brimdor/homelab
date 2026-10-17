@@ -837,6 +837,23 @@ command: [code, --version]
                     retire.resolve_env_templates("env: " + expression, "driver: {env: []}")
                 self.assertNotIn("private-value", str(caught.exception))
 
+    def test_env_template_absent_path_exempted_only_by_guard_on_that_same_path(self):
+        guarded = ("{{- if .Values.driver }}\ndriver:\n  {{- if .Values.driver.cuda }}\n  cuda:\n"
+                   "    {{- if .Values.driver.cuda.env }}\n    env: {{ toYaml .Values.driver.cuda.env | nindent 8 }}\n"
+                   "    {{- end }}\n  {{- end }}\n{{- end }}\n")
+        for values in ("driver: {image: nvidia}\n", "driver: {cuda: {enabled: true}}\n"):
+            with self.subTest(values=values):
+                resolved = retire.resolve_env_templates(guarded, values)
+                self.assertNotIn("toYaml", resolved)
+                self.assertEqual(retire.namespace_references(resolved), set())
+        text = "env: {{ toYaml .Values.driver.cuda.env | nindent 6 }}\n"
+        for guard, values in (("", "driver: {cuda: {}}\n"),
+                ("{{- if .Values.driver.enabled }}\n", "driver: {enabled: false}\n"),
+                ("{{- if .Values.other }}\n", "driver: {cuda: {}}\n")):
+            with self.subTest(guard=guard, values=values):
+                with self.assertRaisesRegex(retire.Refusal, "Missing env template path; values withheld"):
+                    retire.resolve_env_templates(guard + text + ("{{- end }}\n" if guard else ""), values)
+
     def test_env_template_prose_comments_and_block_scalars_are_not_resolved(self):
         stanza = "env: {{ toYaml .Values.missing.env | nindent 6 }}"
         for text in ("# " + stanza, "description: '" + stanza + "'",

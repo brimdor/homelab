@@ -319,10 +319,39 @@ def env_references(obj):
     return result
 
 
+def values_path_guard(condition, values):
+    """(path, state) for a plain `.Values.path` Helm condition; (None, None) when the test is not literal."""
+    path = re.fullmatch(r"\.Values((?:\.[A-Za-z_][A-Za-z0-9_-]*)+)", (condition or "").strip())
+    if path is None:
+        return None, None
+    name = path.group(1)[1:]
+    if not isinstance(values, dict):
+        return name, None
+    value = values
+    for part in name.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return name, False
+        value = value[part]
+    return name, bool(value)
+
+
 def resolve_env_templates(text, values_text):
     import yaml
 
     lines, scalar_indent, values = text.splitlines(keepends=True), None, None
+    values_loaded, guards = False, []
+
+    def loaded_values():
+        nonlocal values, values_loaded
+        if not values_loaded:
+            values_loaded = True
+            require(isinstance(values_text, str), "Missing chart values for env template; values withheld")
+            try:
+                values = yaml.safe_load(values_text)
+            except yaml.YAMLError:
+                raise Refusal("Invalid chart values for env template; values withheld") from None
+        return values
+
     for index, line in enumerate(lines):
         depth = len(line) - len(line.lstrip())
         if scalar_indent is not None:
@@ -332,6 +361,18 @@ def resolve_env_templates(text, values_text):
         if re.match(r"^[ \t]*[^#\n]+:[ \t]*[|>](?:[1-9][+-]?|[+-][1-9]?)?[ \t]*(?:#.*)?$", line):
             scalar_indent = depth
             continue
+        for action in re.finditer(r"\{\{-?[ \t]*(if|with|range|else|end)\b([^{}]*?)-?\}\}", line):
+            keyword, condition = action.group(1), action.group(2)
+            if keyword == "end":
+                if guards:
+                    guards.pop()
+            elif keyword == "else":
+                if guards:
+                    guards[-1] = (guards[-1][0], None)
+            elif isinstance(values_text, str):
+                guards.append(values_path_guard(condition, loaded_values()))
+            else:
+                guards.append((None, None))
         header = re.fullmatch(r"([ \t]*)env:[ \t]*(.*)", line.rstrip("\r\n"))
         if not header or "{{" not in header.group(2):
             continue
@@ -339,16 +380,20 @@ def resolve_env_templates(text, values_text):
             r"\{\{[ \t]*toYaml[ \t]+\.Values\.([A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*)*)"
             r"[ \t]*\|[ \t]*nindent[ \t]+[0-9]+[ \t]*\}\}[ \t]*", header.group(2))
         require(match is not None, "Unsupported env template; values withheld")
-        if values is None:
-            require(isinstance(values_text, str), "Missing chart values for env template; values withheld")
-            try:
-                values = yaml.safe_load(values_text)
-            except yaml.YAMLError:
-                raise Refusal("Invalid chart values for env template; values withheld") from None
-        value = values
+        value, missing = loaded_values(), False
         for part in match.group(1).split("."):
-            require(isinstance(value, dict) and part in value, "Missing env template path; values withheld")
-            value = value[part]
+            if isinstance(value, dict) and part in value:
+                value = value[part]
+            else:
+                missing = True
+                break
+        if missing:
+            # A false `.Values` guard on this same absent path means Helm never renders the template.
+            guarded = any(state is False and name is not None
+                and (match.group(1) == name or match.group(1).startswith(name + ".")) for name, state in guards)
+            require(guarded, "Missing env template path; values withheld")
+            lines[index] = "\n" if line.endswith("\n") else ""
+            continue
         require(value is None or isinstance(value, (list, dict)), "Unsupported env template value; values withheld")
         try:
             literal = json.dumps(value, allow_nan=False)
