@@ -10,8 +10,8 @@ The Nelson Network runs a K3s Kubernetes cluster for hosting homelab application
 |----------|-------|
 | **Distribution** | K3s |
 | **SSH Access** | `ash` (`10.0.20.10`) - Raspberry Pi for management |
-| **Control Plane API** | `https://10.0.20.11:6443` (charmander) |
-| **Node Count** | 10 (3 control-plane + 7 workers) |
+| **Control Plane API** | `https://10.0.20.50:6443` (kube-vip) |
+| **Node Count** | 9 (3 control-plane + 6 workers) |
 | **Network VLAN** | VLAN 20 (Cluster-Prod) |
 | **Service CIDR** | `10.43.0.0/16` |
 | **CNI** | Cilium |
@@ -22,7 +22,7 @@ The Nelson Network runs a K3s Kubernetes cluster for hosting homelab application
 
 | Node | IP Address | Hardware | Notes |
 |------|------------|----------|-------|
-| charmander | `10.0.20.11` | Lenovo ThinkCentre M700 | Primary API endpoint |
+| charmander | `10.0.20.11` | Lenovo ThinkCentre M700 | Control plane |
 | squirtle | `10.0.20.12` | Lenovo ThinkCentre M700 | Control plane |
 | bulbasaur | `10.0.20.13` | Lenovo ThinkCentre M700 | Control plane |
 
@@ -31,12 +31,17 @@ The Nelson Network runs a K3s Kubernetes cluster for hosting homelab application
 | Node | IP Address | Hardware | GPU | Notes |
 |------|------------|----------|-----|-------|
 | pikachu | `10.0.20.14` | Lenovo ThinkCentre M700 | - | Worker |
-| chikorita | `10.0.20.15` | Lenovo ThinkCentre M700 | - | Worker |
 | cyndaquil | `10.0.20.16` | Lenovo ThinkCentre M700 | - | Worker |
 | totodile | `10.0.20.17` | Lenovo ThinkCentre M700 | - | Worker |
 | growlithe | `10.0.20.18` | Lenovo ThinkCentre M700 | - | Worker |
 | arcanine | `10.0.20.19` | Lenovo ThinkCentre M900 | NVIDIA RTX 3090 | GPU Worker |
 | sprigatito | `10.0.20.20` | Lenovo ThinkCentre M700 | NVIDIA GTX 1650 | GPU Worker |
+
+`chikorita` (`10.0.20.15`) is retired and excluded from the active inventory.
+Its stale Kubernetes registration and empty Ceph CRUSH host bucket were removed
+on 2026-10-13. No application storage or host disks were deleted. Keep the retired
+host powered off or disconnected until its K3s services and join credentials
+have been decommissioned; cluster registration cleanup does not disable the host.
 
 ### Management Node
 

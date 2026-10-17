@@ -21,7 +21,7 @@ func TestToolsVersions(t *testing.T) {
 		{"git", "--version", ">= 2.37.1, < 3.0.0"},
 		{"go", "version", ">= 1.21.0, < 1.22.0"},
 		{"helm", "version", ">= 3.9.4, < 4.0.0"},
-		{"kubectl", "version", ">= 1.27.0, < 1.29.0"}, // https://kubernetes.io/releases/version-skew-policy/#kubectl
+		{"kubectl", "version", ">= 1.32.0, < 1.35.0"}, // https://kubernetes.io/releases/version-skew-policy/#kubectl (derived from k3s v1.33.6+k3s1 in metal/roles/k3s/defaults/main.yml; keep aligned with the verified server minor).
 		{"kustomize", "version", ">= 5.0.3, < 6.0.0"},
 		{"pre-commit", "--version", ">= 3.3.2, < 4.0.0"},
 		{"terraform", "--version", ">= 1.6.0, < 1.7.0"},

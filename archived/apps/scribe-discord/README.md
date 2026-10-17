@@ -1,5 +1,13 @@
 # scribe-discord
 
+## Archived by owner disposition, 2026-10-17
+
+This chart is no longer an active Argo CD application. Its local Ollama dependency was already retired, and the owner chose archival rather than a replacement provider. The configuration below is historical, not an installation instruction for the current cluster.
+
+Commit `fad596dd0b06ac6657ff50103a4bba32617e4fb6` first stopped the existing Deployment without renaming it, disabled registration, and protected the actual Namespace and retained PVC from Argo pruning/deletion. Live verification preserved their original identities and storage specifications and confirmed no remaining Pods or attachments before this move.
+
+The separate UID-scoped plan in `scripts/retirements/owner-retirement-20261017.json` authorizes intentional purge of exclusively retired non-NFS resources and data without backups. It does not delete the external 1Password item or Discord credentials. Repository restoration cannot recover intentionally erased data. See [the retirement runbook](../../../docs/how-to-guides/retire-workloads.md).
+
 Helm chart for the **Scribe Discord voice transcription bot** on the homelab
 Kubernetes cluster. Scribe is an outbound-only worker — it connects to Discord's
 gateway, optionally to Ollama / Codex for analysis, and optionally to GitHub for

@@ -311,7 +311,7 @@ Unless the user explicitly authorizes commit/push/merge, stop after producing an
 
 ### 5. Live completion gate
 
-For deployment, troubleshooting, action, or maintenance work, `.agent/rules/foundational-rules.md` defines completion. The work is not complete until all layers are green and every discovered issue is resolved or an allowed external/human blocker is explicitly reported.
+`.agent/rules/foundational-rules.md` Rule 1 and Rule 7 define completion. Deployment and authorized remediation require all six layers GREEN, every required issue resolved, and all required verification passed. Explicitly read-only audits, recon, diagnosis, and skills/configuration maintenance may finish with reported findings and must not create or update remote issues. Standard `homelab-recon` runs autonomously without approval, authorization, confirmation, or human-coordination prompts through audited single-maintenance-issue publication, exact readback, and final uniqueness verification; automatic technical failures remain blockers. This standing recon authority does not authorize infrastructure repairs, installations, commits/pushes, merges, releases, destructive actions, or issue closure. Report completion is not remediation success; blocked remediation remains `BLOCKED/INCOMPLETE` with unresolved findings and untested gates listed.
 
 Use `metal/kubeconfig.yaml` through the repo-local environment:
 
@@ -326,10 +326,12 @@ kubectl get pods -A
 
 Green means:
 
-- Metal: every expected node is `Ready`, with no pressure or hardware warnings.
-- System: Ceph is `HEALTH_OK`; system pods are Running or legitimately Completed.
-- Platform: every Argo CD Application is both `Synced` and `Healthy`.
-- Apps: all expected workloads are ready, with no Pending, Error, CrashLoopBackOff, failed jobs, bad events, or broken health endpoints.
+- Metal: every active inventory node exists and is `Ready`, with no pressure or unresolved hardware, host-security, or required-update findings.
+- Network: required routing, Cilium, DNS, ingress, tunnel, and TLS behavior verified from relevant origins; no unresolved connectivity findings.
+- Storage: Ceph is `HEALTH_OK`; expected PVCs bound; NAS/application paths, data integrity, capacity, and required backups verified.
+- System: expected system controllers and containers are ready; Jobs legitimately completed or healthy within their expected execution window; certificates, observability, and critical dependencies function correctly. A pod's `Running` phase alone is not readiness.
+- Platform: every expected Argo CD Application is both `Synced` and `Healthy` at the intended revision; shared services function correctly.
+- Apps: expected controllers and containers ready; Jobs legitimately completed or healthy within their expected execution window; app-specific behavior and migrations verified. Failed Jobs or unready running pods remain findings.
 
 Also prove the changed application's actual behavior. Kubernetes readiness alone does not validate database migrations, login flows, API behavior, media/GPU functions, backup jobs, DNS, or public TLS.
 
@@ -351,43 +353,8 @@ Also prove the changed application's actual behavior. Kubernetes readiness alone
 - Never alter any code in ~/Documents/Github/paperclip
 - When building a new image for paperclip, always pull from the upstream in ~/Documents/Github/paperclip to make sure we have the latest codebase/features/etc.
 
-## Helm charts (app-template v5.0.1)
+## Helm chart discovery and versions
 
-New and migrated apps use the bjw-s `app-template` library chart v5.0.1.
-Apps currently on 5.0.1:
+Discover active applications from direct-child `apps/*/Chart.yaml` files and verify discovery against `system/argocd/values.yaml`. `archived/apps/` is historical, not an active application list.
 
-- backlog-tracker
-- budget, budget-canary
-- eaglepass-news
-- emby
-- explorers-hub
-- humbleai, humbleai-canary, humbleai-demo
-- jellyfin
-- jovo, jovo-canary
-- nibble, nibble-canary
-- omni-tools, omni-tools-canary
-- openwebui
-- outline
-- pages, pages-canary
-- podwave, podwave-canary
-- postgres
-- radarr
-- sabnzbd
-- scribe-discord
-- searxng
-- second-brain, second-brain-canary
-- sonarr
-- sporecast, sporecast-canary
-- strata, strata-canary
-- tipsbot-canary
-- wikijs
-- wolf
-
-Still on the legacy 4.6.2 layout (migration candidates; not broken, just
-pre-v5):
-
-- backlog, backlog-canary
-- questarr-canary
-
-The `*-canary` siblings mirror their stable counterparts and follow the
-same template version when the stable chart is on 5.0.1.
+Read each target chart's pinned dependencies before editing values. bjw-s `app-template` 4.6.2 and 5.0.1 coexist with custom and other dependency charts; their schemas are not interchangeable. Inspect production and canary charts independently rather than assuming matching versions.
