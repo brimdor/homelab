@@ -375,14 +375,27 @@ class HostServiceRepairTests(unittest.TestCase):
         self.assertEqual(fixture.config.read_text(), '{"live-restore":true}')
         self.assertFalse((fixture.root / repair.LOCK_NAME).exists())
 
-    def test_environment_file_rejects_inner_quotes_concatenation_and_continuations(self):
+    def test_double_quoted_fedora_line_continuations_preserve_option_words(self):
+        fixture = RepairFixture('{"live-restore":true,"features":{"buildkit":false}}', "$OPTIONS")
+        content = 'OPTIONS="--log-driver=journald \\\n  --live-restore \\\n  --log-level=info"\n'
+        fixture.add_env_file(content, optional=True)
+        parsed = repair.environment_file_assignments(content)
+        self.assertEqual(shlex.split(parsed["OPTIONS"]),
+                         ["--log-driver=journald", "--live-restore", "--log-level=info"])
+        result = fixture.run()
+        self.assertTrue(result["changed"] and result["validated"] and result["reconciled"])
+        self.assertEqual(json.loads(fixture.config.read_text()), {"features": {"buildkit": False}})
+        self.assertFalse(fixture.run()["changed"])
+        self.assertEqual(len(fixture.backups()), 1)
+
+    def test_environment_file_rejects_inner_quotes_concatenation_and_unquoted_continuations(self):
         for content in ("OPTIONS=--label='note --live-restore'\n",
                         'OPTIONS=--label="note --live-restore"\n',
                         "OPTIONS='--live-restore'junk\n",
                         "OPTIONS='--live-restore'' --debug'\n",
                         "OPTIONS='--live-restore' # trailing comment\n",
                         "OPTIONS=--live-restore\\\n MORE=--debug\n",
-                        'OPTIONS="--live-restore\\\n--debug"\n'):
+                        'OPTIONS="--live-restore\\q"\n'):
             with self.subTest(content=content):
                 fixture = RepairFixture('{"live-restore":true}', "$OPTIONS")
                 fixture.add_env_file(content)

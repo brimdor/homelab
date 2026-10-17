@@ -171,6 +171,9 @@ def environment_file_assignments(text):
                     value += continuation
                 char = value[position]
                 if quote == '"' and char == "\\":
+                    if position + 1 < len(value) and value[position + 1] == "\n":
+                        value = value[:position] + value[position + 2:]
+                        continue
                     # Only the escape forms shared with shlex are supported.
                     if position + 1 >= len(value) or value[position + 1] not in ('"', "\\"):
                         raise RepairError(ERROR)
