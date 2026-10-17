@@ -2,7 +2,9 @@
 
 ## Mission and source of truth
 
-This repository is the durable source of truth for the Eagle Pass homelab. Treat every infrastructure or application change as Infrastructure as Code: understand the live symptom, encode the desired state here, validate the rendered change, commit it, and let the owning reconciler apply it. Direct cluster changes are diagnostic or emergency measures only; they are not a finished fix until the equivalent desired state is represented in this repo.
+This repository is the durable source of truth for the Eagle Pass homelab.
+
+**Repository-first changes are mandatory, without exception.** Define every homelab change in this repository's Helm charts, configuration, scripts, or other files. Validate, commit, and push it to canonical Gitea `master` before applying it through the owning deployment workflow. Live-only edits are not durable fixes or an alternative deployment path.
 
 - Canonical local checkout: `~/Documents/Github/homelab`
 - Canonical remote: `origin` → `git@git.eaglepass.io:ops/homelab.git`
@@ -32,10 +34,9 @@ edit apps/<app>/Chart.yaml, values.yaml, templates, or repo-owned scripts
 ```
 
 - Do not deploy an application change by editing a live Deployment, StatefulSet, Pod, ConfigMap, Secret, Application, or container.
-- Do not use manual `helm upgrade`, `kubectl set image`, `kubectl edit`, or container-local file edits as the normal change path.
+- Do not deploy through manual `helm upgrade`, `kubectl set image`, `kubectl edit`, or container-local file edits.
 - Do not use Kubernetes nodes as ad-hoc container build hosts. Build application images on an external development workstation or governed CI builder, publish them to the registry, and let Kubernetes nodes only pull and run the declared images through normal scheduling.
 - Application release workflows that own self-built images must clean up after a successful Production update. Only after Production and the whole cluster are green, resolve every active GitOps digest reference, purge older unreferenced manifests from Zot, run registry garbage collection when required, verify the retained Production digest remains pullable, and repeat the health checks. Never delete a referenced digest.
-- A live emergency action is temporary mitigation only. Encode the resulting desired state in this repo, push it to Gitea, and verify Argo CD reconciliation before declaring the work complete.
 - Gitea is the authoritative GitOps remote. GitHub receives a backup mirror and must not be treated as an alternate production source, promotion path, or place to land a homelab change instead of Gitea.
 
 ## Repository ownership map
@@ -93,7 +94,7 @@ Important behavior:
 - Adding `apps/foo/Chart.yaml` and `apps/foo/values.yaml` causes a new `foo` Application and namespace to appear after the commit reaches `master`.
 - Deleting or moving a discovered directory removes the generated Application and enables pruning of its resources. Review PVCs, retained PVs, external resources, and backups before doing this.
 - Normal applications use automated sync with `prune: true`, `selfHeal: true`, namespace creation, server-side apply, and out-of-sync-only application.
-- Live `kubectl edit`, `kubectl scale`, and manual Helm changes can be reverted by self-heal. Make the Git change first whenever possible.
+- Live `kubectl edit`, `kubectl scale`, and manual Helm changes can be reverted by self-heal and must not replace the repository-first workflow.
 - `platform/external-secrets` and `system/monitoring-system` use a separate ApplicationSet with replace/skip-hook behavior for CRD-heavy charts. Preserve those exclusions and special sync options unless the CRD rollout is explicitly being redesigned.
 - Existing `ignoreDifferences` rules intentionally mask controller/defaulted fields. Do not expand them merely to hide unexplained drift.
 
@@ -297,7 +298,7 @@ Unless the user explicitly authorizes commit/push/merge, stop after producing an
    Automated sync should begin after the refresh. Use `--hard-refresh` instead of `--refresh` only when the target-manifest/repository cache is demonstrably stale. If an authorized rollout still needs an explicit sync, inspect the diff first and run `argocd app sync <application>` with any required prune behavior understood.
 4. If `argocd` is unavailable or unconfigured, install/configure it and continue. `kubectl` may be used for cluster-side observation and for secure Argo CD access/core mode where appropriate; lack of a preconfigured CLI is not by itself a blocker.
 5. Watch the target Application sync/health, workload rollout, events, PVCs, certificate, ingress, and app-specific health endpoint.
-6. If the desired state is wrong, fix or revert it in Git. Use live intervention only to protect data or restore service while Git catches up.
+6. If the desired state is wrong, fix or revert it in Git, push to Gitea, and verify reconciliation. Do not substitute live edits.
 
 ### 5. Live completion gate
 
@@ -334,21 +335,6 @@ Also prove the changed application's actual behavior. Kubernetes readiness alone
 - Preserve the dirty worktree and unrelated changes. Never use destructive Git cleanup/reset commands to make validation pass.
 - Do not commit generated kubeconfigs, logs, screenshots, Helm archives, local reports, build caches, or secret-bearing context packs.
 - When editing a workflow/rule that declares `sync_locations`, update every declared copy in the same change. Do not edit global synchronized copies unless that rule itself is in scope.
-
-## High-value reference files
-
-| `apps/<app>/Chart.yaml`, values.yaml, templates, or repo-owned scripts
-  → render, lint, and review the desired-state diff
-  → commit the change
-  → push/merge it to Gitea master
-  → Argo CD reads Gitea and reconciles the cluster
-  → verify Argo sync, rollout, health, and application behavior
-```
-
-- Do not deploy an application change by editing a live Deployment, StatefulSet, Pod, ConfigMap, Secret, Application, or container.
-- Do not use manual `helm upgrade`, `kubectl set image`, `kubectl edit`, or container-local file edits as the normal change path.
-- A live emergency action is temporary mitigation only. Encode the resulting desired state in this repo, push it to Gitea, and verify Argo CD reconciliation before declaring the work complete.
-- Gitea is the authoritative GitOps remote. GitHub receives a backup mirror and must not be treated as an alternate production source, promotion path, or place to land a homelab change instead of Gitea.
 
 ## Agent-specific rules
 - Apply mandatory homelab rules from `.agent/rules/foundational-rules.md` and app governance in `.agent/rules/HOMELAB_applications.md`.
