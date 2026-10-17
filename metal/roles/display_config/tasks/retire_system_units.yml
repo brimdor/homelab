@@ -1,0 +1,94 @@
+- name: Read only obsolete system display unit load states
+  ansible.builtin.command:
+    argv: [systemctl, show, "{{ item }}", --property=LoadState, --value]
+  loop: [weston-headless.service, xvfb.service]
+  register: display_legacy_units
+  changed_when: false
+  timeout: 30
+  failed_when: >-
+    display_legacy_units.rc != 0
+    or display_legacy_units.stderr != ''
+    or display_legacy_units.stdout not in ['loaded', 'not-found', 'masked']
+
+- name: Inspect only known local system display unit files
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/{{ item }}"
+    get_checksum: false
+    get_mime: false
+  loop: [weston-headless.service, xvfb.service]
+  register: display_legacy_files
+
+- name: Require regular original display unit files before retirement
+  ansible.builtin.assert:
+    that: item.stat.isreg | default(false)
+    fail_msg: Refusing to retire an unexpected non-regular system display unit file.
+  loop: "{{ display_legacy_files.results }}"
+  when: item.stat.exists
+
+- name: Stop and disable only present obsolete system display units
+  ansible.builtin.systemd_service:
+    name: "{{ item.item }}"
+    scope: system
+    enabled: false
+    state: stopped
+  loop: "{{ display_legacy_units.results }}"
+  when: item.stdout != 'not-found'
+
+- name: Protect the retired system display unit backup directory
+  ansible.builtin.file:
+    path: /var/lib/homelab/retired-display-services
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when: display_legacy_files.results | selectattr('stat.exists') | list | length > 0
+
+- name: Back up original system display unit files before removal
+  ansible.builtin.copy:
+    remote_src: true
+    src: "/etc/systemd/system/{{ item.item }}"
+    dest: "/var/lib/homelab/retired-display-services/{{ item.item }}"
+    owner: root
+    group: root
+    mode: '0600'
+    backup: true
+  loop: "{{ display_legacy_files.results }}"
+  when: item.stat.exists
+  no_log: true
+  diff: false
+
+- name: Remove only retired local system display unit files
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item.item }}"
+    state: absent
+  loop: "{{ display_legacy_files.results }}"
+  when: item.stat.exists
+  register: display_legacy_removed
+
+- name: Reload systemd only after removing retired unit files
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    scope: system
+  when: display_legacy_removed.results | selectattr('changed') | list | length > 0
+
+- name: Read investigated system display failure states
+  ansible.builtin.command:
+    argv: [systemctl, is-failed, "{{ item }}"]
+  loop: [weston-headless.service, xvfb.service]
+  register: display_legacy_failure_states
+  changed_when: false
+  timeout: 30
+  failed_when: >-
+    display_legacy_failure_states.rc not in [0, 1, 4]
+    or display_legacy_failure_states.stderr != ''
+    or display_legacy_failure_states.stdout not in
+       ['failed', 'active', 'inactive', 'activating', 'deactivating', 'reloading', 'unknown']
+    or ((display_legacy_failure_states.rc == 0) != (display_legacy_failure_states.stdout == 'failed'))
+    or (display_legacy_failure_states.rc == 4 and display_legacy_failure_states.stdout != 'unknown')
+
+- name: Reset only actually failed investigated system display units
+  ansible.builtin.command:
+    argv: [systemctl, reset-failed, "{{ item.item }}"]
+  loop: "{{ display_legacy_failure_states.results }}"
+  when: item.stdout == 'failed' and item.rc == 0
+  timeout: 30

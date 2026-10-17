@@ -1,0 +1,35 @@
+- name: Reconcile Docker daemon configuration entirely on the node
+  ansible.builtin.script:
+    cmd: >-
+      {{ (playbook_dir ~ '/roles/docker/files/reconcile-daemon.py') | quote }}
+      --config {{ daemon_config_path | default('/etc/docker/daemon.json') | quote }}
+      --daemon {{ daemon_binary | default('/usr/bin/dockerd') | quote }}
+    executable: /usr/bin/python3
+  register: docker_daemon_repair
+  changed_when: docker_daemon_repair.rc == 0 and (docker_daemon_repair.stdout | from_json).changed
+  diff: false
+
+- name: Clear investigated Docker failures only after validated reconciliation
+  when: (docker_daemon_repair.stdout | from_json).reconciled
+  block:
+    - name: Read investigated Docker failure states
+      ansible.builtin.command:
+        argv: [systemctl, is-failed, "{{ item }}"]
+      loop: [docker.service, docker.socket]
+      register: docker_failure_states
+      changed_when: false
+      timeout: 30
+      failed_when: >-
+        docker_failure_states.rc not in [0, 1, 4]
+        or docker_failure_states.stderr != ''
+        or docker_failure_states.stdout not in
+           ['failed', 'active', 'inactive', 'activating', 'deactivating', 'reloading', 'unknown']
+        or ((docker_failure_states.rc == 0) != (docker_failure_states.stdout == 'failed'))
+        or (docker_failure_states.rc == 4 and docker_failure_states.stdout != 'unknown')
+
+    - name: Reset only actually failed investigated Docker units
+      ansible.builtin.command:
+        argv: [systemctl, reset-failed, "{{ item.item }}"]
+      loop: "{{ docker_failure_states.results }}"
+      when: item.stdout == 'failed' and item.rc == 0
+      timeout: 30

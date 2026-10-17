@@ -12,13 +12,57 @@
     state: present
   when: gpu_type is defined
 
+- name: Ensure the Docker configuration directory exists for GPU nodes
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: gpu_type is defined
+
+- name: Inspect the shared Docker daemon lock for GPU nodes
+  ansible.builtin.stat:
+    path: /etc/docker/.homelab-daemon.lock
+    get_checksum: false
+    get_mime: false
+    follow: false
+  register: docker_daemon_lock_file
+  when: gpu_type is defined
+
+- name: Require a regular shared Docker daemon lock if present
+  ansible.builtin.assert:
+    that:
+      - not docker_daemon_lock_file.stat.exists or (docker_daemon_lock_file.stat.isreg | default(false))
+      - not (docker_daemon_lock_file.stat.islnk | default(false))
+      - not docker_daemon_lock_file.stat.exists or docker_daemon_lock_file.stat.nlink == 1
+    fail_msg: Refusing an unexpected Docker daemon lock path.
+  when: gpu_type is defined
+
+- name: Prepare the private shared Docker daemon lock for GPU nodes
+  ansible.builtin.file:
+    path: /etc/docker/.homelab-daemon.lock
+    state: touch
+    owner: root
+    group: root
+    mode: '0600'
+    follow: false
+    access_time: preserve
+    modification_time: preserve
+  when: gpu_type is defined
+
 - name: Configure Docker with nvidia runtime
-  command: nvidia-ctk runtime configure --runtime=docker
+  command: flock -x -w 30 /etc/docker/.homelab-daemon.lock nvidia-ctk runtime configure --runtime=docker
   when: gpu_type is defined
   notify: Restart Docker
+
+- name: Repair CLI-owned Docker daemon configuration
+  ansible.builtin.import_tasks: daemon_config.yml
+  tags: docker_daemon_config
 
 - name: Enable and start Docker service
   systemd:
     name: docker
     enabled: true
     state: started
+  tags: docker_daemon_config

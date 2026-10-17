@@ -1,0 +1,22 @@
+---
+- name: Repair the investigated Docker daemon conflict on Charmander
+  hosts: charmander
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Reconcile the CLI-owned Docker live-restore directive
+      ansible.builtin.import_tasks: roles/docker/tasks/daemon_config.yml
+
+    - name: Start Docker after its configuration has been validated
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started
+
+- name: Retire investigated obsolete system display services on Arcanine
+  hosts: arcanine
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Reconcile obsolete system display unit retirement
+      ansible.builtin.import_tasks: roles/display_config/tasks/retire_system_units.yml

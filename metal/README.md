@@ -144,6 +144,37 @@ available, so metal bootstrap does not require remote Gitea availability. Existi
 that setting or harden initial bootstrap. Enable strict checking explicitly when
 using this reference; changing broader Ansible policy is outside this feature.
 
+## Targeted host-service repairs
+
+`metal/host-service-repair.yml` owns the investigated Charmander Docker
+configuration conflict and Arcanine legacy system display-unit retirement. It
+imports the same tasks used by the normal roles, without package installation,
+PXE, node restarts, broad cleanup, or unrelated host configuration.
+
+Docker repair removes only a JSON `live-restore` directive already owned by the
+effective systemd command. It validates the result, keeps an exclusive `0600`
+remote configuration backup, preserves other settings, and starts the existing
+service. Daemon JSON never leaves the node. A validated already-repaired file can
+resume failed-unit reconciliation without another rewrite or backup. The repair
+and the role's NVIDIA runtime configurator share an advisory lock; stale-file
+checks and atomic replacement do not claim protection against root writers that
+ignore that lock. Display
+retirement stops/disables only `weston-headless.service` and `xvfb.service`,
+backs up their original unit files under the root-only
+`/var/lib/homelab/retired-display-services`, removes those files, and clears only
+their investigated failure records. Restore through reviewed repository-owned
+configuration if rollback is required; never use an unrecorded live edit.
+
+Review exact inventory limits and commit/push the desired state before execution:
+
+```sh
+ansible-playbook -i metal/inventories/prod.yml metal/host-service-repair.yml --limit charmander,arcanine
+```
+
+The normal Docker role also exposes `docker_daemon_config`; the display role
+exposes `display_legacy_cleanup`. Those tags do not execute the roles' unrelated
+package, permissions, user-group, or optional Xorg operations.
+
 ## Offline tests
 
 The unit tests mock kubectl/API calls and use `tempfile` for disposable files.

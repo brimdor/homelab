@@ -1,3 +1,7 @@
+- name: Retire obsolete system display services
+  ansible.builtin.import_tasks: retire_system_units.yml
+  tags: display_legacy_cleanup
+
 - name: Stop and disable weston-headless user service if exists
   become: true
   shell: |
