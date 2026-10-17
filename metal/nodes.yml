@@ -14,3 +14,14 @@
     - role: display_config
       when: hostvars[inventory_hostname].has_display | default(false)
       tags: display_config
+  post_tasks:
+    - name: Refresh SSH trust after inventory node configuration
+      ansible.builtin.import_tasks: tasks/ssh-trust.yml
+      delegate_to: localhost
+      connection: local
+      become: false
+      run_once: true
+      vars:
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+        ssh_trust_defer_bootstrap: true
+      tags: ssh_trust

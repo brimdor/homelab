@@ -40,3 +40,11 @@ console:
 	ansible-console \
 		--inventory inventories/${env}.yml \
 		$(limit_arg)
+
+.PHONY: ssh-trust ssh-trust-refresh
+
+ssh-trust:
+	python3 scripts/ssh-trust.py
+
+ssh-trust-refresh:
+	ansible-playbook --inventory localhost, --connection local ssh-trust.yml

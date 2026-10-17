@@ -1,0 +1,131 @@
+---
+- name: Verify the authenticated trust source and compatible Kubernetes client
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -c
+      - "import json, runpy, sys; module = runpy.run_path(sys.argv[1]); module['API']().establish(); print(json.dumps(module['inventory']()))"
+      - "{{ playbook_dir }}/scripts/ssh-trust.py"
+    chdir: "{{ playbook_dir }}/.."
+  register: ssh_trust_inventory
+  changed_when: false
+
+- name: Discover installed SSH public-key source namespaces
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ playbook_dir }}/kubeconfig.yaml"
+      - --server=https://10.0.20.50:6443
+      - --request-timeout=20s
+      - get
+      - namespaces
+      - '-o=jsonpath={.items[*].metadata.name}'
+  register: ssh_trust_namespaces
+  changed_when: false
+
+- name: Check for an existing cluster trust reference
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ playbook_dir }}/kubeconfig.yaml"
+      - --server=https://10.0.20.50:6443
+      - --request-timeout=20s
+      - get
+      - configmap
+      - homelab-ssh-trust
+      - -n
+      - kube-system
+      - --ignore-not-found
+      - -o
+      - name
+  register: ssh_trust_existing
+  changed_when: false
+
+- name: Refuse missing sources except during first platform bootstrap
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((ssh_trust_namespaces.stdout.split() | intersect(['gitea', 'monitoring-system']) | length) == 2) or
+        ((ssh_trust_defer_bootstrap | default(false) | bool) and
+         (ssh_trust_existing.stdout | trim == '') and
+         (ssh_trust_namespaces.stdout.split() | sort == ['default', 'kube-node-lease', 'kube-public', 'kube-system']))
+    fail_msg: >-
+      SSH trust sources are missing. Restore monitoring-system and Gitea before
+      completing node addition; an existing reference must not be silently skipped.
+
+- name: Collect and publish every active node's public keys automatically
+  when: (ssh_trust_namespaces.stdout.split() | intersect(['gitea', 'monitoring-system']) | length) == 2
+  block:
+    - name: Wait for one ready node-exporter source on every active inventory node
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig
+          - "{{ playbook_dir }}/kubeconfig.yaml"
+          - --server=https://10.0.20.50:6443
+          - --request-timeout=20s
+          - get
+          - pods
+          - -n
+          - monitoring-system
+          - -l
+          - app.kubernetes.io/name=prometheus-node-exporter
+          - --field-selector
+          - "spec.nodeName={{ item }}"
+          - '-o=jsonpath={range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{";"}{end}'
+      loop: "{{ (ssh_trust_inventory.stdout | from_json).keys() | list | sort }}"
+      register: ssh_trust_exporter_ready
+      changed_when: false
+      failed_when: ssh_trust_exporter_ready.rc != 0
+      until: ssh_trust_exporter_ready.rc != 0 or ssh_trust_exporter_ready.stdout | trim == 'True;'
+      retries: 120
+      delay: 5
+
+    - name: Wait for one ready Gitea public-key source
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig
+          - "{{ playbook_dir }}/kubeconfig.yaml"
+          - --server=https://10.0.20.50:6443
+          - --request-timeout=20s
+          - get
+          - pods
+          - -n
+          - gitea
+          - -l
+          - app.kubernetes.io/name=gitea
+          - '-o=jsonpath={range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{";"}{end}'
+      register: ssh_trust_gitea_ready
+      changed_when: false
+      failed_when: ssh_trust_gitea_ready.rc != 0
+      until: ssh_trust_gitea_ready.rc != 0 or ssh_trust_gitea_ready.stdout | trim == 'True;'
+      retries: 120
+      delay: 5
+
+    - name: Save public SSH trust reference and local dedicated known_hosts
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/scripts/ssh-trust.py"
+          - --automatic
+          - --known-hosts
+          - "{{ ssh_trust_known_hosts | default(lookup('env', 'HOME') ~ '/.ssh/homelab_known_hosts') }}"
+        chdir: "{{ playbook_dir }}/.."
+      register: ssh_trust_result
+      changed_when: "'SSH_TRUST_CHANGED=1' in ssh_trust_result.stdout_lines"
+
+    - name: Show authenticated fingerprints and batch identity
+      ansible.builtin.debug:
+        var: ssh_trust_result.stdout_lines
+
+- name: Defer first-bootstrap publication to automatic post-install refresh
+  ansible.builtin.debug:
+    msg: >-
+      Only core Kubernetes namespaces exist and no trust reference exists.
+      Monitoring/Gitea are not installed yet.
+      The top-level post-install workflow will publish SSH trust automatically
+      after platform bootstrap; no manual approval or enrollment is required.
+  when: (ssh_trust_namespaces.stdout.split() | intersect(['gitea', 'monitoring-system']) | length) != 2

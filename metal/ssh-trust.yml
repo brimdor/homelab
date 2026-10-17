@@ -1,0 +1,9 @@
+---
+- name: Save or refresh SSH trust from authenticated Kubernetes sources without prompting
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Refresh all authenticated SSH trust sources
+      ansible.builtin.import_tasks: tasks/ssh-trust.yml

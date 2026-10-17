@@ -24,6 +24,7 @@ smoke-test:
 	make -C test filter=Smoke
 
 post-install:
+	$(MAKE) -C metal ssh-trust-refresh
 	@./scripts/hacks
 
 tools:
