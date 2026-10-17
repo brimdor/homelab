@@ -92,13 +92,24 @@ def fields(value, expected):
 
 
 def validate_plan(plan):
-    fields(plan, "version reason namespaces volumes historical_jobs retired_workloads")
+    fields(plan, "version reason namespaces volumes historical_jobs retired_workloads inline_env_exemptions")
     require(type(plan["version"]) is int and plan["version"] == 1, "Unsupported plan version")
     require(isinstance(plan["reason"], str) and plan["reason"].strip()
             and len(plan["reason"]) <= 4096, "Owner instruction is required")
     for key in ("namespaces", "volumes", "historical_jobs", "retired_workloads"):
         require(isinstance(plan[key], list), "Plan resource collections must be lists")
     namespaces, pvs, claims = set(), set(), set()
+    require(isinstance(plan["inline_env_exemptions"], list), "Inline env exemptions must be a list")
+    inline_env_exemptions = set()
+    for item in plan["inline_env_exemptions"]:
+        fields(item, "path reason")
+        path = item["path"]
+        require(isinstance(path, str) and re.fullmatch(
+                r"(?:system|platform|apps)/[^/]+/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.(?:yaml|yml|json|tpl)", path)
+                and path not in inline_env_exemptions, "Inline env exemption path is invalid or duplicate")
+        require(isinstance(item["reason"], str) and item["reason"].strip()
+                and len(item["reason"]) <= 1024, "Inline env exemption requires a stated reason")
+        inline_env_exemptions.add(path)
     for item in plan["namespaces"]:
         fields(item, "name uid archived_path")
         name(item["name"], True)
@@ -297,25 +308,26 @@ def endpoint_references(key, value):
     return set(SERVICE_FQDN.findall(host)) | ({short.group(1)} if short else set())
 
 
-def env_references(obj):
+def env_references(obj, allow_unresolved=False):
     """Inspect literal endpoint env values, never resolve or print Secret/valueFrom data."""
     result = set()
     if isinstance(obj, dict):
         env = obj.get("env")
-        require("{{" not in str(env), "Unresolved inline env syntax; values withheld")
-        if isinstance(env, list):
+        templated = "{{" in str(env)
+        require(not templated or allow_unresolved, "Unresolved inline env syntax; values withheld")
+        if isinstance(env, list) and not templated:
             for item in env:
                 if isinstance(item, dict):
                     result.update(endpoint_references(item.get("name"), item.get("value")))
-        elif isinstance(env, dict):
+        elif isinstance(env, dict) and not templated:
             for key, value in env.items():
                 result.update(endpoint_references(key, value.get("value") if isinstance(value, dict) else value))
         for key, value in obj.items():
             if key not in ("env", "metadata", "status", "egress", "egressDeny"):
-                result.update(env_references(value))
+                result.update(env_references(value, allow_unresolved))
     elif isinstance(obj, list):
         for value in obj:
-            result.update(env_references(value))
+            result.update(env_references(value, allow_unresolved))
     return result
 
 
@@ -403,13 +415,13 @@ def resolve_env_templates(text, values_text):
     return "".join(lines)
 
 
-def source_env_references(text):
+def source_env_references(text, allow_unresolved=False):
     import yaml
 
     result = set()
     try:
         for document in yaml.safe_load_all(text):
-            result.update(env_references(document))
+            result.update(env_references(document, allow_unresolved))
         return result
     except yaml.YAMLError:
         pass
@@ -435,7 +447,9 @@ def source_env_references(text):
                 break
             end += 1
         block = textwrap.dedent("\n".join(lines[index:end]))
-        require("{{" not in block, "Unresolved inline env syntax; values withheld")
+        if "{{" in block:
+            require(allow_unresolved, "Unresolved inline env syntax; values withheld")
+            continue
         try:
             result.update(env_references(yaml.safe_load(block)))
             continue
@@ -459,15 +473,24 @@ def source_env_references(text):
     return result
 
 
-def namespace_references(text):
+def namespace_references(text, allow_unresolved_env=False):
     text = namespace_source(text)
     references = ({match.group(2) for match in NAMESPACE_FIELD.finditer(text)}
-                  | set(SERVICE_FQDN.findall(text)) | source_env_references(text))
+                  | set(SERVICE_FQDN.findall(text)) | source_env_references(text, allow_unresolved_env))
     for line in text.splitlines():
         field = re.match(r"^[ \t]*(?:-[ \t]+)?(['\"]?)([A-Za-z_][A-Za-z0-9_.-]*)\1[ \t]*[:=][ \t]*(.*)$", line)
         if field:
             references.update(endpoint_references(field.group(2), field.group(3)))
     return references
+
+
+def has_unresolved_env_syntax(text):
+    """True when the bounded literal-env scan refuses on unresolved inline Helm syntax."""
+    try:
+        source_env_references(text)
+    except Refusal:
+        return True
+    return False
 
 
 def archive_aliases(directories, texts):
@@ -510,21 +533,27 @@ def source_gate(plan_path, read_git=git):
              and "/".join(PurePosixPath(path).parts[:2]) in charts}
     paths.update(path for path in files if path.startswith("archived/") and PurePosixPath(path).name == "Chart.yaml")
     committed = committed_texts(paths, files, read_git)
-    texts = [strip_source_comments(resolve_env_templates(
-        text, committed.get("/".join(PurePosixPath(path).parts[:2]) + "/values.yaml")))
-        for path, text in committed.items() if not path.startswith("archived/")]
+    texts, text_paths = [], []
+    for path, text in committed.items():
+        if path.startswith("archived/"):
+            continue
+        text_paths.append(path)
+        texts.append(strip_source_comments(resolve_env_templates(
+            text, committed.get("/".join(PurePosixPath(path).parts[:2]) + "/values.yaml"))))
     for chart in sorted(charts):
         values_path = ROOT / chart / "values.yaml"
         values_text = values_path.read_text() if values_path.is_file() else None
         for path in (ROOT / chart).rglob("*"):
             if path.is_file() and path.suffix in (".yaml", ".yml", ".json", ".tpl"):
+                text_paths.append(str(path.relative_to(ROOT)))
                 texts.append(strip_source_comments(resolve_env_templates(path.read_text(), values_text)))
     for text in texts:
         active.update(match.group(2) for match in NAMESPACE_FIELD.finditer(namespace_source(text)))
     directories = {str(parent) for path in files for parent in PurePosixPath(path).parents}
     aliases = archive_aliases(directories, committed)
     require(read_git("rev-parse", "HEAD").decode().strip() == head, "HEAD changed during source inspection")
-    return {"head": head, "active": active, "directories": directories, "texts": texts, "archive_aliases": aliases}
+    return {"head": head, "active": active, "directories": directories, "texts": texts,
+            "text_paths": text_paths, "archive_aliases": aliases}
 
 
 def load_api():
@@ -1181,11 +1210,19 @@ def preflight(plan, source, snapshot, now):
         require(not aliases.intersection(source["active"]), "Active replacement basename or archive alias is protected")
         same_uid(snapshot["namespaces"].get(("", item["name"])), item["uid"])
     needles = {item[key] for item in plan["volumes"] for key in ("name", "volume_handle")}
-    for text in source["texts"]:
+    exempt = {item["path"] for item in plan["inline_env_exemptions"]}
+    text_paths = list(source.get("text_paths", []))
+    text_paths += [None] * (len(source["texts"]) - len(text_paths))
+    for item in plan["inline_env_exemptions"]:
+        matching = [text for path, text in zip(text_paths, source["texts"]) if path == item["path"]]
+        require(matching and all(has_unresolved_env_syntax(text) for text in matching),
+                "Inline env exemption is stale or unverified")
+    for path, text in zip(text_paths, source["texts"]):
         text = strip_source_comments(text)
         require(not any(re.search(r"(?<![A-Za-z0-9_-])" + re.escape(value) + r"(?![A-Za-z0-9_-])", text)
                          for value in needles), "Active chart source references retirement identity")
-        require(not scopes.intersection(namespace_references(text)), "Active chart has a direct retirement namespace reference")
+        require(not scopes.intersection(namespace_references(text, path in exempt)),
+                "Active chart has a direct retirement namespace reference")
     goals = {(item["claim_namespace"], item["claim_name"]): item for item in plan["volumes"]}
     for (ns, claim), pvc in snapshot["persistentvolumeclaims"].items():
         if ns in retired:

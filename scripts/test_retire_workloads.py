@@ -42,7 +42,8 @@ def fixture(disposition="archived", policy="Delete", namespace="old-app", archiv
     plan = {"version": 1, "reason": "Owner authorizes exact retirement without backups for eligible data.",
             "namespaces": [], "volumes": [{"name": "pv-old", "uid": "pv-uid", "claim_namespace": namespace,
                 "claim_name": "data", "claim_uid": "claim-uid", "driver": retire.DRIVER,
-                "volume_handle": "rbd-old", "disposition": disposition}], "historical_jobs": [], "retired_workloads": []}
+                "volume_handle": "rbd-old", "disposition": disposition}], "historical_jobs": [], "retired_workloads": [],
+            "inline_env_exemptions": []}
     objects = {resource: {} for resource in retire.RESOURCES}
     if disposition == "archived":
         plan["namespaces"] = [{"name": namespace, "uid": "namespace-uid", "archived_path": archived_path}]
@@ -854,6 +855,35 @@ command: [code, --version]
                 with self.assertRaisesRegex(retire.Refusal, "Missing env template path; values withheld"):
                     retire.resolve_env_templates(guard + text + ("{{- end }}\n" if guard else ""), values)
 
+    def test_inline_env_exemption_is_stated_path_scoped_and_never_stale(self):
+        templated = "env:\n  - name: DATABASE_HOST\n    value: \"{{ .Values.driver.host }}\"\n"
+        literal = "{{- if .Values.enabled }}\nnamespace: old-app\n{{- end }}\n" + templated
+        with self.assertRaisesRegex(retire.Refusal, "Unresolved inline env syntax"):
+            retire.namespace_references(templated)
+        self.assertEqual(retire.namespace_references(literal, True), {"old-app"})
+        path = "apps/consumer/templates/deployment.yaml"
+        plan, objects, source = fixture()
+        source["texts"], source["text_paths"] = [templated], [path]
+        self.blocked(plan, objects, source)
+        plan["inline_env_exemptions"] = [{"path": path, "reason": "Helm-templated env values hide no literal endpoint"}]
+        self.run_plan(plan, FakeAPI(objects), source, apply=False)
+        source["texts"] = [literal]
+        self.blocked(plan, objects, source)
+        source["texts"], source["text_paths"] = [templated], ["apps/consumer/templates/other.yaml"]
+        self.blocked(plan, objects, source)
+        source["text_paths"] = [path]
+        source["texts"] = ["env:\n  - name: DATABASE_HOST\n    value: old-app\n"]
+        self.blocked(plan, objects, source)
+        for exemption in ({}, {"path": path}, {"path": "/etc/passwd.yaml", "reason": "x"},
+                {"path": "apps/consumer/templates/deployment.txt", "reason": "x"}, {"path": path, "reason": "  "}):
+            with self.subTest(exemption=exemption):
+                plan["inline_env_exemptions"] = [exemption]
+                with self.assertRaises(retire.Refusal):
+                    retire.validate_plan(plan)
+        plan["inline_env_exemptions"] = [{"path": path, "reason": "x"}, {"path": path, "reason": "x"}]
+        with self.assertRaisesRegex(retire.Refusal, "invalid or duplicate"):
+            retire.validate_plan(plan)
+
     def test_env_template_prose_comments_and_block_scalars_are_not_resolved(self):
         stanza = "env: {{ toYaml .Values.missing.env | nindent 6 }}"
         for text in ("# " + stanza, "description: '" + stanza + "'",
@@ -1651,8 +1681,9 @@ spec:
                     return outputs[args]
 
                 chart_paths = [retire.ROOT / "apps/local-active/Chart.yaml"] if local_chart else []
-                local_files = [SimpleNamespace(is_file=lambda: True, suffix=".yaml", read_text=lambda:
-                    "# namespace: code\nnamespace: worktree-active\n")] if local_chart else []
+                local_files = [SimpleNamespace(is_file=lambda: True, suffix=".yaml",
+                    relative_to=lambda root: "apps/local-active/values.yaml",
+                    read_text=lambda: "# namespace: code\nnamespace: worktree-active\n")] if local_chart else []
                 with patch.object(retire, "committed_files") as checked_files, \
                         patch.object(retire.Path, "glob", return_value=chart_paths), \
                         patch.object(retire.Path, "rglob", return_value=local_files):

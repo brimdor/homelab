@@ -1,6 +1,16 @@
 {
   "version": 1,
   "reason": "Owner explicitly archives Scribe and authorizes purging exclusively retired archived Kubernetes resources and non-NFS data without backups, including legacy keep/Retain. Active/shared/NFS data and deleted-but-unarchived retention intent remain protected. Owner closes only the September24 historical Renovate incident; its unknown cause is not presented as fixed.",
+  "inline_env_exemptions": [
+    {"path": "apps/doplarr-rs/templates/deployment.yaml", "reason": "Helm-templated env values and secretKeyRef names; no literal endpoint value in the env block, and the chart values.yaml is still scanned."},
+    {"path": "apps/gitea-actions-runner/templates/deployment.yaml", "reason": "Helm-templated env values and control lines; no literal endpoint value in the env block, and the chart values.yaml is still scanned."},
+    {"path": "platform/tailscale/vendor/tailscale-operator/templates/deployment.yaml", "reason": "Vendored upstream templates with Helm-templated env values; no literal endpoint value in the env block, and the chart values.yaml is still scanned."},
+    {"path": "system/connect/templates/connect-deployment.yaml", "reason": "Helm-templated env values, secretKeyRef names, control lines, and one include; no literal endpoint value in the env block, and the chart values.yaml is still scanned."},
+    {"path": "system/connect/templates/operator-deployment.yaml", "reason": "Helm-templated env values, secretKeyRef names, control lines, and one include; no literal endpoint value in the env block, and the chart values.yaml is still scanned."},
+    {"path": "system/connect/templates/tests/secret-read.yml", "reason": "Helm-templated env values in a chart test manifest; no literal endpoint value in the env block, and the chart values.yaml is still scanned."},
+    {"path": "system/gpu-operator/templates/operator.yaml", "reason": "Vendored upstream templates with Helm-templated env values; no literal endpoint value in the env block, and the chart values.yaml is still scanned."},
+    {"path": "system/rook-ceph/templates/pvc-hygiene.yaml", "reason": "Helm-templated env values in the repository-owned pvcHygiene Job; no literal endpoint value in the env block, and the chart values.yaml is still scanned."}
+  ],
   "namespaces": [
     {"name": "ace-step", "uid": "41ba81af-cd1a-4b82-a2dd-e2ae281a7355", "archived_path": "archived/apps/ace-step"},
     {"name": "agent-zero", "uid": "4e616c9d-7340-4a43-9e7c-d81af4be2eaf", "archived_path": "archived/apps/agent-zero"},
