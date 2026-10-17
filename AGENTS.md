@@ -214,6 +214,15 @@ Use the existing mechanism of the target component unless intentionally migratin
 - A chart move, rename, namespace change, persistence-key rename, StatefulSet name change, or storage-class change can orphan or recreate storage. Record existing PVC/PV identities, reclaim policies, snapshots/backups, migration steps, and rollback before making one.
 - A mounted NAS path is durable data, not disposable chart state. Argo pruning a workload does not mean its external files are safe to delete.
 
+### Owner policy: troubleshooting, retirement, and historical closeout
+
+- Troubleshooting restores functional GREEN across all six layers. OS EOL or dated unsupported-version information alone is not RED or a blocker; do not upgrade the OS during troubleshooting. Keep lifecycle and routine unexploited patch/microcode recommendations visible for the next `homelab-recon` maintenance issue unless evidence demonstrates a current incident/failure. Current runtime, hardware, and security faults remain findings.
+- During authorized troubleshooting or maintenance, purge archived applications' Kubernetes resources and exclusively retired non-NFS data, even with legacy keep/Retain flags. Never create backups for data explicitly designated for purge; this is intentional disposal, not migration.
+- For deleted but non-archived applications, retain PVCs/PVs with explicit persistence intent, including Helm keep annotations, Argo prune/delete protection, or PV `Retain`. Purge unused non-NFS storage without that intent; the default PVC-protection finalizer is not persistence intent.
+- Always protect NAS/NFS data, unknown backends, ambiguous ownership, active applications, and shared resources. An active application with the same basename overrides an archived copy.
+- Use the explicit repository-owned, UID-scoped retirement workflow in the foundational owner policy; preserve the generic `pvcHygiene` annotation gate. Exact UID, active-consumer, reclaim, and final verification checks remain mandatory. Never purge RBD images or OSDs directly. Backup/restore gates still apply to active-data migrations and node/storage changes, except intentional authorized disposal.
+- Owner-authorized historical closeout may close an old nonrecurring incident using current healthy behavior and archived public metadata. Record the owner disposition and unknown historical cause honestly; never invent a cause or ignore future failures.
+
 ### Ingress, DNS, and external access
 
 - NGINX is the ingress class; ingress-nginx also forwards TCP port 22 to Gitea SSH.

@@ -40,8 +40,11 @@
 app-template:
   controllers:
     main:
+      # Preserve the existing Deployment name when the registration controller is disabled.
+      forceRename: scribe-discord-main
       strategy: Recreate
-      replicas: 1
+      # Quiesce before owner-authorized archival; protected storage is purged only by the UID-scoped retirement workflow.
+      replicas: 0
       pod:
         terminationGracePeriodSeconds: 60
         securityContext:
@@ -263,6 +266,7 @@ app-template:
     # `controller: main` label requirement.
     # ---------------------------------------------------------------------
     register:
+      enabled: false
       type: job
       annotations:
         "helm.sh/hook": pre-install,pre-upgrade
@@ -379,8 +383,8 @@ app-template:
                   # CLI snippet to provision an empty-string key.
                   key: DISCORD_DEV_GUILD_ID
           resources:
-            requests: { cpu: 50m, memory: 64Mi }
-            limits:   { cpu: 200m, memory: 128Mi }
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 128Mi}
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
@@ -497,6 +501,8 @@ app-template:
       storageClass: standard-rwo
       size: 10Gi
       retain: true
+      annotations:
+        argocd.argoproj.io/sync-options: Prune=false,Delete=false
       advancedMounts:
         main:
           main:
@@ -554,14 +560,14 @@ app-template:
                   matchLabels:
                     kubernetes.io/metadata.name: ingress-nginx
             ports:
-              - { protocol: TCP, port: 3000 }
+              - {protocol: TCP, port: 3000}
         egress:
           # DNS to kube-system (or anywhere in-cluster; broad on purpose).
           - to:
               - namespaceSelector: {}
             ports:
-              - { protocol: UDP, port: 53 }
-              - { protocol: TCP, port: 53 }
+              - {protocol: UDP, port: 53}
+              - {protocol: TCP, port: 53}
           # Discord gateway + provider APIs (HTTPS) + arbitrary webhooks.
           - to:
               - ipBlock:
@@ -571,8 +577,8 @@ app-template:
                     - 172.16.0.0/12
                     - 192.168.0.0/16
             ports:
-              - { protocol: TCP, port: 443 }
-              - { protocol: TCP, port: 80 }
+              - {protocol: TCP, port: 443}
+              - {protocol: TCP, port: 80}
           # In-cluster Ollama. If Ollama runs outside the cluster, this
           # rule is harmless (no traffic to match); the HTTPS egress rule
           # above covers external Ollama Cloud endpoints.
@@ -581,7 +587,7 @@ app-template:
                   matchLabels:
                     name: ollama
             ports:
-              - { protocol: TCP, port: 11434 }
+              - {protocol: TCP, port: 11434}
     # Sibling policy for the pre-install,pre-upgrade registration Job.
     # The bjw-s `app-template` library sets the Job Pod's
     # `app.kubernetes.io/controller` label from the controller identifier
@@ -620,8 +626,8 @@ app-template:
           - to:
               - namespaceSelector: {}
             ports:
-              - { protocol: UDP, port: 53 }
-              - { protocol: TCP, port: 53 }
+              - {protocol: UDP, port: 53}
+              - {protocol: TCP, port: 53}
           - to:
               - ipBlock:
                   cidr: 0.0.0.0/0
@@ -630,12 +636,12 @@ app-template:
                     - 172.16.0.0/12
                     - 192.168.0.0/16
             ports:
-              - { protocol: TCP, port: 443 }
-              - { protocol: TCP, port: 80 }
+              - {protocol: TCP, port: 443}
+              - {protocol: TCP, port: 80}
           # In-cluster Ollama (used during registration for development).
           - to:
               - namespaceSelector:
                   matchLabels:
                     name: ollama
             ports:
-              - { protocol: TCP, port: 11434 }
+              - {protocol: TCP, port: 11434}
