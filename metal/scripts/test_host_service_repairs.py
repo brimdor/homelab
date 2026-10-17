@@ -64,8 +64,8 @@ def fake_command(args):
             action, unit = args
             status = state["states"].get(unit, "inactive")
             if action == "is-failed":
-                output = status
-                rc = 0 if status == "failed" else 4 if status == "unknown" else 1
+                output = "inactive" if status == "not-found-inactive" else status
+                rc = 0 if status == "failed" else 4 if status in ("unknown", "not-found-inactive") else 1
             elif action == "reset-failed" and status == "failed":
                 state["states"][unit] = "inactive"
             else:
@@ -835,6 +835,7 @@ class HostServiceRepairTests(unittest.TestCase):
     def test_display_failure_reset_is_conditional_and_missing_units_are_safe(self):
         for states, read_error in ((dict(zip(DISPLAY_UNITS, ["failed", "inactive"])), False),
                                    (dict.fromkeys(DISPLAY_UNITS, "unknown"), False),
+                                   (dict.fromkeys(DISPLAY_UNITS, "not-found-inactive"), False),
                                    (dict.fromkeys(DISPLAY_UNITS, "failed"), True)):
             with self.subTest(states=states, read_error=read_error):
                 fixture = Fixture(display=True, states=states, read_error=read_error)

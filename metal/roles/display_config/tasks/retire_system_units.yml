@@ -84,7 +84,7 @@
     or display_legacy_failure_states.stdout not in
        ['failed', 'active', 'inactive', 'activating', 'deactivating', 'reloading', 'unknown']
     or ((display_legacy_failure_states.rc == 0) != (display_legacy_failure_states.stdout == 'failed'))
-    or (display_legacy_failure_states.rc == 4 and display_legacy_failure_states.stdout != 'unknown')
+    or (display_legacy_failure_states.rc == 4 and display_legacy_failure_states.stdout not in ['unknown', 'inactive'])
 
 - name: Reset only actually failed investigated system display units
   ansible.builtin.command:
