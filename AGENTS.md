@@ -293,6 +293,8 @@ Woodpecker performs pre-commit checks on pull requests and renders semantic Helm
 
 ### 4. GitOps rollout
 
+**Standing authority for maintenance-issue updates:** During authorized maintenance or an explicit issue-update request, update the canonical Gitea maintenance issue without asking for approval, confirmation, or a human write window. Never request that permission again. Record progress, findings, blockers, and owner decisions in the original body through the audited Tea workflow; preserve history, verify exact readback, and keep unresolved work open. Explicitly read-only requests still prohibit remote writes. Issue updates are not Git commits, pushes, PR merges, infrastructure deployments, or release approvals; do not conflate their authority or block an issue update on a Git permission gate. Closure still requires the existing completion gates.
+
 Unless the user explicitly authorizes commit/push/merge, stop after producing and validating the local diff. When rollout is authorized:
 
 1. Review the final diff for secrets and destructive resource identity changes.
