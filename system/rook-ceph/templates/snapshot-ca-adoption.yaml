@@ -1,0 +1,75 @@
+# One-time issuance: cert-manager can accept an existing certificate without checking its issuer chain.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: snapshot-ca-adoption
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: snapshot-ca-adoption
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    resourceNames: [rook-ceph-conversion-webhook]
+    verbs: [get]
+  - apiGroups: [cert-manager.io]
+    resources: [certificates/status]
+    resourceNames: [rook-ceph-conversion-webhook]
+    verbs: [update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: snapshot-ca-adoption
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: snapshot-ca-adoption
+subjects:
+  - kind: ServiceAccount
+    name: snapshot-ca-adoption
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: snapshot-serving-ca-adoption-v1
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 120
+  template:
+    spec:
+      serviceAccountName: snapshot-ca-adoption
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: renew
+          image: quay.io/jetstack/cmctl:v2.6.1@sha256:e5b5f53fede34dc1da14b9d1dac4c01f7a6030704f4fe362b7b486304976b1b6
+          args:
+            - renew
+            - rook-ceph-conversion-webhook
+            - --namespace={{ .Release.Namespace }}
+            - --request-timeout=30s
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
