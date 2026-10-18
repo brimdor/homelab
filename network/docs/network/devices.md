@@ -11,6 +11,10 @@
 
 ### UNRAID NFS storage contract
 
+The controller, StorageClass, protected bindings and GitOps adoption procedure are
+documented in [NFS provisioner ownership](../../../system/nfs-client-provisioner/README.md).
+Declaring those Kubernetes resources does not recreate the NAS export or its data.
+
 The Kubernetes `nfs-rwx` provisioner uses the `heartlib` share. Keep this
 share on the `cache` pool with **Use cache pool = Only**. Moving live NFS
 subdirectories between cache and array disks changes the backing Unraid SHFS

@@ -94,6 +94,7 @@ Important behavior:
 - Adding `apps/foo/Chart.yaml` and `apps/foo/values.yaml` causes a new `foo` Application and namespace to appear after the commit reaches `master`.
 - Deleting or moving a discovered directory removes the generated Application and enables pruning of its resources. Review PVCs, retained PVs, external resources, and backups before doing this.
 - Normal applications use automated sync with `prune: true`, `selfHeal: true`, namespace creation, server-side apply, and out-of-sync-only application.
+- `system/nfs-client-provisioner` is excluded from both directory generators. Its explicit Application preserves the existing `kube-system` namespace and `nfs-client-provisioner` Helm release, with pruning/deletion protection and no Namespace management. Follow its README for staged adoption and recovery limits.
 - Live `kubectl edit`, `kubectl scale`, and manual Helm changes can be reverted by self-heal and must not replace the repository-first workflow.
 - `platform/external-secrets` and `system/monitoring-system` use a separate ApplicationSet with replace/skip-hook behavior for CRD-heavy charts. Preserve those exclusions and special sync options unless the CRD rollout is explicitly being redesigned.
 - Existing `ignoreDifferences` rules intentionally mask controller/defaulted fields. Do not expand them merely to hide unexplained drift.
@@ -209,7 +210,7 @@ Use the existing mechanism of the target component unless intentionally migratin
 - `standard-rwo` is single-writer. Mount it only into the controller/container that owns the data, using `advancedMounts` for multi-controller `app-template` charts. Global mounts can cause RBD multi-attach failures.
 - Stateful single-replica workloads on RWO storage often need a `Recreate` strategy so old and new pods do not overlap attachments.
 - Direct NAS mounts use NFS server `10.0.40.3` and an application-specific `/mnt/user/...` path.
-- Some charts reference a live `nfs-rwx` dynamic provisioner. Its definition is not present in this repo; verify that external cluster dependency before relying on it or claiming the repo can recreate it.
+- `system/nfs-client-provisioner` declares the existing `nfs-rwx` controller and StorageClass. NAS export/data recovery remains external; follow its ownership map, binding identities and adoption gates before relying on recreation.
 - `pvcHygiene` is report-only by default and only deletes old orphan PVCs in delete mode when explicitly annotated. Do not weaken that safety gate.
 - A chart move, rename, namespace change, persistence-key rename, StatefulSet name change, or storage-class change can orphan or recreate storage. Record existing PVC/PV identities, reclaim policies, snapshots/backups, migration steps, and rollback before making one.
 - A mounted NAS path is durable data, not disposable chart state. Argo pruning a workload does not mean its external files are safe to delete.

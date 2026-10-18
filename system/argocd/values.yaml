@@ -36,6 +36,30 @@ argo-cd:
   redis:
     metrics: *metrics
 argocd-apps:
+  applications:
+    nfs-client-provisioner:
+      namespace: argocd
+      project: default
+      additionalAnnotations:
+        argocd.argoproj.io/sync-options: Prune=false,Delete=false
+      finalizers: []
+      source:
+        repoURL: http://gitea-http.gitea:3000/ops/homelab
+        path: system/nfs-client-provisioner
+        targetRevision: master
+        helm:
+          releaseName: nfs-client-provisioner
+      destination:
+        name: in-cluster
+        namespace: kube-system
+      syncPolicy:
+        # Stage comparison first; enable reconciliation only after reviewing the live diff.
+        syncOptions:
+          - ServerSideApply=true
+          - ApplyOutOfSyncOnly=true
+          - FailOnSharedResource=true
+          - Prune=false
+          - Delete=false
   applicationsets:
     root:
       namespace: argocd
@@ -45,6 +69,8 @@ argocd-apps:
             revision: &revision master
             directories:
               - path: system/*
+              - path: system/nfs-client-provisioner
+                exclude: true
               - path: system/monitoring-system
                 exclude: true
               - path: platform/*

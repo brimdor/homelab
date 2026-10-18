@@ -1,0 +1,18 @@
+nfs-subdir-external-provisioner:
+  image:
+    repository: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner
+    tag: v4.0.2
+  nfs:
+    server: 10.0.40.3
+    path: /mnt/user/heartlib
+    # Nonempty upstream mountOptions creates a root PV/PVC and changes the controller mount.
+    mountOptions: []
+  storageClass:
+    create: false
+    provisionerName: cluster.local/nfs-client-provisioner-nfs-subdir-external-provisioner
+  podAnnotations:
+    # Preserve the existing pod template during metadata-only adoption.
+    kubectl.kubernetes.io/restartedAt: "2026-07-30T14:27:55-05:00"
+  serviceAccount:
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
