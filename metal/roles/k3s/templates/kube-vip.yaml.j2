@@ -20,6 +20,18 @@ spec:
           value: "true"
         - name: vip_leaderelection
           value: "true"
+        # kube-vip's manager defaults are lease 5s / renew 3s / retry 1s. A
+        # single renew window where the local apiserver stalls for more than
+        # renewDeadline makes renewal fail, and onStoppedLeading exits
+        # fatally ("lost leadership, restarting kube-vip"). Widen the window
+        # so transient control-plane latency no longer kills the leader,
+        # while keeping LeaseDuration > RenewDeadline > RetryPeriod.
+        - name: vip_leaseduration
+          value: "30"
+        - name: vip_renewdeadline
+          value: "20"
+        - name: vip_retryperiod
+          value: "4"
       securityContext:
         capabilities:
           add:
