@@ -1,4 +1,6 @@
 dex:
+  image:
+    tag: v2.46.0@sha256:933fcd3f523338c847b88ef84a7145fb2fcb7b9917f08418612afeaaa2001777
   config:
     issuer: https://dex.eaglepass.io
     storage:
