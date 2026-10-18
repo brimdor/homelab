@@ -141,6 +141,12 @@ rook-ceph-cluster:
     isDefault: false
   cephObjectStores: []
 
+snapshot-controller:
+  webhook:
+    tls:
+      # Preserve the existing Secret during the cert-manager handoff.
+      autogenerate: false
+
 pvcHygiene:
   enabled: true
   schedule: "0 3 * * *"
