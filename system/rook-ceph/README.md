@@ -15,9 +15,15 @@ render.
 
 The existing serving Secret was handed over without deletion. Its retained
 `Prune=false` and `IgnoreExtraneous` annotations prevent Argo CD from deleting it
-after cert-manager adoption. The narrowly scoped `/data` preservation rule in
-`system/argocd/values.yaml` protects that handoff. Do not remove protection or
-restore the old Helm-generated Secret as a rollback.
+after cert-manager adoption. The temporary Argo `/data` preservation rule and
+one-time renewal Job were removed after verified issuance. Do not remove Secret
+protection or restore the old Helm-generated Secret as a rollback.
+
+During migration, cert-manager accepted the old certificate without checking its
+issuer chain. A repository-defined `cmctl renew` Job triggered initial issuance
+using only get access to this Certificate and update access to its status. The
+Job used a token-file kubeconfig because cmctl did not select in-cluster access
+automatically. No renewal Job or its RBAC is needed for normal certificate renewal.
 
 After changes, verify both Issuers and Certificates are Ready, the serving Secret
 UID remains unchanged, hostname-verified TLS succeeds against the CRD CA bundle,

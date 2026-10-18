@@ -95,13 +95,6 @@ argocd-apps:
                 - /spec/storageClassName
                 - /spec/volumeName
                 - /spec/volumeMode
-            # Preserve the existing TLS data during the cert-manager ownership handoff.
-            - group: ""
-              kind: Secret
-              namespace: rook-ceph
-              name: rook-ceph-conversion-webhook
-              jsonPointers:
-                - /data
             - group: ceph.rook.io
               kind: CephCluster
               jqPathExpressions:
