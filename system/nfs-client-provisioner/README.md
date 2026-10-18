@@ -8,15 +8,18 @@ The explicit Argo Application in `system/argocd/values.yaml` uses namespace
 directory generators exclude this path; do not let the directory basename select
 a new namespace. Seed bootstrap disables the explicit Application.
 
-Initial adoption is staged with automatic synchronization disabled. For future
+Adoption was staged with automatic synchronization disabled; steady state now
+uses automatic synchronization and self-healing with pruning disabled. For future
 directory exclusions, deploy and verify the exclusion **before adding the chart
 directory in a separate commit**. ApplicationSet discovery can observe a new Git
 directory before Argo applies an exclusion committed alongside it. That race
 created a duplicate controller during this adoption; its replicas were set to
 zero through Git and the original controller's cluster binding was restored.
-The temporary duplicate is subject to exact-UID cleanup, not general pruning.
+The temporary duplicate and its namespace were removed by the exact-UID workflow
+in `scripts/retire-nfs-discovery-race.py` after exhaustive ownership checks. No
+PV, PVC, NAS file, or original controller pod was deleted or recreated.
 
-Review the actual Argo diff before enabling reconciliation. No Namespace, PV, or
+Review the actual Argo diff before changing reconciliation. No Namespace, PV, or
 PVC belongs to the steady-state chart. Its seven resources are the existing Deployment, ServiceAccount,
 namespaced Role/RoleBinding, ClusterRole/ClusterRoleBinding, and StorageClass.
 

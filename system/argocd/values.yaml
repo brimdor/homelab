@@ -53,7 +53,9 @@ argocd-apps:
         name: in-cluster
         namespace: kube-system
       syncPolicy:
-        # Stage comparison first; enable reconciliation only after reviewing the live diff.
+        automated:
+          prune: false
+          selfHeal: true
         syncOptions:
           - ServerSideApply=true
           - ApplyOutOfSyncOnly=true
