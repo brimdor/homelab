@@ -7,7 +7,7 @@ app-template:
         database:
           image:
             repository: 10.0.20.11:32309/backlog_database
-            tag: canary
+            tag: "canary@sha256:ac75a7487b7ce7f12d8b07dc73595f528f830a7764334aeb3c19c3cf6dede4f5"
             pullPolicy: Always
           env:
             MYSQL_ROOT_PASSWORD:
@@ -57,7 +57,7 @@ app-template:
         backend:
           image:
             repository: 10.0.20.11:32309/backlog_backend
-            tag: "main-8764a53"
+            tag: "main-8764a53@sha256:ecaa22ea30b0823d5702f4923b1c2ab114b3129e5e38ced0ea7a105820cd5ccd"
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -123,7 +123,7 @@ app-template:
         frontend:
           image:
             repository: 10.0.20.11:32309/backlog_frontend
-            tag: "main-8764a53"
+            tag: "main-8764a53@sha256:186ebff493ef279ad2841188d793d64e349291978e58f08efac1a19467569a29"
             pullPolicy: Always
           env:
             TZ: America/Chicago
