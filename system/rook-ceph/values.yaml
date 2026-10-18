@@ -16,6 +16,10 @@ rook-ceph:
         operator: Exists
         effect: NoSchedule
 rook-ceph-cluster:
+  toolbox:
+    enabled: true
+    # Match the Ceph daemon CLI, not the Rook operator version.
+    image: quay.io/ceph/ceph:v20.2.1
   monitoring:
     # Ceph v20.2.1 contains the Rook prometheus-module fix that blocked this
     # integration on v20.2.0.
