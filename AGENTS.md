@@ -92,6 +92,7 @@ The directory basename becomes both the Argo CD Application name and destination
 Important behavior:
 
 - Adding `apps/foo/Chart.yaml` and `apps/foo/values.yaml` causes a new `foo` Application and namespace to appear after the commit reaches `master`.
+- For a new chart that needs an explicit Application instead of directory discovery, deploy and verify generator exclusions in a separate commit before adding the chart. Committing the exclusion alongside the new directory can race discovery and create an unintended release.
 - Deleting or moving a discovered directory removes the generated Application and enables pruning of its resources. Review PVCs, retained PVs, external resources, and backups before doing this.
 - Normal applications use automated sync with `prune: true`, `selfHeal: true`, namespace creation, server-side apply, and out-of-sync-only application.
 - `system/nfs-client-provisioner` is excluded from both directory generators. Its explicit Application preserves the existing `kube-system` namespace and `nfs-client-provisioner` Helm release, with pruning/deletion protection and no Namespace management. Follow its README for staged adoption and recovery limits.

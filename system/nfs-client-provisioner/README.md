@@ -8,9 +8,16 @@ The explicit Argo Application in `system/argocd/values.yaml` uses namespace
 directory generators exclude this path; do not let the directory basename select
 a new namespace. Seed bootstrap disables the explicit Application.
 
-Initial adoption is staged with automatic synchronization disabled. Review the
-actual Argo diff before enabling reconciliation. No Namespace, PV, or PVC belongs
-to this chart. Its seven resources are the existing Deployment, ServiceAccount,
+Initial adoption is staged with automatic synchronization disabled. For future
+directory exclusions, deploy and verify the exclusion **before adding the chart
+directory in a separate commit**. ApplicationSet discovery can observe a new Git
+directory before Argo applies an exclusion committed alongside it. That race
+created a duplicate controller during this adoption; its replicas were set to
+zero through Git and the original controller's cluster binding was restored.
+The temporary duplicate is subject to exact-UID cleanup, not general pruning.
+
+Review the actual Argo diff before enabling reconciliation. No Namespace, PV, or
+PVC belongs to the steady-state chart. Its seven resources are the existing Deployment, ServiceAccount,
 namespaced Role/RoleBinding, ClusterRole/ClusterRoleBinding, and StorageClass.
 
 The published chart `4.0.18` ships application `v4.0.2`; these are not interchangeable

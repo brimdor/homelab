@@ -501,6 +501,16 @@ def job_evidence(item):
     return result
 
 
+def expected_application_namespace(app, charts):
+    if app not in charts:
+        return None
+    # system/argocd/values.yaml explicitly keeps this legacy release in kube-system.
+    # Keep this exact contract usable with ansible-inventory and JSON fixtures, without PyYAML.
+    if app == "nfs-client-provisioner" and charts[app] == "system/nfs-client-provisioner":
+        return "kube-system"
+    return app
+
+
 def destination_matches_expected(destination, namespace):
     destination = mapping(destination)
     return (namespace is not None and destination.get("namespace") == namespace and
@@ -704,7 +714,7 @@ def evaluate(sources, expected_nodes, charts, expected_revision=None):
                         finding(key, row, "controller_not_available_condition")
                 elif key == "applications":
                     source = mapping(spec.get("source", {}))
-                    expected_namespace = row["name"] if row["name"] in charts else None
+                    expected_namespace = expected_application_namespace(row["name"], charts)
                     sync, health = mapping(status.get("sync", {})), mapping(status.get("health", {}))
                     row.update({"sync": token(sync.get("status")), "health": token(health.get("status")),
                                 "expected_path": charts.get(row["name"]),

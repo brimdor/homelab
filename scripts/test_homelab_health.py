@@ -616,6 +616,81 @@ class HealthTests(unittest.TestCase):
                     app["status"]["sync"]["comparedTo"]["destination"] = {**compared, "namespace": "argocd"}
                     self.assertEqual(self.cli(["--expected-revision", REVISION])[0], 0)
 
+    def nfs_application(self):
+        self.data = fixture(CHARTS + ["system/nfs-client-provisioner"])
+        app = self.data["sources"]["applications"]["items"][-1]
+        app["spec"]["destination"]["namespace"] = "kube-system"
+        app["status"]["sync"]["comparedTo"]["destination"]["namespace"] = "kube-system"
+        app["spec"]["source"]["helm"] = {"releaseName": "nfs-client-provisioner"}
+        app["status"]["sync"]["comparedTo"]["source"] = copy.deepcopy(app["spec"]["source"])
+        app["spec"]["syncPolicy"] = {"syncOptions": ["Prune=false", "Delete=false"]}
+        return app
+
+    def test_explicit_nfs_application_accepts_kube_system(self):
+        self.nfs_application()
+        code, report = self.cli(["--expected-revision", REVISION])
+        self.assertEqual(code, 0)
+        self.assertEqual(report["findings"], [])
+        app = report["evidence"]["applications"][-1]
+        self.assertTrue(app["destination_matches_expected"])
+        self.assertTrue(app["comparison_destination_matches_expected"])
+
+    def test_explicit_nfs_application_rejects_wrong_destinations(self):
+        for compared in (False, True):
+            for destination in ({}, {"name": "in-cluster", "namespace": "nfs-client-provisioner"},
+                                {"name": "in-cluster", "namespace": "example"},
+                                {"name": "other-cluster", "namespace": "kube-system"},
+                                {"server": "https://DO_NOT_EMIT.invalid", "namespace": "kube-system"}):
+                with self.subTest(compared=compared, destination=destination):
+                    app = self.nfs_application()
+                    target = app["status"]["sync"]["comparedTo"] if compared else app["spec"]
+                    target["destination"] = destination
+                    code, report = self.cli(["--expected-revision", REVISION])
+                    self.assertEqual(code, 1)
+                    expected = "application_comparison_destination_mismatch" if compared else "application_destination_mismatch"
+                    self.assertEqual({f["code"] for f in report["findings"]}, {expected})
+                    self.assertNotIn("DO_NOT_EMIT", json.dumps(report))
+
+    def test_explicit_nfs_namespace_contract_requires_exact_chart(self):
+        for path in ("apps/nfs-client-provisioner", "platform/nfs-client-provisioner"):
+            with self.subTest(path=path):
+                self.data = fixture(CHARTS + [path])
+                self.assertEqual(self.cli()[0], 0)
+                app = self.data["sources"]["applications"]["items"][-1]
+                app["spec"]["destination"]["namespace"] = "kube-system"
+                self.assertIn("application_destination_mismatch", self.codes())
+        self.nfs_application()
+        self.data["charts"].pop()
+        self.assertTrue({"unexpected_application", "application_source_mismatch",
+                         "application_destination_mismatch", "application_comparison_destination_mismatch"}.issubset(self.codes()))
+
+    def test_explicit_nfs_application_preserves_other_findings(self):
+        for path, value, expected in (
+            (("spec", "source", "path"), "apps/nfs-client-provisioner", "application_source_mismatch"),
+            (("spec", "source", "repoURL"), "https://DO_NOT_EMIT.invalid", "application_source_mismatch"),
+            (("spec", "source", "targetRevision"), "feature", "application_source_mismatch"),
+            (("status", "sync", "comparedTo", "source", "helm", "releaseName"), "stale", "application_comparison_source_mismatch"),
+            (("status", "sync", "revision"), OTHER_REVISION, "expected_revision_not_observed"),
+            (("status", "sync", "status"), "OutOfSync", "application_not_synced_healthy"),
+            (("status", "health", "status"), "Degraded", "application_not_synced_healthy"),
+            (("status", "conditions"), [{"type": "SharedResourceWarning"}], "application_conditions_present"),
+        ):
+            with self.subTest(path=path):
+                target = self.nfs_application()
+                for part in path[:-1]:
+                    target = target[part]
+                target[path[-1]] = value
+                code, report = self.cli(["--expected-revision", REVISION])
+                self.assertEqual(code, 1)
+                self.assertIn(expected, {f["code"] for f in report["findings"]})
+                self.assertNotIn("DO_NOT_EMIT", json.dumps(report))
+        self.nfs_application()
+        event = resource("Event", "nfs-warning", namespace="kube-system")
+        event.update({"type": "Warning", "reason": "FailedMount",
+                      "involvedObject": {"kind": "Pod", "name": "nfs-client-provisioner", "namespace": "kube-system"}})
+        self.data["sources"]["warnings"]["items"] = [event]
+        self.assertEqual(self.codes(), {"warning_event"})
+
     def test_stale_or_missing_compared_destination_blocks_even_expected_revision(self):
         for destination in ({}, {"namespace": "argocd"}, {"name": "in-cluster", "namespace": "example"},
                             {"name": "DO_NOT_EMIT", "namespace": "argocd"},
