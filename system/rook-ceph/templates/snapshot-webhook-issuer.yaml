@@ -1,0 +1,40 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: rook-ceph-snapshot-selfsigned
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rook-ceph-snapshot-ca
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  isCA: true
+  commonName: rook-ceph-snapshot-ca
+  secretName: rook-ceph-snapshot-ca
+  duration: 87600h
+  renewBefore: 2160h
+  privateKey:
+    rotationPolicy: Never
+  issuerRef:
+    name: rook-ceph-snapshot-selfsigned
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: rook-ceph-snapshot-webhook
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  ca:
+    secretName: rook-ceph-snapshot-ca

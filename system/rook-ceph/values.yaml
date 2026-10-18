@@ -144,8 +144,12 @@ rook-ceph-cluster:
 snapshot-controller:
   webhook:
     tls:
-      # Preserve the existing Secret during the cert-manager handoff.
+      # Cert-manager owns TLS; offline Helm renders must not rotate the serving key.
       autogenerate: false
+      certManagerIssuerRef:
+        name: rook-ceph-snapshot-webhook
+        kind: Issuer
+        group: cert-manager.io
 
 pvcHygiene:
   enabled: true
