@@ -14,7 +14,24 @@ fi
 [[ "$(cat -- "$root/.owner")" == "$owner" ]] || fail 'Backup directory belongs to another owner.'
 
 work=$(mktemp -d "$root/.partial.XXXXXX")
-trap 'rm -rf -- "$work"' EXIT
+cleanup() {
+  status=$?
+  trap - EXIT
+  if ! rm -rf -- "$work" 2>/dev/null; then
+    # NFS can briefly report ENOTEMPTY after unlinking the last directory entry.
+    # Retry only removal of this attempt's now-empty directory, never its contents.
+    for delay in 1 2 3; do
+      sleep "$delay"
+      if rmdir -- "$work" 2>/dev/null || [[ ! -e "$work" ]]; then
+        exit "$status"
+      fi
+    done
+    printf '%s\n' 'Threads temporary-directory cleanup failed; inspect the owned partial directory.' >&2
+    exit 1
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 name="threads-$(date -u +%Y%m%dT%H%M%SZ)-${work##*.}.dump"

@@ -36,6 +36,11 @@
   warning-free pg_dump, a nonempty custom archive and warning-free pg_restore listing.
   Publish a complete archive using a no-clobber hard link, then its SHA256 and ownership sidecars.
   Fail without publishing on dump/listing failure. Preserve a published archive if a later stage fails.</p>
+<p>The first scheduled run published a checksum-valid archive but reported ENOTEMPTY
+  when removing its temporary NFS directory; the directory was empty on the next read.
+  Retry only rmdir on the current attempt's directory after one, two and three seconds.
+  Preserve the original backup exit status and fail visibly if cleanup remains unsuccessful.
+  Do not recursively retry deletion or adopt earlier partial directories.</p>
 <p>Retain fourteen days of generations. Remove only exact-name, owner-marked expired
   archive/checksum/owner triplets whose checksum still matches. Preserve and report
   unowned, malformed, symlinked, incomplete or corrupt candidates. Never delete another

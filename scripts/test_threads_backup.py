@@ -100,6 +100,21 @@ print(hashlib.sha256(Path(name).read_bytes()).hexdigest() + '  ' + name)
         self.assertFalse(Path(str(archive) + ".owner").exists())
         self.assertFalse(Path(str(archive) + ".sha256").exists())
 
+    def test_transient_empty_nfs_directory_cleanup_preserves_success(self):
+        self.tool("rm", """
+import shutil, sys
+from pathlib import Path
+directory = Path(sys.argv[-1])
+for child in directory.iterdir():
+    if child.is_dir():
+        shutil.rmtree(child)
+    else:
+        child.unlink()
+sys.exit(1)  # Simulate NFS ENOTEMPTY after every owned entry was removed.
+""")
+        self.run_backup()
+        self.assertEqual(len(self.archives()), 1)
+
     def test_only_expired_complete_owned_generation_is_removed(self):
         unrelated = self.directory / "db-existing.dump"
         unrelated.write_bytes(b"PREEXISTING")
