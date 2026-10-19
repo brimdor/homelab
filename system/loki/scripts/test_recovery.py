@@ -2,6 +2,7 @@
 """Exercise store preservation and refusal boundaries with synthetic files."""
 
 import importlib.util
+import copy
 from pathlib import Path
 import tempfile
 import unittest
@@ -81,6 +82,61 @@ class StoreRecoveryTests(unittest.TestCase):
                 patch.object(RECOVERY.urllib.request, "urlopen", return_value=response):
             with self.assertRaisesRegex(RuntimeError, "candidate version"):
                 RECOVERY.verify(candidate=True)
+
+    def test_fresh_restores_use_separate_subdirectories_without_overwriting(self):
+        target = self.root / "target"
+        target.mkdir()
+        (target / "loki").mkdir()
+        (target / "loki/original").write_text("preserved prior candidate")
+        value = {"manifest": RECOVERY.inventory(self.source), "manifest_sha256": "manifest"}
+
+        def path(value):
+            return target if value == "/target" else Path(value)
+
+        with patch.object(RECOVERY, "recovery_point", return_value=(self.root, value)), \
+                patch.object(RECOVERY, "Path", side_effect=path), \
+                patch.object(RECOVERY.os, "chown"):
+            for suffix in ("old", "new"):
+                RECOVERY.prepare("pre-upgrade-20261019", "pre-upgrade-20261019-" + suffix)
+            with self.assertRaises(FileExistsError):
+                RECOVERY.prepare("pre-upgrade-20261019", "pre-upgrade-20261019-old")
+        self.assertEqual((target / "loki/original").read_text(), "preserved prior candidate")
+        self.assertEqual(RECOVERY.inventory(target / "pre-upgrade-20261019-old"),
+                         RECOVERY.inventory(target / "pre-upgrade-20261019-new"))
+
+    def test_pvc_backup_guard_requires_quiescence_and_exact_live_identities(self):
+        pod = {"metadata": {"uid": "pod-uid"}, "spec": {"nodeName": "totodile", "volumes": [
+            {"name": "storage", "persistentVolumeClaim": {"claimName": "loki-data"}}]}}
+        ds = {"metadata": {"generation": 2}, "status": {
+            "observedGeneration": 2, "desiredNumberScheduled": 0, "currentNumberScheduled": 0}}
+        claim = {"metadata": {"uid": "claim-uid"}, "status": {"phase": "Bound"}}
+        cases = [(pod, ds, {"items": []}, claim)]
+        for changed in ("uid", "deleting", "unbound", "collectors", "generation", "mount"):
+            p, d, c = copy.deepcopy(pod), copy.deepcopy(ds), copy.deepcopy(claim)
+            pods = {"items": []}
+            if changed == "uid":
+                c["metadata"]["uid"] = "replacement"
+            elif changed == "deleting":
+                c["metadata"]["deletionTimestamp"] = "now"
+            elif changed == "unbound":
+                c["status"]["phase"] = "Lost"
+            elif changed == "collectors":
+                pods["items"] = [{"metadata": {"name": "still-running"}}]
+            elif changed == "generation":
+                d["status"]["observedGeneration"] = 1
+            else:
+                p["spec"]["volumes"][0]["persistentVolumeClaim"]["claimName"] = "other"
+            cases.append((p, d, pods, c))
+        for index, responses in enumerate(cases):
+            with self.subTest(index=index), \
+                    patch.object(RECOVERY.Path, "read_text", return_value="synthetic-token"), \
+                    patch.object(RECOVERY.ssl, "create_default_context"), \
+                    patch.object(RECOVERY, "get_json", side_effect=responses):
+                if index == 0:
+                    RECOVERY.require_quiesced("pod-uid", "claim-uid")
+                else:
+                    with self.assertRaises(RuntimeError):
+                        RECOVERY.require_quiesced("pod-uid", "claim-uid")
 
 
 if __name__ == "__main__":

@@ -77,7 +77,7 @@ def get_json(url, headers=None, context=None):
         return json.load(response)
 
 
-def require_quiesced(uid):
+def require_quiesced(uid, pvc_uid=None):
     account = Path("/var/run/secrets/kubernetes.io/serviceaccount")
     token = (account / "token").read_text().strip()
     headers = {"Authorization": "Bearer " + token}
@@ -95,7 +95,9 @@ def require_quiesced(uid):
         pod["metadata"]["uid"] == uid and
         not pod["metadata"].get("deletionTimestamp") and
         pod["spec"]["nodeName"] == "totodile" and
-        any(v["name"] == "storage" and "emptyDir" in v for v in pod["spec"]["volumes"]) and
+        any(v["name"] == "storage" and (
+            v.get("persistentVolumeClaim", {}).get("claimName") == "loki-data" if pvc_uid else
+            "emptyDir" in v) for v in pod["spec"]["volumes"]) and
         ds["status"]["observedGeneration"] == ds["metadata"]["generation"] and
         ds["status"]["desiredNumberScheduled"] == 0 and
         ds["status"]["currentNumberScheduled"] == 0 and
@@ -103,6 +105,11 @@ def require_quiesced(uid):
     )
     if not valid:
         raise RuntimeError("source identity or collector quiescence changed")
+    if pvc_uid:
+        claim = get("/api/v1/namespaces/loki/persistentvolumeclaims/loki-data")
+        if (claim["metadata"]["uid"] != pvc_uid or claim["metadata"].get("deletionTimestamp") or
+                claim["status"]["phase"] != "Bound"):
+            raise RuntimeError("source claim identity changed")
 
 
 def query_proof(base, timestamp):
@@ -136,8 +143,8 @@ def query_proof(base, timestamp):
     return proof
 
 
-def backup(uid):
-    require_quiesced(uid)
+def backup(uid, point="pre-pvc-20261019", pvc_uid=None):
+    require_quiesced(uid, pvc_uid)
     base = "http://loki.loki:3100"
     request = urllib.request.Request(base + "/flush", data=b"", method="POST")
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -154,18 +161,19 @@ def backup(uid):
         time.sleep(5)
     else:
         raise RuntimeError("ingester did not finish flushing; source preserved")
-    require_quiesced(uid)
+    require_quiesced(uid, pvc_uid)
     timestamp = int(time.time())
     proof = query_proof(base, timestamp)
     source = Path("/source")
     expected = inventory(source)
-    destination = Path("/recovery/pre-pvc-20261019")
+    destination = Path("/recovery") / point
     destination.mkdir(mode=0o700)
     copy_verified(source, destination / "source", expected)
     if inventory(source) != expected:
         raise RuntimeError("source changed during copy; candidate is not verified")
-    require_quiesced(uid)
-    result = {"source_pod_uid": uid, "timestamp": timestamp, "manifest": expected,
+    require_quiesced(uid, pvc_uid)
+    result = {"source_pod_uid": uid, "source_pvc_uid": pvc_uid,
+              "timestamp": timestamp, "manifest": expected,
               "manifest_sha256": digest(expected), "queries": proof}
     with (destination / "verified.json").open("x") as output:
         json.dump(result, output, sort_keys=True)
@@ -177,13 +185,14 @@ def backup(uid):
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-    print(json.dumps({"backup_verified": True, "files": len(expected),
+    print(json.dumps({"backup_verified": True, "source_pod_uid": uid,
+                      "source_pvc_uid": pvc_uid, "timestamp": timestamp, "files": len(expected),
                       "bytes": sum(item["size"] for item in expected),
                       "manifest_sha256": digest(expected), "queries": proof}), flush=True)
 
 
-def recovery_point():
-    root = Path("/recovery/pre-pvc-20261019")
+def recovery_point(point="pre-pvc-20261019"):
+    root = Path("/recovery") / point
     value = json.loads((root / "verified.json").read_text())
     if digest(value["manifest"]) != value["manifest_sha256"]:
         raise RuntimeError("recovery manifest changed")
@@ -192,9 +201,11 @@ def recovery_point():
     return root, value
 
 
-def prepare():
-    root, value = recovery_point()
-    target = Path("/target")
+def prepare(point="pre-pvc-20261019", subdirectory=""):
+    root, value = recovery_point(point)
+    target = Path("/target") / subdirectory
+    if subdirectory:
+        target.mkdir(mode=0o700)
     if any(p.name != "lost+found" or not p.is_dir() or list(p.iterdir())
            for p in target.iterdir()):
         raise RuntimeError("target is not an empty fresh claim")
@@ -207,8 +218,8 @@ def prepare():
     print(json.dumps({"restored_files": len(subtree), "source_manifest": value["manifest_sha256"]}), flush=True)
 
 
-def verify(service=False, candidate=False):
-    root, value = recovery_point()
+def verify(service=False, candidate=False, point="pre-pvc-20261019", read_only=False):
+    root, value = recovery_point(point)
     base = "http://loki.loki:3100" if service else "http://127.0.0.1:3100"
     for _ in range(120):
         try:
@@ -235,7 +246,7 @@ def verify(service=False, candidate=False):
     result = {"restored_queries_identical": True, "queries": proof,
               "source_manifest_sha256": value["manifest_sha256"],
               "timestamp": value["timestamp"], "service": service, **candidate_identity}
-    if not service and not candidate:
+    if not service and not candidate and not read_only:
         with (root / "restore-proof.json").open("x") as output:
             json.dump(result, output, sort_keys=True)
     print(json.dumps(result), flush=True)
@@ -244,14 +255,20 @@ def verify(service=False, candidate=False):
 if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["backup", "prepare", "verify", "verify-service", "verify-candidate"])
+    parser.add_argument("mode", choices=["backup", "prepare", "verify", "verify-service", "verify-candidate", "verify-readonly"])
     parser.add_argument("--source-uid")
+    parser.add_argument("--source-pvc-uid")
+    parser.add_argument("--point", choices=["pre-pvc-20261019", "pre-upgrade-20261019"], default="pre-pvc-20261019")
+    parser.add_argument("--target-subdirectory", choices=["", "pre-upgrade-20261019-old", "pre-upgrade-20261019-new"], default="")
     args = parser.parse_args()
     if args.mode == "backup":
         if not args.source_uid:
             parser.error("backup requires the exact source Pod UID")
-        backup(args.source_uid)
+        if (args.point == "pre-upgrade-20261019") != bool(args.source_pvc_uid):
+            parser.error("the fresh PVC recovery point requires its exact claim UID")
+        backup(args.source_uid, args.point, args.source_pvc_uid)
     elif args.mode == "prepare":
-        prepare()
+        prepare(args.point, args.target_subdirectory)
     else:
-        verify(service=args.mode == "verify-service", candidate=args.mode == "verify-candidate")
+        verify(service=args.mode == "verify-service", candidate=args.mode == "verify-candidate",
+               point=args.point, read_only=args.mode == "verify-readonly")

@@ -1,0 +1,167 @@
+{{- if .Values.maintenanceRecovery.cutoverBackupEnabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loki-cutover-backup-20261019
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loki-store-recovery
+    spec:
+      restartPolicy: Never
+      serviceAccountName: loki-store-recovery
+      nodeSelector:
+        kubernetes.io/hostname: totodile
+      containers:
+        - name: backup
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/recovery.py, backup]
+          args: [--source-uid=8229c484-d7fe-46ea-8320-77be43b24410, --source-pvc-uid=656cee92-dc36-4fc8-8742-b691c670cf77, --point=pre-upgrade-20261019]
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              add: [DAC_READ_SEARCH]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: recovery
+              mountPath: /recovery
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: source
+          persistentVolumeClaim:
+            claimName: loki-data
+            readOnly: true
+        - name: recovery
+          persistentVolumeClaim:
+            claimName: loki-recovery
+        - name: script
+          configMap:
+            name: loki-store-recovery
+{{- end }}
+{{- if .Values.maintenanceRecovery.cutoverRestoreEnabled }}
+{{- range $version := list "old" "new" }}
+{{- with $ }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loki-cutover-restore-{{ $version }}-20261019
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loki-store-recovery
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: totodile
+      initContainers:
+        - name: prepare
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/recovery.py, prepare]
+          args: [--point=pre-upgrade-20261019, --target-subdirectory=pre-upgrade-20261019-{{ $version }}]
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN, DAC_READ_SEARCH]
+          volumeMounts:
+            - name: recovery
+              mountPath: /recovery
+              readOnly: true
+            - name: target
+              mountPath: /target
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+        - name: loki-restore
+          image: {{ ternary "docker.io/grafana/loki:2.6.1@sha256:1ee60f980950b00e505bd564b40f720132a0653b110e993043bb5940673d060a" "docker.io/grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193" (eq $version "old") | quote }}
+          args: [{{ ternary "-config.file=/scripts/loki.yaml" "-config.file=/scripts/candidate.yaml" (eq $version "old") | quote }}]
+          restartPolicy: Always
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          volumeMounts:
+            - name: target
+              mountPath: {{ ternary "/data" "/var/loki" (eq $version "old") }}
+              subPath: pre-upgrade-20261019-{{ $version }}
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+      containers:
+        - name: verify
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/recovery.py, {{ ternary "verify-readonly" "verify-candidate" (eq $version "old") }}]
+          args: [--point=pre-upgrade-20261019]
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: recovery
+              mountPath: /recovery
+              readOnly: true
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: recovery
+          persistentVolumeClaim:
+            claimName: loki-recovery
+            readOnly: true
+        - name: target
+          persistentVolumeClaim:
+            claimName: loki-upgrade-validation
+        - name: script
+          configMap:
+            name: loki-store-recovery
+        - name: temporary
+          emptyDir: {}
+{{- end }}
+{{- end }}
+{{- end }}

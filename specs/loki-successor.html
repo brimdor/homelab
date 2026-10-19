@@ -172,4 +172,20 @@ recovery point; never return to emptyDir or run 2.6 against new TSDB data.</p>
 <p>References: <a href="https://grafana.com/docs/loki/latest/setup/upgrade/">Loki upgrade guidance</a>,
 <a href="https://grafana.com/docs/loki/latest/operations/storage/tsdb/">TSDB storage</a>,
 <a href="https://grafana.com/docs/loki/latest/setup/install/helm/">current Helm installation</a>.</p>
+<h2>Fresh cutover recovery</h2>
+<p>Before a server version change, pause all seven collectors through Git and
+require their observed absence. The fresh backup Job checks exact production
+Pod UID 8229c484-d7fe-46ea-8320-77be43b24410 and PVC UID
+656cee92-dc36-4fc8-8742-b691c670cf77, Bound state, totodile placement and the
+loki-data storage mount before and after copy. It mounts production read-only,
+flushes pending chunks, captures the full fixed query proof and writes a new
+exclusive pre-upgrade-20261019 directory. Existing recovery is never overwritten.</p>
+<p>Restore that point into separate old/new subdirectories on the already-owned
+validation claim. Run isolated 2.6.1 and 3.7.8 native sidecars against their own
+subdirectories; both must pass the complete fixed proof. No Service selects
+either Job and recovery is read-only. Completed Jobs must stop before the next
+writer uses their data. Preserve original and fresh recovery material. Only then
+stop the production 2.6.1 controller through Git, prove its Pod gone, replace the
+chart and start one supported writer on loki-data. Verify service history before
+resuming collectors, then audit source rotations across the pause.</p>
 </html>
