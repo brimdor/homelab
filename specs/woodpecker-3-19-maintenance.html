@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>Woodpecker 3.19 maintenance plan</title>
+<style>body{background:#12161d;color:#e6edf3;font:16px/1.6 system-ui;max-width:950px;margin:3rem auto;padding:0 1rem}a{color:#85c1ff}code{color:#ffd48a}h1,h2{line-height:1.2}</style>
+<h1>Woodpecker 3.19 maintenance plan</h1>
+<p>Approved maintenance #103, CHART_MINOR_UPDATES. Preserve chart 3.6.4, existing
+accounts, secrets, trust decisions, claims and Kubernetes backend. Update server
+and agent together from v3.15.0 to immutable v3.19.0 artifacts. Current server and
+agent each declare one replica. Existing authenticated admin listing and agent
+contact passed after the separately recorded trust-format repair.</p>
+<h2>Release and migration review</h2>
+<p>Review exact upstream releases
+<a href="https://github.com/woodpecker-ci/woodpecker/releases/tag/v3.16.0">3.16</a>,
+<a href="https://github.com/woodpecker-ci/woodpecker/releases/tag/v3.17.0">3.17</a>,
+<a href="https://github.com/woodpecker-ci/woodpecker/releases/tag/v3.18.0">3.18</a>,
+<a href="https://github.com/woodpecker-ci/woodpecker/releases/tag/v3.19.0">3.19</a>
+and <a href="https://woodpecker-ci.org/migrations">migration guidance</a>.
+Relevant changes harden Kubernetes backend options, agent RPC and plugin/clone
+environment injection; incompatible agent protocols are rejected. Preserve
+current TLS verification; the renamed GRPC_SKIP_VERIFY setting is not enabled.</p>
+<p>Exact v3.19 migration source adds pipeline tag/release fields, repairs legacy
+zero forge IDs in users/organizations and deduplicates log lines before a unique
+index. The 3.18 release explicitly requires a backup and migration downtime.
+The previous database census contained zero pipelines and log entries; obtain a
+fresh post-repair census before proceeding. Database migrations and model sync
+are automatic at startup. Do not start v3.15 against migrated data.</p>
+<h2>Ordered tasks and recovery</h2>
+<ol><li>Commit desired server/agent replicas zero; refresh Argo and prove both
+Pods absent. Record source claim UID, storage binding and exact replica counts.</li>
+<li>Enable a separately named read-only offline backup Job. Reuse the reviewed
+SQLite recovery script with a new protected destination. Prove source/raw hashes,
+full integrity and isolated restored inventory; never overwrite the pre-repair
+backup. Real records stay on the retained cluster-local recovery PVC.</li>
+<li>Disable the backup Job, pin both v3.19 images and restore the original replica
+counts. Lint/render and inspect the exact desired-state diff before commit,
+push and immediate Argo refresh. Preserve all source and agent claim identities.</li>
+<li>Verify migration startup, server and agent readiness, authenticated repository
+and agent pages, and no unexpected failed workloads. Do not trigger a pipeline,
+change account credentials or repair forge webhooks as an acceptance shortcut.</li></ol>
+<h2>Commands, structure and verification</h2>
+<p>Owning files: <code>platform/woodpecker/values.yaml</code>,
+<code>platform/woodpecker/templates/recovery.yaml</code> and existing
+<code>platform/woodpecker/scripts/sqlite-recovery.py</code>. Keep existing chart
+style and explicit image tags/digests. Validate a disposable chart copy with
+<code>helm dependency update</code>, <code>helm lint</code>,
+<code>helm template woodpecker --namespace woodpecker</code>, scoped
+<code>pre-commit run --files</code> and <code>git diff --check</code>.
+Only intended replicas, image references and backup Job may change; the chart's
+known unused random default agent Secret is separately identified. Actual server
+and agent credentials come from existing woodpecker-secret envFrom.</p>
+<p>Read-only evidence: <code>argocd --core app get woodpecker --refresh</code>,
+<code>argocd --core app wait woodpecker --sync --health --timeout 600</code>,
+structured Pod/controller/PVC/Job state, bounded sanitized startup logs and the
+existing authorized browser session. No new local application instance.</p>
+<h2>Rollback and limits</h2>
+<p>Before migration, restore original replica counts without changing images.
+After migration failure, keep writers quiesced and preserve failed data; a separate
+reviewed repository-owned restore Job must copy the verified post-repair backup
+into the original claim before restoring v3.15. A Git image revert alone is unsafe.
+Protect original source and recovery claims from pruning. Never overwrite real
+backup data or copy it into disposable workstation storage.</p>
+<p>No NAS writes, no account reset, no new scopes, no CI trigger, no PR merge and
+no production Strata promotion. Cluster-local restore proof does not establish
+offsite recovery or resolve the entire RECOVERY_PROOF task. Successful CI execution
+remains unproven when no existing completed pipeline exists. Unrelated hardware
+findings remain open and do not block this component's scoped software update.</p>
+</html>
