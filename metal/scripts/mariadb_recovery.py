@@ -3,6 +3,7 @@
 
 import argparse
 import base64
+import difflib
 import hashlib
 import json
 import os
@@ -81,6 +82,26 @@ def dump_diagnostic(original, restored):
              "known_system_table": table if database == "mysql" and table in known else None,
              "source_sha256": before.get((database, table)), "restored_sha256": after.get((database, table))}
             for database, table in sorted(set(before) | set(after)) if before.get((database, table)) != after.get((database, table))]
+
+
+def compatibility_view_diagnostic(original, restored):
+    # Only static mysql.user view DDL is eligible; never return rows or literals.
+    def definition(data):
+        database = b""
+        for line in data.splitlines():
+            use = re.match(rb"USE `([^`]+)`;", line)
+            if use:
+                database = use[1]
+            if database == b"mysql" and re.match(rb"^/\*!50001 VIEW `user` AS select ", line):
+                return re.sub(rb"'(?:''|[^'])*'", lambda m: b"'sha256:" + digest(m[0]).encode() + b"'", line).decode()
+        return None
+    before, after = definition(original), definition(restored)
+    if before is None or after is None:
+        return {"static_definition_found": False}
+    return {"static_definition_found": True,
+            "redacted_diff": [{"original": before[max(0, a - 30):b + 30], "candidate": after[max(0, c - 30):d + 30]}
+                              for tag, a, b, c, d in difflib.SequenceMatcher(None, before, after, autojunk=False).get_opcodes()
+                              if tag != "equal"]}
 
 
 def original_proc_sql(data):
@@ -478,6 +499,8 @@ def restore(run_id, expected_manifest, qualify_patch=False):
                 if (digest(schema) != manifest["before"]["schema_sha256"] or
                         digest(grants) != manifest["before"]["grants_sha256"] or digest(dump) != manifest["dump"]["sha256"]):
                     result["patch_dump_diagnostic"] = dump_diagnostic(original, dump)
+                    result["patch_grants_match"] = digest(grants) == manifest["before"]["grants_sha256"]
+                    result["patch_compatibility_view"] = compatibility_view_diagnostic(original, dump)
                     raise RuntimeError("patched schema, grants or full normalized data differs")
                 if empty_directory:
                     directory.rmdir()

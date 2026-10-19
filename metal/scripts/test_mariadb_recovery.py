@@ -54,6 +54,15 @@ class RecoveryTests(unittest.TestCase):
         self.assertNotIn("another", json.dumps(result))
         self.assertEqual(recovery.dump_diagnostic(original, original), [])
 
+    def test_compatibility_view_diagnostic_refuses_other_sql_and_redacts_literals(self):
+        original = b"USE `mysql`;\n/*!50001 VIEW `user` AS select 'private credential', cast(x as char) */;\n"
+        changed = original.replace(b"as char", b"as char charset utf8mb3")
+        result = recovery.compatibility_view_diagnostic(original, changed)
+        self.assertTrue(result["static_definition_found"])
+        self.assertNotIn("private credential", json.dumps(result))
+        self.assertIn("charset utf8mb3", json.dumps(result))
+        self.assertFalse(recovery.compatibility_view_diagnostic(original.replace(b"`mysql`", b"`app`"), changed)["static_definition_found"])
+
     def test_original_routine_metadata_extraction_is_exact_and_mysql_scoped(self):
         section = b"DROP TABLE IF EXISTS `proc`;\nCREATE TABLE `proc` (x int);\nINSERT INTO `proc` VALUES (1);\n"
         dump = b"USE `application`;\n" + section + b"USE `mysql`;\n" + section + b"DROP TABLE IF EXISTS `procs_priv`;\nprivate other table"
