@@ -14,6 +14,7 @@ app-template:
           image:
             repository: searxng/searxng
             tag: latest
+            digest: sha256:b4e34a39f76b1c860bbc53a0f35b10492029b2b18ef1d868df464fe43d7e0b93
             pullPolicy: Always
           env:
             # Non-sensitive literals
@@ -52,6 +53,7 @@ app-template:
           image:
             repository: valkey/valkey
             tag: 9-alpine
+            digest: sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
             pullPolicy: Always
           command:
             - sh
@@ -263,7 +265,7 @@ app-template:
               shortcut: go
               categories: [general]
               disabled: false
-            
+
             - name: mojeek
               engine: mojeek
               shortcut: mjk
@@ -584,7 +586,7 @@ app-template:
               shortcut: toot
               categories: ["social media"]
               disabled: false
-            
+
             ####### MISC ENGINES ########
             - name: minecraft wiki
               engine: mediawiki
@@ -597,7 +599,7 @@ app-template:
               about:
                 website: https://minecraft.wiki/
                 wikidata_id: Q105533483
-            
+
             ######### DISABLED ENGINES #########
             - name: brave
               engine: brave
@@ -605,7 +607,6 @@ app-template:
               categories: [general, web]
               brave_category: search
               disabled: true
-
 
           # Basic bot-detection knobs; tailor pass/block lists for cluster ranges
           botdetection:
@@ -675,8 +676,6 @@ app-template:
             # 'fe80::/10'
           ]
           pass_searxng_org = true
-
-
 
 # Non-sensitive configuration rendered into a ConfigMap
 # config:
