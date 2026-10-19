@@ -339,6 +339,7 @@ def restore(run_id, expected_manifest):
             count = checked_keys(common.docker("exec", identity, "valkey-check-rdb", mount + "/dump.rdb", check=False))
             common.docker("exec", "-d", identity, "valkey-server", "--port=0", "--cluster-enabled=no",
                           "--dir=" + mount, "--dbfilename=dump.rdb", "--unixsocket=/tmp/recovery.sock",
+                          "--unixsocketperm=700",
                           "--pidfile=/tmp/recovery.pid", "--appendonly=no", "--save", "", "--logfile=/tmp/recovery.log")
             def cli(*args, check=True):
                 return common.docker("exec", identity, "valkey-cli", "--raw", "-s", "/tmp/recovery.sock", *args, check=check)
@@ -348,6 +349,8 @@ def restore(run_id, expected_manifest):
                 time.sleep(1)
             else:
                 raise RuntimeError("isolated Valkey did not become ready")
+            if common.docker("exec", identity, "stat", "-c", "%a:%u:%g:%F", "/tmp/recovery.sock").stdout.strip() != b"700:1001:1001:socket":
+                raise RuntimeError("restore socket ownership or permissions changed")
             counts = load_counts(info(cli("INFO", "persistence").stdout), info(cli("INFO", "keyspace").stdout), count)
             if info(cli("INFO", "cluster").stdout).get("cluster_enabled") != "0":
                 raise RuntimeError("isolated restore is unexpectedly clustered")
@@ -363,7 +366,7 @@ def restore(run_id, expected_manifest):
                 raise RuntimeError("original or restored RDB changed")
             target.unlink()
             result["shards"][shard] = {**counts, "checksum_valid": True, "protected_hash_unchanged": True,
-                                       "clean_shutdown": True}
+                                       "clean_shutdown": True, "owner_only_socket": True}
         result.update(accepted=True, version="8.1.3", image=IMAGE, manifest_sha256=expected_manifest,
                       production_network_unroutable=True)
     except Exception as error:
