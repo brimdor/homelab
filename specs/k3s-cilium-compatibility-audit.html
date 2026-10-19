@@ -92,6 +92,46 @@
   </table>
   <p class="muted">Verification performed for this document: source inspection and document validation only.
     No synthetic cluster, connectivity test, provisioning, package transaction, reboot, credential read or live CNI change is part of this audit.</p>
+  <h2>Isolated qualification implementation — 2026-10-19</h2>
+  <p>Official chart index review isolated-cilium-tool-source-contracts-zf9c7v51 resolves the patched adjacent bridge
+    <code>1.15.19 → 1.16.19 → 1.17.18 → 1.18.15</code>. First reproduce 1.15.1 on exact k3s 1.33.6,
+    then qualify the current-minor patch and every adjacent minor. This extends the source audit with a test procedure;
+    it does not transform unlisted Kubernetes versions into an upstream guarantee.</p>
+  <p><a href="../metal/scripts/cilium_qualification.py">cilium_qualification.py</a> accepts only an explicitly named empty Docker VM,
+    a socket inside its private owned workspace, a newly generated loopback-only kubeconfig and exactly three synthetic nodes.
+    It rejects the production cluster UID, any other context/API/version/node set and missing or skipped required test evidence.
+    The caller provides separately checksum-verified official k3d 5.9.0 and Cilium CLI 0.16.24 executables, compatible kubectl,
+    and a private work directory. The k3s image index and all five chart archives are pinned by SHA256 in the helper.</p>
+  <p>Invoke <code>python3 metal/scripts/cilium_qualification.py</code> with explicit
+    <code>--work-dir</code>, <code>--name qualification-&lt;eight random characters&gt;</code>,
+    <code>--docker-host</code>, <code>--docker-server</code>, <code>--k3d</code>, <code>--cilium</code> and <code>--kubectl</code>.
+    The VM must have no production credentials, source-directory mounts or existing containers. Its owner must finally stop/delete
+    that exact VM, remove all test images, synthetic data, downloaded tools and caches, and retain only compact sanitized evidence.</p>
+  <p>The helper reproduces kube-proxy replacement, the k3s local API endpoint, L2 announcement enablement, Hubble relay/UI and
+    initial-minor upgrade compatibility. At each stage it requires native agent versions and ready status, then runs official
+    no-policies, ingress-deny, egress-deny and L7 allow/deny scenarios with strict Hubble flow validation. It exercises the preceding
+    Helm revision as a one-minor rollback and then the forward candidate again. JUnit must prove all four required scenarios ran.
+    Failures stop qualification and trigger exact owned-cluster cleanup; an elapsed duration is not a whole-task deadline.</p>
+  <p><strong>Limits:</strong> these connectivity stages alone do not prove production Fedora/kernel/GPU/CSI behavior,
+    physical L2 advertisements or the existing production load-balancer pool. Record the actual VM architecture/kernel and all
+    failures/skips. Add isolated pool/ARP/lease and application traffic evidence before declaring a complete CNI transition candidate.
+    Neither a passing synthetic suite nor this helper authorizes production node disruption.</p>
+  <h2>Load-balancer pool API prerequisite</h2>
+  <p>cilium-lb-ipam-transition-contract-gajehrde reads exact upstream Go API definitions for all five selected releases.
+    <a href="https://github.com/cilium/cilium/blob/v1.15.1/pkg/k8s/apis/cilium.io/v2alpha1/lbipam_types.go">1.15.1</a>
+    already supports <code>spec.blocks</code> and enum <code>allowFirstLastIPs: No</code>; <code>cidrs</code> is deprecated.
+    <a href="https://github.com/cilium/cilium/blob/v1.16.19/pkg/k8s/apis/cilium.io/v2alpha1/lbipam_types.go">1.16.19</a>
+    removes <code>cidrs</code> and changes the omitted boundary-address default. The repository pool template now uses
+    <code>blocks</code> and explicitly reserves the first/last addresses. The exact CIDR list remains unchanged.</p>
+  <p>This Metal template preparation is not automatically applied by Argo. Before applying it through the owning Ansible path,
+    render with production inventory, inspect the current pool/CRD schema and every assigned service IP, validate the candidate
+    against the existing API, and prove identical usable addresses. Record pool UID and all allocations before/after. Keep the old
+    template and exact revision for rollback; never shrink, replace or delete the pool as part of this field migration.</p>
+  <p>The owning Cilium role now exposes the narrowly scoped <code>cilium_resources</code> tag. Its guarded JSON Patch tests the
+    observed pool UID, resourceVersion and original CIDRs before moving the same blocks and removing the legacy field. This avoids
+    a merge patch retaining both field names. A changed range or boundary reservation fails before mutation. Inspect
+    <code>ansible-playbook -i metal/inventories/prod.yml -i localhost, metal/cluster.yml --limit localhost --tags cilium_resources --list-tasks</code>
+    and the matching syntax check before the authorized execution; provisioning, k3s and Helm installation tasks must be excluded.</p>
 </main>
 </body>
 </html>

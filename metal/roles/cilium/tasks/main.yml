@@ -18,6 +18,57 @@
   until: crd.resources | length > 0
   retries: 5
   delay: 10
+  tags: cilium_resources
+
+- name: Read existing Cilium load-balancer pool before field migration
+  kubernetes.core.k8s_info:
+    api_version: cilium.io/v2alpha1
+    kind: CiliumLoadBalancerIPPool
+    name: default
+  register: cilium_existing_pool
+  tags: cilium_resources
+
+- name: Guard the legacy pool address range and reservation policy
+  vars:
+    cilium_pool_desired_blocks: "{{ (lookup('ansible.builtin.template', 'ciliumloadbalancerippool.yaml') | from_yaml).spec.blocks }}"
+  ansible.builtin.assert:
+    that:
+      - cilium_existing_pool.resources[0].spec.cidrs == cilium_pool_desired_blocks
+      - cilium_existing_pool.resources[0].spec.allowFirstLastIPs | default('No') == 'No'
+      - cilium_existing_pool.resources[0].spec.blocks | default([]) in [[], cilium_existing_pool.resources[0].spec.cidrs]
+    fail_msg: Refusing a pool field migration that changes addresses or boundary reservations
+  when:
+    - cilium_existing_pool.resources | length == 1
+    - cilium_existing_pool.resources[0].spec.cidrs is defined
+  tags: cilium_resources
+
+- name: Migrate the same pool without retaining duplicate legacy CIDRs
+  kubernetes.core.k8s_json_patch:
+    api_version: cilium.io/v2alpha1
+    kind: CiliumLoadBalancerIPPool
+    name: default
+    patch:
+      - op: test
+        path: /metadata/uid
+        value: "{{ cilium_existing_pool.resources[0].metadata.uid }}"
+      - op: test
+        path: /metadata/resourceVersion
+        value: "{{ cilium_existing_pool.resources[0].metadata.resourceVersion }}"
+      - op: test
+        path: /spec/cidrs
+        value: "{{ cilium_existing_pool.resources[0].spec.cidrs }}"
+      - op: add
+        path: /spec/blocks
+        value: "{{ cilium_existing_pool.resources[0].spec.cidrs }}"
+      - op: add
+        path: /spec/allowFirstLastIPs
+        value: "No"
+      - op: remove
+        path: /spec/cidrs
+  when:
+    - cilium_existing_pool.resources | length == 1
+    - cilium_existing_pool.resources[0].spec.cidrs is defined
+  tags: cilium_resources
 
 - name: Apply Cilium resources
   kubernetes.core.k8s:
@@ -25,3 +76,4 @@
   loop:
     - ciliuml2announcementpolicy.yaml
     - ciliumloadbalancerippool.yaml
+  tags: cilium_resources
