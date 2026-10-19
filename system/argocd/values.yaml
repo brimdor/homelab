@@ -96,7 +96,9 @@ argocd-apps:
             template:
               metadata: {}
               spec:
+                project: default
                 source:
+                  repoURL: *repoURL
                   helm:
                     # The ingress successor uses native Ingress objects, not Traefik CRDs.
                     skipCrds: true
