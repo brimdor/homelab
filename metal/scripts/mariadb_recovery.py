@@ -87,14 +87,21 @@ def dump_diagnostic(original, restored):
 def compatibility_view_diagnostic(original, restored):
     # Only static mysql.user view DDL is eligible; never return rows or literals.
     def definition(data):
-        database = b""
-        for line in data.splitlines():
+        database = table = b""
+        section = []
+        for line in data.splitlines(keepends=True):
             use = re.match(rb"USE `([^`]+)`;", line)
+            create = re.match(rb"(?:DROP TABLE IF EXISTS|CREATE TABLE|/\*!50001 VIEW) `([^`]+)`", line)
             if use:
-                database = use[1]
-            if database == b"mysql" and re.match(rb"^/\*!50001 VIEW `user` AS select ", line):
-                return re.sub(rb"'(?:''|[^'])*'", lambda m: b"'sha256:" + digest(m[0]).encode() + b"'", line).decode()
-        return None
+                database, table = use[1], b""
+            if create:
+                table = create[1]
+            if database == b"mysql" and table == b"user":
+                section.append(line)
+        value = b"".join(section)
+        if not value or re.search(rb"(?im)^\s*(?:INSERT|REPLACE|UPDATE|DELETE)\b", value):
+            return None
+        return re.sub(rb"'(?:''|[^'])*'", lambda m: b"'sha256:" + digest(m[0]).encode() + b"'", value).decode()
     before, after = definition(original), definition(restored)
     if before is None or after is None:
         return {"static_definition_found": False}

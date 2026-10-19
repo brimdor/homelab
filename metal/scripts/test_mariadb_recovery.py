@@ -61,6 +61,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertTrue(result["static_definition_found"])
         self.assertNotIn("private credential", json.dumps(result))
         self.assertIn("charset utf8mb3", json.dumps(result))
+        self.assertFalse(recovery.compatibility_view_diagnostic(original + b"INSERT INTO user VALUES ('private row');\n", changed)["static_definition_found"])
         self.assertFalse(recovery.compatibility_view_diagnostic(original.replace(b"`mysql`", b"`app`"), changed)["static_definition_found"])
 
     def test_original_routine_metadata_extraction_is_exact_and_mysql_scoped(self):
