@@ -1,4 +1,4 @@
-{{- if .Values.maintenanceRecovery.bufferEnabled }}
+# Keep the protected claim declared after retiring buffer compute.
 # A separate persisted receiver keeps collection active during the cold backup.
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -13,6 +13,7 @@ spec:
   resources:
     requests:
       storage: 2Gi
+{{- if .Values.maintenanceRecovery.bufferEnabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
