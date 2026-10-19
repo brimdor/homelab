@@ -2,6 +2,8 @@ external-dns:
   image:
     tag: v0.23.0@sha256:1854499e2b08cee47c40a08e356bff20dcb192dbcfde8378fc3f900f12cad5a3
   provider: cloudflare
+  domainFilters:
+    - eaglepass.io
   policy: upsert-only
   # Preserve existing annotations across the v0.22 default-prefix change.
   annotationPrefix: external-dns.alpha.kubernetes.io/
@@ -14,7 +16,7 @@ external-dns:
           key: value
   extraArgs:
     - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
-    # Keep writes disabled until post-release inventory drift is explained.
+    # Keep writes disabled until the scoped eaglepass.io dry-run gate passes.
     - --dry-run
   interval: 5m
   triggerLoopOnEvent: true
