@@ -145,6 +145,33 @@ class RecoveryTests(unittest.TestCase):
             with patch.object(recovery.common, "command", side_effect=values), self.assertRaises(RuntimeError):
                 recovery.source_metadata("backlog", "existing-pod")
 
+    def test_patch_qualification_requires_exact_source_namespace_image_and_version(self):
+        source = {"namespace": "backlog-canary", "image": recovery.PATCH_SOURCE_IMAGE,
+                  "before": {"version": "10.11.11-MariaDB"}}
+        recovery.require_patch_source(source)
+        production = copy.deepcopy(source)
+        production["namespace"] = "backlog"
+        recovery.require_patch_source(production)
+        for field in ("namespace", "image", "version"):
+            changed = copy.deepcopy(source)
+            if field == "version":
+                changed["before"]["version"] = "10.11.19-MariaDB"
+            else:
+                changed[field] = "unreviewed"
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                recovery.require_patch_source(changed)
+
+    def test_shutdown_must_remove_server_pid_file(self):
+        success = subprocess.CompletedProcess([], 0, b"", b"")
+        failure = subprocess.CompletedProcess([], 1, b"", b"")
+        with patch.object(recovery.common, "docker", return_value=success) as docker:
+            recovery.stop_server("owned-container")
+            self.assertIn("shutdown", docker.call_args_list[0].args)
+            self.assertEqual(docker.call_args_list[1].args[-2:], ("-e", "/tmp/recovery.pid"))
+        with patch.object(recovery.common, "docker", side_effect=[success] + [failure] * 60), \
+                patch.object(recovery.time, "sleep"), self.assertRaisesRegex(RuntimeError, "shut down cleanly"):
+            recovery.stop_server("owned-container")
+
     def test_unknown_namespace_is_refused_before_access(self):
         with patch.object(recovery.common, "command") as command, self.assertRaises(RuntimeError):
             recovery.backup("another-app", "pod", "reviewed-12345678")

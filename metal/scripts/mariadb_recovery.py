@@ -27,6 +27,8 @@ LABEL = "io.eaglepass.mariadb-recovery"
 DUMP = ["mariadb-dump", "--all-databases", "--single-transaction", "--quick",
         "--routines", "--events", "--triggers", "--hex-blob", "--order-by-primary",
         "--skip-comments", "--skip-dump-date", "--skip-lock-tables", "-uroot"]
+PATCH_SOURCE_IMAGE = "10.0.20.11:32309/backlog_database@sha256:ac75a7487b7ce7f12d8b07dc73595f528f830a7764334aeb3c19c3cf6dede4f5"
+PATCH_IMAGE = "docker.io/library/mariadb@sha256:0d0945c57f75b3a3b9ebe71aedaaad005fa5305054e8fca3d2e42a8c92b43b5e"
 EMPTY_DIRECTORY_DUMPS = {
     "jovo": "a3fe95a939cb2a167b0acf973ef4d2fb838f25fe164ad2d519b26057e3b065ff",
     "backlog-canary": "0600bd4f4e8bddcd1e81ceeefd4bcd7c0b056932ee306756f7b4be1fc88423e3",
@@ -318,7 +320,53 @@ def require_isolation(container, scratch, run_id):
         raise RuntimeError("database restore mount ownership changed")
 
 
-def restore(run_id, expected_manifest):
+def isolated_container(reference, image, scratch, run_id, expected_version):
+    identity = common.docker("create", "--platform=linux/" + image["Architecture"],
+                             "--network=none", "--read-only", "--cap-drop=ALL", "--user=999:999",
+                             "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=256",
+                             "--cpus=1", "--memory=1g", "--label=" + LABEL + "=" + run_id,
+                             "--mount=type=bind,source=" + str(scratch / "data") + ",target=/var/lib/mysql",
+                             "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", reference,
+                             "-c", "exec sleep 2147483647").stdout.decode().strip()
+    require_isolation(common.inspect(identity), scratch, run_id)
+    common.docker("start", identity)
+    state = common.inspect(identity)
+    require_isolation(state, scratch, run_id)
+    network = ["nsenter", "--target", str(state["State"]["Pid"]), "--net", "--"]
+    links = json.loads(common.command([*network, "ip", "-j", "address"]).stdout)
+    routes = sum((json.loads(common.command([*network, "ip", family, "-j", "route", "show", "table", "all"]).stdout)
+                  for family in ("-4", "-6")), [])
+    common.require_network(links, routes)
+    if common.command([*network, "ip", "route", "get", "10.0.20.50"], check=False).returncode == 0:
+        raise RuntimeError("restore can route to the production API")
+    header = common.docker("exec", identity, "head", "-c", "20", "/usr/sbin/mariadbd").stdout
+    expected_machine = 183 if image["Architecture"] == "arm64" else 62
+    if header[:6] != b"\x7fELF\x02\x01" or struct.unpack("<H", header[18:20])[0] != expected_machine:
+        raise RuntimeError("database executable differs from the reviewed image architecture")
+    version = common.docker("exec", identity, "mariadbd", "--version").stdout.decode()
+    found = re.search(r"\bVer (\d+\.\d+\.\d+)\b", version)
+    if not found or found[1] != expected_version:
+        raise RuntimeError("isolated database executable version changed")
+    return identity
+
+
+def require_patch_source(manifest):
+    if (manifest.get("namespace") not in {"backlog", "backlog-canary"} or
+            manifest.get("image") != PATCH_SOURCE_IMAGE or
+            manifest.get("before", {}).get("version", "").split("-", 1)[0] != "10.11.11"):
+        raise RuntimeError("unreviewed source for fixed MariaDB patch qualification")
+
+
+def stop_server(identity):
+    common.docker("exec", identity, "mariadb-admin", "--socket=/tmp/recovery.sock", "-uroot", "shutdown")
+    for _ in range(60):
+        if common.docker("exec", identity, "test", "!", "-e", "/tmp/recovery.pid", check=False).returncode == 0:
+            return
+        time.sleep(1)
+    raise RuntimeError("isolated database did not shut down cleanly")
+
+
+def restore(run_id, expected_manifest, qualify_patch=False):
     point = point_path(run_id)
     marker = common.source_record("verified.json", point / "verified.json")[0]
     if marker["sha256"] != expected_manifest:
@@ -326,6 +374,8 @@ def restore(run_id, expected_manifest):
     manifest = json.loads((point / "verified.json").read_bytes())
     if file_digest(point / "cluster.sql") != manifest["dump"]:
         raise RuntimeError("database recovery bytes changed")
+    if qualify_patch:
+        require_patch_source(manifest)
     if common.docker("ps", "-aq", "--filter=label=" + LABEL).stdout.strip():
         raise RuntimeError("another owned database restore exists")
     def interrupted(_number, _frame):
@@ -334,7 +384,8 @@ def restore(run_id, expected_manifest):
         signal.signal(number, interrupted)
     before_images = set(common.docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
     scratch = Path(tempfile.mkdtemp(prefix="mariadb-restore-", dir=ROOT))
-    identity = image_id = None
+    identity = None
+    image_ids = set()
     result = {"accepted": False, "run_id": run_id, "namespace": manifest["namespace"], "stage": "image-pull"}
     try:
         (scratch / "data").mkdir(mode=0o700)
@@ -342,35 +393,11 @@ def restore(run_id, expected_manifest):
         reference = pull_reference(manifest["image"])
         common.docker("pull", reference)
         image = json.loads(common.docker("image", "inspect", reference).stdout)[0]
-        image_id = image["Id"]
+        image_ids.add(image["Id"])
         result["image_runtime"] = require_image(image, reference)
         result["stage"] = "container-isolation"
-        identity = common.docker("create", "--platform=linux/" + image["Architecture"],
-                                 "--network=none", "--read-only", "--cap-drop=ALL", "--user=999:999",
-                                 "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=256",
-                                 "--cpus=1", "--memory=1g", "--label=" + LABEL + "=" + run_id,
-                                 "--mount=type=bind,source=" + str(scratch / "data") + ",target=/var/lib/mysql",
-                                 "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", reference,
-                                 "-c", "exec sleep 2147483647").stdout.decode().strip()
-        require_isolation(common.inspect(identity), scratch, run_id)
-        common.docker("start", identity)
-        state = common.inspect(identity)
-        require_isolation(state, scratch, run_id)
-        network = ["nsenter", "--target", str(state["State"]["Pid"]), "--net", "--"]
-        links = json.loads(common.command([*network, "ip", "-j", "address"]).stdout)
-        routes = sum((json.loads(common.command([*network, "ip", family, "-j", "route", "show", "table", "all"]).stdout)
-                      for family in ("-4", "-6")), [])
-        common.require_network(links, routes)
-        if common.command([*network, "ip", "route", "get", "10.0.20.50"], check=False).returncode == 0:
-            raise RuntimeError("restore can route to the production API")
-        header = common.docker("exec", identity, "head", "-c", "20", "/usr/sbin/mariadbd").stdout
-        expected_machine = 183 if image["Architecture"] == "arm64" else 62
-        if header[:6] != b"\x7fELF\x02\x01" or struct.unpack("<H", header[18:20])[0] != expected_machine:
-            raise RuntimeError("database executable differs from the reviewed image architecture")
-        version = common.docker("exec", identity, "mariadbd", "--version").stdout.decode()
-        found = re.search(r"\bVer (\d+\.\d+\.\d+)\b", version)
-        if not found or found[1] != manifest["before"]["version"].split("-", 1)[0]:
-            raise RuntimeError("isolated database executable version changed")
+        identity = isolated_container(reference, image, scratch, run_id,
+                                      manifest["before"]["version"].split("-", 1)[0])
         result["stage"] = "fresh-initialization"
         common.docker("exec", identity, "mariadb-install-db", "--datadir=/var/lib/mysql",
                       "--auth-root-authentication-method=normal", "--skip-test-db")
@@ -418,6 +445,48 @@ def restore(run_id, expected_manifest):
             directory.rmdir()
             result["empty_filesystem_directory_reproduced"] = True
         common.docker("exec", identity, "mariadb-check", "--socket=/tmp/recovery.sock", "-uroot", "--all-databases")
+        if qualify_patch:
+            result["stage"] = "patch-clean-shutdown"
+            stop_server(identity)
+            require_isolation(common.inspect(identity), scratch, run_id)
+            common.docker("rm", "-f", identity)
+            identity = None
+            common.docker("pull", PATCH_IMAGE)
+            candidate = json.loads(common.docker("image", "inspect", PATCH_IMAGE).stdout)[0]
+            image_ids.add(candidate["Id"])
+            if require_image(candidate, PATCH_IMAGE)["architecture"] != "amd64":
+                raise RuntimeError("reviewed patch is not native AMD64")
+            identity = isolated_container(PATCH_IMAGE, candidate, scratch, run_id, "10.11.19")
+            checks = []
+            for cycle in range(2):
+                result["stage"] = "patch-start-" + str(cycle + 1)
+                common.docker("exec", "-d", identity, *server)
+                client = ["docker", "exec", "-i", identity, "mariadb", "--socket=/tmp/recovery.sock", "-uroot", "-BN"]
+                for _ in range(120):
+                    if common.command([*client, "-e", "SELECT 1"], check=False).returncode == 0:
+                        break
+                    time.sleep(1)
+                else:
+                    raise RuntimeError("isolated patched database did not become ready")
+                result["stage"] = "patch-data-check-" + str(cycle + 1)
+                if empty_directory:
+                    directory.mkdir(mode=0o700)
+                    os.chown(directory, 999, 999)
+                schema = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock", "--no-data"]).stdout
+                grants = common.command([*client, "-e", "SELECT Host,User,Priv FROM mysql.global_priv ORDER BY Host,User"]).stdout
+                dump = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock"]).stdout
+                if (digest(schema) != manifest["before"]["schema_sha256"] or
+                        digest(grants) != manifest["before"]["grants_sha256"] or digest(dump) != manifest["dump"]["sha256"]):
+                    result["patch_dump_diagnostic"] = dump_diagnostic(original, dump)
+                    raise RuntimeError("patched schema, grants or full normalized data differs")
+                if empty_directory:
+                    directory.rmdir()
+                common.docker("exec", identity, "mariadb-check", "--socket=/tmp/recovery.sock", "-uroot", "--all-databases", "--check-upgrade")
+                require_isolation(common.inspect(identity), scratch, run_id)
+                checks.append({"start": cycle + 1, "full_normalized_data_matches": True, "schema_and_grants_match": True})
+                stop_server(identity)
+            result["patch_qualification"] = {"image": PATCH_IMAGE, "version": "10.11.19", "starts": checks,
+                                             "restored_datadir_reused": True, "clean_shutdowns": 3}
         require_isolation(common.inspect(identity), scratch, run_id)
         if file_digest(point / "cluster.sql") != manifest["dump"]:
             raise RuntimeError("original recovery bytes changed during restore")
@@ -427,20 +496,24 @@ def restore(run_id, expected_manifest):
     except Exception as error:
         result["error"] = str(error)
     finally:
-        if identity:
-            require_isolation(common.inspect(identity), scratch, run_id)
-            common.docker("rm", "-f", identity)
+        owned = common.docker("ps", "-aq", "--filter=label=" + LABEL + "=" + run_id).stdout.decode().split()
+        for container_id in owned:
+            require_isolation(common.inspect(container_id), scratch, run_id)
+            common.docker("rm", "-f", container_id)
         shutil.rmtree(scratch)
-        if image_id and image_id not in before_images:
-            shared = bool(common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip())
-            if not shared:
-                common.docker("image", "rm", image_id)
-                if common.docker("image", "inspect", image_id, check=False).returncode == 0:
-                    raise RuntimeError("owned restore image remains after cleanup")
-            result["image_cleanup"] = {"removed_and_verified": not shared, "preserved_shared_consumer": shared}
-        elif image_id:
-            common.docker("image", "inspect", image_id)
-            result["image_cleanup"] = {"preexisting_preserved": True}
+        result["image_cleanup"] = []
+        for image_id in sorted(image_ids):
+            if image_id not in before_images:
+                shared = bool(common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip())
+                if not shared:
+                    common.docker("image", "rm", image_id)
+                    if common.docker("image", "inspect", image_id, check=False).returncode == 0:
+                        raise RuntimeError("owned restore image remains after cleanup")
+                result["image_cleanup"].append({"image_id": image_id, "removed_and_verified": not shared,
+                                                "preserved_shared_consumer": shared})
+            else:
+                common.docker("image", "inspect", image_id)
+                result["image_cleanup"].append({"image_id": image_id, "preexisting_preserved": True})
         result["cleanup"] = {"scratch_absent": not scratch.exists(),
                              "owned_containers_absent": not common.docker("ps", "-aq", "--filter=label=" + LABEL).stdout.strip()}
     write_json(point / ("restore-" + str(time.time_ns()) + ".json"), result)
@@ -454,12 +527,14 @@ def main():
     parser.add_argument("--namespace", choices=sorted(NAMESPACES))
     parser.add_argument("--pod-uid")
     parser.add_argument("--manifest")
+    parser.add_argument("--qualify-10-11-19", action="store_true")
     args = parser.parse_args()
     os.umask(0o077)
     if args.mode == "backup":
         result = backup(args.namespace, args.pod_uid, args.run_id)
     elif args.mode == "restore":
-        response = common.command(remote("internal-restore", args.run_id, "--manifest", args.manifest), check=False)
+        extra = ["--qualify-10-11-19"] if args.qualify_10_11_19 else []
+        response = common.command(remote("internal-restore", args.run_id, "--manifest", args.manifest, *extra), check=False)
         result = json.loads(response.stdout)
         if response.returncode and result.get("accepted"):
             raise RuntimeError("remote exit status contradicts its restore receipt")
@@ -468,7 +543,7 @@ def main():
     elif args.mode == "internal-finalize":
         result = finalize(args.run_id, json.loads(args.manifest))
     else:
-        result = restore(args.run_id, args.manifest)
+        result = restore(args.run_id, args.manifest, args.qualify_10_11_19)
     print(json.dumps(result), flush=True)
     return 0 if result.get("accepted", True) else 1
 
