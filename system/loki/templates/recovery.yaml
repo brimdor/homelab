@@ -27,6 +27,8 @@ data:
 {{ .Files.Get "scripts/cold_recovery.py" | indent 4 }}
   buffer_transfer.py: |
 {{ .Files.Get "scripts/buffer_transfer.py" | indent 4 }}
+  source-final-windows.json: |
+{{ .Files.Get "files/source-final-windows.json" | indent 4 }}
   loki.yaml: |
 {{ .Files.Get "files/recovery-loki.yaml" | indent 4 }}
   candidate.yaml: |

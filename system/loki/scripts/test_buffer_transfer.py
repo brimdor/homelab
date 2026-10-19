@@ -208,6 +208,50 @@ class BufferTransferTests(unittest.TestCase):
                 self.assertRaisesRegex(RuntimeError, "complete originals"):
             TRANSFER.preserved_source_audit(root)
 
+    def test_frozen_tail_unions_underfilled_directions_but_requires_exact_hash(self):
+        rows = self.rows()
+        checksum = hashlib.sha256("\n".join(sorted(TRANSFER.fingerprint(r) for r in rows)).encode()).hexdigest()
+        audit = {"start": 0, "end": 7, "windows": [{"start": 0, "end": 7,
+                 "source_distinct_records": 6, "source_sha256": checksum, "bidirectional": True}]}
+        with patch.object(TRANSFER, "query", side_effect=[rows[:4], rows[2:]]):
+            found = list(TRANSFER.source_windows(0, 7, audit))
+        self.assertEqual({TRANSFER.fingerprint(r) for r in found[0][2]},
+                         {TRANSFER.fingerprint(r) for r in rows})
+        with patch.object(TRANSFER, "query", side_effect=[rows[:2], rows[:2]]), \
+                self.assertRaisesRegex(RuntimeError, "no longer matches"):
+            list(TRANSFER.source_windows(0, 7, audit))
+
+    def test_frozen_proof_binds_original_anchor_identity_accounting_and_intervals(self):
+        window = {"start": 0, "end": 3, "source_distinct_records": 2,
+                  "source_sha256": "a" * 64, "bidirectional": False, "refinement_factor": 1}
+        original = {"start": 0, "end": 3, "windows": [copy.deepcopy(window)]}
+        accounting = {"accepted_records": 2, "received_attempts": 3, "rate_limited_attempts": 1}
+        audit = {"format": 1, "source_uid": TRANSFER.cold_recovery.BUFFER_POD_UID,
+                 "claim_uid": TRANSFER.cold_recovery.BUFFER_CLAIM_UID,
+                 "original_anchor_sha256": TRANSFER.SOURCE_AUDIT_SHA256,
+                 "source_accepted_records": 2, "source_received_attempts": 3,
+                 "source_rate_limited_attempts": 1, "start": 0, "end": 3, "windows": [window]}
+        def check(value):
+            data = json.dumps(value).encode()
+            with patch.object(TRANSFER, "FROZEN_SOURCE_SHA256", hashlib.sha256(data).hexdigest()):
+                return TRANSFER.frozen_source_audit(original, accounting, Mock(read_bytes=Mock(return_value=data)))
+        self.assertEqual(check(audit), audit)
+        for key, value in (("source_uid", "other"), ("claim_uid", "other"),
+                           ("source_accepted_records", 3), ("source_received_attempts", 4),
+                           ("source_rate_limited_attempts", 2), ("original_anchor_sha256", "b" * 64)):
+            changed = copy.deepcopy(audit)
+            changed[key] = value
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                check(changed)
+        for key, value in (("start", 1), ("end", 4), ("source_distinct_records", 1),
+                           ("source_sha256", "b" * 64), ("bidirectional", True), ("refinement_factor", 4)):
+            changed = copy.deepcopy(audit)
+            changed["windows"][0][key] = value
+            with self.subTest(window=key), self.assertRaises(RuntimeError):
+                check(changed)
+        with self.assertRaisesRegex(RuntimeError, "proof changed"):
+            TRANSFER.frozen_source_audit(original, accounting, Mock(read_bytes=Mock(return_value=b"changed")))
+
     def test_stage_guard_binds_both_pods_services_claims_images_and_collector_route(self):
         fixture = cold_fixture.ColdRecoveryTests()
         fixture.setUp()

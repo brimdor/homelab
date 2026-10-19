@@ -24,6 +24,7 @@ SELECTOR = '{job=~".+"}'
 SPAN = 120 * 10**9
 CLAIM_UID = "656cee92-dc36-4fc8-8742-b691c670cf77"
 IMAGE_DIGEST = "sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193"
+FROZEN_SOURCE_SHA256 = "41d4f77e26147287092c6936e7ffd7d247657aebdc4f08a1ef886b53fece95fa"
 SOURCE_AUDIT_SHA256 = "9ce2339207236861dd9bf0d93e599b089145922d9ac7057c673224ff47c6ab97"
 
 
@@ -187,6 +188,8 @@ def source_windows(start, end, audit=None):
     for window in audit["windows"]:
         left, right = window["start"], window["end"]
         rows = query(SOURCE, left, right)
+        if window.get("bidirectional"):
+            rows += query(SOURCE, left, right, direction="backward")
         unique = {fingerprint(row) for row in rows}
         checksum = hashlib.sha256("\n".join(sorted(unique)).encode()).hexdigest()
         if len(unique) != window["source_distinct_records"] or checksum != window["source_sha256"]:
@@ -206,6 +209,41 @@ def preserved_source_audit(root):
             audit["source_distinct_records"] == audit["source_received_counter"] and
             sum(w["source_distinct_records"] for w in audit["windows"]) == audit["source_distinct_records"]):
         raise RuntimeError("canonical source audit does not prove complete originals")
+    return audit
+
+
+def frozen_source_audit(original, accounting, path=Path("/scripts/source-final-windows.json")):
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != FROZEN_SOURCE_SHA256:
+        raise RuntimeError("frozen source proof changed")
+    audit = json.loads(data)
+    if not (audit["format"] == 1 and audit["source_uid"] == cold_recovery.BUFFER_POD_UID and
+            audit["claim_uid"] == cold_recovery.BUFFER_CLAIM_UID and
+            audit["original_anchor_sha256"] == SOURCE_AUDIT_SHA256 and
+            audit["start"] == original["start"] and audit["end"] >= original["end"] and
+            audit["source_accepted_records"] == accounting["accepted_records"] and
+            audit["source_received_attempts"] == accounting["received_attempts"] and
+            audit["source_rate_limited_attempts"] == accounting["rate_limited_attempts"]):
+        raise RuntimeError("frozen source identity or accounting changed")
+    if not audit["windows"] or audit["windows"][0]["start"] != audit["start"]:
+        raise RuntimeError("frozen source first interval changed")
+    left = audit["start"]
+    total = 0
+    for window in audit["windows"]:
+        if not (window["start"] >= left and window["end"] >= window["start"] and
+                type(window["source_distinct_records"]) is int and window["source_distinct_records"] >= 0 and
+                re.fullmatch(r"[a-f0-9]{64}", window["source_sha256"]) and
+                type(window["bidirectional"]) is bool and window["refinement_factor"] == 1):
+            raise RuntimeError("frozen source windows are invalid or overlapping")
+        total += window["source_distinct_records"]
+        left = window["end"] + 1
+    if left != audit["end"] + 1 or total != accounting["accepted_records"]:
+        raise RuntimeError("frozen source windows do not cover accepted originals")
+    prefix = audit["windows"][:len(original["windows"])]
+    if any({key: w[key] for key in ("start", "end", "source_distinct_records", "source_sha256")} !=
+           {key: old[key] for key in ("start", "end", "source_distinct_records", "source_sha256")} or
+           w["bidirectional"] for w, old in zip(prefix, original["windows"])) or len(prefix) != len(original["windows"]):
+        raise RuntimeError("frozen source proof changed preserved anchor windows")
     return audit
 
 
@@ -305,6 +343,8 @@ def run(target_uid, phase, attempt, apply):
     if not first:
         raise RuntimeError("persisted receiver unexpectedly has no originals")
     source_audit = preserved_source_audit(root) if phase == "final" else None
+    if source_audit:
+        source_audit = frozen_source_audit(source_audit, accounting)
     result = transfer(first[0][1], upper, apply, source_audit)
     require_stage(target_uid, phase)
     if phase == "final" and cold_recovery.metrics(SOURCE) != (0, received):
@@ -314,8 +354,11 @@ def run(target_uid, phase, attempt, apply):
         if source_accounting() != accounting:
             raise RuntimeError("quiescent source rejection accounting changed")
         if result["source_distinct_records"] != accounting["accepted_records"] or count != accounting["accepted_records"]:
-            raise RuntimeError("source enumeration does not account for every accepted original")
-        result.update(source_accepted_records=count, source_query_count=count,
+            raise RuntimeError("source enumeration does not account for every accepted original; enumerated=" +
+                               str(result["source_distinct_records"]) + "; aggregate=" + str(count) +
+                               "; accepted=" + str(accounting["accepted_records"]))
+        result.update(enumeration_complete=True, frozen_source_sha256=FROZEN_SOURCE_SHA256,
+                      source_accepted_records=count, source_query_count=count,
                       source_rate_limited_attempts=accounting["rate_limited_attempts"])
     result.update(phase=phase, attempt=attempt, target_uid=target_uid,
                   source_uid=cold_recovery.BUFFER_POD_UID,
