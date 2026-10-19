@@ -73,4 +73,19 @@ SHA-256 <code>87f30697f8f7633354014bbf4fd442de81a238af237e6c588d6ba48ec403e6a0</
 Full integrity and isolated restored inventory passed; zero pipelines and log
 entries. Original pre-repair recovery point is retained separately. Source PVC
 UID remains 9d28c21c-f01f-46ad-b966-cfb40fa3cda8. No NAS access.</p>
+<h2>Discovered gRPC persistence prerequisite</h2>
+<p>v3.19 starts successfully but warns that WOODPECKER_GRPC_SECRET is temporary
+when omitted. Preserve one internal signing secret across server restarts using
+the existing global-secrets generator. Add only woodpecker.grpc/secret (32 random
+characters), with no account, permission or external credential change. Verify
+existing generated secret data fingerprints remain unchanged without exporting
+values. The generator preserves existing keys; never use a failed read as proof
+that a secret should be replaced.</p>
+<p>First publish generator configuration and a dedicated woodpecker-grpc-secret
+ExternalSecret. Wait for the generator Job's proven completion and ExternalSecret
+Ready before referencing it. Then append only that secret to server envFrom,
+allow its normal rolling replacement, and verify warning absence, existing
+OAuth access, agent contact and all claim identities. Agent credentials, Gitea
+OAuth credentials and existing database trust remain unchanged. A rollback removes
+the new envFrom reference; protect the generated signing secret from disposal.</p>
 </html>

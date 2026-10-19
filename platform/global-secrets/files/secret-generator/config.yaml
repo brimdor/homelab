@@ -46,6 +46,12 @@
       length: 32
       special: false
 
+- name: woodpecker.grpc
+  data:
+    - key: secret
+      length: 32
+      special: false
+
 # Paperless
 - name: paperless.admin
   data:
