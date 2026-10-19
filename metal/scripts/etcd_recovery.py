@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualify a network-isolated k3s recovery environment without production data."""
+"""Preserve and prove isolated k3s recovery without changing live control planes."""
 
 import argparse
 import hashlib
@@ -141,13 +141,40 @@ def receive_bundle(source, destination):
     return header
 
 
+def verify_point(point, expected_sha256):
+    metadata = point.lstat()
+    if (not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid() or
+            stat.S_IMODE(metadata.st_mode) != 0o700 or
+            any(path.is_symlink() for path in point.parents) or
+            {path.name for path in point.iterdir()} != {"snapshot", "token", "encryption-config.json", "verified.json"}):
+        raise RuntimeError("recovery point ownership or contents changed")
+    marker, _ = source_record("verified.json", point / "verified.json")
+    if marker["sha256"] != expected_sha256:
+        raise RuntimeError("recovery point is not the exact verified manifest")
+    descriptor = os.open(point / "verified.json", os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as source:
+        manifest = json.load(source)
+    if (hashlib.sha256(canonical(manifest)).hexdigest() != expected_sha256 or
+            manifest.get("format") != 1 or manifest.get("metadata", {}).get("version") != VERSION or
+            manifest.get("metadata", {}).get("cluster_uid") != CLUSTER_UID or
+            len(manifest.get("files", [])) != 3 or
+            {record["name"] for record in manifest["files"]} != {"snapshot", "token", "encryption-config.json"}):
+        raise RuntimeError("verified recovery manifest identity changed")
+    for record in manifest["files"]:
+        if source_record(record["name"], point / record["name"])[0] != record:
+            raise RuntimeError("verified recovery material changed")
+    if source_record("verified.json", point / "verified.json")[0] != marker:
+        raise RuntimeError("verified recovery marker changed during validation")
+    return manifest
+
+
 def run_identifier(value):
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{7,79}", value):
         raise ValueError("invalid recovery run identifier")
     return value
 
 
-def require_isolation(container, scratch, run_id):
+def require_isolation(container, scratch, run_id, point=None):
     labels = container["Config"].get("Labels", {})
     host = container["HostConfig"]
     expected = {"NetworkMode": "none", "ReadonlyRootfs": True, "Privileged": False,
@@ -162,6 +189,8 @@ def require_isolation(container, scratch, run_id):
         raise RuntimeError("container isolation contract changed")
     expected_mounts = {(str(scratch), "/work", True)} | {
         (str(scratch / name), path, True) for path, name in IMAGE_VOLUMES.items()}
+    if point is not None:
+        expected_mounts.add((str(point), "/recovery", False))
     mounts = container.get("Mounts", [])
     if (len(mounts) != len(expected_mounts) or any(m.get("Type") != "bind" for m in mounts) or
             {(m.get("Source"), m.get("Destination"), m.get("RW")) for m in mounts} != expected_mounts):
@@ -297,24 +326,30 @@ def copy_point(run_id, source):
                     process.wait()
 
 
-def qualify(run_id):
+def qualify(run_id, point=None, manifest_sha256=None):
     if os.geteuid() != 0 or command(["hostname"]).stdout.strip() != b"pikachu":
         raise RuntimeError("qualification must run on the exact authorized off-master host")
     if VERSION.encode() not in command(["/usr/local/bin/k3s", "--version"]).stdout:
         raise RuntimeError("installed k3s version changed")
     private_root()
+    manifest = verify_point(point, manifest_sha256) if point is not None else None
+    if manifest is not None and (manifest["metadata"].get("source_host") != "charmander" or
+                                 manifest["metadata"].get("source_encryption_enabled") is not True):
+        raise RuntimeError("real recovery point provenance is incomplete")
     def interrupted(_number, _frame):
         raise InterruptedError("recovery qualification interrupted")
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, interrupted)
-    scratch = Path(tempfile.mkdtemp(prefix=run_id + "-qualify-", dir=ROOT))
-    scratch.chmod(0o700)
-    for name in IMAGE_VOLUMES.values():
-        (scratch / name).mkdir(mode=0o700)
     before_images = set(docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
+    if docker("ps", "--all", "--quiet", "--filter=label=io.eaglepass.maintenance=103").stdout.strip():
+        raise RuntimeError("an owned recovery test is already active; leave it alone")
+    scratch = Path(tempfile.mkdtemp(prefix=run_id + "-qualify-", dir=ROOT))
     container_id = image_id = None
-    receipt = {"run_id": run_id, "phase": "synthetic-qualification", "accepted": False}
+    receipt = {"run_id": run_id, "phase": "full-restore" if manifest else "synthetic-qualification", "accepted": False}
     try:
+        scratch.chmod(0o700)
+        for name in IMAGE_VOLUMES.values():
+            (scratch / name).mkdir(mode=0o700)
         docker("pull", IMAGE)
         image = json.loads(docker("image", "inspect", IMAGE).stdout)[0]
         image_id = image["Id"]
@@ -331,14 +366,16 @@ def qualify(run_id):
                      "--entrypoint=/bin/sh"]
         arguments += ["--mount=type=bind,source=" + str(scratch / name) + ",target=" + path
                       for path, name in IMAGE_VOLUMES.items()]
+        if point is not None:
+            arguments.append("--mount=type=bind,source=" + str(point) + ",target=/recovery,readonly")
         arguments += [IMAGE, "-c", "exec sleep 2147483647"]
         container_id = docker(*arguments).stdout.decode().strip()
         if not re.fullmatch(r"[a-f0-9]{64}", container_id):
             raise RuntimeError("Docker returned an invalid owned container identity")
-        require_isolation(inspect(container_id), scratch, run_id)
+        require_isolation(inspect(container_id), scratch, run_id, point)
         docker("start", container_id)
         state = inspect(container_id)
-        require_isolation(state, scratch, run_id)
+        require_isolation(state, scratch, run_id, point)
         pid = str(state["State"]["Pid"])
         namespace = ["nsenter", "--target", pid, "--net", "--"]
         links = json.loads(command(namespace + ["ip", "-j", "address"]).stdout)
@@ -351,14 +388,29 @@ def qualify(run_id):
         if VERSION.encode() not in docker("exec", container_id, "/bin/k3s", "--version").stdout:
             raise RuntimeError("container k3s version changed")
         server = ["/bin/k3s", "server", "--config=/dev/null", "--data-dir=/var/lib/rancher/k3s",
-                  "--write-kubeconfig=/work/kubeconfig", "--disable-agent", "--cluster-init",
+                  "--write-kubeconfig=/work/kubeconfig", "--disable-agent",
                   "--node-name=maintenance-103-qualify", "--node-ip=127.0.0.1", "--advertise-address=127.0.0.1",
                   "--bind-address=127.0.0.1", "--https-listen-port=16443", "--secrets-encryption",
                   "--etcd-disable-snapshots", "--disable=traefik,servicelb,local-storage,metrics-server,coredns",
                   "--disable-helm-controller", "--disable-network-policy", "--disable-kube-proxy", "--flannel-backend=none"]
+        if manifest is None:
+            server.append("--cluster-init")
+        else:
+            server.append("--token-file=/recovery/token")
+            reset = [*server, "--cluster-reset", "--cluster-reset-restore-path=/recovery/snapshot"]
+            docker("exec", container_id, "/bin/sh", "-c", "umask 077; " + shlex.join(reset) +
+                   " > /work/reset.log 2>&1")
+            recovered = scratch / "data/server/cred/encryption-config.json"
+            expected = next(record for record in manifest["files"] if record["name"] == "encryption-config.json")
+            if source_record("encryption-config.json", recovered)[0] != expected:
+                raise RuntimeError("restored bootstrap encryption configuration differs from the recovery point")
+            receipt.update(reset_exit=0, recovered_encryption_configuration_matches=True,
+                           manifest_sha256=manifest_sha256,
+                           point_age_seconds=(time.time_ns() - manifest["metadata"]["snapshot_mtime_ns"]) / 10**9)
         script = "umask 077; " + shlex.join(server) + " > /work/server.log 2>&1; echo $? > /work/server.exit"
         docker("exec", "-d", container_id, "/bin/sh", "-c", script)
-        client = ["exec", container_id, "/bin/kubectl", "--kubeconfig=/work/kubeconfig", "--request-timeout=5s"]
+        client = ["exec", container_id, "/bin/kubectl", "--kubeconfig=/work/kubeconfig",
+                  "--cache-dir=/work/kube-cache", "--request-timeout=5s"]
         while True:
             if (scratch / "server.exit").exists():
                 receipt["server_exit"] = (scratch / "server.exit").read_text().strip()
@@ -371,13 +423,28 @@ def qualify(run_id):
             time.sleep(5)
         namespace = json.loads(docker(*client, "get", "namespace", "kube-system", "-o=json").stdout)
         nodes = json.loads(docker(*client, "get", "nodes", "-o=json").stdout)
-        if namespace["metadata"]["uid"] == "7ff226e0-565a-4610-8a3e-97e7e87355a3" or nodes["items"]:
-            raise RuntimeError("synthetic identity or agentless contract failed")
         receipt.update(accepted=True, image_id=image_id, image_digest=IMAGE, version=VERSION,
-                       only_loopback=True, production_api_unroutable=True,
-                       synthetic_namespace_uid=namespace["metadata"]["uid"], synthetic_nodes=0)
+                       only_loopback=True, production_api_unroutable=True)
+        if manifest is None:
+            if namespace["metadata"]["uid"] == CLUSTER_UID or nodes["items"]:
+                raise RuntimeError("synthetic identity or agentless contract failed")
+            receipt.update(synthetic_namespace_uid=namespace["metadata"]["uid"], synthetic_nodes=0)
+        else:
+            expected = manifest["metadata"]
+            namespaces = json.loads(docker(*client, "get", "namespaces", "-o=json").stdout)["items"]
+            protected = expected["protected_secret"]
+            secret = json.loads(docker(*client, "get", "secret", protected["name"],
+                                      "-n=" + protected["namespace"], "-o=json").stdout)
+            if (namespace["metadata"]["uid"] != CLUSTER_UID or
+                    {item["metadata"]["name"]: item["metadata"]["uid"] for item in namespaces} != expected["namespaces"] or
+                    {item["metadata"]["name"]: item["metadata"]["uid"] for item in nodes["items"]} != expected["nodes"] or
+                    secret["metadata"]["uid"] != protected["uid"] or len(secret.get("data", {})) != protected["key_count"] or
+                    hashlib.sha256(canonical(secret.get("data"))).hexdigest() != protected["data_sha256"]):
+                raise RuntimeError("restored API identities or protected data do not match the original point")
+            receipt.update(restored_cluster_uid=CLUSTER_UID, restored_nodes=len(nodes["items"]),
+                           restored_namespaces=len(namespaces), protected_secret_readback_matches=True)
     except Exception as error:
-        receipt["error"] = str(error)
+        receipt.update(accepted=False, error=str(error))
     finally:
         if container_id:
             current = inspect(container_id)
@@ -393,7 +460,11 @@ def qualify(run_id):
             consumers = docker("ps", "--all", "--quiet", "--filter=ancestor=" + image_id).stdout.strip()
             if not consumers:
                 docker("image", "rm", IMAGE)
+                if docker("image", "inspect", image_id, check=False).returncode == 0:
+                    raise RuntimeError("new test-only image remains after cleanup")
         receipt["cleanup"] = {"container_absent": True, "scratch_absent": not scratch.exists()}
+        if manifest is not None:
+            receipt["protected_point_unchanged"] = verify_point(point, manifest_sha256) == manifest
     return receipt
 
 
@@ -421,9 +492,12 @@ def cancel_qualification(run_id):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["qualify", "internal-qualify", "cancel-qualify", "internal-cancel-qualify",
-                                         "copy", "internal-send", "internal-receive"])
+                                         "copy", "internal-send", "internal-receive", "restore", "internal-restore"])
     parser.add_argument("--run-id", required=True, type=run_identifier)
+    parser.add_argument("--manifest-sha256")
     args = parser.parse_args()
+    if args.phase in ("restore", "internal-restore") and not re.fullmatch(r"[a-f0-9]{64}", args.manifest_sha256 or ""):
+        parser.error("restore requires the exact preserved manifest SHA256")
     if args.phase == "internal-qualify":
         receipt = qualify(args.run_id)
     elif args.phase == "internal-cancel-qualify":
@@ -435,9 +509,13 @@ def main():
         receipt = preserve_point(args.run_id)
     elif args.phase == "copy":
         receipt = copy_point(args.run_id, Path(__file__).read_text())
+    elif args.phase == "internal-restore":
+        receipt = qualify(args.run_id, ROOT / args.run_id, args.manifest_sha256)
     else:
         source = Path(__file__).read_text()
         remote = "python3 -B -c " + shlex.quote(source) + " internal-" + args.phase + " --run-id " + shlex.quote(args.run_id)
+        if args.phase == "restore":
+            remote += " --manifest-sha256 " + args.manifest_sha256
         result = command([*SSH, remote], check=False)
         try:
             receipt = json.loads(result.stdout)

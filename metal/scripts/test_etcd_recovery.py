@@ -38,6 +38,17 @@ class IsolationTests(unittest.TestCase):
     def test_exact_owned_isolated_container_is_accepted(self):
         RECOVERY.require_isolation(self.container, self.scratch, "qualify-12345678")
 
+    def test_real_recovery_material_must_be_the_exact_read_only_point(self):
+        point = self.scratch.parent / "protected-point"
+        container = copy.deepcopy(self.container)
+        container["Mounts"].append({"Type": "bind", "Source": str(point), "Destination": "/recovery", "RW": False})
+        RECOVERY.require_isolation(container, self.scratch, "qualify-12345678", point)
+        for key, value in (("RW", True), ("Source", "/var/lib/rancher/k3s")):
+            changed = copy.deepcopy(container)
+            changed["Mounts"][-1][key] = value
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                RECOVERY.require_isolation(changed, self.scratch, "qualify-12345678", point)
+
     def test_network_privilege_namespace_device_and_port_changes_are_refused(self):
         changes = {"NetworkMode": "host", "ReadonlyRootfs": False, "Privileged": True,
                    "CapDrop": [], "CapAdd": ["NET_ADMIN"], "SecurityOpt": [], "PidMode": "host",
@@ -173,6 +184,18 @@ class BundleTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             RECOVERY.receive_bundle(io.BytesIO(stream.getvalue()), self.root / "changed")
         self.assertFalse((self.root / "changed" / "verified.json").exists())
+
+    def test_restore_requires_the_exact_verified_manifest_and_unchanged_files(self):
+        import hashlib
+        destination = self.root / "point"
+        manifest = RECOVERY.receive_bundle(io.BytesIO(self.encoded()), destination)
+        expected = hashlib.sha256(RECOVERY.canonical(manifest)).hexdigest()
+        self.assertEqual(RECOVERY.verify_point(destination, expected), manifest)
+        with self.assertRaises(RuntimeError):
+            RECOVERY.verify_point(destination, "0" * 64)
+        (destination / "token").write_bytes(b"different synthetic material")
+        with self.assertRaises(RuntimeError):
+            RECOVERY.verify_point(destination, expected)
 
 
 if __name__ == "__main__":
