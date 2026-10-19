@@ -127,4 +127,31 @@ records are not replayed. Preserve audit and recovery receipts before retiring
 the Jobs through Git. Retired collector/Loki self-log files and a completed
 backup Job are lifecycle exceptions; their absence is not proof of lossless
 retention or exactly-once delivery.</p>
+<h2>Supported server and chart stage</h2>
+<p>Target Loki 3.7.8, immutable digest
+<code>sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193</code>,
+community chart 18.17.1. An isolated native-sidecar Job restores the original
+verified 2.6.1 recovery point into a separate protected claim. Production keeps
+its current Pod, Service, claim and collectors. No production Service selects
+the Job; recovery is mounted read-only and its original proof is never replaced.
+Require all fixed namespace counts and earliest record hashes identical, exact
+build version and config hash, and legitimate successful Job ownership/exits.</p>
+<p>Keep the old v11 period unchanged. Append a TSDB v13 period starting
+2026-10-20 UTC; disable structured metadata until that period is active and
+preserve existing labels. Remove only settings rejected by the 3.7.8 validator.
+A local synthetic test must exercise both periods, flush and restart using
+only synthetic data. Synthetic future timestamps never enter production.</p>
+<p>Before cutover, preserve a fresh consistent current store with exact PVC/Pod
+and collector-quiescence guards, full file hashes and a matching isolated restore.
+The original pre-PVC point remains protected but cannot represent later logs.
+Extract Alloy resources from the old chart with equivalent identities before
+removing that dependency. Never load both Loki chart helper namespaces together.
+Stop the old writer through Git before starting the new controller on the same
+RWO claim. Preserve Service loki and metrics selectors. After production-service
+history, fresh ingestion, coverage and continuity checks, retire temporary Jobs
+through Git. A rollback retains the PVC and requires a version/schema-compatible
+recovery point; never return to emptyDir or run 2.6 against new TSDB data.</p>
+<p>References: <a href="https://grafana.com/docs/loki/latest/setup/upgrade/">Loki upgrade guidance</a>,
+<a href="https://grafana.com/docs/loki/latest/operations/storage/tsdb/">TSDB storage</a>,
+<a href="https://grafana.com/docs/loki/latest/setup/install/helm/">current Helm installation</a>.</p>
 </html>

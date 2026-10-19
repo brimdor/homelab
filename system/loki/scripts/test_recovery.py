@@ -62,6 +62,26 @@ class StoreRecoveryTests(unittest.TestCase):
         query.assert_called_once_with("http://loki.loki:3100", 123)
         self.assertFalse((self.root / "restore-proof.json").exists())
 
+    def test_candidate_checks_version_and_does_not_overwrite_original_proof(self):
+        proof = {"historical": {"rows": 100, "sha256": "proof"}}
+        value = {"timestamp": 123, "queries": proof, "manifest_sha256": "manifest"}
+        original = self.root / "restore-proof.json"
+        original.write_text("original verified recovery")
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        with patch.object(RECOVERY, "recovery_point", return_value=(self.root, value)), \
+                patch.object(RECOVERY, "query_proof", return_value=proof), \
+                patch.object(RECOVERY, "get_json", return_value={"version": "3.7.8"}), \
+                patch.object(RECOVERY.Path, "read_bytes", return_value=b"candidate configuration"), \
+                patch.object(RECOVERY.urllib.request, "urlopen", return_value=response):
+            RECOVERY.verify(candidate=True)
+        self.assertEqual(original.read_text(), "original verified recovery")
+        with patch.object(RECOVERY, "recovery_point", return_value=(self.root, value)), \
+                patch.object(RECOVERY, "get_json", return_value={"version": "2.6.1"}), \
+                patch.object(RECOVERY.urllib.request, "urlopen", return_value=response):
+            with self.assertRaisesRegex(RuntimeError, "candidate version"):
+                RECOVERY.verify(candidate=True)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -207,7 +207,7 @@ def prepare():
     print(json.dumps({"restored_files": len(subtree), "source_manifest": value["manifest_sha256"]}), flush=True)
 
 
-def verify(service=False):
+def verify(service=False, candidate=False):
     root, value = recovery_point()
     base = "http://loki.loki:3100" if service else "http://127.0.0.1:3100"
     for _ in range(120):
@@ -220,13 +220,22 @@ def verify(service=False):
         time.sleep(2)
     else:
         raise RuntimeError("isolated restored Loki did not become ready")
+    candidate_identity = {}
+    if candidate:
+        build = get_json(base + "/loki/api/v1/status/buildinfo")
+        if build["version"] != "3.7.8":
+            raise RuntimeError("unexpected isolated candidate version")
+        candidate_identity = {
+            "version": build["version"],
+            "config_sha256": hashlib.sha256(Path("/scripts/candidate.yaml").read_bytes()).hexdigest(),
+        }
     proof = query_proof(base, value["timestamp"])
     if proof != value["queries"]:
         raise RuntimeError("restored query results differ")
     result = {"restored_queries_identical": True, "queries": proof,
               "source_manifest_sha256": value["manifest_sha256"],
-              "timestamp": value["timestamp"], "service": service}
-    if not service:
+              "timestamp": value["timestamp"], "service": service, **candidate_identity}
+    if not service and not candidate:
         with (root / "restore-proof.json").open("x") as output:
             json.dump(result, output, sort_keys=True)
     print(json.dumps(result), flush=True)
@@ -235,7 +244,7 @@ def verify(service=False):
 if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["backup", "prepare", "verify", "verify-service"])
+    parser.add_argument("mode", choices=["backup", "prepare", "verify", "verify-service", "verify-candidate"])
     parser.add_argument("--source-uid")
     args = parser.parse_args()
     if args.mode == "backup":
@@ -245,4 +254,4 @@ if __name__ == "__main__":
     elif args.mode == "prepare":
         prepare()
     else:
-        verify(service=args.mode == "verify-service")
+        verify(service=args.mode == "verify-service", candidate=args.mode == "verify-candidate")
