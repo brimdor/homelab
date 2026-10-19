@@ -28,7 +28,10 @@ class IsolationTests(unittest.TestCase):
                            "Tmpfs": {"/run": "rw,nosuid,nodev", "/tmp": "rw,nosuid,nodev"}},
             "Mounts": [{"Type": "bind", "Source": str(self.scratch), "Destination": "/work", "RW": True},
                        {"Type": "bind", "Source": str(self.scratch / "data"),
-                        "Destination": "/var/lib/rancher/k3s", "RW": True}],
+                        "Destination": "/var/lib/rancher/k3s", "RW": True},
+                       {"Type": "bind", "Source": str(self.scratch / "cni"), "Destination": "/var/lib/cni", "RW": True},
+                       {"Type": "bind", "Source": str(self.scratch / "kubelet"), "Destination": "/var/lib/kubelet", "RW": True},
+                       {"Type": "bind", "Source": str(self.scratch / "logs"), "Destination": "/var/log", "RW": True}],
         }
 
     def test_exact_owned_isolated_container_is_accepted(self):

@@ -18,6 +18,8 @@ import time
 IMAGE = "docker.io/rancher/k3s@sha256:d7119ab9e0054692a86a8eda454f2d3370dafc1c3a96b3ace5c5599f0c1e9f15"
 VERSION = "v1.33.6+k3s1"
 ROOT = Path("/var/lib/homelab-recovery/maintenance-103")
+IMAGE_VOLUMES = {"/var/lib/rancher/k3s": "data", "/var/lib/cni": "cni",
+                 "/var/lib/kubelet": "kubelet", "/var/log": "logs"}
 SSH = ["ssh", "-i", str(Path.home() / ".ssh/homelab"), "-o", "IdentitiesOnly=yes",
        "-o", "UserKnownHostsFile=" + str(Path.home() / ".ssh/homelab_known_hosts"),
        "-o", "StrictHostKeyChecking=yes", "-o", "UpdateHostKeys=no", "-o", "BatchMode=yes",
@@ -42,10 +44,10 @@ def require_isolation(container, scratch, run_id):
             any(host.get(k) for k in ("CapAdd", "Devices", "DeviceRequests", "PortBindings")) or
             host.get("SecurityOpt") != ["no-new-privileges:true"]):
         raise RuntimeError("container isolation contract changed")
-    expected_mounts = {(str(scratch), "/work", True),
-                       (str(scratch / "data"), "/var/lib/rancher/k3s", True)}
+    expected_mounts = {(str(scratch), "/work", True)} | {
+        (str(scratch / name), path, True) for path, name in IMAGE_VOLUMES.items()}
     mounts = container.get("Mounts", [])
-    if (len(mounts) != 2 or any(m.get("Type") != "bind" for m in mounts) or
+    if (len(mounts) != len(expected_mounts) or any(m.get("Type") != "bind" for m in mounts) or
             {(m.get("Source"), m.get("Destination"), m.get("RW")) for m in mounts} != expected_mounts):
         raise RuntimeError("container has an unowned or unexpected mount")
 
@@ -98,7 +100,8 @@ def qualify(run_id):
     private_root()
     scratch = Path(tempfile.mkdtemp(prefix=run_id + "-qualify-", dir=ROOT))
     scratch.chmod(0o700)
-    (scratch / "data").mkdir(mode=0o700)
+    for name in IMAGE_VOLUMES.values():
+        (scratch / name).mkdir(mode=0o700)
     before_images = set(docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
     container_id = image_id = None
     receipt = {"run_id": run_id, "phase": "synthetic-qualification", "accepted": False}
@@ -107,16 +110,18 @@ def qualify(run_id):
         image = json.loads(docker("image", "inspect", IMAGE).stdout)[0]
         image_id = image["Id"]
         if (image.get("Architecture") != "amd64" or image.get("Os") != "linux" or
-                set(image["Config"].get("Volumes") or {}) - {"/var/lib/rancher/k3s"}):
+                set(image["Config"].get("Volumes") or {}) != set(IMAGE_VOLUMES)):
             raise RuntimeError("official image architecture or volume contract changed")
         arguments = ["create", "--network=none", "--read-only", "--cap-drop=ALL",
                      "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=256",
                      "--cpus=2", "--memory=2g", "--label=io.eaglepass.maintenance=103",
                      "--label=io.eaglepass.recovery-run=" + run_id,
                      "--mount=type=bind,source=" + str(scratch) + ",target=/work",
-                     "--mount=type=bind,source=" + str(scratch / "data") + ",target=/var/lib/rancher/k3s",
                      "--tmpfs=/run:rw,nosuid,nodev", "--tmpfs=/tmp:rw,nosuid,nodev",
-                     "--entrypoint=/bin/sh", IMAGE, "-c", "exec sleep 2147483647"]
+                     "--entrypoint=/bin/sh"]
+        arguments += ["--mount=type=bind,source=" + str(scratch / name) + ",target=" + path
+                      for path, name in IMAGE_VOLUMES.items()]
+        arguments += [IMAGE, "-c", "exec sleep 2147483647"]
         container_id = docker(*arguments).stdout.decode().strip()
         if not re.fullmatch(r"[a-f0-9]{64}", container_id):
             raise RuntimeError("Docker returned an invalid owned container identity")
