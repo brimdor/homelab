@@ -206,7 +206,6 @@ def prepare(point="pre-pvc-20261019", subdirectory=""):
     target = Path("/target") / subdirectory
     if subdirectory:
         target.mkdir(mode=0o700)
-        os.chown(target, 10001, 10001)
     if any(p.name != "lost+found" or not p.is_dir() or list(p.iterdir())
            for p in target.iterdir()):
         raise RuntimeError("target is not an empty fresh claim")
@@ -216,6 +215,15 @@ def prepare(point="pre-pvc-20261019", subdirectory=""):
     subtree = [{**item, "path": str(Path(item["path"]).relative_to("loki"))}
                for item in value["manifest"]]
     copy_verified(root / "source/loki", target / "loki", subtree, owner=10001)
+    if subdirectory:
+        # Keep root's write access until copy completes; DAC_READ_SEARCH cannot override writes.
+        os.chown(target, 10001, 10001)
+    for directory in [target] + ([target.parent] if subdirectory else []):
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
     print(json.dumps({"restored_files": len(subtree), "source_manifest": value["manifest_sha256"]}), flush=True)
 
 
@@ -260,7 +268,7 @@ if __name__ == "__main__":
     parser.add_argument("--source-uid")
     parser.add_argument("--source-pvc-uid")
     parser.add_argument("--point", choices=["pre-pvc-20261019", "pre-upgrade-20261019", "pre-upgrade-offline-20261019"], default="pre-pvc-20261019")
-    parser.add_argument("--target-subdirectory", choices=["", "pre-upgrade-20261019-old", "pre-upgrade-20261019-new", "pre-upgrade-offline-20261019-old", "pre-upgrade-offline-20261019-new"], default="")
+    parser.add_argument("--target-subdirectory", choices=["", "pre-upgrade-20261019-old", "pre-upgrade-20261019-new", "pre-upgrade-offline-20261019-old", "pre-upgrade-offline-20261019-new", "pre-upgrade-offline-20261019-old-2", "pre-upgrade-offline-20261019-new-2"], default="")
     args = parser.parse_args()
     if args.mode == "backup":
         if args.point == "pre-upgrade-offline-20261019":

@@ -93,9 +93,14 @@ class StoreRecoveryTests(unittest.TestCase):
         def path(value):
             return target if value == "/target" else Path(value)
 
+        def chown_after_copy(directory, uid, group):
+            if Path(directory).name in ("pre-upgrade-20261019-old", "pre-upgrade-20261019-new"):
+                self.assertTrue((Path(directory) / "loki/chunk").is_file(),
+                                "changing ownership before copy removes root's write access")
+
         with patch.object(RECOVERY, "recovery_point", return_value=(self.root, value)), \
                 patch.object(RECOVERY, "Path", side_effect=path), \
-                patch.object(RECOVERY.os, "chown") as chown:
+                patch.object(RECOVERY.os, "chown", side_effect=chown_after_copy) as chown:
             for suffix in ("old", "new"):
                 RECOVERY.prepare("pre-upgrade-20261019", "pre-upgrade-20261019-" + suffix)
             with self.assertRaises(FileExistsError):
