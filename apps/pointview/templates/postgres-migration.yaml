@@ -1,0 +1,92 @@
+{{- with .Values.postgresMigration }}
+{{- if .enabled }}
+{{- $name := "postgres-migration-103-20261019-a" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+data:
+  migration.sh: |
+{{ $.Files.Get "files/postgres-migration.sh" | indent 4 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+spec:
+  podSelector:
+    matchLabels:
+      maintenance.eaglepass.io/operation: {{ $name }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        maintenance.eaglepass.io/operation: {{ $name }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeName: {{ required "migration nodeName required" .nodeName | quote }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: prepare
+          image: docker.io/library/postgres@sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee
+          command: [/bin/bash, /scripts/migration.sh, prepare]
+          env: &environment
+            - {name: POSTGRES_USER, value: {{ required "migration role required" .role | quote }}}
+            - {name: MIGRATION_ID, value: "20261019-a"}
+            - {name: PGDATA, value: /var/lib/postgresql/pg18-maintenance-103-20261019-a}
+            - {name: MANIFEST_SHA256, value: {{ required "manifest required" .manifest | quote }}}
+            - {name: GLOBALS_SHA256, value: {{ required "globals hash required" .globals | quote }}}
+            - {name: ARCHIVE_SHA256, value: {{ required "archive hash required" .archive | quote }}}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ printf "%s-secrets" $.Release.Name }}, key: postgres-password}
+          securityContext: &security
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources: &resources
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          volumeMounts:
+            - {name: data, mountPath: /volume}
+            - {name: script, mountPath: /scripts, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: restore
+          image: docker.io/library/postgres@sha256:d8703cd7fba306b9fec9268ecedfa8a966846c053036a60e3635791957eb2f66
+          command: [/bin/bash, /scripts/migration.sh, restore]
+          env: *environment
+          securityContext: *security
+          resources: *resources
+          volumeMounts:
+            - {name: data, mountPath: /original, subPath: pgdata, readOnly: true}
+            - {name: data, mountPath: /recovery, subPath: migration-103-20261019-a}
+            - {name: data, mountPath: /var/lib/postgresql/pg18-maintenance-103-20261019-a, subPath: pg18-maintenance-103-20261019-a}
+            - {name: script, mountPath: /scripts, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: {{ printf "%s-postgres-data" $.Release.Name }}}
+        - name: script
+          configMap: {name: {{ $name }}, defaultMode: 0555}
+        - name: tmp
+          emptyDir: {medium: Memory}
+{{- end }}
+{{- end }}

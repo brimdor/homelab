@@ -286,8 +286,32 @@ def finalize(run_id, manifest):
             "files": manifest["files"], "namespace": manifest["namespace"]}
 
 
-def backup(namespace, run_id):
+def require_quiescence(namespace):
+    client = [os.environ.get("KUBECTL", "kubectl")]
+    objects = json.loads(common.command([*client, "get", "deployment,cronjob,job,pod", "-n", namespace,
+                                         "-o=json"]).stdout)["items"]
+    deployments = [o for o in objects if o["kind"] == "Deployment"]
+    if len(deployments) != 1 or deployments[0]["metadata"]["name"] != namespace:
+        raise RuntimeError("writer ownership changed")
+    for obj in objects:
+        spec, status = obj.get("spec", {}), obj.get("status", {})
+        if ((obj["kind"] == "Deployment" and (spec.get("replicas") != 0 or status.get("replicas", 0) != 0)) or
+                (obj["kind"] == "CronJob" and (spec.get("suspend") is not True or status.get("active"))) or
+                (obj["kind"] == "Job" and status.get("active", 0)) or
+                (obj["kind"] == "Pod" and status.get("phase") not in ("Succeeded", "Failed") and
+                 obj["metadata"]["name"] != namespace + "-postgres-0")):
+            raise RuntimeError("application writer is not quiesced")
+    query = "SELECT count(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_backend_pid()"
+    count = common.command(source_client(namespace, "psql", "-X", "-Atq", "-v", "ON_ERROR_STOP=1", "-c", query,
+                                         database=namespace.removesuffix("-canary"))).stdout.strip()
+    if count != b"0":
+        raise RuntimeError("database still has another client")
+
+
+def backup(namespace, run_id, quiesced=False):
     identity = source_identity(namespace)
+    if quiesced:
+        require_quiescence(namespace)
     before = source_metadata(namespace)
     files = {}
     role = namespace.removesuffix("-canary")
@@ -316,9 +340,11 @@ def backup(namespace, run_id):
                         process.wait()
     if source_identity(namespace) != identity:
         raise RuntimeError("source identity changed during export")
+    if quiesced:
+        require_quiescence(namespace)
     manifest = {"format": 1, "namespace": namespace, "cluster_uid": common.CLUSTER_UID, "image": IMAGE,
                 "identity": identity, "before": before, "after": source_metadata(namespace), "files": files,
-                "source_quiesced": False, "role_passwords_omitted": True}
+                "source_quiesced": quiesced, "role_passwords_omitted": True}
     return json.loads(common.command(remote("internal-finalize", run_id, "--manifest", json.dumps(manifest))).stdout)
 
 
@@ -495,14 +521,17 @@ def main():
     parser.add_argument("--file", choices=("globals.sql", "database.dump"))
     parser.add_argument("--manifest")
     parser.add_argument("--qualify-18-6", action="store_true")
+    parser.add_argument("--quiesced", action="store_true")
     args = parser.parse_args()
     if args.qualify_18_6 and args.mode not in ("restore", "internal-restore"):
         parser.error("candidate qualification requires restore mode")
+    if args.quiesced and args.mode != "backup":
+        parser.error("quiescence applies only to a new backup")
     os.umask(0o077)
     if args.mode == "backup":
         if not args.namespace:
             parser.error("backup requires namespace")
-        result = backup(args.namespace, args.run_id)
+        result = backup(args.namespace, args.run_id, args.quiesced)
     elif args.mode == "restore":
         if not args.manifest or not re.fullmatch(r"[a-f0-9]{64}", args.manifest):
             parser.error("restore requires exact manifest hash")
