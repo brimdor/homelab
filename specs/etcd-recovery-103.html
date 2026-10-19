@@ -20,9 +20,33 @@
 <body><main>
   <p class="muted"><a href="https://git.eaglepass.io/ops/homelab/issues/103">Maintenance #103</a> · RECOVERY_PROOF · 2026-10-19</p>
   <h1>Prove recovery without connecting a restored control plane to production</h1>
-  <p class="status"><strong>Implementation plan; acceptance remains INCOMPLETE.</strong>
+  <p class="status"><strong>Control-plane recovery slice PASSED; overall RECOVERY_PROOF remains INCOMPLETE.</strong>
     Existing maintenance authority covers this recovery slice. The operator has accepted cluster-local recovery storage.
-    A successful control-plane drill will not close database, retained-PVC or NAS recovery gaps.</p>
+    This successful control-plane drill does not close database, retained-PVC or NAS recovery gaps.</p>
+
+  <h2>Verified acceptance · 2026-10-19 17:22 UTC</h2>
+  <p>The protected point <code>etcd-20261019-a</code> restored successfully on pikachu using published source
+    <code>c9d3545d0c7a2c2fe01ae86d6ac14ea3985f0092</code>. The receipt
+    <code>etcd-owned-token-restore-yggz0uv7/outputs/restore.json</code> records reset exit 0,
+    identical encryption configuration, all 9 original Node identities, all 71 namespace identities and matching
+    UID/key count/data hash for the protected named Secret. No secret values were exported.</p>
+  <p>The point contains a 74,149,920-byte snapshot and its matching token and encryption configuration.
+    Manifest SHA256: <code>8f2cdb6a91256e9b368b134401211a7fe16f30eebe54d39605af9ce1e0e1de95</code>.
+    Point age at reset was 638 seconds. The exact official image was
+    <code>docker.io/rancher/k3s@sha256:d7119ab9e0054692a86a8eda454f2d3370dafc1c3a96b3ace5c5599f0c1e9f15</code>,
+    version <code>v1.33.6+k3s1</code>.</p>
+  <p>Kernel evidence confirmed loopback-only networking and no route to the production API.
+    Production Node and cluster identities remained unchanged. Owned clone/container and scratch cleanup passed;
+    the protected point was rehashed unchanged afterward. Synthetic qualification F passed before real-point use.
+    Fourteen scoped regression tests and scoped pre-commit checks passed for the final recovery implementation.</p>
+  <p>The first isolated reset failed because this pinned k3s version checks its default token path before honoring
+    <code>--token-file</code> during restore. The fix stages the verified original token at that path only inside owned
+    disposable scratch. The successful repeat establishes that workaround for this exact version and artifact.
+    Failed attempts also preserved the point and passed cleanup. See the pinned
+    <a href="https://github.com/k3s-io/k3s/blob/v1.33.6%2Bk3s1/pkg/cli/server/server.go">server implementation</a>.</p>
+  <p><strong>Limits:</strong> no production reset, node replacement, workload-data restore, database migration,
+    NAS recovery or independent-storage resilience was tested. The owner accepted the cluster-local off-master
+    storage risk. Preserve the original source snapshot and off-master point.</p>
 
   <h2>Objective and evidence</h2>
   <p>Create a protected, hash-verified off-master recovery bundle and prove that the exact installed k3s version restores it,
@@ -76,7 +100,7 @@
   <h2>Commands, structure and style</h2>
   <p>Planned operator interface: <code>python3 metal/scripts/etcd_recovery.py qualify --run-id &lt;unique-id&gt;</code>,
     then <code>python3 metal/scripts/etcd_recovery.py copy --run-id &lt;unique-id&gt;</code>,
-    then <code>python3 metal/scripts/etcd_recovery.py restore --run-id &lt;same-id&gt;</code>.
+    then <code>python3 metal/scripts/etcd_recovery.py restore --run-id &lt;same-id&gt; --manifest-sha256 &lt;verified-sha256&gt;</code>.
     Qualification uses synthetic data and must pass isolation and cleanup before a production bundle is consumed.</p>
   <p>Tests belong in <code>metal/scripts/test_etcd_recovery.py</code>:
     <code>python3 -B -m unittest discover -s metal/scripts -p test_etcd_recovery.py</code>.
