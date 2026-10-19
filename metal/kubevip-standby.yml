@@ -1,0 +1,134 @@
+---
+- name: Upgrade exactly one existing kube-vip standby
+  hosts: masters
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files:
+    - roles/k3s/defaults/main.yml
+  vars:
+    ansible_ssh_common_args: >-
+      -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no
+      -o UserKnownHostsFile={{ lookup('env', 'HOME') }}/.ssh/homelab_known_hosts
+    kubevip_manifest: "{{ k3s_data_dir }}/agent/pod-manifests/kube-vip.yaml"
+    kubevip_original: /var/lib/homelab-recovery/maintenance-103/kube-vip-original.yaml
+    kubevip_client:
+      - /usr/local/bin/kubectl
+      - --kubeconfig=/etc/rancher/k3s/k3s.yaml
+      - --server=https://127.0.0.1:6443
+      - --request-timeout=10s
+  tasks:
+    - name: Require exact reviewed single-host identity and original hash
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - inventory_hostname == kubevip_target
+          - kubevip_expected_sha256 is match('^[a-f0-9]{64}$')
+          - kubevip_expected_lease_uid | length == 36
+          - kubevip_expected_cluster_uid | length == 36
+          - lookup('ansible.builtin.config', 'HOST_KEY_CHECKING') | bool
+
+    - name: Read current manifest identity
+      ansible.builtin.stat:
+        path: "{{ kubevip_manifest }}"
+        checksum_algorithm: sha256
+      register: kubevip_before
+
+    - name: Refuse changed or unsafe original
+      ansible.builtin.assert:
+        that:
+          - kubevip_before.stat.isreg
+          - not kubevip_before.stat.islnk
+          - kubevip_before.stat.uid == 0
+          - kubevip_before.stat.checksum == kubevip_expected_sha256
+
+    - name: Verify cluster identity
+      ansible.builtin.command:
+        argv: "{{ kubevip_client + ['get', 'namespace', 'kube-system', '-o=json'] }}"
+      changed_when: false
+      register: kubevip_cluster
+
+    - name: Read election identity before backup
+      ansible.builtin.command:
+        argv: "{{ kubevip_client + ['get', 'lease', 'plndr-cp-lock', '-n=kube-system', '-o=json'] }}"
+      changed_when: false
+      register: kubevip_lease
+
+    - name: Refuse leader disruption or changed cluster/election
+      ansible.builtin.assert:
+        that:
+          - (kubevip_cluster.stdout | from_json).metadata.uid == kubevip_expected_cluster_uid
+          - (kubevip_lease.stdout | from_json).metadata.uid == kubevip_expected_lease_uid
+          - (kubevip_lease.stdout | from_json).spec.holderIdentity != inventory_hostname
+          - (kubevip_lease.stdout | from_json).spec.leaseDurationSeconds == 30
+
+    - name: Preserve protected original outside the watched manifest directory
+      ansible.builtin.file:
+        path: "{{ kubevip_original | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: Preserve original without overwriting recovery material
+      ansible.builtin.copy:
+        src: "{{ kubevip_manifest }}"
+        dest: "{{ kubevip_original }}"
+        remote_src: true
+        force: false
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Verify protected original hash
+      ansible.builtin.stat:
+        path: "{{ kubevip_original }}"
+        checksum_algorithm: sha256
+      register: kubevip_backup
+
+    - name: Require exact protected recovery copy
+      ansible.builtin.assert:
+        that:
+          - kubevip_backup.stat.isreg
+          - not kubevip_backup.stat.islnk
+          - kubevip_backup.stat.uid == 0
+          - kubevip_backup.stat.mode == '0600'
+          - kubevip_backup.stat.checksum == kubevip_expected_sha256
+
+    - name: Recheck election immediately before the manifest replacement
+      ansible.builtin.command:
+        argv: "{{ kubevip_client + ['get', 'lease', 'plndr-cp-lock', '-n=kube-system', '-o=json'] }}"
+      changed_when: false
+      register: kubevip_final_lease
+
+    - name: Stop if this host became leader
+      ansible.builtin.assert:
+        that:
+          - (kubevip_final_lease.stdout | from_json).metadata.uid == kubevip_expected_lease_uid
+          - (kubevip_final_lease.stdout | from_json).spec.holderIdentity != inventory_hostname
+
+    - name: Atomically install only the repository-owned kube-vip manifest
+      ansible.builtin.template:
+        src: roles/k3s/templates/kube-vip.yaml.j2
+        dest: "{{ kubevip_manifest }}"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Wait for the exact candidate on the selected node
+      ansible.builtin.command:
+        argv: "{{ kubevip_client + ['get', 'pod', 'kube-vip-' + inventory_hostname, '-n=kube-system', '-o=json'] }}"
+      changed_when: false
+      register: kubevip_candidate
+      until:
+        - kubevip_candidate.rc == 0
+        - (kubevip_candidate.stdout | from_json).spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip@sha256:26ead1e4f7ce486d1e60351181957f35ae54d30c11e8ae0a30d8e9ca1d8acb51'
+        - (kubevip_candidate.stdout | from_json).status.containerStatuses[0].ready
+      retries: 120
+      delay: 5
+
+    - name: Verify the API virtual IP after the standby rollout
+      ansible.builtin.command:
+        argv: "{{ kubevip_client | reject('equalto', '--server=https://127.0.0.1:6443') | list + ['--server=https://' + control_plane_endpoint + ':6443', 'get', '--raw=/readyz'] }}"
+      changed_when: false
+      register: kubevip_ready
+      failed_when: kubevip_ready.rc != 0 or kubevip_ready.stdout != 'ok'

@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
     - name: kube-vip
-      image: ghcr.io/kube-vip/kube-vip:v0.6.4
+      image: ghcr.io/kube-vip/kube-vip@sha256:26ead1e4f7ce486d1e60351181957f35ae54d30c11e8ae0a30d8e9ca1d8acb51
       args:
         - manager
       env:
@@ -18,6 +18,13 @@ spec:
           value: "6443"
         - name: cp_enable
           value: "true"
+        # Preserve the existing election identity across the supported-version upgrade.
+        - name: cp_namespace
+          value: kube-system
+        - name: vip_leasename
+          value: plndr-cp-lock
+        - name: kubernetes_addr
+          value: 127.0.0.1:6443
         - name: vip_leaderelection
           value: "true"
         # kube-vip's manager defaults are lease 5s / renew 3s / retry 1s. A

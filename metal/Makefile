@@ -41,7 +41,12 @@ console:
 		--inventory inventories/${env}.yml \
 		$(limit_arg)
 
-.PHONY: ssh-trust ssh-trust-refresh
+.PHONY: ssh-trust ssh-trust-refresh kubevip-standby
+
+# One explicitly selected nonleader only; never invokes provisioning or k3s roles.
+kubevip-standby:
+	@test -n "$(limit)"
+	ansible-playbook --inventory inventories/${env}.yml --limit "$(limit)" kubevip-standby.yml $(kubevip_args)
 
 ssh-trust:
 	python3 scripts/ssh-trust.py
