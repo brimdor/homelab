@@ -217,6 +217,7 @@ class BufferTransferTests(unittest.TestCase):
             read.assert_not_called()
         for target, expected in (([], rows), (rows, [])):
             with patch.object(TRANSFER, "query_count", return_value=3), \
+                    patch.object(TRANSFER, "stream_presence", return_value=(set(), False)), \
                     patch.object(TRANSFER, "query", side_effect=[rows, target, target]) as read:
                 missing, proof = TRANSFER.prove_missing(rows, 0, 2)
                 self.assertEqual(missing, expected)
@@ -225,8 +226,56 @@ class BufferTransferTests(unittest.TestCase):
                 self.assertEqual(read.call_args_list[0].kwargs["selector"], '{job="synthetic",stream="stdout"}')
         for replies in (([], [], []), (rows, rows, []), (rows, rows * 5000, rows * 5000)):
             with patch.object(TRANSFER, "query_count", return_value=1), \
+                    patch.object(TRANSFER, "stream_presence", return_value=(set(), False)), \
                     patch.object(TRANSFER, "query", side_effect=replies), self.assertRaisesRegex(RuntimeError, "unproven"):
                 TRANSFER.prove_missing(rows, 0, 2)
+
+    def test_stream_aggregate_count_proves_complete_strict_interior(self):
+        rows = [({"job": "synthetic"}, t * 10**9, str(t)) for t in (4, 5)]
+        selector = '{job="synthetic"}'
+        with patch.object(TRANSFER, "query_count", return_value=2) as count, \
+                patch.object(TRANSFER, "query", side_effect=[rows, list(reversed(rows))]) as read:
+            visible, complete = TRANSFER.stream_presence(selector, 5 * 10**9, 6 * 10**9)
+            self.assertTrue(complete)
+            self.assertEqual(visible, {TRANSFER.fingerprint(r) for r in rows})
+            count.assert_called_once_with(TRANSFER.TARGET, 5 * 10**9, 6 * 10**9,
+                                         allow_empty=True, selector=selector)
+            self.assertEqual(read.call_args_list[0].args, (TRANSFER.TARGET, 3 * 10**9 - 1, 7 * 10**9 + 1))
+        with patch.object(TRANSFER, "query_count", return_value=0), patch.object(TRANSFER, "query") as read:
+            self.assertEqual(TRANSFER.stream_presence(selector, 5 * 10**9, 6 * 10**9), (set(), True))
+            read.assert_not_called()
+
+    def test_stream_completeness_refuses_underfill_duplicates_caps_boundaries_and_count_mismatch(self):
+        rows = [({"job": "synthetic"}, t * 10**9, str(t)) for t in (4, 5)]
+        boundary = [({"job": "synthetic"}, t * 10**9, str(t)) for t in (3, 7)]
+        cases = [(2, rows[:1], rows[:1]), (2, rows, rows[:1]),
+                 (2, rows[:1] * 2, rows[:1] * 2), (2, rows * 2500, rows * 2500),
+                 (2, boundary, boundary), (1, rows, rows)]
+        for count, forward, backward in cases:
+            with self.subTest(count=count, page_lengths=(len(forward), len(backward))), \
+                    patch.object(TRANSFER, "query_count", return_value=count), \
+                    patch.object(TRANSFER, "query", side_effect=[forward, backward]):
+                self.assertFalse(TRANSFER.stream_presence('{job="synthetic"}', 5 * 10**9, 6 * 10**9)[1])
+
+    def test_complete_stream_proof_skips_point_reads_and_incomplete_proof_keeps_strict_fallback(self):
+        rows = self.rows()[:2]
+        first = {TRANSFER.fingerprint(rows[0])}
+        with patch.object(TRANSFER, "query_count", return_value=2), \
+                patch.object(TRANSFER, "stream_presence", return_value=(first, True)), \
+                patch.object(TRANSFER, "query") as read:
+            missing, proof = TRANSFER.prove_missing(rows, 0, 3)
+            self.assertEqual(missing, rows[1:])
+            self.assertEqual(proof["complete_stream_enumerations"], 1)
+            self.assertEqual(proof["already_present"], 1)
+            self.assertEqual(proof["targeted_presence_probes"], 0)
+            read.assert_not_called()
+        with patch.object(TRANSFER, "query_count", return_value=2), \
+                patch.object(TRANSFER, "stream_presence", return_value=(first, False)), \
+                patch.object(TRANSFER, "query", side_effect=[rows[1:], [], []]) as read:
+            missing, proof = TRANSFER.prove_missing(rows, 0, 3)
+            self.assertEqual(missing, rows[1:])
+            self.assertEqual(proof["targeted_presence_probes"], 3)
+            self.assertEqual(read.call_args_list[0].args, (TRANSFER.SOURCE, 2, 2))
 
     def test_target_zero_aggregate_rejects_failed_or_invalid_evidence(self):
         empty = {"status": "success", "data": {"resultType": "vector", "result": []}}

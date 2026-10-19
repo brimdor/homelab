@@ -118,11 +118,16 @@ def source_accounting():
             "accepted_records": total - rejected}
 
 
-def query_count(base, start, end, allow_empty=False):
-    # An independent full-range aggregate must agree with enumeration and counters.
+def aggregate_bounds(start, end, allow_empty=False):
     upper = end + 10**9 if allow_empty else end
     duration = (upper - start) // 10**9 + 2
-    parameters = {"query": "sum(count_over_time(" + SELECTOR + "[" + str(duration) + "s]))",
+    return upper - duration * 10**9, upper, duration
+
+
+def query_count(base, start, end, allow_empty=False, selector=SELECTOR):
+    # An independent full-range aggregate must agree with enumeration and counters.
+    _, upper, duration = aggregate_bounds(start, end, allow_empty)
+    parameters = {"query": "sum(count_over_time(" + selector + "[" + str(duration) + "s]))",
                   "time": str(upper)}
     value = get_json(base + "/loki/api/v1/query?" + urllib.parse.urlencode(parameters))
     data = value.get("data", {})
@@ -144,16 +149,43 @@ def source_query_count(start, end):
     return query_count(SOURCE, start, end)
 
 
+def stream_presence(selector, start, end):
+    count = query_count(TARGET, start, end, allow_empty=True, selector=selector)
+    if count == 0:
+        return set(), True
+    lower, upper, _ = aggregate_bounds(start, end, allow_empty=True)
+    if not lower < start <= end < upper:
+        raise RuntimeError("original window is not strictly inside the aggregate")
+    forward = query(TARGET, lower - 1, upper + 1, selector=selector)
+    backward = query(TARGET, lower - 1, upper + 1, direction="backward", selector=selector)
+    left = {fingerprint(r) for r in forward if lower < r[1] < upper}
+    right = {fingerprint(r) for r in backward if lower < r[1] < upper}
+    # Known members equal the independent total: no hidden member can remain.
+    complete = max(len(forward), len(backward)) < 5000 and left == right and len(left) == count
+    return left | right, complete
+
+
 def prove_missing(rows, start, end):
     # A zero aggregate over a superset interval independently proves absence.
     if query_count(TARGET, start, end, allow_empty=True) == 0:
         return rows, {"target_empty_aggregate": True, "targeted_presence_probes": 0, "already_present": 0}
-    missing = []
+    groups = defaultdict(list)
     for row in rows:
-        labels, timestamp, _ = row
+        labels = row[0]
         if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) for key in labels):
             raise RuntimeError("invalid exact stream selector labels")
         selector = "{" + ",".join(key + "=" + json.dumps(value) for key, value in sorted(labels.items())) + "}"
+        groups[selector].append(row)
+    missing = []; unresolved = []; complete_streams = 0
+    for selector, originals in groups.items():
+        visible, complete = stream_presence(selector, start, end)
+        pending = [row for row in originals if fingerprint(row) not in visible]
+        if complete:
+            missing.extend(pending); complete_streams += 1
+        else:
+            unresolved.extend((row, selector) for row in pending)
+    for row, selector in unresolved:
+        _, timestamp, _ = row
         expected = fingerprint(row)
         source = query(SOURCE, timestamp, timestamp, selector=selector)
         forward = query(TARGET, timestamp, timestamp, selector=selector)
@@ -164,7 +196,9 @@ def prove_missing(rows, start, end):
             raise RuntimeError("exact stream/timestamp presence is unproven; no replay of this window")
         if expected not in {fingerprint(r) for r in forward}:
             missing.append(row)
-    return missing, {"target_empty_aggregate": False, "targeted_presence_probes": 3 * len(rows),
+    return sorted(missing, key=lambda row: row[1]), {"target_empty_aggregate": False,
+                     "complete_stream_enumerations": complete_streams, "stream_selectors": len(groups),
+                     "targeted_presence_probes": 3 * len(unresolved),
                      "already_present": len(rows) - len(missing)}
 
 
