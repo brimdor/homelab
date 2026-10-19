@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-recovery-verification
+data:
+  passwd: |
+    recovery:x:99:100:Recovery verifier:/tmp:/bin/bash
+{{- range $file := list "recovery-common.sh" "create-postgres-recovery.sh" "verify-postgres-recovery.sh" "recovery-roles.sql" "recovery-row-counts.sql" }}
+  {{ $file }}: |
+{{ $.Files.Get (printf "scripts/%s" $file) | indent 4 }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-recovery-export
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  podSelector:
+    matchLabels:
+      homelab.eaglepass.io/recovery: postgres-export-20261019
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: postgres
+              app.kubernetes.io/controller: main
+      ports:
+        - {protocol: TCP, port: 5432}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-recovery-restore
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  podSelector:
+    matchLabels:
+      homelab.eaglepass.io/recovery: postgres-restore-20261019
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-recovery-export-20261019
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        homelab.eaglepass.io/recovery: postgres-export-20261019
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 90
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: [sprigatito]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 99
+        runAsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: recovery
+          image: docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e
+          command: [/bin/bash, /scripts/create-postgres-recovery.sh]
+          env:
+            - name: EXPECTED_DATABASE_SET_SHA256
+              value: 39c1535a321d88d1a672fd3f91ae25ca0a9e70371299a8e05ee844ed088508bd
+            - name: PGHOST
+              value: {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local
+            - name: PGPORT
+              value: "5432"
+            - name: PGCONNECT_TIMEOUT
+              value: "10"
+{{- range $name, $key := dict "PGDATABASE" "postgres-db" "PGUSER" "postgres-user" "PGPASSWORD" "postgres-password" }}
+            - name: {{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: {{ $key }}
+{{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          volumeMounts:
+            - {name: script, mountPath: /scripts, readOnly: true}
+            - {name: script, mountPath: /etc/passwd, subPath: passwd, readOnly: true}
+            - {name: backup, mountPath: /backup}
+            - {name: temporary, mountPath: /tmp}
+      volumes:
+        - name: script
+          configMap:
+            name: {{ .Release.Name }}-recovery-verification
+            defaultMode: 0555
+        - name: backup
+          nfs:
+            server: {{ index .Values "app-template" "persistence" "nfs-backups" "server" }}
+            path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}
+        - name: temporary
+          emptyDir: {}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PostgreSQL logical recovery verification</title>
+<style>
+body{background:#10141c;color:#e3e9f4;font:16px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:20px}
+a{color:#8ecaff}code{background:#1b2434;overflow-wrap:anywhere}
+</style>
+<h1>PostgreSQL logical recovery verification</h1>
+<p>Approved maintenance scope: <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103</a>,
+RECOVERY_PROOF. Execution plan postgres-recovery-pbix8do8 precedes implementation.</p>
+<h2>Observed prerequisites</h2>
+<p>On 2026-10-19, the existing PostgreSQL 17.5 server has six connectable non-template
+UTF8/en_US.utf8 databases totaling 115,264,370 bytes, 303 user tables/materialized views,
+no foreign tables or large-object pages, and no custom tablespaces. Existing backup access
+is valid and privileged. The reviewed database-keyset SHA256 is
+39c1535a321d88d1a672fd3f91ae25ca0a9e70371299a8e05ee844ed088508bd.</p>
+<p>The exact running image contains matching PostgreSQL tools, Bash 5.2 and setsid.
+NAS has 11,047,640,064 KiB available; the new recovery-postgres-20261019 destination is absent.
+These are dated observations, not future capacity or ownership guarantees.</p>
+<h2>Export phase</h2>
+<p>Add a temporary Job, ConfigMap and two scoped policies through apps/postgres. Use the
+exact running PostgreSQL 17.5 digest, existing Secret references, UID99/GID100 and read-only
+transaction defaults. Allow the producer only DNS and the existing PostgreSQL Pod on5432;
+exclude sprigatito. Never mount production PGDATA or a PVC.</p>
+<p>Exclusively create /mnt/user/postgres_backups/recovery-postgres-20261019, private owner
+markers and an empty restored/ subdirectory. Validate the reviewed catalog keyset, version,
+features and fresh capacity. Export with standard pg_dumpall --no-role-passwords
+--no-tablespaces --clean --if-exists. This writes destructive SQL as backup data;
+the producer never executes it. Passwords are omitted. Each database uses PostgreSQL's
+consistent logical export; cross-database atomicity is not claimed.</p>
+<p>Compare source schema hashes and a password-free role/authorization fingerprint before
+and after export. Refuse changed definitions. Require a nonempty warning-free SQL export,
+strict checksums and a final completion marker. Preserve failed real recovery material.
+Real records, names, roles and raw diagnostics remain privately on NAS. Never copy them
+into Git, the Mac, issue bodies or disposable testing storage.</p>
+<h2>Restore phase</h2>
+<p>After successful producer verification, pin its exact manifest SHA256 through a second
+Git change. Replace the producer Job with an isolated verifier. Give it no production
+credentials, no network access, no Service or TCP listener. Mount the bundle read-only
+and only its dedicated restored/ subdirectory writable; other NAS data is unreachable
+through a writable mount. Use a private Unix socket and a new bootstrap role/control
+database whose absence from the source was verified.</p>
+<p>Validate the pinned manifest, fixed safe filenames, regular nonsymlink files, ownership
+markers and checksums before SQL execution. Initialize a fresh cluster with page checksums,
+then restore with psql -X and ON_ERROR_STOP. Generated DROP/CREATE commands affect only
+this isolated cluster. Compare the six-database catalog, version/locale, schema hashes and
+role/authorization fingerprint. Exclude the deliberate bootstrap identity and role passwords
+from that fingerprint. Count actual restored relations/rows without exporting records.</p>
+<p>Stop the owned server, verify shutdown and PID-file absence, then run offline
+pg_checksums --check. A complete SQL execution, schema/authorization comparisons and
+page checksums provide restore evidence. Do not claim live row counts equal a past dump
+under concurrent writes, byte-identical source records, application login or offsite recovery.</p>
+<h2>Verification, lifecycle and rollback</h2>
+<p>Use synthetic fixtures for refusal/publication/lifecycle guards; lint Bash, run scoped
+pre-commit, render/lint Helm and prove all existing objects unchanged. Source clients have
+tracked process groups; cleanup stops/reaps only owned clients and the isolated server.
+For each phase: validate, commit/push canonical Gitea master, refresh postgres, verify actual
+applied revision and exact owner-matched Job/Pod/container completion.</p>
+<p>Preserve the live Deployment spec/UID, Pod UID/readiness/restarts, every PVC identity,
+existing backup generations and Threads scheduling. After acceptance, remove only the
+temporary ConfigMap, policies and Job/Pods through Git; retain helpers, this spec and all
+real NAS recovery material. Rollback reverts the exact additive workflow commit and keeps
+backups. It never writes or restores production data.</p>
+<p>Clean local disposable scratch in a tracked finally path, retain compact sanitized evidence,
+and repeat relevant cluster checks. Other database servers, etcd, NAS/PVC recovery, role-password
+and application acceptance, offsite proof, SATA remediation and release/security gates remain.
+This workflow does not authorize an infrastructure/database upgrade or whole-maintenance closure.</p>
+<h2>Primary references</h2>
+<p><a href="https://www.postgresql.org/docs/17/app-pg-dumpall.html">pg_dumpall</a>
+defines cluster-wide logical export, omitted role passwords and a distinct restore bootstrap user.
+<a href="https://www.postgresql.org/docs/17/app-psql.html">psql</a> defines stop-on-error execution.
+<a href="https://www.postgresql.org/docs/17/app-initdb.html">initdb</a> defines non-root ownership
+and checksummed initialization.
+<a href="https://www.postgresql.org/docs/17/app-pgchecksums.html">pg_checksums</a>
+defines offline data-page verification.</p>
+</html>
