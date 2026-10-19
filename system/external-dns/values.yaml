@@ -1,5 +1,10 @@
 external-dns:
+  image:
+    tag: v0.23.0@sha256:1854499e2b08cee47c40a08e356bff20dcb192dbcfde8378fc3f900f12cad5a3
   provider: cloudflare
+  policy: upsert-only
+  # Preserve existing annotations across the v0.22 default-prefix change.
+  annotationPrefix: external-dns.alpha.kubernetes.io/
   txtOwnerId: homelab
   env:
     - name: CF_API_TOKEN
@@ -9,6 +14,8 @@ external-dns:
           key: value
   extraArgs:
     - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
+    # Validate two reconciliation cycles before enabling the upgraded writer.
+    - --dry-run
   interval: 5m
   triggerLoopOnEvent: true
   metrics:
