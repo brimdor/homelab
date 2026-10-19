@@ -19,7 +19,7 @@ rook-ceph-cluster:
   toolbox:
     enabled: true
     # Match the Ceph daemon CLI, not the Rook operator version.
-    image: quay.io/ceph/ceph:v20.2.1
+    image: quay.io/ceph/ceph:v21.1.2
   monitoring:
     # Ceph v20.2.1 contains the Rook prometheus-module fix that blocked this
     # integration on v20.2.0.
@@ -33,7 +33,7 @@ rook-ceph-cluster:
         disabled: true
   cephClusterSpec:
     cephVersion:
-      image: quay.io/ceph/ceph:v20.2.1
+      image: quay.io/ceph/ceph:v21.1.2
       imagePullPolicy: IfNotPresent
     storage:
       useAllNodes: false
