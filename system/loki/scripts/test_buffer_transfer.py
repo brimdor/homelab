@@ -76,6 +76,16 @@ class BufferTransferTests(unittest.TestCase):
                 TRANSFER.transfer(0, 2, apply=True)
             self.assertEqual(push.call_count, 1)
 
+    def test_http_refusal_is_classified_without_exporting_body_or_retrying(self):
+        error = urllib.error.HTTPError("http://synthetic", 400, "private explanation", {},
+                                       io.BytesIO(b"entry too far behind: private original log"))
+        with patch.object(TRANSFER.urllib.request, "urlopen", side_effect=error) as send, \
+                patch.object(TRANSFER.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "HTTP 400; too_far_behind") as caught:
+                TRANSFER.push(self.rows()[:1])
+        self.assertNotIn("private", str(caught.exception))
+        self.assertEqual(send.call_count, 1)
+
     def test_delayed_visibility_retries_only_reads(self):
         rows = self.rows()[:1]
         expected = {TRANSFER.fingerprint(rows[0])}

@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -92,6 +93,12 @@ def push(rows):
         with urllib.request.urlopen(request, timeout=60) as response:
             if response.status != 204:
                 raise RuntimeError("non-204 push response")
+    except urllib.error.HTTPError as error:
+        # Response bodies may contain original log lines; retain only known classes.
+        body = error.read(4096)
+        category = "too_far_behind" if b"too far behind" in body else "unclassified"
+        raise RuntimeError("push outcome uncertain; HTTP " + str(error.code) + "; " + category +
+                           "; rerun the comparison audit before recovery") from None
     except Exception:
         raise RuntimeError("push outcome uncertain; rerun the comparison audit before recovery") from None
 
