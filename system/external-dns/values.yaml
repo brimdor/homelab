@@ -16,8 +16,6 @@ external-dns:
           key: value
   extraArgs:
     - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
-    # Keep writes disabled until the scoped eaglepass.io dry-run gate passes.
-    - --dry-run
   interval: 5m
   triggerLoopOnEvent: true
   metrics:
