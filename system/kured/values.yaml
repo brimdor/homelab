@@ -1,4 +1,7 @@
 kured:
+  metrics:
+    create: true
+
   # Tolerations to ensure kured runs on all nodes including those with dedicated taints
   tolerations:
     - key: node-role.kubernetes.io/control-plane
