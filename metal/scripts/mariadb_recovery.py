@@ -31,6 +31,7 @@ DUMP = ["mariadb-dump", "--all-databases", "--single-transaction", "--quick",
 PATCH_SOURCE_IMAGE = "10.0.20.11:32309/backlog_database@sha256:ac75a7487b7ce7f12d8b07dc73595f528f830a7764334aeb3c19c3cf6dede4f5"
 PATCH_IMAGE = "docker.io/library/mariadb@sha256:0d0945c57f75b3a3b9ebe71aedaaad005fa5305054e8fca3d2e42a8c92b43b5e"
 EMPTY_DIRECTORY_DUMPS = {
+    "backlog": "6b82219b18aff9a1b97f2480bbed6f50783641dd76bf5de8449c07eb37f36dc0",
     "jovo": "a3fe95a939cb2a167b0acf973ef4d2fb838f25fe164ad2d519b26057e3b065ff",
     "backlog-canary": "0600bd4f4e8bddcd1e81ceeefd4bcd7c0b056932ee306756f7b4be1fc88423e3",
 }
