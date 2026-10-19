@@ -6,6 +6,7 @@ app-template:
           image:
             repository: docker.io/brimdor/explorers
             tag: latest
+            digest: sha256:cba08e0d7f140957208ae7ce8dac9d30c145446de8e1571760d7fbc723567e86
             pullPolicy: Always
           env:
             TZ: "America/Chicago"
