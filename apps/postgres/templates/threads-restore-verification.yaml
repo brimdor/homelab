@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-threads-restore-verification
+data:
+  passwd: |
+    recovery:x:99:100:Recovery rehearsal:/tmp:/bin/bash
+  verify-threads-restore.sh: |
+{{ .Files.Get "scripts/verify-threads-restore.sh" | indent 4 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-threads-restore-verification
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: threads-restore-verification
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-threads-restore-verification
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: threads-restore-verification
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 90
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: [sprigatito]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 99
+        runAsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: restore
+          image: docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e
+          command: [/bin/bash, /scripts/verify-threads-restore.sh]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: script
+              mountPath: /etc/passwd
+              subPath: passwd
+              readOnly: true
+            - name: backup
+              mountPath: /backup
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: {{ .Release.Name }}-threads-restore-verification
+            defaultMode: 0444
+        - name: backup
+          nfs:
+            server: {{ index .Values "app-template" "persistence" "nfs-backups" "server" }}
+            path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}
+        - name: temporary
+          emptyDir: {}

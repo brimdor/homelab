@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Threads isolated restore</title>
+<style>
+body{background:#10141c;color:#e3e9f4;font:16px/1.6 system-ui;max-width:960px;margin:40px auto;padding:20px}
+a{color:#8ecaff}code{background:#1b2434;overflow-wrap:anywhere}
+</style>
+<h1>Threads isolated restore</h1>
+<p>Scope and execution plan: <a href="https://git.eaglepass.io/ops/homelab/issues/103">maintenance #103</a>,
+THREADS_BACKUP_COVERAGE, plan dated 2026-10-19. This is an isolated recovery rehearsal.</p>
+<h2>Evidence and exact inputs</h2>
+<p>The first scheduled export produced threads-20261019T050021Z-1OIPAn.dump, 886 bytes,
+SHA256 b99deae771c2f4002d0cba0a7f520674487acf732f4bc6fe59b0eaf5fbd00d44.
+Its Job subsequently failed during temporary-directory cleanup; the archive checksum and
+listing passed independently. Preserve that failure evidence. The live Threads database
+has no user tables, sequences or views. Its metadata is PostgreSQL 17.5, UTF8,
+en_US.utf8 collation and ctype, one non-system schema and one extension.</p>
+<h2>Isolation and data ownership</h2>
+<p>Use the exact existing server image digest in a temporary GitOps Job. Deny all Pod
+ingress and egress. Do not mount production PGDATA, PVCs or credentials. Bind PostgreSQL
+only to a private Unix socket. Run UID99/GID100, matching the observed NAS owner, with
+an explicit container-only passwd entry. Exclude sprigatito; allocate no Ceph storage.</p>
+<p>Verify the exact archive checksum before writing. Exclusively create the absent durable
+NAS directory /mnt/user/postgres_backups/recovery-threads-20261019 with private permissions.
+Initialize a new PostgreSQL cluster with data checksums and the source encoding/locale.
+Restore into a newly created local database with ownership and grants omitted. These
+omissions deliberately avoid recreating production roles; role recovery remains unproven.</p>
+<h2>Acceptance</h2>
+<p>Require pg_restore --exit-on-error, exact version/encoding/locale/schema/extension
+metadata, zero user tables/sequences/views matching the current source, and a clean
+server shutdown. Keep raw restore/server diagnostics privately on NAS. Publish only
+sanitized metadata locally. This tests an empty application schema; it cannot prove
+populated data, credentials, application login or offsite recoverability.</p>
+<p>Validate shell syntax/lint, source/rendered-script equality, exact security/storage
+contracts, unchanged existing objects and scoped pre-commit. Commit/push to canonical
+Gitea master, refresh Argo, verify actual applied revision and owner-matched Job success,
+original database Deployment/Pod and PVC identity preservation, then rerun CORE checks.</p>
+<h2>Failure, cleanup and rollback</h2>
+<p>Fail closed on changed archive, existing target, failed restore or mismatched metadata.
+An EXIT/signal handler stops the owned local PostgreSQL server. Preserve real recovery
+data and private diagnostics after success or failure. Remove only the temporary Job,
+ConfigMap and NetworkPolicy through Git after recording evidence. Keep the reusable
+source helper and this specification. A rollback never removes NAS recovery material.</p>
+<h2>Primary documentation</h2>
+<p><a href="https://www.postgresql.org/docs/17/app-initdb.html">initdb</a> defines
+non-root ownership, locale and durable initialization;
+<a href="https://www.postgresql.org/docs/17/app-pgrestore.html">pg_restore</a> defines
+restore error handling and omitted ownership;
+<a href="https://www.postgresql.org/docs/17/app-pg-ctl.html">pg_ctl</a> defines
+server lifecycle and synchronous shutdown.</p>
+</html>
