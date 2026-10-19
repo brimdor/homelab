@@ -72,6 +72,11 @@ before modifying production. Then verify authenticated listing, existing CI
 history, server/agent health, claim identity and Argo reconciliation. Do not
 trigger pipelines or broaden repository trust.</p>
 <h2>Rollback</h2>
+<p>Repair commit <code>8d855794a8a8f819a45cb58bc5f02d15295a90d2</code>
+completed successfully. The restored-copy rehearsal and production transaction
+normalized repository ID 2, preserving its legacy Boolean trust semantics.
+Every other field and every other table remained identical. No account,
+credential, OAuth client, repository visibility or pipeline was changed.</p>
 <p>Stage 1 needs no application rollback. Preserve its recovery claim even if
 the Job is later retired. A subsequent data repair must use its verified
 pre-repair backup with all writers stopped; a Git revert alone cannot restore

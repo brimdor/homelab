@@ -1,11 +1,11 @@
 maintenanceRecovery:
   enabled: true
   backupEnabled: false
-  repairEnabled: true
+  repairEnabled: false
 
 woodpecker:
   agent:
-    replicaCount: 0
+    replicaCount: 1
     env:
       WOODPECKER_BACKEND_K8S_STORAGE_RWX: false
       # Agents will spawn pods to run workflow steps using the
@@ -16,7 +16,7 @@ woodpecker:
       - woodpecker-secret
   server:
     statefulSet:
-      replicaCount: 0
+      replicaCount: 1
     extraSecretNamesForEnvFrom:
       - woodpecker-secret
     env:
