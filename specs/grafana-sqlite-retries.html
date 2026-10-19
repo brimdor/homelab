@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Grafana SQLite startup retries — Maintenance 103</title>
+  <style>
+    :root { color-scheme: dark; background: #111720; color: #e4ebf5; font: 16px/1.6 system-ui, sans-serif; }
+    body { max-width: 920px; margin: auto; padding: 32px 20px 64px; }
+    h1, h2 { color: #f5f8ff; line-height: 1.3; } h2 { margin-top: 2rem; }
+    a { color: #8dc8ff; } code { color: #c5e6ff; overflow-wrap: anywhere; }
+    li { margin: .5rem 0; } .status { padding: 14px; background: #242a33; border-left: 4px solid #e6b75c; }
+  </style>
+</head>
+<body>
+<main>
+  <p><a href="https://git.eaglepass.io/ops/homelab/issues/103">Maintenance #103</a> · 2026-10-19 · GRAFANA_SQLITE_STARTUP</p>
+  <h1>Retry transient SQLite startup contention</h1>
+  <p class="status">Candidate mitigation, pending exact live acceptance. A successful startup proves that rollout;
+    it cannot establish that every future scheduling of an intermittent race is fixed.</p>
+  <h2>Evidence and causal limits</h2>
+  <p>Grafana 12.3.1 logged a database-locked error from its one-time service-account migration at
+    2026-10-19T11:51:25Z. Provisioning files and both sidecars passed their checks. The earlier
+    one-connection pool candidate stalled schema migration and was reverted by
+    <code>4fbf18c54e53b3e339eda0f5759c572c2ca12f31</code>; that pool change is excluded.</p>
+  <p>Exact <a href="https://github.com/grafana/grafana/blob/v12.3.1/pkg/infra/serverlock/serverlock.go">12.3.1 lock code</a>
+    performs a transactional get/create followed by a nontransactional update before invoking the migration callback.
+    Its <a href="https://github.com/grafana/grafana/blob/v12.3.1/pkg/services/sqlstore/session.go">query wrapper</a>
+    and <a href="https://github.com/grafana/grafana/blob/v12.3.1/pkg/services/sqlstore/transactions.go">transaction wrapper</a>
+    implement SQLite lock retries. The original error does not identify which lock stage failed.
+    Transaction commit errors are not retried by that wrapper; this candidate does not claim otherwise.</p>
+  <h2>Desired state</h2>
+  <ul>
+    <li>Set database <code>query_retries=10</code> and <code>transaction_retries=20</code>, using
+      <a href="https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#query_retries">documented SQLite controls</a>.
+      The query path has bounded exponential backoff; the transaction callback rolls back before retrying.
+      SQL execution time is additional to retry sleeps.</li>
+    <li>Set only readiness initial delay to 15 seconds. Preserve the readiness endpoint and failure thresholds,
+      all liveness settings, default connection pool, private cache and journal mode.</li>
+    <li>Enable debug for <code>infra.lockservice</code> only. Source shows action names and execution boundaries;
+      SQL logging and global debug remain disabled. This gives positive evidence that the startup callback ran.</li>
+    <li>Preserve chart 10.5.15, Grafana 12.3.1, sidecar 2.14.1 digest, credential references, OAuth configuration,
+      resources, services, ingress and storage. Existing data storage is emptyDir; restart has the existing
+      ephemeral initialization semantics. No persistent-data migration or direct database operation is introduced.</li>
+  </ul>
+  <h2>Validation and rollout</h2>
+  <ol>
+    <li>Capture current Deployment/Pod/image identities, storage definition, container status, public unauthenticated health,
+      both sidecar health endpoints and all provisioning file hashes. Do not retry denied authenticated login.</li>
+    <li>Render baseline and candidate by resource identity. Permit only the INI ConfigMap content, its Deployment checksum,
+      and readiness initial delay. Parse the INI and compare every other field. Run Helm lint, targeted pre-commit and API server dry-run.</li>
+    <li>Commit and push to canonical Gitea master, immediately refresh Argo, and verify exact revision sync/health and rollout.</li>
+    <li>Require the one-time migration's lock start/execution/finish records and no service-account failure, fatal,
+      database-locked exhaustion, authentication denial or provisioning error. Require all containers ready with zero restarts,
+      unchanged runtime image IDs, both sidecar health endpoints, identical provisioning hashes and healthy public API.</li>
+    <li>Observe the same Pod beyond its initial liveness evaluation window. Preserve original warning events and CORE output.
+      Do not infer authenticated datasource/OAuth behavior from public health or file hashes.</li>
+  </ol>
+  <h2>Failure and rollback</h2>
+  <p>If startup or functional checks fail, revert the exact candidate commit through GitOps, refresh Argo and prove restored
+    readiness/health. Capture sanitized failure evidence. If public access is denied, stop that interface without alternate paths;
+    record the access gate and distinguish it from application failure. Never restore the failed single-connection setting,
+    enable WAL as a shortcut, weaken liveness, query SQLite directly, rotate credentials or use another identity.</p>
+</main>
+</body>
+</html>

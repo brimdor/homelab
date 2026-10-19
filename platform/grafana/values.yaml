@@ -34,7 +34,16 @@ grafana:
       env:
         HEALTH_PORT: "8082"
   envFromSecret: grafana-secrets
+  readinessProbe:
+    initialDelaySeconds: 15
   grafana.ini:
+    database:
+      # Startup provisioning and service-account migration can contend on SQLite.
+      query_retries: 10
+      transaction_retries: 20
+    log:
+      # Record execution of one-time startup locks without logging SQL or secrets.
+      filters: infra.lockservice:debug
     server:
       root_url: https://grafana.eaglepass.io
     auth.generic_oauth:
