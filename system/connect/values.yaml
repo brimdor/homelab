@@ -216,7 +216,7 @@ operator:
   pollingInterval: 600
 
   # The 1Password Operator version to pull
-  version: "1.8.1"
+  version: "1.12.0@sha256:a691d5007ae9cfdd221eefca3a60ac3bad0e30dad9fe853986f1db5d6ec25d2f"
 
   # Node selector stanza for the Operator pod
   # See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector

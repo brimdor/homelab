@@ -1,5 +1,31 @@
 # 1Password Connect
 
+## Homelab deployment and upgrade contract
+
+Deploy this chart only through canonical Gitea `master` and Argo CD. The upstream
+installation examples and default-value table below are reference material, not
+the homelab deployment path; `values.yaml` defines the actual versions and settings.
+Keep credential values outside Git and command arguments.
+
+Operator 1.12.0 adds website-derived Secret keys. Upgrade checks must preserve
+every original Secret UID, key and value, and reject normalized-key collisions.
+The reviewed additions are `website`/`website-2` for the two Doplarr API Secrets
+and `website` for PodWave production/canary. Their consumers select explicit
+credential keys; none receives the additional URL values through environment or
+mounted files. Do not enable whole-Secret consumption without reviewing this
+boundary again. Never rotate an item merely to exercise reconciliation.
+
+Tailscale's OAuth Secret is ESO/Kubernetes-owned, not a 1Password projection.
+Its inherited item-path annotation has no item-version and is skipped by the
+operator poller. Missing-item lookups must not delete or overwrite existing
+Secrets. This does not resolve Tailscale's separate disabled-operator/OAuth gate.
+
+Retain original values only in process memory during rollout and a complete
+configured polling cycle; do not export Secret bytes or hashes into evidence.
+Verify reconciliation and consumer readiness, not only operator Pod readiness.
+An image rollback does not undo Secret content already written; stop on any
+unreviewed change instead of retrying or weakening the comparison.
+
 ## Deploying 1Password Connect
 
 Installing the Helm Chart with default configurations will deploy 1Password Connect in your default Namespace. However, Using 1Password Connect in Kubernetes requires that a 1password-credentials.json file be stored as a Kubernetes Secret. This credentials file can be saved as a Kubernetes secret by setting the file in your helm install command:
