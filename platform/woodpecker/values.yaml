@@ -1,6 +1,7 @@
 maintenanceRecovery:
   enabled: true
-  backupEnabled: true
+  backupEnabled: false
+  repairEnabled: true
 
 woodpecker:
   agent:

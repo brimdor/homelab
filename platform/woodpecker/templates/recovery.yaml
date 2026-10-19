@@ -80,4 +80,66 @@ spec:
         - name: temporary
           emptyDir: {}
 {{- end }}
+{{- if .Values.maintenanceRecovery.repairEnabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: woodpecker-trusted-repair-20261019
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: bulbasaur
+      containers:
+        - name: repair
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/sqlite-recovery.py]
+          args:
+            - --quiesced
+            - --repair
+            - --backup-sha=f630ce2cc00d894b335a28477109ba6e8144eb87e013c73582a73a40a5744d79
+            - --source-sha=d3124fb51b36ec04518cf3ec823f7bca8069066e734e1301f5bc3e66ffa57b4c
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [DAC_OVERRIDE]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: source
+              mountPath: /source
+            - name: recovery
+              mountPath: /recovery
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: source
+          persistentVolumeClaim:
+            claimName: data-woodpecker-server-0
+        - name: recovery
+          persistentVolumeClaim:
+            claimName: woodpecker-recovery
+        - name: script
+          configMap:
+            name: woodpecker-sqlite-recovery
+        - name: temporary
+          emptyDir: {}
+{{- end }}
 {{- end }}

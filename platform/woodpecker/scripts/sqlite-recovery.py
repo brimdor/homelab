@@ -44,6 +44,88 @@ def inventory(connection):
             "repo_schema": schema, "migration_ids": migrations}
 
 
+def snapshot(connection):
+    tables = [row[0] for row in connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+    )]
+    return {table: sorted(connection.execute(
+        'SELECT * FROM "' + table.replace('"', '""') + '"'
+    ).fetchall(), key=repr) for table in tables}
+
+
+def normalize_trusted(connection):
+    assert not connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='repos'"
+    ).fetchall(), "Unexpected repository triggers"
+    columns = [row[1] for row in connection.execute('PRAGMA table_info("repos")')]
+    assert "trusted_conf" not in columns, "Ambiguous partial migration"
+    before = snapshot(connection)
+    expected = {table: list(rows) for table, rows in before.items()}
+    updates = []
+    keys = {"network", "volumes", "security"}
+    for row in before["repos"]:
+        value = row[columns.index("trusted")]
+        parsed = json.loads(value) if isinstance(value, str) else value
+        if isinstance(parsed, dict):
+            assert set(parsed) == keys and all(type(x) is bool for x in parsed.values())
+            continue
+        # Only false has an unambiguous least-privilege repair. Do not activate
+        # legacy elevated trust or infer permissions from malformed values.
+        assert type(parsed) is int and parsed == 0, "Unexpected legacy trust requires review"
+        replacement = json.dumps({key: False for key in sorted(keys)}, separators=(",", ":"))
+        identifier = row[columns.index("id")]
+        updates.append((replacement, identifier, value))
+        new_row = list(row)
+        new_row[columns.index("trusted")] = replacement
+        expected["repos"][expected["repos"].index(row)] = tuple(new_row)
+    assert updates, "No legacy false trust found; refuse an unbound repair"
+    expected["repos"].sort(key=repr)
+    for replacement, identifier, value in updates:
+        cursor = connection.execute(
+            "UPDATE repos SET trusted=? WHERE id=? AND trusted=?", (replacement, identifier, value)
+        )
+        assert cursor.rowcount == 1, "Repository identity/value changed"
+    assert snapshot(connection) == expected, "Unexpected database change"
+    assert connection.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
+    return [identifier for _, identifier, _ in updates]
+
+
+def repair(source, recovery_point, backup_sha, source_sha):
+    assert source.is_file() and recovery_point.is_file()
+    assert hashlib.sha256(recovery_point.read_bytes()).hexdigest() == backup_sha
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == source_sha
+    assert not any(source.with_name(source.name + suffix).exists() for suffix in ("-wal", "-journal"))
+    original_identity = (source.stat().st_uid, source.stat().st_gid, source.stat().st_ino)
+    working = recovery_point.parent / "repair-work"
+    working.mkdir(mode=0o700)
+    try:
+        with closing(connect_readonly(recovery_point)) as recovery:
+            original = snapshot(recovery)
+            with closing(sqlite3.connect(working / "restore.sqlite")) as restored:
+                recovery.backup(restored)
+                restored.execute("BEGIN EXCLUSIVE")
+                simulated = normalize_trusted(restored)
+                restored.commit()
+            assert hashlib.sha256(source.read_bytes()).hexdigest() == source_sha
+            with closing(sqlite3.connect(source.resolve().as_uri() + "?mode=rw", uri=True, timeout=30)) as live:
+                try:
+                    live.execute("BEGIN EXCLUSIVE")
+                    assert snapshot(live) == original, "Live data differs from verified recovery point"
+                    repaired = normalize_trusted(live)
+                    assert repaired == simulated
+                    live.commit()
+                except BaseException:
+                    live.rollback()
+                    raise
+            assert original_identity == (source.stat().st_uid, source.stat().st_gid, source.stat().st_ino)
+            assert hashlib.sha256(recovery_point.read_bytes()).hexdigest() == backup_sha
+        return {"repaired_repository_ids": repaired, "isolated_repair": "passed",
+                "backup_sha256": backup_sha, "only_trusted_fields_changed": True,
+                "all_trust_permissions": False}
+    finally:
+        shutil.rmtree(working)
+
+
 def backup(source, destination, quiesced_copy=False):
     assert source.is_file(), "Expected existing SQLite database"
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -121,6 +203,13 @@ if __name__ == "__main__":
                         default=Path("/recovery/trusted-20261019-offline-v2/pre-repair.sqlite"))
     parser.add_argument("--quiesced", action="store_true",
                         help="Copy all SQLite recovery files after proving every writer stopped")
+    parser.add_argument("--repair", action="store_true")
+    parser.add_argument("--backup-sha")
+    parser.add_argument("--source-sha")
     options = parser.parse_args()
-    result = backup(options.source, options.destination, options.quiesced)
+    if options.repair:
+        assert options.quiesced and options.backup_sha and options.source_sha
+        result = repair(options.source, options.destination, options.backup_sha, options.source_sha)
+    else:
+        result = backup(options.source, options.destination, options.quiesced)
     print(json.dumps(result, sort_keys=True), flush=True)

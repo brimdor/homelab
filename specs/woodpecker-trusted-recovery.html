@@ -44,6 +44,23 @@ for SQLite recovery. The production mount remains read-only. The validated
 backup and its isolated restore must pass integrity and inventory checks before
 any production data transformation.</p>
 <h2>Stage 2: conditional repair and acceptance</h2>
+<p>Recovery succeeded at commit <code>4bd47a5bf8fe997f9b918deba7409a4442f3dfa5</code>.
+The retained recovery point contains 274432 bytes and passes full integrity and
+isolated restore checks. It contains one repository, one user, two agents and
+zero pipelines. Migration <code>split-trusted</code> is recorded complete; the
+<code>trusted</code> column is TEXT. Backup SHA-256:
+<code>f630ce2cc00d894b335a28477109ba6e8144eb87e013c73582a73a40a5744d79</code>.
+Original quiesced source SHA-256:
+<code>d3124fb51b36ec04518cf3ec823f7bca8069066e734e1301f5bc3e66ffa57b4c</code>.</p>
+<p>The repair Job binds both hashes, proves the restored copy and original have
+identical logical records, and validates the transformation on that copy first.
+Only legacy JSON number zero becomes an object containing three false trust
+permissions. Unknown values, elevated legacy trust, partial migration columns
+and repository triggers fail before updates. An exclusive SQLite transaction
+checks that every record except the intended trusted field remains identical.
+File ownership, inode and the original recovery point remain unchanged. Both
+writers stay at zero until the Job succeeds; then restore their original one
+replica each through Git and disable the maintenance Job.</p>
 <p>After diagnosis, validate the exact repair against synthetic fixtures and a
 restored copy. Preserve all existing permission semantics. Unknown values,
 schema or row identities stop the operation. Define quiescence, offline backup,
