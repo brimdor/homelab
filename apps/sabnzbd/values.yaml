@@ -12,6 +12,7 @@ app-template:
           image:
             repository: linuxserver/sabnzbd
             tag: latest
+            digest: sha256:7a13af91cf296399e302d2fb6fc709d6e2ea15e3094f220684611fbe1dd43625
             pullPolicy: Always
           env:
             PUID: "99"
@@ -21,6 +22,7 @@ app-template:
           image:
             repository: alpine
             tag: latest
+            digest: sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
             pullPolicy: Always
           command:
             - /bin/sh
@@ -56,6 +58,7 @@ app-template:
           image:
             repository: alpine
             tag: latest
+            digest: sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
             pullPolicy: Always
           command:
             - /bin/sh
