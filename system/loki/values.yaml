@@ -11,7 +11,7 @@ maintenanceRecovery:
   serviceVerifyEnabled: false
   continuityEnabled: true
   continuityApply: false
-  continuityAttempt: 6
+  continuityAttempt: 7
   continuityNode: growlithe
   continuityDirectory: /var/log/pods/argocd_argocd-repo-server-6d86494596-gph26_68e93fb3-375b-4ca8-9a2a-6c1db52e5539/repo-server
   candidateEnabled: false
