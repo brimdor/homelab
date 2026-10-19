@@ -27,6 +27,7 @@ LABEL = "io.eaglepass.mariadb-recovery"
 DUMP = ["mariadb-dump", "--all-databases", "--single-transaction", "--quick",
         "--routines", "--events", "--triggers", "--hex-blob", "--order-by-primary",
         "--skip-comments", "--skip-dump-date", "--skip-lock-tables", "-uroot"]
+JOVO_EMPTY_DIRECTORY_DUMP_SHA256 = "a3fe95a939cb2a167b0acf973ef4d2fb838f25fe164ad2d519b26057e3b065ff"
 
 
 def digest(data):
@@ -106,6 +107,21 @@ def import_diagnostic(result):
             "stderr_bytes": len(result.stderr), "stderr_sha256": digest(result.stderr),
             "errors": [{"number": int(number), "sqlstate": state.decode(), "line": int(line)}
                        for number, state, line in errors]}
+
+
+def import_stream(data, namespace):
+    marker = b"#mysql50#lost+found"
+    if marker not in data:
+        return data, False
+    # This exact point's empty filesystem directory was verified on the source.
+    # Recreate it only in scratch; never enable the historical mysql50 bypass.
+    section = (b"CREATE DATABASE /*!32312 IF NOT EXISTS*/ `#mysql50#lost+found` "
+               b"/*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;\n\n"
+               b"USE `#mysql50#lost+found`;\n\n")
+    if (namespace != "jovo" or digest(data) != JOVO_EMPTY_DIRECTORY_DUMP_SHA256 or
+            data.count(marker) != 2 or data.count(section) != 1):
+        raise RuntimeError("unreviewed legacy directory section in recovery stream")
+    return data.replace(section, b"", 1), True
 
 
 def require_image(image, reference):
@@ -362,8 +378,9 @@ def restore(run_id, expected_manifest):
         else:
             raise RuntimeError("isolated database did not become ready")
         result["stage"] = "logical-import"
-        with (point / "cluster.sql").open("rb") as source:
-            restored = subprocess.run(client, stdin=source, capture_output=True)
+        original = (point / "cluster.sql").read_bytes()
+        sql, empty_directory = import_stream(original, manifest["namespace"])
+        restored = subprocess.run(client, input=sql, capture_output=True)
         if restored.returncode or restored.stdout or restored.stderr:
             result["import_diagnostic"] = import_diagnostic(restored)
             raise RuntimeError("isolated database import failed or warned")
@@ -375,6 +392,10 @@ def restore(run_id, expected_manifest):
         restored = subprocess.run(client, input=procedure_metadata, capture_output=True)
         if restored.returncode or restored.stdout or restored.stderr:
             raise RuntimeError("isolated original routine metadata restore failed or warned")
+        if empty_directory:
+            directory = scratch / "data/lost+found"
+            directory.mkdir(mode=0o700)
+            os.chown(directory, 999, 999)
         result["stage"] = "schema-grants-data-check"
         schema = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock", "--no-data"]).stdout
         grants = common.command([*client, "-e", "SELECT Host,User,Priv FROM mysql.global_priv ORDER BY Host,User"]).stdout
@@ -386,6 +407,9 @@ def restore(run_id, expected_manifest):
             raise RuntimeError("restored normalized logical data differs from the recovery stream")
         rows = common.command([*client, "-e", "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN "
                               "('mysql','information_schema','performance_schema','sys')"]).stdout.decode().strip()
+        if empty_directory:
+            directory.rmdir()
+            result["empty_filesystem_directory_reproduced"] = True
         common.docker("exec", identity, "mariadb-check", "--socket=/tmp/recovery.sock", "-uroot", "--all-databases")
         require_isolation(common.inspect(identity), scratch, run_id)
         if file_digest(point / "cluster.sql") != manifest["dump"]:

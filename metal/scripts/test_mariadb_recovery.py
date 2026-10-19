@@ -73,6 +73,19 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(value["errors"], [{"number": 1064, "sqlstate": "42000", "line": 123}])
         self.assertNotIn("private", str(value))
 
+    def test_only_reviewed_empty_filesystem_section_is_recreated(self):
+        section = (b"CREATE DATABASE /*!32312 IF NOT EXISTS*/ `#mysql50#lost+found` "
+                   b"/*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;\n\n"
+                   b"USE `#mysql50#lost+found`;\n\n")
+        application = b"CREATE DATABASE `application`;\nUSE `application`;\nCREATE TABLE `t` (x int);\n"
+        dump = section + application
+        with patch.object(recovery, "JOVO_EMPTY_DIRECTORY_DUMP_SHA256", recovery.digest(dump)):
+            self.assertEqual(recovery.import_stream(dump, "jovo"), (application, True))
+            for changed, namespace in ((dump, "backlog"), (dump + b"extra", "jovo")):
+                with self.assertRaisesRegex(RuntimeError, "unreviewed legacy directory"):
+                    recovery.import_stream(changed, namespace)
+        self.assertEqual(recovery.import_stream(application, "backlog"), (application, False))
+
     def test_arm64_requires_the_existing_exact_handler_and_digest(self):
         reference = "docker.io/library/mariadb@sha256:" + "a" * 64
         image = {"Architecture": "arm64", "Os": "linux", "RepoDigests": ["mariadb@sha256:" + "a" * 64],
