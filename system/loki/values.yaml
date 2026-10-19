@@ -19,7 +19,7 @@ maintenanceRecovery:
   cutoverBackupEnabled: false
   cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
-  transferEnabled: true
+  transferEnabled: false
   transferApply: true
   transferPhase: bulk
   transferAttempt: 4
@@ -61,6 +61,10 @@ server:
         max_entries_limit_per_query: 5000
         reject_old_samples: true
         reject_old_samples_max_age: 168h
+        # Replay must preserve every original stream label.
+        shard_streams:
+          enabled: false
+          time_sharding_enabled: false
       memberlist:
         join_members: []
       schema_config:

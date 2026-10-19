@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -82,7 +83,10 @@ def push(rows):
         streams[json.dumps(labels, sort_keys=True)].append([str(timestamp), line])
     body = {"streams": [{"stream": json.loads(labels), "values": sorted(values, key=lambda x: int(x[0]))}
                         for labels, values in streams.items()]}
-    request = urllib.request.Request(TARGET + "/loki/api/v1/push", data=json.dumps(body).encode(),
+    encoded = json.dumps(body).encode()
+    # Keep the entire replay below the receiver's 3 MiB/s per-stream limit.
+    time.sleep(len(encoded) / 1048576)
+    request = urllib.request.Request(TARGET + "/loki/api/v1/push", data=encoded,
                                      method="POST", headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
@@ -95,11 +99,22 @@ def push(rows):
 def confirm_visible(expected, start, end):
     # A successful push is not query proof; retry reads only, never the write.
     for attempt in range(10):
-        if expected.issubset(observed(TARGET, start, end)):
+        after = observed(TARGET, start, end)
+        if expected.issubset(after):
             return
         if attempt < 9:
             time.sleep(2)
-    raise RuntimeError("transferred originals are not all query-visible")
+    raise RuntimeError("transferred originals are not all query-visible; interval " +
+                       str(start) + ":" + str(end) + "; missing " + str(len(expected - after)))
+
+
+def require_unsharded():
+    with urllib.request.urlopen(TARGET + "/config", timeout=30) as response:
+        config = response.read().decode()
+    limits = re.search(r"(?ms)^limits_config:\n(.*?)(?=^\S|\Z)", config)
+    if not limits or not re.search(
+            r"(?m)^  shard_streams:\n    enabled: false\n    time_sharding_enabled: false$", limits[1]):
+        raise RuntimeError("receiver may transform original labels through stream sharding")
 
 
 def transfer(start, end, apply=False):
@@ -181,6 +196,8 @@ def run(target_uid, phase, attempt, apply):
     if receipt.exists():
         raise RuntimeError("transfer attempt already has a preserved receipt")
     source_claim = require_stage(target_uid, phase)
+    if apply:
+        require_unsharded()
     for base in (SOURCE, TARGET):
         if get_json(base + "/loki/api/v1/status/buildinfo")["version"] != "3.7.8":
             raise RuntimeError("unexpected transfer server version")

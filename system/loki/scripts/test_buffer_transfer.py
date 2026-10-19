@@ -2,6 +2,7 @@
 """Exercise complete pagination, exact labels and idempotent recovery boundaries."""
 
 import copy
+import io
 import json
 import unittest
 import urllib.error
@@ -85,6 +86,16 @@ class BufferTransferTests(unittest.TestCase):
         self.assertEqual(read.call_count, 3)
         push.assert_called_once_with(rows)
         sleep.assert_called_once_with(2)
+
+    def test_replay_refuses_receiver_label_transformation(self):
+        config = "limits_config:\n  shard_streams:\n    enabled: false\n    time_sharding_enabled: false\nserver:\n"
+        with patch.object(TRANSFER.urllib.request, "urlopen", return_value=io.BytesIO(config.encode())):
+            TRANSFER.require_unsharded()
+        for changed in (config.replace("enabled: false", "enabled: true", 1),
+                        config.replace("time_sharding_enabled: false", "time_sharding_enabled: true"), "server:\n"):
+            with self.subTest(config=changed), patch.object(TRANSFER.urllib.request, "urlopen",
+                    return_value=io.BytesIO(changed.encode())), self.assertRaisesRegex(RuntimeError, "transform"):
+                TRANSFER.require_unsharded()
 
     def test_query_rejects_out_of_window_and_invalid_results(self):
         values = [
