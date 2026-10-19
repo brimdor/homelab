@@ -64,4 +64,13 @@ no production Strata promotion. Cluster-local restore proof does not establish
 offsite recovery or resolve the entire RECOVERY_PROOF task. Successful CI execution
 remains unproven when no existing completed pipeline exists. Unrelated hardware
 findings remain open and do not block this component's scoped software update.</p>
+<h2>Pre-upgrade recovery receipt</h2>
+<p>Quiescence commit cb677d35d4273d1146ff35daa808f54eefc13e8c; backup commit
+638e3aaebc01e8ef3f2d27cfbac5977ff75eab8b. Both original Pods absent before
+backup. Protected post-repair recovery point:
+<code>/recovery/pre319-20261019/post-repair.sqlite</code>, 274432 bytes,
+SHA-256 <code>87f30697f8f7633354014bbf4fd442de81a238af237e6c588d6ba48ec403e6a0</code>.
+Full integrity and isolated restored inventory passed; zero pipelines and log
+entries. Original pre-repair recovery point is retained separately. Source PVC
+UID remains 9d28c21c-f01f-46ad-b966-cfb40fa3cda8. No NAS access.</p>
 </html>

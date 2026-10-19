@@ -1,11 +1,13 @@
 maintenanceRecovery:
   enabled: true
-  backupEnabled: true
+  backupEnabled: false
   repairEnabled: false
 
 woodpecker:
   agent:
-    replicaCount: 0
+    image:
+      tag: v3.19.0@sha256:f85f163e09494ace3377a3f3a6043f131fb47e3e627f7438de42417ee06ca56d
+    replicaCount: 1
     env:
       WOODPECKER_BACKEND_K8S_STORAGE_RWX: false
       # Agents will spawn pods to run workflow steps using the
@@ -15,8 +17,10 @@ woodpecker:
     extraSecretNamesForEnvFrom:
       - woodpecker-secret
   server:
+    image:
+      tag: v3.19.0@sha256:6ca167a3c58b50c5a3c903dd8db92b39cfc30c560a47052cff7dd0235123a9cb
     statefulSet:
-      replicaCount: 0
+      replicaCount: 1
     extraSecretNamesForEnvFrom:
       - woodpecker-secret
     env:
