@@ -7,7 +7,7 @@ app-template:
       forceRename: pointguide-canary
       type: deployment
       strategy: Recreate
-      replicas: 0
+      replicas: 1
       pod:
         securityContext:
           runAsNonRoot: true
@@ -351,7 +351,7 @@ app-template:
       pointguide.eaglepass.io/track: canary
 
 postgresMigration:
-  enabled: true
+  enabled: false
   nodeName: bulbasaur
   role: pointguide
   manifest: "7e6b03765d5972d02d69815d00b3467f311b5d7ed766e4d5aea416d23fa773d5"
