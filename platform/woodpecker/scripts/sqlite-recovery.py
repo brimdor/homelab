@@ -44,14 +44,53 @@ def inventory(connection):
             "repo_schema": schema, "migration_ids": migrations}
 
 
-def backup(source, destination):
+def backup(source, destination, quiesced_copy=False):
     assert source.is_file(), "Expected existing SQLite database"
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     assert not destination.exists(), "Never overwrite an existing recovery point"
     assert shutil.disk_usage(destination.parent).free > source.stat().st_size * 3
     os.umask(0o077)
-    with closing(connect_readonly(source)) as original, closing(sqlite3.connect(destination)) as copied:
-        original.backup(copied)
+    working = destination.parent / "recovery-work"
+    raw_hashes = {}
+    try:
+        if quiesced_copy:
+            # A read-only WAL database may need new shared-memory files. Recover
+            # a separate copy; never create or modify those files on the source.
+            raw = destination.parent / "raw-source"
+            raw.mkdir(mode=0o700)
+            working.mkdir(mode=0o700)
+            for suffix in ("", "-wal", "-journal"):
+                original_file = source.with_name(source.name + suffix)
+                if not original_file.exists():
+                    continue
+                before = original_file.stat()
+                archived = raw / original_file.name
+                shutil.copyfile(original_file, archived)
+                archived.chmod(0o600)
+                with archived.open("rb") as stream:
+                    os.fsync(stream.fileno())
+                    digest = hashlib.file_digest(stream, "sha256").hexdigest()
+                after = original_file.stat()
+                assert (before.st_ino, before.st_size, before.st_mtime_ns) == (
+                    after.st_ino, after.st_size, after.st_mtime_ns
+                ), "Source changed during quiesced copy"
+                with original_file.open("rb") as stream:
+                    assert hashlib.file_digest(stream, "sha256").hexdigest() == digest
+                raw_hashes[original_file.name] = digest
+                shutil.copyfile(archived, working / original_file.name)
+            raw_directory = os.open(raw, os.O_RDONLY)
+            try:
+                os.fsync(raw_directory)
+            finally:
+                os.close(raw_directory)
+            original = sqlite3.connect(working / source.name, timeout=30)
+        else:
+            original = connect_readonly(source)
+        with closing(original), closing(sqlite3.connect(destination)) as copied:
+            original.backup(copied)
+    finally:
+        if working.exists():
+            shutil.rmtree(working)
     with closing(connect_readonly(destination)) as copied:
         expected = inventory(copied)
         restored_path = destination.with_suffix(".restore.sqlite")
@@ -71,6 +110,7 @@ def backup(source, destination):
     finally:
         os.close(directory)
     return {"integrity": "ok", "isolated_restore": "passed", "sha256": digest,
+            "quiesced_copy": quiesced_copy, "raw_source_hashes": raw_hashes,
             "bytes": destination.stat().st_size, **expected}
 
 
@@ -78,7 +118,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=Path("/source/woodpecker.sqlite"))
     parser.add_argument("--destination", type=Path,
-                        default=Path("/recovery/trusted-20261019-offline/pre-repair.sqlite"))
+                        default=Path("/recovery/trusted-20261019-offline-v2/pre-repair.sqlite"))
+    parser.add_argument("--quiesced", action="store_true",
+                        help="Copy all SQLite recovery files after proving every writer stopped")
     options = parser.parse_args()
-    result = backup(options.source, options.destination)
+    result = backup(options.source, options.destination, options.quiesced)
     print(json.dumps(result, sort_keys=True), flush=True)

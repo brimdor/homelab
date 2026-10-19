@@ -35,6 +35,14 @@ server and agent replicas (one each) through Git, prove both Pods absent, and
 then enable the separately named offline recovery Job on bulbasaur. Preserve
 the failed destination and use a new recovery-point path. Restore both replica
 counts after the verified repair or after abandoning it.</p>
+<p>The first offline SQLite open also failed on the read-only source. A WAL-mode
+database may require writable shared-memory files even when no writer remains.
+The revised offline procedure copies the database and any WAL/rollback journal
+without copying shared memory. It preserves those raw files, checks source
+identity/size/time and hashes, and opens only a separate working copy writable
+for SQLite recovery. The production mount remains read-only. The validated
+backup and its isolated restore must pass integrity and inventory checks before
+any production data transformation.</p>
 <h2>Stage 2: conditional repair and acceptance</h2>
 <p>After diagnosis, validate the exact repair against synthetic fixtures and a
 restored copy. Preserve all existing permission semantics. Unknown values,
