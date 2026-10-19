@@ -41,6 +41,38 @@ class BufferTransferTests(unittest.TestCase):
         self.assertEqual(len({TRANSFER.fingerprint(r) for r in (stdout, stderr, other)}), 3)
         self.assertNotEqual(TRANSFER.fingerprint(stdout), TRANSFER.fingerprint((stdout[0], 1, "different")))
 
+    def test_received_attempts_discount_only_explicit_rate_limit_refusals(self):
+        metrics = (b'loki_distributor_lines_received_total{tenant="synthetic"} 4349882\n'
+                   b'loki_discarded_samples_total{reason="rate_limited",tenant="synthetic"} 5249\n')
+        with patch.object(TRANSFER.urllib.request, "urlopen", return_value=io.BytesIO(metrics)):
+            self.assertEqual(TRANSFER.source_accounting(), {"received_attempts": 4349882,
+                             "rate_limited_attempts": 5249, "accepted_records": 4344633})
+        invalid = [metrics.replace(b"rate_limited", b"too_old"),
+                   metrics.replace(b"4349882", b"NaN"), metrics.replace(b"5249", b"-1"),
+                   metrics.replace(b"5249", b"1.5"), metrics.replace(b"5249", b"4349883"),
+                   metrics.splitlines(keepends=True)[1]]
+        for value in invalid:
+            with self.subTest(metrics=value), patch.object(TRANSFER.urllib.request, "urlopen",
+                    return_value=io.BytesIO(value)), self.assertRaises(RuntimeError):
+                TRANSFER.source_accounting()
+
+    def test_independent_source_count_requires_single_integral_vector(self):
+        result = {"status": "success", "data": {"resultType": "vector",
+                  "result": [{"metric": {}, "value": [10, "4344633"]}]}}
+        with patch.object(TRANSFER, "get_json", return_value=result) as read:
+            self.assertEqual(TRANSFER.source_query_count(5 * 10**9, 10 * 10**9), 4344633)
+            self.assertIn("%5B7s%5D", read.call_args.args[0])
+            self.assertIn("time=10000000000", read.call_args.args[0])
+        for value in ("NaN", "-1", "1.5", "0"):
+            changed = copy.deepcopy(result)
+            changed["data"]["result"][0]["value"][1] = value
+            with patch.object(TRANSFER, "get_json", return_value=changed), self.assertRaises(RuntimeError):
+                TRANSFER.source_query_count(0, 10**9)
+        for changed in ({"status": "error"}, {"status": "success", "data": {
+                "resultType": "vector", "result": []}}):
+            with patch.object(TRANSFER, "get_json", return_value=changed), self.assertRaises(RuntimeError):
+                TRANSFER.source_query_count(0, 10**9)
+
     def test_audit_never_pushes_and_apply_sends_only_missing_originals(self):
         rows = self.rows()[:3]
         existing = {TRANSFER.fingerprint(rows[1])}

@@ -6,6 +6,7 @@ from collections import defaultdict
 import datetime
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -78,6 +79,51 @@ def windows(base, start, end, limit=5000):
 
 def observed(base, start, end):
     return {fingerprint(row) for _, _, rows in windows(base, start, end) for row in rows}
+
+
+def source_accounting():
+    # Received counts parsed attempts, including whole batches rejected with 429.
+    # Never discount other refusal classes or infer that a rejected batch retried.
+    with urllib.request.urlopen(SOURCE + "/metrics", timeout=30) as response:
+        lines = response.read().decode().splitlines()
+    received = []
+    rejected = 0
+    for line in lines:
+        if not line.startswith(("loki_distributor_lines_received_total ",
+                                "loki_distributor_lines_received_total{",
+                                "loki_discarded_samples_total ", "loki_discarded_samples_total{")):
+            continue
+        value = float(line.split()[-1])
+        if not math.isfinite(value) or value < 0 or not value.is_integer():
+            raise RuntimeError("invalid source ingestion counter")
+        if line.startswith("loki_distributor_lines_received_total"):
+            received.append(int(value))
+        else:
+            reason = re.search(r'(?:\{|,)reason="([^"]+)"(?:,|\})', line)
+            if value and (not reason or reason[1] != "rate_limited"):
+                raise RuntimeError("source has unqualified rejected records")
+            rejected += int(value)
+    total = sum(received)
+    if not received or total <= rejected:
+        raise RuntimeError("missing or inconsistent source ingestion accounting")
+    return {"received_attempts": total, "rate_limited_attempts": rejected,
+            "accepted_records": total - rejected}
+
+
+def source_query_count(start, end):
+    # An independent full-range aggregate must agree with enumeration and counters.
+    duration = (end - start) // 10**9 + 2
+    parameters = {"query": "sum(count_over_time(" + SELECTOR + "[" + str(duration) + "s]))",
+                  "time": str(end)}
+    value = get_json(SOURCE + "/loki/api/v1/query?" + urllib.parse.urlencode(parameters))
+    data = value.get("data", {})
+    result = data.get("result", [])
+    if value.get("status") != "success" or data.get("resultType") != "vector" or len(result) != 1:
+        raise RuntimeError("missing independent source query count")
+    count = float(result[0]["value"][1])
+    if not math.isfinite(count) or count <= 0 or not count.is_integer():
+        raise RuntimeError("invalid independent source query count")
+    return int(count)
 
 
 def push(rows):
@@ -242,6 +288,9 @@ def run(target_uid, phase, attempt, apply):
         if get_json(base + "/loki/api/v1/status/buildinfo")["version"] != "3.7.8":
             raise RuntimeError("unexpected transfer server version")
     received = cold_recovery.flush_old(SOURCE) if phase == "final" else None
+    accounting = source_accounting() if phase == "final" else None
+    if accounting and accounting["received_attempts"] != received:
+        raise RuntimeError("quiescent source accounting changed after flush")
     created = datetime.datetime.fromisoformat(source_claim["metadata"]["creationTimestamp"].replace("Z", "+00:00"))
     # Verified 3.7.8 receiver limits: maximum accepted age 1w, future grace 10m.
     lower = int(created.timestamp()) * 10**9 - 7 * 86400 * 10**9
@@ -254,8 +303,14 @@ def run(target_uid, phase, attempt, apply):
     require_stage(target_uid, phase)
     if phase == "final" and cold_recovery.metrics(SOURCE) != (0, received):
         raise RuntimeError("quiescent source changed during final transfer")
-    if phase == "final" and result["source_distinct_records"] != received:
-        raise RuntimeError("source enumeration does not account for every received original")
+    if phase == "final":
+        count = source_query_count(first[0][1], upper)
+        if source_accounting() != accounting:
+            raise RuntimeError("quiescent source rejection accounting changed")
+        if result["source_distinct_records"] != accounting["accepted_records"] or count != accounting["accepted_records"]:
+            raise RuntimeError("source enumeration does not account for every accepted original")
+        result.update(source_accepted_records=count, source_query_count=count,
+                      source_rate_limited_attempts=accounting["rate_limited_attempts"])
     result.update(phase=phase, attempt=attempt, target_uid=target_uid,
                   source_uid=cold_recovery.BUFFER_POD_UID,
                   complete_source_quiescence=phase == "final", source_received_counter=received,
