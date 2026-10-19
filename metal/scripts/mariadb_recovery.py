@@ -391,8 +391,15 @@ def restore(run_id, expected_manifest):
             common.docker("rm", "-f", identity)
         shutil.rmtree(scratch)
         if image_id and image_id not in before_images:
-            if not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
+            shared = bool(common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip())
+            if not shared:
                 common.docker("image", "rm", image_id)
+                if common.docker("image", "inspect", image_id, check=False).returncode == 0:
+                    raise RuntimeError("owned restore image remains after cleanup")
+            result["image_cleanup"] = {"removed_and_verified": not shared, "preserved_shared_consumer": shared}
+        elif image_id:
+            common.docker("image", "inspect", image_id)
+            result["image_cleanup"] = {"preexisting_preserved": True}
         result["cleanup"] = {"scratch_absent": not scratch.exists(),
                              "owned_containers_absent": not common.docker("ps", "-aq", "--filter=label=" + LABEL).stdout.strip()}
     write_json(point / ("restore-" + str(time.time_ns()) + ".json"), result)
