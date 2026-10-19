@@ -134,7 +134,7 @@ class Qualification:
                       "--image=" + K3S, "--api-port=127.0.0.1:0", "--subnet=172.31.240.0/24",
                       "--kubeconfig-update-default=false", "--kubeconfig-switch-context=false",
                       "--k3s-arg=--flannel-backend=none@server:*", "--k3s-arg=--disable-network-policy@server:*",
-                      "--k3s-arg=--disable-kube-proxy@server:*;@agent:*",
+                      "--k3s-arg=--disable-kube-proxy@server:*", "--k3s-arg=--disable-kube-proxy@agent:*",
                       "--k3s-arg=--disable=traefik@server:*", "--k3s-arg=--disable=servicelb@server:*",
                       "--k3s-arg=--disable=local-storage@server:*", "--k3s-arg=--disable=metrics-server@server:*"])
         raw = self.command([self.args.k3d, "kubeconfig", "get", self.args.name], private=True)

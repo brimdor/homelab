@@ -132,6 +132,12 @@
     a merge patch retaining both field names. A changed range or boundary reservation fails before mutation. Inspect
     <code>ansible-playbook -i metal/inventories/prod.yml -i localhost, metal/cluster.yml --limit localhost --tags cilium_resources --list-tasks</code>
     and the matching syntax check before the authorized execution; provisioning, k3s and Helm installation tasks must be excluded.</p>
+  <h2>First isolated execution and corrected argument</h2>
+  <p>cilium-owned-vm-qualification-ks62wtab verified an empty no-mount ARM64 VM, Linux 6.8.0-117-generic and available BTF.
+    k3d rejected the combined kube-proxy node filter before creating any nodes: its syntax accepts only one unescaped @ per flag.
+    The helper now supplies separate server and agent flags. This is an implementation failure, not a hardware or network blocker.
+    Finally cleanup verified the exact VM and owned processes absent and removed 561,946,624 allocated bytes. No production change occurred.
+    The corrected candidate requires a fresh full run; this receipt does not establish connectivity qualification.</p>
 </main>
 </body>
 </html>
