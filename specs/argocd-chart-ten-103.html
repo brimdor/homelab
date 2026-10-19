@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Maintenance 103: Argo CD chart 10</title>
+<style>
+  :root { color-scheme: dark; background: #10151d; color: #e1e8f1; font: 17px/1.6 system-ui; }
+  body { max-width: 1050px; margin: 3rem auto; padding: 1rem; }
+  a { color: #93c5fd; } code { overflow-wrap: anywhere; }
+</style>
+<body>
+<h1>Argo CD chart 10 staged rollout</h1>
+<p>Canonical maintenance <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103</a>,
+CHART_MINOR_UPDATES. Plan bound by exact original-body readback in
+<code>argocd-ten-existing-runtime-issue-plan-7q8ezoub</code> at 2026-10-19T22:47Z.
+PR108 remains unmerged; this is a separate scoped desired-state change.</p>
+<h2>Research and scope</h2>
+<p>The official <a href="https://github.com/argoproj/argo-helm/blob/argo-cd-10.0.0/charts/argo-cd/README.md#1000">10.0.0 upgrade notes</a>
+change the default of <code>global.networkPolicy.create</code> to true. The repository already explicitly
+sets true after its separately accepted RPC restriction. Keep all values and existing runtime 3.4.11,
+Redis 8.2.3-alpine and pinned exporter unchanged. Chart metadata requires Kubernetes &gt;=1.25;
+the cluster is 1.33.6. This chart change does not assert a new runtime support matrix.</p>
+<p>Isolated complete wrapper renders, including CRDs at Kubernetes 1.33.6, contain the same 60 identities.
+All three CRDs, both ApplicationSets, protected NFS Application and policy payloads are identical.
+Only chart labels and Pod checksums derived from labeled ConfigMaps differ.
+Receipt <code>argocd-ten-isolated-semantic-review-4xr6yjnt</code>.
+Further validation must assert exact equality after removing only these known metadata changes.</p>
+<h2>Plan and acceptance</h2>
+<ol>
+  <li>Capture six ready controller and Pod identities, actual image IDs, Secret UIDs/key names without values,
+  four policy identities and all three CRD UIDs. Existing matching-token etcd isolated restore is accepted;
+  Argo has no workload data migration. Preserve Git and core API recovery access.</li>
+  <li>Change only the dependency 9.5.18 to 10.0.0 and this specification. Validate isolated dependencies,
+  lint, complete parsed manifests, allowed metadata-only diff and scoped pre-commit. Reject resource,
+  selector, CRD, RBAC, credential, image, data, policy or discovery payload changes.</li>
+  <li>After Kured's independent chart rollout is accepted, commit and push only these files to Gitea master.
+  Refresh Argo itself through existing core access. Observe native controllers and reconciliation;
+  chart labels intentionally replace Pods without changing runtime or policy.</li>
+  <li>Require Argo Synced/Healthy at this commit or a newer ancestor with identical owning chart tree.
+  Preserve controller, Secret, policy and CRD UIDs, exact image IDs and Secret key sets. Verify ready
+  zero-restart Pods, native 3.4.11 processes, controller/repository/API/Redis metrics, normal manifest
+  comparison and TLS response. Retest the already denied unrelated-Pod repository RPC connection.</li>
+  <li>Keep the original unfiltered CORE and all existing findings. Recheck affected behavior after rollout.
+  Loki's active recovery Job and unrelated hardware, authentication or NAS gates remain tracked separately.</li>
+</ol>
+<h2>Failure and rollback</h2>
+<p>Stop dependent actions on a new regression. Revert this exact chart commit through validated Gitea master
+and verify reconciliation using core API access. No CRD schema, image version or storage change is involved,
+so rollback does not require a data-format downgrade. Do not edit live controllers, policies, Secrets,
+ApplicationSets or CRDs. Never use a live Helm upgrade or GitHub deployment fallback.
+No PR merge, issue closure, login bypass or node operation is authorized by this specification.</p>
+</body>
+</html>
