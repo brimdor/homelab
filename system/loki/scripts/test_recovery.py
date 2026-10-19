@@ -106,13 +106,13 @@ class StoreRecoveryTests(unittest.TestCase):
                          RECOVERY.inventory(target / "pre-upgrade-20261019-new"))
 
     def test_pvc_backup_guard_requires_quiescence_and_exact_live_identities(self):
-        pod = {"metadata": {"uid": "pod-uid"}, "spec": {"nodeName": "totodile", "volumes": [
+        pod = {"metadata": {"uid": "pod-uid"}, "spec": {"nodeName": "pikachu", "volumes": [
             {"name": "storage", "persistentVolumeClaim": {"claimName": "loki-data"}}]}}
         ds = {"metadata": {"generation": 2}, "status": {
             "observedGeneration": 2, "desiredNumberScheduled": 0, "currentNumberScheduled": 0}}
         claim = {"metadata": {"uid": "claim-uid"}, "status": {"phase": "Bound"}}
         cases = [(pod, ds, {"items": []}, claim)]
-        for changed in ("uid", "deleting", "unbound", "collectors", "generation", "mount"):
+        for changed in ("uid", "deleting", "unbound", "collectors", "generation", "node", "mount"):
             p, d, c = copy.deepcopy(pod), copy.deepcopy(ds), copy.deepcopy(claim)
             pods = {"items": []}
             if changed == "uid":
@@ -125,6 +125,8 @@ class StoreRecoveryTests(unittest.TestCase):
                 pods["items"] = [{"metadata": {"name": "still-running"}}]
             elif changed == "generation":
                 d["status"]["observedGeneration"] = 1
+            elif changed == "node":
+                p["spec"]["nodeName"] = "totodile"
             else:
                 p["spec"]["volumes"][0]["persistentVolumeClaim"]["claimName"] = "other"
             cases.append((p, d, pods, c))

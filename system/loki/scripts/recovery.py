@@ -94,7 +94,7 @@ def require_quiesced(uid, pvc_uid=None):
     valid = (
         pod["metadata"]["uid"] == uid and
         not pod["metadata"].get("deletionTimestamp") and
-        pod["spec"]["nodeName"] == "totodile" and
+        pod["spec"]["nodeName"] == ("pikachu" if pvc_uid else "totodile") and
         any(v["name"] == "storage" and (
             v.get("persistentVolumeClaim", {}).get("claimName") == "loki-data" if pvc_uid else
             "emptyDir" in v) for v in pod["spec"]["volumes"]) and

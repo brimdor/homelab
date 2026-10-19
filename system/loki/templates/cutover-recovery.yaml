@@ -3,7 +3,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: loki-cutover-backup-20261019-2
+  name: loki-cutover-backup-20261019-3
 spec:
   backoffLimit: 0
   template:
@@ -14,7 +14,7 @@ spec:
       restartPolicy: Never
       serviceAccountName: loki-store-recovery
       nodeSelector:
-        kubernetes.io/hostname: totodile
+        kubernetes.io/hostname: pikachu
       containers:
         - name: backup
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
