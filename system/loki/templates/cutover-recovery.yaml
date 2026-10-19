@@ -3,7 +3,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: loki-cutover-backup-20261019
+  name: loki-cutover-backup-20261019-2
 spec:
   backoffLimit: 0
   template:
@@ -49,7 +49,6 @@ spec:
         - name: source
           persistentVolumeClaim:
             claimName: loki-data
-            readOnly: true
         - name: recovery
           persistentVolumeClaim:
             claimName: loki-recovery

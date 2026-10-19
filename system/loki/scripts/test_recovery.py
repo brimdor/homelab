@@ -95,11 +95,12 @@ class StoreRecoveryTests(unittest.TestCase):
 
         with patch.object(RECOVERY, "recovery_point", return_value=(self.root, value)), \
                 patch.object(RECOVERY, "Path", side_effect=path), \
-                patch.object(RECOVERY.os, "chown"):
+                patch.object(RECOVERY.os, "chown") as chown:
             for suffix in ("old", "new"):
                 RECOVERY.prepare("pre-upgrade-20261019", "pre-upgrade-20261019-" + suffix)
             with self.assertRaises(FileExistsError):
                 RECOVERY.prepare("pre-upgrade-20261019", "pre-upgrade-20261019-old")
+        chown.assert_any_call(target / "pre-upgrade-20261019-old", 10001, 10001)
         self.assertEqual((target / "loki/original").read_text(), "preserved prior candidate")
         self.assertEqual(RECOVERY.inventory(target / "pre-upgrade-20261019-old"),
                          RECOVERY.inventory(target / "pre-upgrade-20261019-new"))

@@ -206,6 +206,7 @@ def prepare(point="pre-pvc-20261019", subdirectory=""):
     target = Path("/target") / subdirectory
     if subdirectory:
         target.mkdir(mode=0o700)
+        os.chown(target, 10001, 10001)
     if any(p.name != "lost+found" or not p.is_dir() or list(p.iterdir())
            for p in target.iterdir()):
         raise RuntimeError("target is not an empty fresh claim")
