@@ -8,6 +8,7 @@ app-template:
           image:
             repository: docker.io/brimdor/budget-frontend
             tag: canary
+            digest: sha256:285e69bfcdbda746328febfc6a6c616a4acee3d4469b12fa194bdc4af4bbab0f
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -15,6 +16,7 @@ app-template:
           image:
             repository: docker.io/brimdor/budget-backend
             tag: canary
+            digest: sha256:1e8042e10e224031452d137ed720129d9cd6ce38ee2c60e6f1aefaa770144810
             pullPolicy: Always
           env:
             TZ: America/Chicago
