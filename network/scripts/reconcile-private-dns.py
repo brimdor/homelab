@@ -86,7 +86,10 @@ class FirewallRules(html.parser.HTMLParser):
         elif self.row is not None:
             require(tag not in ("tr", "table"), "Unexpected nested firewall rule markup")
             if tag == "td":
-                require(self.cell is None, "Nested firewall rule cell")
+                # The pinned GUI omits closing tags in trailing statistics cells, beyond projected policy fields.
+                if self.cell is not None:
+                    require(len(self.row["cells"]) >= 9, "Nested firewall policy cell")
+                    self.row["cells"].append("")
                 self.cell = []
             elif tag in ("i", "span") and len(self.row["cells"]) == 1:
                 actions = {"fa-play": "pass", "fa-times": "block", "fa-times-circle": "reject"}

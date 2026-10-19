@@ -615,6 +615,12 @@ class FirewallAuditTests(unittest.TestCase):
         self.assertTrue(set(dns.FIREWALL_PATHS.values()).issubset(dns.READ_PATHS))
         self.assertNotIn("/firewall_rules.php?if=opt2&act=apply", dns.READ_PATHS)
 
+    def test_gui_omitted_trailing_statistics_cell_end_tag(self):
+        page = self.page().replace("</tr>", '<td>discarded statistics<td>never-export</td></tr>')
+        self.assertEqual(dns.FirewallRules(page).rules, dns.FirewallRules(self.page()).rules)
+        with self.assertRaises(dns.Refusal):
+            dns.FirewallRules(self.page().replace("2049</td>", "2049"))
+
     def test_firewall_audit_rejects_apply_before_access(self):
         with patch.object(dns.sys, "argv", ["check", "--firewall-audit", "--apply"]), \
                 patch.object(dns, "Router") as router, patch("builtins.print"), \
