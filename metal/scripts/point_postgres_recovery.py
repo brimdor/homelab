@@ -111,6 +111,53 @@ def normalized_dump(data):
     return b"".join(result)
 
 
+def data_sections(data):
+    """Describe exact COPY record multisets and all executable data-only SQL."""
+    tables, settings, sequences = {}, [], []
+    header = None
+    rows = []
+    for line in normalized_dump(data).splitlines(keepends=True):
+        if header is not None:
+            if line.rstrip(b"\r\n") == b"\\.":
+                key = digest(header)
+                if key in tables:
+                    raise RuntimeError("duplicate COPY section in data comparison")
+                framed = lambda values: b"".join(len(row).to_bytes(8, "big") + row for row in values)
+                tables[key] = {"rows": len(rows), "ordered_sha256": digest(framed(rows)),
+                               "multiset_sha256": digest(framed(sorted(rows)))}
+                header, rows = None, []
+            else:
+                rows.append(line)
+        elif line.startswith(b"COPY ") and line.rstrip(b"\r\n").endswith(b" FROM stdin;"):
+            header = line
+        elif not line.strip() or line.startswith(b"--"):
+            continue
+        elif line.startswith(b"SET ") or line.startswith(b"SELECT pg_catalog.set_config("):
+            settings.append(digest(line))
+        elif line.startswith(b"SELECT pg_catalog.setval("):
+            sequences.append(digest(line))
+        else:
+            raise RuntimeError("unknown executable data-only SQL in comparison")
+    if header is not None:
+        raise RuntimeError("incomplete COPY section in data comparison")
+    return {"tables": tables, "settings": settings, "sequences": sorted(sequences)}
+
+
+def data_diagnostic(archived, restored):
+    original, current = data_sections(archived), data_sections(restored)
+    def unordered(value):
+        return {key: {k: v for k, v in table.items() if k != "ordered_sha256"}
+                for key, table in value["tables"].items()}
+    return {"tables": len(original["tables"]), "archived_rows": sum(t["rows"] for t in original["tables"].values()),
+            "restored_rows": sum(t["rows"] for t in current["tables"].values()),
+            "copy_ordered_equal": original["tables"] == current["tables"],
+            "copy_multiset_equal": unordered(original) == unordered(current),
+            "session_settings_equal": original["settings"] == current["settings"],
+            "sequence_commands_equal": original["sequences"] == current["sequences"],
+            "archive_sha256": digest(normalized_dump(archived)),
+            "restored_sha256": digest(normalized_dump(restored))}
+
+
 def remote(mode, run_id, *extra):
     code = "import base64,sys,types; "
     for name in ("etcd_recovery", "mariadb_recovery"):
@@ -378,6 +425,7 @@ def restore(run_id, expected_manifest):
         archived = execute("pg_restore", "--data-only", "--no-comments", "--file=-", root + "/database.dump")
         restored = execute("pg_dump", "-h", "/tmp", "-U", ADMIN, "-d", database, "--data-only", "--no-comments")
         if digest(normalized_dump(archived)) != digest(normalized_dump(restored)):
+            result["data_diagnostic"] = data_diagnostic(archived, restored)
             raise RuntimeError("restored complete logical data fingerprint differs")
         counts = [int(n) for n in sql(ROW_SQL).splitlines()]
         if len(counts) != manifest["before"]["features"]["user_tables"]:

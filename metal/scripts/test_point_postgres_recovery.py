@@ -57,6 +57,27 @@ class PointPostgresRecoveryTests(unittest.TestCase):
         self.assertEqual(recovery.error_class(b'unknown private diagnostic'), ["unclassified"])
         self.assertEqual(recovery.error_class(b'ERROR: permission denied for private table'), ["permission_denied"])
 
+    def test_data_diagnostic_preserves_duplicate_records_settings_sequences_and_unknown_sql(self):
+        first = (b"SET statement_timeout = 0;\nCOPY public.t (v) FROM stdin;\n"
+                 b"private first\n-- private second\nprivate first\n\\.\n"
+                 b"SELECT pg_catalog.setval('public.s', 3, true);\n")
+        reordered = first.replace(b"private first\n-- private second\nprivate first\n",
+                                  b"private first\nprivate first\n-- private second\n")
+        result = recovery.data_diagnostic(first, reordered)
+        self.assertTrue(result["copy_multiset_equal"])
+        self.assertFalse(result["copy_ordered_equal"])
+        self.assertEqual(result["archived_rows"], 3)
+        self.assertNotIn("private", json.dumps(result))
+        for changed, field in ((first.replace(b"-- private second\n", b""), "copy_multiset_equal"),
+                               (first.replace(b"statement_timeout = 0", b"statement_timeout = 1"), "session_settings_equal"),
+                               (first.replace(b"3, true", b"4, true"), "sequence_commands_equal")):
+            with self.subTest(field=field):
+                self.assertFalse(recovery.data_diagnostic(first, changed)[field])
+        with self.assertRaisesRegex(RuntimeError, "unknown executable"):
+            recovery.data_sections(first + b"DELETE FROM public.t;\n")
+        with self.assertRaisesRegex(RuntimeError, "duplicate COPY"):
+            recovery.data_sections(first + first)
+
     def test_source_client_uses_only_declared_password_same_principal_and_readonly(self):
         arguments = recovery.source_client("pointguide-canary", "pg_dump", "--format=custom", database="pointguide")
         shell = arguments[-1]
