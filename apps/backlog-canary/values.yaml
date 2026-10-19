@@ -5,6 +5,8 @@ app-template:
       replicas: 1
       containers:
         database:
+          args:
+            - --ignore-db-dirs=lost+found
           image:
             repository: docker.io/library/mariadb
             tag: "10.11.19@sha256:0d0945c57f75b3a3b9ebe71aedaaad005fa5305054e8fca3d2e42a8c92b43b5e"
