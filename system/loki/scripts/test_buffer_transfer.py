@@ -69,10 +69,22 @@ class BufferTransferTests(unittest.TestCase):
     def test_failed_visibility_proof_never_blindly_reposts(self):
         rows = self.rows()[:1]
         with patch.object(TRANSFER, "windows", return_value=[(0, 2, rows)]), \
-                patch.object(TRANSFER, "observed", return_value=set()), patch.object(TRANSFER, "push") as push:
+                patch.object(TRANSFER, "observed", return_value=set()), patch.object(TRANSFER, "push") as push, \
+                patch.object(TRANSFER.time, "sleep"):
             with self.assertRaisesRegex(RuntimeError, "not all query-visible"):
                 TRANSFER.transfer(0, 2, apply=True)
             self.assertEqual(push.call_count, 1)
+
+    def test_delayed_visibility_retries_only_reads(self):
+        rows = self.rows()[:1]
+        expected = {TRANSFER.fingerprint(rows[0])}
+        with patch.object(TRANSFER, "windows", return_value=[(0, 2, rows)]), \
+                patch.object(TRANSFER, "observed", side_effect=[set(), set(), expected]) as read, \
+                patch.object(TRANSFER, "push") as push, patch.object(TRANSFER.time, "sleep") as sleep:
+            self.assertTrue(TRANSFER.transfer(0, 2, apply=True)["all_source_records_visible"])
+        self.assertEqual(read.call_count, 3)
+        push.assert_called_once_with(rows)
+        sleep.assert_called_once_with(2)
 
     def test_query_rejects_out_of_window_and_invalid_results(self):
         values = [

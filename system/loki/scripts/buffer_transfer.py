@@ -92,6 +92,16 @@ def push(rows):
         raise RuntimeError("push outcome uncertain; rerun the comparison audit before recovery") from None
 
 
+def confirm_visible(expected, start, end):
+    # A successful push is not query proof; retry reads only, never the write.
+    for attempt in range(10):
+        if expected.issubset(observed(TARGET, start, end)):
+            return
+        if attempt < 9:
+            time.sleep(2)
+    raise RuntimeError("transferred originals are not all query-visible")
+
+
 def transfer(start, end, apply=False):
     manifest = []
     total = missing_total = 0
@@ -104,9 +114,7 @@ def transfer(start, end, apply=False):
         if apply:
             for index in range(0, len(missing), 250):
                 push(missing[index:index + 250])
-            after = observed(TARGET, left, right)
-            if not set(unique).issubset(after):
-                raise RuntimeError("transferred originals are not all query-visible")
+            confirm_visible(set(unique), left, right)
         total += len(unique)
         missing_total += len(missing)
         manifest.append({"start": left, "end": right, "source_distinct_records": len(unique),
