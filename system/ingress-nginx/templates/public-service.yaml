@@ -1,0 +1,32 @@
+# Retain this identity: Cloudflared, private DNS and Git SSH depend on it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: LoadBalancer
+  ipFamilyPolicy: SingleStack
+  ipFamilies: [IPv4]
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: {{ .Values.publicService.targetPorts.http }}
+      appProtocol: http
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: {{ .Values.publicService.targetPorts.https }}
+      appProtocol: https
+    - name: 22-tcp
+      port: 22
+      protocol: TCP
+      targetPort: {{ .Values.publicService.targetPorts.ssh }}
+  selector:
+    {{- toYaml .Values.publicService.selector | nindent 4 }}

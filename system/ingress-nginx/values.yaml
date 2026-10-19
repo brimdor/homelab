@@ -1,5 +1,12 @@
 ingress-nginx:
   controller:
+    service:
+      enabled: false
+    # Keep status publication while the Service moves to the parent chart.
+    extraArgs:
+      publish-service: $(POD_NAMESPACE)/ingress-nginx-controller
+    ingressClassResource:
+      enabled: false
     admissionWebhooks:
       timeoutSeconds: 30
     metrics:
@@ -106,3 +113,14 @@ traefik:
               matchLabels:
                 app.kubernetes.io/name: traefik
             topologyKey: kubernetes.io/hostname
+
+# Keep the public Service identity while controllers are validated in parallel.
+publicService:
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/component: controller
+  targetPorts:
+    http: http
+    https: https
+    ssh: 22-tcp

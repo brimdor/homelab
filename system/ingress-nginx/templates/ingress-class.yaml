@@ -1,0 +1,12 @@
+# The compatibility provider consumes this existing class without Ingress edits.
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  controller: k8s.io/ingress-nginx
