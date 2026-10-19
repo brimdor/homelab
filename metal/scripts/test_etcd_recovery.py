@@ -107,6 +107,14 @@ class IsolationTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue()), receipt)
         self.assertNotIn("private diagnostic", output.getvalue())
 
+    def test_log_diagnostic_never_exports_values_or_raw_lines(self):
+        path = self.scratch / "reset.log"
+        path.write_text("fatal: snapshot bootstrap token=private-production-material: permission denied")
+        receipt = RECOVERY.log_diagnostic(path)
+        self.assertEqual(receipt["markers"], ["permission denied", "token", "snapshot", "bootstrap", "fatal"])
+        self.assertNotIn("private-production-material", json.dumps(receipt))
+        self.assertEqual(RECOVERY.log_diagnostic(self.scratch / "absent"), {"present": False})
+
     def test_cancel_checks_exact_ownership_and_stops_only_that_container(self):
         identity = "a" * 64
         container = copy.deepcopy(self.container)

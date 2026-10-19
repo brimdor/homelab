@@ -326,6 +326,20 @@ def copy_point(run_id, source):
                     process.wait()
 
 
+def log_diagnostic(path):
+    """Classify known failures without exporting any production log content."""
+    if not path.is_file():
+        return {"present": False}
+    data = path.read_bytes()
+    phrases = ("permission denied", "read-only file system", "no such file or directory",
+               "address already in use", "network is unreachable", "connection refused",
+               "failed to decrypt", "failed to validate", "token", "snapshot", "bootstrap",
+               "fatal", "panic", "certificate", "not permitted", "cluster-reset", "s3")
+    text = data.decode(errors="replace").lower()
+    return {"present": True, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+            "markers": [phrase for phrase in phrases if phrase in text]}
+
+
 def qualify(run_id, point=None, manifest_sha256=None):
     if os.geteuid() != 0 or command(["hostname"]).stdout.strip() != b"pikachu":
         raise RuntimeError("qualification must run on the exact authorized off-master host")
@@ -398,8 +412,12 @@ def qualify(run_id, point=None, manifest_sha256=None):
         else:
             server.append("--token-file=/recovery/token")
             reset = [*server, "--cluster-reset", "--cluster-reset-restore-path=/recovery/snapshot"]
-            docker("exec", container_id, "/bin/sh", "-c", "umask 077; " + shlex.join(reset) +
-                   " > /work/reset.log 2>&1")
+            result = docker("exec", container_id, "/bin/sh", "-c", "umask 077; " + shlex.join(reset) +
+                            " > /work/reset.log 2>&1", check=False)
+            receipt["reset_exit"] = result.returncode
+            if result.returncode:
+                receipt["reset_diagnostic"] = log_diagnostic(scratch / "reset.log")
+                raise RuntimeError("isolated snapshot reset failed")
             recovered = scratch / "data/server/cred/encryption-config.json"
             expected = next(record for record in manifest["files"] if record["name"] == "encryption-config.json")
             if source_record("encryption-config.json", recovered)[0] != expected:
