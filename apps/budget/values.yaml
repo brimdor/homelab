@@ -1,12 +1,14 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      # SQLite on the shared NAS path must have only one application writer.
+      strategy: Recreate
       containers:
         frontend:
           image:
             repository: docker.io/brimdor/budget-frontend
             tag: latest
+            digest: sha256:d03e725da394bd9a44758901e59085aabc97a1b17a99058bcbd0f14dcdf8afcb
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
@@ -14,6 +16,7 @@ app-template:
           image:
             repository: docker.io/brimdor/budget-backend
             tag: latest
+            digest: sha256:7b98b4eac936ea5024476cd4f73e5958dc815739191709c359b437a8b5b4297b
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget immutable rollout</title>
+<style>
+  :root { color-scheme: dark; background: #121820; color: #e1e7ef; font: 16px/1.6 system-ui; }
+  body { max-width: 850px; margin: 3rem auto; padding: 0 1.25rem; }
+  a { color: #8bc7ff; } code { color: #b8ddff; } h1,h2 { line-height: 1.25; }
+</style>
+<main>
+  <h1>Budget immutable rollout</h1>
+  <p>Maintenance issue <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103</a>,
+    task <code>IMMUTABLE_IMAGE_TAGS</code>; prerequisite <code>BUDGET_SINGLE_WRITER</code>.</p>
+  <h2>Observed baseline</h2>
+  <p>At 2026-10-19T12:18:57Z, the single healthy Budget pod on cyndaquil ran the exact
+    frontend and backend digests already proposed in its values file. Both manifests
+    remained retrievable by digest. Public HTTPS returned the frontend and a successful
+    <code>/api/health</code> response. The backend mounts NAS path
+    <code>10.0.40.3:/mnt/user/budget</code> at <code>/app/data</code>.</p>
+  <p>The existing Deployment uses RollingUpdate with 25% surge and 25% unavailable.
+    For one replica, this permits a second backend writer before the first stops.
+    Source: live Deployment UID <code>5c6e94fe-b730-4f9c-98b0-f3f140bbe798</code>,
+    chart <code>apps/budget</code> using app-template 5.0.1, and the dated maintenance evidence.</p>
+  <h2>Desired state</h2>
+  <p>Pin both images to their current running digests. During GitOps upgrades, use Recreate
+    so the old application pod stops before its replacement starts. Preserve replica count, node selection,
+    ingress, credentials, NAS identity and mount ownership. This is an identical-artifact
+    restart with a short service interruption; it introduces no database version or schema
+    change. No maintenance data manipulation or NAS write/restore probe is included.</p>
+  <p>The <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#recreate-deployment">Kubernetes Deployment contract</a>
+    guarantees this ordering for upgrades. Manual pod deletion is outside that guarantee
+    and is not part of this rollout.</p>
+  <h2>Acceptance</h2>
+  <ul>
+    <li>Compare rendered resources by API version, kind, namespace and name. Only two
+      container images and the Deployment strategy may differ.</li>
+    <li>Pass Helm lint, targeted pre-commit and whitespace checks before committing.</li>
+    <li>Push to canonical Gitea master; immediately refresh Argo CD and verify exact
+      revision, Synced/Healthy, rollout, one ready pod and zero container restarts.</li>
+    <li>Confirm both runtime digests, node and NAS mount identity remain unchanged.</li>
+    <li>Verify the same public frontend hash and healthy API response. Inspect startup
+      outcome and warning events; retain the original CORE report and unresolved findings.</li>
+    <li>Authenticated financial workflows remain under the separate APP_ACCEPTANCE
+      contract. A healthy endpoint does not certify those workflows or recovery.</li>
+  </ul>
+  <h2>Rollback</h2>
+  <p>On a deployment regression, revert the exact rollout commit through Gitea and Argo CD.
+    Record the previously running digests as the known artifact identities; do not rely on
+    a mutable tag resolving to the same artifact. Preserve NAS data and existing secrets.
+    Investigate any evidence of unexpected data-format change before restarting a backend.</p>
+</main>
+</html>
