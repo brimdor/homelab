@@ -7,7 +7,7 @@ app-template:
       forceRename: pointguide
       type: deployment
       strategy: Recreate
-      replicas: 0
+      replicas: 1
       pod:
         securityContext:
           runAsNonRoot: true
@@ -348,7 +348,7 @@ app-template:
       pointguide.eaglepass.io/track: production
 
 postgresMigration:
-  enabled: true
+  enabled: false
   nodeName: totodile
   role: pointguide
   manifest: "b3eb1ecd1ec09e9d1e0c57b293840ac1e81734e43321e62e21c4dbddd584beaa"
