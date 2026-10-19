@@ -179,20 +179,23 @@ def compare(namespace, pod, manifest):
         raise RuntimeError("migration authorization differs")
     archived = execute(namespace, pod, "pg_restore", "--data-only", "--no-comments", "--file=-", "/recovery/database.dump")
     # A data-only dump warns about circular FKs; extract data from a complete native archive instead.
-    current_archive = run("pg_dump", "--format=custom")
-    restored = execute(namespace, pod, "pg_restore", "--data-only", "--no-comments", "--file=-", input=current_archive)
+    pipeline = (shlex.join(["pg_dump", "-h", "/tmp", "-U", role, "-d", role, "--format=custom"]) + " | " +
+                shlex.join(["pg_restore", "--data-only", "--no-comments", "--file=-"]))
+    restored = execute(namespace, pod, "/bin/bash", "-o", "pipefail", "-c", pipeline)
     diagnostic = recovery.data_diagnostic(archived, restored)
     if not all(diagnostic[k] for k in ("copy_multiset_equal", "session_settings_equal", "sequence_commands_equal")):
         raise RuntimeError("migration complete logical data differs")
     version = run("psql", "-X", "-Atq", "-v", "ON_ERROR_STOP=1", "-c", "SHOW server_version").strip()
     if version != b"18.6":
         raise RuntimeError("migration executable version differs")
-    counts = [int(n) for n in execute(namespace, pod, "psql", "-h", "/tmp", "-U", role, "-d", role,
-                                     "-X", "-Atq", "-v", "ON_ERROR_STOP=1", input=recovery.ROW_SQL.encode()).splitlines()]
-    if len(counts) != manifest["before"]["features"]["user_tables"] or sum(counts) != diagnostic["archived_rows"]:
+    count_sql = ("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                 "WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','m')")
+    relations = int(run("psql", "-X", "-Atq", "-v", "ON_ERROR_STOP=1", "-c", count_sql).strip())
+    if (relations != manifest["before"]["features"]["user_tables"] or diagnostic["tables"] != relations or
+            diagnostic["archived_rows"] != diagnostic["restored_rows"]):
         raise RuntimeError("migration relation or row counts differ")
     return {"schema_matches": True, "authorization_matches": True, "logical_data_matches": True,
-            "relations": len(counts), "rows": sum(counts), "diagnostic": diagnostic}
+            "relations": relations, "rows": diagnostic["restored_rows"], "diagnostic": diagnostic}
 
 
 def migrate(namespace, job_uid, run_id, manifest_hash):

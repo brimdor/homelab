@@ -57,13 +57,15 @@ class PointMigrationTests(unittest.TestCase):
     def test_role_and_data_comparison_refuses_missing_duplicate_record(self):
         manifest = {"before": {"schema_sha256": recovery.digest(b"schema\n"), "roles_sha256": "r", "features": {"user_tables": 1}}}
         archive = b"COPY public.t (v) FROM stdin;\na\na\n\\.\n"
-        values = [b"schema\n", b"r\n", archive, b"native custom archive", archive, b"18.6\n", b"2\n"]
+        values = [b"schema\n", b"r\n", archive, archive, b"18.6\n", b"1\n"]
         with patch.object(migration, "execute", side_effect=values) as execute:
             self.assertTrue(migration.compare("pointguide-canary", "owned", manifest)["logical_data_matches"])
-            self.assertIn("--format=custom", execute.call_args_list[3].args)
-            self.assertNotIn("--data-only", execute.call_args_list[3].args)
-            self.assertEqual(execute.call_args_list[4].kwargs["input"], b"native custom archive")
-        values[4] = b"COPY public.t (v) FROM stdin;\na\n\\.\n"
+            pipeline = execute.call_args_list[3].args[-1]
+            self.assertIn("pipefail", execute.call_args_list[3].args)
+            self.assertIn("--format=custom | pg_restore", pipeline)
+            self.assertNotIn("--data-only", pipeline.split(" | ")[0])
+            self.assertTrue(all("input" not in call.kwargs for call in execute.call_args_list))
+        values[3] = b"COPY public.t (v) FROM stdin;\na\n\\.\n"
         with patch.object(migration, "execute", side_effect=values), self.assertRaisesRegex(RuntimeError, "logical data"):
             migration.compare("pointguide-canary", "owned", manifest)
 
