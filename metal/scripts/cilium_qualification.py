@@ -2,6 +2,7 @@
 """Qualify adjacent Cilium transitions in a fresh, explicitly isolated Docker VM."""
 
 import argparse
+from contextlib import contextmanager
 import gzip
 import hashlib
 import json
@@ -12,6 +13,7 @@ import signal
 import socket
 import stat
 import subprocess
+import time
 import urllib.request
 from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
@@ -174,6 +176,41 @@ class Qualification:
         self.helm("upgrade", "--install", "cilium", str(path), "--namespace", "kube-system", "--reset-values",
                   "--values", str(self.work / "values.yaml"))
 
+    @contextmanager
+    def hubble_forward(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            port = listener.getsockname()[1]
+        path = self.work / "hubble-forward.log"
+        with path.open("wb") as output:
+            child = subprocess.Popen([self.args.kubectl, "--cache-dir", str(self.work / "cache/kubectl"),
+                                      "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
+                                      "--request-timeout=30s", "-n", "kube-system", "port-forward",
+                                      "service/hubble-relay", str(port) + ":80", "--address=127.0.0.1"],
+                                     env=self.env, stdin=subprocess.DEVNULL, stdout=output,
+                                     stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                deadline = time.monotonic() + 30
+                while b"Forwarding from 127.0.0.1:" + str(port).encode() + b" ->" not in path.read_bytes():
+                    if child.poll() is not None or time.monotonic() >= deadline:
+                        raise RuntimeError("owned Hubble port-forward did not bind")
+                    time.sleep(0.1)
+                if child.poll() is not None:
+                    raise RuntimeError("owned Hubble port-forward exited")
+                yield "127.0.0.1:" + str(port)
+                if child.poll() is not None:
+                    raise RuntimeError("owned Hubble port-forward exited during validation")
+            finally:
+                if child.poll() is None:
+                    os.killpg(child.pid, signal.SIGTERM)
+                    try:
+                        child.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(child.pid, signal.SIGKILL)
+                        child.wait()
+                (self.work / "hubble-forward.log.gz").write_bytes(gzip.compress(path.read_bytes()))
+                path.unlink()
+
     def validate(self, version, phase):
         self.identity()
         print(json.dumps({"phase": phase, "version": version}), flush=True)
@@ -190,10 +227,11 @@ class Qualification:
             if not re.search(rb"\b" + re.escape(version.encode()) + rb"\b", raw):
                 raise RuntimeError("native agent version differs from selected stage")
         path = self.work / (phase + ".xml")
-        self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
-                      "connectivity", "test", "--test=^(" + "|".join(TESTS) + ")$", "--ip-families=ipv4",
-                      "--flow-validation=strict", "--hubble=true", "--collect-sysdump-on-failure=false",
-                      "--junit-file=" + str(path)])
+        with self.hubble_forward() as address:
+            self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
+                          "connectivity", "test", "--test=^(" + "|".join(TESTS) + ")$", "--ip-families=ipv4",
+                          "--flow-validation=strict", "--hubble=true", "--hubble-server=" + address,
+                          "--collect-sysdump-on-failure=false", "--junit-file=" + str(path)])
         results = require_results(path)
         self.stages.append({"phase": phase, "version": version, "cluster_uid": self.cluster_uid,
                             "agent_uids": [p["metadata"]["uid"] for p in pods], **results})

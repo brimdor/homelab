@@ -10,6 +10,7 @@ import threading
 from unittest.mock import patch
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 import cilium_qualification as qualification
@@ -104,6 +105,35 @@ class QualificationGuards(unittest.TestCase):
                 path.write_text(value)
                 with self.assertRaises(RuntimeError):
                     qualification.require_results(path)
+
+    def test_hubble_forward_binds_loopback_and_reaps_after_failure(self):
+        children = []
+        real_popen = subprocess.Popen
+
+        def start(command, **kwargs):
+            self.assertIn("--address=127.0.0.1", command)
+            port = command[-2].split(":")[0]
+            script = ("import socket,sys,signal; s=socket.socket(); "
+                      "s.bind(('127.0.0.1',int(sys.argv[1]))); s.listen(); "
+                      "print('Forwarding from 127.0.0.1:'+sys.argv[1]+' -> 4245',flush=True); signal.pause()")
+            child = real_popen([sys.executable, "-c", script, port], **kwargs)
+            children.append(child)
+            return child
+
+        with tempfile.TemporaryDirectory() as directory:
+            runner = qualification.Qualification.__new__(qualification.Qualification)
+            runner.work, runner.env = Path(directory), {**os.environ, "KUBECONFIG": "synthetic"}
+            runner.context, runner.args = "synthetic", SimpleNamespace(kubectl="kubectl")
+            with patch.object(qualification.subprocess, "Popen", side_effect=start):
+                with self.assertRaisesRegex(RuntimeError, "suite failed"):
+                    with runner.hubble_forward() as address:
+                        self.assertTrue(address.startswith("127.0.0.1:"))
+                        raise RuntimeError("suite failed")
+            self.assertFalse((runner.work / "hubble-forward.log").exists())
+        self.assertEqual(len(children), 1)
+        self.assertIsNotNone(children[0].poll())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(children[0].pid, 0)
 
 
 if __name__ == "__main__":
