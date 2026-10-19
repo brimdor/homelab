@@ -39,12 +39,13 @@ def fingerprint(row):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
 
 
-def query(base, start, end, limit=5000, direction="forward"):
+def query(base, start, end, limit=5000, direction="forward", selector=SELECTOR):
     # Loki's HTTP end is exclusive; internal windows include both endpoints.
-    parameters = {"query": SELECTOR, "start": str(start), "end": str(end + 1),
+    parameters = {"query": selector, "start": str(start), "end": str(end + 1),
                   "limit": str(limit), "direction": direction}
     value = get_json(base + "/loki/api/v1/query_range?" + urllib.parse.urlencode(parameters))
-    if value.get("status") != "success" or value.get("data", {}).get("resultType") != "streams":
+    if (value.get("status") != "success" or value.get("data", {}).get("resultType") != "streams" or
+            not isinstance(value.get("data", {}).get("result"), list)):
         raise RuntimeError("buffer comparison query failed")
     rows = []
     for stream in value["data"]["result"]:
@@ -117,20 +118,54 @@ def source_accounting():
             "accepted_records": total - rejected}
 
 
-def source_query_count(start, end):
+def query_count(base, start, end, allow_empty=False):
     # An independent full-range aggregate must agree with enumeration and counters.
-    duration = (end - start) // 10**9 + 2
+    upper = end + 10**9 if allow_empty else end
+    duration = (upper - start) // 10**9 + 2
     parameters = {"query": "sum(count_over_time(" + SELECTOR + "[" + str(duration) + "s]))",
-                  "time": str(end)}
-    value = get_json(SOURCE + "/loki/api/v1/query?" + urllib.parse.urlencode(parameters))
+                  "time": str(upper)}
+    value = get_json(base + "/loki/api/v1/query?" + urllib.parse.urlencode(parameters))
     data = value.get("data", {})
     result = data.get("result", [])
-    if value.get("status") != "success" or data.get("resultType") != "vector" or len(result) != 1:
+    if (value.get("status") != "success" or data.get("resultType") != "vector" or
+            not isinstance(data.get("result"), list)):
+        raise RuntimeError("missing independent query count")
+    if allow_empty and result == []:
+        return 0
+    if len(result) != 1:
         raise RuntimeError("missing independent source query count")
     count = float(result[0]["value"][1])
-    if not math.isfinite(count) or count <= 0 or not count.is_integer():
+    if not math.isfinite(count) or count < 0 or (not allow_empty and count == 0) or not count.is_integer():
         raise RuntimeError("invalid independent source query count")
     return int(count)
+
+
+def source_query_count(start, end):
+    return query_count(SOURCE, start, end)
+
+
+def prove_missing(rows, start, end):
+    # A zero aggregate over a superset interval independently proves absence.
+    if query_count(TARGET, start, end, allow_empty=True) == 0:
+        return rows, {"target_empty_aggregate": True, "targeted_presence_probes": 0, "already_present": 0}
+    missing = []
+    for row in rows:
+        labels, timestamp, _ = row
+        if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) for key in labels):
+            raise RuntimeError("invalid exact stream selector labels")
+        selector = "{" + ",".join(key + "=" + json.dumps(value) for key, value in sorted(labels.items())) + "}"
+        expected = fingerprint(row)
+        source = query(SOURCE, timestamp, timestamp, selector=selector)
+        forward = query(TARGET, timestamp, timestamp, selector=selector)
+        backward = query(TARGET, timestamp, timestamp, direction="backward", selector=selector)
+        if (expected not in {fingerprint(r) for r in source} or
+                max(len(source), len(forward), len(backward)) >= 5000 or
+                {fingerprint(r) for r in forward} != {fingerprint(r) for r in backward}):
+            raise RuntimeError("exact stream/timestamp presence is unproven; no replay of this window")
+        if expected not in {fingerprint(r) for r in forward}:
+            missing.append(row)
+    return missing, {"target_empty_aggregate": False, "targeted_presence_probes": 3 * len(rows),
+                     "already_present": len(rows) - len(missing)}
 
 
 def push(rows):
@@ -158,12 +193,17 @@ def push(rows):
         raise RuntimeError("push outcome uncertain; rerun the comparison audit before recovery") from None
 
 
-def confirm_visible(expected, start, end):
+def confirm_visible(expected, start, end, originals=None):
     # A successful push is not query proof; retry reads only, never the write.
     for attempt in range(10):
         after = observed(TARGET, start, end)
         if expected.issubset(after):
             return
+        if originals is not None:
+            candidates = [row for row in originals if fingerprint(row) not in after]
+            missing, _ = prove_missing(candidates, start, end)
+            if not missing:
+                return
         if attempt < 9:
             time.sleep(2)
     raise RuntimeError("transferred originals are not all query-visible; interval " +
@@ -256,15 +296,17 @@ def transfer(start, end, apply=False, source_audit=None):
             continue
         before = observed(TARGET, left, right)
         missing = sorted((row for key, row in unique.items() if key not in before), key=lambda row: row[1])
+        evidence = {}
         if apply:
+            missing, evidence = prove_missing(missing, left, right) if missing else ([], {})
             for index in range(0, len(missing), 250):
                 push(missing[index:index + 250])
-            confirm_visible(set(unique), left, right)
+            confirm_visible(set(unique), left, right, list(unique.values()))
         total += len(unique)
         missing_total += len(missing)
         manifest.append({"start": left, "end": right, "source_distinct_records": len(unique),
                          "source_sha256": hashlib.sha256("\n".join(sorted(unique)).encode()).hexdigest(),
-                         "missing_before": len(missing)})
+                         "missing_before": len(missing), **evidence})
     if not total:
         raise RuntimeError("empty buffer is not transfer evidence")
     return {"source_distinct_records": total, "missing_before": missing_total, "applied": apply,

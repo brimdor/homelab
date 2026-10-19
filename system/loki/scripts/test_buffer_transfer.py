@@ -92,14 +92,14 @@ class BufferTransferTests(unittest.TestCase):
         all_rows = {TRANSFER.fingerprint(r) for r in rows}
         original = copy.deepcopy(rows)
         with patch.object(TRANSFER, "windows", return_value=[(0, 4, rows)]), \
-                patch.object(TRANSFER, "observed", return_value=existing), patch.object(TRANSFER, "push") as push:
+                patch.object(TRANSFER, "observed", return_value=existing), patch.object(TRANSFER, "prove_missing", side_effect=lambda rows, *_: (rows, {})), patch.object(TRANSFER, "push") as push:
             result = TRANSFER.transfer(0, 4)
             push.assert_not_called()
         self.assertEqual(result["missing_before"], 2)
         self.assertFalse(result["all_source_records_visible"])
         with patch.object(TRANSFER, "windows", return_value=[(0, 4, rows)]), \
                 patch.object(TRANSFER, "observed", side_effect=[existing, all_rows]), \
-                patch.object(TRANSFER, "push") as push:
+                patch.object(TRANSFER, "prove_missing", side_effect=lambda rows, *_: (rows, {})), patch.object(TRANSFER, "push") as push:
             result = TRANSFER.transfer(0, 4, apply=True)
             push.assert_called_once_with([rows[0], rows[2]])
         self.assertTrue(result["all_source_records_visible"])
@@ -117,7 +117,7 @@ class BufferTransferTests(unittest.TestCase):
     def test_failed_visibility_proof_never_blindly_reposts(self):
         rows = self.rows()[:1]
         with patch.object(TRANSFER, "windows", return_value=[(0, 2, rows)]), \
-                patch.object(TRANSFER, "observed", return_value=set()), patch.object(TRANSFER, "push") as push, \
+                patch.object(TRANSFER, "observed", return_value=set()), patch.object(TRANSFER, "prove_missing", side_effect=lambda rows, *_: (rows, {})), patch.object(TRANSFER, "push") as push, \
                 patch.object(TRANSFER.time, "sleep"):
             with self.assertRaisesRegex(RuntimeError, "not all query-visible"):
                 TRANSFER.transfer(0, 2, apply=True)
@@ -138,7 +138,7 @@ class BufferTransferTests(unittest.TestCase):
         expected = {TRANSFER.fingerprint(rows[0])}
         with patch.object(TRANSFER, "windows", return_value=[(0, 2, rows)]), \
                 patch.object(TRANSFER, "observed", side_effect=[set(), set(), expected]) as read, \
-                patch.object(TRANSFER, "push") as push, patch.object(TRANSFER.time, "sleep") as sleep:
+                patch.object(TRANSFER, "prove_missing", side_effect=lambda rows, *_: (rows, {})), patch.object(TRANSFER, "push") as push, patch.object(TRANSFER.time, "sleep") as sleep:
             self.assertTrue(TRANSFER.transfer(0, 2, apply=True)["all_source_records_visible"])
         self.assertEqual(read.call_count, 3)
         push.assert_called_once_with(rows)
@@ -207,6 +207,38 @@ class BufferTransferTests(unittest.TestCase):
         with patch.object(TRANSFER, "SOURCE_AUDIT_SHA256", hashlib.sha256(data).hexdigest()), \
                 self.assertRaisesRegex(RuntimeError, "complete originals"):
             TRANSFER.preserved_source_audit(root)
+
+    def test_apply_absence_requires_empty_aggregate_or_correlated_exact_timestamp_reads(self):
+        rows = self.rows()[:1]
+        with patch.object(TRANSFER, "query_count", return_value=0), patch.object(TRANSFER, "query") as read:
+            missing, proof = TRANSFER.prove_missing(rows, 0, 2)
+            self.assertEqual(missing, rows)
+            self.assertTrue(proof["target_empty_aggregate"])
+            read.assert_not_called()
+        for target, expected in (([], rows), (rows, [])):
+            with patch.object(TRANSFER, "query_count", return_value=3), \
+                    patch.object(TRANSFER, "query", side_effect=[rows, target, target]) as read:
+                missing, proof = TRANSFER.prove_missing(rows, 0, 2)
+                self.assertEqual(missing, expected)
+                self.assertEqual(proof["targeted_presence_probes"], 3)
+                self.assertEqual(read.call_args_list[0].args, (TRANSFER.SOURCE, 1, 1))
+                self.assertEqual(read.call_args_list[0].kwargs["selector"], '{job="synthetic",stream="stdout"}')
+        for replies in (([], [], []), (rows, rows, []), (rows, rows * 5000, rows * 5000)):
+            with patch.object(TRANSFER, "query_count", return_value=1), \
+                    patch.object(TRANSFER, "query", side_effect=replies), self.assertRaisesRegex(RuntimeError, "unproven"):
+                TRANSFER.prove_missing(rows, 0, 2)
+
+    def test_target_zero_aggregate_rejects_failed_or_invalid_evidence(self):
+        empty = {"status": "success", "data": {"resultType": "vector", "result": []}}
+        with patch.object(TRANSFER, "get_json", return_value=empty) as read:
+            self.assertEqual(TRANSFER.query_count(TRANSFER.TARGET, 0, 2, allow_empty=True), 0)
+            self.assertIn("time=1000000002", read.call_args.args[0])
+            with self.assertRaises(RuntimeError):
+                TRANSFER.source_query_count(0, 2)
+        for invalid in ({"status": "error"}, {"status": "success", "data": {"resultType": "vector"}},
+                        {"status": "success", "data": {"resultType": "vector", "result": {}}}):
+            with patch.object(TRANSFER, "get_json", return_value=invalid), self.assertRaises(RuntimeError):
+                TRANSFER.query_count(TRANSFER.TARGET, 0, 2, allow_empty=True)
 
     def test_frozen_tail_unions_underfilled_directions_but_requires_exact_hash(self):
         rows = self.rows()
