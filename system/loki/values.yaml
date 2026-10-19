@@ -9,7 +9,7 @@ maintenanceRecovery:
   backupEnabled: false
   restoreEnabled: false
   serviceVerifyEnabled: false
-  continuityEnabled: true
+  continuityEnabled: false
   continuityApply: true
   continuityAttempt: 9
   continuityNode: growlithe
@@ -19,11 +19,11 @@ maintenanceRecovery:
   cutoverBackupEnabled: false
   cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
-  transferEnabled: false
+  transferEnabled: true
   transferApply: false
   transferPhase: bulk
   transferAttempt: 1
-  transferTargetPodUID: ''
+  transferTargetPodUID: f2acd02d-cdd4-46e7-9bd0-29a9a3896b91
 server:
   nameOverride: loki
   fullnameOverride: loki-supported
