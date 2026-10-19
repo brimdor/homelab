@@ -187,7 +187,7 @@ app-template:
     postgres:
       forceRename: pointguide-postgres
       type: statefulset
-      replicas: 0
+      replicas: 1
       pod:
         securityContext:
           runAsNonRoot: true
@@ -201,13 +201,13 @@ app-template:
         main:
           image:
             repository: docker.io/library/postgres
-            tag: "17-alpine"
-            digest: sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee
+            tag: "18.6-alpine"
+            digest: sha256:d8703cd7fba306b9fec9268ecedfa8a966846c053036a60e3635791957eb2f66
             pullPolicy: IfNotPresent
           env:
             POSTGRES_USER: pointguide
             POSTGRES_DB: pointguide
-            PGDATA: /var/lib/postgresql/data/pgdata
+            PGDATA: /var/lib/postgresql/pg18-maintenance-103-20261019-a
             POSTGRES_PASSWORD:
               valueFrom:
                 secretKeyRef: {name: pointguide-secrets, key: postgres-password}
@@ -277,7 +277,7 @@ app-template:
       advancedMounts:
         postgres:
           main:
-            - path: /var/lib/postgresql/data
+            - path: /var/lib/postgresql
     codex-data:
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
