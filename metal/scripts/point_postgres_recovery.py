@@ -375,7 +375,7 @@ def restore(run_id, expected_manifest):
                            "-Atq", "-v", "ON_ERROR_STOP=1", input=query.encode())
         if sql(ROLE_SQL).decode().strip() != manifest["before"]["roles_sha256"]:
             raise RuntimeError("restored password-free authorization fingerprint differs")
-        archived = execute("pg_restore", "--data-only", "--no-comments", root + "/database.dump")
+        archived = execute("pg_restore", "--data-only", "--no-comments", "--file=-", root + "/database.dump")
         restored = execute("pg_dump", "-h", "/tmp", "-U", ADMIN, "-d", database, "--data-only", "--no-comments")
         if digest(normalized_dump(archived)) != digest(normalized_dump(restored)):
             raise RuntimeError("restored complete logical data fingerprint differs")
