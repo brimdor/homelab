@@ -346,3 +346,11 @@ app-template:
       operator.1password.io/item-name: pointview-secrets
     labels:
       pointview.eaglepass.io/track: production
+
+postgresMigration:
+  enabled: true
+  nodeName: squirtle
+  role: pointview
+  manifest: "7e6296422c4e93b85ff76cf65c3310bf38ef4e1e912ef91f2df473301098ecff"
+  globals: "cc150084ad085e1c7c0f91eb7ecc107ad8c9c8451effc6d477642b05d57763d1"
+  archive: "55811f7e61437836770b8bac938936bc09d4565b4661f1432f9c546c4cf66398"
