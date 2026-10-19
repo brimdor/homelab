@@ -3,6 +3,7 @@
 
 import copy
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -29,6 +30,12 @@ class QualificationGuards(unittest.TestCase):
     def test_exact_synthetic_cluster(self):
         self.assertEqual(qualification.require_cluster(self.config, self.name, self.namespace, self.nodes),
                          "synthetic-cluster")
+
+    def test_filter_selects_scenarios_under_exact_test_names(self):
+        for name in qualification.TESTS:
+            self.assertIsNotNone(re.search(qualification.TEST_FILTER, name + "/pod-to-pod"))
+            self.assertIsNone(re.search(qualification.TEST_FILTER, name + "-other/pod-to-pod"))
+        self.assertIsNone(re.search(qualification.TEST_FILTER, "unrelated/pod-to-pod"))
 
     def test_reject_other_api_origins_and_contexts(self):
         for address in ("https://10.0.20.50:6443", "http://127.0.0.1:6443", "https://localhost:6443", "https://127.0.0.1:0"):

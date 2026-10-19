@@ -30,6 +30,7 @@ CHARTS = {
 }
 K3S = "docker.io/rancher/k3s:v1.33.6-k3s1@sha256:d7119ab9e0054692a86a8eda454f2d3370dafc1c3a96b3ace5c5599f0c1e9f15"
 TESTS = ("no-policies", "all-ingress-deny", "all-egress-deny", "client-egress-l7")
+TEST_FILTER = "^(" + "|".join(TESTS) + ")/"
 PRODUCTION_UID = "7ff226e0-565a-4610-8a3e-97e7e87355a3"
 
 
@@ -229,7 +230,7 @@ class Qualification:
         path = self.work / (phase + ".xml")
         with self.hubble_forward() as address:
             self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
-                          "connectivity", "test", "--test=^(" + "|".join(TESTS) + ")$", "--ip-families=ipv4",
+                          "connectivity", "test", "--test=" + TEST_FILTER, "--ip-families=ipv4",
                           "--flow-validation=strict", "--hubble=true", "--hubble-server=" + address,
                           "--collect-sysdump-on-failure=false", "--junit-file=" + str(path)])
         results = require_results(path)
