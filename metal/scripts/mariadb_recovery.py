@@ -21,7 +21,7 @@ import time
 import etcd_recovery as common
 
 
-NAMESPACES = {"backlog", "jovo"}
+NAMESPACES = {"backlog", "backlog-canary", "jovo"}
 ROOT = common.ROOT
 LABEL = "io.eaglepass.mariadb-recovery"
 DUMP = ["mariadb-dump", "--all-databases", "--single-transaction", "--quick",
