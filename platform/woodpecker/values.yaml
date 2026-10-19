@@ -1,3 +1,6 @@
+maintenanceRecovery:
+  enabled: true
+
 woodpecker:
   agent:
     replicaCount: 1
