@@ -58,14 +58,14 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-recovery-export-20261019
+  name: {{ .Release.Name }}-recovery-restore-20261019
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 900
   template:
     metadata:
       labels:
-        homelab.eaglepass.io/recovery: postgres-export-20261019
+        homelab.eaglepass.io/recovery: postgres-restore-20261019
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
@@ -87,23 +87,12 @@ spec:
       containers:
         - name: recovery
           image: docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e
-          command: [/bin/bash, /scripts/create-postgres-recovery.sh]
+          command: [/bin/bash, /scripts/verify-postgres-recovery.sh]
           env:
             - name: EXPECTED_DATABASE_SET_SHA256
               value: 39c1535a321d88d1a672fd3f91ae25ca0a9e70371299a8e05ee844ed088508bd
-            - name: PGHOST
-              value: {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local
-            - name: PGPORT
-              value: "5432"
-            - name: PGCONNECT_TIMEOUT
-              value: "10"
-{{- range $name, $key := dict "PGDATABASE" "postgres-db" "PGUSER" "postgres-user" "PGPASSWORD" "postgres-password" }}
-            - name: {{ $name }}
-              valueFrom:
-                secretKeyRef:
-                  name: secrets
-                  key: {{ $key }}
-{{- end }}
+            - name: EXPECTED_MANIFEST_SHA256
+              value: 157ec5d8f173f16fe6ad5a10b6fc13c3d8766b19116282543998c72d1230b443
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -115,16 +104,23 @@ spec:
           volumeMounts:
             - {name: script, mountPath: /scripts, readOnly: true}
             - {name: script, mountPath: /etc/passwd, subPath: passwd, readOnly: true}
-            - {name: backup, mountPath: /backup}
+            - {name: source, mountPath: /source, readOnly: true}
+            - {name: restored, mountPath: /restore}
             - {name: temporary, mountPath: /tmp}
       volumes:
         - name: script
           configMap:
             name: {{ .Release.Name }}-recovery-verification
             defaultMode: 0555
-        - name: backup
+        # SQL restoration can execute source-defined code; expose only this owned destination writable.
+        - name: source
           nfs:
             server: {{ index .Values "app-template" "persistence" "nfs-backups" "server" }}
-            path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}
+            path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}/recovery-postgres-20261019
+            readOnly: true
+        - name: restored
+          nfs:
+            server: {{ index .Values "app-template" "persistence" "nfs-backups" "server" }}
+            path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}/recovery-postgres-20261019/restored
         - name: temporary
           emptyDir: {}
