@@ -1,13 +1,14 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      strategy: Recreate
       replicas: 1
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/podwave
             tag: "main-0d3e0fa"
+            digest: sha256:7287526d09dcf1685c6f1213d79747eb9037589cff1abe933752cb03662fc2d4
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
@@ -107,5 +108,35 @@ app-template:
 
   defaultPodOptions:
     annotations:
+      checksum/auth-logging-patch: d5ba863db155c0244e9e12790dde8c6577dc6b16669b2fd9a7e088adf118c277
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/6tsj4sw2jjbu5jfumvn6cqpbea"
       operator.1password.io/item-name: "secrets"
+
+  persistence:
+    auth-logging-patch:
+      type: configMap
+      name: podwave-canary-auth-logging-patch
+      advancedMounts:
+        main:
+          main:
+            - path: /app/build/server/chunks/_server-B0v96ZDY.js
+              subPath: login.js
+              readOnly: true
+    data:
+      type: persistentVolumeClaim
+      size: 5Gi
+      accessMode: ReadWriteOnce
+      storageClass: standard-rwo
+      advancedMounts:
+        main:
+          main:
+            - path: /app/data
+    downloads:
+      type: persistentVolumeClaim
+      size: 10Gi
+      accessMode: ReadWriteOnce
+      storageClass: standard-rwo
+      advancedMounts:
+        main:
+          main:
+            - path: /app/downloads
