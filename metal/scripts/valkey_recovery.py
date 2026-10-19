@@ -22,6 +22,7 @@ import mariadb_recovery as protected
 
 
 IMAGE = "docker.io/bitnamilegacy/valkey-cluster@sha256:32869e769b7e554219f2ae527b85f4a4739574750beac63b895f5d09fc38f53b"
+CANDIDATE = "docker.io/valkey/valkey@sha256:0f62bfecc0b713dc2111af3ee307d5cd53c6877b7a112c6143c4de20f1325e4c"
 OWNER = "756a4a5c-e05b-49be-8c27-3bca8de95d88"
 LABEL = "io.eaglepass.valkey-recovery"
 MASTERS = {"0": "4cefe0b4-6768-4036-9d04-3a1b6bbed826",
@@ -237,7 +238,7 @@ def require_manifest(manifest):
 
 def require_isolation(container, scratch, run_id, mount):
     host = container["HostConfig"]
-    if (mount not in ("/bitnami/valkey", "/bitnami/valkey/data") or
+    if (mount not in ("/bitnami/valkey", "/bitnami/valkey/data", "/data") or
             container["Config"].get("Labels", {}).get(LABEL) != run_id or
             container["Config"].get("User") != "1001:1001" or any(host.get(k) != v for k, v in {
                 "NetworkMode": "none", "ReadonlyRootfs": True, "Privileged": False, "CapDrop": ["ALL"],
@@ -271,16 +272,19 @@ def load_counts(persistence, keyspace, expected):
             "current_keys": current, "expired_after_load": loaded - current}
 
 
-def image_mount(image):
+def image_mount(image, expected_image=IMAGE):
     volumes = set(image["Config"].get("Volumes") or {})
-    if (image.get("Os") != "linux" or image.get("Architecture") != "amd64" or
-            IMAGE not in {protected.canonical_reference(r) for r in image.get("RepoDigests", [])} or
-            volumes not in (set(), {"/bitnami/valkey"}, {"/bitnami/valkey/data"})):
+    allowed = (set(), {"/data"}) if expected_image == CANDIDATE else (set(), {"/bitnami/valkey"}, {"/bitnami/valkey/data"})
+    if (expected_image not in (IMAGE, CANDIDATE) or image.get("Os") != "linux" or image.get("Architecture") != "amd64" or
+            expected_image not in {protected.canonical_reference(r) for r in image.get("RepoDigests", [])} or
+            volumes not in allowed):
         raise RuntimeError("reviewed Valkey image or volumes changed")
-    return next(iter(volumes)) if volumes else "/bitnami/valkey/data"
+    return next(iter(volumes)) if volumes else ("/data" if expected_image == CANDIDATE else "/bitnami/valkey/data")
 
 
-def restore(run_id, expected_manifest):
+def restore(run_id, expected_manifest, qualify=False):
+    restore_image = CANDIDATE if qualify else IMAGE
+    restore_version = "8.1.10" if qualify else "8.1.3"
     point = point_path(run_id)
     protected.protected_file(point / "verified.json")
     raw = (point / "verified.json").read_bytes()
@@ -303,15 +307,15 @@ def restore(run_id, expected_manifest):
         data = scratch / "data"
         data.mkdir(mode=0o700)
         os.chown(data, 1001, 1001)
-        common.docker("pull", IMAGE)
-        image = json.loads(common.docker("image", "inspect", IMAGE).stdout)[0]
+        common.docker("pull", restore_image)
+        image = json.loads(common.docker("image", "inspect", restore_image).stdout)[0]
         image_id = image["Id"]
-        mount = image_mount(image)
+        mount = image_mount(image, restore_image)
         identity = common.docker("create", "--network=none", "--read-only", "--cap-drop=ALL", "--user=1001:1001",
                                  "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=128",
                                  "--cpus=1", "--memory=384m", "--label=" + LABEL + "=" + run_id,
                                  "--mount=type=bind,source=" + str(data) + ",target=" + mount,
-                                 "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", IMAGE,
+                                 "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", restore_image,
                                  "-c", "exec sleep 2147483647").stdout.decode().strip()
         require_isolation(common.inspect(identity), scratch, run_id, mount)
         common.docker("start", identity)
@@ -325,7 +329,7 @@ def restore(run_id, expected_manifest):
         if common.command([*namespace, "ip", "route", "get", "10.0.20.50"], check=False).returncode == 0:
             raise RuntimeError("restore can route to production")
         version = common.docker("exec", identity, "valkey-server", "--version").stdout
-        if not re.search(rb"\bv=8\.1\.3\b", version):
+        if not re.search(rb"\bv=" + re.escape(restore_version.encode()) + rb"\b", version):
             raise RuntimeError("restore executable version changed")
         for shard, evidence in manifest["shards"].items():
             source = point / ("shard-" + shard + ".rdb")
@@ -368,7 +372,8 @@ def restore(run_id, expected_manifest):
             target.unlink()
             result["shards"][shard] = {**counts, "checksum_valid": True, "protected_hash_unchanged": True,
                                        "clean_shutdown": True, "owner_only_socket": True}
-        result.update(accepted=True, version="8.1.3", image=IMAGE, manifest_sha256=expected_manifest,
+        result.update(accepted=True, version=restore_version, image=restore_image, manifest_sha256=expected_manifest,
+                      candidate_qualification=qualify,
                       production_network_unroutable=True)
     except Exception as error:
         result["error"] = str(error)
@@ -400,12 +405,16 @@ def main():
     parser.add_argument("--run-id", type=common.run_identifier, required=True)
     parser.add_argument("--shard", choices=sorted(MASTERS))
     parser.add_argument("--manifest")
+    parser.add_argument("--qualify-8-1-10", action="store_true")
     args = parser.parse_args()
+    if args.qualify_8_1_10 and args.mode not in ("restore", "internal-restore"):
+        parser.error("candidate qualification requires restore mode")
     os.umask(0o077)
     if args.mode == "backup":
         result = backup(args.run_id)
     elif args.mode == "restore":
-        response = common.command(remote("internal-restore", args.run_id, "--manifest", args.manifest), check=False)
+        extra = ["--qualify-8-1-10"] if args.qualify_8_1_10 else []
+        response = common.command(remote("internal-restore", args.run_id, "--manifest", args.manifest, *extra), check=False)
         result = json.loads(response.stdout)
         if response.returncode and result.get("accepted"):
             raise RuntimeError("remote exit contradicts the restore receipt")
@@ -414,7 +423,7 @@ def main():
     elif args.mode == "internal-finalize":
         result = finalize(args.run_id, json.loads(args.manifest))
     else:
-        result = restore(args.run_id, args.manifest)
+        result = restore(args.run_id, args.manifest, args.qualify_8_1_10)
     print(json.dumps(result), flush=True)
     return 0 if result.get("accepted", True) else 1
 

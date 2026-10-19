@@ -99,6 +99,18 @@ class ValkeyRecoveryTests(unittest.TestCase):
                 recovery.checked_keys(result)
             self.assertNotIn("private", str(caught.exception))
 
+    def test_maintained_candidate_has_exact_separate_identity_and_owned_data_mount(self):
+        image = {"Os": "linux", "Architecture": "amd64", "RepoDigests": [recovery.CANDIDATE], "Config": {}}
+        self.assertEqual(recovery.image_mount(image, recovery.CANDIDATE), "/data")
+        with self.assertRaises(RuntimeError):
+            recovery.image_mount(image)
+        for reference in (recovery.IMAGE, "docker.io/valkey/valkey:latest", "unreviewed"):
+            with self.subTest(reference=reference), self.assertRaises(RuntimeError):
+                recovery.image_mount(image, reference)
+        image["Config"]["Volumes"] = {"/unreviewed": {}}
+        with self.assertRaises(RuntimeError):
+            recovery.image_mount(image, recovery.CANDIDATE)
+
     def test_expired_keys_are_explicitly_accounted_without_claiming_live_data_equality(self):
         persistence = {"rdb_last_load_keys_loaded": "95", "rdb_last_load_keys_expired": "5"}
         result = recovery.load_counts(persistence, {"db0": "keys=90,expires=80,avg_ttl=1000"}, 100)
