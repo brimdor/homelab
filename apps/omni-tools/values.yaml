@@ -9,6 +9,7 @@ app-template:
           image:
             repository: iib0011/omni-tools
             tag: "latest"
+            digest: sha256:ec5c71c92215ca20b5e7e613941ac603d43625604d02ff07c8e27b7a237980ac
             pullPolicy: Always
           ports:
             - containerPort: 80
