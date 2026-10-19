@@ -346,3 +346,11 @@ app-template:
       operator.1password.io/item-name: pointview-canary-secrets
     labels:
       pointview.eaglepass.io/track: canary
+
+postgresMigration:
+  enabled: true
+  nodeName: totodile
+  role: pointview
+  manifest: "81d1b7dc1dae250ab75e813ec5bf4ae37b0af0913c6080a74f4f19c580dd318b"
+  globals: "6f26c7388a69e2cb2d5911a8b6c0c5564e573b0817de3e10d355e2fabb919436"
+  archive: "403f81760e4fbd7b05c97e6879f35ef40d869d3c70454e076e247f866dba36b3"
