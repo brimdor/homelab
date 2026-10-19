@@ -138,6 +138,13 @@
     The helper now supplies separate server and agent flags. This is an implementation failure, not a hardware or network blocker.
     Finally cleanup verified the exact VM and owned processes absent and removed 561,946,624 allocated bytes. No production change occurred.
     The corrected candidate requires a fresh full run; this receipt does not establish connectivity qualification.</p>
+  <h2>Server-owned kube-proxy setting</h2>
+  <p>The corrected-filter run created all three containers, but both agents restarted before registration. Exact
+    <a href="https://github.com/k3s-io/k3s/blob/v1.33.6%2Bk3s1/pkg/cli/cmds/agent.go">k3s 1.33.6 agent CLI source</a>
+    has no disable-kube-proxy flag; the setting belongs to the server and is supplied to joining agents through server configuration.
+    The helper now passes it only to servers. The preceding combined-filter correction was insufficient and remains a failed receipt;
+    cilium-corrected-filter-owned-qualification-0kjh9bq8 verified complete owned cleanup, with no production change.
+    This source diagnosis must be confirmed by the next native run.</p>
 </main>
 </body>
 </html>
