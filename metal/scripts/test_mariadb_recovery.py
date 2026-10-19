@@ -54,6 +54,15 @@ class RecoveryTests(unittest.TestCase):
         self.assertNotIn("another", json.dumps(result))
         self.assertEqual(recovery.dump_diagnostic(original, original), [])
 
+    def test_original_routine_metadata_extraction_is_exact_and_mysql_scoped(self):
+        section = b"DROP TABLE IF EXISTS `proc`;\nCREATE TABLE `proc` (x int);\nINSERT INTO `proc` VALUES (1);\n"
+        dump = b"USE `application`;\n" + section + b"USE `mysql`;\n" + section + b"DROP TABLE IF EXISTS `procs_priv`;\nprivate other table"
+        self.assertEqual(recovery.original_proc_sql(dump), b"USE `mysql`;\n" + section)
+        for changed in (b"USE `application`;\n" + section, dump.replace(b"CREATE TABLE `proc` (", b"CREATE TABLE `other` ("),
+                        dump.replace(b"INSERT INTO `proc` VALUES ", b"INSERT INTO `other` VALUES ")):
+            with self.subTest(changed=changed), self.assertRaises(RuntimeError):
+                recovery.original_proc_sql(changed)
+
     def test_arm64_requires_the_existing_exact_handler_and_digest(self):
         reference = "docker.io/library/mariadb@sha256:" + "a" * 64
         image = {"Architecture": "arm64", "Os": "linux", "RepoDigests": ["mariadb@sha256:" + "a" * 64],

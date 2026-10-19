@@ -77,6 +77,28 @@ def dump_diagnostic(original, restored):
             for database, table in sorted(set(before) | set(after)) if before.get((database, table)) != after.get((database, table))]
 
 
+def original_proc_sql(data):
+    """Reapply the dumped routine metadata after --routines resets its timestamps."""
+    database = b""
+    section = []
+    collecting = False
+    for line in data.splitlines(keepends=True):
+        use = re.match(rb"USE `([^`]+)`;", line)
+        drop = re.match(rb"DROP TABLE IF EXISTS `([^`]+)`;", line)
+        if collecting and (use or drop):
+            break
+        if use:
+            database = use[1]
+        if database == b"mysql" and drop and drop[1] == b"proc":
+            collecting = True
+        if collecting:
+            section.append(line)
+    value = b"".join(section)
+    if b"CREATE TABLE `proc` (" not in value or b"INSERT INTO `proc` VALUES " not in value:
+        raise RuntimeError("reviewed original routine metadata section is missing")
+    return b"USE `mysql`;\n" + value
+
+
 def require_image(image, reference):
     if (canonical_reference(reference) not in {canonical_reference(r) for r in image.get("RepoDigests", [])} or
             image.get("Os") != "linux" or image.get("Architecture") not in ("amd64", "arm64") or
@@ -335,6 +357,14 @@ def restore(run_id, expected_manifest):
             restored = subprocess.run(client, stdin=source, capture_output=True)
         if restored.returncode or restored.stdout or restored.stderr:
             raise RuntimeError("isolated database import failed or warned")
+        # --routines recreates routines after the mysql table dump, changing their
+        # creation/modification times. MariaDB documents restoring mysql.proc for
+        # exact timestamp preservation. This runs only in the inspected isolation.
+        require_isolation(common.inspect(identity), scratch, run_id)
+        procedure_metadata = original_proc_sql((point / "cluster.sql").read_bytes())
+        restored = subprocess.run(client, input=procedure_metadata, capture_output=True)
+        if restored.returncode or restored.stdout or restored.stderr:
+            raise RuntimeError("isolated original routine metadata restore failed or warned")
         result["stage"] = "schema-grants-data-check"
         schema = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock", "--no-data"]).stdout
         grants = common.command([*client, "-e", "SELECT Host,User,Priv FROM mysql.global_priv ORDER BY Host,User"]).stdout
@@ -352,7 +382,7 @@ def restore(run_id, expected_manifest):
             raise RuntimeError("original recovery bytes changed during restore")
         result.update(accepted=True, table_count=int(rows), schema_and_grants_match=True, normalized_data_matches=True,
                       production_network_unroutable=True, image=manifest["image"], fetched_reference=reference,
-                      manifest_sha256=expected_manifest, stage="accepted")
+                      manifest_sha256=expected_manifest, original_routine_timestamps_preserved=True, stage="accepted")
     except Exception as error:
         result["error"] = str(error)
     finally:
