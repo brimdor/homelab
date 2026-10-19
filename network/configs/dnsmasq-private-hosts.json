@@ -1,0 +1,8 @@
+{
+  "firmware_version": "25.7.9_7",
+  "hosts": [
+    {"host": "git", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "registry", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "auth", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"}
+  ]
+}

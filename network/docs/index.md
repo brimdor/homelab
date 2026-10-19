@@ -18,6 +18,7 @@ Welcome to the Nelson Network (The Geek Network) documentation. This is the cent
 - [Network Overview](network/overview.md) - High-level network architecture
 - [VLAN Reference](network/vlans.md) - VLAN structure and IP assignments
 - [Device Inventory](network/devices.md) - Complete list of all network devices
+- [Private Service DNS](network/private-dns.md) - Scoped Dnsmasq overrides, verification, and rollback
 
 ### Kubernetes
 - [Cluster Overview](kubernetes/cluster.md) - K8s cluster architecture and nodes
