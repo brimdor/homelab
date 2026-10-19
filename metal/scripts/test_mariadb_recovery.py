@@ -44,6 +44,16 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(recovery.canonical_reference("registry.eaglepass.io/backlog_database" + checksum),
                          "registry.eaglepass.io/backlog_database" + checksum)
 
+    def test_dump_diagnostic_reports_only_hashes_and_known_system_metadata(self):
+        original = b"USE `mysql`;\nCREATE TABLE `innodb_table_stats` (x int);\nINSERT INTO x VALUES ('private record');\n"
+        restored = original.replace(b"private record", b"another value")
+        result = recovery.dump_diagnostic(original, restored)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["known_system_table"], "innodb_table_stats")
+        self.assertNotIn("private", json.dumps(result))
+        self.assertNotIn("another", json.dumps(result))
+        self.assertEqual(recovery.dump_diagnostic(original, original), [])
+
     def test_arm64_requires_the_existing_exact_handler_and_digest(self):
         reference = "docker.io/library/mariadb@sha256:" + "a" * 64
         image = {"Architecture": "arm64", "Os": "linux", "RepoDigests": ["mariadb@sha256:" + "a" * 64],

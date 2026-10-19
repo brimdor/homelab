@@ -50,6 +50,33 @@ def canonical_reference(reference):
     return repository + separator + checksum
 
 
+def dump_sections(data):
+    """Hash SQL sections for diagnosis without returning rows or account values."""
+    database = table = ""
+    sections = {}
+    for line in data.splitlines(keepends=True):
+        use = re.match(rb"USE `([^`]+)`;", line)
+        create = re.match(rb"(?:DROP TABLE IF EXISTS|CREATE TABLE) `([^`]+)`", line)
+        if use:
+            database, table = use[1].decode(), ""
+        if create:
+            table = create[1].decode()
+        section = sections.setdefault((database, table), hashlib.sha256())
+        section.update(line)
+    return {key: value.hexdigest() for key, value in sections.items()}
+
+
+def dump_diagnostic(original, restored):
+    before, after = dump_sections(original), dump_sections(restored)
+    known = {"innodb_table_stats", "innodb_index_stats", "transaction_registry", "gtid_slave_pos",
+             "general_log", "slow_log", "global_priv", "event"}
+    return [{"database_sha256": digest(database.encode()), "table_sha256": digest(table.encode()),
+             "system_database": database in ("mysql", "sys"),
+             "known_system_table": table if database == "mysql" and table in known else None,
+             "source_sha256": before.get((database, table)), "restored_sha256": after.get((database, table))}
+            for database, table in sorted(set(before) | set(after)) if before.get((database, table)) != after.get((database, table))]
+
+
 def require_image(image, reference):
     if (canonical_reference(reference) not in {canonical_reference(r) for r in image.get("RepoDigests", [])} or
             image.get("Os") != "linux" or image.get("Architecture") not in ("amd64", "arm64") or
@@ -315,6 +342,7 @@ def restore(run_id, expected_manifest):
             raise RuntimeError("restored schema or account grants differ")
         dump = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock"]).stdout
         if digest(dump) != manifest["dump"]["sha256"]:
+            result["dump_diagnostic"] = dump_diagnostic((point / "cluster.sql").read_bytes(), dump)
             raise RuntimeError("restored normalized logical data differs from the recovery stream")
         rows = common.command([*client, "-e", "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN "
                               "('mysql','information_schema','performance_schema','sys')"]).stdout.decode().strip()
