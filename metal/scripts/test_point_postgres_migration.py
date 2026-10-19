@@ -57,12 +57,27 @@ class PointMigrationTests(unittest.TestCase):
     def test_role_and_data_comparison_refuses_missing_duplicate_record(self):
         manifest = {"before": {"schema_sha256": recovery.digest(b"schema\n"), "roles_sha256": "r", "features": {"user_tables": 1}}}
         archive = b"COPY public.t (v) FROM stdin;\na\na\n\\.\n"
-        values = [b"schema\n", b"r\n", archive, archive, b"18.6\n", b"2\n"]
-        with patch.object(migration, "execute", side_effect=values):
+        values = [b"schema\n", b"r\n", archive, b"native custom archive", archive, b"18.6\n", b"2\n"]
+        with patch.object(migration, "execute", side_effect=values) as execute:
             self.assertTrue(migration.compare("pointguide-canary", "owned", manifest)["logical_data_matches"])
-        values[3] = b"COPY public.t (v) FROM stdin;\na\n\\.\n"
+            self.assertIn("--format=custom", execute.call_args_list[3].args)
+            self.assertNotIn("--data-only", execute.call_args_list[3].args)
+            self.assertEqual(execute.call_args_list[4].kwargs["input"], b"native custom archive")
+        values[4] = b"COPY public.t (v) FROM stdin;\na\n\\.\n"
         with patch.object(migration, "execute", side_effect=values), self.assertRaisesRegex(RuntimeError, "logical data"):
             migration.compare("pointguide-canary", "owned", manifest)
+
+    def test_verification_resume_never_reposts_or_reinitializes_a_partial_restore(self):
+        manifest = {"namespace": "pointguide-canary"}
+        output = subprocess.CompletedProcess([], 0, stdout=json.dumps(manifest).encode(), stderr=b"")
+        pod = {"metadata": {"name": "owned", "uid": "pod-uid"}}
+        with patch.object(recovery.common, "command", return_value=output), \
+                patch.object(migration, "require_job", return_value=pod), \
+                patch.object(migration, "execute", return_value=b"sealed\n") as execute, \
+                self.assertRaisesRegex(RuntimeError, "awaiting-verification"):
+            migration.finish_migration("pointguide-canary", "job-uid", "protected", "a" * 64)
+        self.assertEqual(execute.call_count, 1)
+        self.assertEqual(execute.call_args.args[-2:], ("cat", "/recovery/state"))
 
     def test_chart_native_scripts_match_reviewed_canonical_bytes(self):
         root = Path(__file__).resolve().parents[2]

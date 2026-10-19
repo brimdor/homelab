@@ -162,7 +162,8 @@ def execute(namespace, pod, *args, input=None):
                                "-c", "restore", "--", *args], input=input, capture_output=True)
     if response.returncode or response.stderr:
         # Native detailed logs remain protected on the Ceph operation directory.
-        raise RuntimeError("migration native command failed or warned: " + args[0])
+        raise RuntimeError("migration native command failed or warned: " + args[0] + "; exit=" +
+                           str(response.returncode) + "; stderr_sha256=" + recovery.digest(response.stderr))
     return response.stdout
 
 
@@ -177,7 +178,9 @@ def compare(namespace, pod, manifest):
     if roles != manifest["before"]["roles_sha256"]:
         raise RuntimeError("migration authorization differs")
     archived = execute(namespace, pod, "pg_restore", "--data-only", "--no-comments", "--file=-", "/recovery/database.dump")
-    restored = run("pg_dump", "--data-only", "--no-comments")
+    # A data-only dump warns about circular FKs; extract data from a complete native archive instead.
+    current_archive = run("pg_dump", "--format=custom")
+    restored = execute(namespace, pod, "pg_restore", "--data-only", "--no-comments", "--file=-", input=current_archive)
     diagnostic = recovery.data_diagnostic(archived, restored)
     if not all(diagnostic[k] for k in ("copy_multiset_equal", "session_settings_equal", "sequence_commands_equal")):
         raise RuntimeError("migration complete logical data differs")
@@ -232,6 +235,21 @@ def migrate(namespace, job_uid, run_id, manifest_hash):
         if state != b"sealed":
             raise RuntimeError("unexpected restore state")
         time.sleep(3)
+    return finish_migration(namespace, job_uid, run_id, manifest_hash)
+
+
+def finish_migration(namespace, job_uid, run_id, manifest_hash):
+    manifest = json.loads(recovery.common.command(protected_command(run_id, manifest_hash)).stdout)
+    if manifest["namespace"] != namespace:
+        raise RuntimeError("protected namespace mismatch")
+    pod = require_job(namespace, job_uid, manifest, manifest_hash)
+    name, uid = pod["metadata"]["name"], pod["metadata"]["uid"]
+    if execute(namespace, name, "cat", "/recovery/state").strip() != b"awaiting-verification":
+        raise RuntimeError("only an already-restored awaiting-verification Job may resume verification")
+    for file in ("globals.sql", "database.dump"):
+        hashed = execute(namespace, name, "sha256sum", "/recovery/" + file).decode().split()
+        if hashed != [manifest["files"][file]["sha256"], "/recovery/" + file]:
+            raise RuntimeError("delivered protected archive changed before verification")
     result = compare(namespace, name, manifest)
     require_job(namespace, job_uid, manifest, manifest_hash)
     execute(namespace, name, "/bin/bash", "/scripts/migration.sh", "accept", manifest_hash)
@@ -244,6 +262,11 @@ def migrate(namespace, job_uid, run_id, manifest_hash):
         time.sleep(3)
     result.update(accepted=True, namespace=namespace, manifest_sha256=manifest_hash, job_uid=job_uid, pod_uid=uid,
                   original_datadir_preserved=True, offline_checksums_valid=True, clean_shutdown=True)
+    completed = kube("get", "pod", name, "-n", namespace)
+    statuses = completed["status"].get("containerStatuses", []) + completed["status"].get("initContainerStatuses", [])
+    if (completed["metadata"]["uid"] != uid or completed["status"]["phase"] != "Succeeded" or len(statuses) != 2 or
+            any(s.get("state", {}).get("terminated", {}).get("exitCode") != 0 for s in statuses)):
+        raise RuntimeError("completed migration Pod lifecycle evidence differs")
     return result
 
 
@@ -384,10 +407,12 @@ def main():
     parser.add_argument("--job-uid", required=True)
     parser.add_argument("--run-id", type=recovery.common.run_identifier, required=True)
     parser.add_argument("--manifest", required=True)
+    parser.add_argument("--verify-existing", action="store_true")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-f0-9]{64}", args.manifest) or not re.fullmatch(r"[a-f0-9-]{36}", args.job_uid):
         parser.error("exact manifest and Job UID required")
-    print(json.dumps(migrate(args.namespace, args.job_uid, args.run_id, args.manifest)), flush=True)
+    operation = finish_migration if args.verify_existing else migrate
+    print(json.dumps(operation(args.namespace, args.job_uid, args.run_id, args.manifest)), flush=True)
 
 
 if __name__ == "__main__":
