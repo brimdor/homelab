@@ -2,11 +2,13 @@
 """Exercise complete pagination, exact labels and idempotent recovery boundaries."""
 
 import copy
+import hashlib
 import io
 import json
 import unittest
 import urllib.error
 from unittest.mock import patch
+from unittest.mock import Mock
 
 import buffer_transfer as TRANSFER
 import test_cold_recovery as cold_fixture
@@ -119,6 +121,47 @@ class BufferTransferTests(unittest.TestCase):
             with self.subTest(value=value), patch.object(TRANSFER, "get_json", return_value=value):
                 with self.assertRaises(RuntimeError):
                     TRANSFER.query("source", 0, 2)
+
+    def test_query_converts_inclusive_end_to_exclusive_http_end(self):
+        value = {"status": "success", "data": {"resultType": "streams", "result": []}}
+        with patch.object(TRANSFER, "get_json", return_value=value) as read:
+            TRANSFER.query("source", 5, 5)
+        self.assertIn("start=5&end=6&", read.call_args.args[0])
+
+    def test_canonical_windows_require_original_hashes_and_append_disjoint_tail(self):
+        rows = self.rows()[:2]
+        checksum = hashlib.sha256("\n".join(sorted(TRANSFER.fingerprint(r) for r in rows)).encode()).hexdigest()
+        audit = {"start": 0, "end": 3, "windows": [{"start": 0, "end": 3,
+                 "source_distinct_records": 2, "source_sha256": checksum}]}
+        with patch.object(TRANSFER, "query", return_value=rows), \
+                patch.object(TRANSFER, "windows", return_value=[(4, 7, [])]) as tail:
+            self.assertEqual(list(TRANSFER.source_windows(0, 7, audit)), [(0, 3, rows), (4, 7, [])])
+            tail.assert_called_once_with(TRANSFER.SOURCE, 4, 7)
+        with patch.object(TRANSFER, "query", return_value=rows[:1]), self.assertRaisesRegex(RuntimeError, "no longer matches"):
+            list(TRANSFER.source_windows(0, 3, audit))
+        with self.assertRaisesRegex(RuntimeError, "range changed"):
+            list(TRANSFER.source_windows(1, 3, audit))
+
+    def test_preserved_audit_requires_exact_bytes_and_complete_received_count(self):
+        audit = {"complete_source_quiescence": True, "applied": False,
+                 "source_uid": TRANSFER.cold_recovery.BUFFER_POD_UID,
+                 "source_distinct_records": 2, "source_received_counter": 2,
+                 "windows": [{"source_distinct_records": 2}]}
+        root = Mock()
+        root.__truediv__ = Mock(return_value=Mock())
+        data = json.dumps(audit).encode()
+        root.__truediv__.return_value.read_bytes.return_value = data
+        with patch.object(TRANSFER, "SOURCE_AUDIT_SHA256", hashlib.sha256(data).hexdigest()):
+            self.assertEqual(TRANSFER.preserved_source_audit(root), audit)
+            root.__truediv__.return_value.read_bytes.return_value = data + b" "
+            with self.assertRaisesRegex(RuntimeError, "audit changed"):
+                TRANSFER.preserved_source_audit(root)
+        audit["source_received_counter"] = 3
+        data = json.dumps(audit).encode()
+        root.__truediv__.return_value.read_bytes.return_value = data
+        with patch.object(TRANSFER, "SOURCE_AUDIT_SHA256", hashlib.sha256(data).hexdigest()), \
+                self.assertRaisesRegex(RuntimeError, "complete originals"):
+            TRANSFER.preserved_source_audit(root)
 
     def test_stage_guard_binds_both_pods_services_claims_images_and_collector_route(self):
         fixture = cold_fixture.ColdRecoveryTests()

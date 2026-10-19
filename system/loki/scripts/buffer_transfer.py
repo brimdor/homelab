@@ -23,6 +23,7 @@ SELECTOR = '{job=~".+"}'
 SPAN = 120 * 10**9
 CLAIM_UID = "656cee92-dc36-4fc8-8742-b691c670cf77"
 IMAGE_DIGEST = "sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193"
+SOURCE_AUDIT_SHA256 = "9ce2339207236861dd9bf0d93e599b089145922d9ac7057c673224ff47c6ab97"
 
 
 def get_json(url):
@@ -37,7 +38,8 @@ def fingerprint(row):
 
 
 def query(base, start, end, limit=5000):
-    parameters = {"query": SELECTOR, "start": str(start), "end": str(end),
+    # Loki's HTTP end is exclusive; internal windows include both endpoints.
+    parameters = {"query": SELECTOR, "start": str(start), "end": str(end + 1),
                   "limit": str(limit), "direction": "forward"}
     value = get_json(base + "/loki/api/v1/query_range?" + urllib.parse.urlencode(parameters))
     if value.get("status") != "success" or value.get("data", {}).get("resultType") != "streams":
@@ -124,10 +126,41 @@ def require_unsharded():
         raise RuntimeError("receiver may transform original labels through stream sharding")
 
 
-def transfer(start, end, apply=False):
+def source_windows(start, end, audit=None):
+    if audit is None:
+        yield from windows(SOURCE, start, end)
+        return
+    if start != audit["start"] or end < audit["end"]:
+        raise RuntimeError("canonical source audit range changed")
+    for window in audit["windows"]:
+        left, right = window["start"], window["end"]
+        rows = query(SOURCE, left, right)
+        unique = {fingerprint(row) for row in rows}
+        checksum = hashlib.sha256("\n".join(sorted(unique)).encode()).hexdigest()
+        if len(unique) != window["source_distinct_records"] or checksum != window["source_sha256"]:
+            raise RuntimeError("canonical source window no longer matches its preserved audit")
+        yield left, right, rows
+    if end > audit["end"]:
+        yield from windows(SOURCE, audit["end"] + 1, end)
+
+
+def preserved_source_audit(root):
+    data = (root / "final-1.json").read_bytes()
+    if hashlib.sha256(data).hexdigest() != SOURCE_AUDIT_SHA256:
+        raise RuntimeError("preserved canonical source audit changed")
+    audit = json.loads(data)
+    if not (audit["complete_source_quiescence"] and not audit["applied"] and
+            audit["source_uid"] == cold_recovery.BUFFER_POD_UID and
+            audit["source_distinct_records"] == audit["source_received_counter"] and
+            sum(w["source_distinct_records"] for w in audit["windows"]) == audit["source_distinct_records"]):
+        raise RuntimeError("canonical source audit does not prove complete originals")
+    return audit
+
+
+def transfer(start, end, apply=False, source_audit=None):
     manifest = []
     total = missing_total = 0
-    for left, right, rows in windows(SOURCE, start, end):
+    for left, right, rows in source_windows(start, end, source_audit):
         unique = {fingerprint(row): row for row in rows}
         if not unique:
             continue
@@ -216,13 +249,17 @@ def run(target_uid, phase, attempt, apply):
     first = query(SOURCE, lower, upper, limit=1)
     if not first:
         raise RuntimeError("persisted receiver unexpectedly has no originals")
-    result = transfer(first[0][1], upper, apply)
+    source_audit = preserved_source_audit(root) if phase == "final" else None
+    result = transfer(first[0][1], upper, apply, source_audit)
     require_stage(target_uid, phase)
     if phase == "final" and cold_recovery.metrics(SOURCE) != (0, received):
         raise RuntimeError("quiescent source changed during final transfer")
+    if phase == "final" and result["source_distinct_records"] != received:
+        raise RuntimeError("source enumeration does not account for every received original")
     result.update(phase=phase, attempt=attempt, target_uid=target_uid,
                   source_uid=cold_recovery.BUFFER_POD_UID,
-                  complete_source_quiescence=phase == "final", source_received_counter=received)
+                  complete_source_quiescence=phase == "final", source_received_counter=received,
+                  canonical_source_audit_sha256=SOURCE_AUDIT_SHA256 if source_audit else None)
     cold_recovery.write_verified(receipt, result)
     print(json.dumps(result), flush=True)
 
