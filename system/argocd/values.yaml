@@ -82,10 +82,25 @@ argocd-apps:
                 exclude: true
               - path: system/monitoring-system
                 exclude: true
+              - path: system/ingress-nginx
+                exclude: true
               - path: platform/*
               - path: platform/external-secrets
                 exclude: true
               - path: apps/*
+        - git:
+            repoURL: *repoURL
+            revision: *revision
+            directories:
+              - path: system/ingress-nginx
+            template:
+              metadata: {}
+              spec:
+                source:
+                  helm:
+                    # The ingress successor uses native Ingress objects, not Traefik CRDs.
+                    skipCrds: true
+                destination: {}
       template:
         metadata:
           name: '{{path.basename}}'
