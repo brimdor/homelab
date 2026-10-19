@@ -1,19 +1,4 @@
-{{- $promtail := index (index .Subcharts "loki-stack").Subcharts "promtail" -}}
-{{- $pod := include "promtail.podTemplate" $promtail | fromYaml -}}
-{{- $container := index $pod.spec.containers 0 -}}
-{{- $_ := set $container "name" "alloy" -}}
-{{- $_ := set $container "image" .Values.alloy.image -}}
-{{- $_ := set $container "args" (list "run" "--disable-reporting" "--server.http.listen-addr=0.0.0.0:3101" "--storage.path=/run/alloy-loki" "/etc/alloy/config.alloy") -}}
-{{- $_ := set $container "readinessProbe" (dict "httpGet" (dict "path" "/-/ready" "port" "http-metrics") "initialDelaySeconds" 10 "periodSeconds" 10) -}}
-{{- range $container.volumeMounts -}}
-  {{- $_ := set . "readOnly" true -}}
-{{- end -}}
-{{- $_ := set $container "volumeMounts" (concat $container.volumeMounts (list (dict "name" "alloy-config" "mountPath" "/etc/alloy" "readOnly" true) (dict "name" "alloy-state" "mountPath" "/run/alloy-loki"))) -}}
-{{- $_ := set $pod.spec "volumes" (concat $pod.spec.volumes (list (dict "name" "alloy-config" "configMap" (dict "name" "loki-alloy")) (dict "name" "alloy-state" "hostPath" (dict "path" "/run/alloy-loki" "type" "DirectoryOrCreate")))) -}}
-{{- $_ := set $pod.metadata.annotations "checksum/alloy-config" (.Files.Get "files/config.alloy" | sha256sum) -}}
-{{- if .Values.alloy.paused -}}
-{{- $_ := set $pod.spec "nodeSelector" (merge (dict "homelab.eaglepass.io/maintenance-loki-pause" "true") ($pod.spec.nodeSelector | default dict)) -}}
-{{- end -}}
+# Legacy discovery labels and resource names preserve immutable collector identity.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -27,18 +12,165 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   # Preserve the existing selector, RBAC and one-at-a-time replacement boundary.
-  name: {{ include "promtail.fullname" $promtail }}
+  name: loki-promtail
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "promtail.labels" $promtail | nindent 4 }}
+    helm.sh/chart: promtail-6.17.0
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/instance: loki
+    app.kubernetes.io/version: 3.5.1
+    app.kubernetes.io/managed-by: Helm
 spec:
   selector:
     matchLabels:
-      {{- include "promtail.selectorLabels" $promtail | nindent 6 }}
+      app.kubernetes.io/name: promtail
+      app.kubernetes.io/instance: loki
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
       maxSurge: 0
   template:
-    {{- toYaml $pod | nindent 4 }}
+    metadata:
+      annotations:
+        checksum/alloy-config: {{ .Files.Get "files/config.alloy" | sha256sum | quote }}
+      labels:
+        app.kubernetes.io/instance: loki
+        app.kubernetes.io/name: promtail
+    spec:
+      automountServiceAccountToken: true
+      containers:
+        - args:
+            - run
+            - --disable-reporting
+            - --server.http.listen-addr=0.0.0.0:3101
+            - --storage.path=/run/alloy-loki
+            - /etc/alloy/config.alloy
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          image: {{ .Values.alloy.image | quote }}
+          imagePullPolicy: IfNotPresent
+          name: alloy
+          ports:
+            - containerPort: 3101
+              name: http-metrics
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http-metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - mountPath: /run/promtail
+              name: run
+              readOnly: true
+            - mountPath: /var/lib/docker/containers
+              name: containers
+              readOnly: true
+            - mountPath: /var/log/pods
+              name: pods
+              readOnly: true
+            - mountPath: /etc/alloy
+              name: alloy-config
+              readOnly: true
+            - mountPath: /run/alloy-loki
+              name: alloy-state
+      enableServiceLinks: true
+      securityContext:
+        runAsGroup: 0
+        runAsUser: 0
+      serviceAccountName: loki-promtail
+      {{- if .Values.alloy.paused }}
+      nodeSelector:
+        homelab.eaglepass.io/maintenance-loki-pause: "true"
+      {{- end }}
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /run/promtail
+          name: run
+        - hostPath:
+            path: /var/lib/docker/containers
+          name: containers
+        - hostPath:
+            path: /var/log/pods
+          name: pods
+        - configMap:
+            name: loki-alloy
+          name: alloy-config
+        - hostPath:
+            path: /run/alloy-loki
+            type: DirectoryOrCreate
+          name: alloy-state
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loki-promtail
+  namespace: {{ .Release.Namespace }}
+  labels:
+    helm.sh/chart: promtail-6.17.0
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/instance: loki
+    app.kubernetes.io/version: 3.5.1
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: loki-promtail
+  labels:
+    helm.sh/chart: promtail-6.17.0
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/instance: loki
+    app.kubernetes.io/version: 3.5.1
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+      - nodes/proxy
+      - services
+      - endpoints
+      - pods
+    verbs:
+      - get
+      - watch
+      - list
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: loki-promtail
+  labels:
+    helm.sh/chart: promtail-6.17.0
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/instance: loki
+    app.kubernetes.io/version: 3.5.1
+    app.kubernetes.io/managed-by: Helm
+subjects:
+  - kind: ServiceAccount
+    name: loki-promtail
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: loki-promtail
+  apiGroup: rbac.authorization.k8s.io

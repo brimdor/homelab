@@ -27,7 +27,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: loki-upgrade-verify-20261019
+  name: loki-upgrade-verify-20261019-2
 spec:
   backoffLimit: 0
   template:
@@ -40,6 +40,7 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: totodile
       initContainers:
+        {{- if not .Values.maintenanceRecovery.candidatePrepared }}
         - name: prepare
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
           command: [python3, -B, /scripts/recovery.py, prepare]
@@ -59,6 +60,7 @@ spec:
             - name: script
               mountPath: /scripts
               readOnly: true
+        {{- end }}
         - name: loki-restore
           image: docker.io/grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
           args: [-config.file=/scripts/candidate.yaml]

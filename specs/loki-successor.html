@@ -128,6 +128,24 @@ the Jobs through Git. Retired collector/Loki self-log files and a completed
 backup Job are lifecycle exceptions; their absence is not proof of lossless
 retention or exactly-once delivery.</p>
 <h2>Supported server and chart stage</h2>
+<p>The first isolated candidate timed out because its frontend advertised the
+Pod address while gRPC listened on loopback. Exact 3.7.8 config-wrapper source
+shows that common.instance_addr controls frontend advertisement. Set it to
+127.0.0.1 and explicitly retain an in-memory common ring with replication one.
+The corrected native synthetic test passed v11 and future-v13 queries before
+and after flush, graceful shutdown and restart. No production records were used.</p>
+<p>The original candidate prepare init exited zero and restored the verified
+source into loki-upgrade-validation UID
+5d267dab-518b-424c-92fa-8a6b17838941. The failed query verifier and its sidecar
+must be stopped before a replacement Job reuses that same isolated store.
+Skip only its already-proved prepare step; never overwrite the original recovery
+archive. The corrected query proof must still match the original fixed results.</p>
+<p>Alloy now gets explicit repository-owned resources so removal of loki-stack
+cannot remove its service account, RBAC or DaemonSet. Preserve the complete
+rendered collector semantics, except removal of the unused Promtail config
+Secret, mount and checksum. Verify every other object and the pause selector,
+then roll one collector at a time and verify readiness, ingestion and retained
+legacy and Alloy position state.</p>
 <p>Target Loki 3.7.8, immutable digest
 <code>sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193</code>,
 community chart 18.17.1. An isolated native-sidecar Job restores the original
