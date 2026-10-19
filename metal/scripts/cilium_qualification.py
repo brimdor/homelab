@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import socket
 import stat
 import subprocess
 import urllib.request
@@ -47,13 +48,17 @@ def require_root(root, name, docker_host):
         raise RuntimeError("Docker socket is outside the owned qualification root")
 
 
-def require_cluster(config, name, namespace, nodes):
+def require_endpoint(config, name):
     context = "k3d-" + name
     if config.get("current-context") != context or len(config.get("clusters", [])) != 1:
         raise RuntimeError("unexpected isolated kubeconfig context")
     server = urlparse(config["clusters"][0]["cluster"]["server"])
     if server.scheme != "https" or server.hostname != "127.0.0.1" or not server.port:
         raise RuntimeError("isolated Kubernetes API must bind IPv4 loopback")
+
+
+def require_cluster(config, name, namespace, nodes):
+    require_endpoint(config, name)
     uid = namespace["metadata"]["uid"]
     expected = {"k3d-" + name + suffix for suffix in ("-server-0", "-agent-0", "-agent-1")}
     if not uid or uid == PRODUCTION_UID or {n["metadata"]["name"] for n in nodes["items"]} != expected:
@@ -119,6 +124,7 @@ class Qualification:
 
     def identity(self):
         config = yaml.safe_load(Path(self.env["KUBECONFIG"]).read_text())
+        require_endpoint(config, self.args.name)
         uid = require_cluster(config, self.args.name, self.kubectl("get", "namespace", "kube-system"),
                               self.kubectl("get", "nodes"))
         if self.cluster_uid is not None and uid != self.cluster_uid:
@@ -129,9 +135,12 @@ class Qualification:
         name = self.command(["docker", "info", "--format", "{{.Name}}"], private=True).decode().strip()
         if name != self.args.docker_server or self.command(["docker", "ps", "-aq"], private=True).strip():
             raise RuntimeError("Docker daemon is not the expected empty owned VM")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            api_port = listener.getsockname()[1]
         self.creation_started = True
         self.command([self.args.k3d, "cluster", "create", self.args.name, "--servers=1", "--agents=2",
-                      "--image=" + K3S, "--api-port=127.0.0.1:0", "--subnet=172.31.240.0/24",
+                      "--image=" + K3S, "--api-port=127.0.0.1:" + str(api_port), "--subnet=172.31.240.0/24",
                       "--kubeconfig-update-default=false", "--kubeconfig-switch-context=false",
                       "--k3s-arg=--flannel-backend=none@server:*", "--k3s-arg=--disable-network-policy@server:*",
                       "--k3s-arg=--disable-kube-proxy@server:*",

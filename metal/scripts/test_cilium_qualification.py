@@ -24,7 +24,7 @@ class QualificationGuards(unittest.TestCase):
                          "synthetic-cluster")
 
     def test_reject_other_api_origins_and_contexts(self):
-        for address in ("https://10.0.20.50:6443", "http://127.0.0.1:6443", "https://localhost:6443"):
+        for address in ("https://10.0.20.50:6443", "http://127.0.0.1:6443", "https://localhost:6443", "https://127.0.0.1:0"):
             config = copy.deepcopy(self.config)
             config["clusters"][0]["cluster"]["server"] = address
             with self.assertRaises(RuntimeError):

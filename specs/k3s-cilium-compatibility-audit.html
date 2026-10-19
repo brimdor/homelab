@@ -145,6 +145,7 @@
     The helper now passes it only to servers. The preceding combined-filter correction was insufficient and remains a failed receipt;
     cilium-corrected-filter-owned-qualification-0kjh9bq8 verified complete owned cleanup, with no production change.
     This source diagnosis must be confirmed by the next native run.</p>
+  <h2>Explicit API endpoint</h2><p>The server-setting run created all three k3s nodes successfully. Its next read failed because k3d preserved the requested literal port0 in its kubeconfig rather than substituting Docker's assigned port. Select an available IPv4 loopback port before creation and pass the explicit nonzero value. Validate the kubeconfig endpoint before any API read as well as during cluster-UID checks. A conflict fails cluster creation; never replace an existing listener. The zero-port regression joins the endpoint rejection tests. Full qualification remains pending.</p>
 </main>
 </body>
 </html>
