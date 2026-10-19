@@ -1,6 +1,6 @@
 maintenanceRecovery:
   enabled: true
-  backupEnabled: false
+  backupEnabled: true
   repairEnabled: false
 
 woodpecker:
