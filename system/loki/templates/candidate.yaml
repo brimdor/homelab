@@ -1,4 +1,4 @@
-{{- if .Values.maintenanceRecovery.candidateEnabled }}
+{{- if .Values.maintenanceRecovery.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -12,6 +12,8 @@ spec:
   resources:
     requests:
       storage: 10Gi
+{{- end }}
+{{- if .Values.maintenanceRecovery.candidateEnabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
