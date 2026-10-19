@@ -27,7 +27,10 @@ LABEL = "io.eaglepass.mariadb-recovery"
 DUMP = ["mariadb-dump", "--all-databases", "--single-transaction", "--quick",
         "--routines", "--events", "--triggers", "--hex-blob", "--order-by-primary",
         "--skip-comments", "--skip-dump-date", "--skip-lock-tables", "-uroot"]
-JOVO_EMPTY_DIRECTORY_DUMP_SHA256 = "a3fe95a939cb2a167b0acf973ef4d2fb838f25fe164ad2d519b26057e3b065ff"
+EMPTY_DIRECTORY_DUMPS = {
+    "jovo": "a3fe95a939cb2a167b0acf973ef4d2fb838f25fe164ad2d519b26057e3b065ff",
+    "backlog-canary": "0600bd4f4e8bddcd1e81ceeefd4bcd7c0b056932ee306756f7b4be1fc88423e3",
+}
 
 
 def digest(data):
@@ -118,7 +121,7 @@ def import_stream(data, namespace):
     section = (b"CREATE DATABASE /*!32312 IF NOT EXISTS*/ `#mysql50#lost+found` "
                b"/*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;\n\n"
                b"USE `#mysql50#lost+found`;\n\n")
-    if (namespace != "jovo" or digest(data) != JOVO_EMPTY_DIRECTORY_DUMP_SHA256 or
+    if (digest(data) != EMPTY_DIRECTORY_DUMPS.get(namespace) or
             data.count(marker) != 3 or data.count(section) != 1):
         raise RuntimeError("unreviewed legacy directory section in recovery stream")
     value = data.replace(section, b"", 1)
