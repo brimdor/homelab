@@ -1,5 +1,5 @@
 ---
-- name: Upgrade exactly one existing kube-vip standby
+- name: Upgrade exactly one existing kube-vip instance
   hosts: masters
   gather_facts: false
   any_errors_fatal: true
@@ -26,6 +26,9 @@
           - kubevip_expected_lease_uid | length == 36
           - kubevip_expected_cluster_uid | length == 36
           - lookup('ansible.builtin.config', 'HOST_KEY_CHECKING') | bool
+          - not (kubevip_leader_handoff | default(false) | bool) or
+            (kubevip_handoff_standbys | default({}) | list | sort) ==
+            (groups['masters'] | reject('equalto', inventory_hostname) | list | sort)
 
     - name: Read current manifest identity
       ansible.builtin.stat:
@@ -53,13 +56,34 @@
       changed_when: false
       register: kubevip_lease
 
-    - name: Refuse leader disruption or changed cluster/election
+    - name: Refuse unplanned leader disruption or changed cluster/election
       ansible.builtin.assert:
         that:
           - (kubevip_cluster.stdout | from_json).metadata.uid == kubevip_expected_cluster_uid
           - (kubevip_lease.stdout | from_json).metadata.uid == kubevip_expected_lease_uid
-          - (kubevip_lease.stdout | from_json).spec.holderIdentity != inventory_hostname
+          - ((kubevip_lease.stdout | from_json).spec.holderIdentity == inventory_hostname) ==
+            (kubevip_leader_handoff | default(false) | bool)
           - (kubevip_lease.stdout | from_json).spec.leaseDurationSeconds == 30
+
+    - name: Read both exact qualified standbys before a planned leader handoff
+      ansible.builtin.command:
+        argv: "{{ kubevip_client + ['get', 'pod', 'kube-vip-' + item, '-n=kube-system', '-o=json'] }}"
+      loop: "{{ kubevip_handoff_standbys | default({}) | list }}"
+      when: kubevip_leader_handoff | default(false) | bool
+      changed_when: false
+      register: kubevip_standby_pods
+
+    - name: Require two unchanged Ready qualified candidates for the handoff
+      ansible.builtin.assert:
+        that:
+          - (item.stdout | from_json).metadata.uid == kubevip_handoff_standbys[item.item]
+          - not ((item.stdout | from_json).metadata.deletionTimestamp | default(false))
+          - (item.stdout | from_json).spec.nodeName == item.item
+          - (item.stdout | from_json).status.phase == 'Running'
+          - (item.stdout | from_json).status.containerStatuses[0].ready
+          - (item.stdout | from_json).spec.containers[0].image == 'ghcr.io/kube-vip/kube-vip@sha256:26ead1e4f7ce486d1e60351181957f35ae54d30c11e8ae0a30d8e9ca1d8acb51'
+      loop: "{{ kubevip_standby_pods.results | default([]) }}"
+      when: kubevip_leader_handoff | default(false) | bool
 
     - name: Preserve protected original outside the watched manifest directory
       ansible.builtin.file:
@@ -100,11 +124,12 @@
       changed_when: false
       register: kubevip_final_lease
 
-    - name: Stop if this host became leader
+    - name: Stop if the reviewed election holder changed
       ansible.builtin.assert:
         that:
           - (kubevip_final_lease.stdout | from_json).metadata.uid == kubevip_expected_lease_uid
-          - (kubevip_final_lease.stdout | from_json).spec.holderIdentity != inventory_hostname
+          - (kubevip_final_lease.stdout | from_json).spec.holderIdentity ==
+            (kubevip_lease.stdout | from_json).spec.holderIdentity
 
     - name: Atomically install only the repository-owned kube-vip manifest
       ansible.builtin.template:
