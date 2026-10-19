@@ -115,8 +115,11 @@ def pf_snapshot(api):
         networks = []
         for row in data["rows"]:
             require(isinstance(row, dict) and isinstance(row.get("ip"), str), "Invalid PF alias address")
+            value = row["ip"]
+            negated = value.startswith("!")
             try:
-                networks.append(str(ipaddress.ip_network(row["ip"], strict=True)))
+                network = str(ipaddress.ip_network(value[1:] if negated else value, strict=True))
+                networks.append(("!" if negated else "") + network)
             except ValueError:
                 raise Refusal("Invalid PF alias address") from None
         require(len(set(networks)) == count, "Duplicate PF alias addresses")

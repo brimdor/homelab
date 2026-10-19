@@ -664,6 +664,9 @@ class PacketFilterAuditTests(unittest.TestCase):
         for value in ({"total": 2, "current": 1, "rows": [{"ip": "10.0.20.0/24"}]},
                       {"total": 1, "current": 2, "rows": [{"ip": "10.0.20.0/24"}]},
                       {"total": 1, "current": 1, "rows": [{"ip": "invalid"}]},
+                      {"total": 1, "current": 1, "rows": [{"ip": "!!10.0.20.0/24"}]},
+                      {"total": 1, "current": 1, "rows": [{"ip": "! 10.0.20.0/24"}]},
+                      {"total": 1, "current": 1, "rows": [{"ip": "!10.0.20.1/24"}]},
                       {"total": 1, "current": 1, "rows": [{"ip": "10.0.20.1/24"}]}):
             data = self.fixture()
             data[path] = value
@@ -676,6 +679,19 @@ class PacketFilterAuditTests(unittest.TestCase):
                      "/api/firewall/alias_util/list/../flush?rowCount=-1",
                      "/api/firewall/alias_util/flush/bogons", "/api/firewall/alias_util/update_bogons"):
             self.assertIsNone(dns.re.fullmatch(dns.PF_ALIAS_READ, path))
+
+    def test_alias_negation_preserves_distinct_address_semantics(self):
+        data = self.fixture()
+        rules = data[dns.PF_RULES]["rules"]["filter rules"]
+        text, counters = next(iter(rules.items()))
+        data[dns.PF_RULES]["rules"]["filter rules"] = {text.replace("localnets:1", "localnets:2"): counters}
+        data["/api/firewall/alias_util/list/localnets?rowCount=-1"] = {
+            "total": 2, "current": 1, "rows": [{"ip": "10.0.20.0/24"}, {"ip": "!10.0.20.0/24"}]}
+        class ReadOnly:
+            def get(self, path):
+                return data[path]
+        self.assertEqual(dns.pf_snapshot(ReadOnly())["referenced_aliases"]["localnets"],
+                         {"records": 2, "addresses_sha256": dns.sha(["!10.0.20.0/24", "10.0.20.0/24"])})
 
     def test_counted_empty_alias_is_valid_and_missing_inventory_is_not(self):
         data = self.fixture()
