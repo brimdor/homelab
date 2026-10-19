@@ -11,6 +11,9 @@
 {{- $_ := set $container "volumeMounts" (concat $container.volumeMounts (list (dict "name" "alloy-config" "mountPath" "/etc/alloy" "readOnly" true) (dict "name" "alloy-state" "mountPath" "/run/alloy-loki"))) -}}
 {{- $_ := set $pod.spec "volumes" (concat $pod.spec.volumes (list (dict "name" "alloy-config" "configMap" (dict "name" "loki-alloy")) (dict "name" "alloy-state" "hostPath" (dict "path" "/run/alloy-loki" "type" "DirectoryOrCreate")))) -}}
 {{- $_ := set $pod.metadata.annotations "checksum/alloy-config" (.Files.Get "files/config.alloy" | sha256sum) -}}
+{{- if .Values.alloy.paused -}}
+{{- $_ := set $pod.spec "nodeSelector" (merge (dict "homelab.eaglepass.io/maintenance-loki-pause" "true") ($pod.spec.nodeSelector | default dict)) -}}
+{{- end -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:

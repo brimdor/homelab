@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""Exercise store preservation and refusal boundaries with synthetic files."""
+
+import importlib.util
+from pathlib import Path
+import tempfile
+import unittest
+
+SPEC = importlib.util.spec_from_file_location("recovery", Path(__file__).with_name("recovery.py"))
+RECOVERY = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(RECOVERY)
+
+
+class StoreRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.source = self.root / "source"
+        (self.source / "loki/index").mkdir(parents=True)
+        (self.source / "loki/index/db").write_bytes(b"index\x00data")
+        (self.source / "loki/chunk").write_bytes(b"preserved log record\n")
+
+    def test_complete_copy_preserves_bytes_and_source(self):
+        before = RECOVERY.inventory(self.source)
+        target = self.root / "restored"
+        RECOVERY.copy_verified(self.source, target, before)
+        self.assertEqual(RECOVERY.inventory(target), before)
+        self.assertEqual(RECOVERY.inventory(self.source), before)
+        self.assertEqual((target / "loki/chunk").stat().st_mode & 0o777, 0o600)
+
+    def test_changed_source_refuses_verified_copy(self):
+        before = RECOVERY.inventory(self.source)
+        (self.source / "loki/chunk").write_bytes(b"concurrent write")
+        with self.assertRaisesRegex(RuntimeError, "does not match"):
+            RECOVERY.copy_verified(self.source, self.root / "changed", before)
+
+    def test_existing_destination_never_overwritten(self):
+        before = RECOVERY.inventory(self.source)
+        with self.assertRaisesRegex(RuntimeError, "overwrite"):
+            RECOVERY.copy_verified(self.source, self.source, before)
+        self.assertEqual(RECOVERY.inventory(self.source), before)
+
+    def test_symlink_and_traversal_refused(self):
+        (self.source / "link").symlink_to(self.source / "loki/chunk")
+        with self.assertRaisesRegex(RuntimeError, "symlink"):
+            RECOVERY.inventory(self.source)
+        with self.assertRaisesRegex(RuntimeError, "manifest path"):
+            RECOVERY.copy_verified(self.source, self.root / "unsafe", [{"path": "../escape"}])
+        self.assertFalse((self.root / "escape").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

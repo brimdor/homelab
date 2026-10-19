@@ -55,4 +55,50 @@ LOKI_SUCCESSOR or prove durable/offsite Loki recovery.</p>
 <a href="https://grafana.com/docs/alloy/latest/reference/components/loki/loki.source.file/">legacy positions</a>,
 <a href="https://github.com/grafana/alloy/releases/tag/v1.20.1">1.20.1 release</a>,
 <a href="https://grafana.com/docs/loki/latest/setup/upgrade/upgrade-from-2x/">Loki 3 migration requirements</a>.</p>
+<h2>Store recovery and persistence prerequisite</h2>
+<p>Observed source: Pod c9a2f14b-9842-487e-bdef-eeb0c304172f on totodile,
+volume storage, emptyDir host path
+<code>/var/lib/kubelet/pods/c9a2f14b-9842-487e-bdef-eeb0c304172f/volumes/kubernetes.io~empty-dir/storage</code>.
+Read-only mountinfo proves that identity. The Loki tree currently occupies about
+36 MiB. Ceph is HEALTH_OK with verified capacity before provisioning protected
+<code>loki-recovery</code> (2 GiB) and <code>loki-data</code> (10 GiB) RWO claims.
+These are cluster-local recovery, not independent or offsite storage.</p>
+<ol><li>Provision both claims, the reviewed recovery script and minimal namespace
+read permissions. Leave both Jobs disabled and all application Pod templates
+unchanged. Confirm claims Bound and preserve their exact UIDs/PV bindings.</li>
+<li>Verify no node has the pause selector. Set Alloy paused and enable the exact
+UID-scoped backup Job in Git. Its API guard requires the source Pod and node,
+emptyDir ownership, observed zero-scheduled collector DaemonSet and no remaining
+collector Pods. Old Loki stays running. Call its version-specific POST /flush;
+the 2.6.1 source proves this enqueues work, so wait for memory chunks to drain.
+Capture per-namespace counts for every stream in the seven-day query window and
+100 earliest timestamp/content hashes. Mount only the exact source volume read-only.</li>
+<li>Reject symlinks, special files, empty stores, existing backup destinations and
+path traversal. Hash every file, copy to a new protected directory, fsync files
+and directories, then compare source and destination manifests and repeat the
+live identity/quiescence guard. Changed files invalidate the candidate. Never
+claim a hot unverified copy is a recovery point. Keep backup data off workstation
+scratch and NAS.</li>
+<li>Disable the backup Job and enable an isolated restore Job. Copy only a verified
+backup into the fresh target claim with Loki's existing UID 10001. Run the same
+immutable Loki 2.6.1 artifact as a native sidecar, using an isolated in-memory ring
+and no memberlist peers. No production Service selects this Job. Query the same
+fixed time, stream counts and historical hashes through localhost and require
+exact equality. A successful main verifier and ordinary prepare init plus legitimate
+Job completion prove the restore. Preserve the original backup unchanged.</li>
+<li>Only after restore proof, disable the Job and change the original chart to
+use the prepared existing claim. Preserve config, image, service identity and
+schema. The old Pod's deletion can remove its emptyDir; the retained backup and
+restored target are therefore mandatory prerequisites. Resume collectors through
+Git after Loki readiness and identical queries pass. Verify catch-up ingestion,
+positions and source files without injecting production test logs.</li></ol>
+<p>Rollback after persistence adoption must retain the PVC; reverting to an emptyDir
+is unsafe. Keep Loki 2.6.1 until the separate supported chart/image and future
+TSDB v13 period migration passes staged restored-copy validation. Version-changing
+rollback must use a compatible image/schema and the preserved recovery point.
+Do not rewrite historical schema periods or indexes.</p>
+<p>Source references: exact
+<a href="https://github.com/grafana/loki/blob/v2.6.1/pkg/ingester/flush.go">flush handler</a>
+and <a href="https://github.com/grafana/loki/blob/v2.6.1/pkg/loki/modules.go">registered 2.6.1 endpoints</a>.
+The newer ingester/shutdown endpoint is not assumed to exist in 2.6.1.</p>
 </html>
