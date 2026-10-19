@@ -258,6 +258,7 @@ def rehearse(native):
     root = Path(tempfile.mkdtemp(prefix="point-native-rehearsal-", dir=recovery.common.ROOT))
     containers, images = [], set()
     result = {"accepted": False}
+    stage = "create-original"
     try:
         (root / "volume").mkdir(mode=0o700)
         os.chown(root / "volume", 999, 999)
@@ -302,8 +303,10 @@ def rehearse(native):
                     ("POSTGRES_PASSWORD", "synthetic-rehearsal-only"), ("POSTGRES_INITDB_ARGS", "")]
         original = create(recovery.IMAGE, [(root / "volume", "/volume", False),
                            (root / "migration.sh", "/scripts/migration.sh", True)], base_env)
+        stage = "initialize-original-uid999"
         # Native tools may emit successful progress on stderr; shell redirects keep it in owned scratch.
         run(original, "bash", "-ec", "source /usr/local/bin/docker-entrypoint.sh; export PGDATA=/volume/pgdata; docker_init_database_dir --auth-local=trust --auth-host=reject --encoding=UTF8 --locale=en_US.utf8 --data-checksums >/volume/init.log 2>&1; pg_ctl -D /volume/pgdata -l /volume/server.log -o \"-c listen_addresses='' -c unix_socket_directories=/tmp -c unix_socket_permissions=0700\" -w start >/volume/start.log 2>&1")
+        stage = "populate-original"
         run(original, "createdb", "-h", "/tmp", "-U", "pointguide", "pointguide")
         run(original, "psql", "-X", "-h", "/tmp", "-U", "pointguide", "-d", "pointguide", "-v", "ON_ERROR_STOP=1",
             input=b"CREATE TABLE public.proof (id integer, value text); INSERT INTO public.proof VALUES (1,'duplicate'),(1,'duplicate'),(2,NULL); CREATE SEQUENCE public.proof_sequence START 9; SELECT nextval('public.proof_sequence');")
@@ -313,6 +316,7 @@ def rehearse(native):
         archive = run(original, "pg_dump", "-h", "/tmp", "-U", "pointguide", "-d", "pointguide", "--format=custom", "--create")
         archived_data = run(original, "pg_dump", "-h", "/tmp", "-U", "pointguide", "-d", "pointguide", "--data-only", "--no-comments")
         run(original, "sh", "-ceu", "pg_ctl -D /volume/pgdata -w -m fast stop >/volume/stop.log 2>&1")
+        stage = "prepare-original"
         run(original, "sh", "/scripts/migration.sh", "prepare")
         directory = "pg18-maintenance-103-20261019-a"
         operation = root / "volume/migration-103-20261019-a"
@@ -322,6 +326,7 @@ def rehearse(native):
         candidate = create(recovery.CANDIDATE, [(root / "volume/pgdata", "/original", True),
             (operation, "/recovery", False), (root / "volume" / directory, "/var/lib/postgresql/" + directory, False),
             (root / "migration.sh", "/scripts/migration.sh", True)], env)
+        stage = "restore-candidate"
         recovery.common.docker("exec", "--detach", candidate, "/bin/sh", "-c",
                                "/bin/bash /scripts/migration.sh restore >/recovery/native.log 2>&1; printf '%s' $? >/recovery/native.exit")
         for name, data in (("globals.sql", globals_sql), ("database.dump", archive)):
@@ -333,6 +338,7 @@ def rehearse(native):
             time.sleep(1)
         if (operation / "state").read_text().strip() != "awaiting-verification":
             raise RuntimeError("unexpected native rehearsal state")
+        stage = "compare-candidate"
         def sql_or_dump(program, *args):
             return run(candidate, program, "-h", "/tmp", "-U", "pointguide", "-d", "pointguide", *args)
         if recovery.normalized_dump(schema) != recovery.normalized_dump(sql_or_dump("pg_dump", "--schema-only", "--no-comments")):
@@ -350,6 +356,11 @@ def rehearse(native):
         result.update(accepted=True, duplicate_and_null_records_match=True, schema_and_roles_match=True,
                       sequence_matches=True, original_datadir_unchanged=True, offline_checksums_valid=True,
                       clean_shutdown=True, production_network_unroutable=True)
+    except Exception as error:
+        result.update(error=str(error), stage=stage)
+        # This dedicated rehearsal contains only the three hard-coded synthetic records above.
+        result["synthetic_diagnostics"] = {str(path.relative_to(root)): path.read_text(errors="replace")[-1500:]
+                                           for path in root.rglob("*.log") if path.is_file()}
     finally:
         for identity in reversed(containers):
             recovery.common.docker("rm", "-f", identity)
