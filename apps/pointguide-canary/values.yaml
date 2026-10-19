@@ -187,7 +187,7 @@ app-template:
     postgres:
       forceRename: pointguide-canary-postgres
       type: statefulset
-      replicas: 1
+      replicas: 0
       pod:
         securityContext:
           runAsNonRoot: true
