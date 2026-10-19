@@ -38,6 +38,10 @@ class IsolationTests(unittest.TestCase):
     def test_exact_owned_isolated_container_is_accepted(self):
         RECOVERY.require_isolation(self.container, self.scratch, "qualify-12345678")
 
+    def test_component_qualification_cannot_use_real_recovery_material(self):
+        with self.assertRaisesRegex(RuntimeError, "cannot use production"):
+            RECOVERY.qualify("qualify-12345678", self.scratch, "0" * 64, synthetic_check=lambda *_: {})
+
     def test_real_recovery_material_must_be_the_exact_read_only_point(self):
         point = self.scratch.parent / "protected-point"
         container = copy.deepcopy(self.container)

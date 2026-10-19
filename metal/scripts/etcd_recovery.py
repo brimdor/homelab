@@ -340,7 +340,9 @@ def log_diagnostic(path):
             "markers": [phrase for phrase in phrases if phrase in text]}
 
 
-def qualify(run_id, point=None, manifest_sha256=None):
+def qualify(run_id, point=None, manifest_sha256=None, synthetic_check=None):
+    if point is not None and synthetic_check is not None:
+        raise RuntimeError("component qualification cannot use production recovery material")
     if os.geteuid() != 0 or command(["hostname"]).stdout.strip() != b"pikachu":
         raise RuntimeError("qualification must run on the exact authorized off-master host")
     if VERSION.encode() not in command(["/usr/local/bin/k3s", "--version"]).stdout:
@@ -454,6 +456,10 @@ def qualify(run_id, point=None, manifest_sha256=None):
             if namespace["metadata"]["uid"] == CLUSTER_UID or nodes["items"]:
                 raise RuntimeError("synthetic identity or agentless contract failed")
             receipt.update(synthetic_namespace_uid=namespace["metadata"]["uid"], synthetic_nodes=0)
+            if synthetic_check is not None:
+                receipt["component_qualification"] = synthetic_check(container_id, scratch, client, run_id)
+                if receipt["component_qualification"].get("accepted") is not True:
+                    raise RuntimeError("synthetic component qualification failed")
         else:
             expected = manifest["metadata"]
             namespaces = json.loads(docker(*client, "get", "namespaces", "-o=json").stdout)["items"]
