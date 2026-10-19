@@ -66,6 +66,13 @@ class RecoveryTests(unittest.TestCase):
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):
                 recovery.original_proc_sql(changed)
 
+    def test_import_diagnostic_never_returns_private_error_text(self):
+        result = type("Result", (), {"returncode": 1, "stdout": b"", "stderr":
+                      b"ERROR 1064 (42000) at line 123: private SQL row and credential"})()
+        value = recovery.import_diagnostic(result)
+        self.assertEqual(value["errors"], [{"number": 1064, "sqlstate": "42000", "line": 123}])
+        self.assertNotIn("private", str(value))
+
     def test_arm64_requires_the_existing_exact_handler_and_digest(self):
         reference = "docker.io/library/mariadb@sha256:" + "a" * 64
         image = {"Architecture": "arm64", "Os": "linux", "RepoDigests": ["mariadb@sha256:" + "a" * 64],

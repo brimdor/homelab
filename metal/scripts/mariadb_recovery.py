@@ -99,6 +99,15 @@ def original_proc_sql(data):
     return b"USE `mysql`;\n" + value
 
 
+def import_diagnostic(result):
+    # SQL errors can quote credentials or production rows; retain numeric location only.
+    errors = re.findall(rb"(?m)^ERROR ([0-9]+) \(([A-Z0-9]+)\) at line ([0-9]+)", result.stderr)
+    return {"exit_status": result.returncode, "stdout_bytes": len(result.stdout),
+            "stderr_bytes": len(result.stderr), "stderr_sha256": digest(result.stderr),
+            "errors": [{"number": int(number), "sqlstate": state.decode(), "line": int(line)}
+                       for number, state, line in errors]}
+
+
 def require_image(image, reference):
     if (canonical_reference(reference) not in {canonical_reference(r) for r in image.get("RepoDigests", [])} or
             image.get("Os") != "linux" or image.get("Architecture") not in ("amd64", "arm64") or
@@ -356,6 +365,7 @@ def restore(run_id, expected_manifest):
         with (point / "cluster.sql").open("rb") as source:
             restored = subprocess.run(client, stdin=source, capture_output=True)
         if restored.returncode or restored.stdout or restored.stderr:
+            result["import_diagnostic"] = import_diagnostic(restored)
             raise RuntimeError("isolated database import failed or warned")
         # --routines recreates routines after the mysql table dump, changing their
         # creation/modification times. MariaDB documents restoring mysql.proc for
