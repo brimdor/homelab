@@ -4,9 +4,11 @@ app-template:
       strategy: Recreate
       containers:
         database:
+          args:
+            - --ignore-db-dirs=lost+found
           image:
-            repository: 10.0.20.11:32309/backlog_database
-            tag: "canary@sha256:ac75a7487b7ce7f12d8b07dc73595f528f830a7764334aeb3c19c3cf6dede4f5"
+            repository: docker.io/library/mariadb
+            tag: "10.11.19@sha256:0d0945c57f75b3a3b9ebe71aedaaad005fa5305054e8fca3d2e42a8c92b43b5e"
             pullPolicy: Always
           env:
             MYSQL_ROOT_PASSWORD:
@@ -198,6 +200,16 @@ app-template:
         main:
           database:
             - path: /var/lib/mysql
+
+    init-schema:
+      type: configMap
+      name: backlog-init-schema
+      advancedMounts:
+        main:
+          database:
+            - path: /docker-entrypoint-initdb.d/init-schema.sql
+              subPath: init-schema.sql
+              readOnly: true
 
   defaultPodOptions:
     securityContext:

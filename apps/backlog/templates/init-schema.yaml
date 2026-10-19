@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backlog-init-schema
+data:
+  init-schema.sql: |-
+{{ .Files.Get "files/init-schema.sql" | indent 4 }}
