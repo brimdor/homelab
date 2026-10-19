@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>K3s and Cilium compatibility audit — Maintenance 103</title>
+  <style>
+    :root { color-scheme: dark; background: #10151d; color: #e1e8f1; font: 16px/1.6 system-ui, sans-serif; }
+    body { max-width: 1120px; margin: auto; padding: 32px 20px 72px; }
+    h1, h2 { line-height: 1.25; color: #f2f6ff; }
+    h2 { margin-top: 2rem; } a { color: #8dc8ff; }
+    code { overflow-wrap: anywhere; color: #c5e6ff; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #394657; padding: 12px; text-align: left; vertical-align: top; }
+    th { background: #1e2938; } .status { border-left: 4px solid #e6b75c; padding: 12px 18px; background: #20232a; }
+    .muted { color: #b5c0d0; } li { margin: .45rem 0; }
+    @media (max-width: 700px) { table { display: block; overflow-x: auto; } }
+  </style>
+</head>
+<body>
+<main>
+  <p class="muted">Maintenance <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103</a> · 2026-10-19 · K3S_CILIUM / A1</p>
+  <h1>The first Cilium transitions lack a guaranteed Kubernetes overlap</h1>
+  <p class="status"><strong>Source audit complete; deployment remains BLOCKED / INCOMPLETE.</strong>
+    Consecutive Cilium minors are necessary, but do not establish a fully guaranteed bridge on the existing Kubernetes 1.33 baseline.
+    This is a compatibility and recovery gap, separate from the sprigatito hardware incident and Tailnet route acceptance.</p>
+
+  <h2>Repository baseline and scope</h2>
+  <p>Baseline <a href="https://git.eaglepass.io/ops/homelab/src/commit/bace67d46b61c1331d52452459cb049a41119454">bace67d46b61c1331d52452459cb049a41119454</a> pins
+    <a href="../metal/roles/k3s/defaults/main.yml">k3s v1.33.6+k3s1</a> and
+    <a href="../metal/roles/cilium/defaults/main.yml">Cilium 1.15.1</a>.
+    K3s disables flannel, kube-proxy and its own network-policy controller. Cilium owns kube-proxy replacement,
+    L2 announcements and Hubble; its configured API connection is <code>127.0.0.1:6444</code>.
+    The <a href="../metal/roles/cilium/tasks/main.yml">owning Ansible role</a> installs Helm desired state and applies the L2/IP-pool resources.
+    These contracts must survive any transition. No version pin or live resource is changed by this audit.</p>
+
+  <h2>Exact upstream source matrix</h2>
+  <p>The rows below record official release-branch documentation at immutable source commits, read on the audit date.
+    They are documentation observations, not selected patch releases or an assertion that each branch is still maintained.
+    For 1.15–1.18, upstream describes unlisted versions as dependent on Kubernetes compatibility;
+    an unlisted version is <strong>outside the stated guarantee</strong>, not proof of a runtime failure.</p>
+  <table>
+    <thead><tr><th scope="col">Cilium branch and immutable source</th><th scope="col">Listed Kubernetes minors</th><th scope="col">Kubernetes 1.33</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><a href="https://github.com/cilium/cilium/blob/81a6270b5cc1e1e9fb8349bf9a6f03dc86f92178/Documentation/network/kubernetes/compatibility.rst">1.15 · 81a6270b</a></th><td>1.26, 1.27, 1.28, 1.29</td><td>Not listed</td></tr>
+      <tr><th scope="row"><a href="https://github.com/cilium/cilium/blob/80a64f6632e2d179073dc4b6dab1743575cbd455/Documentation/network/kubernetes/compatibility.rst">1.16 · 80a64f66</a></th><td>1.27, 1.28, 1.29, 1.30</td><td>Not listed</td></tr>
+      <tr><th scope="row"><a href="https://github.com/cilium/cilium/blob/1a6233340a1186819270fd986e818a820151c942/Documentation/network/kubernetes/compatibility.rst">1.17 · 1a623334</a></th><td>1.29, 1.30, 1.31, 1.32</td><td>Not listed</td></tr>
+      <tr><th scope="row"><a href="https://github.com/cilium/cilium/blob/f638f31b317fc1f04c821ff3c3513ea250d2d218/Documentation/network/kubernetes/compatibility.rst">1.18 · f638f31b</a></th><td>1.30, 1.31, 1.32, 1.33</td><td>Listed</td></tr>
+      <tr><th scope="row"><a href="https://github.com/cilium/cilium/blob/8420bfe0159610c89881381be103b48ce4ebdcb9/Documentation/network/kubernetes/requirements.rst">1.19 · 8420bfe0</a></th><td>1.31, 1.32, 1.33, 1.34</td><td>Listed</td></tr>
+      <tr><th scope="row"><a href="https://github.com/cilium/cilium/blob/acd95358736de34a4c81b994eafab9d6b163b855/Documentation/network/kubernetes/requirements.rst">1.20 · acd95358</a></th><td>1.33, 1.34, 1.35, 1.36</td><td>Listed</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Inference from the matrix:</strong> keeping Kubernetes at 1.33 while traversing Cilium 1.15, 1.16 and 1.17 necessarily includes states outside the listed guarantee.
+    Moving directly to 1.18 would skip tested minor transitions. Raising Kubernetes first does not create overlap in those early rows.
+    Therefore this evidence does not provide an entirely guaranteed in-place path from the current pair.</p>
+
+  <h2>Transition rules and rejected shortcuts</h2>
+  <ul>
+    <li><a href="https://docs.cilium.io/en/stable/operations/upgrade/">Cilium's upgrade guide</a> requires adjacent minor transitions and the latest patch in the current minor first.
+      A future candidate needs every intermediate release's notes, exact immutable artifacts, CRD/value compatibility and preflight results.
+      Do not use a multi-minor leap or <code>--reuse-values</code> to bridge the gap.</li>
+    <li>Keep the initial-version <code>upgradeCompatibility</code> contract and all existing values under review.
+      L7 proxy traffic may disconnect during agent upgrades. DNS, policy allow/deny behavior, API access without kube-proxy,
+      L2 service reachability, Hubble and application connections require separate acceptance after each step.</li>
+    <li><a href="https://docs.k3s.io/upgrades/manual">K3s upgrades</a> require consecutive Kubernetes minors, one server at a time before agents,
+      and preserved installation settings. Restarting the installer does not itself drain workloads or preserve omitted flags.</li>
+    <li>Do not downgrade production Kubernetes to fit an old Cilium row. That would require its own supported datastore and binary recovery design;
+      the matrix is not downgrade authorization.</li>
+    <li>Do not combine a CNI transition with Fedora/kernel, GPU, Ceph/CSI or control-plane changes.
+      The <a href="fedora44-compatibility-audit.html">Fedora 44 audit</a> and
+      <a href="../plans/homelab-os-upgrade.md">conditional node runbook</a> retain their unresolved package, device and recovery gates.</li>
+  </ul>
+
+  <h2>Work remaining before deployment</h2>
+  <table>
+    <thead><tr><th scope="col">Gate</th><th scope="col">Concrete evidence required</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Early-minor compatibility qualification</th><td>Reproduce the current Kubernetes 1.33/Cilium configuration in an isolated, recoverable environment;
+        qualify each adjacent patched Cilium transition through the first listed overlap. Record the unlisted-version risk honestly.
+        Without that proof, keep the in-place rollout blocked. A separate replacement cluster would need its own capacity and data-migration plan.</td></tr>
+      <tr><th scope="row">Recovery</th><td>Prove an independently usable control-plane snapshot and protected matching server token with an isolated restore.
+        <a href="https://docs.k3s.io/datastore/backup-restore">K3s documents that a mismatched token makes the snapshot unusable</a>.
+        Recoverable workload data and a tested CNI/version-specific return path are also required. The owner's accepted cluster-local recovery risk
+        and decision against new recovery storage remain recorded; this audit does not request them again.</td></tr>
+      <tr><th scope="row">Hardware and disruption</th><td>Resolve the tracked SATA fault before affected node/storage disruption;
+        prove quorum, PodDisruptionBudget and RWO/OSD outage tolerance for each exact host. Current Ready/HEALTH_OK state does not repair that fault.</td></tr>
+      <tr><th scope="row">Security and final candidate</th><td>Assess the exact L7/socket and other applicable advisories against the selected patches and live settings;
+        validate kernel, GPU and CSI support independently. Resolve current supported patch releases and digest identities at execution time,
+        then commit the reviewed desired state and scoped Ansible path before any application. This source matrix does not close K3S_CILIUM.</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Verification performed for this document: source inspection and document validation only.
+    No synthetic cluster, connectivity test, provisioning, package transaction, reboot, credential read or live CNI change is part of this audit.</p>
+</main>
+</body>
+</html>
