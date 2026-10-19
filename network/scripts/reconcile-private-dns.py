@@ -17,6 +17,7 @@ import http.cookiejar
 import json
 import os
 from pathlib import Path
+import re
 import resource
 import socket
 import ssl
@@ -61,6 +62,41 @@ READ_PATHS = {"/", "/diag_backup.php", "/system_advanced_admin.php", SETTINGS, S
 FIREWALL_PATHS = {name: "/firewall_rules.php?if=" + name
                   for name in ("FloatingRules", "wan", "lan", "opt1", "opt2", "opt3", "opt4", "opt5")}
 READ_PATHS.update(FIREWALL_PATHS.values())
+PF_RULES = "/api/diagnostics/firewall/pf_statistics/rules"
+PF_STATES = "/api/diagnostics/firewall/pf_states"
+PF_ALIASES = "/api/firewall/alias_util/aliases"
+READ_PATHS.update((PF_RULES, PF_STATES, PF_ALIASES))
+
+
+def pf_snapshot(api):
+    """Read active PF/NAT rules; exclude quoted descriptions and state endpoints."""
+    value = api.get(PF_RULES)
+    require(isinstance(value, dict) and isinstance(value.get("rules"), dict), "Missing active PF rules")
+    result = {"rules": {}}
+    for kind in ("filter rules", "nat rules"):
+        rules = value["rules"].get(kind)
+        require(isinstance(rules, dict), "Missing active PF rule section")
+        result["rules"][kind] = []
+        for text, counters in rules.items():
+            require(isinstance(text, str) and text.isascii() and all(ord(c) >= 32 for c in text),
+                    "Invalid active PF rule text")
+            text = re.sub(r'"(?:[^"\\]|\\.)*"', "<quoted>", text)
+            require('"' not in text and isinstance(counters, dict), "Invalid active PF rule projection")
+            result["rules"][kind].append({"rule": text})
+    require(result["rules"]["filter rules"], "Empty active PF filter rules")
+    states = api.get(PF_STATES)
+    require(isinstance(states, dict) and set(states) == {"current", "limit"}, "Missing PF state capacity")
+    require(all(isinstance(v, str) and v.isascii() and v.isdigit() for v in states.values()),
+            "Invalid PF state capacity")
+    result["states"] = {k: int(v) for k, v in states.items()}
+    require(0 <= result["states"]["current"] <= result["states"]["limit"] and result["states"]["limit"] > 0,
+            "PF state capacity exceeded or invalid")
+    aliases = api.get(PF_ALIASES)
+    require(isinstance(aliases, list) and all(isinstance(a, str) and
+            re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", a) for a in aliases), "Invalid active PF alias inventory")
+    require(len(set(aliases)) == len(aliases), "Duplicate active PF aliases")
+    result["aliases"] = sorted(aliases)
+    return result
 
 
 class FirewallRules(html.parser.HTMLParser):
@@ -700,6 +736,7 @@ def main():
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--network-audit", action="store_true", help="Read-only VLAN, LAG and interface projection")
     parser.add_argument("--firewall-audit", action="store_true", help="Read-only rendered firewall policy projection")
+    parser.add_argument("--pf-audit", action="store_true", help="Read-only active PF/NAT rules and state capacity")
     parser.add_argument("--backup-dir", type=Path, help="Explicit private, durable recovery directory; only used for apply")
     parser.add_argument("--rollback-receipt", type=Path, help="Exact complete apply JSONL receipt; default only checks rollback")
     args = parser.parse_args()
@@ -724,7 +761,7 @@ def main():
                 journal_broken = True
                 raise Refusal("Recovery receipt write failed; stop; no retry") from None
     try:
-        require(not (args.network_audit or args.firewall_audit) or not (args.apply or args.backup_dir or args.rollback_receipt),
+        require(not (args.network_audit or args.firewall_audit or args.pf_audit) or not (args.apply or args.backup_dir or args.rollback_receipt),
                 "Network audit cannot apply or access recovery files")
         rows = validate_desired(json.loads(DESIRED.read_text()))
         head = git_gate() if args.apply else run(["git", "rev-parse", "HEAD"]).decode().strip()
@@ -742,7 +779,9 @@ def main():
             result.update(mode="read-only-network-audit", topology=network_snapshot(api), status="CHECKED")
         if args.firewall_audit:
             result.update(mode="read-only-firewall-audit", firewall=firewall_snapshot(api), status="CHECKED")
-        if args.network_audit or args.firewall_audit:
+        if args.pf_audit:
+            result.update(mode="read-only-pf-audit", pf=pf_snapshot(api), status="CHECKED")
+        if args.network_audit or args.firewall_audit or args.pf_audit:
             return 0
         targets = None
         if args.rollback_receipt:

@@ -629,6 +629,57 @@ class FirewallAuditTests(unittest.TestCase):
             router.assert_not_called()
 
 
+class PacketFilterAuditTests(unittest.TestCase):
+    def fixture(self):
+        return {
+            dns.PF_RULES: {"rules": {"filter rules": {
+                'pass in quick on lagg0_vlan20 inet from any to any label "never-export"': {"bytes": 123}},
+                "nat rules": {'nat on igc0 inet from <localnets> to any -> (igc0:0)': {}}}},
+            dns.PF_STATES: {"current": "100", "limit": "100000"},
+            dns.PF_ALIASES: ["localnets", "bogons"],
+        }
+
+    def test_exact_read_paths_project_active_rules_without_descriptions(self):
+        data = self.fixture()
+        calls = []
+        class ReadOnly:
+            def get(self, path):
+                calls.append(path)
+                return data[path]
+        result = dns.pf_snapshot(ReadOnly())
+        self.assertEqual(calls, [dns.PF_RULES, dns.PF_STATES, dns.PF_ALIASES])
+        self.assertTrue(set(calls).issubset(dns.READ_PATHS))
+        self.assertNotIn("never-export", json.dumps(result))
+        self.assertEqual(result["states"], {"current": 100, "limit": 100000})
+        self.assertIn("<localnets>", result["rules"]["nat rules"][0]["rule"])
+        self.assertEqual(result["aliases"], ["bogons", "localnets"])
+
+    def test_missing_malformed_or_over_capacity_evidence_refused(self):
+        for path, value in ((dns.PF_RULES, {}),
+                            (dns.PF_RULES, {"rules": {"filter rules": {}, "nat rules": {}}}),
+                            (dns.PF_RULES, {"rules": {"filter rules": {'pass label "unclosed': {}}, "nat rules": {}}}),
+                            (dns.PF_STATES, {"current": "101", "limit": "100"}),
+                            (dns.PF_STATES, {"current": "0", "limit": "0"}),
+                            (dns.PF_STATES, {"current": 1, "limit": 100}),
+                            (dns.PF_ALIASES, ["bad/name"]),
+                            (dns.PF_ALIASES, ["duplicate", "duplicate"])):
+            data = self.fixture()
+            data[path] = value
+            class ReadOnly:
+                def get(self, endpoint):
+                    return data[endpoint]
+            with self.subTest(path=path, value=value), self.assertRaises(dns.Refusal):
+                dns.pf_snapshot(ReadOnly())
+
+    def test_pf_audit_rejects_writes_and_recovery_access_before_login(self):
+        for extra in (["--apply"], ["--backup-dir", "/unreviewed"], ["--rollback-receipt", "/unreviewed"]):
+            with patch.object(dns.sys, "argv", ["check", "--pf-audit", *extra]), \
+                    patch.object(dns, "Router") as router, patch("builtins.print"), \
+                    patch.object(dns.os, "umask"), patch.object(dns.resource, "setrlimit"):
+                self.assertEqual(dns.main(), 1)
+                router.assert_not_called()
+
+
 class NetworkAuditTests(unittest.TestCase):
     def fixture(self):
         key = str(uuid.uuid4())
