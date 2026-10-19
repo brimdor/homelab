@@ -133,6 +133,16 @@ class ColdRecoveryTests(unittest.TestCase):
                 COLD.capture("old-pod", "claim", self.root / "changed")
         self.assertFalse((self.root / "changed").exists())
 
+    def test_flush_uses_the_selected_receiver_for_both_stability_checks(self):
+        response = unittest.mock.MagicMock()
+        response.__enter__.return_value.status = 204
+        with patch.object(COLD.urllib.request, "urlopen", return_value=response) as send, \
+                patch.object(COLD, "metrics", return_value=(0, 42)) as metrics, \
+                patch.object(COLD.time, "sleep"):
+            self.assertEqual(COLD.flush_old("http://synthetic-buffer:3100"), 42)
+        self.assertEqual(send.call_args.args[0].full_url, "http://synthetic-buffer:3100/flush")
+        self.assertEqual(metrics.call_args_list, [unittest.mock.call("http://synthetic-buffer:3100")] * 2)
+
     def test_cold_copy_preserves_source_and_manifest_and_never_overwrites(self):
         point, source = self.root / "point", self.root / "source"
         point.mkdir()

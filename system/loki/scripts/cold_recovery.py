@@ -94,8 +94,8 @@ def require_buffered(uid, pvc_uid, offline=False):
         raise RuntimeError("source has another consumer or backup mount is not read-only")
 
 
-def metrics():
-    with urllib.request.urlopen(BASE + "/metrics", timeout=30) as response:
+def metrics(base=BASE):
+    with urllib.request.urlopen(base + "/metrics", timeout=30) as response:
         lines = response.read().decode().splitlines()
     chunks = [float(s.split()[-1]) for s in lines if s.startswith("loki_ingester_memory_chunks ")]
     received = [float(s.split()[-1]) for s in lines if s.startswith((
@@ -105,16 +105,16 @@ def metrics():
     return chunks[0], sum(received)
 
 
-def flush_old():
-    request = urllib.request.Request(BASE + "/flush", data=b"", method="POST")
+def flush_old(base=BASE):
+    request = urllib.request.Request(base + "/flush", data=b"", method="POST")
     with urllib.request.urlopen(request, timeout=60) as response:
         if response.status != 204:
             raise RuntimeError("old production flush failed")
     for _ in range(120):
-        chunks, received = metrics()
+        chunks, received = metrics(base)
         if chunks == 0:
             time.sleep(5)
-            if metrics() == (0, received):
+            if metrics(base) == (0, received):
                 return received
             raise RuntimeError("old production still receives writes")
         time.sleep(5)

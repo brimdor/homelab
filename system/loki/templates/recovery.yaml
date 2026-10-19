@@ -25,6 +25,8 @@ data:
 {{ .Files.Get "scripts/recovery.py" | indent 4 }}
   cold_recovery.py: |
 {{ .Files.Get "scripts/cold_recovery.py" | indent 4 }}
+  buffer_transfer.py: |
+{{ .Files.Get "scripts/buffer_transfer.py" | indent 4 }}
   loki.yaml: |
 {{ .Files.Get "files/recovery-loki.yaml" | indent 4 }}
   candidate.yaml: |
@@ -58,6 +60,10 @@ rules:
   - apiGroups: [""]
     resources: [persistentvolumeclaims]
     resourceNames: [loki-cutover-buffer]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [services]
+    resourceNames: [loki, loki-cutover-buffer]
     verbs: [get]
   - apiGroups: [""]
     resources: [configmaps]
@@ -143,7 +149,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: loki-service-verify-20261019
+  name: loki-cold-service-verify-20261019
 spec:
   backoffLimit: 0
   template:
@@ -157,6 +163,7 @@ spec:
         - name: verify
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
           command: [python3, -B, /scripts/recovery.py, verify-service]
+          args: [--point=pre-upgrade-offline-20261019]
           securityContext:
             runAsUser: 0
             readOnlyRootFilesystem: true

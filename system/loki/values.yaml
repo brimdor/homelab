@@ -1,20 +1,6 @@
-loki-stack:
-  loki:
-    replicas: 0
-    image:
-      tag: 2.6.1@sha256:1ee60f980950b00e505bd564b40f720132a0653b110e993043bb5940673d060a
-    persistence:
-      enabled: true
-      existingClaim: loki-data
-    serviceMonitor:
-      enabled: true
-  promtail:
-    enabled: false
-
 alloy:
   image: docker.io/grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
   paused: false
-
 maintenanceRecovery:
   bufferEnabled: true
   coldCaptureEnabled: false
@@ -31,5 +17,151 @@ maintenanceRecovery:
   candidateEnabled: false
   candidatePrepared: true
   cutoverBackupEnabled: false
-  cutoverRestoreEnabled: true
+  cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
+  transferEnabled: false
+  transferApply: false
+  transferPhase: bulk
+  transferAttempt: 1
+  transferTargetPodUID: ''
+server:
+  nameOverride: loki
+  fullnameOverride: loki-supported
+  deploymentMode: Monolithic
+  loki:
+    auth_enabled: false
+    config: |
+      analytics:
+        reporting_enabled: false
+      auth_enabled: false
+      common:
+        instance_addr: 127.0.0.1
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+      chunk_store_config: {}
+      compactor:
+        working_directory: /var/loki/loki/boltdb-shipper-compactor
+      ingester:
+        chunk_block_size: 262144
+        chunk_idle_period: 3m
+        chunk_retain_period: 1m
+        lifecycler:
+          address: 127.0.0.1
+          ring:
+            kvstore:
+              store: inmemory
+            replication_factor: 1
+        wal:
+          dir: /var/loki/loki/wal
+      limits_config:
+        allow_structured_metadata: false
+        discover_service_name: []
+        max_entries_limit_per_query: 5000
+        reject_old_samples: true
+        reject_old_samples_max_age: 168h
+      memberlist:
+        join_members: []
+      schema_config:
+        configs:
+          - from: '2020-10-24'
+            index:
+              period: 24h
+              prefix: index_
+            object_store: filesystem
+            schema: v11
+            store: boltdb-shipper
+          - from: '2026-10-20'
+            index:
+              period: 24h
+              prefix: index_
+            object_store: filesystem
+            schema: v13
+            store: tsdb
+      server:
+        grpc_listen_address: 0.0.0.0
+        grpc_listen_port: 9095
+        http_listen_address: 0.0.0.0
+        http_listen_port: 3100
+      storage_config:
+        boltdb_shipper:
+          active_index_directory: /var/loki/loki/boltdb-shipper-active
+          cache_location: /var/loki/loki/boltdb-shipper-cache
+          cache_ttl: 24h
+        filesystem:
+          directory: /var/loki/loki/chunks
+        tsdb_shipper:
+          active_index_directory: /var/loki/loki/tsdb-active
+          cache_location: /var/loki/loki/tsdb-cache
+      table_manager:
+        retention_deletes_enabled: false
+        retention_period: 0s
+    schemaConfig:
+      configs:
+        - from: '2020-10-24'
+          index:
+            period: 24h
+            prefix: index_
+          object_store: filesystem
+          schema: v11
+          store: boltdb-shipper
+        - from: '2026-10-20'
+          index:
+            period: 24h
+            prefix: index_
+          object_store: filesystem
+          schema: v13
+          store: tsdb
+    storage:
+      type: filesystem
+    image:
+      tag: 3.7.8
+      digest: sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
+  singleBinary:
+    replicas: 1
+    sidecar: false
+    nodeSelector:
+      kubernetes.io/hostname: totodile
+    persistence:
+      enabled: false
+      dataVolumeParameters:
+        persistentVolumeClaim:
+          claimName: loki-data
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '2'
+        memory: 1Gi
+    automountServiceAccountToken: false
+  serviceAccount:
+    automountServiceAccountToken: false
+  gateway:
+    enabled: false
+  ruler:
+    enabled: false
+  sidecar:
+    rules:
+      enabled: false
+  test:
+    enabled: false
+  lokiCanary:
+    enabled: false
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+  write:
+    replicas: 0
+  read:
+    replicas: 0
+  backend:
+    replicas: 0
+  rbac:
+    namespaced: true
+  memcached:
+    enabled: false
+    serviceAccount:
+      create: false
