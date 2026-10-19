@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jovo immutable images — Maintenance 103</title>
+<style>body{background:#10151d;color:#e1e8f1;font:17px/1.6 system-ui;max-width:1000px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#f9fafb}</style>
+<h1>Pin the existing Jovo production artifacts</h1>
+<p><a href="https://git.eaglepass.io/ops/homelab/issues/103">Maintenance #103</a>, IMMUTABLE_IMAGE_TAGS. This change pins the three running production artifacts without rebuilding, changing versions or promoting canary. The canonical issue plan was bound through jovo-production-pin-bound-plan-17td879x. Existing unrelated work remains outside the commit.</p>
+<h2>Observed inputs and recovery</h2>
+<p>jovo-native-versions-and-claims-ddpxsglm verifies native MariaDB 10.11.19 and the existing standard-rwo database/audio claims. jovo-controller-pod-selection-lc0y4jlv records production Pod UID 49d79d48-bae0-4f03-bc2c-843efacdeae5 and one pre-existing backend restart. Canary has a different database digest and remains independent. jovo-complete-logical-restore-_c8lld8u passed protected isolated restoration with exact schema, grants and full normalized logical data; see <a href="mariadb-recovery-103.html">MariaDB recovery evidence</a>.</p>
+<ul>
+<li>Database: <code>docker.io/library/mariadb@sha256:0d0945c57f75b3a3b9ebe71aedaaad005fa5305054e8fca3d2e42a8c92b43b5e</code>.</li>
+<li>Backend: <code>10.0.20.11:32309/broville/jovo_backend@sha256:318caf0dff23a37af6be2bc1caa396899d73cee1ea9b5e18a2d63418cd3cf031</code>.</li>
+<li>Frontend: <code>10.0.20.11:32309/broville/jovo_frontend@sha256:5d55e87f270624c5ec87595a731ff607d3f07589fec1fe4ebc5fa67afef69457</code>.</li>
+</ul>
+<h2>Implementation and verification</h2>
+<p>Add app-template image digests in apps/jovo/values.yaml and clarify the database tag to its observed 10.11.19 patch. Preserve every environment variable, secret reference, probe, mount, resource limit and Recreate strategy. Resolve each exact manifest through the existing normal TLS registry path and verify its body digest. Run isolated dependency resolution, <code>helm lint</code>, <code>helm template jovo</code>, exact typed old/new manifest comparison and scoped pre-commit checks. The only allowed rendered changes are these three image strings.</p>
+<p>After the validated commit reaches Gitea master, refresh Jovo through Argo CD. Require Synced/Healthy, the same Deployment and PVC/PV UIDs, a replacement ready Pod with zero new restarts, identical runtime imageIDs, native MariaDB 10.11.19 and unchanged schema/grant fingerprints. Verify existing frontend/backend read endpoints with normal TLS. Do not invoke uploads, music generation, provider work or authenticated writes. Public read success does not establish authenticated application acceptance.</p>
+<h2>Rollback and boundaries</h2>
+<p>Revert the exact pin commit through GitOps only if the old tags still resolve to the recorded artifacts; otherwise retain the explicit known digests. No data format changes occur. Preserve the original protected recovery point and real database/audio PVCs. No NAS operation, registry push/delete, application source change or live Kubernetes edit is included. This component result cannot close the whole immutable-image task while other workloads remain unresolved.</p>
+</html>

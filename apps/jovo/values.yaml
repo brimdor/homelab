@@ -7,7 +7,8 @@ app-template:
         database:
           image:
             repository: mariadb
-            tag: "10.11"
+            tag: "10.11.19"
+            digest: sha256:0d0945c57f75b3a3b9ebe71aedaaad005fa5305054e8fca3d2e42a8c92b43b5e
             pullPolicy: IfNotPresent
           env:
             MYSQL_ROOT_PASSWORD:
@@ -65,6 +66,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/broville/jovo_backend
             tag: main-34c3f1b
+            digest: sha256:318caf0dff23a37af6be2bc1caa396899d73cee1ea9b5e18a2d63418cd3cf031
             pullPolicy: Always
           env:
             TZ: America/Chicago
@@ -124,6 +126,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/broville/jovo_frontend
             tag: main-34c3f1b
+            digest: sha256:5d55e87f270624c5ec87595a731ff607d3f07589fec1fe4ebc5fa67afef69457
             pullPolicy: Always
           env:
             TZ: America/Chicago
