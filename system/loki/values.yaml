@@ -26,6 +26,6 @@ maintenanceRecovery:
   continuityDirectory: /var/log/pods/rook-ceph_rook-ceph-mon-h-5d97f67d75-jj29p_53a86bd7-7f2d-4f8d-ae37-23ae519ea2a8/mon
   candidateEnabled: false
   candidatePrepared: true
-  cutoverBackupEnabled: false
+  cutoverBackupEnabled: true
   cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
