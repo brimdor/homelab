@@ -194,4 +194,42 @@ source mount stays read-only while the PVC volume shares the existing node
 attachment. A different node is refused by the source-identity guard. The earlier
 Pending backup Jobs never started; their attachment failures created no recovery
 point and did not change production data.</p>
+<h2>Cold backup with a separate persisted receiver</h2>
+<p>The fresh hot copy refused when Loki removed WAL segment 00000097 during
+copying. The partial pre-upgrade-20261019 directory has no verified marker;
+never restore it. Production retained its Pod and claim, and all seven collectors
+resumed with fresh ingestion. Do not repeat the live-copy assumption.</p>
+<p>A synthetic Alloy 1.20.1 outage test did not recover pending delivery after
+restart; its shutdown logged dropped data. Experimental remote-write WAL is
+therefore not enabled in production. Keep the existing stable collector config.</p>
+<ol><li>Provision a separate protected 2Gi loki-cutover-buffer claim and one
+explicit Loki 3.7.8 receiver with the tested schema/ring/storage config. Only
+listen addresses change to accept cluster traffic. Keep the production writer,
+Service, PVC and collectors unchanged. Verify empty new claim identity, readiness,
+exact digest and version before routing any real logs.</li>
+<li>Roll the existing collectors one at a time to that receiver, preserving
+labels, discovery, positions and all other collector semantics. Prove every
+covered node actively ingests there and no old collector remains. Keep the buffer
+claim; its records are real recovery data, never disposable local test data.</li>
+<li>With old ingestion quiesced, flush old Loki, capture its full fixed query
+proof into an exclusive protected offline recovery directory, then stop its
+writer through Git. Require the old Pod gone and no other writer before copying
+the exact production PVC. Hash and fsync every copied file; verify source unchanged
+and write the verified marker last. Existing recovery points remain untouched.</li>
+<li>Restore the fresh point independently into old/new validation subdirectories.
+Both immutable versions must match the full proof. Collectors continue writing
+to the separate buffer while these checks run. Only then deploy the supported
+production writer on the original claim and prove its service history.</li>
+<li>Roll collectors back to production, prove fresh seven-node ingestion, then
+flush the now-quiesced buffer. Query every original buffered record with complete
+pagination. Recover only records proved absent from production, retaining exact
+labels, timestamps and contents. Requery all records before accepting replay.
+Never blindly resend after an uncertain POST.</li>
+<li>Retire buffer compute only after verified transfer. Retain protected buffer
+and recovery claims and manifests. Check earlier pause rotations separately;
+this future buffer does not prove the preceding pause lossless.</li></ol>
+<p>Before production data-format change, rollback routes collectors to the still
+healthy old writer through Git. After change, preserve both stores and use only
+a version/schema-compatible restored recovery path. Never delete active claims,
+overwrite a recovery point or start two writers on the production claim.</p>
 </html>

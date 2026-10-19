@@ -15,6 +15,7 @@ alloy:
   paused: false
 
 maintenanceRecovery:
+  bufferEnabled: true
   enabled: true
   backupEnabled: false
   restoreEnabled: false
