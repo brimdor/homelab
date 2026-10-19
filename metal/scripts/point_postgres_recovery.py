@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import zlib
 
 import etcd_recovery as common
 import mariadb_recovery as protected
@@ -167,7 +168,12 @@ def remote(mode, run_id, *extra):
                  "]=m; exec(base64.b64decode(" + repr(encoded) + "),m.__dict__); ")
     code += "exec(base64.b64decode(" + repr(base64.b64encode(Path(__file__).read_bytes()).decode()) + "))"
     return [*common.SSH[:-1], "-o", "ControlMaster=no", common.SSH[-1],
-            shlex.join(["python3", "-B", "-c", code, mode, "--run-id", run_id, *extra])]
+            shlex.join(["python3", "-B", "-c", compressed_program(code), mode, "--run-id", run_id, *extra])]
+
+
+def compressed_program(code):
+    encoded = base64.b64encode(zlib.compress(code.encode())).decode()
+    return "import base64,zlib;exec(zlib.decompress(base64.b64decode(" + repr(encoded) + ")))"
 
 
 def point_path(run_id):

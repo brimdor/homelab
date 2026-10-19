@@ -54,7 +54,7 @@ if len(sys.argv)==4:
   for block in iter(lambda:source.read(1048576),b''): sys.stdout.buffer.write(block)
 else: print(json.dumps(manifest))
 """
-    arguments = ["python3", "-B", "-c", code, run_id, manifest_hash]
+    arguments = ["python3", "-B", "-c", recovery.compressed_program(code), run_id, manifest_hash]
     if file:
         arguments.append(file)
     return [*recovery.common.SSH[:-1], "-o", "ControlMaster=no", recovery.common.SSH[-1], shlex.join(arguments)]

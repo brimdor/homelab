@@ -78,6 +78,8 @@ class PointMigrationTests(unittest.TestCase):
         self.assertIn("root@10.0.20.14", command)
         self.assertNotIn("PGPASSWORD=", " ".join(command))
         self.assertNotIn("StrictHostKeyChecking=no", command)
+        self.assertLess(len(command[-1].encode()), 100000)
+        self.assertLess(len(recovery.remote("internal-restore", "synthetic")[-1].encode()), 100000)
 
 
 if __name__ == "__main__":
