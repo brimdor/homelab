@@ -192,8 +192,13 @@ def main():
     else:
         source = Path(__file__).read_text()
         remote = "python3 -B -c " + shlex.quote(source) + " internal-qualify --run-id " + shlex.quote(args.run_id)
-        result = command([*SSH, remote])
-        receipt = json.loads(result.stdout)
+        result = command([*SSH, remote], check=False)
+        try:
+            receipt = json.loads(result.stdout)
+        except (ValueError, UnicodeError):
+            raise RuntimeError("remote qualification returned no valid receipt; exit " + str(result.returncode)) from None
+        if (result.returncode == 0) != (receipt.get("accepted") is True):
+            raise RuntimeError("remote qualification exit disagrees with its receipt")
     print(json.dumps(receipt), flush=True)
     return 0 if receipt["accepted"] else 1
 

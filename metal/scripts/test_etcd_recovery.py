@@ -2,9 +2,14 @@
 """Refuse unsafe isolation before any restored credential or server is used."""
 
 import copy
+import contextlib
+import io
+import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import etcd_recovery as RECOVERY
 
@@ -76,6 +81,16 @@ class IsolationTests(unittest.TestCase):
         for value in ("../other", "a;rm", "$(id)", "a/b", "", "UPPER", "a" * 81):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 RECOVERY.run_identifier(value)
+
+    def test_failed_remote_qualification_preserves_sanitized_receipt(self):
+        receipt = {"accepted": False, "error": "synthetic qualification failed", "cleanup": {"scratch_absent": True}}
+        result = subprocess.CompletedProcess([], 1, json.dumps(receipt).encode(), b"private diagnostic")
+        output = io.StringIO()
+        with patch("sys.argv", ["etcd_recovery.py", "qualify", "--run-id", "qualify-12345678"]), \
+                patch.object(RECOVERY, "command", return_value=result), contextlib.redirect_stdout(output):
+            self.assertEqual(RECOVERY.main(), 1)
+        self.assertEqual(json.loads(output.getvalue()), receipt)
+        self.assertNotIn("private diagnostic", output.getvalue())
 
 
 if __name__ == "__main__":
