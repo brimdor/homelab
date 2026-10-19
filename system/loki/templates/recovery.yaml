@@ -23,6 +23,8 @@ metadata:
 data:
   recovery.py: |
 {{ .Files.Get "scripts/recovery.py" | indent 4 }}
+  cold_recovery.py: |
+{{ .Files.Get "scripts/cold_recovery.py" | indent 4 }}
   loki.yaml: |
 {{ .Files.Get "files/recovery-loki.yaml" | indent 4 }}
   candidate.yaml: |
@@ -52,6 +54,18 @@ rules:
   - apiGroups: [""]
     resources: [persistentvolumeclaims]
     resourceNames: [loki-data]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    resourceNames: [loki-cutover-buffer]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [loki-alloy]
+    verbs: [get]
+  - apiGroups: [apps]
+    resources: [statefulsets]
+    resourceNames: [loki]
     verbs: [get]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

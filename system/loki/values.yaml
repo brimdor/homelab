@@ -16,6 +16,8 @@ alloy:
 
 maintenanceRecovery:
   bufferEnabled: true
+  coldCaptureEnabled: true
+  coldBackupEnabled: false
   enabled: true
   backupEnabled: false
   restoreEnabled: false
