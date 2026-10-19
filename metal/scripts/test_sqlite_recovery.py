@@ -102,5 +102,24 @@ class KeyBindingTest(unittest.TestCase):
                 recovery.declared_key("second-brain", {"pod": "reviewed-source"})
 
 
+class ImageContractTest(unittest.TestCase):
+    def test_exact_architecture_digest_and_existing_emulation_required(self):
+        source = recovery.SOURCES["second-brain"]
+        image = {"Architecture": "arm64", "Os": "linux", "Config": {"Volumes": None},
+                 "RepoDigests": [source["image"]]}
+        handler = ("enabled\ninterpreter /usr/bin/qemu-aarch64-static\nflags: F\noffset 0\n"
+                   "magic 7f454c460201010000000000000000000200b700\n"
+                   "mask ffffffffffffff00fffffffffffffffffeffffff\n").encode()
+        with patch.object(Path, "read_bytes", return_value=handler):
+            self.assertEqual(recovery.require_image(image, "second-brain")["architecture"], "arm64")
+            for key, wrong in (("Architecture", "amd64"), ("Os", "other"), ("RepoDigests", []),
+                               ("Config", {"Volumes": {"/unexpected": {}}})):
+                with self.subTest(key=key), self.assertRaises(RuntimeError):
+                    recovery.require_image({**image, key: wrong}, "second-brain")
+        with patch.object(Path, "read_bytes", return_value=handler.replace(b"flags: F", b"flags:")):
+            with self.assertRaisesRegex(RuntimeError, "emulation changed"):
+                recovery.require_image(image, "second-brain")
+
+
 if __name__ == "__main__":
     unittest.main()

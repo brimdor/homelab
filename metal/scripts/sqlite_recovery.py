@@ -26,13 +26,15 @@ SOURCES = {
         "pvc": "second-brain", "pvc_uid": "e6710211-dfb7-4a1d-ba2c-e1fba53cf6c6",
         "pv_uid": "24b5eb91-847e-463a-b0cc-affc90fe0b96", "database": "/app/data/second-brain.sqlite",
         "image": "registry.eaglepass.io/second-brain@sha256:112b7db8fd2bffb9174797797b2980d4218974dd33085f302134257608c8e1c3",
+        "architecture": "arm64", "node_version": "v22.22.2",
         "key": {"secret": "second-brain-secrets", "field": "APP_SECRETS_MASTER_KEY_B64",
                 "uid": "f9c6ab53-c3b3-4f2e-a8c8-8333f4622631"}},
     "podwave": {
         "pod_uid": "dedfbbae-f4c2-422f-8c23-61d5c805b769", "container": "main",
         "pvc": "podwave-data", "pvc_uid": "768b3cd1-5bb9-4ac6-b3f8-407d055d89cb",
         "pv_uid": "9e5a8b79-92a3-49cb-8fd5-c3b85da25d08", "database": "/app/data/podwave.db",
-        "image": "registry.eaglepass.io/podwave@sha256:6168b0fd487c4ed796590e9a4295102efad3412a712594bc33828f0c0c41321e"},
+        "image": "registry.eaglepass.io/podwave@sha256:6168b0fd487c4ed796590e9a4295102efad3412a712594bc33828f0c0c41321e",
+        "architecture": "amd64", "node_version": "v22.23.2"},
 }
 LABEL = "io.eaglepass.sqlite-recovery"
 
@@ -195,6 +197,22 @@ def backup(namespace, run_id):
     return json.loads(response.stdout)
 
 
+def require_image(image, namespace):
+    expected = SOURCES[namespace]
+    if (image.get("Architecture") != expected["architecture"] or image.get("Os") != "linux" or
+            image["Config"].get("Volumes") or expected["image"] not in image.get("RepoDigests", [])):
+        raise RuntimeError("reviewed native application image contract changed")
+    result = {"architecture": image["Architecture"]}
+    if image["Architecture"] == "arm64":
+        # Reuse the existing reviewed handler; never install or register host emulation.
+        handler = Path("/proc/sys/fs/binfmt_misc/qemu-aarch64").read_bytes()
+        digest = hashlib.sha256(handler).hexdigest()
+        if digest != "70754d1dff1094c3657728952176d32aae570ffd5a1df7ac7ddf3a25bf28ca72":
+            raise RuntimeError("existing reviewed ARM64 emulation changed")
+        result["existing_binfmt_sha256"] = digest
+    return result
+
+
 def restore(point, manifest, manifest_hash, run_id):
     before_images = set(common.docker("image", "ls", "-q", "--no-trunc").stdout.decode().split())
     if common.docker("ps", "-aq", "--filter=label=" + LABEL).stdout.strip():
@@ -204,14 +222,16 @@ def restore(point, manifest, manifest_hash, run_id):
         raise RuntimeError("protected SQLite bytes changed")
     scratch = Path(tempfile.mkdtemp(prefix=run_id + "-restore-", dir=common.ROOT)); scratch.chmod(0o700)
     identity = image_id = None; result = {"accepted": False, "manifest_sha256": manifest_hash}
+    stage = "pull_exact_image"
     try:
         image_ref = manifest["source"]["image"]
         common.docker("pull", image_ref)
         image = json.loads(common.docker("image", "inspect", image_ref).stdout)[0]; image_id = image["Id"]
-        if (image.get("Architecture") != "amd64" or image.get("Os") != "linux" or image["Config"].get("Volumes") or
-                image_ref not in image.get("RepoDigests", [])):
-            raise RuntimeError("reviewed native application image contract changed")
-        identity = common.docker("create", "--network=none", "--read-only", "--cap-drop=ALL", "--user=0:0",
+        stage = "image_contract"
+        result.update(require_image(image, manifest["source"]["namespace"]))
+        stage = "create_isolated_container"
+        identity = common.docker("create", "--platform=linux/" + image["Architecture"],
+            "--network=none", "--read-only", "--cap-drop=ALL", "--user=0:0",
             "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=128", "--cpus=1", "--memory=1g",
             "--label=" + LABEL + "=" + run_id,
             "--mount=type=bind,source=" + str(scratch) + ",target=/work",
@@ -228,6 +248,7 @@ def restore(point, manifest, manifest_hash, run_id):
                 {(str(scratch), "/work", True), (str(point / "database.sqlite"), "/original/database.sqlite", False)}):
             raise RuntimeError("SQLite restore isolation changed")
         # No application entrypoint, credentials, host networking or writable recovery mount.
+        stage = "start_and_verify_isolation"
         common.docker("start", identity)
         state = common.inspect(identity)["State"]
         net = ["nsenter", "--target", str(state["Pid"]), "--net", "--"]
@@ -236,6 +257,16 @@ def restore(point, manifest, manifest_hash, run_id):
         common.require_network(links, routes)
         if common.command([*net, "ip", "route", "get", "10.0.20.50"], check=False).returncode == 0:
             raise RuntimeError("SQLite restore can route to production")
+        stage = "native_runtime_contract"
+        native = json.loads(common.docker("exec", identity, "node", "-e",
+            "const fs=require('node:fs');const b=fs.readFileSync(process.execPath);process.stdout.write(JSON.stringify({arch:process.arch,version:process.version,elf:b.subarray(0,6).toString('hex'),machine:b.readUInt16LE(18)}))").stdout)
+        expected = SOURCES[manifest["source"]["namespace"]]
+        if native != {"arch": "arm64" if image["Architecture"] == "arm64" else "x64",
+                      "version": expected["node_version"], "elf": "7f454c460201",
+                      "machine": 183 if image["Architecture"] == "arm64" else 62}:
+            raise RuntimeError("reviewed native runtime or ELF architecture changed")
+        result["native_runtime"] = native
+        stage = "native_snapshot_restore"
         response = common.docker("exec", identity, "node", "--disable-warning=ExperimentalWarning", "-e", program(),
                                  "restore", "/original/database.sqlite", "/work", json.dumps(manifest["capture"]["snapshot"]), check=False)
         if response.returncode or response.stderr:
@@ -243,6 +274,8 @@ def restore(point, manifest, manifest_hash, run_id):
         result.update(json.loads(response.stdout)); assert result["accepted"]
         result.update(namespace=manifest["source"]["namespace"], image=image_ref,
                       network_none=True, application_not_started=True, original_read_only=True)
+    except Exception as error:
+        result.update(accepted=False, failed_stage=stage, failure_class=type(error).__name__)
     finally:
         if identity:
             current = common.inspect(identity)
