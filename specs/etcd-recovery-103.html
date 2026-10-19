@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Maintenance 103: isolated control-plane recovery</title>
+  <style>
+    :root { color-scheme: dark; background: #10151d; color: #e1e8f1; font: 16px/1.6 system-ui, sans-serif; }
+    body { max-width: 1080px; margin: auto; padding: 32px 20px 72px; }
+    h1, h2 { line-height: 1.25; color: #f2f6ff; } h2 { margin-top: 2rem; }
+    a { color: #8dc8ff; } code { overflow-wrap: anywhere; color: #c5e6ff; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #394657; padding: 12px; text-align: left; vertical-align: top; }
+    th { background: #1e2938; } .status { border-left: 4px solid #e6b75c; padding: 12px 18px; background: #20232a; }
+    .muted { color: #b5c0d0; } li { margin: .45rem 0; }
+    @media (max-width: 700px) { table { display: block; overflow-x: auto; } }
+  </style>
+</head>
+<body><main>
+  <p class="muted"><a href="https://git.eaglepass.io/ops/homelab/issues/103">Maintenance #103</a> · RECOVERY_PROOF · 2026-10-19</p>
+  <h1>Prove recovery without connecting a restored control plane to production</h1>
+  <p class="status"><strong>Implementation plan; acceptance remains INCOMPLETE.</strong>
+    Existing maintenance authority covers this recovery slice. The operator has accepted cluster-local recovery storage.
+    A successful control-plane drill will not close database, retained-PVC or NAS recovery gaps.</p>
+
+  <h2>Objective and evidence</h2>
+  <p>Create a protected, hash-verified off-master recovery bundle and prove that the exact installed k3s version restores it,
+    decrypts bootstrap material and serves the expected Kubernetes identity and encrypted data inside an isolated container.
+    Leave the live masters, workload data and existing backups intact.</p>
+  <ul>
+    <li>Trusted root SSH and the canonical inventory identify charmander <code>10.0.20.11</code> as source and pikachu
+      <code>10.0.20.14</code> as off-master destination. Both are active inventory nodes.</li>
+    <li>Evidence <code>etcd-recovery-metadata-78hknhrj/outputs/metadata.json</code> records enabled AES-CBC encryption,
+      matching server encryption hashes, snapshots and root-only token/configuration files on all three masters.</li>
+    <li>Evidence <code>etcd-isolated-host-capabilities-1f56jgkd/outputs/capabilities.json</code> records pikachu's
+      k3s <code>v1.33.6+k3s1</code>, working Docker <code>24.0.5</code>, no Docker containers and 33,164,058,624 available root-filesystem bytes.
+      These observations do not prove a restore.</li>
+  </ul>
+  <p><a href="https://docs.k3s.io/datastore/backup-restore">K3s requires the matching server token</a>.
+    Its <a href="https://docs.k3s.io/cli/etcd-snapshot#restoring-snapshots">restore procedure</a> checks the snapshot,
+    resets membership and extracts protected bootstrap material. Its
+    <a href="https://docs.k3s.io/advanced#running-agentless-servers-experimental">agentless mode</a> disables the embedded agent;
+    this does not itself provide network isolation. An
+    <a href="https://etcd.io/docs/v3.5/op-guide/recovery/">etcd-only restore</a> cannot establish full k3s recovery.</p>
+
+  <h2>Implementation contract</h2>
+  <table>
+    <thead><tr><th scope="col">Component</th><th scope="col">Required behavior</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Owning workflow</th><td><code>metal/scripts/etcd_recovery.py</code>, standard-library Python,
+        explicitly invoked after validation and publication to canonical Gitea master. Never invoke a broad Ansible or provisioning default.</td></tr>
+      <tr><th scope="row">Transfer</th><td>Verify exact host/version/cluster identity. Create one uniquely named on-demand snapshot on charmander;
+        transfer snapshot, matching token and encryption configuration through strict-known-host SSH pipes.
+        No production bytes land on the Mac or disposable evidence storage. Reject changed source files, unsafe names and incomplete streams.</td></tr>
+      <tr><th scope="row">Protected destination</th><td>Use an exclusive run below <code>/var/lib/homelab-recovery/maintenance-103/</code> on pikachu,
+        directories mode 0700 and files mode 0600. Refuse symlinks and overwrite. Verify every hash and write a durable completion marker last.
+        An interrupted copy remains unverified and cannot be restored. Original recovery material is retained.</td></tr>
+      <tr><th scope="row">Isolation</th><td>Use the official immutable k3s image matching the installed version. Create a container with network mode
+        <code>none</code>, read-only root, all capabilities dropped, no privilege escalation, no host namespaces, no devices, no published ports
+        and no Docker socket. Mount only the recovery point read-only and one exclusive disposable restore directory read-write.
+        Inspect the exact container and its kernel network namespace before starting any restored server: loopback only, no external interface or route.
+        Agentless mode and loopback listeners are additional constraints.</td></tr>
+      <tr><th scope="row">Restore</th><td>Use a private empty configuration, explicit data directory, matching token file and original encryption setting.
+        Run k3s cluster-reset against the copied snapshot, then start that restored copy inside the same isolated container.
+        Never run reset against the live service, its data directory or the host network. Do not weaken isolation after a failure.</td></tr>
+      <tr><th scope="row">Acceptance</th><td>Prove successful checksum/bootstrap restore; compare restored kube-system UID, expected Node identities,
+        namespace metadata and protected named Secret contents using counts and hashes only. Verify that no test Node was registered in production.
+        Record point age, source/version/digest and all limitations. No production API writes are permitted by the drill.</td></tr>
+      <tr><th scope="row">Cleanup</th><td>A tracked finally path stops and removes exact owned containers, reaps processes and removes their disposable
+        restored database, keys, logs, caches and downloaded test-only image when newly introduced and unused.
+        Preserve the protected recovery bundle and all preexisting images, services, credentials and data. Verify absence and report any residue.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Commands, structure and style</h2>
+  <p>Planned operator interface: <code>python3 metal/scripts/etcd_recovery.py qualify --run-id &lt;unique-id&gt;</code>,
+    then <code>python3 metal/scripts/etcd_recovery.py copy --run-id &lt;unique-id&gt;</code>,
+    then <code>python3 metal/scripts/etcd_recovery.py restore --run-id &lt;same-id&gt;</code>.
+    Qualification uses synthetic data and must pass isolation and cleanup before a production bundle is consumed.</p>
+  <p>Tests belong in <code>metal/scripts/test_etcd_recovery.py</code>:
+    <code>python3 -B -m unittest discover -s metal/scripts -p test_etcd_recovery.py</code>.
+    Run scoped pre-commit and <code>git diff --check</code>. Local test routing follows the operator's external policy.</p>
+  <p>Use explicit failure and ordinary functions, consistent with repository recovery helpers:
+    <code>if destination.exists(): raise RuntimeError("refusing to overwrite recovery material")</code>.
+    Keep credentials in files or streams, never command arguments or emitted errors.</p>
+
+  <h2>Ordered tasks and verification</h2>
+  <ol>
+    <li><strong>Qualify isolation:</strong> implement the Docker contract and cleanup, test negative guards locally,
+      publish the owning workflow, then prove synthetic startup and shutdown on pikachu. Checkpoint: exact container/network inspection and cleanup receipt.</li>
+    <li><strong>Preserve one recovery point:</strong> implement and test exclusive streamed transfer with source-change and truncation refusal;
+      publish, capture the exact source and copy it. Checkpoint: matching hashes, protected metadata and durable verified marker.</li>
+    <li><strong>Prove the real restore:</strong> consume that verified bundle under the qualified isolation;
+      compare protected identity/data, clean disposable material and recheck live production identities. Checkpoint: full k3s receipt and scoped issue update.</li>
+  </ol>
+  <h2>Boundaries and remaining questions</h2>
+  <p><strong>Always:</strong> preserve production, use exact owned paths/identities, retain sanitized evidence and fail on unproven isolation.
+    <strong>Separate approval:</strong> any production reset, credential rotation, destructive storage operation or release gate.
+    <strong>Never:</strong> NAS/NFS writes, token disclosure, live-service stops, host-network restore, overwrite or global container/image cleanup.</p>
+  <p>No missing owner decision is needed for this slice. Native qualification may reveal software constraints; resolve those within the contract
+    and preserve failed evidence. This plan does not assert that the proposed container flags already work.</p>
+</main></body>
+</html>
