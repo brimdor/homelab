@@ -18,6 +18,9 @@ grafana:
         hosts:
           - *host
   sidecar:
+    image:
+      tag: 2.14.1
+      sha: 092dbe0c335fba9af414a27630ca68f34df6185784fa847d9954187e69dbfdd7
     dashboards:
       enabled: true
       searchNamespace: monitoring-system
