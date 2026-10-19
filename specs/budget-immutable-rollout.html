@@ -37,11 +37,14 @@
     <code>rollingUpdate</code> field. The original healthy pod was not changed.
     A temporary, Deployment-only <code>Replace=true</code> Argo annotation clears that
     field through the owning reconciler. Validate a server dry-run replacement first,
-    preserve the Deployment UID and NAS identity, and remove this annotation after
+    preserve the Deployment UID and NAS identity, and disable this annotation after
     successful reconciliation. Commit <code>b38581e15dbe6043b95aaa25e128ef957def28ab</code>
     completed this transition: Deployment UID, runtime images, NAS identity and frontend
-    hash were preserved, and the API was healthy. The cleanup returns the Deployment
-    to normal server-side apply without changing its pod template.
+    hash were preserved, and the API was healthy. Omitting the annotation in commit
+    <code>4dde008f9935b03b63e97c4706d98f9245b3661c</code> left the live value intact.
+    Explicit <code>Replace=false</code> returns the Deployment to normal server-side
+    apply without changing its pod template. Public revalidation later returned
+    HTTP 403; that access finding remains open without retries or alternate paths.
     Do not use Force or apply replacement to storage resources.
     See the <a href="https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#replace-resource-instead-of-applying-changes">Argo CD replacement contract</a>.</p>
   <ul>

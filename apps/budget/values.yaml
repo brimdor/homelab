@@ -1,6 +1,9 @@
 app-template:
   controllers:
     main:
+      annotations:
+        # Explicitly clear the live transition option left by resource replacement.
+        argocd.argoproj.io/sync-options: Replace=false
       # SQLite on the shared NAS path must have only one application writer.
       strategy: Recreate
       containers:
