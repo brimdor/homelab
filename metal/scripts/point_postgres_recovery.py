@@ -424,8 +424,9 @@ def restore(run_id, expected_manifest):
             raise RuntimeError("restored password-free authorization fingerprint differs")
         archived = execute("pg_restore", "--data-only", "--no-comments", "--file=-", root + "/database.dump")
         restored = execute("pg_dump", "-h", "/tmp", "-U", ADMIN, "-d", database, "--data-only", "--no-comments")
-        if digest(normalized_dump(archived)) != digest(normalized_dump(restored)):
-            result["data_diagnostic"] = data_diagnostic(archived, restored)
+        comparison = data_diagnostic(archived, restored)
+        result["data_diagnostic"] = comparison
+        if not all(comparison[key] for key in ("copy_multiset_equal", "session_settings_equal", "sequence_commands_equal")):
             raise RuntimeError("restored complete logical data fingerprint differs")
         counts = [int(n) for n in sql(ROW_SQL).splitlines()]
         if len(counts) != manifest["before"]["features"]["user_tables"]:
