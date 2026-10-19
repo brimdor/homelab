@@ -1,4 +1,7 @@
 kured:
+  image:
+    # Kubernetes 1.33 needs the client-go 0.34 runtime; retain the existing chart and reboot policy.
+    tag: 1.21.0@sha256:76567a71427b074bfc51df6797c8c30ba44c9678ace7cd61a186ddb662ce97b1
   metrics:
     create: true
 
