@@ -12,6 +12,7 @@ app-template:
           image:
             repository: ghcr.io/linuxserver/sonarr
             tag: latest
+            digest: sha256:44b06045a98bc1f237b9ffefc4b28dab64cb29305e4a2a94875ae93b5224e4cc
             pullPolicy: Always
           env:
             PUID: "99"
@@ -27,6 +28,7 @@ app-template:
           image:
             repository: alpine
             tag: latest
+            digest: sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
             pullPolicy: Always
           command:
             - /bin/sh
