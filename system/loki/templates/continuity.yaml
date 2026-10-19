@@ -23,7 +23,7 @@ spec:
       restartPolicy: Never
       automountServiceAccountToken: false
       nodeSelector:
-        kubernetes.io/hostname: growlithe
+        kubernetes.io/hostname: {{ .Values.maintenanceRecovery.continuityNode | quote }}
       containers:
         - name: continuity
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
@@ -58,7 +58,7 @@ spec:
       volumes:
         - name: source
           hostPath:
-            path: /var/log/pods/argocd_argocd-repo-server-6d86494596-gph26_68e93fb3-375b-4ca8-9a2a-6c1db52e5539/repo-server
+            path: {{ .Values.maintenanceRecovery.continuityDirectory | quote }}
             type: Directory
         - name: recovery
           persistentVolumeClaim:
