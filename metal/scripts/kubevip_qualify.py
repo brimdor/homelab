@@ -81,6 +81,7 @@ def check(parent_id, scratch, client, run_id):
                    "svc_enable": "false", "vip_leaderelection": "true", "vip_interface": INTERFACE,
                    "vip_subnet": "32", "vip_leaseduration": "30", "vip_renewdeadline": "20",
                    "vip_retryperiod": "4", "vip_nodename": name, "cp_namespace": "kube-system",
+                   "kubernetes_addr": "127.0.0.1:16443",
                    "prometheus_server": "127.0.0.1:" + str(2113 + number)}
             arguments = ["create", "--network=container:" + parent_id, "--read-only", "--cap-drop=ALL",
                          "--cap-add=NET_ADMIN", "--cap-add=NET_RAW", "--security-opt=no-new-privileges:true",
@@ -156,6 +157,20 @@ def check(parent_id, scratch, client, run_id):
                       production_credentials_used=False, physical_arp_not_proven=True)
     except Exception as error:
         result.update(accepted=False, error=str(error))
+        leases = RECOVERY.docker(*client, "get", "leases", "--all-namespaces", "-o=json", check=False)
+        if leases.returncode == 0:
+            result["synthetic_leases"] = [{"namespace": item["metadata"]["namespace"],
+                                           "name": item["metadata"]["name"],
+                                           "holder": item.get("spec", {}).get("holderIdentity")}
+                                          for item in json.loads(leases.stdout)["items"]]
+        result["candidate_log_markers"] = {}
+        for name, identity in candidates.items():
+            logs = RECOVERY.docker("logs", identity, check=False)
+            text = (logs.stdout + logs.stderr).decode(errors="replace").lower()
+            result["candidate_log_markers"][name] = [marker for marker in (
+                "kubernetes:16443", "127.0.0.1:16443", "no such host", "network is unreachable",
+                "connection refused", "forbidden", "permission denied", "successfully acquired lease",
+                "certificate", "fatal", "panic") if marker in text]
     finally:
         if paused:
             RECOVERY.docker("unpause", parent_id)
