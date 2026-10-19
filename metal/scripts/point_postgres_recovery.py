@@ -73,6 +73,26 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def error_class(data):
+    patterns = {
+        "database_exists": rb'database "[^"\n]+" already exists',
+        "schema_exists": rb'schema "[^"\n]+" already exists',
+        "missing_role": rb'role "[^"\n]+" does not exist',
+        "invalid_locale": rb'invalid locale name',
+        "permission_denied": rb'permission denied',
+        "unsupported_archive": rb'unsupported version .* in file header',
+        "missing_extension": rb'(?:could not open extension control file|extension "[^"\n]+" is not available)',
+        "unknown_setting": rb'unrecognized configuration parameter',
+        "read_only_transaction": rb'cannot execute [^\n]+ in a read-only transaction',
+        "duplicate_key": rb'duplicate key value violates unique constraint',
+        "missing_type": rb'type "[^"\n]+" does not exist',
+        "missing_relation": rb'relation "[^"\n]+" does not exist',
+        "connection_failed": rb'connection to server .* failed',
+        "file_access": rb'(?:could not open input file|could not read from input file)',
+    }
+    return [name for name, pattern in patterns.items() if re.search(pattern, data)] or ["unclassified"]
+
+
 def normalized_dump(data):
     # COPY records may look like comments or psql commands; never normalize them.
     result = []
@@ -325,7 +345,13 @@ def restore(run_id, expected_manifest):
             command = ["docker", "exec", "-i", identity, *args]
             p = subprocess.run(command, input=input, capture_output=True)
             if check and p.returncode:
-                raise RuntimeError("isolated PostgreSQL command failed: " + args[0] + ":" + str(p.returncode))
+                # Keep SQL/data-bearing diagnostics only with protected recovery material.
+                protected.write_json(point / ("diagnostic-" + str(time.time_ns()) + ".json"),
+                                     {"command": args[0], "exit": p.returncode,
+                                      "stdout": p.stdout.decode(errors="replace"),
+                                      "stderr": p.stderr.decode(errors="replace")})
+                raise RuntimeError("isolated PostgreSQL command failed: " + args[0] + ":" + str(p.returncode) +
+                                   "; classes=" + ",".join(error_class(p.stderr)))
             return p.stdout
         if execute("postgres", "--version").strip() != b"postgres (PostgreSQL) 17.11":
             raise RuntimeError("restore executable version changed")

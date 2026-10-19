@@ -51,6 +51,12 @@ class PointPostgresRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "incomplete"):
             recovery.normalized_dump(b"COPY public.t FROM stdin;\nrecord\n")
 
+    def test_error_classification_never_exports_sql_or_private_error_values(self):
+        data = b'pg_restore: ERROR: database "private database" already exists\nDETAIL: private record\n'
+        self.assertEqual(recovery.error_class(data), ["database_exists"])
+        self.assertEqual(recovery.error_class(b'unknown private diagnostic'), ["unclassified"])
+        self.assertEqual(recovery.error_class(b'ERROR: permission denied for private table'), ["permission_denied"])
+
     def test_source_client_uses_only_declared_password_same_principal_and_readonly(self):
         arguments = recovery.source_client("pointguide-canary", "pg_dump", "--format=custom", database="pointguide")
         shell = arguments[-1]
