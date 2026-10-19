@@ -101,4 +101,25 @@ Do not rewrite historical schema periods or indexes.</p>
 <a href="https://github.com/grafana/loki/blob/v2.6.1/pkg/ingester/flush.go">flush handler</a>
 and <a href="https://github.com/grafana/loki/blob/v2.6.1/pkg/loki/modules.go">registered 2.6.1 endpoints</a>.
 The newer ingester/shutdown endpoint is not assumed to exist in 2.6.1.</p>
+<h2>Rotated-file continuity acceptance</h2>
+<p>Persistence adoption passed the isolated and production-service fixed query
+proofs; all seven collectors resumed with fresh ingestion. Position evidence must
+select the active labeled key: Alloy retains empty-label legacy fallback entries
+for the same paths. Treating the last duplicate path as active gives false offset
+regressions. Every unchanged source inode caught up to its baseline size.</p>
+<p>The Argo repo-server file rotated during the collector pause. Its retained
+original inode is 162756, file <code>0.log.20261019-093236</code> on growlithe.
+Before the kubelet retention window expires, preserve this exact source on the
+protected recovery claim. Do not export its contents to the workstation. The
+first Job only audits: compare every complete CRI record in the fixed pause window
+against fully paginated service queries using original nanosecond timestamps and
+content hashes. Reject partial records rather than guessing a merge.</p>
+<p>A separately validated Git change may enable recovery of query-proven missing
+records only, retaining original stream labels, timestamps and content. Requery
+and require every original record visible. Keep the source read-only and the
+protected archive unchanged. Never inject synthetic production logs. Existing
+records are not replayed. Preserve audit and recovery receipts before retiring
+the Jobs through Git. Retired collector/Loki self-log files and a completed
+backup Job are lifecycle exceptions; their absence is not proof of lossless
+retention or exactly-once delivery.</p>
 </html>

@@ -1,0 +1,69 @@
+{{- if .Values.maintenanceRecovery.continuityEnabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-log-continuity
+data:
+  continuity.json: |
+{{ .Files.Get "files/continuity.json" | indent 4 }}
+  continuity.py: |
+{{ .Files.Get "scripts/continuity.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loki-log-{{ ternary "recover" "audit" .Values.maintenanceRecovery.continuityApply }}-20261019
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loki-log-continuity
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: growlithe
+      containers:
+        - name: continuity
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/continuity.py]
+          {{- if .Values.maintenanceRecovery.continuityApply }}
+          args: [--apply]
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 1000m
+              memory: 256Mi
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: recovery
+              mountPath: /recovery
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: source
+          hostPath:
+            path: /var/log/pods/argocd_argocd-repo-server-6d86494596-gph26_68e93fb3-375b-4ca8-9a2a-6c1db52e5539/repo-server
+            type: Directory
+        - name: recovery
+          persistentVolumeClaim:
+            claimName: loki-recovery
+        - name: script
+          configMap:
+            name: loki-log-continuity
+{{- end }}

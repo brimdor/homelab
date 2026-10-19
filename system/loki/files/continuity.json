@@ -1,0 +1,18 @@
+{
+  "name": "continuity-argocd-20261019",
+  "file": "0.log.20261019-093236",
+  "inode": 162756,
+  "start": 1792419780000000000,
+  "end": 1792421325000000000,
+  "labels": {
+    "job": "argocd/argocd-repo-server",
+    "node_name": "growlithe",
+    "app": "argocd-repo-server",
+    "component": "repo-server",
+    "instance": "argocd",
+    "pod": "argocd-repo-server-6d86494596-gph26",
+    "namespace": "argocd",
+    "container": "repo-server",
+    "filename": "/var/log/pods/argocd_argocd-repo-server-6d86494596-gph26_68e93fb3-375b-4ca8-9a2a-6c1db52e5539/repo-server/0.log"
+  }
+}
