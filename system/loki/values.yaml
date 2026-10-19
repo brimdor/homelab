@@ -1,5 +1,10 @@
 loki-stack:
   loki:
+    image:
+      tag: 2.6.1@sha256:1ee60f980950b00e505bd564b40f720132a0653b110e993043bb5940673d060a
+    persistence:
+      enabled: true
+      existingClaim: loki-data
     serviceMonitor:
       enabled: true
   promtail:
@@ -13,5 +18,5 @@ alloy:
 maintenanceRecovery:
   enabled: true
   backupEnabled: false
-  restoreEnabled: true
+  restoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
