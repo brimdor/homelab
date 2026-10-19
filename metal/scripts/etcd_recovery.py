@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
 import tempfile
@@ -37,7 +38,8 @@ def require_isolation(container, scratch, run_id):
     host = container["HostConfig"]
     expected = {"NetworkMode": "none", "ReadonlyRootfs": True, "Privileged": False,
                 "CapDrop": ["ALL"], "PidMode": "", "IpcMode": "private", "UTSMode": "",
-                "UsernsMode": "", "Tmpfs": {"/run": "rw,nosuid,nodev", "/tmp": "rw,nosuid,nodev"}}
+                "UsernsMode": "", "Tmpfs": {"/run": "rw,nosuid,nodev", "/tmp": "rw,nosuid,nodev",
+                                               "/etc/rancher": "rw,nosuid,nodev"}}
     if (labels.get("io.eaglepass.maintenance") != "103" or
             labels.get("io.eaglepass.recovery-run") != run_id or
             any(host.get(k) != v for k, v in expected.items()) or
@@ -98,6 +100,10 @@ def qualify(run_id):
     if VERSION.encode() not in command(["/usr/local/bin/k3s", "--version"]).stdout:
         raise RuntimeError("installed k3s version changed")
     private_root()
+    def interrupted(_number, _frame):
+        raise InterruptedError("recovery qualification interrupted")
+    for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(number, interrupted)
     scratch = Path(tempfile.mkdtemp(prefix=run_id + "-qualify-", dir=ROOT))
     scratch.chmod(0o700)
     for name in IMAGE_VOLUMES.values():
@@ -118,6 +124,7 @@ def qualify(run_id):
                      "--label=io.eaglepass.recovery-run=" + run_id,
                      "--mount=type=bind,source=" + str(scratch) + ",target=/work",
                      "--tmpfs=/run:rw,nosuid,nodev", "--tmpfs=/tmp:rw,nosuid,nodev",
+                     "--tmpfs=/etc/rancher:rw,nosuid,nodev",
                      "--entrypoint=/bin/sh"]
         arguments += ["--mount=type=bind,source=" + str(scratch / name) + ",target=" + path
                       for path, name in IMAGE_VOLUMES.items()]
@@ -187,16 +194,37 @@ def qualify(run_id):
     return receipt
 
 
+def cancel_qualification(run_id):
+    identities = docker("ps", "--all", "--quiet", "--no-trunc",
+                        "--filter=label=io.eaglepass.maintenance=103",
+                        "--filter=label=io.eaglepass.recovery-run=" + run_id).stdout.decode().split()
+    if len(identities) != 1 or not re.fullmatch(r"[a-f0-9]{64}", identities[0]):
+        raise RuntimeError("cannot identify exactly one owned qualification container")
+    current = inspect(identities[0])
+    labels = current["Config"].get("Labels", {})
+    work = [m for m in current["Mounts"] if m.get("Destination") == "/work" and m.get("Type") == "bind"]
+    if (current["Id"] != identities[0] or labels.get("io.eaglepass.maintenance") != "103" or
+            labels.get("io.eaglepass.recovery-run") != run_id or len(work) != 1 or
+            Path(work[0]["Source"]).resolve().parent != ROOT or
+            not Path(work[0]["Source"]).name.startswith(run_id + "-qualify-")):
+        raise RuntimeError("qualification ownership changed before cancellation")
+    # The tracked qualification parent owns removal and its finally cleanup receipt.
+    docker("kill", "--signal=TERM", identities[0])
+    return {"accepted": True, "phase": "cancellation-request", "run_id": run_id, "container_id": identities[0]}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=["qualify", "internal-qualify"])
+    parser.add_argument("phase", choices=["qualify", "internal-qualify", "cancel-qualify", "internal-cancel-qualify"])
     parser.add_argument("--run-id", required=True, type=run_identifier)
     args = parser.parse_args()
     if args.phase == "internal-qualify":
         receipt = qualify(args.run_id)
+    elif args.phase == "internal-cancel-qualify":
+        receipt = cancel_qualification(args.run_id)
     else:
         source = Path(__file__).read_text()
-        remote = "python3 -B -c " + shlex.quote(source) + " internal-qualify --run-id " + shlex.quote(args.run_id)
+        remote = "python3 -B -c " + shlex.quote(source) + " internal-" + args.phase + " --run-id " + shlex.quote(args.run_id)
         result = command([*SSH, remote], check=False)
         try:
             receipt = json.loads(result.stdout)
