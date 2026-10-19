@@ -110,6 +110,15 @@ class PointPostgresRecoveryTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             recovery.require_isolation(container, scratch, "synthetic")
 
+    def test_image_contract_canonicalizes_docker_official_short_names_only(self):
+        image = {"RepoDigests": [recovery.IMAGE.removeprefix("docker.io/library/")],
+                 "Architecture": "amd64", "Os": "linux", "Config": {"Volumes": {"/var/lib/postgresql/data": {}}}}
+        recovery.require_image(image)
+        for key, value in (("Architecture", "arm64"), ("RepoDigests", ["postgres@sha256:" + "b" * 64]),
+                           ("Config", {"Volumes": {"/var/lib/postgresql": {}}})):
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                recovery.require_image({**image, key: value})
+
     def test_finalization_never_marks_changed_bytes_complete(self):
         manifest = self.manifest()
         with patch.object(recovery, "point_path", return_value=Path("/protected")), \

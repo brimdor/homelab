@@ -61,7 +61,7 @@ AND NOT (r.rolname LIKE 'pg_%' AND m.rolname LIKE 'pg_%')
 ), parameters AS (SELECT jsonb_agg(jsonb_build_array(parname,paracl::text) ORDER BY parname) AS v FROM pg_parameter_acl)
 SELECT encode(sha256(convert_to(jsonb_build_array(roles.v,members.v,parameters.v)::text,'UTF8')),'hex')
 FROM roles,members,parameters;"""
-ROW_SQL = """SELECT format('SELECT count(*) FROM ONLY %I.%I',n.nspname,c.relname)
+ROW_SQL = r"""SELECT format('SELECT count(*) FROM ONLY %I.%I',n.nspname,c.relname)
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','m')
 ORDER BY n.nspname,c.relname
@@ -269,6 +269,13 @@ def require_isolation(container, scratch, run_id):
         raise RuntimeError("PostgreSQL restore mount ownership changed")
 
 
+def require_image(image):
+    if (IMAGE not in {protected.canonical_reference(r) for r in image.get("RepoDigests", [])} or
+            image.get("Architecture") != "amd64" or image.get("Os") != "linux" or
+            set(image["Config"].get("Volumes") or {}) != {"/var/lib/postgresql/data"}):
+        raise RuntimeError("reviewed PostgreSQL image architecture or volumes changed")
+
+
 def restore(run_id, expected_manifest):
     point = point_path(run_id)
     protected.protected_file(point / "verified.json")
@@ -296,9 +303,7 @@ def restore(run_id, expected_manifest):
         common.docker("pull", IMAGE)
         image = json.loads(common.docker("image", "inspect", IMAGE).stdout)[0]
         image_id = image["Id"]
-        if (IMAGE not in image.get("RepoDigests", []) or image.get("Architecture") != "amd64" or
-                image.get("Os") != "linux" or set(image["Config"].get("Volumes") or {}) != {"/var/lib/postgresql/data"}):
-            raise RuntimeError("reviewed PostgreSQL image architecture or volumes changed")
+        require_image(image)
         identity = common.docker("create", "--network=none", "--read-only", "--cap-drop=ALL", "--user=70:70",
                                  "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=128",
                                  "--cpus=1", "--memory=1g", "--label=" + LABEL + "=" + run_id,
