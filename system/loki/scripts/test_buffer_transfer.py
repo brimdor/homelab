@@ -21,12 +21,25 @@ class BufferTransferTests(unittest.TestCase):
     def test_full_pages_split_without_losing_boundary_records(self):
         rows = self.rows()
 
-        def query(base, start, end, limit):
-            return [r for r in rows if start <= r[1] <= end][:limit]
+        def query(base, start, end, limit, direction="forward"):
+            matching = [r for r in rows if start <= r[1] <= end]
+            return (matching if direction == "forward" else list(reversed(matching)))[:limit]
 
         with patch.object(TRANSFER, "query", side_effect=query):
             result = [r for _, _, items in TRANSFER.windows("source", 0, 7, limit=3) for r in items]
         self.assertEqual(result, rows)
+
+    def test_underfilled_merged_page_requires_both_traversals_to_agree(self):
+        rows = self.rows()
+
+        def query(base, start, end, limit, direction="forward"):
+            matching = [r for r in rows if start <= r[1] <= end]
+            matching = matching if direction == "forward" else list(reversed(matching))
+            return matching[:2] if end - start > 3 else matching
+
+        with patch.object(TRANSFER, "query", side_effect=query):
+            found = [r for _, _, page in TRANSFER.windows("source", 0, 7, limit=7) for r in page]
+        self.assertEqual(found, rows)
 
     def test_unprovable_single_timestamp_page_is_refused(self):
         rows = [({"job": "synthetic"}, 5, str(n)) for n in range(3)]

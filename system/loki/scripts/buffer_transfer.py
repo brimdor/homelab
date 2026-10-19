@@ -38,10 +38,10 @@ def fingerprint(row):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
 
 
-def query(base, start, end, limit=5000):
+def query(base, start, end, limit=5000, direction="forward"):
     # Loki's HTTP end is exclusive; internal windows include both endpoints.
     parameters = {"query": SELECTOR, "start": str(start), "end": str(end + 1),
-                  "limit": str(limit), "direction": "forward"}
+                  "limit": str(limit), "direction": direction}
     value = get_json(base + "/loki/api/v1/query_range?" + urllib.parse.urlencode(parameters))
     if value.get("status") != "success" or value.get("data", {}).get("resultType") != "streams":
         raise RuntimeError("buffer comparison query failed")
@@ -67,7 +67,13 @@ def windows(base, start, end, limit=5000):
         yield from windows(base, middle + 1, end, limit)
         return
     rows = query(base, start, end, limit)
-    if len(rows) >= limit:
+    split = len(rows) >= limit
+    if not split:
+        # Merged query pages can underfill before all originals are returned.
+        # Opposite traversal exposed this in two frozen production intervals.
+        reverse = query(base, start, end, limit, direction="backward")
+        split = len(reverse) >= limit or {fingerprint(r) for r in rows} != {fingerprint(r) for r in reverse}
+    if split:
         if start == end:
             raise RuntimeError("cannot prove complete query at one timestamp")
         middle = (start + end) // 2
