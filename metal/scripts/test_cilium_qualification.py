@@ -2,6 +2,12 @@
 """Guard production identity and reject incomplete synthetic test evidence."""
 
 import copy
+import os
+import signal
+import subprocess
+import sys
+import threading
+from unittest.mock import patch
 from pathlib import Path
 import tempfile
 import unittest
@@ -55,6 +61,36 @@ class QualificationGuards(unittest.TestCase):
             for host in ("tcp://127.0.0.1:2375", "unix:///var/run/docker.sock"):
                 with self.assertRaises(RuntimeError):
                     qualification.require_root(root, self.name, host)
+
+    def test_cancellation_interrupts_communicate_and_reaps_owned_child(self):
+        children, timers = [], []
+        real_popen = subprocess.Popen
+
+        def start(*args, **kwargs):
+            child = real_popen(*args, **kwargs)
+            children.append(child)
+            timer = threading.Timer(0.2, os.kill, args=(os.getpid(), signal.SIGTERM))
+            timers.append(timer)
+            timer.start()
+            return child
+
+        previous = signal.signal(signal.SIGTERM, qualification.interrupted)
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                runner = qualification.Qualification.__new__(qualification.Qualification)
+                runner.work, runner.env, runner.count = Path(directory), os.environ.copy(), 0
+                with patch.object(qualification.subprocess, "Popen", side_effect=start):
+                    with self.assertRaisesRegex(RuntimeError, "qualification interrupted"):
+                        runner.command([sys.executable, "-c", "import time; time.sleep(10)"], private=True)
+        finally:
+            for timer in timers:
+                timer.cancel()
+                timer.join()
+            signal.signal(signal.SIGTERM, previous)
+        self.assertEqual(len(children), 1)
+        self.assertIsNotNone(children[0].poll())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(children[0].pid, 0)
 
     def test_require_executed_allow_deny_and_l7_cases(self):
         cases = ''.join('<testcase name="' + name + '"/>' for name in qualification.TESTS)

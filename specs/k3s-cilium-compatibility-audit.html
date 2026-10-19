@@ -146,6 +146,7 @@
     cilium-corrected-filter-owned-qualification-0kjh9bq8 verified complete owned cleanup, with no production change.
     This source diagnosis must be confirmed by the next native run.</p>
   <h2>Explicit API endpoint</h2><p>The server-setting run created all three k3s nodes successfully. Its next read failed because k3d preserved the requested literal port0 in its kubeconfig rather than substituting Docker's assigned port. Select an available IPv4 loopback port before creation and pass the explicit nonzero value. Validate the kubeconfig endpoint before any API read as well as during cluster-UID checks. A conflict fails cluster creation; never replace an existing listener. The zero-port regression joins the endpoint rejection tests. Full qualification remains pending.</p>
+  <h2>Precautionary cancellation and cleanup</h2><p>The nonzero-endpoint run was stopped to inspect a suspected kubectl cache-routing gap. Exact Kubernetes cli-runtime source confirms KUBECACHEDIR is honored, and the runner already set that variable externally; no recent internal discovery-cache files were found. The suspicion was not a demonstrated storage escape. The helper additionally selects its own explicit kubectl cache directory. Cancellation exposed Python selectors swallowing InterruptedError from a signal handler while communicate waited; use RuntimeError so the tracked finally path stops/reaps the owned command and deletes the synthetic cluster. The preceding run is cancelled, not accepted connectivity evidence.</p>
 </main>
 </body>
 </html>

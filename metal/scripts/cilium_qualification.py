@@ -114,7 +114,7 @@ class Qualification:
         return stdout
 
     def kubectl(self, *args, json_output=True, data=None):
-        command = [self.args.kubectl, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
+        command = [self.args.kubectl, "--cache-dir", str(self.work / "cache/kubectl"), "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
                    "--request-timeout=30s", *args]
         raw = self.command(command + (["-o", "json"] if json_output else []), data=data)
         return json.loads(raw) if json_output else raw
@@ -213,6 +213,10 @@ class Qualification:
                 "production_change": False, "production_hardware_kernel_gpu_l2_unqualified": True}
 
 
+def interrupted(_number, _frame):
+    raise RuntimeError("isolated qualification interrupted")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("name", "docker-host", "docker-server", "k3d", "cilium", "kubectl"):
@@ -220,8 +224,6 @@ def main():
     parser.add_argument("--work-dir", required=True, type=Path)
     args = parser.parse_args()
     qualification = Qualification(args)
-    def interrupted(_number, _frame):
-        raise InterruptedError("isolated qualification interrupted")
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, interrupted)
     try:
