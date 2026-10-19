@@ -9,11 +9,11 @@ maintenanceRecovery:
   backupEnabled: false
   restoreEnabled: false
   serviceVerifyEnabled: false
-  continuityEnabled: false
+  continuityEnabled: true
   continuityApply: false
-  continuityAttempt: 5
-  continuityNode: charmander
-  continuityDirectory: /var/log/pods/rook-ceph_rook-ceph-mon-h-5d97f67d75-jj29p_53a86bd7-7f2d-4f8d-ae37-23ae519ea2a8/mon
+  continuityAttempt: 6
+  continuityNode: growlithe
+  continuityDirectory: /var/log/pods/argocd_argocd-repo-server-6d86494596-gph26_68e93fb3-375b-4ca8-9a2a-6c1db52e5539/repo-server
   candidateEnabled: false
   candidatePrepared: true
   cutoverBackupEnabled: false
