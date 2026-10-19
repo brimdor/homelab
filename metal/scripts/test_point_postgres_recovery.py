@@ -146,6 +146,28 @@ class PointPostgresRecoveryTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(RuntimeError):
                 recovery.require_image({**image, key: value})
 
+    def test_candidate_is_exact_pinned_image_and_requires_accepted_original_restore(self):
+        image = {"RepoDigests": [recovery.CANDIDATE.removeprefix("docker.io/library/")],
+                 "Architecture": "amd64", "Os": "linux", "Config": {"Volumes": {"/var/lib/postgresql": {}}}}
+        self.assertEqual(recovery.require_image(image, recovery.CANDIDATE), "/var/lib/postgresql")
+        with self.assertRaises(RuntimeError):
+            recovery.require_image(image, "postgres:latest")
+        path = Mock()
+        point = Mock()
+        point.glob.return_value = [path]
+        accepted = {"accepted": True, "manifest_sha256": "a" * 64, "version": "17.11", "image": recovery.IMAGE,
+                    **{k: True for k in ("schema_matches", "logical_data_matches", "authorization_matches",
+                        "offline_checksums_valid", "clean_shutdown", "protected_hashes_unchanged", "production_network_unroutable")},
+                    "cleanup": {"scratch_absent": True, "owned_containers_absent": True}}
+        with patch.object(recovery.protected, "protected_file"):
+            path.read_bytes.return_value = json.dumps(accepted).encode()
+            recovery.require_original_restore(point, "a" * 64)
+            for key, value in (("accepted", False), ("manifest_sha256", "b" * 64), ("version", "18.6"),
+                               ("logical_data_matches", False), ("cleanup", {"scratch_absent": False})):
+                path.read_bytes.return_value = json.dumps({**accepted, key: value}).encode()
+                with self.subTest(key=key), self.assertRaises(RuntimeError):
+                    recovery.require_original_restore(point, "a" * 64)
+
     def test_finalization_never_marks_changed_bytes_complete(self):
         manifest = self.manifest()
         with patch.object(recovery, "point_path", return_value=Path("/protected")), \

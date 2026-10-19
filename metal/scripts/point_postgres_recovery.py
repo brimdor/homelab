@@ -22,6 +22,7 @@ import mariadb_recovery as protected
 
 
 IMAGE = "docker.io/library/postgres@sha256:7456ef82e5f5bc43d997f4781bbd7c0d6389bff397564649a356e206ba473aee"
+CANDIDATE = "docker.io/library/postgres@sha256:d8703cd7fba306b9fec9268ecedfa8a966846c053036a60e3635791957eb2f66"
 LABEL = "io.eaglepass.point-postgres-recovery"
 ADMIN = "homelab_restore_admin_20261019"
 CONTROL = "homelab_restore_control_20261019"
@@ -321,7 +322,7 @@ def backup(namespace, run_id):
     return json.loads(common.command(remote("internal-finalize", run_id, "--manifest", json.dumps(manifest))).stdout)
 
 
-def require_isolation(container, scratch, run_id):
+def require_isolation(container, scratch, run_id, mount="/var/lib/postgresql/data"):
     host = container["HostConfig"]
     if (container["Config"].get("Labels", {}).get(LABEL) != run_id or container["Config"].get("User") != "70:70" or
             any(host.get(k) != v for k, v in {"NetworkMode": "none", "ReadonlyRootfs": True, "Privileged": False,
@@ -332,18 +333,35 @@ def require_isolation(container, scratch, run_id):
         raise RuntimeError("PostgreSQL restore isolation changed")
     mounts = container.get("Mounts", [])
     if (len(mounts) != 1 or mounts[0].get("Type") != "bind" or mounts[0].get("Source") != str(scratch / "data") or
-            mounts[0].get("Destination") != "/var/lib/postgresql/data" or mounts[0].get("RW") is not True):
+            mounts[0].get("Destination") != mount or mounts[0].get("RW") is not True):
         raise RuntimeError("PostgreSQL restore mount ownership changed")
 
 
-def require_image(image):
-    if (IMAGE not in {protected.canonical_reference(r) for r in image.get("RepoDigests", [])} or
+def require_image(image, expected=IMAGE):
+    mount = "/var/lib/postgresql" if expected == CANDIDATE else "/var/lib/postgresql/data"
+    if (expected not in (IMAGE, CANDIDATE) or
+            expected not in {protected.canonical_reference(r) for r in image.get("RepoDigests", [])} or
             image.get("Architecture") != "amd64" or image.get("Os") != "linux" or
-            set(image["Config"].get("Volumes") or {}) != {"/var/lib/postgresql/data"}):
+            set(image["Config"].get("Volumes") or {}) != {mount}):
         raise RuntimeError("reviewed PostgreSQL image architecture or volumes changed")
+    return mount
 
 
-def restore(run_id, expected_manifest):
+def require_original_restore(point, expected_manifest):
+    for path in sorted(point.glob("restore-*.json")):
+        protected.protected_file(path)
+        result = json.loads(path.read_bytes())
+        if (result.get("accepted") and result.get("manifest_sha256") == expected_manifest and
+                result.get("version") == "17.11" and result.get("image") == IMAGE and
+                all(result.get(k) is True for k in ("schema_matches", "logical_data_matches", "authorization_matches",
+                    "offline_checksums_valid", "clean_shutdown", "protected_hashes_unchanged", "production_network_unroutable")) and
+                result.get("cleanup", {}).get("scratch_absent") is True and
+                result.get("cleanup", {}).get("owned_containers_absent") is True):
+            return
+    raise RuntimeError("exact original-version restore must pass before candidate qualification")
+
+
+def restore(run_id, expected_manifest, qualify=False):
     point = point_path(run_id)
     protected.protected_file(point / "verified.json")
     raw = (point / "verified.json").read_bytes()
@@ -351,6 +369,9 @@ def restore(run_id, expected_manifest):
     require_manifest(manifest)
     if digest(raw) != expected_manifest:
         raise RuntimeError("protected manifest hash changed")
+    if qualify:
+        require_original_restore(point, expected_manifest)
+    restore_image, restore_version = (CANDIDATE, "18.6") if qualify else (IMAGE, "17.11")
     if common.docker("ps", "-aq", "--filter=label=" + LABEL).stdout.strip():
         raise RuntimeError("an owned PostgreSQL restore is active; leave it alone")
     before_images = set(common.docker("image", "ls", "-q", "--no-trunc").stdout.decode().split())
@@ -367,20 +388,20 @@ def restore(run_id, expected_manifest):
             shutil.copyfile(point / name, data / name)
             (data / name).chmod(0o600)
             os.chown(data / name, 70, 70)
-        common.docker("pull", IMAGE)
-        image = json.loads(common.docker("image", "inspect", IMAGE).stdout)[0]
+        common.docker("pull", restore_image)
+        image = json.loads(common.docker("image", "inspect", restore_image).stdout)[0]
         image_id = image["Id"]
-        require_image(image)
+        mount = require_image(image, restore_image)
         identity = common.docker("create", "--network=none", "--read-only", "--cap-drop=ALL", "--user=70:70",
                                  "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=128",
                                  "--cpus=1", "--memory=1g", "--label=" + LABEL + "=" + run_id,
-                                 "--mount=type=bind,source=" + str(data) + ",target=/var/lib/postgresql/data",
-                                 "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", IMAGE,
+                                 "--mount=type=bind,source=" + str(data) + ",target=" + mount,
+                                 "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", restore_image,
                                  "-c", "exec sleep 2147483647").stdout.decode().strip()
-        require_isolation(common.inspect(identity), scratch, run_id)
+        require_isolation(common.inspect(identity), scratch, run_id, mount)
         common.docker("start", identity)
         state = common.inspect(identity)
-        require_isolation(state, scratch, run_id)
+        require_isolation(state, scratch, run_id, mount)
         net = ["nsenter", "--target", str(state["State"]["Pid"]), "--net", "--"]
         links = json.loads(common.command([*net, "ip", "-j", "address"]).stdout)
         routes = sum((json.loads(common.command([*net, "ip", f, "-j", "route", "show", "table", "all"]).stdout)
@@ -400,9 +421,9 @@ def restore(run_id, expected_manifest):
                 raise RuntimeError("isolated PostgreSQL command failed: " + args[0] + ":" + str(p.returncode) +
                                    "; classes=" + ",".join(error_class(p.stderr)))
             return p.stdout
-        if execute("postgres", "--version").strip() != b"postgres (PostgreSQL) 17.11":
+        if execute("postgres", "--version").strip() != ("postgres (PostgreSQL) " + restore_version).encode():
             raise RuntimeError("restore executable version changed")
-        root = "/var/lib/postgresql/data"
+        root = mount
         pgdata = root + "/restored"
         execute("initdb", "-D", pgdata, "--username=" + ADMIN, "--auth-local=trust", "--auth-host=reject",
                 "--encoding=UTF8", "--locale=en_US.utf8", "--data-checksums")
@@ -431,13 +452,14 @@ def restore(run_id, expected_manifest):
         counts = [int(n) for n in sql(ROW_SQL).splitlines()]
         if len(counts) != manifest["before"]["features"]["user_tables"]:
             raise RuntimeError("restored user relation count changed")
-        require_isolation(common.inspect(identity), scratch, run_id)
+        require_isolation(common.inspect(identity), scratch, run_id, mount)
         execute("pg_ctl", "-D", pgdata, "-w", "-m", "fast", "stop")
         execute("test", "!", "-e", pgdata + "/postmaster.pid")
         execute("pg_checksums", "--check", "-D", pgdata)
         if any(protected.file_digest(point / name) != value for name, value in manifest["files"].items()):
             raise RuntimeError("original protected files changed during restore")
-        result.update(accepted=True, version="17.11", image=IMAGE, relations=len(counts), rows=sum(counts),
+        result.update(accepted=True, version=restore_version, image=restore_image, candidate_qualification=qualify,
+                      relations=len(counts), rows=sum(counts),
                       schema_matches=True, logical_data_matches=True, authorization_matches=True,
                       offline_checksums_valid=True, clean_shutdown=True, protected_hashes_unchanged=True,
                       production_network_unroutable=True)
@@ -445,7 +467,7 @@ def restore(run_id, expected_manifest):
         result["error"] = str(error)
     finally:
         if identity:
-            require_isolation(common.inspect(identity), scratch, run_id)
+            require_isolation(common.inspect(identity), scratch, run_id, mount)
             common.docker("rm", "-f", identity)
         shutil.rmtree(scratch)
         removed = False
@@ -472,7 +494,10 @@ def main():
     parser.add_argument("--namespace", choices=sorted(SOURCES))
     parser.add_argument("--file", choices=("globals.sql", "database.dump"))
     parser.add_argument("--manifest")
+    parser.add_argument("--qualify-18-6", action="store_true")
     args = parser.parse_args()
+    if args.qualify_18_6 and args.mode not in ("restore", "internal-restore"):
+        parser.error("candidate qualification requires restore mode")
     os.umask(0o077)
     if args.mode == "backup":
         if not args.namespace:
@@ -481,7 +506,8 @@ def main():
     elif args.mode == "restore":
         if not args.manifest or not re.fullmatch(r"[a-f0-9]{64}", args.manifest):
             parser.error("restore requires exact manifest hash")
-        response = common.command(remote("internal-restore", args.run_id, "--manifest", args.manifest), check=False)
+        extra = ["--qualify-18-6"] if args.qualify_18_6 else []
+        response = common.command(remote("internal-restore", args.run_id, "--manifest", args.manifest, *extra), check=False)
         result = json.loads(response.stdout)
         if response.returncode and result.get("accepted"):
             raise RuntimeError("remote exit contradicts restore receipt")
@@ -492,7 +518,7 @@ def main():
     elif args.mode == "internal-finalize":
         result = finalize(args.run_id, json.loads(args.manifest))
     else:
-        result = restore(args.run_id, args.manifest)
+        result = restore(args.run_id, args.manifest, args.qualify_18_6)
     print(json.dumps(result), flush=True)
     return 0 if result.get("accepted", True) else 1
 
