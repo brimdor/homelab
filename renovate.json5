@@ -15,5 +15,9 @@
         '*',
       ],
     },
+    {
+      matchFileNames: ['archived/**'],
+      enabled: false,
+    },
   ],
 }
