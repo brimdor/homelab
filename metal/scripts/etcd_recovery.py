@@ -155,7 +155,7 @@ def qualify(run_id):
                   "--disable-helm-controller", "--disable-network-policy", "--disable-kube-proxy", "--flannel-backend=none"]
         script = "umask 077; " + shlex.join(server) + " > /work/server.log 2>&1; echo $? > /work/server.exit"
         docker("exec", "-d", container_id, "/bin/sh", "-c", script)
-        client = ["exec", container_id, "/bin/k3s", "kubectl", "--kubeconfig=/work/kubeconfig", "--request-timeout=5s"]
+        client = ["exec", container_id, "/bin/kubectl", "--kubeconfig=/work/kubeconfig", "--request-timeout=5s"]
         while True:
             if (scratch / "server.exit").exists():
                 receipt["server_exit"] = (scratch / "server.exit").read_text().strip()
