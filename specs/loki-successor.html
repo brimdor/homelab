@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>Loki successor maintenance</title>
+<style>body{background:#12161d;color:#e6edf3;font:16px/1.6 system-ui;max-width:950px;margin:3rem auto;padding:0 1rem}a{color:#85c1ff}code{color:#ffd48a}</style>
+<h1>Loki successor maintenance</h1>
+<p>Maintenance #103, LOKI_SUCCESSOR. Replace EOL Promtail first, preserving the
+existing Loki 2.6.1 process, emptyDir store, schema v11 and historical indexes.
+The separate Loki server/chart migration remains open until consistent recovery,
+schema transitions and restore validation are proved. Do not restart Loki as a
+side effect of this collector change.</p>
+<h2>Collector contract and design</h2>
+<p>Current Promtail 3.5.1 DaemonSet covers seven nodes. Capture all seven legacy
+position-file hashes, file counts and offsets, recent node ingestion and a fixed
+historical query with timestamp/content hashes. Convert the current configuration
+with the verified official Alloy v1.20.1 binary. Review every relabeling rule,
+CRI stage, discovery node filter, label and destination. Do not bypass conversion
+errors. The converted file is owned here; no runtime conversion or remote config.</p>
+<p>Keep the existing DaemonSet name, immutable selector, service account, RBAC,
+metrics port, security context, tolerations and mounted log paths. Disable only
+the dependency's DaemonSet template and replace it in this chart using the same
+pod helper. Roll one existing Pod at a time with no surge. Graceful Promtail
+shutdown records its final positions before Alloy starts on that node. Alloy
+reads the legacy file read-only and saves its own positions under
+<code>/run/alloy-loki</code>. Existing logs and legacy positions are never deleted.
+The pinned image is v1.20.1 at digest
+<code>sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f</code>.
+This phase preserves existing seven-node coverage; dedicated-worker expansion
+requires its own reviewed scope.</p>
+<h2>Validation and rollout</h2>
+<ol><li>Run an isolated synthetic file test with the exact official native binary:
+skip the already-read prefix, read the suffix, stop gracefully, append another
+line, restart with retained Alloy state and prove no prefix or suffix replay.
+Verify legacy positions unchanged; reap both processes and remove scratch.</li>
+<li>Lint/render old and new charts. Assert every resource outside the collector
+DaemonSet and new ConfigMap is identical. Inspect selector equality, read-only
+legacy paths, writable separate state, one-at-a-time rollout and exact config.
+Run scoped pre-commit and diff checks before commit/push.</li>
+<li>Refresh Argo; verify the intended revision and all seven new collectors Ready
+with the exact image digest. Verify legacy position initialization, persistent
+Alloy offsets, no sustained push/discovery errors, the same seven node labels,
+new ingestion and the unchanged historical query hashes. Prove Loki Pod UID,
+restart count and controller template unchanged.</li></ol>
+<h2>Rollback and limits</h2>
+<p>Revert the collector commit through Git and Argo to restore Promtail. Its
+preserved legacy positions can replay the interval collected by Alloy, so rollback
+has an explicitly bounded duplicate risk. Keep both position stores; do not
+overwrite either or discard historical indexes. No concurrent old/new collectors
+on a node and no claim of exactly-once delivery. Existing local log retention
+bounds recovery if a node or kubelet deletes source files during an outage.</p>
+<p>No NAS writes, account changes, notifications or synthetic production logs.
+The local test uses only synthetic files. This collector step does not complete
+LOKI_SUCCESSOR or prove durable/offsite Loki recovery.</p>
+<h2>Primary references</h2>
+<p><a href="https://grafana.com/docs/alloy/latest/set-up/migrate/from-promtail/">Official migration</a>,
+<a href="https://grafana.com/docs/alloy/latest/reference/components/loki/loki.source.file/">legacy positions</a>,
+<a href="https://github.com/grafana/alloy/releases/tag/v1.20.1">1.20.1 release</a>,
+<a href="https://grafana.com/docs/loki/latest/setup/upgrade/upgrade-from-2x/">Loki 3 migration requirements</a>.</p>
+</html>

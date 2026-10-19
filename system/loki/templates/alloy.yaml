@@ -1,0 +1,41 @@
+{{- $promtail := index (index .Subcharts "loki-stack").Subcharts "promtail" -}}
+{{- $pod := include "promtail.podTemplate" $promtail | fromYaml -}}
+{{- $container := index $pod.spec.containers 0 -}}
+{{- $_ := set $container "name" "alloy" -}}
+{{- $_ := set $container "image" .Values.alloy.image -}}
+{{- $_ := set $container "args" (list "run" "--disable-reporting" "--server.http.listen-addr=0.0.0.0:3101" "--storage.path=/run/alloy-loki" "/etc/alloy/config.alloy") -}}
+{{- $_ := set $container "readinessProbe" (dict "httpGet" (dict "path" "/-/ready" "port" "http-metrics") "initialDelaySeconds" 10 "periodSeconds" 10) -}}
+{{- range $container.volumeMounts -}}
+  {{- $_ := set . "readOnly" true -}}
+{{- end -}}
+{{- $_ := set $container "volumeMounts" (concat $container.volumeMounts (list (dict "name" "alloy-config" "mountPath" "/etc/alloy" "readOnly" true) (dict "name" "alloy-state" "mountPath" "/run/alloy-loki"))) -}}
+{{- $_ := set $pod.spec "volumes" (concat $pod.spec.volumes (list (dict "name" "alloy-config" "configMap" (dict "name" "loki-alloy")) (dict "name" "alloy-state" "hostPath" (dict "path" "/run/alloy-loki" "type" "DirectoryOrCreate")))) -}}
+{{- $_ := set $pod.metadata.annotations "checksum/alloy-config" (.Files.Get "files/config.alloy" | sha256sum) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-alloy
+  namespace: {{ .Release.Namespace }}
+data:
+  config.alloy: |
+{{ .Files.Get "files/config.alloy" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  # Preserve the existing selector, RBAC and one-at-a-time replacement boundary.
+  name: {{ include "promtail.fullname" $promtail }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "promtail.labels" $promtail | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "promtail.selectorLabels" $promtail | nindent 6 }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  template:
+    {{- toYaml $pod | nindent 4 }}
