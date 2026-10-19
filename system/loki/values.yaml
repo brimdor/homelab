@@ -44,6 +44,7 @@ server:
       compactor:
         working_directory: /var/loki/loki/boltdb-shipper-compactor
       ingester:
+        max_chunk_age: 24h
         chunk_block_size: 262144
         chunk_idle_period: 3m
         chunk_retain_period: 1m
@@ -67,6 +68,8 @@ server:
           time_sharding_enabled: false
       memberlist:
         join_members: []
+      querier:
+        query_ingesters_within: 24h
       schema_config:
         configs:
           - from: '2020-10-24'
