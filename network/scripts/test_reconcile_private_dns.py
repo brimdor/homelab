@@ -569,6 +569,60 @@ class RecoveryTests(unittest.TestCase):
             dns.protected_directory(self.root)
 
 
+class FirewallAuditTests(unittest.TestCase):
+    def page(self, action="fa-play", enabled=True, direction="fa-long-arrow-right", first=True):
+        color = ("text-success" if action == "fa-play" else "text-danger") if enabled else "text-muted"
+        icons = f'<span class="fa {action} {color}"></span><i class="{direction}"></i>'
+        icons += '<i class="fa-flash ' + ("text-warning" if first else "text-muted") + '"></i>'
+        cells = ["", icons, "IPv4 TCP", "ClusterProd net", "*", "10.0.40.3", "2049", "*", "*",
+                 '<input name="secret" value="never-export">private description never-export']
+        return '<input name="csrf" value="never-export"><table class="opnsense-rules"><tr class="rule">' + \
+            "".join("<td>" + c + "</td>" for c in cells) + "</tr></table>"
+
+    def test_project_action_direction_match_order_and_fields_without_secrets(self):
+        for action, expected in (("fa-play", "pass"), ("fa-times", "block"), ("fa-times-circle", "reject")):
+            for enabled in (True, False):
+                rule = dns.FirewallRules(self.page(action, enabled)).rules[0]
+                self.assertEqual((rule["action"], rule["enabled"], rule["direction"], rule["first_match"]),
+                                 (expected, enabled, "in", True))
+                self.assertEqual((rule["source"], rule["destination"], rule["destination_port"]),
+                                 ("ClusterProd net", "10.0.40.3", "2049"))
+                self.assertNotIn("never-export", json.dumps(rule))
+        rule = dns.FirewallRules(self.page(direction="fa-long-arrow-left", first=False)).rules[0]
+        self.assertEqual((rule["direction"], rule["first_match"]), ("out", False))
+
+    def test_absent_table_incomplete_or_ambiguous_rule_refused(self):
+        for page in ("<html>login</html>", self.page().replace("</tr>", ""),
+                     self.page().replace("fa-play", "unreviewed"),
+                     self.page().replace("fa-play", "fa-play fa-times"),
+                     self.page().replace("text-success", "unknown-color"),
+                     self.page().replace("text-warning", "text-warning text-muted"),
+                     self.page().replace("fa-long-arrow-right", "unreviewed")):
+            with self.subTest(page=page[:40]), self.assertRaises(dns.Refusal):
+                dns.FirewallRules(page)
+        self.assertEqual(dns.FirewallRules('<table class="opnsense-rules"></table>').rules, [])
+
+    def test_only_exact_reviewed_get_selectors(self):
+        calls = []
+        page = self.page()
+        class ReadOnly:
+            def request(self, method, path):
+                calls.append((method, path))
+                return page.encode()
+        result = dns.firewall_snapshot(ReadOnly())
+        self.assertEqual(set(result), {"FloatingRules", "wan", "lan", "opt1", "opt2", "opt3", "opt4", "opt5"})
+        self.assertEqual(calls, [("GET", p) for p in dns.FIREWALL_PATHS.values()])
+        self.assertTrue(set(dns.FIREWALL_PATHS.values()).issubset(dns.READ_PATHS))
+        self.assertNotIn("/firewall_rules.php?if=opt2&act=apply", dns.READ_PATHS)
+
+    def test_firewall_audit_rejects_apply_before_access(self):
+        with patch.object(dns.sys, "argv", ["check", "--firewall-audit", "--apply"]), \
+                patch.object(dns, "Router") as router, patch("builtins.print"), \
+                patch.object(dns.os, "umask"), patch.object(dns.resource, "setrlimit"):
+            self.assertEqual(dns.main(), 1)
+            router.assert_not_called()
+
+
 class NetworkAuditTests(unittest.TestCase):
     def fixture(self):
         key = str(uuid.uuid4())

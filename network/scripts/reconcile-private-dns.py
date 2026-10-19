@@ -58,6 +58,82 @@ READ_PATHS = {"/", "/diag_backup.php", "/system_advanced_admin.php", SETTINGS, S
               "/api/unbound/settings/get_nameservers",
               "/api/interfaces/vlan_settings/get", "/api/interfaces/lagg_settings/get",
               "/api/interfaces/overview/interfaces_info"}
+FIREWALL_PATHS = {name: "/firewall_rules.php?if=" + name
+                  for name in ("FloatingRules", "wan", "lan", "opt1", "opt2", "opt3", "opt4", "opt5")}
+READ_PATHS.update(FIREWALL_PATHS.values())
+
+
+class FirewallRules(html.parser.HTMLParser):
+    """Project rendered rule semantics; discard descriptions, forms and hidden values."""
+    def __init__(self, text):
+        super().__init__()
+        self.rules = []
+        self.tables = 0
+        self.row = None
+        self.cell = None
+        self.feed(text)
+        self.close()
+        require(self.tables > 0 and self.row is None, "Missing or incomplete firewall rule table")
+
+    def handle_starttag(self, tag, attributes):
+        attrs = dict(attributes)
+        classes = set(attrs.get("class", "").split())
+        if tag == "table" and "opnsense-rules" in classes:
+            self.tables += 1
+        if tag == "tr" and "rule" in classes:
+            require(self.row is None, "Nested firewall rule row")
+            self.row = {"cells": [], "action": None, "enabled": None, "direction": None, "first_match": None}
+        elif self.row is not None:
+            require(tag not in ("tr", "table"), "Unexpected nested firewall rule markup")
+            if tag == "td":
+                require(self.cell is None, "Nested firewall rule cell")
+                self.cell = []
+            elif tag in ("i", "span") and len(self.row["cells"]) == 1:
+                actions = {"fa-play": "pass", "fa-times": "block", "fa-times-circle": "reject"}
+                action = set(actions).intersection(classes)
+                if action:
+                    require(len(action) == 1 and self.row["action"] is None, "Ambiguous firewall action")
+                    icon = action.pop()
+                    color = "text-success" if icon == "fa-play" else "text-danger"
+                    require(len({color, "text-muted"}.intersection(classes)) == 1,
+                            "Ambiguous firewall enabled state")
+                    self.row.update(action=actions[icon], enabled="text-muted" not in classes)
+                for icon, direction in (("fa-long-arrow-right", "in"), ("fa-long-arrow-left", "out"), ("fa-exchange", "any")):
+                    if icon in classes:
+                        require(self.row["direction"] is None, "Ambiguous firewall direction")
+                        self.row["direction"] = direction
+                if "fa-flash" in classes:
+                    require(self.row["first_match"] is None and len({"text-warning", "text-muted"}.intersection(classes)) == 1,
+                            "Ambiguous firewall match order")
+                    self.row["first_match"] = "text-warning" in classes
+
+    def handle_data(self, data):
+        if self.row is not None and self.cell is not None and 2 <= len(self.row["cells"]) <= 8:
+            self.cell.append(data)
+
+    def handle_endtag(self, tag):
+        if self.row is None:
+            return
+        if tag == "td":
+            require(self.cell is not None, "Unmatched firewall rule cell")
+            self.row["cells"].append(" ".join("".join(self.cell).split()))
+            self.cell = None
+        elif tag == "tr":
+            require(self.cell is None and len(self.row["cells"]) >= 10 and
+                    all(self.row[k] is not None for k in ("action", "enabled", "direction", "first_match")),
+                    "Incomplete firewall rule semantics")
+            cells = self.row.pop("cells")
+            fields = ("protocol", "source", "source_port", "destination", "destination_port", "gateway", "schedule")
+            self.row.update(zip(fields, cells[2:9]))
+            require(all(self.row[k] for k in fields), "Empty firewall rule semantic field")
+            self.rules.append(self.row)
+            self.row = None
+
+
+def firewall_snapshot(api):
+    # Pinned core c6ffd18ec: writes are POST-only; these eight exact GET selectors only render rules.
+    return {name: FirewallRules(api.request("GET", path).decode("utf-8")).rules
+            for name, path in FIREWALL_PATHS.items()}
 
 
 def network_snapshot(api):
@@ -620,6 +696,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--network-audit", action="store_true", help="Read-only VLAN, LAG and interface projection")
+    parser.add_argument("--firewall-audit", action="store_true", help="Read-only rendered firewall policy projection")
     parser.add_argument("--backup-dir", type=Path, help="Explicit private, durable recovery directory; only used for apply")
     parser.add_argument("--rollback-receipt", type=Path, help="Exact complete apply JSONL receipt; default only checks rollback")
     args = parser.parse_args()
@@ -644,7 +721,7 @@ def main():
                 journal_broken = True
                 raise Refusal("Recovery receipt write failed; stop; no retry") from None
     try:
-        require(not args.network_audit or not (args.apply or args.backup_dir or args.rollback_receipt),
+        require(not (args.network_audit or args.firewall_audit) or not (args.apply or args.backup_dir or args.rollback_receipt),
                 "Network audit cannot apply or access recovery files")
         rows = validate_desired(json.loads(DESIRED.read_text()))
         head = git_gate() if args.apply else run(["git", "rev-parse", "HEAD"]).decode().strip()
@@ -660,6 +737,9 @@ def main():
                       preserved_sha256=sha({**initial, "dnsmasq": {k: v for k, v in initial["dnsmasq"].items() if k != "hosts"}}))
         if args.network_audit:
             result.update(mode="read-only-network-audit", topology=network_snapshot(api), status="CHECKED")
+        if args.firewall_audit:
+            result.update(mode="read-only-firewall-audit", firewall=firewall_snapshot(api), status="CHECKED")
+        if args.network_audit or args.firewall_audit:
             return 0
         targets = None
         if args.rollback_receipt:
