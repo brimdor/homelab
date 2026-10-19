@@ -113,5 +113,67 @@ class IsolationTests(unittest.TestCase):
         self.assertEqual(docker.call_count, 1)
 
 
+class BundleTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.sources = {}
+        for name in ("snapshot", "token", "encryption-config.json"):
+            path = self.root / name
+            path.write_bytes(("synthetic-" + name).encode())
+            path.chmod(0o600)
+            self.sources[name] = path
+        self.metadata = {"version": RECOVERY.VERSION, "cluster_uid": "7ff226e0-565a-4610-8a3e-97e7e87355a3"}
+
+    def encoded(self):
+        stream = io.BytesIO()
+        RECOVERY.send_bundle(stream, self.sources, self.metadata, lambda: True)
+        return stream.getvalue()
+
+    def test_complete_stream_is_hash_verified_and_never_overwritten(self):
+        destination = self.root / "point"
+        receipt = RECOVERY.receive_bundle(io.BytesIO(self.encoded()), destination)
+        self.assertTrue((destination / "verified.json").is_file())
+        self.assertEqual(receipt["metadata"], self.metadata)
+        self.assertEqual(destination.stat().st_mode & 0o777, 0o700)
+        for name, path in self.sources.items():
+            self.assertEqual((destination / name).read_bytes(), path.read_bytes())
+            self.assertEqual((destination / name).stat().st_mode & 0o777, 0o600)
+        with self.assertRaises(FileExistsError):
+            RECOVERY.receive_bundle(io.BytesIO(self.encoded()), destination)
+
+    def test_truncated_or_corrupt_stream_never_gets_a_verified_marker(self):
+        data = self.encoded()
+        for index, damaged in enumerate((data[:-20], data.replace(b"synthetic-token", b"synthetic-TOken"), data + b"extra")):
+            destination = self.root / ("incomplete-" + str(index))
+            with self.subTest(index=index), self.assertRaises(RuntimeError):
+                RECOVERY.receive_bundle(io.BytesIO(damaged), destination)
+            self.assertFalse((destination / "verified.json").exists())
+
+    def test_unsafe_names_symlinks_and_unprotected_sources_are_refused(self):
+        data = self.encoded().replace(b'"name":"snapshot"', b'"name":"../escape"', 1)
+        with self.assertRaises(RuntimeError):
+            RECOVERY.receive_bundle(io.BytesIO(data), self.root / "unsafe")
+        token = self.sources["token"]
+        token.chmod(0o644)
+        with self.assertRaises(RuntimeError):
+            self.encoded()
+        token.chmod(0o600)
+        link = self.root / "link"
+        link.symlink_to(token)
+        self.sources["token"] = link
+        with self.assertRaises((RuntimeError, OSError)):
+            self.encoded()
+
+    def test_changed_source_contract_has_no_commit_frame(self):
+        stream = io.BytesIO()
+        with self.assertRaises(RuntimeError):
+            RECOVERY.send_bundle(stream, self.sources, self.metadata, lambda: False)
+        with self.assertRaises(RuntimeError):
+            RECOVERY.receive_bundle(io.BytesIO(stream.getvalue()), self.root / "changed")
+        self.assertFalse((self.root / "changed" / "verified.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

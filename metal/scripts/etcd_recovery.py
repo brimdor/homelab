@@ -2,6 +2,7 @@
 """Qualify a network-isolated k3s recovery environment without production data."""
 
 import argparse
+import hashlib
 import ipaddress
 import json
 import os
@@ -12,12 +13,14 @@ import shutil
 import signal
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 
 
 IMAGE = "docker.io/rancher/k3s@sha256:d7119ab9e0054692a86a8eda454f2d3370dafc1c3a96b3ace5c5599f0c1e9f15"
 VERSION = "v1.33.6+k3s1"
+CLUSTER_UID = "7ff226e0-565a-4610-8a3e-97e7e87355a3"
 ROOT = Path("/var/lib/homelab-recovery/maintenance-103")
 IMAGE_VOLUMES = {"/var/lib/rancher/k3s": "data", "/var/lib/cni": "cni",
                  "/var/lib/kubelet": "kubelet", "/var/log": "logs"}
@@ -25,6 +28,117 @@ SSH = ["ssh", "-i", str(Path.home() / ".ssh/homelab"), "-o", "IdentitiesOnly=yes
        "-o", "UserKnownHostsFile=" + str(Path.home() / ".ssh/homelab_known_hosts"),
        "-o", "StrictHostKeyChecking=yes", "-o", "UpdateHostKeys=no", "-o", "BatchMode=yes",
        "-o", "ConnectTimeout=15", "root@10.0.20.14"]
+
+
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+
+
+def source_record(name, path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as source:
+        before = os.fstat(source.fileno())
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.geteuid() or
+                stat.S_IMODE(before.st_mode) != 0o600 or before.st_size <= 0):
+            raise RuntimeError("recovery source is not a protected nonempty regular file")
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: source.read(1048576), b""):
+            digest.update(chunk)
+        after = os.fstat(source.fileno())
+        identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+        if identity(before) != identity(after):
+            raise RuntimeError("recovery source changed while hashing")
+    return {"name": name, "size": before.st_size, "sha256": digest.hexdigest()}, identity(before)
+
+
+def send_bundle(output, paths, metadata, confirm_source):
+    if set(paths) != {"snapshot", "token", "encryption-config.json"}:
+        raise RuntimeError("recovery source file contract changed")
+    records = {name: source_record(name, path) for name, path in sorted(paths.items())}
+    header = {"format": 1, "metadata": metadata, "files": [record for record, _ in records.values()]}
+    encoded = canonical(header)
+    output.write(encoded + b"\n")
+    for name, path in sorted(paths.items()):
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as source:
+            digest = hashlib.sha256()
+            length = 0
+            for chunk in iter(lambda: source.read(1048576), b""):
+                output.write(chunk)
+                digest.update(chunk)
+                length += len(chunk)
+        if length != records[name][0]["size"] or digest.hexdigest() != records[name][0]["sha256"]:
+            raise RuntimeError("recovery source changed during streaming")
+    if any(source_record(name, path) != records[name] for name, path in sorted(paths.items())) or not confirm_source():
+        raise RuntimeError("source identity or recovery material changed before commit")
+    output.write(canonical({"commit": hashlib.sha256(encoded).hexdigest()}) + b"\n")
+    output.flush()
+
+
+def read_frame(source):
+    line = source.readline(65537)
+    if not line.endswith(b"\n") or len(line) > 65536:
+        raise RuntimeError("incomplete or oversized recovery frame")
+    try:
+        frame = json.loads(line)
+    except (ValueError, UnicodeError):
+        raise RuntimeError("invalid recovery frame") from None
+    if not isinstance(frame, dict):
+        raise RuntimeError("invalid recovery frame type")
+    return frame
+
+
+def receive_bundle(source, destination):
+    header = read_frame(source)
+    metadata = header.get("metadata")
+    files = header.get("files")
+    if (set(header) != {"format", "metadata", "files"} or type(header["format"]) is not int or
+            header["format"] != 1 or not isinstance(metadata, dict) or
+            metadata.get("version") != VERSION or metadata.get("cluster_uid") != CLUSTER_UID or
+            not isinstance(files, list) or len(files) != 3 or
+            any(not isinstance(record, dict) or set(record) != {"name", "size", "sha256"} or
+                type(record["size"]) is not int or record["size"] <= 0 or
+                not isinstance(record["sha256"], str) or not re.fullmatch(r"[a-f0-9]{64}", record["sha256"])
+                for record in files) or {record["name"] for record in files} !=
+            {"snapshot", "token", "encryption-config.json"}):
+        raise RuntimeError("recovery manifest identity or file contract changed")
+    if any(path.is_symlink() for path in (destination.parent, *destination.parent.parents)):
+        raise RuntimeError("recovery destination ancestry contains a symlink")
+    if sum(record["size"] for record in files) > shutil.disk_usage(destination.parent).free:
+        raise RuntimeError("insufficient actual capacity for the recovery point")
+    destination.mkdir(mode=0o700)
+    destination.chmod(0o700)
+    for record in files:
+        digest = hashlib.sha256()
+        remaining = record["size"]
+        with (destination / record["name"]).open("xb") as output:
+            os.fchmod(output.fileno(), 0o600)
+            while remaining:
+                chunk = source.read(min(1048576, remaining))
+                if not chunk:
+                    raise RuntimeError("recovery stream truncated before file completion")
+                remaining -= len(chunk)
+                digest.update(chunk)
+                output.write(chunk)
+            output.flush()
+            os.fsync(output.fileno())
+        if digest.hexdigest() != record["sha256"]:
+            raise RuntimeError("recovery file hash mismatch")
+    expected = {"commit": hashlib.sha256(canonical(header)).hexdigest()}
+    if read_frame(source) != expected or source.read(1):
+        raise RuntimeError("recovery stream has no valid final commit")
+    with (destination / "verified.json").open("xb") as output:
+        os.fchmod(output.fileno(), 0o600)
+        output.write(canonical(header))
+        output.flush()
+        os.fsync(output.fileno())
+    for parent in (destination, destination.parent):
+        descriptor = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    return header
 
 
 def run_identifier(value):
@@ -92,6 +206,95 @@ def private_root():
         metadata = path.lstat()
         if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != 0 or stat.S_IMODE(metadata.st_mode) != 0o700:
             raise RuntimeError("recovery root is not a protected owned directory")
+
+
+def require_host(name):
+    if os.geteuid() != 0 or command(["hostname"]).stdout.strip().decode() != name:
+        raise RuntimeError("recovery operation is on the wrong host or identity")
+    version = command(["/usr/local/bin/k3s", "--version"]).stdout.decode().splitlines()[0].split()
+    if version[:3] != ["k3s", "version", VERSION]:
+        raise RuntimeError("installed recovery version changed")
+
+
+def source_identity():
+    client = ["/usr/local/bin/kubectl", "--kubeconfig=/etc/rancher/k3s/k3s.yaml", "--request-timeout=30s"]
+    namespaces = json.loads(command([*client, "get", "namespaces", "-o=json"]).stdout)["items"]
+    nodes = json.loads(command([*client, "get", "nodes", "-o=json"]).stdout)["items"]
+    secret = json.loads(command([*client, "get", "secret", "secrets", "-n=backlog", "-o=json"]).stdout)
+    namespace_uids = {item["metadata"]["name"]: item["metadata"]["uid"] for item in namespaces}
+    node_uids = {item["metadata"]["name"]: item["metadata"]["uid"] for item in nodes}
+    if (namespace_uids.get("kube-system") != CLUSTER_UID or set(node_uids) != {
+            "charmander", "squirtle", "bulbasaur", "pikachu", "cyndaquil", "totodile", "growlithe", "arcanine", "sprigatito"} or
+            secret["metadata"]["uid"] != "d2322fd9-358d-483e-b0aa-9f89c06ce197" or not secret.get("data")):
+        raise RuntimeError("live source cluster or protected Secret identity changed")
+    return {"version": VERSION, "source_host": "charmander", "cluster_uid": CLUSTER_UID,
+            "namespaces": namespace_uids, "nodes": node_uids,
+            "protected_secret": {"namespace": "backlog", "name": "secrets", "uid": secret["metadata"]["uid"],
+                                 "key_count": len(secret["data"]), "data_sha256": hashlib.sha256(canonical(secret["data"])).hexdigest()}}
+
+
+def produce_point(run_id):
+    require_host("charmander")
+    before = source_identity()
+    encryption = command(["/usr/local/bin/k3s", "secrets-encrypt", "status"]).stdout.decode()
+    if not re.search(r"(?m)^Encryption Status:\s+Enabled\s*$", encryption):
+        raise RuntimeError("source encryption is not proven enabled")
+    snapshots = Path("/var/lib/rancher/k3s/server/db/snapshots")
+    prefix = "maintenance-103-" + run_id
+    if list(snapshots.glob(prefix + "*")):
+        raise RuntimeError("refusing to repeat an existing named recovery point")
+    command(["/usr/local/bin/k3s", "etcd-snapshot", "save", "--name=" + prefix])
+    matches = list(snapshots.glob(prefix + "*"))
+    if len(matches) != 1 or source_identity() != before:
+        raise RuntimeError("snapshot or source identity is not stable")
+    paths = {"snapshot": matches[0], "token": Path("/var/lib/rancher/k3s/server/token"),
+             "encryption-config.json": Path("/var/lib/rancher/k3s/server/cred/encryption-config.json")}
+    before.update(snapshot_name=matches[0].name, snapshot_mtime_ns=matches[0].stat().st_mtime_ns,
+                  source_encryption_enabled=True)
+    stable = {key: value for key, value in before.items() if key not in (
+        "snapshot_name", "snapshot_mtime_ns", "source_encryption_enabled")}
+    send_bundle(sys.stdout.buffer, paths, before, lambda: source_identity() == stable)
+
+
+def preserve_point(run_id):
+    require_host("pikachu")
+    private_root()
+    point = ROOT / run_id
+    manifest = receive_bundle(sys.stdin.buffer, point)
+    return {"accepted": True, "phase": "protected-copy", "run_id": run_id, "point": str(point),
+            "manifest_sha256": hashlib.sha256(canonical(manifest)).hexdigest(), **manifest}
+
+
+def remote_command(source, phase, run_id):
+    return "python3 -B -c " + shlex.quote(source) + " " + phase + " --run-id " + shlex.quote(run_id)
+
+
+def copy_point(run_id, source):
+    sender = receiver = None
+    try:
+        sender = subprocess.Popen([*SSH[:-1], "root@10.0.20.11", remote_command(source, "internal-send", run_id)],
+                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        receiver = subprocess.Popen([*SSH, remote_command(source, "internal-receive", run_id)],
+                                    stdin=sender.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        sender.stdout.close()
+        output, _ = receiver.communicate()
+        source_exit = sender.wait()
+        if source_exit or receiver.returncode:
+            raise RuntimeError("recovery copy incomplete; protected partial point retained; source exit " +
+                               str(source_exit) + ", receiver exit " + str(receiver.returncode))
+        receipt = json.loads(output)
+        if receipt.get("accepted") is not True or receipt.get("run_id") != run_id:
+            raise RuntimeError("recovery receiver returned an invalid receipt")
+        return receipt
+    finally:
+        for process in (receiver, sender):
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
 
 
 def qualify(run_id):
@@ -217,13 +420,21 @@ def cancel_qualification(run_id):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=["qualify", "internal-qualify", "cancel-qualify", "internal-cancel-qualify"])
+    parser.add_argument("phase", choices=["qualify", "internal-qualify", "cancel-qualify", "internal-cancel-qualify",
+                                         "copy", "internal-send", "internal-receive"])
     parser.add_argument("--run-id", required=True, type=run_identifier)
     args = parser.parse_args()
     if args.phase == "internal-qualify":
         receipt = qualify(args.run_id)
     elif args.phase == "internal-cancel-qualify":
         receipt = cancel_qualification(args.run_id)
+    elif args.phase == "internal-send":
+        produce_point(args.run_id)
+        return 0
+    elif args.phase == "internal-receive":
+        receipt = preserve_point(args.run_id)
+    elif args.phase == "copy":
+        receipt = copy_point(args.run_id, Path(__file__).read_text())
     else:
         source = Path(__file__).read_text()
         remote = "python3 -B -c " + shlex.quote(source) + " internal-" + args.phase + " --run-id " + shlex.quote(args.run_id)
