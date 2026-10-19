@@ -34,12 +34,7 @@ grafana:
       env:
         HEALTH_PORT: "8082"
   envFromSecret: grafana-secrets
-  readinessProbe:
-    initialDelaySeconds: 15
   grafana.ini:
-    database:
-      # Serialize SQLite writers during provisioning and background migrations.
-      max_open_conn: 1
     server:
       root_url: https://grafana.eaglepass.io
     auth.generic_oauth:
