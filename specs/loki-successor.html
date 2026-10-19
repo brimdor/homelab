@@ -176,7 +176,7 @@ recovery point; never return to emptyDir or run 2.6 against new TSDB data.</p>
 <p>Before a server version change, pause all seven collectors through Git and
 require their observed absence. The fresh backup Job checks exact production
 Pod UID 8229c484-d7fe-46ea-8320-77be43b24410 and PVC UID
-656cee92-dc36-4fc8-8742-b691c670cf77, Bound state, totodile placement and the
+656cee92-dc36-4fc8-8742-b691c670cf77, Bound state, verified pikachu placement and the
 loki-data storage mount before and after copy. It mounts production read-only,
 flushes pending chunks, captures the full fixed query proof and writes a new
 exclusive pre-upgrade-20261019 directory. Existing recovery is never overwritten.</p>
@@ -188,4 +188,10 @@ writer uses their data. Preserve original and fresh recovery material. Only then
 stop the production 2.6.1 controller through Git, prove its Pod gone, replace the
 chart and start one supported writer on loki-data. Verify service history before
 resuming collectors, then audit source rotations across the pause.</p>
+<p>The persistent production Pod runs on pikachu, not the former emptyDir node
+totodile. Bind the fresh backup to the live Pod/PVC placement. Its container
+source mount stays read-only while the PVC volume shares the existing node
+attachment. A different node is refused by the source-identity guard. The earlier
+Pending backup Jobs never started; their attachment failures created no recovery
+point and did not change production data.</p>
 </html>

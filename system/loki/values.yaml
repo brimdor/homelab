@@ -12,7 +12,7 @@ loki-stack:
 
 alloy:
   image: docker.io/grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
-  paused: true
+  paused: false
 
 maintenanceRecovery:
   enabled: true
@@ -26,6 +26,6 @@ maintenanceRecovery:
   continuityDirectory: /var/log/pods/rook-ceph_rook-ceph-mon-h-5d97f67d75-jj29p_53a86bd7-7f2d-4f8d-ae37-23ae519ea2a8/mon
   candidateEnabled: false
   candidatePrepared: true
-  cutoverBackupEnabled: true
+  cutoverBackupEnabled: false
   cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
