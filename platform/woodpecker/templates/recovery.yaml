@@ -85,7 +85,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: woodpecker-trusted-repair-20261019
+  name: woodpecker-trusted-repair-v2-20261019
 spec:
   backoffLimit: 0
   template:

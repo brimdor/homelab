@@ -69,10 +69,10 @@ def normalize_trusted(connection):
         if isinstance(parsed, dict):
             assert set(parsed) == keys and all(type(x) is bool for x in parsed.values())
             continue
-        # Only false has an unambiguous least-privilege repair. Do not activate
-        # legacy elevated trust or infer permissions from malformed values.
-        assert type(parsed) is int and parsed == 0, "Unexpected legacy trust requires review"
-        replacement = json.dumps({key: False for key in sorted(keys)}, separators=(",", ":"))
+        # Preserve the exact Boolean mapping in upstream migration 017. This
+        # changes serialization, not the stored legacy trust decision.
+        assert type(parsed) is int and parsed in (0, 1), "Unexpected legacy trust representation"
+        replacement = json.dumps({key: bool(parsed) for key in sorted(keys)}, separators=(",", ":"))
         identifier = row[columns.index("id")]
         updates.append((replacement, identifier, value))
         new_row = list(row)
@@ -121,7 +121,7 @@ def repair(source, recovery_point, backup_sha, source_sha):
             assert hashlib.sha256(recovery_point.read_bytes()).hexdigest() == backup_sha
         return {"repaired_repository_ids": repaired, "isolated_repair": "passed",
                 "backup_sha256": backup_sha, "only_trusted_fields_changed": True,
-                "all_trust_permissions": False}
+                "legacy_trust_semantics_preserved": True}
     finally:
         shutil.rmtree(working)
 

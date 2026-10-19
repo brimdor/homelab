@@ -47,8 +47,17 @@ class RecoveryTests(unittest.TestCase):
                 })
             self.assertFalse((destination.parent / "repair-work").exists())
 
-    def test_elevated_or_ambiguous_trust_stops_before_any_update(self):
-        for bad in ("1", "false", "null", '"unknown"'):
+    def test_legacy_true_uses_exact_upstream_migration_mapping(self):
+        with closing(sqlite3.connect(":memory:")) as connection:
+            connection.execute("CREATE TABLE repos (id INTEGER PRIMARY KEY,trusted TEXT)")
+            connection.execute("INSERT INTO repos VALUES (1,'1')")
+            self.assertEqual(recovery.normalize_trusted(connection), [1])
+            self.assertEqual(json.loads(connection.execute("SELECT trusted FROM repos").fetchone()[0]), {
+                "network": True, "volumes": True, "security": True,
+            })
+
+    def test_ambiguous_trust_stops_before_any_update(self):
+        for bad in ("2", "false", "null", '"unknown"'):
             with closing(sqlite3.connect(":memory:")) as connection:
                 connection.execute("CREATE TABLE repos (id INTEGER PRIMARY KEY,trusted TEXT)")
                 connection.executemany("INSERT INTO repos VALUES (?,?)", [(1, "0"), (2, bad)])

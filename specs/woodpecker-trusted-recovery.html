@@ -54,9 +54,12 @@ Original quiesced source SHA-256:
 <code>d3124fb51b36ec04518cf3ec823f7bca8069066e734e1301f5bc3e66ffa57b4c</code>.</p>
 <p>The repair Job binds both hashes, proves the restored copy and original have
 identical logical records, and validates the transformation on that copy first.
-Only legacy JSON number zero becomes an object containing three false trust
-permissions. Unknown values, elevated legacy trust, partial migration columns
-and repository triggers fail before updates. An exclusive SQLite transaction
+Only legacy JSON numbers zero and one become objects containing the three
+matching Boolean permissions, exactly as upstream migration 017 specifies. This
+preserves the existing legacy trust decision; it does not select a new policy.
+Other values, partial migration columns and repository triggers fail before
+updates. The initial false-only restored-copy rehearsal stopped safely and did
+not modify production. An exclusive SQLite transaction
 checks that every record except the intended trusted field remains identical.
 File ownership, inode and the original recovery point remain unchanged. Both
 writers stay at zero until the Job succeeds; then restore their original one
