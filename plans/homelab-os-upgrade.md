@@ -92,6 +92,25 @@ There is **no proven Fedora/kernel/k3s/Cilium/GPU/CSI compatibility tuple**.
 
 ## Owners and required evidence before execution
 
+### Fresh-install media is not an upgrade path
+
+The separate PXE defaults now pin Fedora Server 44 release `1.7`, DVD SHA256
+`85837793bfa36db6bc709b4cecd2ec116951b87d9c53c3d95eb2fac8dcf7cf1f`.
+The signed `Fedora-Server-44-1.7-x86_64-CHECKSUM` was verified on 2026-10-19
+against Fedora's published release-key fingerprint
+`36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6` from
+[Fedora Security](https://fedoraproject.org/security/). This corrects the obsolete
+media pin only; no ISO boot, PXE server, provisioning or node action was run.
+
+The existing kickstart remains destructive (`clearpart --all`, fixed partitions
+and a remaining-space Ceph partition). Its `#version=RHEL8`, custom package
+environment, `%post` chroot assumptions, disabled SELinux/firewall and disk-write
+fallbacks need a separate fresh-install audit. It is **not Fedora 44 installation
+acceptance**. The GPU role also updates/reboots independently, assumes a
+release-specific CUDA repository and uses a DNF module driver target; these have
+not been validated on Fedora 44/DNF5. Neither role belongs in the in-place path.
+Do not invoke them to satisfy a missing upgrade or recovery gate.
+
 | Owner and repository path | Required gate |
 | --- | --- |
 | Metal: `metal/inventories/prod.yml`, `metal/roles/k3s/`, `metal/roles/cilium/` | Exact active host list, trusted SSH/console identity, per-transition compatibility matrix, pinned artifacts, narrow execution targets, and version-specific rollback limits. `metal/cluster.yml` is a broad bootstrap entry point, not a validated rolling upgrader. |
