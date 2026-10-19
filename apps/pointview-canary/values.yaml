@@ -7,7 +7,7 @@ app-template:
       forceRename: pointview-canary
       type: deployment
       strategy: Recreate
-      replicas: 0
+      replicas: 1
       pod:
         securityContext: &pointview-pod-security
           runAsNonRoot: true
@@ -153,7 +153,6 @@ app-template:
       forceRename: pointview-canary-triage
       type: cronjob
       cronjob:
-        suspend: true
         schedule: "0 3 * * *"
         timeZone: America/Chicago
         concurrencyPolicy: Forbid
@@ -178,7 +177,6 @@ app-template:
       forceRename: pointview-canary-retention
       type: cronjob
       cronjob:
-        suspend: true
         schedule: "30 4 * * *"
         timeZone: America/Chicago
         concurrencyPolicy: Forbid
@@ -348,7 +346,7 @@ app-template:
       pointview.eaglepass.io/track: canary
 
 postgresMigration:
-  enabled: true
+  enabled: false
   nodeName: totodile
   role: pointview
   manifest: "81d1b7dc1dae250ab75e813ec5bf4ae37b0af0913c6080a74f4f19c580dd318b"
