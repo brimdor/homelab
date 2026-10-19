@@ -410,6 +410,13 @@ def qualify(run_id, point=None, manifest_sha256=None):
         if manifest is None:
             server.append("--cluster-init")
         else:
+            # This k3s version checks the default token path before honoring token-file
+            # during restore. Stage the verified original only inside owned scratch.
+            server_data = scratch / "data/server"
+            server_data.mkdir(mode=0o700)
+            descriptor = os.open(server_data / "token", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "wb") as token:
+                token.write((point / "token").read_bytes())
             server.append("--token-file=/recovery/token")
             reset = [*server, "--cluster-reset", "--cluster-reset-restore-path=/recovery/snapshot"]
             result = docker("exec", container_id, "/bin/sh", "-c", "umask 077; " + shlex.join(reset) +
