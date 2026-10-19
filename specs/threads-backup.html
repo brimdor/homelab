@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Threads backup coverage</title>
+<style>
+  body { background: #10141c; color: #e3e9f4; font: 16px/1.6 system-ui;
+    max-width: 960px; margin: 40px auto; padding: 20px; }
+  a { color: #8ecaff; } code, pre { background: #1b2434; overflow-wrap: anywhere; }
+  pre { white-space: pre-wrap; padding: 16px; }
+  td, th { padding: 10px; border: 1px solid #39465c; text-align: left; }
+  table { border-collapse: collapse; width: 100%; }
+</style>
+<h1>Threads scheduled backup</h1>
+<p>Approved scope: <a href="https://git.eaglepass.io/ops/homelab/issues/103">maintenance #103</a>,
+  THREADS_BACKUP_COVERAGE. Execution plan recorded before implementation as
+  threads-backup-ej_nl_l8. This specification does not approve a database migration.</p>
+<h2>Objective and evidence</h2>
+<p>Close the observed Threads backup gap without restarting PostgreSQL or changing its
+  existing backups. The live server is PostgreSQL 17.5; Threads occupies 7,496,207 bytes.
+  Existing scheduled dumps cover four other prefixes. The backup export has
+  11,047,776,256 KiB available. These are dated observations from 2026-10-19, not capacity guarantees.</p>
+<h2>Design and ownership</h2>
+<p>Add a CronJob and ConfigMap under apps/postgres. Use the exact retrievable running
+  server image digest, whose pg_dump and pg_restore clients are both 17.5. Keep every
+  existing rendered resource unchanged. The Job connects through the existing PostgreSQL
+  Service with existing Threads Secret references; it never mounts PGDATA or a PVC.</p>
+<p>Run every ten minutes, forbid concurrent runs, exclude sprigatito, and remove completed
+  Job mounts after sixty seconds. A five-minute Job deadline bounds a stuck backup;
+  it is not an overall maintenance deadline. Disable service-account token mounting,
+  privilege escalation and capabilities; use a read-only container root filesystem.</p>
+<p>Store real backups only in the existing durable NAS export,
+  /mnt/user/postgres_backups/db/threads. Never export records or credentials into local evidence.</p>
+<h2>Publication and retention</h2>
+<p>Create a private, explicitly owned directory and temporary work. Require successful
+  warning-free pg_dump, a nonempty custom archive and warning-free pg_restore listing.
+  Publish a complete archive using a no-clobber hard link, then its SHA256 and ownership sidecars.
+  Fail without publishing on dump/listing failure. Preserve a published archive if a later stage fails.</p>
+<p>Retain fourteen days of generations. Remove only exact-name, owner-marked expired
+  archive/checksum/owner triplets whose checksum still matches. Preserve and report
+  unowned, malformed, symlinked, incomplete or corrupt candidates. Never delete another
+  database's backups. Remove only the current attempt's temporary directory on exit.</p>
+<h2>Commands and source layout</h2>
+<pre>python3 -B -m unittest discover -s scripts -p test_threads_backup.py -v
+shellcheck apps/postgres/scripts/backup-threads.sh
+helm dependency update &lt;staged-postgres-chart&gt;
+helm lint &lt;staged-postgres-chart&gt;
+helm template postgres &lt;staged-postgres-chart&gt; --namespace postgres
+pre-commit run --files apps/postgres/scripts/backup-threads.sh apps/postgres/templates/threads-backup.yaml scripts/test_threads_backup.py specs/threads-backup.html
+argocd app get postgres --refresh
+argocd app wait postgres --sync --health --timeout 600</pre>
+<p>The parent supplies isolated disposable test paths. The script lives at
+  apps/postgres/scripts/backup-threads.sh, its resources at templates/threads-backup.yaml,
+  and offline regression tests at scripts/test_threads_backup.py. Bash uses strict
+  error handling, quoted paths, explicit ownership and generic credential-free errors.</p>
+<h2>Verification and boundaries</h2>
+<ul>
+  <li>Test successful private publication, dump/warning/list failures, collisions,
+    retention, checksum/path tampering, foreign ownership and symlinks with synthetic clients.</li>
+  <li>Compare committed before/candidate renders: only the new ConfigMap and CronJob may appear.
+    Preserve unrelated dirty values and the complete live database Deployment/Pod baseline.</li>
+  <li>Commit and push desired state before Argo reconciliation. Observe an actual scheduled,
+    owner-matched successful Job and durable nonempty archive with matching checksum.</li>
+  <li>Verify the original database Pod UID, Deployment spec, readiness, restarts, existing
+    backups and PVC identities remain unchanged. Do not create a live-only manual Job.</li>
+  <li>A table-of-contents listing and checksum do not prove restore. Complete isolated
+    durable restore and offsite recovery remain required by RECOVERY_PROOF.</li>
+  <li>Rollback removes only the added scheduler/resources through Git. Preserve all real
+    backup generations; never revert data or remove the existing database.</li>
+</ul>
+<h2>Primary references</h2>
+<p><a href="https://www.postgresql.org/docs/17/app-pgdump.html">PostgreSQL pg_dump</a>
+  describes consistent logical exports while writers run.
+  <a href="https://www.postgresql.org/docs/17/app-pgrestore.html">PostgreSQL pg_restore</a>
+  distinguishes archive inspection from an actual restore.</p>
+</html>

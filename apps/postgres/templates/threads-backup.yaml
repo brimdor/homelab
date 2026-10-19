@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-threads-backup
+data:
+  backup-threads.sh: |
+{{ .Files.Get "scripts/backup-threads.sh" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-threads-backup
+spec:
+  schedule: "*/10 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 300
+      # Remove completed NFS mounts before the next scheduled run.
+      ttlSecondsAfterFinished: 60
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ .Release.Name }}
+            app.kubernetes.io/component: threads-backup
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: NotIn
+                        values: [sprigatito]
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              # Match the existing server's client major without restarting its Pod.
+              image: docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e
+              command: [/bin/bash, /scripts/backup-threads.sh]
+              env:
+                - name: BACKUP_DIR
+                  value: /backup/db/threads
+                - name: PGHOST
+                  value: {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local
+                - name: PGPORT
+                  value: "5432"
+                - name: PGCONNECT_TIMEOUT
+                  value: "10"
+                - name: PGOPTIONS
+                  value: "-c default_transaction_read_only=on"
+                - name: PGDATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: secrets
+                      key: threads-postgres-db
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: secrets
+                      key: threads-postgres-user
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: secrets
+                      key: threads-postgres-password
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+                - name: backup
+                  mountPath: /backup
+                - name: temporary
+                  mountPath: /tmp
+          volumes:
+            - name: script
+              configMap:
+                name: {{ .Release.Name }}-threads-backup
+                defaultMode: 0555
+            - name: backup
+              nfs:
+                server: {{ index .Values "app-template" "persistence" "nfs-backups" "server" }}
+                path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}
+            - name: temporary
+              emptyDir: {}
