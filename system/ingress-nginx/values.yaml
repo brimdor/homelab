@@ -57,15 +57,20 @@ traefik:
             gitea-ssh:
               loadBalancer:
                 servers:
-                  - address: gitea-ssh.gitea.svc.cluster.local:22
+                  # This headless Service resolves Pod IPs; use its targetPort.
+                  - address: gitea-ssh.gitea.svc.cluster.local:2222
   ports:
     web:
+      http:
+        aliasHeadersStrategy: delete
       transport:
         respondingTimeouts:
           readTimeout: 3600s
           writeTimeout: 3600s
           idleTimeout: 3600s
     websecure:
+      http:
+        aliasHeadersStrategy: delete
       transport:
         respondingTimeouts:
           readTimeout: 3600s
