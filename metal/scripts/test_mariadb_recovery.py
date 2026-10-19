@@ -91,8 +91,8 @@ class RecoveryTests(unittest.TestCase):
         tail = b"USE `#mysql50#lost+found`;\n\nUSE `mysql`;\n"
         dump = section + application + tail
         with patch.dict(recovery.EMPTY_DIRECTORY_DUMPS, {namespace: recovery.digest(dump)
-                        for namespace in ("jovo", "backlog", "backlog-canary")}):
-            for namespace in ("jovo", "backlog", "backlog-canary"):
+                        for namespace in sorted(recovery.NAMESPACES)}):
+            for namespace in sorted(recovery.NAMESPACES):
                 self.assertEqual(recovery.import_stream(dump, namespace), (application + b"USE `mysql`;\n", True))
             for changed, namespace in ((dump, "unknown"), (dump + b"extra", "jovo"),
                                        (dump + b"extra", "backlog")):
