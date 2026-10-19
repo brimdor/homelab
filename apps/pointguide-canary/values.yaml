@@ -349,3 +349,11 @@ app-template:
       operator.1password.io/item-name: pointguide-canary-secrets
     labels:
       pointguide.eaglepass.io/track: canary
+
+postgresMigration:
+  enabled: true
+  nodeName: bulbasaur
+  role: pointguide
+  manifest: "7e6b03765d5972d02d69815d00b3467f311b5d7ed766e4d5aea416d23fa773d5"
+  globals: "be55659ed87380b4b62fa1b1337098e440753988bd765cd20ef13e1c50fc69f9"
+  archive: "db75f40ba49d11e89ecbcf89dc17a29f55ef35f77213320f4030afc919c2de02"
