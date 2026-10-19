@@ -96,6 +96,22 @@ class IsolationTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue()), receipt)
         self.assertNotIn("private diagnostic", output.getvalue())
 
+    def test_cancel_checks_exact_ownership_and_stops_only_that_container(self):
+        identity = "a" * 64
+        container = copy.deepcopy(self.container)
+        container.update(Id=identity, State={"Running": False})
+        container["Mounts"][0]["Source"] = str(self.scratch / "qualify-12345678-qualify-owned")
+        result = subprocess.CompletedProcess([], 0, (identity + "\n").encode(), b"")
+        with patch.object(RECOVERY, "docker", return_value=result) as docker, \
+                patch.object(RECOVERY, "inspect", return_value=container), patch.object(RECOVERY, "ROOT", self.scratch):
+            self.assertTrue(RECOVERY.cancel_qualification("qualify-12345678")["accepted"])
+            self.assertIn((("kill", "--signal=KILL", identity), {}), docker.call_args_list)
+        container["Config"]["Labels"]["io.eaglepass.recovery-run"] = "foreign-run"
+        with patch.object(RECOVERY, "docker", return_value=result) as docker, \
+                patch.object(RECOVERY, "inspect", return_value=container), self.assertRaises(RuntimeError):
+            RECOVERY.cancel_qualification("qualify-12345678")
+        self.assertEqual(docker.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

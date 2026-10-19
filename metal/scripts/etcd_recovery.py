@@ -209,7 +209,9 @@ def cancel_qualification(run_id):
             not Path(work[0]["Source"]).name.startswith(run_id + "-qualify-")):
         raise RuntimeError("qualification ownership changed before cancellation")
     # The tracked qualification parent owns removal and its finally cleanup receipt.
-    docker("kill", "--signal=TERM", identities[0])
+    docker("kill", "--signal=KILL", identities[0])
+    if inspect(identities[0])["State"]["Running"]:
+        raise RuntimeError("owned qualification container did not stop")
     return {"accepted": True, "phase": "cancellation-request", "run_id": run_id, "container_id": identities[0]}
 
 
