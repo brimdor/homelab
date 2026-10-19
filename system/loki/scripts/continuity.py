@@ -5,6 +5,7 @@ import argparse
 import calendar
 from collections import defaultdict
 from datetime import datetime
+import gzip
 import hashlib
 import json
 import os
@@ -46,6 +47,15 @@ def checksum(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
+def copy_log(original, target, compressed):
+    reader = gzip.GzipFile(fileobj=original) if compressed else original
+    try:
+        shutil.copyfileobj(reader, target)
+    finally:
+        if compressed:
+            reader.close()
+
+
 def existing(base, labels, start, end):
     selector = "{" + ",".join(k + "=" + json.dumps(v) for k, v in sorted(labels.items())) + "}"
     parameters = {"query": selector, "start": str(start), "end": str(end),
@@ -77,13 +87,15 @@ def recover(config, apply):
         root.mkdir(mode=0o700)
         before = source.stat()
         with source.open("rb") as original, archived.open("xb") as target:
-            shutil.copyfileobj(original, target)
+            copy_log(original, target, source.suffix == ".gz")
             target.flush()
             os.fsync(target.fileno())
             after = os.fstat(original.fileno())
         if (before.st_ino, before.st_size, before.st_mtime_ns) != \
                 (after.st_ino, after.st_size, after.st_mtime_ns):
             raise RuntimeError("rotated source changed during preservation")
+        if archived.stat().st_size != config["uncompressed_bytes"]:
+            raise RuntimeError("preserved log size differs from observed rotated source")
         value = {"config": config, "sha256": checksum(archived), "size": archived.stat().st_size}
         with manifest.open("x") as output:
             json.dump(value, output, sort_keys=True)

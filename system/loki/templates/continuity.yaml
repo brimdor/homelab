@@ -12,7 +12,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: loki-log-{{ ternary "recover" "audit" .Values.maintenanceRecovery.continuityApply }}-20261019
+  name: loki-log-{{ ternary "recover" "audit" .Values.maintenanceRecovery.continuityApply }}-20261019-{{ .Values.maintenanceRecovery.continuityAttempt }}
 spec:
   backoffLimit: 0
   template:

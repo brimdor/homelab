@@ -2,6 +2,7 @@
 """Check timestamp fidelity, CRI refusal and complete query pagination."""
 
 import importlib.util
+import gzip
 import io
 import json
 from pathlib import Path
@@ -15,6 +16,14 @@ SPEC.loader.exec_module(CONTINUITY)
 
 
 class ContinuityTests(unittest.TestCase):
+    def test_gzip_preserves_exact_cri_bytes_and_source_handle(self):
+        content = b"1970-01-01T00:00:01Z stderr F original message\n"
+        original = io.BytesIO(gzip.compress(content))
+        target = io.BytesIO()
+        CONTINUITY.copy_log(original, target, compressed=True)
+        self.assertEqual(target.getvalue(), content)
+        self.assertFalse(original.closed)
+
     def test_nanosecond_timestamp_is_exact(self):
         self.assertEqual(CONTINUITY.timestamp("1970-01-01T00:00:01.123456789Z"), 1123456789)
         self.assertEqual(CONTINUITY.timestamp("1970-01-01T00:00:01.1Z"), 1100000000)

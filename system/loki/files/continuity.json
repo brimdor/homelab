@@ -1,7 +1,8 @@
 {
   "name": "continuity-argocd-20261019",
-  "file": "0.log.20261019-093236",
-  "inode": 162756,
+  "file": "0.log.20261019-093236.gz",
+  "inode": 168649,
+  "uncompressed_bytes": 10711098,
   "start": 1792419780000000000,
   "end": 1792421325000000000,
   "labels": {
