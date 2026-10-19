@@ -17,10 +17,11 @@ import urllib.request
 
 
 def timestamp(value):
-    match = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z", value)
+    match = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?(Z|[+-]\d\d:\d\d)", value)
     if not match:
         raise RuntimeError("invalid CRI timestamp")
-    seconds = calendar.timegm(datetime.strptime(match[1], "%Y-%m-%dT%H:%M:%S").timetuple())
+    seconds = calendar.timegm(datetime.strptime(match[1] + match[3],
+                                               "%Y-%m-%dT%H:%M:%S%z").utctimetuple())
     return seconds * 10**9 + int((match[2] or "").ljust(9, "0"))
 
 
@@ -75,13 +76,13 @@ def existing(base, labels, start, end):
     return set(rows)
 
 
-def recover(config, apply):
+def recover(config, apply, recovery_root=Path("/recovery"), source_root=Path("/source")):
     os.umask(0o077)
-    root = Path("/recovery") / config["name"]
+    root = recovery_root / config["name"]
     archived = root / "source.log"
     manifest = root / "manifest.json"
     if not manifest.exists():
-        source = Path("/source") / config["file"]
+        source = source_root / config["file"]
         if source.is_symlink() or not source.is_file() or source.stat().st_ino != config["inode"]:
             raise RuntimeError("rotated source identity changed")
         root.mkdir(mode=0o700)
