@@ -1,21 +1,3 @@
-ingress-nginx:
-  controller:
-    service:
-      enabled: false
-    # Keep status publication while the Service moves to the parent chart.
-    extraArgs:
-      publish-service: $(POD_NAMESPACE)/ingress-nginx-controller
-    ingressClassResource:
-      enabled: false
-    admissionWebhooks:
-      timeoutSeconds: 30
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: true
-  tcp:
-    22: gitea/gitea-ssh:22
-
 # Maintained controller; the existing public Service and Ingress class stay stable.
 traefik:
   fullnameOverride: ingress-traefik
