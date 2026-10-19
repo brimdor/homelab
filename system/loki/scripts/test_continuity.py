@@ -93,6 +93,22 @@ class ContinuityTests(unittest.TestCase):
         self.assertIn("start=0&end=5", urls[1])
         self.assertIn("start=6&end=10", urls[2])
 
+    def test_long_interval_queries_have_bounded_spans_without_overlap(self):
+        intervals = []
+
+        def response(url, timeout):
+            query = CONTINUITY.urllib.parse.parse_qs(CONTINUITY.urllib.parse.urlsplit(url).query)
+            intervals.append((int(query["start"][0]), int(query["end"][0])))
+            return io.BytesIO(b'{"status":"success","data":{"result":[]}}')
+
+        end = 1500 * 10**9
+        with patch.object(CONTINUITY.urllib.request, "urlopen", side_effect=response):
+            self.assertEqual(CONTINUITY.existing("http://example", {}, 0, end), set())
+        self.assertEqual(intervals[0][0], 0)
+        self.assertEqual(intervals[-1][1], end)
+        self.assertTrue(all(last - first <= 120 * 10**9 for first, last in intervals))
+        self.assertTrue(all(left[1] + 1 == right[0] for left, right in zip(intervals, intervals[1:])))
+
 
 if __name__ == "__main__":
     unittest.main()

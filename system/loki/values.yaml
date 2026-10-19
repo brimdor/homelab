@@ -21,6 +21,6 @@ maintenanceRecovery:
   restoreEnabled: false
   serviceVerifyEnabled: false
   continuityEnabled: true
-  continuityApply: true
-  continuityAttempt: 3
+  continuityApply: false
+  continuityAttempt: 4
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f

@@ -102,6 +102,11 @@ Do not rewrite historical schema periods or indexes.</p>
 and <a href="https://github.com/grafana/loki/blob/v2.6.1/pkg/loki/modules.go">registered 2.6.1 endpoints</a>.
 The newer ingester/shutdown endpoint is not assumed to exist in 2.6.1.</p>
 <h2>Rotated-file continuity acceptance</h2>
+<p>The recovery POSTs completed, but the subsequent full-interval query hit its
+60-second request timeout. A fresh audit must prove the result before another
+replay. Query the interval in contiguous, nonoverlapping spans of at most two
+minutes, retaining recursive pagination for full result pages. A query timeout
+never proves a failed write and never authorizes blind replay.</p>
 <p>Persistence adoption passed the isolated and production-service fixed query
 proofs; all seven collectors resumed with fresh ingestion. Position evidence must
 select the active labeled key: Alloy retains empty-label legacy fallback entries

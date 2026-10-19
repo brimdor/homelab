@@ -58,6 +58,10 @@ def copy_log(original, target, compressed):
 
 
 def existing(base, labels, start, end):
+    # Old Loki can exceed its request timeout on a full pause interval.
+    if end - start > 120 * 10**9:
+        middle = (start + end) // 2
+        return existing(base, labels, start, middle) | existing(base, labels, middle + 1, end)
     selector = "{" + ",".join(k + "=" + json.dumps(v) for k, v in sorted(labels.items())) + "}"
     parameters = {"query": selector, "start": str(start), "end": str(end),
                   "limit": "5000", "direction": "forward"}
