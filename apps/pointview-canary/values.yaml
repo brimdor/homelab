@@ -7,7 +7,7 @@ app-template:
       forceRename: pointview-canary
       type: deployment
       strategy: Recreate
-      replicas: 1
+      replicas: 0
       pod:
         securityContext: &pointview-pod-security
           runAsNonRoot: true
@@ -153,6 +153,7 @@ app-template:
       forceRename: pointview-canary-triage
       type: cronjob
       cronjob:
+        suspend: true
         schedule: "0 3 * * *"
         timeZone: America/Chicago
         concurrencyPolicy: Forbid
@@ -177,6 +178,7 @@ app-template:
       forceRename: pointview-canary-retention
       type: cronjob
       cronjob:
+        suspend: true
         schedule: "30 4 * * *"
         timeZone: America/Chicago
         concurrencyPolicy: Forbid
