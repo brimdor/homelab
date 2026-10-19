@@ -38,6 +38,29 @@ class RecoveryTests(unittest.TestCase):
         official = "docker.io/library/mariadb@sha256:" + "b" * 64
         self.assertEqual(recovery.pull_reference(official), official)
 
+    def test_docker_hub_name_normalization_preserves_registry_repository_and_digest(self):
+        checksum = "@sha256:" + "a" * 64
+        self.assertEqual(recovery.canonical_reference("mariadb" + checksum), "docker.io/library/mariadb" + checksum)
+        self.assertEqual(recovery.canonical_reference("registry.eaglepass.io/backlog_database" + checksum),
+                         "registry.eaglepass.io/backlog_database" + checksum)
+
+    def test_arm64_requires_the_existing_exact_handler_and_digest(self):
+        reference = "docker.io/library/mariadb@sha256:" + "a" * 64
+        image = {"Architecture": "arm64", "Os": "linux", "RepoDigests": ["mariadb@sha256:" + "a" * 64],
+                 "Config": {"Volumes": {"/var/lib/mysql": {}}}}
+        handler = "enabled\ninterpreter /usr/bin/qemu-aarch64-static\nflags: F\n"
+        with patch.object(Path, "read_text", return_value=handler):
+            self.assertEqual(recovery.require_image(image, reference)["architecture"], "arm64")
+        for changed in (handler.replace("enabled", "disabled"), handler.replace("flags: F", "flags: "),
+                        handler.replace("qemu-aarch64-static", "another-program")):
+            with patch.object(Path, "read_text", return_value=changed), self.assertRaises(RuntimeError):
+                recovery.require_image(image, reference)
+        for field, value in (("Architecture", "riscv64"), ("RepoDigests", ["mariadb@sha256:" + "b" * 64])):
+            altered = copy.deepcopy(image)
+            altered[field] = value
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                recovery.require_image(altered, reference)
+
     def test_network_privilege_namespace_device_and_mount_bypasses_fail(self):
         changes = {"NetworkMode": "host", "ReadonlyRootfs": False, "Privileged": True,
                    "CapDrop": [], "PidMode": "host", "IpcMode": "host", "UTSMode": "host", "UsernsMode": "host",

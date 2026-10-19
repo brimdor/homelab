@@ -12,6 +12,7 @@ import shlex
 import shutil
 import signal
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -38,6 +39,29 @@ def pull_reference(image):
     if image.startswith("10.0.20.11:32309/"):
         return "registry.eaglepass.io/" + image.split("/", 1)[1]
     return image
+
+
+def canonical_reference(reference):
+    repository, separator, checksum = reference.partition("@")
+    if "/" not in repository:
+        repository = "docker.io/library/" + repository
+    elif not any(c in repository.split("/", 1)[0] for c in (".", ":")):
+        repository = "docker.io/" + repository
+    return repository + separator + checksum
+
+
+def require_image(image, reference):
+    if (canonical_reference(reference) not in {canonical_reference(r) for r in image.get("RepoDigests", [])} or
+            image.get("Os") != "linux" or image.get("Architecture") not in ("amd64", "arm64") or
+            set(image["Config"].get("Volumes") or {}) != {"/var/lib/mysql"}):
+        raise RuntimeError("reviewed MariaDB image volume, digest or architecture changed")
+    if image["Architecture"] == "arm64":
+        # Reuse the already-installed handler; never install/register host emulation.
+        handler = Path("/proc/sys/fs/binfmt_misc/qemu-aarch64").read_text()
+        if not {"enabled", "interpreter /usr/bin/qemu-aarch64-static", "flags: F"}.issubset(handler.splitlines()):
+            raise RuntimeError("existing reviewed ARM64 emulation is unavailable")
+        return {"architecture": "arm64", "existing_binfmt_sha256": digest(handler.encode())}
+    return {"architecture": "amd64"}
 
 
 def remote(mode, run_id, *extra):
@@ -238,10 +262,10 @@ def restore(run_id, expected_manifest):
         common.docker("pull", reference)
         image = json.loads(common.docker("image", "inspect", reference).stdout)[0]
         image_id = image["Id"]
-        if reference not in image.get("RepoDigests", []) or image.get("Os") != "linux" or image.get("Architecture") != "amd64" or set(image["Config"].get("Volumes") or {}) != {"/var/lib/mysql"}:
-            raise RuntimeError("reviewed MariaDB image volume or architecture changed")
+        result["image_runtime"] = require_image(image, reference)
         result["stage"] = "container-isolation"
-        identity = common.docker("create", "--network=none", "--read-only", "--cap-drop=ALL", "--user=999:999",
+        identity = common.docker("create", "--platform=linux/" + image["Architecture"],
+                                 "--network=none", "--read-only", "--cap-drop=ALL", "--user=999:999",
                                  "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=256",
                                  "--cpus=1", "--memory=1g", "--label=" + LABEL + "=" + run_id,
                                  "--mount=type=bind,source=" + str(scratch / "data") + ",target=/var/lib/mysql",
@@ -258,6 +282,14 @@ def restore(run_id, expected_manifest):
         common.require_network(links, routes)
         if common.command([*network, "ip", "route", "get", "10.0.20.50"], check=False).returncode == 0:
             raise RuntimeError("restore can route to the production API")
+        header = common.docker("exec", identity, "head", "-c", "20", "/usr/sbin/mariadbd").stdout
+        expected_machine = 183 if image["Architecture"] == "arm64" else 62
+        if header[:6] != b"\x7fELF\x02\x01" or struct.unpack("<H", header[18:20])[0] != expected_machine:
+            raise RuntimeError("database executable differs from the reviewed image architecture")
+        version = common.docker("exec", identity, "mariadbd", "--version").stdout.decode()
+        found = re.search(r"\bVer (\d+\.\d+\.\d+)\b", version)
+        if not found or found[1] != manifest["before"]["version"].split("-", 1)[0]:
+            raise RuntimeError("isolated database executable version changed")
         result["stage"] = "fresh-initialization"
         common.docker("exec", identity, "mariadb-install-db", "--datadir=/var/lib/mysql",
                       "--auth-root-authentication-method=normal", "--skip-test-db")
