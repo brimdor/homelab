@@ -43,6 +43,12 @@ An EXIT/signal handler stops the owned local PostgreSQL server. Preserve real re
 data and private diagnostics after success or failure. Remove only the temporary Job,
 ConfigMap and NetworkPolicy through Git after recording evidence. Keep the reusable
 source helper and this specification. A rollback never removes NAS recovery material.</p>
+<p>After the successful rehearsal, replace its Job with a one-time cleanup Job. Require
+the exact recovery ownership marker, successful shutdown result and absent PID file.
+Remove only the known first failed backup attempt's empty, nonsymlink directory
+/mnt/user/postgres_backups/db/threads/.partial.1OIPAn, with owner/mode checks and bounded
+rmdir retries. Never remove directory contents or any backup/recovery data. Then retire
+the temporary Job, ConfigMap and NetworkPolicy through Git.</p>
 <h2>Primary documentation</h2>
 <p><a href="https://www.postgresql.org/docs/17/app-initdb.html">initdb</a> defines
 non-root ownership, locale and durable initialization;

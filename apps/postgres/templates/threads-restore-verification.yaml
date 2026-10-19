@@ -25,7 +25,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-threads-restore-verification
+  name: {{ .Release.Name }}-threads-restore-cleanup
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 600
@@ -54,7 +54,25 @@ spec:
       containers:
         - name: restore
           image: docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e
-          command: [/bin/bash, /scripts/verify-threads-restore.sh]
+          command:
+            - /bin/bash
+            - -ceu
+            - |
+              target=/backup/recovery-threads-20261019
+              [[ "$(cat "$target/.owner")" == homelab-threads-restore-20261019 ]]
+              [[ ! -e "$target/data/postmaster.pid" ]]
+              grep -Fx 'server_stopped=true' "$target/verified.txt" > /dev/null
+              old=/backup/db/threads/.partial.1OIPAn
+              [[ ! -L "$old" ]]
+              if [[ -e "$old" ]]; then
+                [[ -d "$old" && "$(stat -c '%a %u %g' "$old")" == '700 99 100' ]]
+                for delay in 0 1 2 3; do
+                  sleep "$delay"
+                  if rmdir -- "$old" 2>/dev/null; then break; fi
+                done
+              fi
+              [[ ! -e "$old" ]]
+              printf '%s\n' 'Owned empty backup directory removed; all recovery material retained.'
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
