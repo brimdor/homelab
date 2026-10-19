@@ -11,6 +11,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/podwave
             tag: "v1.0.3"
+            digest: sha256:6168b0fd487c4ed796590e9a4295102efad3412a712594bc33828f0c0c41321e
             pullPolicy: Always
           ports:
             - name: http
@@ -98,9 +99,19 @@ app-template:
           secretName: podwave-tls
   defaultPodOptions:
     annotations:
+      checksum/auth-logging-patch: d5ba863db155c0244e9e12790dde8c6577dc6b16669b2fd9a7e088adf118c277
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/thgauj67wkda7qutwsnezqbjra"
       operator.1password.io/item-name: "secrets"
   persistence:
+    auth-logging-patch:
+      type: configMap
+      name: podwave-auth-logging-patch
+      advancedMounts:
+        main:
+          main:
+            - path: /app/build/server/chunks/_server-B0v96ZDY.js
+              subPath: login.js
+              readOnly: true
     data:
       type: persistentVolumeClaim
       size: 5Gi

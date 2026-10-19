@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-auth-logging-patch
+data:
+  login.js: |-
+{{ .Files.Get "patches/login.js" | indent 4 }}
