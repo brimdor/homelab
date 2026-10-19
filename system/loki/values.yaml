@@ -12,6 +12,6 @@ alloy:
 
 maintenanceRecovery:
   enabled: true
-  backupEnabled: true
-  restoreEnabled: false
+  backupEnabled: false
+  restoreEnabled: true
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
