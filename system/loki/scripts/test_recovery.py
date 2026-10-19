@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 
 SPEC = importlib.util.spec_from_file_location("recovery", Path(__file__).with_name("recovery.py"))
 RECOVERY = importlib.util.module_from_spec(SPEC)
@@ -48,6 +49,18 @@ class StoreRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "manifest path"):
             RECOVERY.copy_verified(self.source, self.root / "unsafe", [{"path": "../escape"}])
         self.assertFalse((self.root / "escape").exists())
+
+    def test_service_verification_keeps_recovery_read_only(self):
+        proof = {"historical": {"rows": 100, "sha256": "proof"}}
+        value = {"timestamp": 123, "queries": proof, "manifest_sha256": "manifest"}
+        response = MagicMock()
+        response.__enter__.return_value.status = 200
+        with patch.object(RECOVERY, "recovery_point", return_value=(self.root, value)), \
+                patch.object(RECOVERY, "query_proof", return_value=proof) as query, \
+                patch.object(RECOVERY.urllib.request, "urlopen", return_value=response):
+            RECOVERY.verify(service=True)
+        query.assert_called_once_with("http://loki.loki:3100", 123)
+        self.assertFalse((self.root / "restore-proof.json").exists())
 
 
 if __name__ == "__main__":

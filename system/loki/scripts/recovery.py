@@ -207,9 +207,9 @@ def prepare():
     print(json.dumps({"restored_files": len(subtree), "source_manifest": value["manifest_sha256"]}), flush=True)
 
 
-def verify():
+def verify(service=False):
     root, value = recovery_point()
-    base = "http://127.0.0.1:3100"
+    base = "http://loki.loki:3100" if service else "http://127.0.0.1:3100"
     for _ in range(120):
         try:
             with urllib.request.urlopen(base + "/ready", timeout=5) as response:
@@ -224,16 +224,18 @@ def verify():
     if proof != value["queries"]:
         raise RuntimeError("restored query results differ")
     result = {"restored_queries_identical": True, "queries": proof,
-              "source_manifest_sha256": value["manifest_sha256"]}
-    with (root / "restore-proof.json").open("x") as output:
-        json.dump(result, output, sort_keys=True)
+              "source_manifest_sha256": value["manifest_sha256"],
+              "timestamp": value["timestamp"], "service": service}
+    if not service:
+        with (root / "restore-proof.json").open("x") as output:
+            json.dump(result, output, sort_keys=True)
     print(json.dumps(result), flush=True)
 
 
 if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["backup", "prepare", "verify"])
+    parser.add_argument("mode", choices=["backup", "prepare", "verify", "verify-service"])
     parser.add_argument("--source-uid")
     args = parser.parse_args()
     if args.mode == "backup":
@@ -243,4 +245,4 @@ if __name__ == "__main__":
     elif args.mode == "prepare":
         prepare()
     else:
-        verify()
+        verify(service=args.mode == "verify-service")
