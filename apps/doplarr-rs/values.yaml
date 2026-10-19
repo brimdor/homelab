@@ -18,7 +18,7 @@ image:
   #
   # NOTE: `main` is a single-arch (amd64) image. Do not schedule this
   # workload onto arm64 nodes until upstream publishes a multi-arch build.
-  tag: main
+  tag: main@sha256:512908a3144a419150e8d8ab581137e2bf764e632b244bbffae649cdcce7af88
   policy: IfNotPresent
 
 env:

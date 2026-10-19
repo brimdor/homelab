@@ -82,8 +82,9 @@ spec:
           {{- if .Values.lifecycle.preStopSleepSeconds }}
           lifecycle:
             preStop:
-              exec:
-                command: ["/bin/sh", "-c", "sleep {{ .Values.lifecycle.preStopSleepSeconds }}"]
+              # The image has no shell; kubelet preserves the shutdown wait.
+              sleep:
+                seconds: {{ .Values.lifecycle.preStopSleepSeconds }}
           {{- end }}
           volumeMounts:
             - name: config
