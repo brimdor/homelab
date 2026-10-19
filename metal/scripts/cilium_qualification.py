@@ -152,7 +152,12 @@ class Qualification:
             os.fchmod(output.fileno(), 0o600)
             output.write(raw)
         self.identity()
+        for suffix in ("-server-0", "-agent-0", "-agent-1"):
+            self.command(["docker", "exec", "k3d-" + self.args.name + suffix,
+                          "test", "-d", "/sys/fs/cgroup/kubepods"])
         values = {"operator": {"replicas": 1}, "kubeProxyReplacement": True,
+                  # Nested container automount selected the agent's empty subtree instead of the node's workloads.
+                  "cgroup": {"autoMount": {"enabled": False}, "hostRoot": "/sys/fs/cgroup"},
                   "l2announcements": {"enabled": True}, "k8sServiceHost": "127.0.0.1", "k8sServicePort": 6444,
                   "upgradeCompatibility": "1.15", "hubble": {"relay": {"enabled": True}, "ui": {"enabled": True}}}
         (self.work / "values.yaml").write_text(yaml.safe_dump(values))
@@ -178,6 +183,8 @@ class Qualification:
         if len(pods) != 3 or any(not all(c["ready"] for c in p["status"]["containerStatuses"]) for p in pods):
             raise RuntimeError("expected three ready Cilium agents")
         for pod in pods:
+            self.kubectl("exec", "-n", "kube-system", pod["metadata"]["name"], "--",
+                         "test", "-d", "/sys/fs/cgroup/kubepods", json_output=False)
             raw = self.kubectl("exec", "-n", "kube-system", pod["metadata"]["name"], "--",
                                "cilium-dbg", "version", json_output=False)
             if not re.search(rb"\b" + re.escape(version.encode()) + rb"\b", raw):
