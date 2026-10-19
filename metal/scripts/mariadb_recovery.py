@@ -119,9 +119,13 @@ def import_stream(data, namespace):
                b"/*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;\n\n"
                b"USE `#mysql50#lost+found`;\n\n")
     if (namespace != "jovo" or digest(data) != JOVO_EMPTY_DIRECTORY_DUMP_SHA256 or
-            data.count(marker) != 2 or data.count(section) != 1):
+            data.count(marker) != 3 or data.count(section) != 1):
         raise RuntimeError("unreviewed legacy directory section in recovery stream")
-    return data.replace(section, b"", 1), True
+    value = data.replace(section, b"", 1)
+    value, count = re.subn(rb"(?m)^USE `#mysql50#lost\+found`;\n\n(?=USE `)", b"", value, count=1)
+    if count != 1 or marker in value:
+        raise RuntimeError("unreviewed legacy routine directory section")
+    return value, True
 
 
 def require_image(image, reference):

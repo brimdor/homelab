@@ -78,9 +78,10 @@ class RecoveryTests(unittest.TestCase):
                    b"/*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;\n\n"
                    b"USE `#mysql50#lost+found`;\n\n")
         application = b"CREATE DATABASE `application`;\nUSE `application`;\nCREATE TABLE `t` (x int);\n"
-        dump = section + application
+        tail = b"USE `#mysql50#lost+found`;\n\nUSE `mysql`;\n"
+        dump = section + application + tail
         with patch.object(recovery, "JOVO_EMPTY_DIRECTORY_DUMP_SHA256", recovery.digest(dump)):
-            self.assertEqual(recovery.import_stream(dump, "jovo"), (application, True))
+            self.assertEqual(recovery.import_stream(dump, "jovo"), (application + b"USE `mysql`;\n", True))
             for changed, namespace in ((dump, "backlog"), (dump + b"extra", "jovo")):
                 with self.assertRaisesRegex(RuntimeError, "unreviewed legacy directory"):
                     recovery.import_stream(changed, namespace)
