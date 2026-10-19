@@ -19,11 +19,11 @@ maintenanceRecovery:
   cutoverBackupEnabled: false
   cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
-  transferEnabled: false
-  transferApply: true
+  transferEnabled: true
+  transferApply: false
   transferPhase: bulk
-  transferAttempt: 4
-  transferTargetPodUID: f2acd02d-cdd4-46e7-9bd0-29a9a3896b91
+  transferAttempt: 5
+  transferTargetPodUID: eaf2b16e-3fd3-4cef-b376-6872c6c4e3f0
 server:
   nameOverride: loki
   fullnameOverride: loki-supported
