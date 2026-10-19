@@ -79,7 +79,7 @@ spec:
         - name: prepare
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
           command: [python3, -B, /scripts/recovery.py, prepare]
-          args: [--point=pre-upgrade-20261019, --target-subdirectory=pre-upgrade-20261019-{{ $version }}]
+          args: [--point=pre-upgrade-offline-20261019, --target-subdirectory=pre-upgrade-offline-20261019-{{ $version }}]
           securityContext:
             runAsUser: 0
             readOnlyRootFilesystem: true
@@ -117,7 +117,7 @@ spec:
           volumeMounts:
             - name: target
               mountPath: {{ ternary "/data" "/var/loki" (eq $version "old") }}
-              subPath: pre-upgrade-20261019-{{ $version }}
+              subPath: pre-upgrade-offline-20261019-{{ $version }}
             - name: script
               mountPath: /scripts
               readOnly: true
@@ -127,7 +127,7 @@ spec:
         - name: verify
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
           command: [python3, -B, /scripts/recovery.py, {{ ternary "verify-readonly" "verify-candidate" (eq $version "old") }}]
-          args: [--point=pre-upgrade-20261019]
+          args: [--point=pre-upgrade-offline-20261019]
           securityContext:
             runAsUser: 0
             readOnlyRootFilesystem: true

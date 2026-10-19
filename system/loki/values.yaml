@@ -18,7 +18,7 @@ alloy:
 maintenanceRecovery:
   bufferEnabled: true
   coldCaptureEnabled: false
-  coldBackupEnabled: true
+  coldBackupEnabled: false
   enabled: true
   backupEnabled: false
   restoreEnabled: false
@@ -31,5 +31,5 @@ maintenanceRecovery:
   candidateEnabled: false
   candidatePrepared: true
   cutoverBackupEnabled: false
-  cutoverRestoreEnabled: false
+  cutoverRestoreEnabled: true
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f

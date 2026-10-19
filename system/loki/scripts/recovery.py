@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preserve a quiesced Loki emptyDir and prove an isolated restored query set."""
+"""Preserve a quiesced Loki store and prove an isolated restored query set."""
 
 import argparse
 import hashlib
@@ -259,10 +259,12 @@ if __name__ == "__main__":
     parser.add_argument("mode", choices=["backup", "prepare", "verify", "verify-service", "verify-candidate", "verify-readonly"])
     parser.add_argument("--source-uid")
     parser.add_argument("--source-pvc-uid")
-    parser.add_argument("--point", choices=["pre-pvc-20261019", "pre-upgrade-20261019"], default="pre-pvc-20261019")
-    parser.add_argument("--target-subdirectory", choices=["", "pre-upgrade-20261019-old", "pre-upgrade-20261019-new"], default="")
+    parser.add_argument("--point", choices=["pre-pvc-20261019", "pre-upgrade-20261019", "pre-upgrade-offline-20261019"], default="pre-pvc-20261019")
+    parser.add_argument("--target-subdirectory", choices=["", "pre-upgrade-20261019-old", "pre-upgrade-20261019-new", "pre-upgrade-offline-20261019-old", "pre-upgrade-offline-20261019-new"], default="")
     args = parser.parse_args()
     if args.mode == "backup":
+        if args.point == "pre-upgrade-offline-20261019":
+            parser.error("use the guarded cold_recovery workflow for an offline point")
         if not args.source_uid:
             parser.error("backup requires the exact source Pod UID")
         if (args.point == "pre-upgrade-20261019") != bool(args.source_pvc_uid):
