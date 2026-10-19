@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argo CD Redis metrics repair</title>
+<style>
+  :root { color-scheme: dark; background: #10151d; color: #e4eaf2; font: 16px/1.6 system-ui, sans-serif; }
+  body { max-width: 900px; margin: auto; padding: 2rem; }
+  h1, h2 { line-height: 1.2; } a { color: #8bc7ff; }
+  code, pre { background: #1d2735; } pre { padding: 1rem; overflow: auto; }
+</style>
+<body>
+<h1>Argo CD Redis metrics repair</h1>
+<p>Maintenance <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103</a>, ARGO_REDIS_METRICS, parent OBSERVABILITY.</p>
+<h2>Objective and baseline</h2>
+<p>Restore the existing Redis metrics Service and ServiceMonitor. Chart 9.5.18 separately defaults
+<code>redis.exporter.enabled=false</code>, while the repository enables metrics discovery.
+The live Pod has no named metrics port; port 9121 refuses connections.
+Redis is an ephemeral Argo cache: no persistent volume, snapshots disabled and append-only persistence disabled.</p>
+<h2>Structure and style</h2>
+<p>Enable the chart's exporter in <code>system/argocd/values.yaml</code>. Preserve the Redis image,
+password reference, Service, ServiceMonitor, network policies and chart versions. Use nested YAML:</p>
+<pre>redis:
+  exporter:
+    enabled: true
+  metrics: *metrics</pre>
+<p>Pin the installed chart's exporter version v1.84.0 to verified GHCR index digest
+<code>sha256:7ef8e9c26638158fa4e7ad60df8c7e53d1919986753d6c1d2d1876b6ec38d87b</code>.
+The chart supplies its existing Redis Secret reference to the exporter without exposing the value.
+<a href="https://github.com/oliver006/redis_exporter/releases/tag/v1.84.0">Official exporter release</a>.</p>
+<h2>Plan, commands and acceptance</h2>
+<ol>
+  <li>Inspect the exact chart template and registry manifest. Record current Deployment/Pod identities and cache storage.</li>
+  <li>Render and lint an isolated chart copy. Require only the Redis Deployment to change,
+  adding one metrics container with named port 9121 and the existing Secret reference.
+  Require the original Redis container and all other objects to remain identical.</li>
+  <li>Run scoped pre-commit, commit/push canonical Gitea master, immediately refresh Argo and wait for health.</li>
+  <li>Prove both Redis Pod containers ready, exporter <code>redis_up 1</code>, successful Prometheus scrape,
+  allowed Argo cache/RPC traffic, independent reconciliation and public health. Retain original CORE findings.</li>
+</ol>
+<pre>helm dependency update "$chart_copy"
+helm lint "$chart_copy"
+helm template argocd "$chart_copy" --namespace argocd
+pre-commit run --files system/argocd/values.yaml specs/argocd-redis-metrics.html
+git diff --check
+argocd --core app get argocd --refresh
+argocd --core app wait argocd --sync --health --timeout 600
+kubectl -n argocd rollout status deployment/argocd-redis --timeout=600s
+python3 scripts/homelab-health.py --json --expected-revision "$deployed_commit"</pre>
+<h2>Boundaries and rollback</h2>
+<p>Always preserve unrelated edits, inspect the rendered diff and apply through repository-owned GitOps.
+The existing Redis cache Pod rolls; no durable database migration or backup restore is involved.
+Separate approval gates still apply to changes outside this task. Never print credentials, change persistence,
+disable the NetworkPolicy fix, edit live resources or trigger unrelated application writes.</p>
+<p>If acceptance fails, record the exact condition. Revert the exact exporter commit, validate, push master
+and verify Argo recovery. Do not replace Git recovery with manual Helm or live edits.
+Whole maintenance remains open until its other tasks and six-layer gates pass.</p>
+</body>
+</html>
