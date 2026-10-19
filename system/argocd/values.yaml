@@ -1,5 +1,8 @@
 argo-cd:
   global:
+    # GHSA-47m3-95c7-g2g8: restrict repository RPC to Argo peers.
+    networkPolicy:
+      create: true
     # Take the same-branch security fixes without changing the chart schema.
     image:
       tag: v3.4.11

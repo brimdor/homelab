@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argo CD repository ingress policy</title>
+<style>
+  :root { color-scheme: dark; background: #10151d; color: #e4eaf2; font: 16px/1.6 system-ui, sans-serif; }
+  body { max-width: 900px; margin: auto; padding: 2rem; }
+  h1, h2 { line-height: 1.2; } a { color: #8bc7ff; }
+  code, pre { background: #1d2735; } pre { padding: 1rem; overflow: auto; }
+</style>
+<body>
+<h1>Argo CD repository ingress policy</h1>
+<p>Maintenance issue <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103</a>,
+task ARGO_NETWORK_POLICY, prerequisite to PR_REVIEW and CHART_MINOR_UPDATES.</p>
+<h2>Objective and evidence</h2>
+<p>Apply the official workaround for
+<a href="https://github.com/argoproj/argo-helm/security/advisories/GHSA-47m3-95c7-g2g8">GHSA-47m3-95c7-g2g8</a>
+on chart 9.5.18. On October 19, 2026 UTC, argocd had no NetworkPolicies.
+A zero-payload TCP probe from the existing Radarr Pod reached repository RPC port 8081.
+This proves reachability, not exploitation. The issue authorizes separating security fixes from major upgrades.</p>
+<h2>Structure and style</h2>
+<p>Only <code>system/argocd/values.yaml</code> changes desired state. This specification records the contract.
+Use the installed chart's existing nested YAML schema:</p>
+<pre>argo-cd:
+  global:
+    networkPolicy:
+      create: true</pre>
+<h2>Plan and acceptance</h2>
+<ol>
+  <li>Render the pinned chart before and after the flag. Require exactly four added ingress policies
+  and equality of all 56 existing resources. No image, Pod template, storage, schema or credential change.</li>
+  <li>Verify policy destinations, allowed Argo peers and named RPC/Redis/metrics ports against live Pods.
+  The existing Redis metrics Service references a missing named Pod port; preserve and report that separate finding.</li>
+  <li>Run scoped quality checks, commit only these files, push canonical Gitea master and immediately refresh Argo.</li>
+  <li>Require Synced and Healthy at the applied commit, unchanged ready Pod UIDs,
+  successful manifest reconciliation, existing reachable metrics and public HTTPS.
+  Require the same Radarr-to-repository TCP probe to time out after Cilium enforcement.</li>
+  <li>Retain the original CORE report and record existing findings separately from regressions.
+  Update the maintenance issue with exact evidence. This task alone does not establish whole-cluster GREEN.</li>
+</ol>
+<h2>Commands and testing</h2>
+<p>Run Helm commands on an isolated copy of <code>system/argocd</code>, with disposable output and caches
+outside the source tree. Inspect rendered objects in memory; do not retain rendered Secrets.</p>
+<pre>helm dependency update "$chart_copy"
+helm lint "$chart_copy"
+helm template argocd "$chart_copy" --namespace argocd
+pre-commit run --files system/argocd/values.yaml specs/argocd-network-policy.html
+git diff --check
+argocd --core app get argocd --refresh
+argocd --core app wait argocd --sync --health --timeout 600
+kubectl -n argocd get networkpolicies
+kubectl -n argocd get pods
+python3 scripts/homelab-health.py --json --expected-revision "$deployed_commit"</pre>
+<h2>Boundaries and recovery</h2>
+<p>Always use repository-first GitOps and preserve unrelated edits. The chart policies restrict repository
+RPC and Redis to named Argo peers, allow metrics across namespaces, and leave server ingress unrestricted.
+They introduce neither egress restriction nor namespace-wide default deny. ApplicationSet and notification
+Pods remain unselected with the current chart settings.</p>
+<p>Separate PR merge and release approvals still apply. Never deploy conflicted PR108, change chart/image versions,
+delete live policies, edit cluster workloads or trigger application writes as part of this task.</p>
+<p>Validate controller-to-repository selectors before rollout to preserve Git recovery. If acceptance fails,
+stop dependent changes, record the exact fault, revert the exact policy commit in Git, validate, push master
+and verify reconciliation. A blocked Git recovery path requires reporting and diagnosis; it does not authorize live edits.</p>
+</body>
+</html>
