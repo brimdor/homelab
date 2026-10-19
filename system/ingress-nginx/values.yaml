@@ -16,7 +16,7 @@ ingress-nginx:
   tcp:
     22: gitea/gitea-ssh:22
 
-# Parallel successor: no public Service selector or Ingress status changes yet.
+# Maintained controller; the existing public Service and Ingress class stay stable.
 traefik:
   fullnameOverride: ingress-traefik
   image:
@@ -48,7 +48,8 @@ traefik:
       controllerClass: k8s.io/ingress-nginx
       ingressClass: nginx
       publishService:
-        enabled: false
+        enabled: true
+        pathOverride: ingress-nginx/ingress-nginx-controller
       # Match the current NGINX request-buffering default.
       proxyRequestBuffering: true
     file:
@@ -114,13 +115,12 @@ traefik:
                 app.kubernetes.io/name: traefik
             topologyKey: kubernetes.io/hostname
 
-# Keep the public Service identity while controllers are validated in parallel.
+# Keep the public Service identity and address when switching controllers.
 publicService:
   selector:
-    app.kubernetes.io/name: ingress-nginx
-    app.kubernetes.io/instance: ingress-nginx
-    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: ingress-nginx-ingress-nginx
   targetPorts:
-    http: http
-    https: https
-    ssh: 22-tcp
+    http: web
+    https: websecure
+    ssh: ssh

@@ -375,16 +375,43 @@ def verify_ingress():
     svc = get("/api/v1/namespaces/ingress-nginx/services/ingress-nginx-controller")
     require(svc["spec"]["type"] == "LoadBalancer" and
             {v.get("ip") for v in svc["status"]["loadBalancer"]["ingress"]} == {ADDRESS}, "Ingress IP ownership changed")
-    require(any(p["port"] == 22 and p["protocol"] == "TCP" and p["targetPort"] == "22-tcp"
-                for p in svc["spec"]["ports"]), "Ingress TCP 22 binding missing")
-    cm = get("/api/v1/namespaces/ingress-nginx/configmaps/ingress-nginx-tcp")
-    require(cm.get("data", {}).get("22") == "gitea/gitea-ssh:22", "Gitea SSH target changed")
-    deploy = get("/apis/apps/v1/namespaces/ingress-nginx/deployments/ingress-nginx-controller")
+    expected_selector = {"app.kubernetes.io/name": "traefik",
+                         "app.kubernetes.io/instance": "ingress-nginx-ingress-nginx"}
+    require(svc["spec"].get("selector") == expected_selector, "Ingress controller ownership changed")
+    ports = {p["port"]: (p["protocol"], p["targetPort"]) for p in svc["spec"]["ports"]}
+    require(ports == {80: ("TCP", "web"), 443: ("TCP", "websecure"), 22: ("TCP", "ssh")},
+            "Ingress public port bindings changed")
+    cm = get("/api/v1/namespaces/ingress-nginx/configmaps/ingress-traefik-file-provider")
+    # Fail closed if the pinned chart changes this reviewed file-provider representation.
+    expected_config = """tcp:
+  routers:
+    gitea-ssh:
+      entryPoints:
+      - ssh
+      rule: HostSNI(`*`)
+      service: gitea-ssh
+  services:
+    gitea-ssh:
+      loadBalancer:
+        servers:
+        - address: gitea-ssh.gitea.svc.cluster.local:2222"""
+    require(cm.get("data") == {"config.yml": expected_config}, "Gitea SSH route changed")
+    gitea = get("/api/v1/namespaces/gitea/services/gitea-ssh")
+    require(gitea["spec"].get("clusterIP") == "None" and
+            any(p["port"] == 22 and p["protocol"] == "TCP" and p["targetPort"] == 2222
+                for p in gitea["spec"]["ports"]), "Headless Gitea SSH target changed")
+    deploy = get("/apis/apps/v1/namespaces/ingress-nginx/deployments/ingress-traefik")
+    require(deploy["spec"]["selector"]["matchLabels"] == expected_selector, "Ingress Deployment ownership changed")
     args = [a for c in deploy["spec"]["template"]["spec"]["containers"] for a in c.get("args", [])]
-    require(any(a in ("--tcp-services-configmap=$(POD_NAMESPACE)/ingress-nginx-tcp",
-                      "--tcp-services-configmap=ingress-nginx/ingress-nginx-tcp") for a in args),
-            "Controller does not consume the expected TCP ConfigMap")
-    return {"service_uid": svc["metadata"]["uid"], "address": ADDRESS, "ssh_target": "gitea/gitea-ssh:22"}
+    require("--providers.file.directory=/etc/traefik/dynamic" in args and
+            "--providers.kubernetesingressnginx" in args, "Controller does not consume the expected providers")
+    desired, status = deploy["spec"].get("replicas", 1), deploy.get("status", {})
+    require(desired > 0 and status.get("observedGeneration", 0) >= deploy["metadata"]["generation"] and
+            status.get("availableReplicas", 0) >= desired and status.get("readyReplicas", 0) >= desired,
+            "Ingress controller rollout is not ready")
+    return {"service_uid": svc["metadata"]["uid"], "address": ADDRESS,
+            "ssh_target": "gitea-ssh.gitea.svc.cluster.local:2222"}
+
 
 
 def protected_directory(path, *, create=False):

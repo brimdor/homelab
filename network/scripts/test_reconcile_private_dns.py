@@ -446,6 +446,86 @@ class BoundaryTests(unittest.TestCase):
             dns.git_gate()
 
 
+class IngressSuccessorTests(unittest.TestCase):
+    def fixture(self):
+        selector = {"app.kubernetes.io/name": "traefik",
+                    "app.kubernetes.io/instance": "ingress-nginx-ingress-nginx"}
+        config = """tcp:
+  routers:
+    gitea-ssh:
+      entryPoints:
+      - ssh
+      rule: HostSNI(`*`)
+      service: gitea-ssh
+  services:
+    gitea-ssh:
+      loadBalancer:
+        servers:
+        - address: gitea-ssh.gitea.svc.cluster.local:2222"""
+        return {
+            "/api/v1/namespaces/ingress-nginx/services/ingress-nginx-controller": {
+                "metadata": {"uid": "retained-service"},
+                "spec": {"type": "LoadBalancer", "selector": selector,
+                         "ports": [{"port": port, "protocol": "TCP", "targetPort": target}
+                                   for port, target in [(80, "web"), (443, "websecure"), (22, "ssh")]]},
+                "status": {"loadBalancer": {"ingress": [{"ip": dns.ADDRESS}]}}},
+            "/api/v1/namespaces/ingress-nginx/configmaps/ingress-traefik-file-provider": {
+                "data": {"config.yml": config}},
+            "/api/v1/namespaces/gitea/services/gitea-ssh": {
+                "spec": {"clusterIP": "None", "ports": [{"port": 22, "protocol": "TCP", "targetPort": 2222}]}},
+            "/apis/apps/v1/namespaces/ingress-nginx/deployments/ingress-traefik": {
+                "metadata": {"generation": 4},
+                "spec": {"replicas": 2, "selector": {"matchLabels": selector},
+                         "template": {"spec": {"containers": [{"args": [
+                             "--providers.file.directory=/etc/traefik/dynamic",
+                             "--providers.kubernetesingressnginx"]}]}}},
+                "status": {"observedGeneration": 4, "readyReplicas": 2, "availableReplicas": 2}}}
+
+    def verify(self, objects):
+        def read(args):
+            self.assertNotIn("apply", args)
+            self.assertNotIn("patch", args)
+            if "config" in args:
+                return b"https://10.0.20.50:6443"
+            if "version" in args:
+                return json.dumps({"serverVersion": {"major": "1", "minor": "33"},
+                                   "clientVersion": {"major": "1", "minor": "34"}}).encode()
+            return json.dumps(objects[args[-1]]).encode()
+        with patch.object(dns, "run", side_effect=read):
+            return dns.verify_ingress()
+
+    def test_retained_public_service_and_headless_target(self):
+        result = self.verify(self.fixture())
+        self.assertEqual(result["service_uid"], "retained-service")
+        self.assertEqual(result["ssh_target"], "gitea-ssh.gitea.svc.cluster.local:2222")
+
+    def test_wrong_address_selector_port_backend_or_unready_rollout_refused(self):
+        for fault in ("address", "selector", "port", "backend", "headless", "providers", "readiness", "generation"):
+            with self.subTest(fault=fault):
+                objects = copy.deepcopy(self.fixture())
+                svc = objects["/api/v1/namespaces/ingress-nginx/services/ingress-nginx-controller"]
+                deploy = objects["/apis/apps/v1/namespaces/ingress-nginx/deployments/ingress-traefik"]
+                if fault == "address":
+                    svc["status"]["loadBalancer"]["ingress"][0]["ip"] = "10.0.20.227"
+                elif fault == "selector":
+                    svc["spec"]["selector"] = {"app.kubernetes.io/name": "ingress-nginx"}
+                elif fault == "port":
+                    svc["spec"]["ports"][-1]["targetPort"] = "22-tcp"
+                elif fault == "backend":
+                    cm = objects["/api/v1/namespaces/ingress-nginx/configmaps/ingress-traefik-file-provider"]
+                    cm["data"]["config.yml"] = cm["data"]["config.yml"].replace(":2222", ":22")
+                elif fault == "headless":
+                    objects["/api/v1/namespaces/gitea/services/gitea-ssh"]["spec"]["ports"][0]["targetPort"] = 22
+                elif fault == "providers":
+                    deploy["spec"]["template"]["spec"]["containers"][0]["args"] = []
+                elif fault == "readiness":
+                    deploy["status"]["readyReplicas"] = 1
+                else:
+                    deploy["status"]["observedGeneration"] = 3
+                with self.assertRaises(dns.Refusal):
+                    self.verify(objects)
+
+
 class RecoveryTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="private-dns-tests-", dir=os.environ.get("TMPDIR"))
