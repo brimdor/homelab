@@ -8,3 +8,96 @@ ingress-nginx:
         enabled: true
   tcp:
     22: gitea/gitea-ssh:22
+
+# Parallel successor: no public Service selector or Ingress status changes yet.
+traefik:
+  fullnameOverride: ingress-traefik
+  image:
+    registry: docker.io
+    repository: library/traefik
+    tag: v3.7.15
+    digest: sha256:0f6150202bc1fed72a7bd2107460eaa510e5b8a905f3fdb5b84f2c8619c33368
+  deployment:
+    replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  ingressClass:
+    enabled: false
+  api:
+    dashboard: false
+  global:
+    checkNewVersion: false
+    sendAnonymousUsage: false
+  providers:
+    kubernetesCRD:
+      enabled: false
+    kubernetesIngress:
+      enabled: false
+    kubernetesGateway:
+      enabled: false
+    kubernetesIngressNGINX:
+      enabled: true
+      controllerClass: k8s.io/ingress-nginx
+      ingressClass: nginx
+      publishService:
+        enabled: false
+      # Match the current NGINX request-buffering default.
+      proxyRequestBuffering: true
+    file:
+      enabled: true
+      content:
+        tcp:
+          routers:
+            gitea-ssh:
+              entryPoints: [ssh]
+              rule: HostSNI(`*`)
+              service: gitea-ssh
+          services:
+            gitea-ssh:
+              loadBalancer:
+                servers:
+                  - address: gitea-ssh.gitea.svc.cluster.local:22
+  ports:
+    web:
+      transport:
+        respondingTimeouts:
+          readTimeout: 3600s
+          writeTimeout: 3600s
+          idleTimeout: 3600s
+    websecure:
+      transport:
+        respondingTimeouts:
+          readTimeout: 3600s
+          writeTimeout: 3600s
+          idleTimeout: 3600s
+    ssh:
+      port: 2222
+      exposedPort: 22
+      expose:
+        default: true
+      protocol: TCP
+  service:
+    spec:
+      type: ClusterIP
+  metrics:
+    prometheus:
+      service:
+        enabled: true
+      serviceMonitor:
+        enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+            topologyKey: kubernetes.io/hostname
