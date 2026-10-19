@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Fedora 44 compatibility audit — Maintenance 103</title>
+  <style>
+    :root { color-scheme: dark; background: #10151d; color: #e1e8f1; font: 16px/1.6 system-ui, sans-serif; }
+    body { max-width: 1120px; margin: auto; padding: 32px 20px 72px; }
+    h1, h2 { line-height: 1.25; color: #f2f6ff; }
+    h2 { margin-top: 2rem; } a { color: #8dc8ff; }
+    code { overflow-wrap: anywhere; color: #c5e6ff; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #394657; padding: 12px; text-align: left; vertical-align: top; }
+    th { background: #1e2938; } .status { border-left: 4px solid #e6b75c; padding: 12px 18px; background: #20232a; }
+    .muted { color: #b5c0d0; } li { margin: .45rem 0; }
+    @media (max-width: 700px) { table { display: block; overflow-x: auto; } }
+  </style>
+</head>
+<body>
+<main>
+  <p class="muted">Maintenance <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103</a> · 2026-10-19 · PXE_OS_TARGET</p>
+  <h1>Fedora 44: media selected, compatibility audited</h1>
+  <p class="status"><strong>Planning scope complete with findings. Installation and in-place upgrade remain unvalidated.</strong>
+    This audit supplies the missing kickstart, Ansible and GPU repository review for PXE_OS_TARGET.
+    It does not resolve A1, K3S_CILIUM, METAL_STORAGE_PATH or RECOVERY_PROOF.</p>
+  <p>Repository baseline: <a href="https://git.eaglepass.io/ops/homelab/src/commit/bfaf6d9d5dec39f5fb6dcdee6311a18711051608">bfaf6d9d5dec39f5fb6dcdee6311a18711051608</a>.
+    The linked repository files are the evidence for local assumptions. Upstream sources below were read on the audit date.
+    No provisioning, package transaction, reboot, node drain or NAS operation forms part of this audit.</p>
+
+  <h2>Media and support window</h2>
+  <p><a href="../metal/roles/pxe_server/defaults/main.yml">PXE defaults</a> pin
+    <code>Fedora-Server-dvd-x86_64-44-1.7.iso</code> from Fedora's release tree, SHA256
+    <code>85837793bfa36db6bc709b4cecd2ec116951b87d9c53c3d95eb2fac8dcf7cf1f</code>.
+    Commit <code>94879b3b</code> and the <a href="../plans/homelab-os-upgrade.md">conditional OS runbook</a>
+    record the prior signed checksum verification. Fedora's <a href="https://fedoraproject.org/server/download/">current Server download page</a>
+    identifies the same release and checksum verification procedure. This audit did not download or boot the ISO.</p>
+  <p>Fedora's <a href="https://fedoraproject.org/wiki/Fedora_Release_Life_Cycle/ko">lifecycle policy</a>
+    ends maintenance four weeks after the next-but-one release. Fedora 44's support therefore extends to four weeks after
+    Fedora 46's actual release; an exact future calendar date is not asserted. Recheck lifecycle and media at execution.</p>
+
+  <h2>Assumptions and dispositions</h2>
+  <table>
+    <thead><tr><th scope="col">Area and repository evidence</th><th scope="col">Finding</th><th scope="col">Required disposition</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Kickstart disk and root<br><a href="../metal/roles/pxe_server/templates/kickstart.ks.j2">kickstart.ks.j2</a></th>
+        <td><code>clearpart --all</code>, fixed EFI/root partitions and a remaining-space partition created with raw disk commands are destructive.
+          Disk errors are suppressed with <code>|| true</code>; <code>%post --erroronfail</code> cannot detect those suppressed failures.</td>
+        <td>Exclude this path from maintenance. A future fresh installation needs an independently approved exact-disk plan,
+          explicit partition identities and verified failure handling. Never invoke it as upgrade recovery.</td></tr>
+      <tr><th scope="row">Kickstart post-install context</th>
+        <td><code>%post</code> lacks <code>--nochroot</code>, yet creates paths under <code>/mnt/sysimage</code> and chroots there again.
+          <a href="https://pykickstart.readthedocs.io/en/latest/sections.html">Pykickstart documents that ordinary post-install scripts already run in the installed-system chroot</a>.</td>
+        <td>The script's comments conflict with the documented execution context. Correct the context and prove SSH/hostname behavior
+          in an isolated future installation before declaring fresh-install readiness.</td></tr>
+      <tr><th scope="row">Kickstart packages and security</th>
+        <td><code>#version=RHEL8</code>, <code>@^custom-environment</code>, a DVD-derived repository, disabled SELinux and disabled firewall remain declared.
+          Fedora's <a href="https://fedoraproject.org/wiki/Changes/Switch_Anaconda_installer_to_DNF5">Anaconda DNF5 change</a>
+          targeted Fedora 43; older installer behavior cannot be assumed for 44.</td>
+        <td>Validate the exact Fedora 44 parser, package environment and repository metadata in an isolated installation.
+          Review the security policy explicitly. A version comment or YAML syntax pass proves neither acceptance nor security.</td></tr>
+      <tr><th scope="row">PXE controller and host selection<br><a href="../metal/roles/pxe_server/tasks/main.yml">PXE tasks</a>, <a href="../metal/Makefile">Makefile</a></th>
+        <td>The controller requires Linux Docker host networking, writes/extracts ISO data and starts a built PXE stack.
+          The role renders every <code>groups['metal']</code> host. The first Makefile PXE invocation does not use <code>limit_arg</code>.</td>
+        <td>Do not run these targets during in-place maintenance or on this Mac as a validation shortcut.
+          Future provisioning must separately review DHCP/PXE exposure, generated host set and controller state.</td></tr>
+      <tr><th scope="row">Pinned Ansible toolchain<br><a href="../flake.nix">flake.nix</a>, <a href="../flake.lock">flake.lock</a></th>
+        <td>The lock selects nixpkgs <code>b0b2c5445c64191fd8d0b31f2b1a34e45a64547d</code>.
+          Its <a href="https://github.com/NixOS/nixpkgs/blob/b0b2c5445c64191fd8d0b31f2b1a34e45a64547d/pkgs/top-level/all-packages.nix">ansible alias</a>
+          selects core 2.15, whose <a href="https://github.com/NixOS/nixpkgs/blob/b0b2c5445c64191fd8d0b31f2b1a34e45a64547d/pkgs/development/python-modules/ansible/core.nix">definition pins 2.15.5</a>.
+          Fedora 44's <a href="https://packages.fedoraproject.org/pkgs/python3.14/python3/fedora-44.html">Python package is 3.14</a>;
+          the <a href="https://docs.ansible.com/projects/ansible/latest/reference_appendices/release_and_maintenance.html">Ansible matrix</a>
+          limits core 2.15 targets to Python 3.11 and marks it EOL.</td>
+        <td>This pinned shell does not establish Fedora 44 automation compatibility. Select a maintained controller/core/collection tuple
+          supporting Python 3.14 (the current matrix includes core 2.20 and 2.21), then validate porting changes and roles.
+          This source audit does not claim which Ansible binary an operator currently has installed.</td></tr>
+      <tr><th scope="row">DNF and updater actors<br><a href="../metal/roles/automatic_upgrade/tasks/main.yml">automatic upgrade</a>,
+        <a href="../metal/roles/cronjobs/tasks/main.yml">cron jobs</a>, <a href="../metal/nodes.yml">node roles</a></th>
+        <td>Roles mix short-name <code>dnf</code>, direct DNF commands and a raw libdnf5 bootstrap. The updater still installs
+          <code>dnf-automatic</code>/<code>dnf-utils</code> and enables <code>dnf-automatic.timer</code>.
+          Cron writes reboot sentinels three times weekly. <a href="https://docs.ansible.com/projects/ansible/latest/collections/ansible/builtin/dnf5_module.html">Ansible's DNF5 module requires python3-libdnf5</a>.</td>
+        <td>Audit package/timer names, selected backend, collection compatibility and DNF4-to-DNF5 behavior for each OS hop.
+          Coordinate every reboot/update actor under one workflow before a node transaction. Existing roles are not that workflow.</td></tr>
+      <tr><th scope="row">GPU repositories and packages<br><a href="../metal/roles/virtualization/tasks/gpu_install_drivers.yml">GPU tasks</a></th>
+        <td>The role updates all packages, reboots independently, chooses repositories by Fedora release, installs a DNF module driver target,
+          and hardcodes CUDA 12.6 while accepting install exit 1. NVIDIA's <a href="https://docs.nvidia.com/cuda/archive/12.6.3/cuda-installation-guide-linux/index.html">CUDA 12.6.3 matrix</a>
+          lists Fedora 39, not 44. Its GCC ceiling is 13.2.</td>
+        <td>Do not reuse these tasks for the upgrade. Current <a href="https://docs.nvidia.com/cuda/cuda-installation-guide-linux/">CUDA 13.4 documentation</a>
+          lists Fedora 44, but that does not certify CUDA 12.6 or this role. Current <a href="https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/fedora.html">Fedora driver guidance</a>
+          uses package-based installation and matched kernel development headers. Prove exact driver/kernel/GPU-model compatibility before selecting replacements.</td></tr>
+      <tr><th scope="row">Runtime and network identity<br><a href="../metal/inventories/prod.yml">inventory</a>,
+        <a href="../system/gpu-operator/values.yaml">GPU ownership</a>, <a href="../plans/homelab-os-upgrade.md">OS runbook</a></th>
+        <td>Inventory names RTX 3090 and GTX 1650 hosts; operator-managed drivers are disabled.
+          Repository pins remain k3s 1.33.6, Cilium 1.15.1 and GPU Operator 24.9.2.
+          The prior host audit found three actual network interfaces different from inventory's <code>eno1</code>.</td>
+        <td>Preserve actual network identity and host-managed drivers. No supported whole-stack Fedora 44 tuple has been proven.
+          CSI, quorum, hardware-path, recovery, scheduling and application acceptance gates remain required.</td></tr>
+    </tbody>
+  </table>
+  <h2>Execution boundary and next work</h2>
+  <p>The owner requires in-place upgrades, one node at a time, with existing data and identities preserved;
+    no PXE, reinstall, repartition or NAS write/restore probes. The existing
+    <a href="../plans/homelab-os-upgrade.md">conditional runbook</a> retains that direction and the missing recovery evidence.
+    A signed installer image supplies media integrity evidence only.</p>
+  <ol>
+    <li>Implement and validate a maintained, pinned Ansible/Python/collection toolchain and per-hop DNF behavior separately from provisioning.</li>
+    <li>Complete the exact OS/kernel/k3s/Cilium/GPU/CSI transition matrix and isolated failure/resume verification.</li>
+    <li>Retain the storage-path and recovery gates on disruptive execution. Do not re-request a recovery destination the owner declined.</li>
+  </ol>
+  <p class="muted">Audit method: repository/source review and official documentation research. No claim of ISO boot,
+    kickstart parser execution, Ansible execution, driver installation, or six-layer GREEN is made.</p>
+</main>
+</body>
+</html>
