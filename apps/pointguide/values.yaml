@@ -346,3 +346,11 @@ app-template:
       operator.1password.io/item-name: pointguide-secrets
     labels:
       pointguide.eaglepass.io/track: production
+
+postgresMigration:
+  enabled: true
+  nodeName: totodile
+  role: pointguide
+  manifest: "b3eb1ecd1ec09e9d1e0c57b293840ac1e81734e43321e62e21c4dbddd584beaa"
+  globals: "708fc62360eed3ace5bc1674538b000498a2ec23f86791a5a24f8413d7396a85"
+  archive: "24f32f4451177407aa485a80d44816c7848f4d8675cfc009c72820afd3d07227"
