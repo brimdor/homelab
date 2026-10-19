@@ -337,10 +337,11 @@ def restore(run_id, expected_manifest):
             target.chmod(0o600)
             os.chown(target, 1001, 1001)
             count = checked_keys(common.docker("exec", identity, "valkey-check-rdb", mount + "/dump.rdb", check=False))
-            common.docker("exec", "-d", identity, "valkey-server", "--port=0", "--cluster-enabled=no",
-                          "--dir=" + mount, "--dbfilename=dump.rdb", "--unixsocket=/tmp/recovery.sock",
-                          "--unixsocketperm=700",
-                          "--pidfile=/tmp/recovery.pid", "--appendonly=no", "--save", "", "--logfile=/tmp/recovery.log")
+            common.docker("exec", identity, "valkey-server", "--daemonize", "yes", "--port", "0",
+                          "--cluster-enabled", "no", "--dir", mount, "--dbfilename", "dump.rdb",
+                          "--unixsocket", "/tmp/recovery.sock", "--unixsocketperm", "700",
+                          "--pidfile", "/tmp/recovery.pid", "--appendonly", "no", "--save", "",
+                          "--logfile", "/tmp/recovery.log")
             def cli(*args, check=True):
                 return common.docker("exec", identity, "valkey-cli", "--raw", "-s", "/tmp/recovery.sock", *args, check=check)
             for _ in range(120):
