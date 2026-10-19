@@ -28,6 +28,13 @@ database contents remain inside protected cluster storage. No NAS access.</p>
 mount. Failure leaves the server and existing data unchanged. Never overwrite
 an existing recovery point. Cluster-local recovery is not offsite recovery and
 does not resolve the whole RECOVERY_PROOF task.</p>
+<p>The first online attempt on 2026-10-19 could not open the read-only SQLite
+database during backup; it did not modify the server or its source mount. No
+successful recovery point is claimed for that attempt. Quiesce both original
+server and agent replicas (one each) through Git, prove both Pods absent, and
+then enable the separately named offline recovery Job on bulbasaur. Preserve
+the failed destination and use a new recovery-point path. Restore both replica
+counts after the verified repair or after abandoning it.</p>
 <h2>Stage 2: conditional repair and acceptance</h2>
 <p>After diagnosis, validate the exact repair against synthetic fixtures and a
 restored copy. Preserve all existing permission semantics. Unknown values,

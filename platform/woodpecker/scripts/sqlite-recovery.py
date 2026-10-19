@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Create and exercise a protected SQLite recovery point without exporting records."""
 
+import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -31,7 +33,15 @@ def inventory(connection):
     numeric = connection.execute(
         "SELECT id, trusted FROM repos WHERE typeof(trusted) IN ('integer','real') ORDER BY id"
     ).fetchall()
-    return {"table_counts": counts, "trusted_storage_types": trusted, "numeric_trusted": numeric}
+    schema = connection.execute('PRAGMA table_info("repos")').fetchall()
+    migration_tables = [table for table in tables if table in ("migration", "migrations")]
+    migrations = {}
+    for table in migration_tables:
+        columns = [row[1] for row in connection.execute('PRAGMA table_info("' + table + '")')]
+        if "id" in columns:
+            migrations[table] = connection.execute('SELECT id FROM "' + table + '" ORDER BY id').fetchall()
+    return {"table_counts": counts, "trusted_storage_types": trusted, "numeric_trusted": numeric,
+            "repo_schema": schema, "migration_ids": migrations}
 
 
 def backup(source, destination):
@@ -40,14 +50,14 @@ def backup(source, destination):
     assert not destination.exists(), "Never overwrite an existing recovery point"
     assert shutil.disk_usage(destination.parent).free > source.stat().st_size * 3
     os.umask(0o077)
-    with connect_readonly(source) as original, sqlite3.connect(destination) as copied:
+    with closing(connect_readonly(source)) as original, closing(sqlite3.connect(destination)) as copied:
         original.backup(copied)
-    with connect_readonly(destination) as copied:
+    with closing(connect_readonly(destination)) as copied:
         expected = inventory(copied)
         restored_path = destination.with_suffix(".restore.sqlite")
         assert not restored_path.exists()
         try:
-            with sqlite3.connect(restored_path) as restored:
+            with closing(sqlite3.connect(restored_path)) as restored:
                 copied.backup(restored)
                 assert inventory(restored) == expected, "Isolated restored inventory differs"
         finally:
@@ -65,6 +75,10 @@ def backup(source, destination):
 
 
 if __name__ == "__main__":
-    result = backup(Path("/source/woodpecker.sqlite"),
-                    Path("/recovery/trusted-20261019/pre-repair.sqlite"))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=Path("/source/woodpecker.sqlite"))
+    parser.add_argument("--destination", type=Path,
+                        default=Path("/recovery/trusted-20261019-offline/pre-repair.sqlite"))
+    options = parser.parse_args()
+    result = backup(options.source, options.destination)
     print(json.dumps(result, sort_keys=True), flush=True)

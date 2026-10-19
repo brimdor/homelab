@@ -20,25 +20,21 @@ metadata:
 data:
   sqlite-recovery.py: |
 {{ .Files.Get "scripts/sqlite-recovery.py" | indent 4 }}
+{{- if .Values.maintenanceRecovery.backupEnabled }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: woodpecker-recovery-20261019
+  name: woodpecker-recovery-offline-20261019
 spec:
   backoffLimit: 0
   template:
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
-      # RWO may be read by another Pod only on the current writer's node.
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  statefulset.kubernetes.io/pod-name: woodpecker-server-0
-              topologyKey: kubernetes.io/hostname
+      # Both writers are quiesced and their original data remains on this node.
+      nodeSelector:
+        kubernetes.io/hostname: bulbasaur
       containers:
         - name: recovery
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
@@ -83,4 +79,5 @@ spec:
             name: woodpecker-sqlite-recovery
         - name: temporary
           emptyDir: {}
+{{- end }}
 {{- end }}
