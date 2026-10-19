@@ -94,7 +94,7 @@ def original_proc_sql(data):
         if collecting:
             section.append(line)
     value = b"".join(section)
-    if b"CREATE TABLE `proc` (" not in value or b"INSERT INTO `proc` VALUES " not in value:
+    if b"CREATE TABLE `proc` (" not in value or not re.search(rb"(?m)^INSERT INTO `proc` VALUES\s", value):
         raise RuntimeError("reviewed original routine metadata section is missing")
     return b"USE `mysql`;\n" + value
 

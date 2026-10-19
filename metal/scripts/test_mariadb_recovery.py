@@ -58,6 +58,9 @@ class RecoveryTests(unittest.TestCase):
         section = b"DROP TABLE IF EXISTS `proc`;\nCREATE TABLE `proc` (x int);\nINSERT INTO `proc` VALUES (1);\n"
         dump = b"USE `application`;\n" + section + b"USE `mysql`;\n" + section + b"DROP TABLE IF EXISTS `procs_priv`;\nprivate other table"
         self.assertEqual(recovery.original_proc_sql(dump), b"USE `mysql`;\n" + section)
+        multiline = dump.replace(b"INSERT INTO `proc` VALUES (", b"INSERT INTO `proc` VALUES\n(")
+        self.assertEqual(recovery.original_proc_sql(multiline),
+                         b"USE `mysql`;\n" + section.replace(b"VALUES (", b"VALUES\n("))
         for changed in (b"USE `application`;\n" + section, dump.replace(b"CREATE TABLE `proc` (", b"CREATE TABLE `other` ("),
                         dump.replace(b"INSERT INTO `proc` VALUES ", b"INSERT INTO `other` VALUES ")):
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):
