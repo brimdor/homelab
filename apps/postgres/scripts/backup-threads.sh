@@ -13,20 +13,12 @@ fi
 [[ -d "$root" && -f "$root/.owner" && ! -L "$root/.owner" ]] || fail 'Backup directory ownership is unproven.'
 [[ "$(cat -- "$root/.owner")" == "$owner" ]] || fail 'Backup directory belongs to another owner.'
 
-work=$(mktemp -d "$root/.partial.XXXXXX")
+temporary=()
 cleanup() {
   status=$?
   trap - EXIT
-  if ! rm -rf -- "$work" 2>/dev/null; then
-    # NFS can briefly report ENOTEMPTY after unlinking the last directory entry.
-    # Retry only removal of this attempt's now-empty directory, never its contents.
-    for delay in 1 2 3; do
-      sleep "$delay"
-      if rmdir -- "$work" 2>/dev/null || [[ ! -e "$work" ]]; then
-        exit "$status"
-      fi
-    done
-    printf '%s\n' 'Threads temporary-directory cleanup failed; inspect the owned partial directory.' >&2
+  if (( ${#temporary[@]} )) && ! rm -f -- "${temporary[@]}"; then
+    printf '%s\n' 'Threads temporary-file cleanup failed; inspect the reserved partial files.' >&2
     exit 1
   fi
   exit "$status"
@@ -34,24 +26,39 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
-name="threads-$(date -u +%Y%m%dT%H%M%SZ)-${work##*.}.dump"
+reserve_file() {
+  local reserved
+  reserved=$(mktemp "$root/.partial.XXXXXX") || fail 'Cannot reserve private backup work.'
+  temporary+=("$reserved")
+  printf -v "$1" '%s' "$reserved"
+}
+# Independent files avoid the observed NFS temporary-directory removal failure.
+archive='' dump_stderr='' restore_stderr='' checksum_file='' owner_file='' expired_file=''
+reserve_file archive
+reserve_file dump_stderr
+reserve_file restore_stderr
+reserve_file checksum_file
+reserve_file owner_file
+reserve_file expired_file
+name="threads-$(date -u +%Y%m%dT%H%M%SZ)-${archive##*.}.dump"
 if ! pg_dump --no-password --format=custom --lock-wait-timeout=10s \
-  --file="$work/$name" 2> "$work/dump.stderr"; then
+  --file="$archive" 2> "$dump_stderr"; then
   fail 'Threads pg_dump failed; no backup published. Check database access privately.'
 fi
-[[ -s "$work/$name" && ! -s "$work/dump.stderr" ]] || fail 'Threads dump is empty or reported warnings; no backup published.'
-if ! pg_restore --list "$work/$name" > /dev/null 2> "$work/restore.stderr"; then
+[[ -s "$archive" && ! -s "$dump_stderr" ]] || fail 'Threads dump is empty or reported warnings; no backup published.'
+if ! pg_restore --list "$archive" > /dev/null 2> "$restore_stderr"; then
   fail 'Threads archive listing failed; no backup published.'
 fi
-[[ ! -s "$work/restore.stderr" ]] || fail 'Threads archive listing reported warnings; no backup published.'
-(cd "$work" && sha256sum -- "$name") > "$work/$name.sha256"
-printf '%s\n' "$owner" > "$work/$name.owner"
+[[ ! -s "$restore_stderr" ]] || fail 'Threads archive listing reported warnings; no backup published.'
+line=$(sha256sum -- "$archive")
+printf '%s  %s\n' "${line%% *}" "$name" > "$checksum_file"
+printf '%s\n' "$owner" > "$owner_file"
 # A hard link publishes the complete archive atomically and refuses an existing name.
-ln -- "$work/$name" "$root/$name"
-ln -- "$work/$name.sha256" "$root/$name.sha256"
-ln -- "$work/$name.owner" "$root/$name.owner"
+ln -- "$archive" "$root/$name"
+ln -- "$checksum_file" "$root/$name.sha256"
+ln -- "$owner_file" "$root/$name.owner"
 
-find "$root" -mindepth 1 -maxdepth 1 -name 'threads-*.dump' -mtime +14 -print0 > "$work/expired"
+find "$root" -mindepth 1 -maxdepth 1 -name 'threads-*.dump' -mtime +14 -print0 > "$expired_file"
 removed=0
 while IFS= read -r -d '' old; do
   base=${old##*/}
@@ -67,5 +74,5 @@ while IFS= read -r -d '' old; do
   [[ "${actual%% *}" == "$checksum" ]] || fail 'Backup checksum mismatch; preserved.'
   rm -- "$old" "$old.sha256" "$old.owner"
   removed=$((removed + 1))
-done < "$work/expired"
+done < "$expired_file"
 printf 'Threads backup published; expired owned generations removed: %s\n' "$removed"

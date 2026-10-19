@@ -103,3 +103,86 @@ spec:
                 path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}
             - name: temporary
               emptyDir: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-threads-partial-cleanup
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  podSelector:
+    matchLabels:
+      homelab.eaglepass.io/maintenance: threads-partial-cleanup-20261019
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-threads-partial-cleanup-20261019
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 90
+  template:
+    metadata:
+      labels:
+        homelab.eaglepass.io/maintenance: threads-partial-cleanup-20261019
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: [sprigatito]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 99
+        runAsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cleanup
+          image: docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e
+          command:
+            - /bin/bash
+            - -ceu
+            - |
+              root=/backup
+              [[ -f "$root/.owner" && ! -L "$root/.owner" ]]
+              [[ "$(cat "$root/.owner")" == homelab-postgres-threads-v1 ]]
+              [[ "$(stat -c %u:%g:%a "$root")" == 99:100:700 ]]
+              for identity in .partial.2Ciapd:649644260290076024 .partial.aBVzwA:649644261281117202 .partial.g3gx79:649644247071941630; do
+                name=${identity%:*}
+                inode=${identity#*:}
+                path="$root/$name"
+                [[ -d "$path" && ! -L "$path" ]]
+                [[ "$(stat -c %u:%g:%a:%i "$path")" == "99:100:700:$inode" ]]
+                [[ "$(find "$path" -mindepth 1 -maxdepth 1 | wc -l)" -eq 0 ]]
+              done
+              for identity in .partial.2Ciapd:649644260290076024 .partial.aBVzwA:649644261281117202 .partial.g3gx79:649644247071941630; do
+                path="$root/${identity%:*}"
+                [[ ! -L "$path" && "$(stat -c %u:%g:%a:%i "$path")" == "99:100:700:${identity#*:}" ]]
+                rmdir -- "$path"
+              done
+              printf '%s\n' 'Three exact owned empty Threads partial directories removed.'
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: {cpu: 5m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          volumeMounts:
+            - {name: backup, mountPath: /backup}
+      volumes:
+        - name: backup
+          nfs:
+            server: {{ index .Values "app-template" "persistence" "nfs-backups" "server" }}
+            path: {{ index .Values "app-template" "persistence" "nfs-backups" "path" }}/db/threads

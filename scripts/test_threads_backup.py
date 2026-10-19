@@ -34,14 +34,20 @@ if mode == 'dump-failure':
 target.write_bytes(b'' if mode == 'empty' else b'VALID synthetic archive')
 if mode == 'warning':
     print(os.environ['PGPASSWORD'], file=sys.stderr)
-if mode == 'collision':
-    (target.parent.parent / target.name).write_bytes(b'FOREIGN')
 """)
         self.tool("pg_restore", """
 import os, sys
 from pathlib import Path
 sys.exit(1 if os.environ.get('FAKE_MODE') == 'bad-archive' else
          0 if Path(sys.argv[-1]).read_bytes().startswith(b'VALID') else 1)
+""")
+        self.tool("ln", """
+import os, sys
+from pathlib import Path
+if os.environ.get('FAKE_MODE') == 'collision':
+    Path(sys.argv[-1]).write_bytes(b'FOREIGN')
+    sys.exit(1)
+os.execv('/bin/ln', ['ln', *sys.argv[1:]])
 """)
         self.tool("sha256sum", """
 import hashlib, sys
@@ -100,18 +106,21 @@ print(hashlib.sha256(Path(name).read_bytes()).hexdigest() + '  ' + name)
         self.assertFalse(Path(str(archive) + ".owner").exists())
         self.assertFalse(Path(str(archive) + ".sha256").exists())
 
-    def test_transient_empty_nfs_directory_cleanup_preserves_success(self):
+    def test_cleanup_does_not_require_nfs_directory_removal(self):
         self.tool("rm", """
-import shutil, sys
+import sys
 from pathlib import Path
-directory = Path(sys.argv[-1])
-for child in directory.iterdir():
-    if child.is_dir():
-        shutil.rmtree(child)
-    else:
-        child.unlink()
-sys.exit(1)  # Simulate NFS ENOTEMPTY after every owned entry was removed.
+for arg in sys.argv[1:]:
+    if arg.startswith('-'):
+        if 'r' in arg:
+            sys.exit(1)
+        continue
+    target = Path(arg)
+    if target.is_dir():
+        sys.exit(1)
+    target.unlink(missing_ok=True)
 """)
+        self.tool("rmdir", "import sys; sys.exit(1)")
         self.run_backup()
         self.assertEqual(len(self.archives()), 1)
 
