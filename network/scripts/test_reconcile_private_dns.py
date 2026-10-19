@@ -569,5 +569,47 @@ class RecoveryTests(unittest.TestCase):
             dns.protected_directory(self.root)
 
 
+class NetworkAuditTests(unittest.TestCase):
+    def fixture(self):
+        key = str(uuid.uuid4())
+        return {
+            "/api/interfaces/vlan_settings/get": {"vlan": {"vlan": {
+                key: {"if": "lagg0", "tag": "20", "vlanif": "vlan20", "descr": "Cluster", "password": "never-export"}}}},
+            "/api/interfaces/lagg_settings/get": {"lagg": {"lagg": {
+                key: {"laggif": "lagg0", "members": "igb1,igb2", "proto": "lacp", "descr": "LAN", "secret": "never-export"}}}},
+            "/api/interfaces/overview/interfaces_info": {"total": 1, "rows": [
+                {"device": "vlan20", "status": "up", "addr4": "10.0.20.1/24", "config": {"password": "never-export"}}]},
+        }
+
+    def test_projection_excludes_unknown_fields_and_never_writes(self):
+        data = self.fixture()
+        class ReadOnly:
+            def get(self, path):
+                return data[path]
+        result = dns.network_snapshot(ReadOnly())
+        self.assertEqual(result["vlan"][0]["tag"], "20")
+        self.assertEqual(result["lagg"][0]["proto"], "lacp")
+        self.assertNotIn("never-export", json.dumps(result))
+        self.assertNotIn("config", result["interfaces"][0])
+
+    def test_missing_model_and_incomplete_pagination_are_not_empty_success(self):
+        for endpoint, value in [("/api/interfaces/vlan_settings/get", {}),
+                                ("/api/interfaces/overview/interfaces_info", {"total": 2, "rows": [{}]})]:
+            data = self.fixture()
+            data[endpoint] = value
+            class ReadOnly:
+                def get(self, path):
+                    return data[path]
+            with self.subTest(endpoint=endpoint), self.assertRaises(dns.Refusal):
+                dns.network_snapshot(ReadOnly())
+
+    def test_network_audit_rejects_apply_before_access(self):
+        with patch.object(dns.sys, "argv", ["check", "--network-audit", "--apply"]), \
+                patch.object(dns, "Router") as router, patch("builtins.print"), \
+                patch.object(dns.os, "umask"), patch.object(dns.resource, "setrlimit"):
+            self.assertEqual(dns.main(), 1)
+            router.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

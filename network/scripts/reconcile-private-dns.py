@@ -55,7 +55,41 @@ RESTART = "/api/dnsmasq/service/restart"
 READ_PATHS = {"/", "/diag_backup.php", "/system_advanced_admin.php", SETTINGS, SOCKETS,
               "/api/dnsmasq/settings/get_host", "/api/dnsmasq/service/status",
               "/api/core/firmware/info", "/api/unbound/settings/get",
-              "/api/unbound/settings/get_nameservers"}
+              "/api/unbound/settings/get_nameservers",
+              "/api/interfaces/vlan_settings/get", "/api/interfaces/lagg_settings/get",
+              "/api/interfaces/overview/interfaces_info"}
+
+
+def network_snapshot(api):
+    """Project only reviewed topology fields; never export interface credentials."""
+    result = {}
+    for kind, fields in (
+        ("vlan", {"if", "tag", "vlanif", "descr"}),
+        ("lagg", {"laggif", "members", "proto", "descr"}),
+    ):
+        value = normalize(api.get("/api/interfaces/" + kind + "_settings/get"))
+        require(isinstance(value, dict) and isinstance(value.get(kind), dict), "Missing topology model")
+        records = value[kind].get(kind)
+        require(isinstance(records, dict), "Missing topology records")
+        result[kind] = []
+        for key, row in records.items():
+            valid_uuid(key)
+            require(isinstance(row, dict), "Invalid topology record")
+            projected = {k: v for k, v in row.items() if k in fields}
+            require(all(isinstance(v, str) for v in projected.values()), "Unexpected topology field type")
+            result[kind].append(projected)
+    value = api.get("/api/interfaces/overview/interfaces_info")
+    require(isinstance(value, dict) and isinstance(value.get("rows"), list), "Missing interface rows")
+    require(value.get("total") == len(value["rows"]), "Incomplete interface pagination")
+    fields = {"device", "identifier", "description", "status", "enabled", "addr4", "vlan_tag"}
+    result["interfaces"] = []
+    for row in value["rows"]:
+        require(isinstance(row, dict), "Invalid interface row")
+        projected = {k: v for k, v in row.items() if k in fields}
+        require(all(isinstance(v, (str, bool, int, type(None))) for v in projected.values()),
+                "Unexpected interface field type")
+        result["interfaces"].append(projected)
+    return result
 
 
 class Refusal(Exception):
@@ -585,6 +619,7 @@ def read_private(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--network-audit", action="store_true", help="Read-only VLAN, LAG and interface projection")
     parser.add_argument("--backup-dir", type=Path, help="Explicit private, durable recovery directory; only used for apply")
     parser.add_argument("--rollback-receipt", type=Path, help="Exact complete apply JSONL receipt; default only checks rollback")
     args = parser.parse_args()
@@ -609,6 +644,8 @@ def main():
                 journal_broken = True
                 raise Refusal("Recovery receipt write failed; stop; no retry") from None
     try:
+        require(not args.network_audit or not (args.apply or args.backup_dir or args.rollback_receipt),
+                "Network audit cannot apply or access recovery files")
         rows = validate_desired(json.loads(DESIRED.read_text()))
         head = git_gate() if args.apply else run(["git", "rev-parse", "HEAD"]).decode().strip()
         result.update(source_head=head, desired_sha256=sha(rows), ingress=verify_ingress(),
@@ -621,6 +658,9 @@ def main():
                       state_sha256=sha(initial), certificate_sha256=api.trust_hash,
                       missing=[r["host"] + ".eaglepass.io" for r in missing],
                       preserved_sha256=sha({**initial, "dnsmasq": {k: v for k, v in initial["dnsmasq"].items() if k != "hosts"}}))
+        if args.network_audit:
+            result.update(mode="read-only-network-audit", topology=network_snapshot(api), status="CHECKED")
+            return 0
         targets = None
         if args.rollback_receipt:
             events = [json.loads(line) for line in read_private(args.rollback_receipt).splitlines()]
