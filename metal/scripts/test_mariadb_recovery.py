@@ -32,6 +32,12 @@ class RecoveryTests(unittest.TestCase):
     def test_exact_owned_container_passes(self):
         recovery.require_isolation(self.container, self.root, "reviewed-12345678")
 
+    def test_existing_tls_registry_keeps_the_identical_repository_and_digest(self):
+        image = "10.0.20.11:32309/backlog_database@sha256:" + "a" * 64
+        self.assertEqual(recovery.pull_reference(image), "registry.eaglepass.io/backlog_database@sha256:" + "a" * 64)
+        official = "docker.io/library/mariadb@sha256:" + "b" * 64
+        self.assertEqual(recovery.pull_reference(official), official)
+
     def test_network_privilege_namespace_device_and_mount_bypasses_fail(self):
         changes = {"NetworkMode": "host", "ReadonlyRootfs": False, "Privileged": True,
                    "CapDrop": [], "PidMode": "host", "IpcMode": "host", "UTSMode": "host", "UsernsMode": "host",

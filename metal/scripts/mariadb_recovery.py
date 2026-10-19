@@ -32,6 +32,14 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def pull_reference(image):
+    # Both endpoints are declared in metal/roles/k3s/templates/registries.yaml.j2.
+    # Docker uses the existing TLS endpoint; never weaken its daemon TLS policy.
+    if image.startswith("10.0.20.11:32309/"):
+        return "registry.eaglepass.io/" + image.split("/", 1)[1]
+    return image
+
+
 def remote(mode, run_id, *extra):
     sources = {name: base64.b64encode(Path(__file__).with_name(name + ".py").read_bytes()).decode()
                for name in ("etcd_recovery", "mariadb_recovery")}
@@ -222,20 +230,22 @@ def restore(run_id, expected_manifest):
     before_images = set(common.docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
     scratch = Path(tempfile.mkdtemp(prefix="mariadb-restore-", dir=ROOT))
     identity = image_id = None
-    result = {"accepted": False, "run_id": run_id, "namespace": manifest["namespace"]}
+    result = {"accepted": False, "run_id": run_id, "namespace": manifest["namespace"], "stage": "image-pull"}
     try:
         (scratch / "data").mkdir(mode=0o700)
         os.chown(scratch / "data", 999, 999)
-        common.docker("pull", manifest["image"])
-        image = json.loads(common.docker("image", "inspect", manifest["image"]).stdout)[0]
+        reference = pull_reference(manifest["image"])
+        common.docker("pull", reference)
+        image = json.loads(common.docker("image", "inspect", reference).stdout)[0]
         image_id = image["Id"]
-        if image.get("Os") != "linux" or image.get("Architecture") != "amd64" or set(image["Config"].get("Volumes") or {}) != {"/var/lib/mysql"}:
+        if reference not in image.get("RepoDigests", []) or image.get("Os") != "linux" or image.get("Architecture") != "amd64" or set(image["Config"].get("Volumes") or {}) != {"/var/lib/mysql"}:
             raise RuntimeError("reviewed MariaDB image volume or architecture changed")
+        result["stage"] = "container-isolation"
         identity = common.docker("create", "--network=none", "--read-only", "--cap-drop=ALL", "--user=999:999",
                                  "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=256",
                                  "--cpus=1", "--memory=1g", "--label=" + LABEL + "=" + run_id,
                                  "--mount=type=bind,source=" + str(scratch / "data") + ",target=/var/lib/mysql",
-                                 "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", manifest["image"],
+                                 "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/bin/sh", reference,
                                  "-c", "exec sleep 2147483647").stdout.decode().strip()
         require_isolation(common.inspect(identity), scratch, run_id)
         common.docker("start", identity)
@@ -248,6 +258,7 @@ def restore(run_id, expected_manifest):
         common.require_network(links, routes)
         if common.command([*network, "ip", "route", "get", "10.0.20.50"], check=False).returncode == 0:
             raise RuntimeError("restore can route to the production API")
+        result["stage"] = "fresh-initialization"
         common.docker("exec", identity, "mariadb-install-db", "--datadir=/var/lib/mysql",
                       "--auth-root-authentication-method=normal", "--skip-test-db")
         server = ["mariadbd", "--datadir=/var/lib/mysql", "--socket=/tmp/recovery.sock", "--pid-file=/tmp/recovery.pid",
@@ -260,10 +271,12 @@ def restore(run_id, expected_manifest):
             time.sleep(1)
         else:
             raise RuntimeError("isolated database did not become ready")
+        result["stage"] = "logical-import"
         with (point / "cluster.sql").open("rb") as source:
             restored = subprocess.run(client, stdin=source, capture_output=True)
         if restored.returncode or restored.stdout or restored.stderr:
             raise RuntimeError("isolated database import failed or warned")
+        result["stage"] = "schema-grants-data-check"
         schema = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock", "--no-data"]).stdout
         grants = common.command([*client, "-e", "SELECT Host,User,Priv FROM mysql.global_priv ORDER BY Host,User"]).stdout
         if digest(schema) != manifest["before"]["schema_sha256"] or digest(grants) != manifest["before"]["grants_sha256"]:
@@ -278,7 +291,8 @@ def restore(run_id, expected_manifest):
         if file_digest(point / "cluster.sql") != manifest["dump"]:
             raise RuntimeError("original recovery bytes changed during restore")
         result.update(accepted=True, table_count=int(rows), schema_and_grants_match=True, normalized_data_matches=True,
-                      production_network_unroutable=True, image=manifest["image"], manifest_sha256=expected_manifest)
+                      production_network_unroutable=True, image=manifest["image"], fetched_reference=reference,
+                      manifest_sha256=expected_manifest, stage="accepted")
     except Exception as error:
         result["error"] = str(error)
     finally:
