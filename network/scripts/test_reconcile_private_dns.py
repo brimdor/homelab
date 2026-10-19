@@ -633,10 +633,12 @@ class PacketFilterAuditTests(unittest.TestCase):
     def fixture(self):
         return {
             dns.PF_RULES: {"rules": {"filter rules": {
-                'pass in quick on lagg0_vlan20 inet from any to any label "never-export"': {"bytes": 123}},
+                'pass in quick on lagg0_vlan20 inet from &lt;localnets:1&gt; to any label "never-export"': {"bytes": 123}},
                 "nat rules": {'nat on igc0 inet from <localnets> to any -> (igc0:0)': {}}}},
             dns.PF_STATES: {"current": "100", "limit": "100000"},
             dns.PF_ALIASES: ["localnets", "bogons"],
+            "/api/firewall/alias_util/list/localnets?rowCount=-1": {
+                "total": 1, "current": 1, "rows": [{"ip": "10.0.20.0/24", "description": "never-export"}]},
         }
 
     def test_exact_read_paths_project_active_rules_without_descriptions(self):
@@ -647,12 +649,48 @@ class PacketFilterAuditTests(unittest.TestCase):
                 calls.append(path)
                 return data[path]
         result = dns.pf_snapshot(ReadOnly())
-        self.assertEqual(calls, [dns.PF_RULES, dns.PF_STATES, dns.PF_ALIASES])
-        self.assertTrue(set(calls).issubset(dns.READ_PATHS))
+        self.assertEqual(calls, [dns.PF_RULES, dns.PF_STATES, dns.PF_ALIASES,
+                                "/api/firewall/alias_util/list/localnets?rowCount=-1"])
+        self.assertTrue(all(p in dns.READ_PATHS or dns.re.fullmatch(dns.PF_ALIAS_READ, p) for p in calls))
         self.assertNotIn("never-export", json.dumps(result))
         self.assertEqual(result["states"], {"current": 100, "limit": 100000})
         self.assertIn("<localnets>", result["rules"]["nat rules"][0]["rule"])
         self.assertEqual(result["aliases"], ["bogons", "localnets"])
+        self.assertEqual(result["referenced_aliases"], {
+            "localnets": {"records": 1, "addresses_sha256": dns.sha(["10.0.20.0/24"])}})
+
+    def test_alias_expansion_requires_complete_counted_safe_addresses(self):
+        path = "/api/firewall/alias_util/list/localnets?rowCount=-1"
+        for value in ({"total": 2, "current": 1, "rows": [{"ip": "10.0.20.0/24"}]},
+                      {"total": 1, "current": 2, "rows": [{"ip": "10.0.20.0/24"}]},
+                      {"total": 1, "current": 1, "rows": [{"ip": "invalid"}]},
+                      {"total": 1, "current": 1, "rows": [{"ip": "10.0.20.1/24"}]}):
+            data = self.fixture()
+            data[path] = value
+            class ReadOnly:
+                def get(self, endpoint):
+                    return data[endpoint]
+            with self.subTest(value=value), self.assertRaises(dns.Refusal):
+                dns.pf_snapshot(ReadOnly())
+        for path in ("/api/firewall/alias_util/list/bogons?rowCount=-1&apply=1",
+                     "/api/firewall/alias_util/list/../flush?rowCount=-1",
+                     "/api/firewall/alias_util/flush/bogons", "/api/firewall/alias_util/update_bogons"):
+            self.assertIsNone(dns.re.fullmatch(dns.PF_ALIAS_READ, path))
+
+    def test_counted_empty_alias_is_valid_and_missing_inventory_is_not(self):
+        data = self.fixture()
+        rules = data[dns.PF_RULES]["rules"]["filter rules"]
+        text, counters = next(iter(rules.items()))
+        data[dns.PF_RULES]["rules"]["filter rules"] = {text.replace("localnets:1", "localnets:0"): counters}
+        data["/api/firewall/alias_util/list/localnets?rowCount=-1"] = {"total": 0, "current": 1, "rows": []}
+        class ReadOnly:
+            def get(self, path):
+                return data[path]
+        self.assertEqual(dns.pf_snapshot(ReadOnly())["referenced_aliases"]["localnets"],
+                         {"records": 0, "addresses_sha256": dns.sha([])})
+        data[dns.PF_ALIASES] = ["bogons"]
+        with self.assertRaises(dns.Refusal):
+            dns.pf_snapshot(ReadOnly())
 
     def test_missing_malformed_or_over_capacity_evidence_refused(self):
         for path, value in ((dns.PF_RULES, {}),

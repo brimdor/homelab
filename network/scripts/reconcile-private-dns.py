@@ -14,6 +14,7 @@ import hashlib
 import html.parser
 import http.client
 import http.cookiejar
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -66,6 +67,7 @@ PF_RULES = "/api/diagnostics/firewall/pf_statistics/rules"
 PF_STATES = "/api/diagnostics/firewall/pf_states"
 PF_ALIASES = "/api/firewall/alias_util/aliases"
 READ_PATHS.update((PF_RULES, PF_STATES, PF_ALIASES))
+PF_ALIAS_READ = r"/api/firewall/alias_util/list/[A-Za-z_][A-Za-z0-9_]*\?rowCount=-1"
 
 
 def pf_snapshot(api):
@@ -96,6 +98,29 @@ def pf_snapshot(api):
             re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", a) for a in aliases), "Invalid active PF alias inventory")
     require(len(set(aliases)) == len(aliases), "Duplicate active PF aliases")
     result["aliases"] = sorted(aliases)
+    references = {}
+    for section in result["rules"].values():
+        for row in section:
+            for name, count in re.findall(r"<([A-Za-z_][A-Za-z0-9_]*):([0-9]+)>", html.unescape(row["rule"])):
+                require(name not in references or references[name] == int(count), "PF alias count changed within rules")
+                references[name] = int(count)
+    require(set(references).issubset(aliases), "Active PF rule references an absent alias")
+    result["referenced_aliases"] = {}
+    for name, count in sorted(references.items()):
+        data = api.get("/api/firewall/alias_util/list/" + name + "?rowCount=-1")
+        require(isinstance(data, dict) and isinstance(data.get("rows"), list) and
+                type(data.get("total")) is int and data["total"] == len(data["rows"]) == count and
+                type(data.get("current")) is int and data["current"] == 1,
+                "Incomplete or changed active PF alias expansion")
+        networks = []
+        for row in data["rows"]:
+            require(isinstance(row, dict) and isinstance(row.get("ip"), str), "Invalid PF alias address")
+            try:
+                networks.append(str(ipaddress.ip_network(row["ip"], strict=True)))
+            except ValueError:
+                raise Refusal("Invalid PF alias address") from None
+        require(len(set(networks)) == count, "Duplicate PF alias addresses")
+        result["referenced_aliases"][name] = {"records": count, "addresses_sha256": sha(sorted(networks))}
     return result
 
 
@@ -348,7 +373,7 @@ class Router:
         require(not self.denied, "Authentication or authorization previously rejected; stop")
         login = method == "POST" and path == "/" and not self.login_used
         if method == "GET":
-            require(path in READ_PATHS, "Unapproved read endpoint")
+            require(path in READ_PATHS or re.fullmatch(PF_ALIAS_READ, path), "Unapproved read endpoint")
         elif login:
             self.login_used = True
         else:
