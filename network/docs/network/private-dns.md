@@ -1,10 +1,53 @@
 # Private service DNS on OPNSense
 
-`network/configs/dnsmasq-private-hosts.json` owns exactly three Dnsmasq DNS host
-overrides: `git.eaglepass.io`, `registry.eaglepass.io`, and `auth.eaglepass.io`, all
-pointing to the ingress controller at `10.0.20.226`. Update this desired state if
-ingress ownership changes. Public DNS currently publishes this private address;
-these internal answers preserve Git SSH on port 22 without Cloudflare proxying.
+`network/configs/dnsmasq-private-hosts.json` owns exactly eleven reviewed Dnsmasq
+DNS host overrides, all pointing to the ingress controller at `10.0.20.226`.
+The executor's fixed `NAMES` allowlist must match this complete set. It never
+discovers hosts at runtime or permits wildcard/domain-wide exceptions. Update the
+reviewed desired state if ingress ownership changes. Public DNS publishes this
+private address; these internal answers preserve direct access, including Git SSH
+on port 22, without Cloudflare proxying.
+
+## Verified private-ingress coverage and 3-to-11 migration
+
+The October 19, 2026 survey at repository revision
+`855b5af7a08baa915c99203bb95c5720a5dc5db0` found the following coverage. Every listed
+chart is active under the canonical Gitea `master` discovery rules. Its Application
+was `Synced`/`Healthy` at that revision, with ready backend pods, endpoints, and
+updated controllers. All ingresses use `nginx`, have LB address `10.0.20.226`, and
+omit the ExternalDNS target annotation. The source declarations and live ownership
+were checked independently; the absent annotation alone does not prove private DNS.
+
+All names below use the suffix `.eaglepass.io`. Direct `dig` from trusted
+`charmander` queried public upstream `1.1.1.1` and configured router `10.0.20.1`.
+
+| Host | Owning chart | Upstream A | Router result before expansion | Disposition |
+| --- | --- | --- | --- | --- |
+| `git` | `platform/gitea` | `10.0.20.226` | `10.0.20.226` | Preserve existing row |
+| `registry` | `platform/zot` | `10.0.20.226` | `10.0.20.226` | Preserve existing row |
+| `auth` | `platform/kanidm` | `10.0.20.226` | `10.0.20.226` | Preserve existing row |
+| `argocd` | `system/argocd` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `dex` | `platform/dex` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `grafana` | `platform/grafana` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `radarr` | `apps/radarr` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `sabnzbd` | `apps/sabnzbd` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `searxng` | `apps/searxng` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `sonarr` | `apps/sonarr` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `ci` | `platform/woodpecker` | `10.0.20.226` | No answer, EDE 15 | Add exact host |
+| `omni-tools-canary` | `apps/omni-tools-canary` | `104.21.70.102`, `172.67.222.216` | Same public addresses | Exclude: public Cloudflare addresses |
+
+The eleven included names cover the proven private-address hosts in the surveyed
+active ingress set. `omni-tools-canary` is active and ready, but its public answers
+exclude it from this repair. No inactive or other-address name is added.
+
+The original three-row repair was deployed at `855b5af7`; this expansion is a
+separate rollout. Default check mode must report exactly the eight missing names
+above and retain the original three UUIDs and complete row fingerprints. After
+review and the normal commit/push gates, a new apply captures its own current full
+protected backup and receipt, adds only those eight rows, and restarts once.
+The count checks use `len(NAMES)` against the fixed reviewed set, not an arbitrary
+caller-supplied count. No TLS, firmware/model, backup, consumer, DHCP, or preservation
+gate is relaxed by the expanded scope.
 
 The October 18, 2026 read-only inspection found OPNSense `25.7.9_7`, Dnsmasq on
 TCP/UDP port 53, and Unbound stopped despite its saved enabled flag. Unbound's
@@ -163,22 +206,38 @@ incomplete apply receipt. It deletes only verified created UUIDs using
 once. Partial or uncertain operations require read-only investigation and a new
 repository-owned recovery plan; do not manufacture a complete receipt or replay
 an add/delete. Whole-router restore is a separate recovery procedure, never the
-default rollback for three DNS records.
+default rollback for these DNS records.
+
+Keep the original three-row recovery pair
+`20261019T000905Z-9fabf7121304422591484d8cdf9287c4.{xml,jsonl}` unchanged in protected
+recovery storage. Its complete receipt remains supported for its recorded final
+state. It must fail the state-drift guard after the eight new rows are applied.
+The expansion's separate receipt owns only its newly created UUIDs; rolling back
+that batch deletes only those rows and preserves `git`, `registry`, and `auth`.
+Never rewrite the earlier receipt or automatically chain rollbacks. Each authorized
+rollback takes its own fresh backup and must satisfy its exact recorded-state guard.
 
 ## Acceptance after application or rollback
 
 - On charmander, pikachu, and sprigatito: query their configured DNS and use NSS
-  (`getent ahostsv4`) for all three FQDNs. Application should return `10.0.20.226`.
+  (`getent ahostsv4`) for all eleven approved FQDNs. Application should return
+  `10.0.20.226`; confirm the original three row UUIDs and contents are unchanged.
+- Verify the eight newly covered applications through their expected HTTPS routes,
+  with hostname/certificate validation and each application's normal status or
+  authentication redirect. Preserve `omni-tools-canary`'s public DNS behavior.
 - Verify `git.eaglepass.io:22` with established SSH host-key verification and a
   read-only Git operation. Do not change its hostname, proxying, or port.
 - Verify registry `/v2/` and auth HTTPS with hostname/certificate validation.
 - Verify unrelated public names such as `github.com` and `registry.k8s.io`.
 - Confirm upstream selection, global rebinding protection, DHCP settings/listeners,
   unrelated host rows, and other selected settings retain their prior fingerprints.
-- For a rebinding negative case, select an **existing authorized controlled name**
-  outside these overrides, with a known private A answer at the established
-  upstream. Confirm upstream answer versus router blocking. Do not create public
-  DNS records, disable protection, or reuse a host override as the negative case.
-  If no suitable name exists, record this gate as untested.
+- Retain the pre-expansion `argocd.eaglepass.io` EDE 15 result as historical negative
+  control evidence. It also exposed a legitimate private application's coverage
+  gap; after expansion, Argo CD must resolve normally. Never leave an active private
+  application blocked merely to provide a negative test. If a new negative case is
+  needed, use an existing authorized controlled name outside legitimate application
+  coverage. Do not create public DNS or disable protection. If no suitable case
+  exists, report that new post-expansion control as untested and preserve the prior
+  evidence plus the unchanged global protection setting.
 - Finish the parent maintenance workflow's application and six-layer health gates.
   Executor success alone is not maintenance completion.

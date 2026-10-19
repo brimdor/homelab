@@ -19,6 +19,7 @@ SPEC = importlib.util.spec_from_file_location("private_dns", Path(__file__).with
 dns = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(dns)
 ROWS = json.loads(dns.DESIRED.read_text())["hosts"]
+ORIGINAL_NAMES = {"git", "registry", "auth"}
 DEFAULTS = {k: "" for k in dns.HOST_FIELDS}
 DEFAULTS.update(local="0", ignore="0")
 
@@ -63,12 +64,22 @@ class ScopeTests(unittest.TestCase):
 
     def test_reject_scope_expansion(self):
         for field, value in [("host", "*"), ("domain", "example.com"), ("ip", "1.1.1.1"),
-                             ("local", "1"), ("local", 0), ("host", "git\ninvalid")]:
+                             ("local", "1"), ("local", 0), ("host", "git\ninvalid"),
+                             ("host", "unreviewed"), ("host", "omni-tools-canary")]:
             with self.subTest(field=field, value=value):
                 candidate = copy.deepcopy(ROWS)
                 candidate[0][field] = value
                 with self.assertRaises(dns.Refusal):
                     dns.validate_desired({"firmware_version": dns.VERSION, "hosts": candidate})
+
+    def test_fixed_reviewed_names_and_exact_count(self):
+        approved = {"git", "registry", "auth", "argocd", "dex", "grafana", "radarr",
+                    "sabnzbd", "searxng", "sonarr", "ci"}
+        self.assertEqual(dns.NAMES, approved)
+        for rows in (ROWS[:-1], ROWS + [ROWS[0]], ROWS[:-1] + [ROWS[0]],
+                     ROWS + [{**ROWS[0], "host": "unreviewed"}]):
+            with self.subTest(count=len(rows)), self.assertRaises(dns.Refusal):
+                dns.validate_desired({"firmware_version": dns.VERSION, "hosts": rows})
 
     def test_extra_fields_and_wrong_version(self):
         candidate = copy.deepcopy(ROWS)
@@ -120,12 +131,12 @@ class MutationTests(unittest.TestCase):
         self.snapshot.start()
         self.addCleanup(self.snapshot.stop)
 
-    def test_add_three_then_restart_preserves_every_other_field(self):
+    def test_add_reviewed_hosts_then_restart_preserves_every_other_field(self):
         key = str(uuid.uuid4())
         self.api.state["dnsmasq"]["hosts"][key] = {**DEFAULTS, "host": "printer", "ip": "10.0.0.8"}
         initial = copy.deepcopy(self.api.state)
         final = dns.reconcile(self.api, initial, ROWS, self.events.append)
-        self.assertEqual([p for p, _ in self.api.calls], [dns.ADD] * 3 + ["/api/dnsmasq/service/restart"])
+        self.assertEqual([p for p, _ in self.api.calls], [dns.ADD] * len(ROWS) + ["/api/dnsmasq/service/restart"])
         self.assertEqual(self.api.calls[-1][1], {})
         self.assertEqual(final["dnsmasq"]["hosts"][key], initial["dnsmasq"]["hosts"][key])
         final["dnsmasq"]["hosts"] = initial["dnsmasq"]["hosts"]
@@ -172,7 +183,7 @@ class MutationTests(unittest.TestCase):
         self.events.append({"event": "backup", "backup_sha256": hashlib.sha256(backup).hexdigest()})
         final = dns.reconcile(self.api, copy.deepcopy(self.api.state), ROWS, self.events.append)
         targets = dns.rollback_plan(self.events, final, backup)
-        self.assertEqual(len(targets), 3)
+        self.assertEqual(len(targets), len(ROWS))
         altered = copy.deepcopy(final)
         altered["dnsmasq"]["hosts"][targets[0]["uuid"]]["ip"] = "10.0.20.227"
         with self.assertRaises(dns.Refusal):
@@ -180,7 +191,7 @@ class MutationTests(unittest.TestCase):
         dns.rollback(self.api, final, targets, self.events.append)
         deletes = [p[len(dns.DELETE):] for p, _ in self.api.calls if p.startswith(dns.DELETE)]
         self.assertEqual(deletes, [t["uuid"] for t in reversed(targets)])
-        self.assertEqual([p for p, _ in self.api.calls], [dns.ADD] * 3 + [dns.RESTART]
+        self.assertEqual([p for p, _ in self.api.calls], [dns.ADD] * len(ROWS) + [dns.RESTART]
                          + [dns.DELETE + t["uuid"] for t in reversed(targets)] + [dns.RESTART])
         self.assertEqual(self.api.state["dnsmasq"]["hosts"], {})
 
@@ -210,7 +221,7 @@ class MutationTests(unittest.TestCase):
                         else:
                             dns.reconcile(api, initial, ROWS, events.append)
                     self.assertEqual([p for p, _ in api.calls].count(dns.RESTART), 1)
-                    self.assertEqual(len(api.calls), 4)
+                    self.assertEqual(len(api.calls), len(ROWS) + 1)
                     self.assertEqual(events[-1]["event"], "before_restart")
 
     def test_partial_receipt_cannot_auto_rollback(self):
@@ -226,12 +237,46 @@ class MutationTests(unittest.TestCase):
         self.events.append({"event": "backup", "backup_sha256": hashlib.sha256(backup).hexdigest()})
         final = dns.reconcile(self.api, copy.deepcopy(self.api.state), ROWS, self.events.append)
         targets = dns.rollback_plan(self.events, final, backup)
-        self.assertEqual(len(targets), 2)
+        self.assertEqual(len(targets), len(ROWS) - 1)
         self.assertFalse(set(owned_before) & {e["uuid"] for e in targets})
         with self.assertRaises(dns.Refusal):
             dns.rollback_plan(self.events, final, backup + b' ')
         dns.rollback(self.api, final, targets, self.events.append)
         self.assertEqual(self.api.state["dnsmasq"]["hosts"], owned_before)
+
+    def test_expand_preserves_original_three_and_rolls_back_only_new_rows(self):
+        original_rows = {str(uuid.uuid4()): {**DEFAULTS, **row} for row in ROWS if row["host"] in ORIGINAL_NAMES}
+        self.assertEqual(len(original_rows), len(ORIGINAL_NAMES))
+        self.api.state["dnsmasq"]["hosts"] = copy.deepcopy(original_rows)
+        initial = copy.deepcopy(self.api.state)
+        missing = [row for row in ROWS if row["host"] not in ORIGINAL_NAMES]
+        self.assertEqual(dns.plan(initial, ROWS), missing)
+        backup = ('<opnsense><dnsmasq>' + ''.join(f'<hosts uuid="{key}"/>' for key in original_rows)
+                  + '</dnsmasq></opnsense>').encode()
+        self.events.append({"event": "backup", "backup_sha256": hashlib.sha256(backup).hexdigest()})
+        final = dns.reconcile(self.api, initial, ROWS, self.events.append)
+        self.assertEqual(self.api.calls, [(dns.ADD, {"host": row}) for row in missing] + [(dns.RESTART, {})])
+        self.assertEqual({key: final["dnsmasq"]["hosts"][key] for key in original_rows}, original_rows)
+        targets = dns.rollback_plan(self.events, final, backup)
+        self.assertEqual(len(targets), len(dns.NAMES) - len(ORIGINAL_NAMES))
+        self.assertFalse(set(original_rows) & {event["uuid"] for event in targets})
+        self.api.calls.clear()
+        dns.rollback(self.api, final, targets, self.events.append)
+        self.assertEqual(self.api.calls, [(dns.DELETE + event["uuid"], {}) for event in reversed(targets)] + [(dns.RESTART, {})])
+        self.assertEqual(self.api.state, initial)
+
+    def test_old_three_row_receipt_remains_valid_but_rejects_later_state_drift(self):
+        backup = b'<opnsense><dnsmasq version="1.0.8"/></opnsense>'
+        self.events.append({"event": "backup", "backup_sha256": hashlib.sha256(backup).hexdigest()})
+        original_rows = [row for row in ROWS if row["host"] in ORIGINAL_NAMES]
+        original_final = dns.reconcile(self.api, copy.deepcopy(self.api.state), original_rows, self.events.append)
+        old_events = copy.deepcopy(self.events)
+        targets = dns.rollback_plan(old_events, original_final, backup)
+        self.assertEqual(len(targets), len(ORIGINAL_NAMES))
+        expanded = dns.reconcile(self.api, copy.deepcopy(original_final), ROWS, self.events.append)
+        with self.assertRaises(dns.Refusal):
+            dns.rollback_plan(old_events, expanded, backup)
+        self.assertEqual(dns.rollback_plan(old_events, original_final, backup), targets)
 
 
 class BoundaryTests(unittest.TestCase):

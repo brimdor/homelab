@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check three private DNS records; mutate only with --apply on pushed, scoped-clean master.
+"""Check reviewed private DNS records; mutate only with --apply on pushed, scoped-clean master.
 
 See network/docs/network/private-dns.md. No automatic retries or automatic rollback.
 Credentials, certificates, cookies and downloaded configuration remain in memory,
@@ -39,7 +39,7 @@ VERSION = "25.7.9_7"
 CORE_HASH = "c6ffd18ec3f1c07651fe917093e0a53c342b9e24"
 MODEL_VERSION = "1.0.8"
 ADDRESS = "10.0.20.226"
-NAMES = {"git", "registry", "auth"}
+NAMES = {"git", "registry", "auth", "argocd", "dex", "grafana", "radarr", "sabnzbd", "searxng", "sonarr", "ci"}
 VAULT = "4uaua4a45yuhnwhehp5bwylmti"
 LOGIN = "tcmshcqbj6c2wkssfvzc6ppvku"
 DOCUMENT = "ta2atlxlrcrqkq6kwhgchuqudm"
@@ -123,7 +123,7 @@ def validate_desired(data):
     require(set(data) == {"firmware_version", "hosts"} and data["firmware_version"] == VERSION,
             "Unexpected desired-state version or fields")
     rows = data["hosts"]
-    require(isinstance(rows, list) and len(rows) == 3, "Exactly three private hosts required")
+    require(isinstance(rows, list) and len(rows) == len(NAMES), "Exactly the reviewed private host set is required")
     require(all(isinstance(r, dict) and set(r) == {"host", "domain", "ip", "local"} for r in rows),
             "Unexpected desired host fields")
     require({r["host"] for r in rows} == NAMES, "Private host names differ from approved scope")
@@ -510,7 +510,7 @@ def rollback_plan(events, state, backup):
     require(old is not None, "Rollback backup lacks Dnsmasq")
     prior = {h.get("uuid") for h in old.findall("hosts")}
     created = [e for e in events if e.get("event") == "created"]
-    require(0 < len(created) <= 3 and len({e["uuid"] for e in created}) == len(created), "Invalid rollback UUID scope")
+    require(0 < len(created) <= len(NAMES) and len({e["uuid"] for e in created}) == len(created), "Invalid rollback UUID scope")
     hosts = host_map(state["dnsmasq"])
     for event in created:
         key = valid_uuid(event["uuid"])

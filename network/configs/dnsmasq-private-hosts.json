@@ -3,6 +3,14 @@
   "hosts": [
     {"host": "git", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
     {"host": "registry", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
-    {"host": "auth", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"}
+    {"host": "auth", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "argocd", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "dex", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "grafana", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "radarr", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "sabnzbd", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "searxng", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "sonarr", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"},
+    {"host": "ci", "domain": "eaglepass.io", "ip": "10.0.20.226", "local": "0"}
   ]
 }
