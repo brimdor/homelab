@@ -1,6 +1,9 @@
 app-template:
   controllers:
     main:
+      annotations:
+        # Clear the legacy defaulted rollingUpdate field during this transition.
+        argocd.argoproj.io/sync-options: Replace=true
       # SQLite on the shared NAS path must have only one application writer.
       strategy: Recreate
       containers:

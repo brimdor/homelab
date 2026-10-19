@@ -32,9 +32,17 @@
     guarantees this ordering for upgrades. Manual pod deletion is outside that guarantee
     and is not part of this rollout.</p>
   <h2>Acceptance</h2>
+  <p>The first apply at commit <code>5c3fe22c0cf73257e5473072134f926a163b363b</code>
+    was rejected because server-side apply retained the old defaulted
+    <code>rollingUpdate</code> field. The original healthy pod was not changed.
+    A temporary, Deployment-only <code>Replace=true</code> Argo annotation clears that
+    field through the owning reconciler. Validate a server dry-run replacement first,
+    preserve the Deployment UID and NAS identity, and remove this annotation after
+    successful reconciliation. Do not use Force or apply it to storage resources.
+    See the <a href="https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#replace-resource-instead-of-applying-changes">Argo CD replacement contract</a>.</p>
   <ul>
     <li>Compare rendered resources by API version, kind, namespace and name. Only two
-      container images and the Deployment strategy may differ.</li>
+      container images, the Deployment strategy and its temporary sync annotation may differ.</li>
     <li>Pass Helm lint, targeted pre-commit and whitespace checks before committing.</li>
     <li>Push to canonical Gitea master; immediately refresh Argo CD and verify exact
       revision, Synced/Healthy, rollout, one ready pod and zero container restarts.</li>
