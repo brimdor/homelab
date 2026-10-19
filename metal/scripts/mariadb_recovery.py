@@ -385,8 +385,8 @@ def require_patch_source(manifest):
         raise RuntimeError("unreviewed source for fixed MariaDB patch qualification")
 
 
-def stop_server(identity):
-    common.docker("exec", identity, "mariadb-admin", "--socket=/tmp/recovery.sock", "-uroot", "shutdown")
+def stop_server(identity, socket="/tmp/recovery.sock"):
+    common.docker("exec", identity, "mariadb-admin", "--socket=" + socket, "-uroot", "shutdown")
     for _ in range(60):
         if common.docker("exec", identity, "test", "!", "-e", "/tmp/recovery.pid", check=False).returncode == 0:
             return
@@ -477,8 +477,7 @@ def restore(run_id, expected_manifest, qualify_patch=False):
             result["stage"] = "patch-clean-shutdown"
             stop_server(identity)
             require_isolation(common.inspect(identity), scratch, run_id)
-            common.docker("rm", "-f", identity)
-            identity = None
+            source_identity = identity
             common.docker("pull", PATCH_IMAGE)
             candidate = json.loads(common.docker("image", "inspect", PATCH_IMAGE).stdout)[0]
             image_ids.add(candidate["Id"])
@@ -486,10 +485,14 @@ def restore(run_id, expected_manifest, qualify_patch=False):
                 raise RuntimeError("reviewed patch is not native AMD64")
             identity = isolated_container(PATCH_IMAGE, candidate, scratch, run_id, "10.11.19")
             checks = []
+            socket = "/var/lib/mysql/qualification.sock"
+            candidate_server = [argument.replace("--socket=/tmp/recovery.sock", "--socket=" + socket) for argument in server]
+            # Same original client preserves dump serialization across engine patches.
+            require_isolation(common.inspect(source_identity), scratch, run_id)
             for cycle in range(2):
                 result["stage"] = "patch-start-" + str(cycle + 1)
-                common.docker("exec", "-d", identity, *server)
-                client = ["docker", "exec", "-i", identity, "mariadb", "--socket=/tmp/recovery.sock", "-uroot", "-BN"]
+                common.docker("exec", "-d", identity, *candidate_server)
+                client = ["docker", "exec", "-i", source_identity, "mariadb", "--socket=" + socket, "-uroot", "-BN"]
                 for _ in range(120):
                     if common.command([*client, "-e", "SELECT 1"], check=False).returncode == 0:
                         break
@@ -500,9 +503,9 @@ def restore(run_id, expected_manifest, qualify_patch=False):
                 if empty_directory:
                     directory.mkdir(mode=0o700)
                     os.chown(directory, 999, 999)
-                schema = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock", "--no-data"]).stdout
+                schema = common.command(["docker", "exec", source_identity, *DUMP, "--socket=" + socket, "--no-data"]).stdout
                 grants = common.command([*client, "-e", "SELECT Host,User,Priv FROM mysql.global_priv ORDER BY Host,User"]).stdout
-                dump = common.command(["docker", "exec", identity, *DUMP, "--socket=/tmp/recovery.sock"]).stdout
+                dump = common.command(["docker", "exec", source_identity, *DUMP, "--socket=" + socket]).stdout
                 if (digest(schema) != manifest["before"]["schema_sha256"] or
                         digest(grants) != manifest["before"]["grants_sha256"] or digest(dump) != manifest["dump"]["sha256"]):
                     result["patch_dump_diagnostic"] = dump_diagnostic(original, dump)
@@ -511,12 +514,13 @@ def restore(run_id, expected_manifest, qualify_patch=False):
                     raise RuntimeError("patched schema, grants or full normalized data differs")
                 if empty_directory:
                     directory.rmdir()
-                common.docker("exec", identity, "mariadb-check", "--socket=/tmp/recovery.sock", "-uroot", "--all-databases", "--check-upgrade")
+                common.docker("exec", identity, "mariadb-check", "--socket=" + socket, "-uroot", "--all-databases", "--check-upgrade")
                 require_isolation(common.inspect(identity), scratch, run_id)
                 checks.append({"start": cycle + 1, "full_normalized_data_matches": True, "schema_and_grants_match": True})
-                stop_server(identity)
+                stop_server(identity, socket)
             result["patch_qualification"] = {"image": PATCH_IMAGE, "version": "10.11.19", "starts": checks,
-                                             "restored_datadir_reused": True, "clean_shutdowns": 3}
+                                             "restored_datadir_reused": True, "clean_shutdowns": 3,
+                                             "identical_original_dump_client_image": manifest["image"], "old_engine_stopped": True}
         require_isolation(common.inspect(identity), scratch, run_id)
         if file_digest(point / "cluster.sql") != manifest["dump"]:
             raise RuntimeError("original recovery bytes changed during restore")
