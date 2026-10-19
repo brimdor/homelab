@@ -132,6 +132,13 @@ The top-level `make` is a full provisioning workflow, not a test command. Its de
 - If the Argo CD CLI is missing or has no usable context, install and configure it as part of the task rather than waiting for the user. Use existing secure credential sources or Kubernetes/core mode as appropriate; never expose login passwords or tokens in output.
 - Prefer the repository-provided toolchain when host tool versions differ from CI.
 
+### CORE evidence and completed workloads
+
+- `scripts/homelab-health.py` collects read-only CORE evidence, not whole-homelab ALL GREEN certification. Preserve its original report and findings when adding later acceptance evidence; do not filter unrelated findings to claim completion.
+- A `Succeeded` Pod alone does not prove legitimate completion. Job-owned Pods require a matching nonempty owner UID, a completed or active nonfailed Job, restart policy `Never` or `OnFailure`, and successful main containers. Ordinary init containers must also succeed; native sidecar init containers may terminate during proven successful Job shutdown.
+- The GPU exception applies only to `gpu-operator/nvidia-cuda-validator-*` with label `app=nvidia-cuda-validator`, service account `nvidia-operator-validator`, restart policy `OnFailure`, main container `nvidia-cuda-validator`, ordinary init container `cuda-validation`, successful exits, and an active inventory node. The Pod and current healthy `nvidia-operator-validator` DaemonSet must share the exact `nvidia.com/v1` `ClusterPolicy/cluster-policy` owner UID; neither may be deleting. This does not allow arbitrary `Succeeded` Pods or prove GPU application behavior.
+- Unproven completion, failed Jobs, unready Pods, warning events, and missing/invalid evidence remain findings or evidence errors. Synthetic regression coverage lives in `scripts/test_homelab_health.py`.
+
 ## Helm and application conventions
 
 ### Chart structure
@@ -149,7 +156,7 @@ apps/<lowercase-hyphenated-name>/
 
 - Prefer a reputable official Helm chart as a pinned dependency.
 - Otherwise use the pinned `bjw-s` `app-template` dependency and follow that exact version's schema.
-- `app-template` 4.6.2 and 5.0.1 coexist in this repo. They are not schema-interchangeable. Read the target `Chart.yaml` and a current same-version neighbor before editing `values.yaml`.
+- Multiple `app-template` releases coexist in active charts, including 5.0.1, 5.1.0, and 5.2.1. Do not assume one repository-wide schema. Read the target `Chart.yaml` and a current same-version neighbor before editing `values.yaml`.
 - Several charts are custom/template-heavy. Do not force their configuration into `app-template` conventions without understanding their templates.
 - Pin chart dependencies and stable production images. Mutable tags such as `latest`, `main`, and `canary` already exist, but new changes should prefer immutable release or commit tags when the image pipeline supports them.
 - `Chart.lock` is generally ignored and dependencies are usually fetched at render time. Do not commit generated dependency archives or `charts/` directories unless that chart already intentionally vendors them.
@@ -361,4 +368,4 @@ Also prove the changed application's actual behavior. Kubernetes readiness alone
 
 Discover active applications from direct-child `apps/*/Chart.yaml` files and verify discovery against `system/argocd/values.yaml`. `archived/apps/` is historical, not an active application list.
 
-Read each target chart's pinned dependencies before editing values. bjw-s `app-template` 4.6.2 and 5.0.1 coexist with custom and other dependency charts; their schemas are not interchangeable. Inspect production and canary charts independently rather than assuming matching versions.
+Read each target chart's pinned dependencies before editing values; that chart, not a static version list here, defines its schema. Different bjw-s `app-template` releases coexist with custom and other dependency charts. Inspect production and canary charts independently rather than assuming matching versions.

@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Synthetic CORE contract tests. Never run kubectl, Git, inventory tools, or APIs.
 
-Run only through the required artifact launcher:
-/Users/chris/.local/bin/test-artifacts run --repo /Users/chris/Documents/Github/homelab \
-    --issue homelab-skills-alignment -- \
-    /opt/homebrew/opt/yamllint/libexec/bin/python -B scripts/test_homelab_health.py
+Run with Python 3 and already-installed PyYAML:
+python3 -B scripts/test_homelab_health.py
 
 All fixtures are in memory. File reads, subprocesses and chart discovery use mocks;
 no temporary files or credentials are needed. fixture() is a complete example of
@@ -292,6 +290,25 @@ class HealthTests(unittest.TestCase):
                 self.assertEqual(report["evidence"]["pods"][-1]["owners"][0]["kind"], "ClusterPolicy")
                 self.assertNotIn("DO_NOT_EMIT", json.dumps(report))
         completed = copy.deepcopy(self.data)
+        unowned = copy.deepcopy(self.data["sources"]["pods"]["items"][1])
+        unowned["metadata"].update({"name": "unowned-completed", "ownerReferences": []})
+        self.data["sources"]["pods"]["items"].append(unowned)
+        self.data["sources"]["pods"]["items"][0]["status"]["conditions"][0]["status"] = "False"
+        warning = resource("Event", "validator-warning", namespace="gpu-operator")
+        warning.update({"type": "Warning", "reason": "Unhealthy", "involvedObject": {
+            "kind": "Pod", "name": pod["metadata"]["name"], "namespace": "gpu-operator"}})
+        self.data["sources"]["warnings"]["items"].append(warning)
+        _, findings, errors = self.evaluate()
+        code, report = self.cli()
+        self.assertEqual(errors, [])
+        self.assertEqual(code, 1)
+        self.assertEqual(report["core_status"], "RED")
+        self.assertFalse(report["all_layers_verified"])
+        self.assertEqual(report["findings"], findings)
+        self.assertEqual({f["code"] for f in findings}, {
+            "pod_completion_not_proven", "pod_not_ready", "warning_event"})
+        self.assertEqual({f["name"] for f in findings if f["code"] == "pod_completion_not_proven"},
+                         {"unowned-completed"})
         for target, path, value, expected in (
             ("pod", ("metadata", "ownerReferences", 0, "uid"), "different-uid", "pod_completion_not_proven"),
             ("pod", ("metadata", "ownerReferences", 0, "uid"), "", "pod_completion_not_proven"),
