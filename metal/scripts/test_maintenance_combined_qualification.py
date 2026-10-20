@@ -9,6 +9,7 @@ import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import maintenance_combined_qualification as fixture
 
@@ -60,6 +61,15 @@ class CombinedQualificationInputs(unittest.TestCase):
         self.assertEqual(len(bodies), 2)
         for body in bodies:
             compile(body, '<actual-guest-body>', 'exec')
+
+    def test_complete_guest_header_compiles(self):
+        qualification = object.__new__(fixture.Qualification)
+        qualification.args = SimpleNamespace(revision='a' * 40)
+        qualification.ssh = []
+        captured = []
+        qualification.command = lambda _args, **kwargs: captured.append(kwargs['data']) or b'{}'
+        self.assertEqual(qualification.guest('print(json.dumps({}))'), {})
+        compile(captured[0], '<actual-complete-guest-program>', 'exec')
 
 
 if __name__ == '__main__':

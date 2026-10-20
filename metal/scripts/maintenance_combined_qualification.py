@@ -88,6 +88,19 @@ def native(*args):
    diagnostic['service_state']=fields.stdout.decode(errors='replace')[-2000:]
    logs=subprocess.run(['journalctl','-u','qualification-k3s.service','--no-pager','--output=cat','-n','80'],capture_output=True)
    diagnostic['safe_error_lines']=[line[:500]for line in logs.stdout.decode(errors='replace').splitlines()if re.search(r'error|fail|denied|unknown|invalid|fatal',line,re.I)and not re.search(r'token|password|secret|credential|authorization|private.key',line,re.I)][-20:]
+   assets=[]
+   for path in sorted(pathlib.Path('/var/lib/rancher/k3s/data').glob('*/bin/k3s*'))[:20]:
+    if path.name not in('k3s','k3s-server'):continue
+    entry={'path':str(path)}
+    try:
+     info=path.lstat();entry.update(mode=oct(info.st_mode),uid=info.st_uid,gid=info.st_gid,size=info.st_size,symlink=os.readlink(path)if path.is_symlink()else None,executable=os.access(path,os.X_OK,effective_ids=True))
+     try:entry['selinux']=os.getxattr(path,'security.selinux').decode(errors='replace').rstrip(chr(0))
+     except OSError as error:entry['selinux_errno']=error.errno
+    except OSError as error:entry['stat_errno']=error.errno
+    assets.append(entry)
+   diagnostic['asset_metadata']=assets
+   audit=subprocess.run(['journalctl','--no-pager','--output=cat','-n','300'],capture_output=True)
+   diagnostic['safe_avc_lines']=[line[:1000]for line in audit.stdout.decode(errors='replace').splitlines()if re.search(r'avc:.*denied',line,re.I)and not re.search(r'token|password|secret|credential|authorization|private.key',line,re.I)][-20:]
   raise RuntimeError('synthetic native failure '+json.dumps(diagnostic))
  return result.stdout
 def hashed(value):return hashlib.sha256(hops.canonical(value)).hexdigest()
