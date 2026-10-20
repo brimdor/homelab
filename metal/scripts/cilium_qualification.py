@@ -28,6 +28,8 @@ CHARTS = {
     "1.16.19": "91672864f438a2a45fbfac65b0f8b42a8dd76e9e712cabe602311c34f290f7a3",
     "1.17.18": "6a9a929a4bfa7a7cbb1fbb429514dde61fdf70622aac3adfd0bed8a4b09e34e9",
     "1.18.15": "8991506b1620a8c1751b66338ebd7d5e51413917736f2e1c9b957fc548eab127",
+    "1.19.9": "b54b1bae91bd87bcf9f19672e7f23304156697596332e6c64a53b62143b2b251",
+    "1.20.3": "0805a5273118c436c9772bb9566d87ec558d8b25cc2ce5dc32918ecdd36f2c7c",
 }
 K3S = "docker.io/rancher/k3s:v1.33.6-k3s1@sha256:d7119ab9e0054692a86a8eda454f2d3370dafc1c3a96b3ace5c5599f0c1e9f15"
 TESTS = ("no-policies", "all-ingress-deny", "all-egress-deny", "client-egress-l7")
@@ -278,7 +280,7 @@ class Qualification:
         self.install("1.15.19")
         self.validate("1.15.19", "patched-baseline")
         previous = "1.15.19"
-        for version in ("1.16.19", "1.17.18", "1.18.15"):
+        for version in ("1.16.19", "1.17.18", "1.18.15", "1.19.9", "1.20.3"):
             history = json.loads(self.helm("history", "cilium", "-n", "kube-system", "-o", "json"))
             revision = next(x["revision"] for x in history if x["status"] == "deployed")
             self.install(version)
