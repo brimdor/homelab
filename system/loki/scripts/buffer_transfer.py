@@ -579,7 +579,12 @@ def continuation_prefix(root, accounting, target_uid, covered_attempt=15):
 
 
 def run_tail(root, target_uid, attempt, apply, phase="tail"):
-    received = cold_recovery.flush_old(SOURCE)
+    if FROZEN_QUERY_COPY:
+        chunks, received = cold_recovery.metrics(SOURCE)
+        if chunks != 0:
+            raise RuntimeError("frozen query copy requires an already flushed source")
+    else:
+        received = cold_recovery.flush_old(SOURCE)
     accounting = source_accounting()
     if accounting["received_attempts"] != received:
         raise RuntimeError("tail source accounting changed after flush")

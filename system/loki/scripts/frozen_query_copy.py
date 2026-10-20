@@ -19,6 +19,22 @@ LOKI = "docker.io/grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2
 READER_ARGS = ["-config.file=/etc/loki/loki.yaml", "-ingester.wal-enabled=false", "-log.level=error",
                "-querier.query-timeout=3m", "-server.http-write-timeout=4m", "-target=querier,compactor",
                "-querier.query-store-only=true", "-common.compactor-grpc-address=127.0.0.1:9095"]
+EMPTY_SHA = hashlib.sha256(b"").hexdigest()
+
+
+def require_store_equivalent(before, after):
+    """Only exact empty native WAL segment/checkpoint rotation may differ."""
+    old, new = ({row["path"]: row for row in manifest} for manifest in (before, after))
+    changed = sorted(path for path in set(old) | set(new) if old.get(path) != new.get(path))
+    for path in changed:
+        if not re.fullmatch(r"loki/(?:wal/(?:[0-9]{8}|checkpoint\.[0-9]{6}/[0-9]{8})|"
+                            r"tsdb-active/wal/filesystem_2026-10-20/[0-9]+/[0-9]{8})", path):
+            raise RuntimeError("frozen source changed outside native empty WAL rotation")
+        for row in (old.get(path), new.get(path)):
+            if row is not None and (row["size"] != 0 or row["sha256"] != EMPTY_SHA):
+                raise RuntimeError("frozen source WAL rotation contains nonempty or invalid content")
+    return {"payload_manifest_sha256": recovery.digest([x for x in before if x["size"]]),
+            "current_full_manifest_sha256": recovery.digest(after), "empty_wal_rotation_paths": changed}
 
 
 def require_consumer(pods):
@@ -66,14 +82,15 @@ def require_consumer(pods):
 
 def require_copy(accounting):
     proof = json.loads(Path("/frozen-copy/source-proof.json").read_bytes())
+    original = json.loads(Path("/frozen-copy/source-manifest.json").read_bytes())
     manifest = recovery.inventory(Path("/frozen-original"))
     if (proof.get("source_uid") != cold_recovery.BUFFER_POD_UID or
             proof.get("claim_uid") != cold_recovery.BUFFER_CLAIM_UID or proof.get("config_sha256") != CONFIG_SHA or
             proof.get("source_accounting") != accounting or
-            proof.get("manifest_sha256") != recovery.digest(manifest) or
-            proof.get("files") != len(manifest) or proof.get("bytes") != sum(x["size"] for x in manifest)):
+            proof.get("manifest_sha256") != recovery.digest(original) or
+            proof.get("files") != len(original) or proof.get("bytes") != sum(x["size"] for x in original)):
         raise RuntimeError("original frozen source differs from its verified query copy")
-    return proof
+    return {**proof, "source_verification": require_store_equivalent(original, manifest)}
 
 
 def prepare(target_uid):
@@ -98,6 +115,7 @@ def prepare(target_uid):
     proof = {"source_uid": cold_recovery.BUFFER_POD_UID, "claim_uid": cold_recovery.BUFFER_CLAIM_UID,
              "source_accounting": accounting, "config_sha256": CONFIG_SHA,
              "manifest_sha256": recovery.digest(before), "files": len(before), "bytes": sum(x["size"] for x in before)}
+    cold_recovery.write_verified(work / "source-manifest.json", before)
     cold_recovery.write_verified(work / "source-proof.json", proof)
     print(json.dumps(proof), flush=True)
 
