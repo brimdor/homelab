@@ -196,12 +196,15 @@ def diagnose():
             try:
                 recovery.copy_verified(POINT / "source", scratch / "data", point["manifest"])
                 (scratch / "loki.yaml").write_bytes(config)
-                container = docker("create", "--network=none", "--read-only", "--user=0:0", "--cap-drop=ALL",
+                container = docker("create", "--log-driver=none", "--network=none", "--read-only", "--user=0:0", "--cap-drop=ALL",
                                    "--security-opt=no-new-privileges:true", "--pids-limit=128", "--cpus=1", "--memory=1g",
                                    "--label=" + LABEL, "--mount=type=bind,source=" + str(scratch / "data") + ",target=/var/loki",
                                    "--mount=type=bind,source=" + str(scratch / "loki.yaml") + ",target=/etc/loki/loki.yaml,readonly",
                                    IMAGE, "-config.file=/etc/loki/loki.yaml", "-ingester.wal-enabled=false", "-log.level=error",
                                    "-querier.query-timeout=3m", "-server.http-write-timeout=4m", *flags).decode().strip()
+                before_start = json.loads(docker("inspect", container))[0]
+                if before_start["HostConfig"].get("LogConfig") != {"Type": "none", "Config": {}}:
+                    raise RuntimeError("isolated diagnostic logging is not disabled")
                 docker("start", container)
                 state = json.loads(docker("inspect", container))[0]
                 if state["HostConfig"]["NetworkMode"] != "none" or not state["HostConfig"]["ReadonlyRootfs"]:
@@ -227,12 +230,9 @@ def diagnose():
                 if not ready:
                     state = json.loads(docker("inspect", container))[0]["State"]
                     # WAL replay and all queries are disabled in this startup-only phase.
-                    startup = subprocess.run(["docker", "--host", "unix:///var/run/docker.sock", "logs", container], capture_output=True)
-                    if startup.returncode:
-                        raise RuntimeError("cannot read owned startup diagnostic")
-                    logs = startup.stdout + startup.stderr
                     print(json.dumps({"mode": mode, "startup_exit": state["ExitCode"],
-                                      "startup_running": state["Running"], "startup_diagnostic": logs.decode()[-3000:]}), flush=True)
+                                      "startup_running": state["Running"],
+                                      "raw_output_discarded": True}), flush=True)
                     raise RuntimeError("isolated query runtime did not become ready")
                 runtime_config = http("/config").decode()
                 for field, expected in (("query_store_only", "true" if mode == "standalone-store-only" else "false"),

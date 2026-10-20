@@ -2,12 +2,10 @@
 
 import hashlib
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
 import tempfile
-import uuid
 
 import pointguide_files_recovery as retained
 
@@ -55,24 +53,31 @@ def discover(tree):
     return roots
 
 
-def check_config(raw):
+def check_config(run, location):
+    prefix = ['config', '--no-includes', '--file', location + '/config', '--null', '--name-only']
+    raw = run([*prefix, '--list'])
     if not raw.endswith(b'\0'):
         raise RuntimeError('native Git configuration framing differs')
-    values = {}
-    for record in raw[:-1].split(b'\0'):
-        key, separator, value = record.partition(b'\n')
-        if not separator or not (key in {
-                b'core.bare', b'core.filemode', b'core.repositoryformatversion', b'receive.denycurrentbranch'} or
+    keys = raw[:-1].split(b'\0')
+    seen = set()
+    for key in keys:
+        if not (key in {b'core.bare', b'core.filemode', b'core.repositoryformatversion',
+                        b'receive.denycurrentbranch'} or
                 re.fullmatch(rb'remote\.[A-Za-z0-9._-]+\.(url|push|mirror)', key)):
             raise RuntimeError('unreviewed native Git configuration key')
-        if key in values and not key.endswith(b'.push'):
+        if key in seen and not key.endswith(b'.push'):
             raise RuntimeError('duplicate native Git configuration key')
-        values[key] = value
-        if key.endswith(b'.mirror') and value != b'true':
-            raise RuntimeError('native Git mirror setting differs')
-    if (values.get(b'core.bare') != b'true' or values.get(b'core.repositoryformatversion') != b'0' or
-            values.get(b'core.filemode') not in (b'true', b'false')):
-        raise RuntimeError('native Git bare repository format differs')
+        seen.add(key)
+    required = {b'core.bare': '^true$', b'core.repositoryformatversion': '^0$',
+                b'core.filemode': '^(true|false)$'}
+    required.update({key: '^true$' for key in keys if key.endswith(b'.mirror')})
+    for key, value_pattern in required.items():
+        if key not in seen:
+            raise RuntimeError('native Git bare repository configuration missing')
+        # Git filters values internally; only matching key names leave the process.
+        matched = run([*prefix, '--get-regexp', '^' + re.escape(key.decode()) + '$', value_pattern])
+        if matched != key + b'\0':
+            raise RuntimeError('native Git bare repository format or mirror setting differs')
 
 
 def references(raw):
@@ -145,16 +150,9 @@ def operation(scratch, volumes, run_id, args, image_id):
         if (response.returncode or state['Running'] or state['ExitCode'] or state.get('OOMKilled') or
                 response.stderr or ('fsck' in args and response.stdout)):
             output = response.stdout + response.stderr
-            diagnostic = POINT / ('git-failure-' + run_id + '-' + uuid.uuid4().hex + '.log')
-            descriptor = os.open(diagnostic, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(descriptor, 'wb') as target:
-                target.write(output)
-                target.flush()
-                os.fsync(target.fileno())
             raise RuntimeError('native Git check failed: ' + json.dumps({
                 'exit': state['ExitCode'], 'transport': response.returncode, 'oom': state.get('OOMKilled'),
-                'output_bytes': len(output), 'output_sha256': hashlib.sha256(output).hexdigest(),
-                'protected_private_diagnostic': str(diagnostic)}))
+                'output_bytes': len(output), 'raw_output_discarded': True}))
         return response.stdout
     finally:
         if container:
@@ -203,7 +201,7 @@ def restore(run_id):
             checks = {}
             for root in roots:
                 location = '/recovered/' + root
-                check_config(run(['config', '--no-includes', '--file', location + '/config', '--null', '--list']))
+                check_config(run, location)
                 run(['--git-dir=' + location, 'fsck', '--full', '--strict', '--no-dangling'])
                 refs = references(run(['--git-dir=' + location, 'for-each-ref', '--sort=refname',
                                        '--format=%(refname)%00%(objectname)%00%(objecttype)']))

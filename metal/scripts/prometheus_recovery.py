@@ -477,6 +477,7 @@ def restore(point, expected_hash, run_id, probes):
     previous_images = set(common.docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
     scratch = Path(tempfile.mkdtemp(prefix=run_id + "-restore-", dir=common.ROOT))
     container = image_id = None
+    capture = None
     result = {"accepted": False, "manifest_sha256": expected_hash}
     stage = "copy_and_start"
     try:
@@ -512,7 +513,7 @@ def restore(point, expected_hash, run_id, probes):
                 [(m.get("Type"), m.get("Source"), m.get("Destination"), m.get("RW"))
                  for m in state["Mounts"]] != [("bind", str(scratch), "/work", True)]):
             raise RuntimeError("native restore isolation contract changed")
-        common.docker("start", container)
+        capture = common.CapturedContainer(container)
         pid = str(common.inspect(container)["State"]["Pid"])
         network = ["nsenter", "--target", pid, "--net", "--"]
         links = json.loads(common.command(network + ["ip", "-j", "address"]).stdout)
@@ -543,7 +544,7 @@ def restore(point, expected_hash, run_id, probes):
                            "time": probe["time"], **actual, "matches": actual == probe["expected"]})
             if actual != probe["expected"]:
                 raise RuntimeError("native restored historical query differs")
-        native_logs = common.docker("logs", container)
+        native_logs = capture.output()
         logs = native_logs.stdout + native_logs.stderr
         stage = "native_log_acceptance"
         result["native_log_diagnostic"] = log_diagnostic(logs)
@@ -556,22 +557,26 @@ def restore(point, expected_hash, run_id, probes):
     except Exception as error:
         result.update(accepted=False, failed_stage=stage, failure_class=type(error).__name__)
     finally:
-        if container is not None:
-            if common.inspect(container)["Config"].get("Labels", {}).get(label) != run_id:
-                raise RuntimeError("owned restore container identity changed during cleanup")
-            common.docker("rm", "-f", "--volumes", container)
-        shutil.rmtree(scratch)
-        removed = False
-        if image_id and image_id not in previous_images:
-            if not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
-                common.docker("image", "rm", image_id)
-                removed = common.docker("image", "inspect", image_id, check=False).returncode != 0
-                if not removed:
-                    raise RuntimeError("new native restore image remains")
-        verify_point(point, expected_hash)
-        result["cleanup"] = {"scratch_absent": not scratch.exists(), "new_image_removed": removed,
-                             "owned_container_absent": not common.docker("ps", "-aq", "--filter=label=" + label).stdout.strip(),
-                             "protected_original_unchanged": True}
+        try:
+            if container is not None:
+                if common.inspect(container)["Config"].get("Labels", {}).get(label) != run_id:
+                    raise RuntimeError("owned restore container identity changed during cleanup")
+                common.docker("rm", "-f", "--volumes", container)
+            shutil.rmtree(scratch)
+            removed = False
+            if image_id and image_id not in previous_images:
+                if not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
+                    common.docker("image", "rm", image_id)
+                    removed = common.docker("image", "inspect", image_id, check=False).returncode != 0
+                    if not removed:
+                        raise RuntimeError("new native restore image remains")
+            verify_point(point, expected_hash)
+            result["cleanup"] = {"scratch_absent": not scratch.exists(), "new_image_removed": removed,
+                                 "owned_container_absent": not common.docker("ps", "-aq", "--filter=label=" + label).stdout.strip(),
+                                 "protected_original_unchanged": True}
+        finally:
+            if capture is not None:
+                capture.close()
     return result
 
 

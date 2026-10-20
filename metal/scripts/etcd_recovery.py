@@ -211,6 +211,25 @@ def require_network(links, routes):
 
 
 def command(arguments, check=True):
+    arguments = list(arguments)
+    if arguments[:1] == ["docker"]:
+        if arguments[1:2] == ["run"]:
+            raise RuntimeError("recovery Docker run is forbidden; create and inspect before start")
+        if arguments[1:2] == ["create"]:
+            if any(item.startswith("--log-opt") or
+                   (item.startswith("--log-driver") and item != "--log-driver=none")
+                   for item in arguments[2:]):
+                raise RuntimeError("recovery Docker logging must be explicitly disabled")
+            if "--log-driver=none" not in arguments:
+                arguments.insert(2, "--log-driver=none")
+        if arguments[1:2] == ["start"]:
+            containers = [item for item in arguments[2:] if not item.startswith("-")]
+            if not containers:
+                raise RuntimeError("recovery Docker start needs an inspected container")
+            for container in containers:
+                require_no_logging(container)
+        if arguments[1:2] == ["logs"]:
+            raise RuntimeError("persistent recovery Docker logs forbidden; use RAM capture")
     result = subprocess.run(arguments, capture_output=True)
     if check and result.returncode:
         # k3s logs can contain join tokens; never include subprocess output in an error.
@@ -224,6 +243,60 @@ def docker(*arguments, check=True):
 
 def inspect(container_id):
     return json.loads(docker("inspect", container_id).stdout)[0]
+
+
+def require_no_logging(container):
+    value = inspect(container)
+    if value.get("HostConfig", {}).get("LogConfig") != {"Type": "none", "Config": {}}:
+        raise RuntimeError("recovery container logging is not disabled")
+
+
+class CapturedContainer:
+    """Keep required service diagnostics in anonymous RAM, never Docker logs."""
+
+    def __init__(self, container):
+        require_no_logging(container)
+        self.container = container
+        self.descriptor = os.memfd_create("homelab-recovery-output", os.MFD_CLOEXEC)
+        self.process = None
+        try:
+            self.process = subprocess.Popen(["docker", "start", "--attach", container],
+                                            stdin=subprocess.DEVNULL, stdout=self.descriptor,
+                                            stderr=self.descriptor)
+            started = time.monotonic()
+            while not inspect(container)["State"]["Running"]:
+                if self.process.poll() is not None:
+                    raise RuntimeError("captured recovery service exited before running")
+                if time.monotonic() - started > 30:
+                    raise RuntimeError("captured recovery Docker start did not complete")
+                time.sleep(0.05)
+        except BaseException:
+            self.close()
+            raise
+
+    def output(self):
+        if not inspect(self.container)["State"]["Running"]:
+            self.process.wait(timeout=10)
+        length = os.fstat(self.descriptor).st_size
+        data = os.pread(self.descriptor, length, 0)
+        return subprocess.CompletedProcess(["RAM recovery output"], 0, data, b"")
+
+    def close(self):
+        try:
+            if self.process is not None:
+                try:
+                    self.process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    self.process.terminate()
+                    try:
+                        self.process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        self.process.kill()
+                        self.process.wait()
+        finally:
+            if self.descriptor is not None:
+                os.close(self.descriptor)
+                self.descriptor = None
 
 
 def private_root():

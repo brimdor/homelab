@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import subprocess
 import os
 from pathlib import Path
 import shlex
@@ -54,6 +55,7 @@ def check(parent_id, scratch, client, run_id):
         raise RuntimeError("synthetic kubeconfig contract changed")
     before_images = set(RECOVERY.docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
     candidates = {}
+    captures = {}
     image_id = None
     namespace_fd = None
     interface_created = paused = False
@@ -94,14 +96,14 @@ def check(parent_id, scratch, client, run_id):
             identity = RECOVERY.docker(*arguments, IMAGE, "manager").stdout.decode().strip()
             candidates[name] = identity
             require_candidate(RECOVERY.inspect(identity), parent_id, scratch, run_id)
-            RECOVERY.docker("start", identity)
+            captures[name] = RECOVERY.CapturedContainer(identity)
 
         def healthy(names):
             for name in names:
                 container = RECOVERY.inspect(candidates[name])
                 require_candidate(container, parent_id, scratch, run_id)
                 if not container["State"]["Running"] or container["State"].get("OOMKilled"):
-                    log = RECOVERY.docker("logs", candidates[name], check=False)
+                    log = captures[name].output()
                     result["failed_candidate"] = {"name": name, "exit": container["State"].get("ExitCode"),
                                                    "log_sha256": hashlib.sha256(log.stdout + log.stderr).hexdigest()}
                     raise RuntimeError("synthetic candidate exited or exceeded its existing memory limit")
@@ -165,7 +167,7 @@ def check(parent_id, scratch, client, run_id):
                                           for item in json.loads(leases.stdout)["items"]]
         result["candidate_log_markers"] = {}
         for name, identity in candidates.items():
-            logs = RECOVERY.docker("logs", identity, check=False)
+            logs = captures[name].output() if name in captures else subprocess.CompletedProcess([], 0, b"", b"")
             text = (logs.stdout + logs.stderr).decode(errors="replace").lower()
             result["candidate_log_markers"][name] = [marker for marker in (
                 "kubernetes:16443", "127.0.0.1:16443", "no such host", "network is unreachable",
@@ -174,11 +176,15 @@ def check(parent_id, scratch, client, run_id):
     finally:
         if paused:
             RECOVERY.docker("unpause", parent_id)
-        for identity in candidates.values():
-            require_candidate(RECOVERY.inspect(identity), parent_id, scratch, run_id)
-            RECOVERY.docker("rm", "--force", "--volumes", identity)
-            if RECOVERY.docker("inspect", identity, check=False).returncode == 0:
-                raise RuntimeError("owned candidate remains after cleanup")
+        try:
+            for identity in candidates.values():
+                require_candidate(RECOVERY.inspect(identity), parent_id, scratch, run_id)
+                RECOVERY.docker("rm", "--force", "--volumes", identity)
+                if RECOVERY.docker("inspect", identity, check=False).returncode == 0:
+                    raise RuntimeError("owned candidate remains after cleanup")
+        finally:
+            for capture in captures.values():
+                capture.close()
         if interface_created:
             RECOVERY.command(namespace + ["ip", "link", "delete", INTERFACE])
         if namespace_fd is not None:

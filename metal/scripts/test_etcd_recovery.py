@@ -210,5 +210,58 @@ class BundleTests(unittest.TestCase):
             RECOVERY.verify_point(destination, expected)
 
 
+class LoggingBoundaryTests(unittest.TestCase):
+    def test_creation_disables_logging_and_rejects_conflicting_settings(self):
+        result = subprocess.CompletedProcess([], 0, b'owned', b'')
+        with patch.object(RECOVERY.subprocess, "run", return_value=result) as run:
+            RECOVERY.docker("create", "--network=none", "synthetic")
+            self.assertEqual(run.call_args.args[0][0:3], ["docker", "create", "--log-driver=none"])
+            run.reset_mock()
+            for args in (("create", "--log-driver=journald", "synthetic"),
+                         ("create", "--log-driver", "none", "synthetic"),
+                         ("create", "--log-opt=max-size=1m", "synthetic"),
+                         ("run", "--log-driver=none", "synthetic"), ("logs", "owned")):
+                with self.subTest(args=args), self.assertRaises(RuntimeError):
+                    RECOVERY.docker(*args)
+            run.assert_not_called()
+
+    def test_actual_logging_inspected_before_start_even_with_check_false(self):
+        result = subprocess.CompletedProcess([], 0, b'', b'')
+        for kind in ('journald', 'json-file', ''):
+            with patch.object(RECOVERY, 'inspect', return_value={'HostConfig': {'LogConfig': {'Type': kind, 'Config': {}}}}), \
+                    patch.object(RECOVERY.subprocess, 'run', return_value=result) as run:
+                with self.assertRaises(RuntimeError):
+                    RECOVERY.docker('start', '--attach', 'owned', check=False)
+                run.assert_not_called()
+        with patch.object(RECOVERY, 'inspect', return_value={'HostConfig': {'LogConfig': {'Type': 'none', 'Config': {}}}}), \
+                patch.object(RECOVERY.subprocess, 'run', return_value=result) as run:
+            RECOVERY.docker('start', 'owned')
+            run.assert_called_once()
+
+    @unittest.skipUnless(hasattr(RECOVERY.os, 'memfd_create'), 'Linux anonymous RAM descriptors required')
+    def test_ram_capture_retains_checks_and_closes_on_failure_and_cancellation(self):
+        import os
+        value = {'HostConfig': {'LogConfig': {'Type': 'none', 'Config': {}}}, 'State': {'Running': True}}
+        native_popen = subprocess.Popen
+        sentinel = b'synthetic-private-sentinel'
+        def launch(_args, **kwargs):
+            return native_popen([RECOVERY.sys.executable, '-c',
+                                 'import os;os.write(1, b"synthetic-private-sentinel")'], **kwargs)
+        with patch.object(RECOVERY, 'inspect', return_value=value), \
+                patch.object(RECOVERY.subprocess, 'Popen', side_effect=launch):
+            capture = RECOVERY.CapturedContainer('synthetic')
+            descriptor = capture.descriptor
+            capture.process.wait(timeout=10)
+            self.assertEqual(capture.output().stdout, sentinel)
+            capture.close()
+            self.assertIsNotNone(capture.process.returncode)
+            with self.assertRaises(OSError):
+                os.fstat(descriptor)
+        with patch.object(RECOVERY, 'inspect', side_effect=[value, KeyboardInterrupt()]), \
+                patch.object(RECOVERY.subprocess, 'Popen', side_effect=launch):
+            with self.assertRaises(KeyboardInterrupt):
+                RECOVERY.CapturedContainer('synthetic')
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -287,6 +287,7 @@ def restore(point, expected, run_id):
     previous = set(common.docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
     scratch = Path(tempfile.mkdtemp(prefix=common.run_identifier(run_id) + "-am-restore-", dir=common.ROOT))
     container = image_id = None
+    capture = None
     result = {"accepted": False, "manifest_sha256": expected, "unsnapshotted_ram_proven": False}
     try:
         (scratch / "data").mkdir(mode=0o700)
@@ -318,7 +319,7 @@ def restore(point, expected, run_id):
                 {(m["Source"], m["Destination"], m["RW"]) for m in native["Mounts"]} !=
                 {(str(scratch), "/work", True), (str(scratch / "data"), "/alertmanager", True)}):
             raise RuntimeError("native restore isolation contract changed")
-        common.docker("start", container)
+        capture = common.CapturedContainer(container)
         pid = str(common.inspect(container)["State"]["Pid"])
         network = ["nsenter", "--target", pid, "--net", "--"]
         links = json.loads(common.command(network + ["ip", "-j", "address"]).stdout)
@@ -340,7 +341,7 @@ def restore(point, expected, run_id):
         stopped = common.inspect(container)["State"]
         if stopped["Running"] or stopped["ExitCode"] != 0 or stopped["OOMKilled"]:
             raise RuntimeError("native shutdown did not complete successfully")
-        logs = common.docker("logs", container)
+        logs = capture.output()
         diagnostic = shared.log_diagnostic(logs.stdout + logs.stderr)
         result["native_log_diagnostic"] = diagnostic
         if diagnostic["findings"]:
@@ -354,19 +355,23 @@ def restore(point, expected, run_id):
     except Exception as error:
         result.update(failure_class=type(error).__name__, failure_reason=str(error))
     finally:
-        if container:
-            if common.inspect(container)["Config"].get("Labels", {}).get(label) != run_id:
-                raise RuntimeError("owned native container identity changed during cleanup")
-            common.docker("rm", "-f", "--volumes", container)
-        shutil.rmtree(scratch)
-        removed = False
-        if image_id and image_id not in previous and not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
-            common.docker("image", "rm", image_id)
-            removed = common.docker("image", "inspect", image_id, check=False).returncode != 0
-            if not removed:
-                raise RuntimeError("new owned native restore image remains")
-        verify_point(point, expected)
-        result["cleanup"] = {"scratch_absent": not scratch.exists(), "new_image_removed": removed,
-                             "owned_container_absent": not common.docker("ps", "-aq", "--filter=label=" + label).stdout.strip(),
-                             "protected_original_unchanged": True}
+        try:
+            if container:
+                if common.inspect(container)["Config"].get("Labels", {}).get(label) != run_id:
+                    raise RuntimeError("owned native container identity changed during cleanup")
+                common.docker("rm", "-f", "--volumes", container)
+            shutil.rmtree(scratch)
+            removed = False
+            if image_id and image_id not in previous and not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
+                common.docker("image", "rm", image_id)
+                removed = common.docker("image", "inspect", image_id, check=False).returncode != 0
+                if not removed:
+                    raise RuntimeError("new owned native restore image remains")
+            verify_point(point, expected)
+            result["cleanup"] = {"scratch_absent": not scratch.exists(), "new_image_removed": removed,
+                                 "owned_container_absent": not common.docker("ps", "-aq", "--filter=label=" + label).stdout.strip(),
+                                 "protected_original_unchanged": True}
+        finally:
+            if capture is not None:
+                capture.close()
     return result
