@@ -1,0 +1,91 @@
+{{- if .Values.maintenanceData.seed.enabled }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9-]{7,79}$" .Values.maintenanceData.seed.runID) }}
+{{- fail "seed runID must identify the reviewed protected recovery point" }}
+{{- end }}
+{{- if not (regexMatch "^[a-f0-9]{64}$" .Values.maintenanceData.seed.manifestSHA256) }}
+{{- fail "seed requires the exact final recovery manifest hash" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: humbleai-final-data-seed
+data:
+  seed-data.py: |
+{{ .Files.Get "scripts/seed-data.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: humbleai-final-data-seed-{{ .Values.maintenanceData.seed.runID }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: humbleai-final-data-seed
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: pikachu
+      containers:
+        - name: seed
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/seed-data.py]
+          args:
+            - {{ printf "--manifest-sha256=%s" .Values.maintenanceData.seed.manifestSHA256 | quote }}
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: '1'
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: database
+              mountPath: /original/database.sqlite
+              readOnly: true
+            - name: manifest
+              mountPath: /original/verified.json
+              readOnly: true
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: humbleai-demo-data
+        - name: database
+          hostPath:
+            path: /var/lib/homelab-recovery/maintenance-103/sqlite-{{ .Values.maintenanceData.seed.runID }}/database.sqlite
+            type: File
+        - name: manifest
+          hostPath:
+            path: /var/lib/homelab-recovery/maintenance-103/sqlite-{{ .Values.maintenanceData.seed.runID }}/verified.json
+            type: File
+        - name: script
+          configMap:
+            name: humbleai-final-data-seed
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: humbleai-final-data-seed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: humbleai-final-data-seed
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+{{- end }}

@@ -1,6 +1,10 @@
 maintenanceData:
   enabled: true
-  holdFixtureEnabled: true
+  holdFixtureEnabled: false
+  seed:
+    enabled: false
+    runID: ''
+    manifestSHA256: ''
 app-template:
   controllers:
     main:
