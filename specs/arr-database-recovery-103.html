@@ -63,5 +63,32 @@ No original writer was touched. j8ho7i3z confirms the shared pidfd identity prim
 The native restore overrides that one volume with its disposable bind and overrides/init with the observed application executable.
 Permit only that exact declared volume and continue requiring exactly one actual bind; reject any additional declared/anonymous storage.
 The coordinated capture code is unchanged by this native image-contract correction.</p>
-<h2>Status</h2><p>Coordinated native pause accepted. Direct native application fixture, live capture and protected restore acceptance remain pending.</p>
+<h2>Native fixture and protected captures</h2>
+<p>Published source <code>2eb7751f2933423f5b915e24693ed6939153b0ea</code> passed fourteen combined Arr/L2 regressions
+with zero skips and scoped hooks. Its capture primitives match49db724f exactly.
+Native synthetic fixture8lc4qfiw passed at2026-10-20T13:02:17Z for both images: direct executable, ping200,
+network none/loopback-only, one disposable bind and clean exit0. Owned containers, new unused images and scratch were absent;
+1,441,792 and7,471,104allocated bytes were removed. No original writer was touched by that fixture.</p>
+<p>Radarr protected point <code>/var/lib/homelab-recovery/maintenance-103/radarr-databases-20261020-1304-native</code>
+has manifest <code>2d42fba7a3969309c5ae1eefe3845c9a52b39a31596c332cc506bd2d7e9c8e2a</code>.
+All ten original processes resumed after4.565638363012113seconds, before binary transport.
+Run078p_quu refused native startup at13:10:29Z because copied SQLite validation failed. Its cleanup removed2,294,964,224allocated bytes,
+the owned container and scratch; protected hashes remained unchanged. Same original Pod/container/image/mounts remained Ready with zero restarts in jxtrxuzb at13:12:48Z.</p>
+<p>Independent copied-data diagnostic ukmz52rb passed collection at13:13:44Z with host SQLite3.42.0:
+radarr.db integrity and foreign keys passed; logs.db had100reported integrity diagnostics, including a rowid-order error and99missing index entries,
+with zero foreign-key violations. fjlvk7ri identifies the structural rowid-order diagnostic and original schema without exposing records.
+This is an unresolved recovery finding, not accepted restore proof or an identified historical cause.
+An exact image library check is pending to distinguish native-engine behavior from the host diagnostic.
+Both diagnostics removed their exact scratch. No original or protected database was opened for SQLite writes.</p>
+<p>Independent Sonarr point <code>/var/lib/homelab-recovery/maintenance-103/sonarr-databases-20261020-1312-native</code>
+has manifest <code>2defb992ef1e31813aa57cab09ae8bf4c639350b2afeae613c73ebadbc7a0b27</code>:
+five files/513,886,454bytes, ten-process hold4.371857998004998seconds, complete verified transport and unchanged original identities after capture.
+Run y3layg67 passed at13:16:28Z: exact native image ping200, network none/loopback-only, clean exit0,
+both databases passed integrity/FK and retained schema/metadata. The application database has39tables/227,211rows;
+logs has4tables/140,946rows before startup and140,950after. Native startup changed copied data fingerprints;
+no post-start byte/row-content identity claim. Same original identities remained Ready with zero restarts.
+Protected hashes were unchanged; owned container/new unused image/scratch were removed, with2,568,380,416allocated bytes reclaimed.
+Radarr's finding did not stop that independent namespace.</p>
+<h2>Status</h2><p>Sonarr selected-database native recovery accepted. Radarr copied logs integrity finding remains unresolved;
+remaining full-PVC/NAS coverage is incomplete.</p>
 </html>

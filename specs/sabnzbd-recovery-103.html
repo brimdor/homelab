@@ -1,0 +1,52 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>SABnzbd recovery — Maintenance 103</title>
+<style>:root{color-scheme:dark;background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui}body{max-width:1000px;margin:auto;padding:32px}a{color:#9bd0ff}code{overflow-wrap:anywhere}th,td{border:1px solid #425268;padding:10px;text-align:left}table{border-collapse:collapse;width:100%}</style>
+<h1>SABnzbd recovery</h1>
+<p>Scope: <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103 RECOVERY_PROOF</a>.
+Protect both Ceph stores at one stopped-writer instant, then qualify an isolated native copy. No NAS writes, provider requests, queue administration or production Pod replacement.</p>
+<h2>Observed source contract</h2>
+<p>Read-only runs ivb10x20, oglv4t1j, ffxv7wou and td2kjq1l on 2026-10-20 bind Pikachu Pod
+<code>cdc9877a-93d8-4eab-b566-39379f93427b</code>, two ready zero-restart containers and the unchanged three separate NFS mounts.
+Native main container <code>be79415daaa0f415a4c4106a181abc0a4403d50d6b865f86f229c5fbb1515ecb</code>
+uses image SHA256 <code>7a13af91cf296399e302d2fb6fc709d6e2ea15e3094f220684611fbe1dd43625</code>.
+Main Python application PID 12466 runs UID 99/GID 100; its observed argument vector is
+<code>python3 /app/sabnzbd/SABnzbd.py --config-file /config --server ::</code>.
+The image's version literal is 5.1.3. Exact AMD64/Linux image config grw1tc0e declares only /config, entrypoint /init and no command;
+config SHA256 <code>60d09872c6830a8d9cde931cd7450c7af36910fdb63b7416d15e8ec1f48d93a6</code>.
+Source script SHA256 is
+<code>f20b0a7fa96b66856afb851bc63e361f01b9ddea2c19891e5cc1c3a4b644bd4e</code>.</p>
+<table><tr><th>Store</th><th>Exact identities</th><th>Observation</th></tr>
+<tr><td>/config</td><td>PVC 0de2e927-1652-432b-97e7-fd3b7e48c9af; PV b79a4981-80c6-4de5-aada-34ee89b69afe; device 64320/inode 2</td><td>15 files, four directories, 44,969,868 bytes</td></tr>
+<tr><td>/incomplete-downloads</td><td>PVC 1e21206c-8f35-4d01-8487-29c50d1d5926; PV 715b618a-94a6-4092-aa05-e40210a4319b; device 64304/inode 2</td><td>Six files, three directories, 97,006,837 bytes</td></tr></table>
+<p>Both stores have no observed symlink, special file or foreign device. Counts are observations, not hard-coded acceptance requirements.
+The fix-host container <code>72512e1530d626938fa7488b15dfee5fefb00d4004545ef30894facfc236a4f5</code>
+also mounts /config: freeze both of its processes as well as all ten main-container processes. The completed restore init container must remain completed and must not restart.</p>
+<h2>Implementation and acceptance plan</h2>
+<ol>
+<li>Add a fixed-profile helper and focused regressions. Reuse the existing exact pidfd identities, coordinated pause, protected framing,
+full-tree two-store memory capture and typed SQLite fingerprint primitives. Refuse changed task sets, mount devices, UIDs or consumers.</li>
+<li>Qualify a twelve-process native pause fixture, including cancellation, partial entry and watchdog refusal. Warm only the two Ceph roots read-only.
+Require actual available memory for both complete stores, one shared hold below ten seconds, and every original process resumed before transport.</li>
+<li>Validate and publish the exact candidate to canonical Gitea master before capture. Verify cluster, both container/task sets,
+all Pod mounts, both Bound PVC/PV/CSI identities and exclusive active consumers before and after. Receive only through existing strict SSH into protected Pikachu storage.</li>
+<li>Verify complete framing, commit, EOF, hashes and permissions; preserve uncertain partials. Keep original configuration, logs, queue data,
+SQLite database and every journal/WAL/SHM companion together. Never print credentials, queue titles or records, or retain real data in workstation test artifacts.</li>
+<li>Use exact pinned AMD64 native image, direct Python entrypoint, user 99:100/group 1000, read-only root, no capabilities, ports or network,
+and only disposable copies of the two stores. Provide separate disposable destinations for any required output paths; never mount originals or NAS.</li>
+<li>Require native loopback <code>/api?mode=version&amp;output=json</code> to identify 5.1.3 and clean shutdown.
+The <a href="https://sabnzbd.org/wiki/configuration/4.5/api">official API contract</a> exempts version from API-key requirements;
+verify the exact 5.1.3 implementation before use. Do not use credentials, reset authentication, resume downloads or invoke provider-facing endpoints.</li>
+<li>Check copied SQLite integrity/FK/schema and complete typed data before and after native execution. Report native startup changes honestly.
+Finally remove exact owned containers, new unused images, synthetic/copy data and processes; require protected hashes unchanged.</li>
+</ol>
+<h2>Structure and verification</h2>
+<p>Prospective implementation: <code>metal/scripts/sabnzbd_recovery.py</code> and <code>metal/scripts/test_sabnzbd_recovery.py</code>.
+Follow existing helper argument arrays, fixed profiles, fail-fast identity checks and tracked finally cleanup. Unit cases must reject changed
+tasks, a second/foreign device, lost store, wrong image, extra mount/network/capability and truncated or uncommitted transfer.
+Native image volume/default and API source contracts remain to be reviewed before implementation is executed.</p>
+<h2>Rollback and limits</h2>
+<p>Capture rollback resumes the exact original processes unconditionally. Restore rollback removes only the owned disconnected fixture.
+No production deployment or data migration occurs. This work cannot prove NAS backups, external provider credentials, successful downloads,
+media integrity, public login, offsite recovery or writes after the captured instant. Existing explicit approval and data-safety gates remain applicable.</p>
+<h2>Status</h2><p>Source metadata and implementation plan recorded. No SABnzbd capture, native fixture or restore accepted.</p>
+</html>

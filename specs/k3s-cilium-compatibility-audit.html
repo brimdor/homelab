@@ -174,4 +174,18 @@
 <p>cilium-resolver-native-diagnostic-y7w68_dj passed at2026-10-20T11:11:21Z: the fresh no-mount ARM64 fixture's official client resolved one.one.one.one through CoreDNS10.43.0.10 and directly through the unchanged inherited192.168.5.1 upstream, both to1.1.1.1/1.0.0.1. example.com also resolved; CoreDNS1.13.1 had no recorded upstream timeout in its collected logs. This diagnostic deliberately selected zero connectivity cases and is not bridge acceptance. It does not prove the earlier failure's cause. Finally stop/delete exited0, VM/process/native paths/root were absent and all owned children reaped.</p>
 <p>Before baseline acceptance, deploy the same official fixture with zero selected cases and strict Hubble configuration, require exactly three ready client Pods, then require both exact external A answers through each client's normal CoreDNS and the inherited upstream. Record client UIDs and resolver without counting this setup as accepted cases. Preserve all seventeen actual allow/deny/L7/world test stages and68required cases unchanged. Missing, unready or wrong-answer prerequisite evidence stops the bridge; do not substitute readiness or a cached host answer. Source tests cover missing/unready clients and incomplete/unsafe answers. Publish before the fresh full qualification.</p>
 <p>The first prerequisite-enabled full run2s14jxur failed at11:14:49Z before DNS or any accepted stage: the new preflight opened its Hubble port-forward immediately after Helm installation, before the relay was ready. The prior diagnostic had explicitly waited for Cilium readiness. Add that same supported status --wait gate before the prerequisite's port-forward, retaining the normal per-stage readiness and strict tests. Require readiness ordering in regression coverage. Preserve the failed run and exact owned cleanup; this is a fixture ordering defect, not a production failure or accepted bridge.</p>
+<h2>Accepted supported-version bridge — 2026-10-20</h2>
+<p>Run <code>cilium-ready-supported-native-bridge-ccb8wgzd</code> passed at 12:44:03Z from published source
+<code>5ffb31fdb9cb7b5307fc21721c8f83f57e05d600</code>. All seventeen stages executed all four required
+no-policies, all-ingress-deny, all-egress-deny and client-egress-l7 cases with strict Hubble flow validation:
+68 required cases, zero required skips. The path starts at 1.15.1, patches to 1.15.19, then performs adjacent
+1.16.19, 1.17.18, 1.18.15, 1.19.9 and 1.20.3 upgrades, preceding-minor rollbacks and forward returns.
+Unselected official CLI cases remain recorded as deliberate skips; they are not accepted coverage.</p>
+<p>The fixture retained the original CRD history, k3s 1.33.6, inherited resolver and every required Pod-origin DNS check.
+Final cleanup stop/delete exited zero. Owned VM, processes, root and native socket paths were absent; all children were reaped;
+174,358,528 allocated bytes were removed. Earlier failed runs and the narrower eleven-stage acceptance remain preserved.</p>
+<p>This is isolated ARM64/Linux 6.8 connectivity and transition evidence. It does not qualify production Fedora kernels,
+AMD64, GPU, CSI, physical VLAN/L2 callers or a future k3s upgrade. Production CNI, pools and nodes were unchanged.
+The separate <a href="cilium-l2-qualification-103.html">L2 qualification</a> retains its independent acceptance gates.
+Recovery, hardware, production-specific compatibility and remaining security findings keep K3S_CILIUM open.</p>
 </html>
