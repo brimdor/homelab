@@ -4,6 +4,7 @@
 import copy
 import json
 from pathlib import Path
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -11,6 +12,14 @@ import ceph_csi_controller_qualification as subject
 
 
 class ControllerGuards(unittest.TestCase):
+    def test_failure_reports_stage_and_fixed_markers_without_raw_values(self):
+        failed = subprocess.CompletedProcess([], 1, b"private-sentinel-value", b"Forbidden: private-sentinel-value")
+        with patch.object(subject.common, "docker", return_value=failed), self.assertRaises(RuntimeError) as caught:
+            subject.checked_docker("exec", "synthetic", stage="create crds.json")
+        self.assertIn("create crds.json", str(caught.exception))
+        self.assertIn('"forbidden"', str(caught.exception))
+        self.assertNotIn("private-sentinel-value", str(caught.exception))
+
     def manager(self):
         return {"Config": {"Image": subject.IMAGE, "User": "65532:65532", "Entrypoint": ["/manager"],
                            "Cmd": ["--leader-elect"], "Labels": {"io.eaglepass.recovery-run": "run", "io.eaglepass.maintenance": "103"},

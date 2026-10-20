@@ -21,6 +21,18 @@ LEASE = "0a62cc8a.ceph.io"
 DRIVERS = {"rook-ceph.rbd.csi.ceph.com", "rook-ceph.cephfs.csi.ceph.com"}
 
 
+def checked_docker(*args, stage):
+    result = common.docker(*args, check=False)
+    if result.returncode:
+        raw = result.stdout.lower() + result.stderr.lower()
+        markers = [v for v in ("forbidden", "unauthorized", "permission denied", "x509", "certificate",
+                              "unknown flag", "no such file", "not found", "strict decoding", "namespace",
+                              "timed out", "connection refused", "invalid", "cannot", "denied") if v.encode() in raw]
+        raise RuntimeError("native CSI " + stage + " failed: " + json.dumps({"exit": result.returncode, "markers": markers,
+                                                                           "raw_output_discarded": True}))
+    return result
+
+
 def validate_bundle(bundle):
     if hashlib.sha256(common.canonical(bundle)).hexdigest() != BUNDLE_SHA256:
         raise RuntimeError("reviewed CSI controller bundle changed")
@@ -111,15 +123,16 @@ def qualify(bundle, run_id):
     validate_bundle(bundle)
 
     def controller(api_id, scratch, client, identifier):
-        def kubectl(*args):
-            return common.docker(*client, *args)
+        def kubectl(*args, stage=None):
+            return checked_docker(*client, *args, stage=stage or "kubectl " + args[0])
 
         def get(resource):
             return json.loads(kubectl("get", resource, "-n", NAMESPACE, "-o=json").stdout)
 
         def create(items, name):
             (scratch / name).write_bytes(common.canonical({"apiVersion": "v1", "kind": "List", "items": items}))
-            rows = command_objects(kubectl("create", "--validate=strict", "-f=/work/" + name, "-o=json").stdout)
+            rows = command_objects(kubectl("create", "--validate=strict", "-f=/work/" + name, "-o=json",
+                                            stage="create " + name).stdout)
             if len(rows) != len(items):
                 raise RuntimeError("native CSI create evidence is incomplete")
             return rows
@@ -160,7 +173,7 @@ def qualify(bundle, run_id):
             capacity = shutil.disk_usage(scratch)
             if capacity.free / capacity.total <= 0.2:
                 raise RuntimeError("insufficient actual capacity for native CSI qualification")
-            common.docker("pull", IMAGE)
+            checked_docker("pull", IMAGE, stage="pull reviewed manager image")
             image = json.loads(common.docker("image", "inspect", IMAGE).stdout)[0]
             image_id = image["Id"]
             if (image.get("Architecture") != "amd64" or image.get("Os") != "linux" or
@@ -170,14 +183,15 @@ def qualify(bundle, run_id):
             capacity = shutil.disk_usage(scratch)
             if capacity.free / capacity.total <= 0.2:
                 raise RuntimeError("native CSI image pull crossed actual free-space guard")
-            manager = common.docker("create", "--network=container:" + api_id, "--user=65532:65532",
+            manager = checked_docker("create", "--network=container:" + api_id, "--user=65532:65532",
                                     "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
                                     "--ipc=private", "--pids-limit=128", "--cpus=1", "--memory=256m",
                                     "--label=io.eaglepass.maintenance=103", "--label=io.eaglepass.recovery-run=" + identifier,
                                     "--mount=type=bind,source=" + str(identity) + ",target=/identity,readonly",
                                     "--env=KUBECONFIG=/identity/config", "--env=OPERATOR_NAMESPACE=" + NAMESPACE,
                                     "--env=WATCH_NAMESPACE=", "--env=CSI_SERVICE_ACCOUNT_PREFIX=",
-                                    "--env=KUBERNETES_CLUSTER_DOMAIN=cluster.local", IMAGE, "--leader-elect").stdout.decode().strip()
+                                    "--env=KUBERNETES_CLUSTER_DOMAIN=cluster.local", IMAGE, "--leader-elect",
+                                    stage="create isolated manager").stdout.decode().strip()
             if not re.fullmatch(r"[a-f0-9]{64}", manager):
                 raise RuntimeError("native CSI manager returned an invalid container identity")
             require_manager(common.inspect(manager), api_id, identity, identifier)
