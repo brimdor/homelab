@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Seed an empty retained claim from the exact verified maintenance point."""
 
+import argparse
 import hashlib
 import json
 import os
@@ -143,5 +144,19 @@ def cluster_guard():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--inspect-only", action="store_true")
+    args = parser.parse_args()
     os.umask(0o077)
-    print(json.dumps(seed(Path("/source"), Path("/target"), cluster_guard)), flush=True)
+    if args.inspect_only:
+        cluster_guard()
+        target = Path("/target")
+        result = {"inspect_only": True, "files": inventory(target),
+                  "directories": {str(p.relative_to(target)): {
+                      "uid": p.stat().st_uid, "gid": p.stat().st_gid,
+                      "mode": stat.S_IMODE(p.stat().st_mode), "inode": p.stat().st_ino,
+                  } for p in [target, *target.rglob("*")] if p.is_dir()}}
+        cluster_guard()
+        print(json.dumps(result), flush=True)
+    else:
+        print(json.dumps(seed(Path("/source"), Path("/target"), cluster_guard)), flush=True)

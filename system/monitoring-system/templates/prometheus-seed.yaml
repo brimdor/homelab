@@ -71,7 +71,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: prometheus-retained-seed-20261020-quiesced-2
+  name: prometheus-retained-inspect-20261020-quiesced-3
 spec:
   backoffLimit: 0
   template:
@@ -83,12 +83,11 @@ spec:
       serviceAccountName: prometheus-retained-seed
       nodeSelector:
         kubernetes.io/hostname: pikachu
-      securityContext:
-        fsGroup: 2000
       containers:
         - name: seed
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
           command: [python3, -B, /scripts/seed-prometheus.py]
+          args: [--inspect-only]
           env:
             - name: CLAIM_NAME
               value: {{ $claim | quote }}
@@ -118,13 +117,14 @@ spec:
               memory: 64Mi
             limits:
               cpu: '1'
-              memory: 256Mi
+              memory: 512Mi
           volumeMounts:
             - name: source
               mountPath: /source
               readOnly: true
             - name: target
               mountPath: /target
+              readOnly: true
             - name: script
               mountPath: /scripts
               readOnly: true
