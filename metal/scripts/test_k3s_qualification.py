@@ -97,6 +97,18 @@ class Guards(unittest.TestCase):
         for other in (b"", b"executable not found", b"unknown error"):
             self.assertFalse(q.startup_pending(other))
 
+    def test_mount_enumeration_order_is_irrelevant_but_identity_is_not(self):
+        name = next(iter(self.versions))
+        item = {"Id": "synthetic-container-id", "Name": "/" + name,
+                "Config": {"Labels": {"k3d.cluster": self.name}}, "HostConfig": {},
+                "Mounts": [{"Destination": q.DATA, "Type": "volume", "Name": "owned-volume", "RW": True},
+                           {"Destination": "/etc/qualification-resolv.conf", "Type": "bind", "Source": "/tmp/owned/resolv.conf", "RW": False}]}
+        before = q.container_identity(item, name, self.name)
+        item["Mounts"].reverse()
+        self.assertEqual(q.container_identity(item, name, self.name), before)
+        item["Mounts"][1]["Name"] = "different-volume"
+        self.assertNotEqual(q.container_identity(item, name, self.name), before)
+
     def test_binary_digest_change_is_refused_before_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             runner = q.Qualification.__new__(q.Qualification)

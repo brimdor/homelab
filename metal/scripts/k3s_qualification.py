@@ -87,9 +87,12 @@ def container_identity(container, name, fixture):
             not volumes[0].get("RW")):
         raise RuntimeError("owned synthetic container or datastore volume identity changed")
     # Preserve configuration, including private synthetic environment, by digest only.
-    configuration = {key: container[key] for key in ("Config", "HostConfig", "Mounts")}
+    configuration = {key: container[key] for key in ("Config", "HostConfig")}
+    configuration["Mounts"] = sorted(container["Mounts"], key=lambda mount: mount["Destination"])
     return {"id": container["Id"], "volume": volumes[0]["Name"],
-            "configuration_sha256": hashlib.sha256(json.dumps(configuration, sort_keys=True).encode()).hexdigest()}
+            "configuration_sha256": hashlib.sha256(json.dumps(configuration, sort_keys=True).encode()).hexdigest(),
+            "component_sha256": {key: hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+                                 for key, value in configuration.items()}}
 
 
 def snapshot_path(path, prefix):
@@ -166,6 +169,8 @@ class Qualification(cq.Qualification):
         item = json.loads(self.command(["docker", "inspect", node]))[0]
         identity = container_identity(item, node, self.args.name)
         if self.containers and identity != self.containers.get(node):
+            (self.work / "container-identity-mismatch.json").write_text(json.dumps({
+                "node": node, "expected": self.containers.get(node), "actual": identity}, indent=2))
             raise RuntimeError("synthetic container identity or configuration changed")
         if stopped and (item["State"]["Running"] or item["State"]["Status"] != "exited"):
             raise RuntimeError("synthetic node must be fully stopped before datastore mutation")
