@@ -32,8 +32,8 @@ def triggered():
       '/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','GetUnit','s','dnf-automatic.timer']))['data'][0]
  value=json.loads(subprocess.check_output(['busctl','--json=short','get-property','org.freedesktop.systemd1',
       unit,'org.freedesktop.systemd1.Timer','LastTriggerUSecMonotonic']))
- assert value['type']=='t' and len(value['data'])==1 and type(value['data'][0])is int
- return value['data'][0]
+ assert value['type']=='t' and type(value['data'])is int
+ return value['data']
 def counter():
  p=m.STATE/'fixture-executed';return p.stat().st_mtime_ns if p.exists() else None
 owner=m.Hold(m.Systemd(),identity,lambda value:value==token)
