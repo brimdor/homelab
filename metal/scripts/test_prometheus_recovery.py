@@ -19,6 +19,19 @@ import prometheus_recovery as recovery
 
 
 class RecoveryGuards(unittest.TestCase):
+    def test_retained_source_manifest_requires_exact_pod_container_storage_and_csi_binding(self):
+        value = {"pod_uid": recovery.RETAINED["pod_uid"], "container_id": recovery.RETAINED["container_id"],
+                 "retained_storage": dict(recovery.RETAINED),
+                 "csi_metadata_sha256": recovery.RETAINED_METADATA_SHA256}
+        self.assertTrue(recovery.valid_source_manifest(value))
+        for name in value:
+            changed = dict(value)
+            changed[name] = "changed"
+            with self.subTest(name=name):
+                self.assertFalse(recovery.valid_source_manifest(changed))
+        self.assertTrue(recovery.valid_source_manifest({"pod_uid": recovery.POD_UID}))
+        self.assertFalse(recovery.valid_source_manifest({"pod_uid": recovery.POD_UID, "retained_storage": {}}))
+
     def test_native_log_acceptance_checks_message_and_level_not_unrelated_query_fields(self):
         value = recovery.log_diagnostic(b'time=now level=INFO source=head.go:1 msg="WAL replay completed" duration=1s\n'
                                        b'time=now level=INFO source=tracker.go:2 msg="Recovered queries" query="rate(discarded_samples_total[5m])"\n')

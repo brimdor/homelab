@@ -25,6 +25,9 @@ import etcd_recovery as common
 POD_UID = "8c8708ed-dd73-4a5e-baee-9431663553f2"
 IMAGE = "quay.io/prometheus/prometheus@sha256:f39df5334dee301b885f77e0ff1159f5d8a43bf9db518f885544594799a1e3c2"
 DATA = Path("/var/lib/kubelet/pods") / POD_UID / "volumes/kubernetes.io~empty-dir/prometheus-monitoring-system-kube-pro-prometheus-db"
+RETAINED = {'pod_uid': 'd069f1b1-5380-4527-8ff0-05dfc0756da2', 'node': 'growlithe', 'container_id': 'fd2c7f47a2b49dcfc6180828b13c78d0d2a181715377cd411f3c1c3bf3ed265c', 'claim_uid': '5d3f4f44-6907-4ccf-adb3-0bb6923649a1', 'pv_name': 'pvc-5d3f4f44-6907-4ccf-adb3-0bb6923649a1', 'pv_uid': 'c3d3fdf7-6204-4942-826a-b139a43fa185', 'csi_driver': 'rook-ceph.rbd.csi.ceph.com', 'volume_handle': '0001-0009-rook-ceph-0000000000000001-62a05c78-e139-4ef8-84d1-c09c96cc0bd2'}
+RETAINED_METADATA_SHA256 = 'c0e4925add3585806f60bf875950f7341e326453dd2f68efdfe7f3698b04e8e3'
+RETAINED_DATA = Path('/var/lib/kubelet/pods/d069f1b1-5380-4527-8ff0-05dfc0756da2/volumes/kubernetes.io~csi/pvc-5d3f4f44-6907-4ccf-adb3-0bb6923649a1/mount/prometheus-db')
 BLOCK = re.compile(r"[0-9A-HJKMNP-TV-Z]{26}")
 WATCHDOG = """import os,pathlib,signal,sys,time
 handle,ready=int(sys.argv[1]),int(sys.argv[2])
@@ -209,31 +212,70 @@ def preparation_files(inventory):
     return prepared
 
 
+def retained_source_identity():
+    common.require_host(RETAINED["node"])
+    runtime = json.loads(common.command(["/usr/local/bin/crictl", "inspect", RETAINED["container_id"]]).stdout)
+    status = runtime["status"]
+    labels = status["labels"]
+    root = RETAINED_DATA.parent.parent
+    metadata = root / "vol_data.json"
+    if (any(p.is_symlink() for p in (metadata, *metadata.parents)) or
+            hashlib.sha256(metadata.read_bytes()).hexdigest() != RETAINED_METADATA_SHA256):
+        raise RuntimeError("reviewed retained CSI metadata changed")
+    value = json.loads(metadata.read_bytes())
+    if (value.get("driverName") != RETAINED["csi_driver"] or
+            value.get("volumeHandle") != RETAINED["volume_handle"] or
+            status["state"] != "CONTAINER_RUNNING" or status["imageRef"] != IMAGE or
+            labels.get("io.kubernetes.pod.uid") != RETAINED["pod_uid"] or
+            labels.get("io.kubernetes.pod.namespace") != "monitoring-system" or
+            labels.get("io.kubernetes.container.name") != "prometheus"):
+        raise RuntimeError("reviewed retained runtime or CSI volume changed")
+    process = process_identity(runtime["info"]["pid"])
+    target = Path("/proc") / str(process["pid"]) / "root/prometheus"
+    original = RETAINED_DATA.stat()
+    if (any(p.is_symlink() for p in (RETAINED_DATA, *RETAINED_DATA.parents)) or
+            (target.stat().st_dev, target.stat().st_ino) != (original.st_dev, original.st_ino) or
+            process["exe"] != "/usr/bin/prometheus" or
+            RETAINED["pod_uid"].replace("-", "_") not in process["cgroup"]):
+        raise RuntimeError("reviewed process does not own the retained store")
+    return {"pod_uid": RETAINED["pod_uid"], "image": IMAGE, "container_id": RETAINED["container_id"],
+            "retained_storage": RETAINED, "csi_metadata_sha256": RETAINED_METADATA_SHA256,
+            "data_device": original.st_dev, "data_inode": original.st_ino, "process": process}
+
+
 def capture(run_id, container_id):
-    identity = source_identity(container_id)
+    return capture_store(run_id, lambda: source_identity(container_id), DATA, True)
+
+
+def capture_retained(run_id):
+    return capture_store(run_id, retained_source_identity, RETAINED_DATA, False)
+
+
+def capture_store(run_id, identify, data, local_source):
+    identity = identify()
     common.private_root()
-    if common.ROOT.stat().st_dev != Path("/").stat().st_dev or identity["data_device"] != Path("/").stat().st_dev:
+    if common.ROOT.stat().st_dev != Path("/").stat().st_dev or (local_source and identity["data_device"] != Path("/").stat().st_dev):
         raise RuntimeError("reviewed source and recovery roots must remain on the local host filesystem")
     point = common.ROOT / ("prometheus-" + common.run_identifier(run_id))
     point.mkdir(mode=0o700)
     target = point / "data"
     target.mkdir(mode=0o700)
-    initial = files(DATA)
+    initial = files(data)
     if sum(v[2] for v in initial.values()) > shutil.disk_usage(point).free:
         raise RuntimeError("insufficient actual capture capacity")
     records = {}
     for name in sorted(preparation_files(initial)):
-        records[name] = copy_file(DATA / name, target / name, initial[name])
-    if source_identity(container_id) != identity:
+        records[name] = copy_file(data / name, target / name, initial[name])
+    if identify() != identity:
         raise RuntimeError("source changed during immutable-block preparation")
     with frozen(identity["process"], point / "watchdog-fired") as pause:
-        current = files(DATA)
+        current = files(data)
         if any(name not in current or current[name] != initial[name] for name in records):
             raise RuntimeError("prepared block or closed segment changed; candidate remains unaccepted")
         for name, metadata in current.items():
             if name not in records:
-                records[name] = copy_file(DATA / name, target / name, metadata)
-        if files(DATA) != current or source_identity(container_id) != identity:
+                records[name] = copy_file(data / name, target / name, metadata)
+        if files(data) != current or identify() != identity:
             raise RuntimeError("stopped source changed during capture")
         for parent, _, _ in os.walk(target, topdown=False):
             descriptor = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -241,7 +283,7 @@ def capture(run_id, container_id):
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
-    if source_identity(container_id) != identity:
+    if identify() != identity:
         raise RuntimeError("source changed after resumption")
     manifest = {"format": 1, "source": identity, "files": records,
                 "bytes": sum(r["bytes"] for r in records.values()), **pause}
@@ -260,9 +302,17 @@ def capture(run_id, container_id):
             "bytes": manifest["bytes"], "files": len(records), **pause}
 
 
+def valid_source_manifest(source):
+    if source.get("pod_uid") == POD_UID:
+        return "retained_storage" not in source
+    return (source.get("pod_uid") == RETAINED["pod_uid"] and source.get("retained_storage") == RETAINED and
+            source.get("container_id") == RETAINED["container_id"] and
+            source.get("csi_metadata_sha256") == RETAINED_METADATA_SHA256)
+
+
 def validate_manifest(manifest):
     if (not isinstance(manifest, dict) or not isinstance(manifest.get("source"), dict) or
-            manifest.get("format") != 1 or manifest["source"].get("pod_uid") != POD_UID or
+            manifest.get("format") != 1 or not valid_source_manifest(manifest["source"]) or
             manifest["source"].get("image") != IMAGE or
             not isinstance(manifest.get("files"), dict) or not manifest["files"] or
             len(manifest["files"]) > 10000 or not 0 < manifest.get("stopped_seconds", 0) < 10):
