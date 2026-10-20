@@ -382,5 +382,265 @@
     "sqlite_databases": [
       "humbleai.db"
     ]
+  },
+  "woodpecker": {
+    "node": "pikachu",
+    "pod_uid": "494ccf03-2950-4692-90c4-0ce5dfea154d",
+    "claim": "agent-config-woodpecker-agent-0",
+    "claim_uid": "d1d36dea-2b80-4abd-ba98-1b1e4e6c4c99",
+    "pv_uid": "f72b3f0a-642d-4eff-bf68-7690e60ee07c",
+    "runtime": [
+      {
+        "container": "agent",
+        "container_id": "4398d48c95800ce53bd88e9cb037e2c4d967ee7084000abbc3c63d8f22c3e837",
+        "pid": 25011,
+        "image": "docker.io/woodpeckerci/woodpecker-agent@sha256:f85f163e09494ace3377a3f3a6043f131fb47e3e627f7438de42417ee06ca56d",
+        "user": {
+          "additionalGids": [
+            1000
+          ],
+          "gid": 1000,
+          "uid": 1000
+        },
+        "processes": [
+          {
+            "pid": 25011,
+            "start_ticks": "1781003",
+            "exe": "/usr/bin/woodpecker-agent",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod494ccf03_2950_4692_90c4_0ce5dfea154d.slice/cri-containerd-4398d48c95800ce53bd88e9cb037e2c4d967ee7084000abbc3c63d8f22c3e837.scope\n",
+            "uid": 1000
+          }
+        ]
+      }
+    ],
+    "volume": {
+      "source": "/var/lib/kubelet/pods/494ccf03-2950-4692-90c4-0ce5dfea154d/volumes/kubernetes.io~csi/pvc-d1d36dea-2b80-4abd-ba98-1b1e4e6c4c99/mount",
+      "destination": "/etc/woodpecker",
+      "device": 64336,
+      "inode": 2
+    },
+    "sqlite_databases": []
+  },
+  "radarr": {
+    "node": "charmander",
+    "pod_uid": "cf016efa-f55f-4b0b-b3bc-af3a237f7cfd",
+    "claim": "radarr-original-data",
+    "claim_uid": "9a72e224-8f4f-4676-832b-836f06e81b1a",
+    "pv_uid": "c24a4aae-338a-4abf-98c8-4e7ec956c10e",
+    "runtime": [
+      {
+        "container": "main",
+        "container_id": "85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8",
+        "pid": 8241,
+        "image": "ghcr.io/linuxserver/radarr@sha256:ea6822c956d26db648b237919f41340318f32e5b7dcc4ba702cf256a0f5f3c12",
+        "user": {
+          "additionalGids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            6,
+            10,
+            11,
+            20,
+            26,
+            27
+          ],
+          "gid": 0,
+          "uid": 0
+        },
+        "processes": [
+          {
+            "pid": 8241,
+            "start_ticks": "99503",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-svscan",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8344,
+            "start_ticks": "99981",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8346,
+            "start_ticks": "99982",
+            "exe": "/package/admin/s6-linux-init-1.1.3.0/command/s6-linux-init-shutdownd",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8382,
+            "start_ticks": "100057",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8383,
+            "start_ticks": "100057",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8385,
+            "start_ticks": "100057",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8386,
+            "start_ticks": "100057",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8412,
+            "start_ticks": "100061",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-ipcserverd",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 8723,
+            "start_ticks": "100882",
+            "exe": "/app/radarr/bin/Radarr",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 99
+          },
+          {
+            "pid": 8724,
+            "start_ticks": "100882",
+            "exe": "/usr/bin/busybox",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podcf016efa_f55f_4b0b_b3bc_af3a237f7cfd.slice/cri-containerd-85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8.scope\n",
+            "uid": 0
+          }
+        ]
+      }
+    ],
+    "volume": {
+      "source": "/var/lib/kubelet/pods/cf016efa-f55f-4b0b-b3bc-af3a237f7cfd/volumes/kubernetes.io~csi/pvc-edaac728-7287-4b7b-99b9-c41cd9334459/mount",
+      "destination": "/config",
+      "device": 64320,
+      "inode": 2
+    },
+    "sqlite_databases": []
+  },
+  "sonarr": {
+    "node": "pikachu",
+    "pod_uid": "fff2f81f-a8f6-4a3c-afd7-a6e420ec060a",
+    "claim": "sonarr",
+    "claim_uid": "1a0abfcd-a3e9-44e9-b632-8c3f42cec27c",
+    "pv_uid": "58c09e20-41c6-4cb9-941f-c61e606e38db",
+    "runtime": [
+      {
+        "container": "main",
+        "container_id": "198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2",
+        "pid": 11270,
+        "image": "ghcr.io/linuxserver/sonarr@sha256:44b06045a98bc1f237b9ffefc4b28dab64cb29305e4a2a94875ae93b5224e4cc",
+        "user": {
+          "additionalGids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            6,
+            10,
+            11,
+            20,
+            26,
+            27
+          ],
+          "gid": 0,
+          "uid": 0
+        },
+        "processes": [
+          {
+            "pid": 11270,
+            "start_ticks": "1168615",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-svscan",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11293,
+            "start_ticks": "1168629",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11296,
+            "start_ticks": "1168630",
+            "exe": "/package/admin/s6-linux-init-1.1.3.0/command/s6-linux-init-shutdownd",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11312,
+            "start_ticks": "1168647",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11313,
+            "start_ticks": "1168647",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11314,
+            "start_ticks": "1168647",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11315,
+            "start_ticks": "1168647",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-supervise",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11323,
+            "start_ticks": "1168648",
+            "exe": "/package/admin/s6-2.13.2.0/command/s6-ipcserverd",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          },
+          {
+            "pid": 11428,
+            "start_ticks": "1168781",
+            "exe": "/app/sonarr/bin/Sonarr",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 99
+          },
+          {
+            "pid": 11429,
+            "start_ticks": "1168781",
+            "exe": "/usr/bin/busybox",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podfff2f81f_a8f6_4a3c_afd7_a6e420ec060a.slice/cri-containerd-198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2.scope\n",
+            "uid": 0
+          }
+        ]
+      }
+    ],
+    "volume": {
+      "source": "/var/lib/kubelet/pods/fff2f81f-a8f6-4a3c-afd7-a6e420ec060a/volumes/kubernetes.io~csi/pvc-1a0abfcd-a3e9-44e9-b632-8c3f42cec27c/mount",
+      "destination": "/config",
+      "device": 64288,
+      "inode": 2
+    },
+    "sqlite_databases": []
   }
 }
