@@ -187,7 +187,7 @@ def native_arguments(scratch, run_id):
     args += ['--tmpfs=' + path + ':' + options for path, options in TMPFS.items()]
     args += ['--mount=type=bind,source=' + str(scratch / 'native' / name) + ',target=' + target
              for name, target in (('config', '/config'), ('intermediate', '/incomplete-downloads'))]
-    return args + ['--entrypoint=/usr/bin/python3', IMAGE, *ARGS]
+    return args + ['--entrypoint=/lsiopy/bin/python3', IMAGE, *ARGS]
 
 
 def require_container(value, scratch, run_id):
@@ -198,7 +198,7 @@ def require_container(value, scratch, run_id):
     mounts = {m.get('Destination'): (m.get('Type'), m.get('Source'), m.get('RW')) for m in value['Mounts']}
     wanted = {target: ('bind', str(scratch / 'native' / name), True)
               for name, target in (('config', '/config'), ('intermediate', '/incomplete-downloads'))}
-    if (c['Image'] != IMAGE or c['User'] != '99:100' or c['Entrypoint'] != ['/usr/bin/python3'] or c['Cmd'] != ARGS or
+    if (c['Image'] != IMAGE or c['User'] != '99:100' or c['Entrypoint'] != ['/lsiopy/bin/python3'] or c['Cmd'] != ARGS or
             c.get('Labels', {}).get(LABEL) != run_id or any(h.get(k) != v for k, v in expected.items()) or
             any(h.get(k) for k in ('CapAdd', 'Devices', 'DeviceRequests', 'PortBindings')) or
             h.get('RestartPolicy', {}).get('Name') != 'no' or len(value['Mounts']) != 2 or mounts != wanted):

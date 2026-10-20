@@ -85,7 +85,7 @@ class SABRecovery(unittest.TestCase):
                     sab.transfer.receive(io.BytesIO(bad), root / str(index), 'sabnzbd', validator=sab.validate_manifest, verifier=sab.verify)
 
     def container(self, scratch):
-        return {'Config': {'Image': sab.IMAGE, 'User': '99:100', 'Entrypoint': ['/usr/bin/python3'], 'Cmd': sab.ARGS,
+        return {'Config': {'Image': sab.IMAGE, 'User': '99:100', 'Entrypoint': ['/lsiopy/bin/python3'], 'Cmd': sab.ARGS,
                            'Labels': {sab.LABEL: 'fixture'}},
                 'HostConfig': {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                                'SecurityOpt': ['no-new-privileges:true'], 'IpcMode': 'private', 'PidMode': '',
