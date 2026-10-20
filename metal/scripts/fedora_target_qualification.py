@@ -144,7 +144,9 @@ class Qualification:
                       'ansible_python_interpreter': '/usr/bin/python3',
                       'ansible_ssh_common_args': shlex.join(common)}}}}
         (self.root / 'inventory.yml').write_text(yaml.safe_dump(inventory))
-        argv = qemu_arguments(self.args, overlay, seed, port, self.root / 'serial.log')
+        serial = self.root / 'serial.log'
+        serial.touch(mode=0o600, exist_ok=False)
+        argv = qemu_arguments(self.args, overlay, seed, port, serial)
         output = (self.root / 'qemu.log').open('wb')
         try:
             self.child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=output,
