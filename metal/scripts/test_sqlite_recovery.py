@@ -9,6 +9,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import copy
+import shlex
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -153,6 +155,35 @@ class CaptureDiagnosticTest(unittest.TestCase):
 
 
 class KeyBindingTest(unittest.TestCase):
+    def test_native_runtime_requires_exact_container_user_process_and_pod(self):
+        expected = recovery.SOURCES['strata']; runtime = expected['native_runtime']
+        identity = {'namespace': 'strata', 'pod': 'reviewed-source', 'pod_uid': expected['pod_uid'], 'node': 'growlithe'}
+        metadata = {'status': {'id': runtime['container_id'], 'state': 'CONTAINER_RUNNING', 'imageRef': expected['image'],
+                              'labels': {'io.kubernetes.container.name': 'main', 'io.kubernetes.pod.name': 'reviewed-source',
+                                         'io.kubernetes.pod.namespace': 'strata', 'io.kubernetes.pod.uid': expected['pod_uid']}},
+                    'info': {'pid': runtime['pid'], 'runtimeSpec': {'process': {'user': {'uid': 1000, 'gid': 1000, 'additionalGids': [1000]}}}}}
+        recovery.require_native_runtime(metadata, expected, identity)
+        for path, value in [(('status', 'id'), 'unreviewed'), (('status', 'state'), 'CONTAINER_EXITED'),
+                            (('status', 'imageRef'), 'wrong@sha256:other'), (('info', 'pid'), 1),
+                            (('status', 'labels', 'io.kubernetes.pod.uid'), 'unreviewed'),
+                            (('info', 'runtimeSpec', 'process', 'user', 'uid'), 0)]:
+            wrong = copy.deepcopy(metadata); target = wrong
+            for key in path[:-1]: target = target[key]
+            target[path[-1]] = value
+            with self.subTest(path=path), self.assertRaisesRegex(RuntimeError, 'source runtime changed'):
+                recovery.require_native_runtime(wrong, expected, identity)
+        with self.assertRaisesRegex(RuntimeError, 'source runtime changed'):
+            recovery.require_native_runtime(metadata, expected, {**identity, 'node': 'pikachu'})
+        args = recovery.native_producer('strata', identity, 'synthetic-103-test')
+        self.assertEqual(args[-2], 'root@10.0.20.18')
+        code = shlex.split(args[-1])[-1]
+        compile(code, '<native-producer>', 'exec')
+        self.assertIn('require_native_runtime(metadata,expected,identity)', code)
+        self.assertIn('finally: clean()', code)
+        self.assertIn("'1000:1000'", code)
+        self.assertNotIn("'acknowledged'", code)
+        self.assertIn('StrictHostKeyChecking=yes', args)
+
     def test_reviewed_canary_emptydir_refuses_backend_mount_and_restart_changes(self):
         expected = recovery.SOURCES['strata-canary']
         pod = {'metadata': {'uid': expected['pod_uid'], 'name': 'reviewed-source'},

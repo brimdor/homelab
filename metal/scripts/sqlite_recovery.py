@@ -4,6 +4,7 @@ import argparse
 import base64
 import hashlib
 import hmac
+import inspect
 import json
 import os
 from pathlib import Path
@@ -50,7 +51,9 @@ SOURCES = {
         "pvc": "strata-data", "pvc_uid": "51e6bf9a-bd31-44d9-b554-16e48298edd7",
         "pv_uid": "723737c2-4486-43e2-ab85-57dd1f01acf3", "database": "/app/data/strata.sqlite",
         "image": "registry.eaglepass.io/strata@sha256:36995dd084c38e32d5f7e7f9ca3bf7e2e51a41bd75508202df5dd02d24f8449b",
-        "architecture": "amd64", "node_version": "v22.23.3", "image_volumes": ["/app/data"]},
+        "architecture": "amd64", "node_version": "v22.23.3", "image_volumes": ["/app/data"],
+        "native_runtime": {"node": "growlithe", "host": "root@10.0.20.18", "pid": 24173,
+                           "container_id": "e848ad86e944e5db42e56d8da6c145f2f5c25cf0e9aea0f99a3d07df16559d41"}},
     "strata-canary": {
         "pod_uid": "20a4a771-bea4-4e17-98c9-f797faf635e5", "container": "main",
         "pvc": None, "emptydir_volume": "data", "database": "/app/data/strata.sqlite",
@@ -90,6 +93,10 @@ def source_identity(namespace):
     image = status["imageID"]
     if not status["ready"] or image.split("@")[-1] != expected["image"].split("@")[-1]:
         raise RuntimeError("reviewed ready source image changed")
+    if expected.get("native_runtime") and (pod["spec"]["nodeName"] != expected["native_runtime"]["node"] or
+            status.get("containerID") != "containerd://" + expected["native_runtime"]["container_id"] or
+            status["restartCount"] != 0):
+        raise RuntimeError("reviewed native source container changed")
     if expected.get("emptydir_volume"):
         name = expected["emptydir_volume"]
         volumes = [v for v in pod["spec"].get("volumes", []) if v["name"] == name]
@@ -238,16 +245,56 @@ def declared_key(namespace, identity):
     return data
 
 
+def require_native_runtime(metadata, expected, identity):
+    runtime = expected["native_runtime"]
+    status = metadata["status"]
+    labels = status["labels"]
+    user = metadata["info"]["runtimeSpec"]["process"]["user"]
+    if (identity["node"] != runtime["node"] or identity["pod_uid"] != expected["pod_uid"] or
+            status["id"] != runtime["container_id"] or status["state"] != "CONTAINER_RUNNING" or
+            status["imageRef"].split("@")[-1] != expected["image"].split("@")[-1] or
+            metadata["info"]["pid"] != runtime["pid"] or
+            user != {"uid": 1000, "gid": 1000, "additionalGids": [1000]} or
+            any(labels.get(key) != value for key, value in {
+                "io.kubernetes.container.name": expected["container"],
+                "io.kubernetes.pod.name": identity["pod"],
+                "io.kubernetes.pod.namespace": identity["namespace"],
+                "io.kubernetes.pod.uid": expected["pod_uid"]}.items())):
+        raise RuntimeError("reviewed native source runtime changed")
+
+
+def native_producer(namespace, identity, run_id):
+    expected = SOURCES[namespace]; runtime = expected["native_runtime"]
+    common.run_identifier(run_id)
+    # The API exec transport silently truncated a complete synthetic stream; retain strict SSH and exact runtime guards.
+    code = "import json,os,socket,subprocess;\n" + inspect.getsource(require_native_runtime)
+    code += "\nexpected=" + repr(expected) + ";identity=" + repr(identity) + "\n"
+    code += "assert socket.gethostname()==expected['native_runtime']['node']\n"
+    code += "metadata=json.loads(subprocess.check_output(['/usr/local/bin/k3s','crictl','inspect',expected['native_runtime']['container_id']]))\n"
+    code += "require_native_runtime(metadata,expected,identity)\n"
+    args = ["k3s", "ctr", "-n", "k8s.io", "tasks", "exec", "--exec-id", "sqlite-103-" + run_id,
+            "--user", "1000:1000", runtime["container_id"], "/usr/local/bin/node", *node_flags(namespace),
+            "-e", program(namespace), "capture", expected["database"], expected.get("directory", "/app/data")]
+    code += "runtime=expected['native_runtime']; directory='/proc/'+str(runtime['pid'])+'/root'+expected.get('directory','/app/data')\n"
+    code += "def clean():\n"
+    code += " if any(n.startswith('.sqlite-recovery-103-') for n in os.listdir(directory)):raise RuntimeError('native source capture scratch remains')\n"
+    code += " tasks=subprocess.check_output(['/usr/local/bin/k3s','ctr','-n','k8s.io','tasks','ps',runtime['container_id']]).decode().splitlines()[1:]\n"
+    code += " if [int(n.split()[0]) for n in tasks if n.strip()]!=[runtime['pid']]:raise RuntimeError('native source has an additional process')\n"
+    code += "clean()\ntry: status=subprocess.call(" + repr(["/usr/local/bin/k3s", *args[1:]]) + ")\nfinally: clean()\nraise SystemExit(status)\n"
+    return [*common.SSH[:-1], "-o", "ControlMaster=no", runtime["host"], shlex.join(["python3", "-B", "-c", code])]
+
+
 def backup(namespace, run_id):
     identity = source_identity(namespace); expected = SOURCES[namespace]
     key_material = declared_key(namespace, identity)
     producer = receiver = None
-    acknowledged = not expected.get("legacy_sqlite3")
+    acknowledged = not (expected.get("legacy_sqlite3") or expected.get("native_runtime"))
     try:
-        producer = subprocess.Popen([os.environ.get("KUBECTL", "kubectl"), "exec", "-i", "-n", namespace,
+        source = native_producer(namespace, identity, run_id) if expected.get("native_runtime") else [os.environ.get("KUBECTL", "kubectl"), "exec", "-i", "-n", namespace,
             identity["pod"], "-c", expected["container"], "--", "node", *node_flags(namespace),
             "-e", program(namespace), "capture", expected["database"], expected.get("directory", "/app/data"),
-            *(["acknowledged"] if acknowledged else [])],
+            *(["acknowledged"] if acknowledged else [])]
+        producer = subprocess.Popen(source,
             stdin=subprocess.PIPE if acknowledged else None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         receiver = subprocess.Popen(remote("receive", run_id, namespace), stdin=producer.stdout,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -420,7 +467,7 @@ def internal(mode, run_id, namespace, manifest_hash=""):
         def prepared(commit):
             print(json.dumps({"prepared": commit}), flush=True)
         result = receive_database(sys.stdin.buffer, point / "database.sqlite", point / "capture-header.json",
-                                  None if SOURCES[namespace].get("legacy_sqlite3") else prepared)
+                                  None if (SOURCES[namespace].get("legacy_sqlite3") or SOURCES[namespace].get("native_runtime")) else prepared)
         protected.write_json(point / "capture.json", result)
     elif mode == "key":
         key = SOURCES[namespace].get("key")
