@@ -55,22 +55,6 @@ kube-prometheus-stack:
       serviceMonitorSelectorNilUsesHelmValues: false
       podMonitorSelectorNilUsesHelmValues: false
       probeSelectorNilUsesHelmValues: false
-      # Temporary maintenance #103 writer hold; preserve the current emptyDir Pod.
-      serviceMonitorSelector:
-        matchLabels:
-          maintenance.eaglepass.io/quiescence: 103-prometheus
-      podMonitorSelector:
-        matchLabels:
-          maintenance.eaglepass.io/quiescence: 103-prometheus
-      probeSelector:
-        matchLabels:
-          maintenance.eaglepass.io/quiescence: 103-prometheus
-      scrapeConfigSelector:
-        matchLabels:
-          maintenance.eaglepass.io/quiescence: 103-prometheus
-      ruleSelector:
-        matchLabels:
-          maintenance.eaglepass.io/quiescence: 103-prometheus
   alertmanager:
     alertmanagerSpec:
       containers:
