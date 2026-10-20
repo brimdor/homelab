@@ -157,6 +157,7 @@ mon host = [v2:127.0.0.1:13300,v1:127.0.0.1:13301]
 auth cluster required = cephx
 auth service required = cephx
 auth client required = cephx
+auth allow insecure global id reclaim = false
 public addr = 127.0.0.1
 cluster addr = 127.0.0.1
 admin socket = /work/$name.asok
@@ -274,7 +275,7 @@ osd op num threads per shard = 1
 
 
 def qualify(run_id, source, common_source):
-    common.require_host('pikachu')
+    common.require_host('totodile')
     common.private_root()
     if common.docker('ps', '--all', '--quiet', '--filter=label=io.eaglepass.maintenance=103').stdout.strip():
         raise RuntimeError('another owned fixture is active; leave it alone')
@@ -294,6 +295,9 @@ def qualify(run_id, source, common_source):
         common.docker('pull', IMAGE)
         image = json.loads(common.docker('image', 'inspect', IMAGE).stdout)[0]
         image_id = image['Id']
+        capacity = shutil.disk_usage(scratch)
+        if capacity.free / capacity.total <= 0.30:
+            raise RuntimeError('synthetic monitor filesystem crosses its native 30-percent warning threshold')
         volumes = sorted(image['Config'].get('Volumes') or {})
         if image['Architecture'] != 'amd64' or image['Os'] != 'linux' or not set(volumes) <= VOLUMES:
             raise RuntimeError('candidate platform or declared volumes changed')
