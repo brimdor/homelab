@@ -67,5 +67,14 @@ but Kubernetes defaulted status.loadBalancer.ingress.ipMode to VIP and the check
 defines VIP as the default. Accept the same single IP with absent or explicit VIP mode; reject Proxy, duplicate entries and changed IPs.
 Apply the same predicate during allocation wait and subsequent identity checks. ARP, HTTP, lease and migration requirements are unchanged.
 The failed run's cleanup removed the VM, owned processes, native paths and174600192 allocated bytes. Retain its failed receipt.</p>
-<h2>Status</h2><p>Checker correction prepared; no native L2 acceptance yet.</p>
+<h2>External-client contract qualification</h2>
+<p>Corrected run5tphtox8 passed VIP allocation and reached baseline, then refused the external caller's isolation contract.
+It ended2026-10-20T13:03:52Z with no accepted L2 stage; VM/root/process/native-path cleanup passed and173977600allocated bytes were removed.
+The private inspect output was intentionally not retained, so its exact rejected field is unknown.
+<a href="https://docs.docker.com/engine/containers/run/#runtime-privilege-and-linux-capabilities">Docker documents</a>
+CAP_ prefixed and unprefixed capability names as equivalent. Accept only the single NET_RAW capability in either documented spelling,
+and require native effective and bounding capability masks to equal bit13 exactly. Require drop ALL, read-only root,
+one exact synthetic network/address and no mounts or privileged flag. Retain a sanitized isolation receipt before refusal.
+Extra capabilities, mounts or networks remain failures. No ARP, HTTP or failover acceptance is inferred.</p>
+<h2>Status</h2><p>Native external-client contract correction prepared; no native L2 acceptance yet.</p>
 </html>

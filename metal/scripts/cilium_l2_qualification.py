@@ -74,6 +74,14 @@ def validate_probe(result, mac):
         raise RuntimeError("external ARP/HTTP evidence is missing, ambiguous or wrong")
 
 
+def validate_client(client, name):
+    net, host = client["NetworkSettings"]["Networks"], client["HostConfig"]
+    if (set(net) != {"k3d-" + name} or client["Mounts"] or host["Privileged"] or
+            host["CapAdd"] not in (["NET_RAW"], ["CAP_NET_RAW"]) or host["CapDrop"] != ["ALL"] or
+            not host["ReadonlyRootfs"] or net["k3d-" + name]["IPAddress"] != "172.31.240.10"):
+        raise RuntimeError("external synthetic caller isolation changed")
+
+
 def validate_pool(pool, uid, *, migrated):
     spec = pool.get("spec", {})
     field = "blocks" if migrated else "cidrs"
@@ -179,11 +187,14 @@ class L2Qualification:
         self.q.identity()
         # Verify actual source container/network identity immediately before every probe.
         client = json.loads(self.q.command(["docker", "inspect", self.client], private=True))[0]
-        net = client["NetworkSettings"]["Networks"]
-        if (set(net) != {"k3d-" + self.q.args.name} or client["Mounts"] or
-                client["HostConfig"]["Privileged"] or client["HostConfig"]["CapAdd"] != ["NET_RAW"] or
-                net["k3d-" + self.q.args.name]["IPAddress"] != "172.31.240.10"):
-            raise RuntimeError("external synthetic caller isolation changed")
+        evidence = {"networks": client["NetworkSettings"]["Networks"], "mounts": client["Mounts"],
+                    "host": {k: client["HostConfig"][k] for k in ("Privileged", "CapAdd", "CapDrop", "ReadonlyRootfs")}}
+        (self.q.work / "client-isolation.json").write_text(json.dumps(evidence, indent=2))
+        validate_client(client, self.q.args.name)
+        caps = self.q.command(["docker", "exec", self.client, "python3", "-B", "-c",
+                               "import pathlib,json;print(json.dumps({l.split(':')[0]:int(l.split()[1],16) for l in pathlib.Path('/proc/self/status').read_text().splitlines() if l.startswith(('CapEff:', 'CapBnd:'))}))"])
+        if json.loads(caps) != {"CapEff": 1 << 13, "CapBnd": 1 << 13}:
+            raise RuntimeError("external caller must have exactly native CAP_NET_RAW")
         result = json.loads(self.q.command(["docker", "exec", self.client, "python3", "-B", "-c", PROBE]))
         validate_probe(result, self.nodes[lease["spec"]["holderIdentity"]])
         return result

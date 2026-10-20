@@ -10,6 +10,27 @@ import cilium_l2_qualification as l2
 
 
 class L2Guards(unittest.TestCase):
+    def test_client_requires_one_network_exact_raw_capability_and_no_mounts(self):
+        client = {"NetworkSettings": {"Networks": {"k3d-fixture": {"IPAddress": "172.31.240.10"}}},
+                  "Mounts": [], "HostConfig": {"CapAdd": ["NET_RAW"], "CapDrop": ["ALL"],
+                                               "Privileged": False, "ReadonlyRootfs": True}}
+        for capability in ("NET_RAW", "CAP_NET_RAW"):
+            client["HostConfig"]["CapAdd"] = [capability]
+            l2.validate_client(client, "fixture")
+        for change in ({"CapAdd": ["SYS_ADMIN"]}, {"CapAdd": ["NET_RAW", "NET_ADMIN"]},
+                       {"CapDrop": []}, {"Privileged": True}, {"ReadonlyRootfs": False}):
+            bad = copy.deepcopy(client)
+            bad["HostConfig"].update(change)
+            with self.assertRaises(RuntimeError):
+                l2.validate_client(bad, "fixture")
+        for mutate in (lambda c: c["Mounts"].append({"Source": "/original"}),
+                       lambda c: c["NetworkSettings"]["Networks"].update(other={"IPAddress": "1.2.3.4"}),
+                       lambda c: c["NetworkSettings"]["Networks"]["k3d-fixture"].update(IPAddress="172.31.240.11")):
+            bad = copy.deepcopy(client)
+            mutate(bad)
+            with self.assertRaises(RuntimeError):
+                l2.validate_client(bad, "fixture")
+
     def pool(self):
         return {"metadata": {"uid": "pool-uid", "resourceVersion": "37"},
                 "spec": {"cidrs": [{"cidr": l2.CIDR}], "allowFirstLastIPs": "No"}}
