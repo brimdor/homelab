@@ -131,7 +131,7 @@ def qualify(bundle, run_id):
 
         def create(items, name):
             (scratch / name).write_bytes(common.canonical({"apiVersion": "v1", "kind": "List", "items": items}))
-            rows = command_objects(kubectl("create", "--validate=strict", "-f=/work/" + name, "-o=json",
+            rows = command_objects(kubectl("create", "--namespace=" + NAMESPACE, "--validate=strict", "-f=/work/" + name, "-o=json",
                                             stage="create " + name).stdout)
             if len(rows) != len(items):
                 raise RuntimeError("native CSI create evidence is incomplete")
