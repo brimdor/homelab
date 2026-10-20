@@ -12,6 +12,14 @@ import ceph_csi_controller_qualification as subject
 
 
 class ControllerGuards(unittest.TestCase):
+    def test_manager_failure_keeps_only_fixed_error_markers_and_state(self):
+        raw = b'INFO image set loaded\nERROR unable to load config map: private-sentinel-value not found\n'
+        failure = subject.manager_failure(raw, {"Running": True, "ExitCode": 0, "OOMKilled": False})
+        self.assertIn('"not found"', failure)
+        self.assertIn('"config map"', failure)
+        self.assertNotIn('"image set"', failure)
+        self.assertNotIn('private-sentinel-value', failure)
+
     def test_failure_reports_stage_and_fixed_markers_without_raw_values(self):
         failed = subprocess.CompletedProcess([], 1, b"private-sentinel-value", b"Forbidden: private-sentinel-value")
         with patch.object(subject.common, "docker", return_value=failed), self.assertRaises(RuntimeError) as caught:

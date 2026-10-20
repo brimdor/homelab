@@ -33,6 +33,19 @@ def checked_docker(*args, stage):
     return result
 
 
+def manager_failure(raw, state):
+    errors = b"\n".join(line.lower() for line in raw.splitlines() if b"error" in line.lower() or b"panic" in line.lower())
+    markers = [v for v in ("not found", "no matches for kind", "already exists", "object has been modified",
+                          "conflict", "timeout", "connection refused", "invalid", "required", "failed to create",
+                          "failed to update", "failed to get", "unable to load", "configmap", "config map",
+                          "imageset", "image set", "operatorconfig", "clientprofile", "cephconnection",
+                          "snapshotmetadataservice", "volumesnapshot", "namespace", "panic", "unknown flag")
+               if v.encode() in errors]
+    return "native CSI manager failed: " + json.dumps({"running": state["Running"], "exit": state["ExitCode"],
+                                                       "oom_killed": state["OOMKilled"], "markers": markers,
+                                                       "raw_output_discarded": True})
+
+
 def validate_bundle(bundle):
     if hashlib.sha256(common.canonical(bundle)).hexdigest() != BUNDLE_SHA256:
         raise RuntimeError("reviewed CSI controller bundle changed")
@@ -203,7 +216,7 @@ def qualify(bundle, run_id):
                 if re.search(rb"\b(forbidden|unauthorized)\b|x509:|permission denied", raw, re.I):
                     raise RuntimeError("native CSI manager encountered an access or trust denial; raw output discarded")
                 if not value["State"]["Running"] or b"CSI Driver reconciliation failed" in raw or b"Reconciler error" in raw:
-                    raise RuntimeError("native CSI manager failed; raw output discarded")
+                    raise RuntimeError(manager_failure(raw, value["State"]))
                 return value
 
             def await_value(read, accept, description, seconds=180):
@@ -274,7 +287,7 @@ def qualify(bundle, run_id):
             common.docker("stop", "--time=10", manager)
             alive_output = capture.output().stdout
             if b"CSI Driver reconciliation failed" in alive_output or b"Reconciler error" in alive_output:
-                raise RuntimeError("native CSI reconciliation error before restart; raw output discarded")
+                raise RuntimeError(manager_failure(alive_output, common.inspect(manager)["State"]))
             capture.close()
             capture = common.CapturedContainer(manager)
             captures.append(capture)
