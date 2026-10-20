@@ -27,6 +27,8 @@ IMAGE_DIGEST = "sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e515
 FROZEN_SOURCE_SHA256 = "41d4f77e26147287092c6936e7ffd7d247657aebdc4f08a1ef886b53fece95fa"
 SOURCE_AUDIT_SHA256 = "9ce2339207236861dd9bf0d93e599b089145922d9ac7057c673224ff47c6ab97"
 PREFIX_RECEIPT_SHA256 = "4966e695293c568d655b310783bda0b082a5dee155cc50cca59eade8542db350"
+CONTINUATION_RECEIPT_SHA256 = "452f4071f76d1b9e59b030fdb38b121c7ba5099ab342e95ae34a59af06170558"
+SECOND_CONTINUATION_RECEIPT_SHA256 = ""
 
 
 def get_json(url):
@@ -322,7 +324,8 @@ def frozen_source_audit(original, accounting, path=Path("/scripts/source-final-w
     return audit
 
 
-def transfer(start, end, apply=False, source_audit=None, verify_presence=False, flush_after_push=False):
+def transfer(start, end, apply=False, source_audit=None, verify_presence=False, flush_after_push=False,
+             max_record_age_ns=None):
     if apply and verify_presence:
         raise RuntimeError("presence verification cannot write originals")
     if flush_after_push and not apply:
@@ -340,7 +343,10 @@ def transfer(start, end, apply=False, source_audit=None, verify_presence=False, 
             missing, evidence = prove_missing(missing, left, right) if missing else ([], {})
         if apply:
             for index in range(0, len(missing), 250):
-                push(missing[index:index + 250])
+                batch = missing[index:index + 250]
+                if max_record_age_ns is not None and batch[0][1] < time.time_ns() - max_record_age_ns:
+                    raise RuntimeError("continuation exceeds the qualified normal receiver age; audit before buffered recovery")
+                push(batch)
             if missing and flush_after_push:
                 # Old ranges can exclude ingesters under the normal three-hour query horizon.
                 request = urllib.request.Request(TARGET + "/flush", data=b"", method="POST")
@@ -371,7 +377,7 @@ def require_stage(target_uid, phase):
             cold_recovery.BUFFER_CLAIM_UID and all(not p["metadata"].get("deletionTimestamp") and
             p["status"]["phase"] == "Bound" for p in (claim, source_claim))):
         raise RuntimeError("transfer storage identity changed")
-    buffered = phase in ("bulk", "buffered-tail")
+    buffered = phase in ("bulk", "buffered-tail", "buffered-continuation")
     expected_url = cold_recovery.BUFFER_URL if buffered else cold_recovery.OLD_URL
     other_url = cold_recovery.OLD_URL if buffered else cold_recovery.BUFFER_URL
     checksum = hashlib.sha256(config.encode()).hexdigest()
@@ -431,13 +437,14 @@ def tail_prefix(root, accounting):
     return prefix
 
 
-def tail_audit(root, attempt, target_uid, accounting, prefix):
-    audit = json.loads((root / ("tail-" + str(attempt - 1) + ".json")).read_bytes())
-    if not (audit["phase"] == "tail" and not audit["applied"] and
+def tail_audit(root, attempt, target_uid, accounting, prefix, phase="tail", prefix_hash=None):
+    prefix_hash = PREFIX_RECEIPT_SHA256 if prefix_hash is None else prefix_hash
+    audit = json.loads((root / (phase + "-" + str(attempt - 1) + ".json")).read_bytes())
+    if not (audit["phase"] == phase and not audit["applied"] and
             audit["tail_enumeration_complete"] and audit["target_uid"] == target_uid and
             audit["source_uid"] == cold_recovery.BUFFER_POD_UID and
             audit["source_accounting"] == accounting and
-            audit["prefix_receipt_sha256"] == PREFIX_RECEIPT_SHA256 and
+            audit["prefix_receipt_sha256"] == prefix_hash and
             audit["start"] == prefix["end"] + 1 and audit["end"] >= audit["start"] and
             sum(w["source_distinct_records"] for w in audit["windows"]) ==
             audit["tail_distinct_records"] == accounting["accepted_records"] - prefix["source_accepted_records"]):
@@ -452,35 +459,83 @@ def tail_audit(root, attempt, target_uid, accounting, prefix):
     return audit
 
 
-def run_tail(root, target_uid, attempt, apply):
+def continuation_prefix(root, accounting, target_uid, covered_attempt=15):
+    if covered_attempt not in (15, 17):
+        raise RuntimeError("unqualified continuation checkpoint")
+    second = covered_attempt == 17
+    phase = "buffered-continuation" if second else "buffered-tail"
+    receipt_hash = SECOND_CONTINUATION_RECEIPT_SHA256 if second else CONTINUATION_RECEIPT_SHA256
+    previous_hash = CONTINUATION_RECEIPT_SHA256 if second else PREFIX_RECEIPT_SHA256
+    data = (root / (phase + "-" + str(covered_attempt) + ".json")).read_bytes()
+    if not receipt_hash or hashlib.sha256(data).hexdigest() != receipt_hash:
+        raise RuntimeError("accepted buffered tail receipt changed or is not qualified")
+    covered = json.loads(data)
+    old_accounting = covered["source_accounting"]
+    prefix = continuation_prefix(root, old_accounting, target_uid) if second else tail_prefix(root, old_accounting)
+    audit = tail_audit(root, covered_attempt, target_uid, old_accounting, prefix,
+                       "continuation" if second else "tail", previous_hash)
+    before = covered["target_counters_before"]; after = covered["target_counters_after"]
+    fields = ("start", "end", "source_distinct_records", "source_sha256")
+    if not (covered["phase"] == phase and covered["attempt"] == covered_attempt and
+            covered["applied"] and covered["all_source_records_visible"] and
+            covered["frozen_tail_enumeration_complete"] and
+            covered["target_uid"] == target_uid and covered["source_uid"] == cold_recovery.BUFFER_POD_UID and
+            covered["prefix_receipt_sha256"] == previous_hash and
+            covered["start"] == audit["start"] and covered["end"] == audit["end"] and
+            covered["source_distinct_records"] == audit["tail_distinct_records"] and
+            covered["prefix_distinct_records"] == prefix["source_accepted_records"] and
+            [{k: w[k] for k in fields} for w in covered["windows"]] ==
+            [{k: w[k] for k in fields} for w in audit["windows"]] and
+            after["loki_distributor_lines_received_total"] == before["loki_distributor_lines_received_total"] + covered["missing_before"] and
+            after["loki_discarded_samples_total"] == before["loki_discarded_samples_total"] and
+            source_query_count(prefix["start"], audit["end"]) == old_accounting["accepted_records"] and
+            accounting["accepted_records"] > old_accounting["accepted_records"] and
+            accounting["received_attempts"] >= old_accounting["received_attempts"] and
+            accounting["rate_limited_attempts"] >= old_accounting["rate_limited_attempts"]):
+        raise RuntimeError("accepted buffered coverage, identity or accounting changed")
+    return {"start": prefix["start"], "end": audit["end"],
+            "source_accepted_records": old_accounting["accepted_records"]}
+
+
+def run_tail(root, target_uid, attempt, apply, phase="tail"):
     received = cold_recovery.flush_old(SOURCE)
     accounting = source_accounting()
     if accounting["received_attempts"] != received:
         raise RuntimeError("tail source accounting changed after flush")
-    prefix = tail_prefix(root, accounting)
-    audit = tail_audit(root, attempt, target_uid, accounting, prefix) if apply else None
+    checkpoint = 17 if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
+    prefix_hash = ((SECOND_CONTINUATION_RECEIPT_SHA256 if checkpoint == 17 else CONTINUATION_RECEIPT_SHA256)
+                   if phase == "continuation" else PREFIX_RECEIPT_SHA256)
+    prefix = (continuation_prefix(root, accounting, target_uid, checkpoint)
+              if phase == "continuation" else tail_prefix(root, accounting))
+    audit = tail_audit(root, attempt, target_uid, accounting, prefix, phase, prefix_hash) if apply else None
     start = prefix["end"] + 1
     end = audit["end"] if audit else time.time_ns() + 600 * 10**9
+    if phase == "continuation" and audit is None:
+        latest = query(SOURCE, start, end, limit=1, direction="backward")
+        if not latest:
+            raise RuntimeError("continuation has no new original timestamp")
+        end = latest[-1][1]
     count = source_query_count(prefix["start"], end)
     if count != accounting["accepted_records"]:
         raise RuntimeError("tail full-source count differs from accepted counters")
-    result = transfer(start, end, apply, audit)
+    result = (transfer(start, end, apply, audit, max_record_age_ns=55 * 60 * 10**9)
+              if phase == "continuation" else transfer(start, end, apply, audit))
     if result["source_distinct_records"] != count - prefix["source_accepted_records"]:
         raise RuntimeError("tail enumeration does not account for every new accepted original")
-    require_stage(target_uid, "tail")
+    require_stage(target_uid, phase)
     if (cold_recovery.metrics(SOURCE) != (0, received) or source_accounting() != accounting or
             source_query_count(prefix["start"], prefix["end"]) != prefix["source_accepted_records"] or
             source_query_count(prefix["start"], end) != count):
         raise RuntimeError("quiescent tail or accepted prefix changed during transfer")
     result["tail_distinct_records"] = result.pop("source_distinct_records")
     result["all_tail_records_visible"] = result.pop("all_source_records_visible")
-    result.update(phase="tail", attempt=attempt, target_uid=target_uid,
+    result.update(phase=phase, attempt=attempt, target_uid=target_uid,
                   source_uid=cold_recovery.BUFFER_POD_UID, source_accounting=accounting,
-                  prefix_receipt_sha256=PREFIX_RECEIPT_SHA256,
+                  prefix_receipt_sha256=prefix_hash,
                   prefix_distinct_records=prefix["source_accepted_records"],
                   tail_enumeration_complete=True, source_query_count=count,
                   complete_source_quiescence=True)
-    cold_recovery.write_verified(root / ("tail-" + str(attempt) + ".json"), result)
+    cold_recovery.write_verified(root / (phase + "-" + str(attempt) + ".json"), result)
     print(json.dumps(result), flush=True)
 
 
@@ -522,13 +577,18 @@ def target_counters():
     return values
 
 
-def run_buffered_tail(root, target_uid, attempt, apply):
+def run_buffered_tail(root, target_uid, attempt, apply, phase="buffered-tail"):
     if not apply:
         raise RuntimeError("buffered tail requires the preceding complete read-only tail audit")
-    frozen = json.loads((root / ("tail-" + str(attempt - 1) + ".json")).read_bytes())
+    continuation = phase == "buffered-continuation"
+    if continuation and attempt != 17:
+        raise RuntimeError("buffered continuation is restricted to the qualified checkpoint sequence")
+    audit_phase = "continuation" if continuation else "tail"
+    frozen = json.loads((root / (audit_phase + "-" + str(attempt - 1) + ".json")).read_bytes())
     accounting = frozen["source_accounting"]
-    prefix = tail_prefix(root, accounting)
-    audit = tail_audit(root, attempt, target_uid, accounting, prefix)
+    prefix_hash = CONTINUATION_RECEIPT_SHA256 if continuation else PREFIX_RECEIPT_SHA256
+    prefix = continuation_prefix(root, accounting, target_uid) if continuation else tail_prefix(root, accounting)
+    audit = tail_audit(root, attempt, target_uid, accounting, prefix, audit_phase, prefix_hash)
     if source_query_count(prefix["start"], audit["end"]) != accounting["accepted_records"]:
         raise RuntimeError("frozen tail changed before buffered recovery")
     received = cold_recovery.flush_old(TARGET)
@@ -539,19 +599,19 @@ def run_buffered_tail(root, target_uid, attempt, apply):
     result = transfer(audit["start"], audit["end"], True, audit, flush_after_push=True)
     if result["source_distinct_records"] != audit["tail_distinct_records"]:
         raise RuntimeError("buffered tail does not cover its complete audited originals")
-    require_stage(target_uid, "buffered-tail")
+    require_stage(target_uid, phase)
     after = target_counters()
     if (after["loki_distributor_lines_received_total"] != received + result["missing_before"] or
             after["loki_discarded_samples_total"] != before["loki_discarded_samples_total"] or
             source_query_count(prefix["start"], audit["end"]) != accounting["accepted_records"]):
         raise RuntimeError("buffered receiver rejected records, had another writer or frozen source changed")
-    result.update(phase="buffered-tail", attempt=attempt, target_uid=target_uid,
+    result.update(phase=phase, attempt=attempt, target_uid=target_uid,
                   source_uid=cold_recovery.BUFFER_POD_UID, source_accounting=accounting,
-                  prefix_receipt_sha256=PREFIX_RECEIPT_SHA256,
+                  prefix_receipt_sha256=prefix_hash,
                   prefix_distinct_records=prefix["source_accepted_records"],
                   frozen_tail_enumeration_complete=True, complete_source_quiescence=False,
                   target_counters_before=before, target_counters_after=after)
-    cold_recovery.write_verified(root / ("buffered-tail-" + str(attempt) + ".json"), result)
+    cold_recovery.write_verified(root / (phase + "-" + str(attempt) + ".json"), result)
     print(json.dumps(result), flush=True)
 
 
@@ -569,14 +629,14 @@ def run(target_uid, phase, attempt, apply):
     for base in (SOURCE, TARGET):
         if get_json(base + "/loki/api/v1/status/buildinfo")["version"] != "3.7.8":
             raise RuntimeError("unexpected transfer server version")
-    if phase == "tail":
-        run_tail(root, target_uid, attempt, apply)
+    if phase in ("tail", "continuation"):
+        run_tail(root, target_uid, attempt, apply, phase)
         return
     if phase == "prefix":
         run_prefix(root, target_uid, attempt)
         return
-    if phase == "buffered-tail":
-        run_buffered_tail(root, target_uid, attempt, apply)
+    if phase in ("buffered-tail", "buffered-continuation"):
+        run_buffered_tail(root, target_uid, attempt, apply, phase)
         return
     received = cold_recovery.flush_old(SOURCE) if phase == "final" else None
     accounting = source_accounting() if phase == "final" else None
@@ -618,7 +678,8 @@ def run(target_uid, phase, attempt, apply):
 if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=["bulk", "final", "tail", "prefix", "buffered-tail"], required=True)
+    parser.add_argument("--phase", choices=["bulk", "final", "tail", "prefix", "buffered-tail", "continuation",
+                                          "buffered-continuation"], required=True)
     parser.add_argument("--attempt", type=int, required=True)
     parser.add_argument("--target-uid", required=True)
     parser.add_argument("--apply", action="store_true")

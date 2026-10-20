@@ -16,6 +16,109 @@ import test_cold_recovery as cold_fixture
 
 
 class BufferTransferTests(unittest.TestCase):
+    def test_continuation_audit_ends_at_latest_actual_original(self):
+        account = {"received_attempts": 8, "rate_limited_attempts": 1, "accepted_records": 7}
+        prefix = {"start": 1, "end": 9, "source_accepted_records": 5}
+        result = {"source_distinct_records": 2, "all_source_records_visible": False, "end": 12}
+        with patch.object(TRANSFER.cold_recovery, "flush_old", return_value=8), \
+                patch.object(TRANSFER, "source_accounting", return_value=account), \
+                patch.object(TRANSFER, "continuation_prefix", return_value=prefix), \
+                patch.object(TRANSFER, "query", return_value=[({"job": "synthetic"}, 12, "original")]) as query, \
+                patch.object(TRANSFER.time, "time_ns", return_value=100), \
+                patch.object(TRANSFER, "source_query_count", side_effect=[7, 5, 7]), \
+                patch.object(TRANSFER, "transfer", return_value=result) as transfer, \
+                patch.object(TRANSFER, "require_stage"), \
+                patch.object(TRANSFER.cold_recovery, "metrics", return_value=(0, 8)), \
+                patch.object(TRANSFER.cold_recovery, "write_verified") as write:
+            TRANSFER.run_tail(MagicMock(), "synthetic", 16, False, "continuation")
+            query.assert_called_once_with(TRANSFER.SOURCE, 10, 100 + 600 * 10**9,
+                                          limit=1, direction="backward")
+            transfer.assert_called_once_with(10, 12, False, None, max_record_age_ns=55 * 60 * 10**9)
+            self.assertEqual(write.call_args.args[1]["end"], 12)
+
+    def test_continuation_refuses_old_original_before_any_push(self):
+        rows = self.rows()[:2]
+        for now, accepted in ((100, True), (101, False)):
+            with patch.object(TRANSFER, "windows", return_value=[(0, 4, rows)]), \
+                    patch.object(TRANSFER, "observed", return_value=set()), \
+                    patch.object(TRANSFER, "prove_missing", side_effect=lambda pending, *_: (pending, {})), \
+                    patch.object(TRANSFER.time, "time_ns", return_value=now), \
+                    patch.object(TRANSFER, "confirm_visible"), patch.object(TRANSFER, "push") as push:
+                if accepted:
+                    TRANSFER.transfer(0, 4, apply=True, max_record_age_ns=99)
+                    push.assert_called_once_with(rows)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "qualified normal receiver age"):
+                        TRANSFER.transfer(0, 4, apply=True, max_record_age_ns=99)
+                    push.assert_not_called()
+
+    def test_continuation_requires_hash_bound_complete_buffered_coverage(self):
+        old = {"received_attempts": 6, "rate_limited_attempts": 1, "accepted_records": 5}
+        new = {"received_attempts": 8, "rate_limited_attempts": 1, "accepted_records": 7}
+        prefix = {"start": 1, "end": 4, "source_accepted_records": 3}
+        windows = [{"start": 5, "end": 9, "source_distinct_records": 2, "source_sha256": "a" * 64}]
+        audit = {"start": 5, "end": 9, "tail_distinct_records": 2, "windows": windows}
+        covered = {"phase": "buffered-tail", "attempt": 15, "applied": True, "all_source_records_visible": True,
+                   "frozen_tail_enumeration_complete": True, "target_uid": "synthetic",
+                   "source_uid": TRANSFER.cold_recovery.BUFFER_POD_UID, "source_accounting": old,
+                   "prefix_receipt_sha256": TRANSFER.PREFIX_RECEIPT_SHA256,
+                   "start": 5, "end": 9, "source_distinct_records": 2, "prefix_distinct_records": 3,
+                   "windows": windows, "missing_before": 2,
+                   "target_counters_before": {"loki_distributor_lines_received_total": 100, "loki_discarded_samples_total": 2},
+                   "target_counters_after": {"loki_distributor_lines_received_total": 102, "loki_discarded_samples_total": 2}}
+        root = MagicMock()
+        def check(value, account=new):
+            data = json.dumps(value).encode(); root.__truediv__.return_value.read_bytes.return_value = data
+            with patch.object(TRANSFER, "CONTINUATION_RECEIPT_SHA256", hashlib.sha256(data).hexdigest()), \
+                    patch.object(TRANSFER, "tail_prefix", return_value=prefix), \
+                    patch.object(TRANSFER, "tail_audit", return_value=audit), \
+                    patch.object(TRANSFER, "source_query_count", return_value=5):
+                return TRANSFER.continuation_prefix(root, account, "synthetic")
+        self.assertEqual(check(covered), {"start": 1, "end": 9, "source_accepted_records": 5})
+        second = {**covered, "phase": "buffered-continuation", "attempt": 17,
+                  "prefix_receipt_sha256": "c" * 64}
+        data = json.dumps(second).encode()
+        root.__truediv__.return_value.read_bytes.return_value = data
+        original = TRANSFER.continuation_prefix
+        with patch.object(TRANSFER, "CONTINUATION_RECEIPT_SHA256", "c" * 64), \
+                patch.object(TRANSFER, "SECOND_CONTINUATION_RECEIPT_SHA256", hashlib.sha256(data).hexdigest()), \
+                patch.object(TRANSFER, "continuation_prefix", return_value=prefix) as previous, \
+                patch.object(TRANSFER, "tail_audit", return_value=audit) as read, \
+                patch.object(TRANSFER, "source_query_count", return_value=5):
+            self.assertEqual(original(root, new, "synthetic", 17),
+                             {"start": 1, "end": 9, "source_accepted_records": 5})
+            previous.assert_called_once_with(root, old, "synthetic")
+            read.assert_called_once_with(root, 17, "synthetic", old, prefix, "continuation", "c" * 64)
+        with self.assertRaisesRegex(RuntimeError, "unqualified continuation checkpoint"):
+            original(root, new, "synthetic", 19)
+        for key, value in (("applied", False), ("all_source_records_visible", False), ("target_uid", "different"),
+                           ("prefix_receipt_sha256", "wrong"), ("source_distinct_records", 1), ("end", 8)):
+            changed = copy.deepcopy(covered); changed[key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, "coverage"):
+                check(changed)
+        changed = copy.deepcopy(covered); changed["target_counters_after"]["loki_discarded_samples_total"] = 3
+        with self.assertRaisesRegex(RuntimeError, "coverage"):
+            check(changed)
+        with self.assertRaisesRegex(RuntimeError, "coverage"):
+            check(covered, old)
+        with patch.object(TRANSFER, "CONTINUATION_RECEIPT_SHA256", "wrong"), self.assertRaisesRegex(RuntimeError, "receipt changed"):
+            TRANSFER.continuation_prefix(root, new, "synthetic")
+
+    def test_continuation_apply_accepts_only_its_own_audit_and_checkpoint(self):
+        account = {"received_attempts": 8, "rate_limited_attempts": 1, "accepted_records": 7}
+        prefix = {"end": 9, "source_accepted_records": 5}
+        audit = {"phase": "continuation", "applied": False, "tail_enumeration_complete": True,
+                 "target_uid": "synthetic", "source_uid": TRANSFER.cold_recovery.BUFFER_POD_UID,
+                 "source_accounting": account, "prefix_receipt_sha256": "b" * 64,
+                 "start": 10, "end": 12, "tail_distinct_records": 2,
+                 "windows": [{"start": 10, "end": 12, "source_distinct_records": 2, "source_sha256": "a" * 64}]}
+        root = MagicMock(); root.__truediv__.return_value.read_bytes.return_value = json.dumps(audit).encode()
+        self.assertEqual(TRANSFER.tail_audit(root, 17, "synthetic", account, prefix, "continuation", "b" * 64), audit)
+        with self.assertRaisesRegex(RuntimeError, "fresh complete"):
+            TRANSFER.tail_audit(root, 17, "synthetic", account, prefix, "tail", "b" * 64)
+        with self.assertRaisesRegex(RuntimeError, "fresh complete"):
+            TRANSFER.tail_audit(root, 17, "synthetic", account, prefix, "continuation", "c" * 64)
+
     def test_buffered_flush_only_follows_proven_missing_writes(self):
         rows = self.rows()[:2]
         existing = {TRANSFER.fingerprint(rows[0])}
@@ -85,6 +188,8 @@ class BufferTransferTests(unittest.TestCase):
                     self.assertFalse(write.call_args.args[1]["complete_source_quiescence"])
         with self.assertRaisesRegex(RuntimeError, "preceding complete"):
             TRANSFER.run_buffered_tail(root, "target", 15, False)
+        with self.assertRaisesRegex(RuntimeError, "qualified checkpoint sequence"):
+            TRANSFER.run_buffered_tail(root, "target", 19, True, "buffered-continuation")
 
     def test_read_only_presence_verification_resolves_underfill_without_any_push(self):
         rows = self.rows()[:3]
