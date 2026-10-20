@@ -1,0 +1,40 @@
+---
+- name: Migrate only the maintenance 103 Cilium pool API fields
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    cilium_pool_mode: inspect
+  tasks:
+    - name: Guard the exact inventory intent and explicit local tooling
+      ansible.builtin.assert:
+        that:
+          - control_plane_endpoint == '10.0.20.50'
+          - load_balancer_ip_pool == ['10.0.20.224/27']
+          - cilium_pool_mode in ['inspect', 'apply', 'rollback']
+          - cilium_pool_kubectl is defined
+          - cilium_pool_cache_dir is defined
+        fail_msg: Refusing an unreviewed pool intent or missing explicit tooling
+
+    - name: Inspect or compare-and-swap the existing pool without touching Helm or nodes
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/scripts/cilium_pool_migration.py"
+          - --kubectl
+          - "{{ cilium_pool_kubectl }}"
+          - --kubeconfig
+          - "{{ playbook_dir }}/kubeconfig.yaml"
+          - --cache-dir
+          - "{{ cilium_pool_cache_dir }}"
+          - --mode
+          - "{{ {'inspect': 'inspect', 'apply': 'dry-run', 'rollback': 'rollback-dry-run'}[cilium_pool_mode] if ansible_check_mode else cilium_pool_mode }}"
+      check_mode: false
+      register: cilium_pool_result
+      changed_when: (cilium_pool_result.stdout | from_json).changed
+
+    - name: Report only the public pool migration result
+      ansible.builtin.debug:
+        msg: "{{ cilium_pool_result.stdout | from_json }}"

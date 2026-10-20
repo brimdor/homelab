@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>Cilium pool API migration — Issue 103</title>
+<style>html{background:#111827;color:#e5e7eb;font:16px/1.6 system-ui}body{max-width:1000px;margin:3rem auto;padding:0 1rem}a{color:#93c5fd}code{overflow-wrap:anywhere}</style>
+<h1>Cilium pool API migration — Issue 103</h1>
+<p>Status: planned independent software prerequisite; not a CNI upgrade or completion of K3S_CILIUM.</p>
+<h2>Bound authority and baseline</h2>
+<p>Canonical <a href="https://git.eaglepass.io/ops/homelab/issues/103">Issue 103</a>, K3S_CILIUM;
+audited Tea read jppa9498 confirms open issue updated 2026-10-20T21:16:27Z, body SHA256
+7dd59bf9d596766f55208e6dce6de66da4ce86def09325703197b92ed79a9851. Owner directs completion of independently safe software work.</p>
+<p>Read vpr6j9no at21:58:33Z proves default pool UID c54f68a2-1100-438b-b34e-3c5aad6d6109,
+spec cidrs10.0.20.224/27 and disabled:false, no other spec fields. Existing served v2alpha1 schema includes blocks and allowFirstLastIPs.
+L2 policy UID66948ab8-b88a-4637-a314-fcd0911b9508 has externalIPs/loadBalancerIPs true.
+The only LoadBalancer Service is ingress-nginx/ingress-nginx-controller, UIDc6304c6a-977c-4137-9e67-9d555b077dff, VIP10.0.20.226.</p>
+<h2>Evidence and exact change</h2>
+<p>The <a href="k3s-cilium-compatibility-audit.html">source audit</a> proves
+<a href="https://github.com/cilium/cilium/blob/v1.15.1/pkg/k8s/apis/cilium.io/v2alpha1/lbipam_types.go">Cilium1.15.1 supports blocks</a> and reserves boundary addresses by default.
+The <a href="cilium-l2-qualification-103.html">accepted seventeen-stage native L2 qualification</a> includes this same-range migration, preserved pool/Service/lease UIDs and VIP, raw ARP, lease failover and340successful HTTP payload checks. That ARM64 fixture does not prove physical production callers.</p>
+<p>Replace only the exact old spec with blocks:[{cidr:10.0.20.224/27}], allowFirstLastIPs:No and disabled:false.
+Usable addresses remain10.0.20.225–10.0.20.254; currentVIP226 remains included. Never create/delete a pool, change ranges, restart agents, upgrade Helm/CNI/nodes, or change policies/Services.</p>
+<h2>Owning execution and rollback</h2>
+<p><a href="../metal/cilium-pool-migration.yml">Dedicated localhost Ansible playbook</a> uses
+<a href="../metal/scripts/cilium_pool_migration.py">standard-library helper</a> and existing compatible kubectl.
+The existing kubernetes.core role requires missing Python client dependencies; its embedded-kubeconfig loader also extracts credentials to temporary files.
+This entry point keeps the existing kubeconfig at its original location, with no credential export or weaker authentication.
+Inspect by default; explicit apply or rollback modes only. Check mode executes actual server dry-run. Pass explicit kubectl/cache paths; use production inventory plus localhost inventory and limit localhost. No provisioning/imports/Helm tasks.</p>
+<p>Review list-tasks, syntax, offline refusal tests and real server dry-run before publication/application.
+Every patch tests exact UID, observed resourceVersion and entire original spec atomically. Changed identity, extra intent, API endpoint, denial or concurrent modification stops execution without retry.
+Rollback tests the exact new spec and restores original cidrs/disabled, removing both new fields. Run rollback server dry-run first; do not overwrite concurrent changes.</p>
+<h2>Recovery and acceptance</h2>
+<p>Retain sanitized public pool/policy/Service specifications and controller/node identities before application; this configuration-only operation touches no application data.
+The reviewed original spec and executable reverse patch are recovery material. No NAS write, node disruption, Ceph experiment or new backup storage is needed for this field-only change.
+Before/after require same poolUID, no conflict, same allocated VIPs, policy/Service UID/spec, Cilium controller/pod UID/image/restarts/readiness, active node readiness, leader lease and actual ingress HTTPS/Gitea SSH through VIP from existing trusted paths.
+Regression triggers inspection and the UID-scoped reverse path. Existing SATA, NAS, recovery and denied-origin gates still block their dependent upgrades; no ALL GREEN claim.</p>
+<h2>Pre-application verification</h2>
+<p>cilium-pool-migration-validation-9telcz3k passed22:10:35Z: five offline refusal/round-trip tests, Ansible syntax and exact three-task localhost inventory, real check-mode server dry-run with zero changed tasks and exact original pool readback, all applicable pre-commit hooks and diff checks. No production writes. Server resourceVersion503907599 and exact UID/spec were preserved.</p>
+<p>Corrected live baseline vhd4gljf passed22:10:42Z: ten Cilium agent/operator Pods ready, all returned nodes Ready, one LoadBalancer Service and TLS-verified Gitea version API response through explicitVIP10.0.20.226. Sanitized full public object evidence retained for comparison. Initial collector9fb4bbja stopped on an unlabeled Pod before saving baseline; correcting optional-label handling required no cluster change. The native CSI generation proof is separately recorded; it does not authorize a CNI or storage rollout.</p>
+</html>
