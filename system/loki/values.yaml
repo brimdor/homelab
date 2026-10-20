@@ -21,8 +21,8 @@ maintenanceRecovery:
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
   transferEnabled: true
   transferApply: false
-  transferPhase: prefix
-  transferAttempt: 13
+  transferPhase: tail
+  transferAttempt: 14
   transferTargetPodUID: 9a102967-5aef-4ca7-885a-4e6eb20b7c8e
 server:
   nameOverride: loki
