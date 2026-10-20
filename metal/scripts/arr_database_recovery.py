@@ -224,10 +224,12 @@ def point_path(namespace, run_id):
     return common.ROOT / (namespace + '-databases-' + common.run_identifier(run_id))
 
 
-def fingerprints(root, target, namespace):
+def fingerprints(root, target, namespace, *, application_only=False):
+    if application_only and namespace != 'radarr':
+        raise RuntimeError('application-only qualification is reviewed for Radarr only')
     target.mkdir(mode=0o700)
     results = {}
-    for name in (namespace + '.db', 'logs.db'):
+    for name in ((namespace + '.db',) if application_only else (namespace + '.db', 'logs.db')):
         # Recovery and checkpointing occur only on a disposable copy, never live/protected files.
         source = sqlite3.connect(root / name)
         destination = sqlite3.connect(target / name)
@@ -274,7 +276,9 @@ def native_arguments(scratch, namespace, run_id):
             '--entrypoint=' + executable, image(namespace), '-nobrowser', '-data=/config']
 
 
-def restore(namespace, run_id, checksum):
+def restore(namespace, run_id, checksum, *, application_only=False):
+    if application_only and namespace != 'radarr':
+        raise RuntimeError('application-only qualification is reviewed for Radarr only')
     point = point_path(namespace, run_id)
     manifest = verify(point, checksum, namespace)
     if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
@@ -286,14 +290,19 @@ def restore(namespace, run_id, checksum):
     scratch.chmod(0o700)
     container = image_id = None
     result = {'accepted': False, 'namespace': namespace, 'manifest_sha256': checksum, 'scope': manifest['scope']}
+    skip = tuple(n for n in manifest['tree']['files'] if n == 'logs.db' or n.startswith('logs.db-')) if application_only else ()
+    if application_only:
+        result.update(scope='application-database-and-config-only', logs_recovery_accepted=False,
+                      original_logs_preserved=True, source_scope=manifest['scope'])
     try:
         common.docker('pull', image(namespace))
         description = json.loads(common.docker('image', 'inspect', image(namespace)).stdout)[0]
         image_id = description['Id']
         require_image(description, namespace)
-        files.copy_tree(point / 'data', scratch / 'before')
-        result['source_snapshot'] = fingerprints(scratch / 'before', scratch / 'before-canonical', namespace)
-        files.copy_tree(point / 'data', scratch / 'native')
+        files.copy_tree(point / 'data', scratch / 'before', skip=skip)
+        result['source_snapshot'] = fingerprints(scratch / 'before', scratch / 'before-canonical', namespace,
+                                               application_only=application_only)
+        files.copy_tree(point / 'data', scratch / 'native', skip=skip)
         os.chown(scratch / 'native', 99, 100)
         for path in (scratch / 'native').iterdir():
             os.chown(path, 99, 100)
@@ -349,13 +358,14 @@ def restore(namespace, run_id, checksum):
         verify(point, checksum, namespace)
         result['cleanup'] = {'scratch_absent': True, 'container_absent': True, 'protected_unchanged': True,
                              'allocated_bytes_removed': allocated}
-        files.write_json(point / 'native-restore.json', result)
+        receipt_name = 'native-application-only-restore.json' if application_only else 'native-restore.json'
+        files.write_json(point / receipt_name, result)
     return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=['send', 'receive', 'verify', 'restore'])
+    parser.add_argument('mode', choices=['send', 'receive', 'verify', 'restore', 'restore-application-only'])
     parser.add_argument('--namespace', choices=sorted(SOURCES), required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--manifest-sha256')
@@ -370,7 +380,8 @@ def main():
     else:
         if not args.manifest_sha256 or not re.fullmatch('[a-f0-9]{64}', args.manifest_sha256):
             parser.error('protected manifest SHA256 is required')
-        result = (restore(args.namespace, args.run_id, args.manifest_sha256) if args.mode == 'restore' else
+        result = (restore(args.namespace, args.run_id, args.manifest_sha256,
+                          application_only=args.mode == 'restore-application-only') if args.mode.startswith('restore') else
                   {'verified': bool(verify(point, args.manifest_sha256, args.namespace))})
     print(json.dumps(result), flush=True)
 

@@ -89,6 +89,22 @@ logs has4tables/140,946rows before startup and140,950after. Native startup chang
 no post-start byte/row-content identity claim. Same original identities remained Ready with zero restarts.
 Protected hashes were unchanged; owned container/new unused image/scratch were removed, with2,568,380,416allocated bytes reclaimed.
 Radarr's finding did not stop that independent namespace.</p>
+<h2>Independent Radarr application-database qualification plan</h2>
+<p>Exact image SQLite3.53.4 confirmed the copied logs failure in bcjf96ju at13:19:07Z. Its pinned library hash is
+<code>7d275542af8aac5a19f5a873da7cdadcc20c453fb52b7df57bd747e2f02ab92b</code>.
+All owned containers/images/scratch were removed and protected hashes stayed unchanged.
+Root map o2_jiec3 shows the reported page1080 is not a sqlite_master root for a declared index;
+do not assume that reindexing alone repairs the data. Historical cause and complete log recoverability remain unknown.</p>
+<p>The application database independently passed integrity/FK. Add an explicit <code>restore-application-only</code> mode for Radarr
+to qualify that healthy database and original config without waiting for historical-log salvage.
+Keep the full original protected point, failed full-restore receipt and corrupt logs unchanged.
+Copy only configuration and the application DB with every original companion into the disconnected native fixture;
+let the pinned application create fresh fixture logs. Verify original application DB schema/metadata and complete typed data
+before native startup; require native ping, clean stop and post-start integrity/FK for application and newly created logs.</p>
+<p>Record this narrower scope explicitly, with <code>logs_recovery_accepted=false</code>, and write a separate native-application-only receipt.
+The normal full restore must retain its failing-log guard. No production repair, log deletion, credential change or log-recovery acceptance follows.
+Add a real malformed-log regression proving the narrow mode recovers committed application WAL rows while full mode still refuses the malformed logs.
+Publish the helper/test/spec before executing the narrow mode against the existing protected point.</p>
 <h2>Status</h2><p>Sonarr selected-database native recovery accepted. Radarr copied logs integrity finding remains unresolved;
 remaining full-PVC/NAS coverage is incomplete.</p>
 </html>

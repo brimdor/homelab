@@ -105,6 +105,32 @@ class ArrRecovery(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 arr.validate_manifest(bad, 'radarr')
 
+    def test_application_only_preserves_committed_rows_without_accepting_malformed_logs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'source'
+            source.mkdir()
+            handles = self.fixture(source)
+            try:
+                copy = root / 'copy'
+                arr.files.copy_tree(source, copy)
+                for suffix in ('', '-wal', '-shm'):
+                    path = copy / ('logs.db' + suffix)
+                    if path.exists():
+                        path.unlink()
+                (copy / 'logs.db').write_bytes(b'malformed synthetic log database')
+                narrow = arr.fingerprints(copy, root / 'narrow', 'radarr', application_only=True)
+                self.assertEqual(set(narrow), {'radarr.db'})
+                self.assertEqual(narrow['radarr.db']['rows'], 5)
+                with self.assertRaises(sqlite3.DatabaseError):
+                    arr.fingerprints(copy, root / 'full', 'radarr')
+                with self.assertRaises(RuntimeError):
+                    arr.fingerprints(copy, root / 'unsupported', 'sonarr', application_only=True)
+                self.assertEqual((copy / 'logs.db').read_bytes(), b'malformed synthetic log database')
+            finally:
+                for handle in handles:
+                    handle.close()
+
     def test_transport_requires_commit_complete_bytes_and_no_trailer(self):
         tree = {'directories': [], 'files': {n: {'bytes': 1, 'sha256': hashlib.sha256(b'x').hexdigest()} for n in ('config.xml', 'radarr.db', 'logs.db')}}
         manifest = self.manifest(tree)
