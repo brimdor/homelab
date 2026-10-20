@@ -197,7 +197,8 @@ class Qualification(cq.Qualification):
         while True:
             self.inspect(node)
             try:
-                raw = self.command(["docker", "exec", node, "/bin/k3s", "kubectl", "get", "--raw=/readyz?verbose", "--request-timeout=10s"])
+                # This exact synthetic health endpoint contains no configuration or credential dump.
+                raw = self.command(["docker", "exec", node, "/bin/k3s", "kubectl", "get", "--raw=/readyz?verbose", "--request-timeout=10s"], private=False)
                 if b"[+]etcd ok" in raw and b"readyz check passed" in raw:
                     return
                 raise RuntimeError("native server returned incomplete API/etcd readiness")
@@ -340,6 +341,10 @@ class Qualification(cq.Qualification):
         for node in self.versions:
             if self.command(["docker", "exec", node, "sha256sum", "/bin/k3s"]).decode().split()[0] != self.binary_paths[BASELINE][1]:
                 raise RuntimeError("baseline node binaries disagree")
+        # Qualify the actual node-local operator path before longer CNI acceptance.
+        for node in self.versions:
+            if "-server-" in node:
+                self.wait_api(node)
 
     def prepare_l2(self):
         network = json.loads(self.command(["docker", "network", "inspect", "k3d-" + self.args.name]))[0]
