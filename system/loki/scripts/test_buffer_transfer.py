@@ -16,6 +16,33 @@ import test_cold_recovery as cold_fixture
 
 
 class BufferTransferTests(unittest.TestCase):
+    def test_only_exact_attributed_owned_receipt_rejection_is_qualified(self):
+        data = json.dumps({"synthetic": "receipt"}, sort_keys=True).encode()
+        size = len(data)
+        with patch.object(TRANSFER, "QUALIFIED_OWNED_LOG_BYTES", size), \
+                patch.object(TRANSFER, "SECOND_CONTINUATION_RECEIPT_SHA256", hashlib.sha256(data).hexdigest()), \
+                patch.object(TRANSFER.Path, "read_bytes", return_value=data):
+            self.assertEqual(TRANSFER.qualified_owned_log_rejection(1, size)["records"], 1)
+            for count, changed_size in ((2, size), (1, size + 1), (0, size)):
+                with self.assertRaisesRegex(RuntimeError, "unqualified oversized"):
+                    TRANSFER.qualified_owned_log_rejection(count, changed_size)
+            with patch.object(TRANSFER.Path, "read_bytes", return_value=b"{}"):
+                with self.assertRaisesRegex(RuntimeError, "protected native evidence"):
+                    TRANSFER.qualified_owned_log_rejection(1, size)
+
+    def test_owned_rejection_does_not_change_rate_limit_accounting(self):
+        metrics = (b'loki_distributor_lines_received_total 10\n'
+                   b'loki_discarded_samples_total{reason="rate_limited"} 2\n'
+                   b'loki_discarded_samples_total{reason="line_too_long"} 1\n'
+                   b'loki_discarded_bytes_total{reason="line_too_long"} 402891\n')
+        with patch.object(TRANSFER.urllib.request, "urlopen", return_value=io.BytesIO(metrics)), \
+                patch.object(TRANSFER, "qualified_owned_log_rejection", return_value={"records": 1}) as qualify:
+            result = TRANSFER.source_accounting()
+            self.assertEqual(result["accepted_records"], 7)
+            self.assertEqual(result["rate_limited_attempts"], 2)
+            self.assertEqual(result["qualified_owned_log_rejection"], {"records": 1})
+            qualify.assert_called_once_with(1, 402891)
+
     def test_default_pages_are_bounded_without_changing_originals(self):
         rows = self.rows()
         with patch.object(TRANSFER, "query", return_value=rows) as query:

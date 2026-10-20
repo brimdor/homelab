@@ -103,6 +103,23 @@ def observed(base, start, end):
     return {fingerprint(row) for _, _, rows in windows(base, start, end) for row in rows}
 
 
+QUALIFIED_OWNED_LOG_BYTES = 402891
+
+
+def qualified_owned_log_rejection(count, size):
+    # One attributed maintenance receipt exceeded Loki's line limit; its complete native artifact remains protected.
+    if count != 1 or size != QUALIFIED_OWNED_LOG_BYTES:
+        raise RuntimeError("source has unqualified oversized records")
+    data = Path("/recovery/cutover-transfer/buffered-continuation-24.json").read_bytes()
+    if (not SECOND_CONTINUATION_RECEIPT_SHA256 or
+            hashlib.sha256(data).hexdigest() != SECOND_CONTINUATION_RECEIPT_SHA256 or
+            len(json.dumps(json.loads(data)).encode()) != size):
+        raise RuntimeError("attributed maintenance receipt does not match protected native evidence")
+    return {"records": count, "bytes": size, "reason": "line_too_long",
+            "receipt_sha256": SECOND_CONTINUATION_RECEIPT_SHA256,
+            "pod_uid": "f503b8ab-e036-47a7-8802-957b5e3f10ad"}
+
+
 def source_accounting():
     # Received counts parsed attempts, including whole batches rejected with 429.
     # Never discount other refusal classes or infer that a rejected batch retried.
@@ -110,7 +127,17 @@ def source_accounting():
         lines = response.read().decode().splitlines()
     received = []
     rejected = 0
+    owned_rejected = 0
+    owned_bytes = 0
     for line in lines:
+        if line.startswith(("loki_discarded_bytes_total ", "loki_discarded_bytes_total{")):
+            reason = re.search(r'(?:\{|,)reason="([^\"]+)"(?:,|\})', line)
+            if reason and reason[1] == "line_too_long":
+                value = float(line.split()[-1])
+                if not math.isfinite(value) or value < 0 or not value.is_integer():
+                    raise RuntimeError("invalid source rejected-byte counter")
+                owned_bytes += int(value)
+            continue
         if not line.startswith(("loki_distributor_lines_received_total ",
                                 "loki_distributor_lines_received_total{",
                                 "loki_discarded_samples_total ", "loki_discarded_samples_total{")):
@@ -122,14 +149,20 @@ def source_accounting():
             received.append(int(value))
         else:
             reason = re.search(r'(?:\{|,)reason="([^"]+)"(?:,|\})', line)
-            if value and (not reason or reason[1] != "rate_limited"):
+            if value and reason and reason[1] == "line_too_long":
+                owned_rejected += int(value)
+            elif value and (not reason or reason[1] != "rate_limited"):
                 raise RuntimeError("source has unqualified rejected records")
-            rejected += int(value)
+            else:
+                rejected += int(value)
     total = sum(received)
-    if not received or total <= rejected:
+    if not received or total <= rejected + owned_rejected:
         raise RuntimeError("missing or inconsistent source ingestion accounting")
-    return {"received_attempts": total, "rate_limited_attempts": rejected,
-            "accepted_records": total - rejected}
+    result = {"received_attempts": total, "rate_limited_attempts": rejected,
+              "accepted_records": total - rejected - owned_rejected}
+    if owned_rejected or owned_bytes:
+        result["qualified_owned_log_rejection"] = qualified_owned_log_rejection(owned_rejected, owned_bytes)
+    return result
 
 
 def aggregate_bounds(start, end, allow_empty=False):
@@ -572,7 +605,7 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
                   tail_enumeration_complete=True, source_query_count=count,
                   complete_source_quiescence=True)
     cold_recovery.write_verified(root / (phase + "-" + str(attempt) + ".json"), result)
-    print(json.dumps(result), flush=True)
+    print(json.dumps(result, indent=2), flush=True)
 
 
 def run_prefix(root, target_uid, attempt):
@@ -595,7 +628,7 @@ def run_prefix(root, target_uid, attempt):
                   source_uid=cold_recovery.BUFFER_POD_UID, source_accounting=accounting,
                   prefix_receipt_sha256=PREFIX_RECEIPT_SHA256, prefix_enumeration_complete=True)
     cold_recovery.write_verified(root / ("prefix-" + str(attempt) + ".json"), result)
-    print(json.dumps(result), flush=True)
+    print(json.dumps(result, indent=2), flush=True)
 
 
 def target_counters():
@@ -648,7 +681,7 @@ def run_buffered_tail(root, target_uid, attempt, apply, phase="buffered-tail"):
                   frozen_tail_enumeration_complete=True, complete_source_quiescence=False,
                   target_counters_before=before, target_counters_after=after)
     cold_recovery.write_verified(root / (phase + "-" + str(attempt) + ".json"), result)
-    print(json.dumps(result), flush=True)
+    print(json.dumps(result, indent=2), flush=True)
 
 
 def run(target_uid, phase, attempt, apply):
@@ -708,7 +741,7 @@ def run(target_uid, phase, attempt, apply):
                   complete_source_quiescence=phase == "final", source_received_counter=received,
                   canonical_source_audit_sha256=SOURCE_AUDIT_SHA256 if source_audit else None)
     cold_recovery.write_verified(receipt, result)
-    print(json.dumps(result), flush=True)
+    print(json.dumps(result, indent=2), flush=True)
 
 
 if __name__ == "__main__":
