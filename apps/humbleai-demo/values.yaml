@@ -8,9 +8,10 @@ maintenanceData:
 app-template:
   controllers:
     main:
+      replicas: 0
       annotations:
         # Replace clears the old server-defaulted rollingUpdate field during this transition.
-        argocd.argoproj.io/sync-options: Replace=true
+        argocd.argoproj.io/sync-options: Replace=false
       strategy: Recreate
       containers:
         main:
