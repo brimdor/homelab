@@ -1,5 +1,9 @@
 - name: Create Kubernetes cluster
   hosts: metal
+  pre_tasks:
+    - name: Respect persistent maintenance ownership
+      ansible.builtin.import_tasks: tasks/maintenance-guard.yml
+      tags: always
   roles:
     - prerequisites
     - k3s

@@ -1,0 +1,16 @@
+---
+- name: Inspect persistent maintenance actor ownership
+  ansible.builtin.stat:
+    path: /var/lib/homelab-maintenance/owner.json
+    follow: false
+  register: maintenance_actor_owner
+  tags: always
+
+- name: Refuse competing node, package, GPU or reboot changes during maintenance
+  ansible.builtin.assert:
+    that:
+      - not maintenance_actor_owner.stat.exists
+    fail_msg: >-
+      Maintenance ownership exists. Resume its reviewed controller; do not run
+      legacy node, package, GPU or reboot roles or remove the ownership journal.
+  tags: always
