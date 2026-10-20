@@ -109,6 +109,18 @@ class Guards(unittest.TestCase):
         item["Mounts"][1]["Name"] = "different-volume"
         self.assertNotEqual(q.container_identity(item, name, self.name), before)
 
+    def test_no_peer_may_share_the_restore_source_datastore(self):
+        containers = {str(n): {"id": "container-" + str(n), "volume": "volume-" + str(n)} for n in range(5)}
+        q.require_separate_datastores(containers)
+        for field in ("id", "volume"):
+            bad = copy.deepcopy(containers)
+            bad["1"][field] = bad["0"][field]
+            with self.assertRaisesRegex(RuntimeError, "distinct"):
+                q.require_separate_datastores(bad)
+        containers.pop("4")
+        with self.assertRaisesRegex(RuntimeError, "distinct"):
+            q.require_separate_datastores(containers)
+
     def test_binary_digest_change_is_refused_before_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             runner = q.Qualification.__new__(q.Qualification)

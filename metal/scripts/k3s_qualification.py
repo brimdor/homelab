@@ -101,6 +101,12 @@ def snapshot_path(path, prefix):
     return path
 
 
+def require_separate_datastores(containers):
+    if (len(containers) != 5 or len({c["id"] for c in containers.values()}) != 5 or
+            len({c["volume"] for c in containers.values()}) != 5):
+        raise RuntimeError("five distinct owned containers and datastore volumes required")
+
+
 class Qualification(cq.Qualification):
     def __init__(self, args):
         resolver = ipaddress.ip_address(args.resolver)
@@ -218,6 +224,7 @@ class Qualification(cq.Qualification):
         self.identity()
         self.containers = {node: container_identity(json.loads(self.command(["docker", "inspect", node]))[0], node, self.args.name)
                            for node in self.versions}
+        require_separate_datastores(self.containers)
         for node in self.versions:
             self.inspect(node)
             self.command(["docker", "exec", node, "test", "-d", "/sys/fs/cgroup/kubepods"])
