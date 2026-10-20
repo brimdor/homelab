@@ -152,7 +152,7 @@ def require_restore_source(manifest, namespace):
         raise RuntimeError("reviewed protected restore source differs")
 
 
-def receive_database(source, destination, header_path=None):
+def receive_database(source, destination, header_path=None, prepared=None):
     line = source.readline(65537)
     if not line.endswith(b"\n") or len(line) > 65536:
         raise RuntimeError("invalid SQLite header frame")
@@ -187,7 +187,12 @@ def receive_database(source, destination, header_path=None):
         output.flush(); os.fsync(output.fileno())
     if digest.hexdigest() != header["sha256"]:
         raise RuntimeError("SQLite snapshot checksum mismatch")
-    if common.read_frame(source) != {"commit": hashlib.sha256(line[:-1]).hexdigest()} or source.read(1):
+    commit = hashlib.sha256(line[:-1]).hexdigest()
+    if common.read_frame(source) != {"commit": commit}:
+        raise RuntimeError("SQLite snapshot final commit missing")
+    if prepared is not None:
+        prepared(commit)
+    if source.read(1):
         raise RuntimeError("SQLite snapshot final commit missing")
     return header
 
@@ -205,7 +210,7 @@ def capture_failure(producer, receiver, native_error, error):
                             if ("RuntimeError: " + phrase).encode() in error.splitlines()), "unclassified")
     native = re.search(rb"(?m)^SQLite recovery failed; stage=([a-z_]+); type=([A-Za-z]+); code=([A-Z_]+); no production records emitted$", native_error)
     stages = {b"source_contract", b"source_snapshot", b"online_backup", b"normalize_copy", b"verify_copy",
-              b"compare_restore", b"hash_copy", b"stream_payload"}
+              b"compare_restore", b"hash_copy", b"stream_payload", b"transfer_acknowledgement"}
     types = {b"Error", b"AssertionError", b"TypeError", b"RangeError", b"Unknown"}
     codes = {b"ERR_ASSERTION", b"ERR_STREAM_PREMATURE_CLOSE", b"SQLITE_BUSY", b"SQLITE_CORRUPT", b"SQLITE_FULL",
              b"SQLITE_IOERR", b"SQLITE_READONLY", b"EPIPE", b"ENOSPC", b"UNKNOWN"}
@@ -237,13 +242,23 @@ def backup(namespace, run_id):
     identity = source_identity(namespace); expected = SOURCES[namespace]
     key_material = declared_key(namespace, identity)
     producer = receiver = None
+    acknowledged = not expected.get("legacy_sqlite3")
     try:
         producer = subprocess.Popen([os.environ.get("KUBECTL", "kubectl"), "exec", "-i", "-n", namespace,
             identity["pod"], "-c", expected["container"], "--", "node", *node_flags(namespace),
-            "-e", program(namespace), "capture", expected["database"], expected.get("directory", "/app/data")], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            "-e", program(namespace), "capture", expected["database"], expected.get("directory", "/app/data"),
+            *(["acknowledged"] if acknowledged else [])],
+            stdin=subprocess.PIPE if acknowledged else None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         receiver = subprocess.Popen(remote("receive", run_id, namespace), stdin=producer.stdout,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        producer.stdout.close(); output, error = receiver.communicate(); _, native_error = producer.communicate()
+        producer.stdout.close()
+        if acknowledged:
+            ready = common.read_frame(receiver.stdout)
+            if set(ready) != {"prepared"} or not isinstance(ready["prepared"], str) or not re.fullmatch(r"[a-f0-9]{64}", ready["prepared"]):
+                raise RuntimeError("invalid SQLite prepared transfer receipt")
+            producer.stdin.write((ready["prepared"] + "\n").encode()); producer.stdin.flush()
+            producer.stdin.close(); producer.stdin = None
+        output, error = receiver.communicate(); _, native_error = producer.communicate()
         if producer.returncode or receiver.returncode or error or native_error:
             raise capture_failure(producer.returncode, receiver.returncode, native_error, error)
         transfer = json.loads(output)
@@ -253,6 +268,9 @@ def backup(namespace, run_id):
                 process.terminate()
                 try: process.wait(timeout=10)
                 except subprocess.TimeoutExpired: process.kill(); process.wait()
+            if process is not None:
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    if stream is not None: stream.close()
     if source_identity(namespace) != identity:
         raise RuntimeError("SQLite source identity changed during capture")
     key = expected.get("key")
@@ -397,7 +415,10 @@ def internal(mode, run_id, namespace, manifest_hash=""):
     point = point_path(run_id)
     if mode == "receive":
         point.mkdir(mode=0o700)
-        result = receive_database(sys.stdin.buffer, point / "database.sqlite", point / "capture-header.json")
+        def prepared(commit):
+            print(json.dumps({"prepared": commit}), flush=True)
+        result = receive_database(sys.stdin.buffer, point / "database.sqlite", point / "capture-header.json",
+                                  None if SOURCES[namespace].get("legacy_sqlite3") else prepared)
         protected.write_json(point / "capture.json", result)
     elif mode == "key":
         key = SOURCES[namespace].get("key")

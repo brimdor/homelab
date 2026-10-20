@@ -90,9 +90,13 @@ class SnapshotTest(unittest.TestCase):
                     "db.exec('CREATE TABLE bulk(data BLOB);BEGIN');const s=db.prepare('INSERT INTO bulk VALUES (zeroblob(1048576))');"
                     "for(let i=0;i<200;i++)s.run();db.exec('COMMIT');db.close();", str(self.database))
         child = subprocess.Popen([NODE, "--disable-warning=ExperimentalWarning", "-e", PROGRAM,
-                                  "capture", str(self.database), str(self.root)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                  "capture", str(self.database), str(self.root), "acknowledged"],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
-            header = recovery.receive_database(child.stdout, self.root / "large-copy.sqlite", self.root / "header.json")
+            def prepared(commit):
+                child.stdin.write((commit + '\n').encode()); child.stdin.flush()
+            header = recovery.receive_database(child.stdout, self.root / "large-copy.sqlite", self.root / "header.json", prepared)
+            child.stdin.close(); child.stdin = None
             _, error = child.communicate()
             self.assertEqual((child.returncode, error), (0, b""))
             self.assertGreater(header["bytes"], 200 * 1048576)
@@ -103,6 +107,24 @@ class SnapshotTest(unittest.TestCase):
                 child.terminate(); child.wait()
             child.stdout.close(); child.stderr.close()
         self.assertEqual(list(self.root.glob(".sqlite-recovery-103-*")), [])
+
+    def test_wrong_transfer_acknowledgement_refused_and_scratch_removed(self):
+        child = subprocess.Popen([NODE, "--disable-warning=ExperimentalWarning", "-e", PROGRAM,
+                                  "capture", str(self.database), str(self.root), "acknowledged"],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            def prepared(_commit):
+                child.stdin.write(b'wrong\n'); child.stdin.flush()
+            recovery.receive_database(child.stdout, self.root / 'wrong-ack.sqlite', prepared=prepared)
+            child.stdin.close(); child.stdin = None
+            _, error = child.communicate()
+            self.assertNotEqual(child.returncode, 0)
+            self.assertIn(b'stage=transfer_acknowledgement', error)
+        finally:
+            if child.poll() is None:
+                child.terminate(); child.wait()
+            child.stdout.close(); child.stderr.close()
+        self.assertEqual(list(self.root.glob('.sqlite-recovery-103-*')), [])
 
 
 class CaptureDiagnosticTest(unittest.TestCase):

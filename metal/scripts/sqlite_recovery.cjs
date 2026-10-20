@@ -13,6 +13,24 @@ async function fileHash(path) {
   for await (const chunk of fs.createReadStream(path)) digest.update(chunk);
   return digest.digest('hex');
 }
+function confirmTransfer(expected) {
+  return new Promise((resolve, reject) => {
+    let text = '';
+    const finish = error => {
+      clearTimeout(timer); process.stdin.removeListener('data', onData);
+      process.stdin.removeListener('end', onEnd); process.stdin.removeListener('error', finish); process.stdin.destroy();
+      error ? reject(error) : resolve();
+    };
+    const onEnd = () => finish(new Error('transfer acknowledgement missing'));
+    const onData = chunk => {
+      text += chunk.toString('ascii');
+      if (text.length > 65 || (text.includes('\n') && text !== expected + '\n')) finish(new Error('invalid transfer acknowledgement'));
+      else if (text === expected + '\n') finish();
+    };
+    const timer = setTimeout(onEnd, 30000);
+    process.stdin.on('data', onData); process.stdin.once('end', onEnd); process.stdin.once('error', finish); process.stdin.resume();
+  });
+}
 function value(v) {
   if (v === null) return ['null'];
   if (typeof v === 'bigint') return ['integer', String(v)];
@@ -84,6 +102,8 @@ async function main() {
       stage = 'stream_payload';
       await pipeline(fs.createReadStream(destination),process.stdout,{end:false});
       process.stdout.write(canonical({commit:hash(line)})+'\n');
+      // Keep exec alive until the protected receiver has verified every byte and the final commit.
+      if (expected === 'acknowledged') {stage = 'transfer_acknowledgement'; await confirmTransfer(hash(line));}
     }
   } finally {
     try {if (db) {try {db.exec('ROLLBACK');} finally {db.close();}}}
