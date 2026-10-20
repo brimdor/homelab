@@ -63,7 +63,7 @@ kube-prometheus-stack:
       probeSelectorNilUsesHelmValues: false
   alertmanager:
     alertmanagerSpec:
-      replicas: 0
+      replicas: 1
       persistentVolumeClaimRetentionPolicy:
         whenDeleted: Retain
         whenScaled: Retain
