@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 import re
 import select
 import signal
+import shlex
 import shutil
 import stat
 import subprocess
@@ -391,6 +392,26 @@ def query_fingerprint(value):
     return {"rows": len(rows), "sha256": hashlib.sha256(common.canonical(rows)).hexdigest()}
 
 
+def log_diagnostic(data):
+    findings = []
+    replayed = False
+    for line in data.decode("utf-8", errors="replace").splitlines():
+        try:
+            fields = dict(word.split("=", 1) for word in shlex.split(line) if "=" in word)
+        except ValueError:
+            raise RuntimeError("native recovery log format is unparseable") from None
+        message = fields.get("msg", "")
+        replayed = replayed or message == "WAL replay completed"
+        classification = "error" if fields.get("level", "").upper() == "ERROR" else next(
+            (word for word in ("corrupt", "repair", "discard") if word in message.lower()), None)
+        if classification:
+            source = fields.get("source", "")
+            findings.append({"class": classification, "level": fields.get("level"),
+                             "source": source if re.fullmatch(r"[a-zA-Z0-9_.-]+\.go:\d+", source) else "unavailable",
+                             "message_sha256": hashlib.sha256(message.encode()).hexdigest()})
+    return {"findings": findings, "wal_replay_completed": replayed}
+
+
 def restore(point, expected_hash, run_id, probes):
     common.require_host("pikachu")
     common.private_root()
@@ -407,6 +428,7 @@ def restore(point, expected_hash, run_id, probes):
     scratch = Path(tempfile.mkdtemp(prefix=run_id + "-restore-", dir=common.ROOT))
     container = image_id = None
     result = {"accepted": False, "manifest_sha256": expected_hash}
+    stage = "copy_and_start"
     try:
         scratch.chmod(0o700)
         shutil.copytree(point / "data", scratch / "data")
@@ -459,7 +481,10 @@ def restore(point, expected_hash, run_id, probes):
         version = json.loads(request("/api/v1/status/buildinfo").stdout)["data"]["version"]
         if version != "3.12.0":
             raise RuntimeError("native Prometheus version changed")
+        result["version"] = version
+        stage = "historical_queries"
         checks = []
+        result["queries"] = checks
         for probe in probes:
             value = json.loads(request("/api/v1/query?" + urllib.parse.urlencode(
                 {"query": probe["query"], "time": probe["time"]})).stdout)
@@ -470,12 +495,16 @@ def restore(point, expected_hash, run_id, probes):
                 raise RuntimeError("native restored historical query differs")
         native_logs = common.docker("logs", container)
         logs = native_logs.stdout + native_logs.stderr
-        if re.search(rb"(?i)(corrupt|repair|discard|level=error|level=\"ERROR\")", logs):
+        stage = "native_log_acceptance"
+        result["native_log_diagnostic"] = log_diagnostic(logs)
+        if result["native_log_diagnostic"]["findings"]:
             raise RuntimeError("native TSDB recovery emitted an error or repair diagnostic")
-        if b"WAL replay completed" not in logs:
+        if not result["native_log_diagnostic"]["wal_replay_completed"]:
             raise RuntimeError("native WAL replay completion is unproven")
         result.update(accepted=True, version=version, queries=checks, network_none=True,
                       no_scrape_alert_or_remote_write_config=True, native_wal_replay_completed=True)
+    except Exception as error:
+        result.update(accepted=False, failed_stage=stage, failure_class=type(error).__name__)
     finally:
         if container is not None:
             if common.inspect(container)["Config"].get("Labels", {}).get(label) != run_id:

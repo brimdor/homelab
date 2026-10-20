@@ -19,6 +19,17 @@ import prometheus_recovery as recovery
 
 
 class RecoveryGuards(unittest.TestCase):
+    def test_native_log_acceptance_checks_message_and_level_not_unrelated_query_fields(self):
+        value = recovery.log_diagnostic(b'time=now level=INFO source=head.go:1 msg="WAL replay completed" duration=1s\n'
+                                       b'time=now level=INFO source=tracker.go:2 msg="Recovered queries" query="rate(discarded_samples_total[5m])"\n')
+        self.assertEqual(value, {"findings": [], "wal_replay_completed": True})
+        for line, category in ((b'level=ERROR source=db.go:42 msg="Opening storage failed"', "error"),
+                               (b'level=WARN source=head.go:12 msg="Corrupted WAL detected"', "corrupt"),
+                               (b'level=INFO source=repair.go:17 msg="Repair completed"', "repair")):
+            result = recovery.log_diagnostic(line)
+            self.assertEqual(result["findings"][0]["class"], category)
+            self.assertNotIn("msg", result["findings"][0])
+
     def test_only_blocks_and_older_numbered_segments_are_prepared_live(self):
         names = ["01ARZ3NDEKTSV4RRFFQ69G5FAV/index", "wal/00000009", "wal/00000010",
                  "chunks_head/000001", "chunks_head/000002", "wal/checkpoint.00000008/00000000",
