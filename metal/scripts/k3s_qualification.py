@@ -36,6 +36,7 @@ SERVER_FLAGS = ("--flannel-backend=none", "--disable-network-policy", "--disable
 MARKER = "qualification-k3s-snapshot"
 DATA = "/var/lib/rancher/k3s"
 ECHO_IMAGE = "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603"
+ECHO_ENV = [{"name": "PORT", "value": "8080"}, {"name": "NAMED_PORT", "value": "http-8080"}]
 
 
 class CommandFailure(RuntimeError):
@@ -234,7 +235,7 @@ class Qualification(cq.Qualification):
                     "last_reason": terminated.get("reason")})
                 spec = next(c for c in pod["spec"]["containers"] if c["name"] == container["name"])
                 if (container["restartCount"] and container["name"] in ("echo-same-node", "echo-other-node") and
-                        spec["image"] == ECHO_IMAGE and not spec.get("env") and not spec.get("envFrom") and
+                        spec["image"] == ECHO_IMAGE and spec.get("env") == ECHO_ENV and not spec.get("envFrom") and
                         all(m.get("readOnly") and m["name"].startswith("kube-api-access-")
                             for m in spec.get("volumeMounts", []))):
                     # Only the pinned public HTTP fixture, without application data/config, may persist its error log.

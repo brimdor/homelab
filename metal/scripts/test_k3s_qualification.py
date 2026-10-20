@@ -192,7 +192,7 @@ class Guards(unittest.TestCase):
             runner = q.Qualification.__new__(q.Qualification)
             runner.work = Path(directory)
             pod = {"metadata": {"name": "echo-same-node-synthetic", "uid": "owned-pod"},
-                   "spec": {"containers": [{"name": "echo-same-node", "image": q.ECHO_IMAGE}]},
+                   "spec": {"containers": [{"name": "echo-same-node", "image": q.ECHO_IMAGE, "env": copy.deepcopy(q.ECHO_ENV)}]},
                    "status": {"phase": "Running", "containerStatuses": [{"name": "echo-same-node", "ready": False,
                        "restartCount": 3, "state": {"waiting": {"message": "private waiting text"}},
                        "lastState": {"terminated": {"exitCode": 134, "reason": "Error", "message": "private termination text"}}}]}}
