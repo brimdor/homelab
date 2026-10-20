@@ -55,4 +55,32 @@ clean shutdown and owned cleanup. Record remaining offline-only diagnostics hone
 refresh/wait for Argo, then verify the new Pod readiness, startup logs, normal public TLS/root/config and unchanged storage bindings.
 If required, use a harmless nonbillable normal search only after the configuration is healthy; do not add provider credentials or bypass access denials.
 Rollback reverts only the configuration Git commit and preserves the protected old baseline. No storage or authentication migration occurs.</p>
-<h2>Status</h2><p>Baseline recovery accepted for its recorded scope. Engine configuration repair remains in progress.</p></html>
+<h2>Engine repair acceptance</h2>
+<p>Candidate gldt9025 passed at2026-10-20T13:55:58Z: exact disconnected native root/config200,
+261 engines with the same catalog as the public baseline, no registration failures for podcastindex/Ahmia/Torch, clean shutdown.
+Five offline-only error lines remain honestly recorded in that isolated fixture; no provider access was available there.
+Owned container, unused image and scratch were removed, children reaped,16,384allocated bytes reclaimed.</p>
+<p>Static run24n7x8c0 passed at13:56:44Z. The complete semantic render diff contained only settings.yml
+and both main/Redis ConfigMap rollout checksums. Redis has no persistent volumes; its cache-only restart was reviewed.
+Dependency preflight iggejmgt passed at13:57:58Z: nine Ready nodes without pressure, Ceph HEALTH_OK,
+62bound claims and unchanged SearxNG storage identities. Existing unrelated findings remain open.</p>
+<p>GitOps rollout ihydur1r passed at2026-10-20T14:00:09Z. Canonical Gitea master commit
+f9a93d1833b223ffc3ed52d5b63d57932a69f813 reconciled Synced/Healthy.
+New main Pod fcd670f2-d638-43c5-8d11-929db21bb4a5 on Cyndaquil and Redis Pod
+64afa3f1-6261-480b-b8b9-7ee36d9b1419 on Growlithe were Ready with zero restarts.
+Images, all main mounts, PVC/PV/CSI identities stayed unchanged. Mounted settings SHA256
+9c894d63ebcce8324ecd1e81fa7083f1b4c0215a7a8d099416c1b443edeef428 matched the reviewed candidate.
+The new main startup log contained zero ERROR logger entries and none of the three reviewed registration messages;
+raw production logs were inspected only in memory.</p>
+<p>Normal trusted public HTTPS acceptance uofh5rhs passed at2026-10-20T14:04:18Z.
+Root200/7895bytes/SHA256173977c2b2d8ba7216025130c7b54dcb005d33ffa5d1bd92f61570cf02e0958c;
+/config200/101935bytes/SHA25602a0424e9e00267b5700441faf038cb4dc0798b6926a2f983fb01a406f4eb9d7,
+version2026.10.16+ff8f5ddcc,261engines with all three excluded names absent.
+The entire root and public config payload hashes equal the pre-rollout baseline, so the catalog is unchanged.
+A normal Wikipedia-selected search for Kubernetes returned HTTP200 with20result articles and the expected
+https://en.wikipedia.org/wiki/Kubernetes link. No provider credential, authentication reset or NAS operation occurred.
+Both production containers remained Ready/zero restarts afterward. All local disposable scratch was removed.</p>
+<h2>Status</h2><p>Protected baseline recovery and engine configuration repair are accepted for these recorded scopes.
+The recovery helper intentionally binds the old source Pod and overlay hashes; it will fail closed against the new production identity.
+Do not reuse that old capture profile without a reviewed new source contract. Preserve the existing protected point.
+These results do not prove every search provider, later-state recovery, NAS/offsite coverage or whole-homelab GREEN.</p></html>
