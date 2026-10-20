@@ -131,6 +131,22 @@ class CodexFilesRecovery(unittest.TestCase):
         self.assertFalse(list(self.root.glob('fixture-codex-restore-*')))
         recovery.verify(point, checksum, 'fixture')
 
+    def test_plain_file_store_requires_no_sqlite_acceptance(self):
+        self.profile['sqlite_databases'] = []
+        source = self.root / 'source'
+        source.mkdir()
+        (source / 'empty').touch()
+        (source / 'synthetic.html').write_text('<p>synthetic fixture</p>')
+        _, checksum, wire = self.stream(source)
+        point = self.root / 'protected'
+        recovery.receive(io.BytesIO(wire), point, 'fixture')
+        result = recovery.restore(point, checksum, 'fixture')
+        self.assertTrue(result['accepted'])
+        self.assertTrue(result['complete_independent_file_restores_equal'])
+        self.assertEqual(result['sqlite_databases_verified'], 0)
+        self.assertIsNone(result['independent_sqlite_restore_equal'])
+        self.assertTrue(result['cleanup']['protected_point_unchanged'])
+
     def test_four_native_writers_resume_after_capture_failure(self):
         children = []
         try:

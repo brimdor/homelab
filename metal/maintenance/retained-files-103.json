@@ -1,0 +1,386 @@
+{
+  "gitea": {
+    "node": "squirtle",
+    "pod_uid": "e036d366-8f71-44ef-ad0a-74c8e6f1b61f",
+    "claim": "gitea-shared-storage",
+    "claim_uid": "377a65f6-e88e-473e-9bfd-0c4045c15b7e",
+    "pv_uid": "0d94e077-fecb-4bb8-b7b8-8ac43e45a269",
+    "volume": {
+      "source": "/var/lib/kubelet/pods/e036d366-8f71-44ef-ad0a-74c8e6f1b61f/volumes/kubernetes.io~csi/pvc-377a65f6-e88e-473e-9bfd-0c4045c15b7e/mount",
+      "destination": "/data",
+      "device": 64368,
+      "inode": 2
+    },
+    "runtime": [
+      {
+        "container": "gitea",
+        "container_id": "53f63242de82920adff3f234a8fd8358175752dc9f75e6a55a70f9c29f60a50c",
+        "pid": 44343,
+        "image": "docker.gitea.com/gitea@sha256:4c4256497e2e237ddebdd30986c7ce52cb6f936b3e90c34bb9f4665714599f62",
+        "user": {
+          "additionalGids": [
+            1000
+          ],
+          "gid": 1000,
+          "uid": 1000
+        },
+        "processes": [
+          {
+            "pid": 44343,
+            "start_ticks": "344524",
+            "exe": "/usr/bin/dumb-init",
+            "uid": 1000,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pode036d366_8f71_44ef_ad0a_74c8e6f1b61f.slice/cri-containerd-53f63242de82920adff3f234a8fd8358175752dc9f75e6a55a70f9c29f60a50c.scope\n"
+          },
+          {
+            "pid": 44355,
+            "start_ticks": "344538",
+            "exe": "/app/gitea/gitea",
+            "uid": 1000,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pode036d366_8f71_44ef_ad0a_74c8e6f1b61f.slice/cri-containerd-53f63242de82920adff3f234a8fd8358175752dc9f75e6a55a70f9c29f60a50c.scope\n"
+          }
+        ]
+      }
+    ],
+    "sqlite_databases": []
+  },
+  "pages": {
+    "node": "squirtle",
+    "pod_uid": "9e32776d-8b18-42f5-b526-f2d6af476cf7",
+    "claim": "pages",
+    "claim_uid": "9cf86414-1b2e-495d-9991-b0d313c1c8ef",
+    "pv_uid": "cfde4ba4-6928-4717-9790-e5b8a26b9c60",
+    "volume": {
+      "source": "/var/lib/kubelet/pods/9e32776d-8b18-42f5-b526-f2d6af476cf7/volumes/kubernetes.io~csi/pvc-9cf86414-1b2e-495d-9991-b0d313c1c8ef/mount",
+      "destination": "/usr/share/nginx/html",
+      "device": 64336,
+      "inode": 2
+    },
+    "runtime": [
+      {
+        "container": "backup",
+        "container_id": "d4769f72eaf1186b2b4799796cb03e7512c935124c636a758216b35bbdd2b58f",
+        "pid": 5655,
+        "image": "docker.io/library/alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
+        "user": {
+          "additionalGids": [
+            1000
+          ],
+          "gid": 1000,
+          "uid": 1000
+        },
+        "processes": [
+          {
+            "pid": 5655,
+            "start_ticks": "87038",
+            "exe": "/usr/bin/busybox",
+            "uid": 1000,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-d4769f72eaf1186b2b4799796cb03e7512c935124c636a758216b35bbdd2b58f.scope\n"
+          },
+          {
+            "pid": 1634193,
+            "start_ticks": "8727045",
+            "exe": "/usr/bin/busybox",
+            "uid": 1000,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-d4769f72eaf1186b2b4799796cb03e7512c935124c636a758216b35bbdd2b58f.scope\n"
+          }
+        ]
+      },
+      {
+        "container": "pages",
+        "container_id": "9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2",
+        "pid": 5824,
+        "image": "10.0.20.11:32309/pages@sha256:5e695aac4e01273f5f5938d382d72f3c2caddb84d034b0e476d8d0dfd33d279f",
+        "user": {
+          "additionalGids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            6,
+            10,
+            11,
+            20,
+            26,
+            27,
+            1000
+          ],
+          "gid": 0,
+          "uid": 0
+        },
+        "processes": [
+          {
+            "pid": 5824,
+            "start_ticks": "87401",
+            "exe": "/usr/bin/busybox",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6219,
+            "start_ticks": "87717",
+            "exe": "/usr/bin/python3.12",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6225,
+            "start_ticks": "87756",
+            "exe": "/usr/bin/python3.12",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6226,
+            "start_ticks": "87765",
+            "exe": "/usr/bin/python3.12",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6250,
+            "start_ticks": "87917",
+            "exe": "/usr/sbin/nginx",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6251,
+            "start_ticks": "87921",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6252,
+            "start_ticks": "87921",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6253,
+            "start_ticks": "87921",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          },
+          {
+            "pid": 6254,
+            "start_ticks": "87921",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod9e32776d_8b18_42f5_b526_f2d6af476cf7.slice/cri-containerd-9b6dd2cafbfa710c4a1928aa49afd7d5e258f65343ae54afdd31c90cb21944e2.scope\n"
+          }
+        ]
+      }
+    ],
+    "sqlite_databases": []
+  },
+  "pages-canary": {
+    "node": "totodile",
+    "pod_uid": "2ab73743-da8e-4666-b2a5-092f5b557728",
+    "claim": "pages-canary",
+    "claim_uid": "17e84888-1fb4-4dcc-947f-02685d76a023",
+    "pv_uid": "af87e885-378f-4873-9746-17a3bff085af",
+    "volume": {
+      "source": "/var/lib/kubelet/pods/2ab73743-da8e-4666-b2a5-092f5b557728/volumes/kubernetes.io~csi/pvc-17e84888-1fb4-4dcc-947f-02685d76a023/mount",
+      "destination": "/usr/share/nginx/html",
+      "device": 64352,
+      "inode": 2
+    },
+    "runtime": [
+      {
+        "container": "backup",
+        "container_id": "7aaa3b64528a0e2d5800c6ace74557eaa2109d1e49d1c3984d9adf4b5e525e51",
+        "pid": 12762,
+        "image": "docker.io/library/alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
+        "user": {
+          "additionalGids": [
+            1000
+          ],
+          "gid": 1000,
+          "uid": 1000
+        },
+        "processes": [
+          {
+            "pid": 12762,
+            "start_ticks": "163437",
+            "exe": "/usr/bin/busybox",
+            "uid": 1000,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-7aaa3b64528a0e2d5800c6ace74557eaa2109d1e49d1c3984d9adf4b5e525e51.scope\n"
+          },
+          {
+            "pid": 2083280,
+            "start_ticks": "8803446",
+            "exe": "/usr/bin/busybox",
+            "uid": 1000,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-7aaa3b64528a0e2d5800c6ace74557eaa2109d1e49d1c3984d9adf4b5e525e51.scope\n"
+          }
+        ]
+      },
+      {
+        "container": "pages-canary",
+        "container_id": "4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f",
+        "pid": 76736,
+        "image": "10.0.20.11:32309/pages@sha256:b2bc2a7eaaad23fb8b6a079a6dca521dd92555f4bd540c1b1d099400f4ac0eb3",
+        "user": {
+          "additionalGids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            6,
+            10,
+            11,
+            20,
+            26,
+            27,
+            1000
+          ],
+          "gid": 0,
+          "uid": 0
+        },
+        "processes": [
+          {
+            "pid": 76736,
+            "start_ticks": "352069",
+            "exe": "/usr/bin/busybox",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76862,
+            "start_ticks": "352172",
+            "exe": "/usr/bin/python3.12",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76868,
+            "start_ticks": "352212",
+            "exe": "/usr/bin/python3.12",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76869,
+            "start_ticks": "352217",
+            "exe": "/usr/bin/python3.12",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76872,
+            "start_ticks": "352372",
+            "exe": "/usr/sbin/nginx",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76873,
+            "start_ticks": "352379",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76874,
+            "start_ticks": "352379",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76875,
+            "start_ticks": "352380",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          },
+          {
+            "pid": 76876,
+            "start_ticks": "352380",
+            "exe": "/usr/sbin/nginx",
+            "uid": 101,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod2ab73743_da8e_4666_b2a5_092f5b557728.slice/cri-containerd-4ee127bf3233303a0bcf7cec46b9a34929118c1eb46ec19931d086d43163ab2f.scope\n"
+          }
+        ]
+      }
+    ],
+    "sqlite_databases": []
+  },
+  "humbleai-demo": {
+    "node": "growlithe",
+    "pod_uid": "94b113bd-9215-4be6-b560-3a22e99e3702",
+    "claim": "humbleai-demo-data",
+    "claim_uid": "f1f77195-ff05-4c5a-bcc0-45953b9ad4f3",
+    "pv_uid": "91227a59-633f-427b-a659-cbacd6ec410a",
+    "volume": {
+      "source": "/var/lib/kubelet/pods/94b113bd-9215-4be6-b560-3a22e99e3702/volumes/kubernetes.io~csi/pvc-f1f77195-ff05-4c5a-bcc0-45953b9ad4f3/mount",
+      "destination": "/app/server/data",
+      "device": 64304,
+      "inode": 2
+    },
+    "runtime": [
+      {
+        "container": "main",
+        "container_id": "40da0ce2fc37bdf756b4e087381aac992251c933bc5cb991ea450780493f090d",
+        "pid": 1243522,
+        "image": "10.0.20.11:32309/humbleai@sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542",
+        "user": {
+          "additionalGids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            6,
+            10,
+            11,
+            20,
+            26,
+            27
+          ],
+          "gid": 0,
+          "uid": 0
+        },
+        "processes": [
+          {
+            "pid": 1243522,
+            "start_ticks": "6799667",
+            "exe": "/usr/bin/qemu-aarch64-static",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod94b113bd_9215_4be6_b560_3a22e99e3702.slice/cri-containerd-40da0ce2fc37bdf756b4e087381aac992251c933bc5cb991ea450780493f090d.scope\n"
+          },
+          {
+            "pid": 1243539,
+            "start_ticks": "6799677",
+            "exe": "/usr/bin/qemu-aarch64-static",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod94b113bd_9215_4be6_b560_3a22e99e3702.slice/cri-containerd-40da0ce2fc37bdf756b4e087381aac992251c933bc5cb991ea450780493f090d.scope\n"
+          },
+          {
+            "pid": 1243542,
+            "start_ticks": "6799677",
+            "exe": "/usr/bin/qemu-aarch64-static",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod94b113bd_9215_4be6_b560_3a22e99e3702.slice/cri-containerd-40da0ce2fc37bdf756b4e087381aac992251c933bc5cb991ea450780493f090d.scope\n"
+          },
+          {
+            "pid": 1243940,
+            "start_ticks": "6802875",
+            "exe": "/usr/bin/qemu-aarch64-static",
+            "uid": 0,
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod94b113bd_9215_4be6_b560_3a22e99e3702.slice/cri-containerd-40da0ce2fc37bdf756b4e087381aac992251c933bc5cb991ea450780493f090d.scope\n"
+          }
+        ]
+      }
+    ],
+    "sqlite_databases": [
+      "humbleai.db"
+    ]
+  }
+}

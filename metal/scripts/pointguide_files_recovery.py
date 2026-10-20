@@ -1,4 +1,4 @@
-"""Capture exact Codex volume writers; recover only private, disconnected copies."""
+"""Capture exact retained-volume writers; recover only private, disconnected copies."""
 
 import hashlib
 import json
@@ -55,8 +55,9 @@ def source_identity(namespace):
                     profile['pod_uid'].replace('-', '_') not in identity['cgroup']):
                 raise RuntimeError('reviewed Codex process changed')
             identities.append(identity)
-        mounts = [m for m in info['runtimeSpec']['mounts'] if m['destination'] == '/home/node/.codex']
-        a, b = root.stat(), (Path('/proc') / str(expected['pid']) / 'root/home/node/.codex').stat()
+        destination = profile['volume']['destination']
+        mounts = [m for m in info['runtimeSpec']['mounts'] if m['destination'] == destination]
+        a, b = root.stat(), (Path('/proc') / str(expected['pid']) / 'root' / destination.lstrip('/')).stat()
         if (len(mounts) != 1 or mounts[0]['source'] != str(root) or
                 (a.st_dev, a.st_ino) != (profile['volume']['device'], profile['volume']['inode']) or
                 (a.st_dev, a.st_ino) != (b.st_dev, b.st_ino)):
@@ -334,18 +335,20 @@ def restore(point, checksum, namespace):
         root = scratch / 'root'
         materialize(point, root, value)
         restored = {}
-        for number, name in enumerate(sorted(DATABASES)):
+        databases = PROFILES[namespace].get('sqlite_databases', DATABASES)
+        for number, name in enumerate(sorted(databases)):
             if value['tree'].get(name, {}).get('kind') != 'file':
                 raise RuntimeError('reviewed Codex database missing')
             restored[name] = sqlite_restore(root / name, scratch / (str(number) + '.sqlite'))
         # The independent second restore starts from the same protected bytes, not the first recovered tree.
         second = scratch / 'second'
         materialize(point, second, value)
-        for number, name in enumerate(sorted(DATABASES)):
+        for number, name in enumerate(sorted(databases)):
             if sqlite_restore(second / name, scratch / ('second-' + str(number) + '.sqlite')) != restored[name]:
                 raise RuntimeError('independent Codex SQLite recoveries differ')
         result.update(accepted=True, databases=restored, sqlite_version=sqlite3.sqlite_version,
-                      complete_bytes_metadata_and_symlinks_equal=True, independent_sqlite_restore_equal=True,
+                      complete_bytes_metadata_and_symlinks_equal=True, complete_independent_file_restores_equal=True,
+                      sqlite_databases_verified=len(restored), independent_sqlite_restore_equal=True if restored else None,
                       native_codex_application_and_external_link_targets_unqualified=True,
                       application_not_started=True, providers_not_invoked=True)
     finally:

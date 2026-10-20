@@ -292,5 +292,49 @@
         "spec_sha256": "162fc3638ff80617b5eea292a019e7ea332f8ddbd0d5e6dec4eeb2c118a1b383"
       }
     }
+  },
+  "podwave-canary-data": {
+    "node": "pikachu",
+    "pod_uid": "822a0b23-63b4-4076-b153-1c2c082bfbea",
+    "claim": "podwave-canary-data",
+    "claim_uid": "080694ae-513b-4162-aff0-9993bd57ae4e",
+    "pv_uid": "eefd22d2-b90d-4874-84ea-4b0c8b9681de",
+    "container": "main",
+    "container_id": "1d3c0180ef905dcc9eeb259b205527e83d17f83da85a773af39aaef31ac741fe",
+    "pid": 73398,
+    "image_ref": "10.0.20.11:32309/podwave@sha256:7287526d09dcf1685c6f1213d79747eb9037589cff1abe933752cb03662fc2d4",
+    "process_user": {
+      "additionalGids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        10,
+        11,
+        20,
+        26,
+        27
+      ],
+      "gid": 0,
+      "uid": 0
+    },
+    "tasks": {
+      "73398": {
+        "start_ticks": "3180040",
+        "exe": "/usr/local/bin/node",
+        "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod822a0b23_63b4_4076_b153_1c2c082bfbea.slice/cri-containerd-1d3c0180ef905dcc9eeb259b205527e83d17f83da85a773af39aaef31ac741fe.scope\n",
+        "uid": 0
+      }
+    },
+    "volumes": [
+      {
+        "source": "/var/lib/kubelet/pods/822a0b23-63b4-4076-b153-1c2c082bfbea/volumes/kubernetes.io~csi/pvc-080694ae-513b-4162-aff0-9993bd57ae4e/mount",
+        "destination": "/app/data",
+        "device": 64368,
+        "inode": 2
+      }
+    ]
   }
 }
