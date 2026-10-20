@@ -1,4 +1,4 @@
-"""Recover only the four reviewed empty RBD stores; never repair source data."""
+"""Recover reviewed empty Ceph stores; never repair source data."""
 
 import hashlib
 import json
@@ -17,6 +17,69 @@ import sporecast_recovery as transfer
 
 PROFILES = globals().get('PROFILE_DATA') or json.loads(
     Path(__file__).parents[1].joinpath('maintenance/empty-stores-103.json').read_text())
+
+
+def shared_consumers(namespace, pods, jobs, cronjobs):
+    """Require suspended exact schedulers and prove every historical writer exited."""
+    profile = PROFILES[namespace]
+    expected = profile['required_suspended_cronjobs']
+    if {c['metadata']['name'] for c in cronjobs} != set(expected):
+        raise RuntimeError('shared-store scheduler set changed')
+    for cron in cronjobs:
+        record = expected[cron['metadata']['name']]
+        spec = dict(cron['spec'])
+        if (cron['metadata']['uid'] != record['uid'] or cron['metadata'].get('deletionTimestamp') or
+                spec.get('suspend') is not True or cron.get('status', {}).get('active')):
+            raise RuntimeError('shared-store scheduler is not held')
+        spec['suspend'] = False
+        if hashlib.sha256(common.canonical(spec)).hexdigest() != record['spec_sha256']:
+            raise RuntimeError('shared-store scheduler configuration changed')
+    uses = lambda spec: any(v.get('persistentVolumeClaim', {}).get('claimName') == profile['claim']
+                            for v in spec.get('volumes', []))
+    complete = {}
+    for job in jobs:
+        if not uses(job['spec']['template']['spec']):
+            continue
+        meta, status = job['metadata'], job.get('status', {})
+        owners = [o for o in meta.get('ownerReferences', []) if o.get('controller') is True]
+        if (not meta.get('uid') or meta.get('deletionTimestamp') or len(owners) != 1 or
+                owners[0].get('kind') != 'CronJob' or owners[0].get('apiVersion') != 'batch/v1' or
+                owners[0].get('name') not in expected or
+                owners[0].get('uid') != expected[owners[0]['name']]['uid'] or
+                status.get('active', 0) or status.get('terminating', 0) or status.get('failed', 0) or
+                status.get('succeeded', 0) < 1 or
+                not any(c.get('type') == 'Complete' and c.get('status') == 'True' for c in status.get('conditions', [])) or
+                any(c.get('type') in ('Failed', 'FailureTarget') and c.get('status') == 'True' for c in status.get('conditions', []))):
+            raise RuntimeError('shared-store Job is not proven complete')
+        complete[meta['uid']] = meta['name']
+    found = []
+    for pod in pods:
+        if not uses(pod['spec']):
+            continue
+        meta, status = pod['metadata'], pod['status']
+        if meta.get('deletionTimestamp') or not meta.get('uid'):
+            raise RuntimeError('shared-store consumer is deleting or unidentified')
+        if meta['uid'] == profile['pod_uid']:
+            if status.get('phase') != 'Running' or not status.get('containerStatuses') or not all(
+                    c.get('ready') is True for c in status['containerStatuses']):
+                raise RuntimeError('shared-store web consumer is not ready')
+        else:
+            owners = [o for o in meta.get('ownerReferences', []) if o.get('controller') is True]
+            containers = status.get('containerStatuses', [])
+            if (len(owners) != 1 or owners[0].get('kind') != 'Job' or owners[0].get('apiVersion') != 'batch/v1' or
+                    not owners[0].get('uid') or complete.get(owners[0]['uid']) != owners[0].get('name') or
+                    status.get('phase') != 'Succeeded' or pod['spec'].get('restartPolicy') not in ('Never', 'OnFailure') or
+                    not containers or {c['name'] for c in containers} != {c['name'] for c in pod['spec']['containers']} or
+                    any(c.get('state', {}).get('terminated', {}).get('exitCode') != 0 for c in containers)):
+                raise RuntimeError('shared-store Pod completion is unproven')
+        initial = status.get('initContainerStatuses', [])
+        if ({c['name'] for c in initial} != {c['name'] for c in pod['spec'].get('initContainers', [])} or
+                any(c.get('state', {}).get('terminated', {}).get('exitCode') != 0 for c in initial)):
+            raise RuntimeError('shared-store init completion is unproven')
+        found.append(meta['uid'])
+    if profile['pod_uid'] not in found or len(found) != len(set(found)):
+        raise RuntimeError('shared-store web consumer missing or duplicated')
+    return sorted(found)
 
 
 def metadata(path):

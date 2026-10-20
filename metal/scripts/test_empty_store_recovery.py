@@ -85,10 +85,45 @@ class EmptyStoreRecovery(unittest.TestCase):
             changed['directories'][name] = changed['directories']['']
             with self.assertRaises(RuntimeError):
                 recovery.validate(changed, 'jovo')
+
         for key, bad in [('resumed', False), ('pause', {'stopped_seconds': 10}), ('cluster_uid', 'foreign')]:
             changed = {**value, key: bad}
             with self.assertRaises(RuntimeError):
                 recovery.validate(changed, 'jovo')
+
+    def test_shared_store_requires_exact_suspended_crons_and_proven_job_owners(self):
+        cron = {'metadata': {'name': 'cron', 'uid': 'cron-uid'}, 'spec': {'suspend': True, 'schedule': '0 3 * * *'}}
+        expected = hashlib.sha256(recovery.common.canonical({**cron['spec'], 'suspend': False})).hexdigest()
+        profile = {'claim': 'claim', 'pod_uid': 'web-uid',
+                   'required_suspended_cronjobs': {'cron': {'uid': 'cron-uid', 'spec_sha256': expected}}}
+        spec = {'volumes': [{'persistentVolumeClaim': {'claimName': 'claim'}}],
+                'containers': [{'name': 'main'}], 'restartPolicy': 'Never'}
+        job = {'metadata': {'name': 'job', 'uid': 'job-uid', 'ownerReferences': [
+                    {'controller': True, 'kind': 'CronJob', 'apiVersion': 'batch/v1', 'name': 'cron', 'uid': 'cron-uid'}]},
+               'spec': {'template': {'spec': spec}},
+               'status': {'succeeded': 1, 'conditions': [{'type': 'Complete', 'status': 'True'}]}}
+        web = {'metadata': {'uid': 'web-uid'}, 'spec': spec,
+               'status': {'phase': 'Running', 'containerStatuses': [{'name': 'main', 'ready': True}]}}
+        completed = {'metadata': {'uid': 'completed-uid', 'ownerReferences': [
+                        {'controller': True, 'kind': 'Job', 'apiVersion': 'batch/v1', 'name': 'job', 'uid': 'job-uid'}]},
+                     'spec': spec, 'status': {'phase': 'Succeeded', 'containerStatuses': [
+                         {'name': 'main', 'state': {'terminated': {'exitCode': 0}}}]}}
+        with patch.object(recovery, 'PROFILES', {'pointview': profile}):
+            self.assertEqual(recovery.shared_consumers('pointview', [web, completed], [job], [cron]),
+                             ['completed-uid', 'web-uid'])
+            for kind in ('owner', 'failed-job', 'active-job', 'init', 'unsuspended', 'changed-schedule', 'extra-consumer'):
+                pods, jobs, crons = copy.deepcopy(([web, completed], [job], [cron]))
+                if kind == 'owner': pods[1]['metadata']['ownerReferences'][0]['uid'] = ''
+                elif kind == 'failed-job': jobs[0]['status']['failed'] = 1
+                elif kind == 'active-job': jobs[0]['status']['active'] = 1
+                elif kind == 'init':
+                    pods[1]['spec']['initContainers'] = [{'name': 'initial'}]
+                    pods[1]['status']['initContainerStatuses'] = [{'name': 'initial', 'state': {'terminated': {'exitCode': 1}}}]
+                elif kind == 'unsuspended': crons[0]['spec']['suspend'] = False
+                elif kind == 'changed-schedule': crons[0]['spec']['schedule'] = '0 4 * * *'
+                else: pods.append({**copy.deepcopy(web), 'metadata': {'uid': 'foreign-uid'}})
+                with self.subTest(kind=kind), self.assertRaises(RuntimeError):
+                    recovery.shared_consumers('pointview', pods, jobs, crons)
 
 
 if __name__ == '__main__':

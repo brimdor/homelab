@@ -188,5 +188,109 @@
     "claim": "podwave-canary-downloads",
     "claim_uid": "54f5d1ac-c73c-42a1-a0b4-e7007599f82d",
     "pv_uid": "d7fa6055-7e5a-4644-b6ed-76ed041384fb"
+  },
+  "pointview": {
+    "namespace": "pointview",
+    "node": "squirtle",
+    "pod_uid": "3fdd11bb-52ed-4be7-bae5-88970e763c8d",
+    "container": "web",
+    "container_id": "cb5d5a225b455b291eb0531460dd2393052806995c7510cc721c19492cf00959",
+    "pid": 866271,
+    "image_ref": "10.0.20.11:32309/pointview@sha256:ee4876e6add9b45af87dd94af9fb9cd0cfca5d7f673e215c456f341983bb7113",
+    "process_user": {
+      "additionalGids": [
+        10001
+      ],
+      "gid": 10001,
+      "uid": 10001
+    },
+    "tasks": {
+      "866271": {
+        "exe": "/usr/local/bin/node",
+        "start_ticks": "5009289",
+        "uid": 10001,
+        "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod3fdd11bb_52ed_4be7_bae5_88970e763c8d.slice/cri-containerd-cb5d5a225b455b291eb0531460dd2393052806995c7510cc721c19492cf00959.scope\n"
+      }
+    },
+    "volumes": [
+      {
+        "destination": "/var/lib/pointview/attachments",
+        "source": "/var/lib/kubelet/pods/3fdd11bb-52ed-4be7-bae5-88970e763c8d/volumes/kubernetes.io~csi/pvc-2bb65274-c85a-490a-87fe-47868230de39/mount",
+        "device": 1048732,
+        "inode": 1099511628092,
+        "files": 0,
+        "directories": 0,
+        "symlinks": 0,
+        "specials": 0,
+        "foreign_devices": 0,
+        "bytes": 0,
+        "sqlite_named_files": 0
+      }
+    ],
+    "claim": "pointview-attachments",
+    "claim_uid": "2bb65274-c85a-490a-87fe-47868230de39",
+    "pv_uid": "21ea741c-9029-4de3-9be4-e96a3b79813e",
+    "required_suspended_cronjobs": {
+      "pointview-retention": {
+        "uid": "eede725c-f9c0-438c-8593-5c9e155acc61",
+        "spec_sha256": "9b2ae2477d732bad4be545cd3de4390bfc883383c6473c7df2ee9193d94ceee6"
+      },
+      "pointview-triage": {
+        "uid": "50610e53-b900-46b3-8955-c11bd602b567",
+        "spec_sha256": "45839d9a5dbe0c2f0e22017fe2d12eb73d5903c1141d426773596c48723f3dcc"
+      }
+    }
+  },
+  "pointview-canary": {
+    "namespace": "pointview-canary",
+    "node": "cyndaquil",
+    "pod_uid": "ba1c83df-44ad-4cdb-8a30-52e3eedaefb0",
+    "container": "web",
+    "container_id": "b671f95c87205a12be45b94f9b7719ec5e8edd34ad22785a29dd27d95a32a4e4",
+    "pid": 740627,
+    "image_ref": "10.0.20.11:32309/pointview@sha256:ee4876e6add9b45af87dd94af9fb9cd0cfca5d7f673e215c456f341983bb7113",
+    "process_user": {
+      "additionalGids": [
+        10001
+      ],
+      "gid": 10001,
+      "uid": 10001
+    },
+    "tasks": {
+      "740627": {
+        "exe": "/usr/local/bin/node",
+        "start_ticks": "4862793",
+        "uid": 10001,
+        "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podba1c83df_44ad_4cdb_8a30_52e3eedaefb0.slice/cri-containerd-b671f95c87205a12be45b94f9b7719ec5e8edd34ad22785a29dd27d95a32a4e4.scope\n"
+      }
+    },
+    "volumes": [
+      {
+        "destination": "/var/lib/pointview/attachments",
+        "source": "/var/lib/kubelet/pods/ba1c83df-44ad-4cdb-8a30-52e3eedaefb0/volumes/kubernetes.io~csi/pvc-729b3380-842d-469d-b536-68941bd3f706/mount",
+        "device": 194,
+        "inode": 1099511629349,
+        "files": 0,
+        "directories": 0,
+        "symlinks": 0,
+        "specials": 0,
+        "foreign_devices": 0,
+        "bytes": 0,
+        "sqlite_named_files": 0
+      }
+    ],
+    "claim": "pointview-canary-attachments",
+    "claim_uid": "729b3380-842d-469d-b536-68941bd3f706",
+    "pv_uid": "e2c63376-7f4f-4dce-95b8-eae55e35af64",
+    "required_suspended_cronjobs": {
+      "pointview-canary-retention": {
+        "uid": "d98b2b80-4695-468c-946b-7b52edacbd6e",
+        "spec_sha256": "71f2cd6d4f43e39546604676eddc05689c88f31eae3cc8cd07c6248b7e6c0ea0"
+      },
+      "pointview-canary-triage": {
+        "uid": "6527a8a7-896d-4b83-b12f-44b75fac4ab2",
+        "spec_sha256": "162fc3638ff80617b5eea292a019e7ea332f8ddbd0d5e6dec4eeb2c118a1b383"
+      }
+    }
   }
 }
