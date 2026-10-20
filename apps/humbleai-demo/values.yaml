@@ -2,22 +2,23 @@ maintenanceData:
   enabled: true
   holdFixtureEnabled: false
   seed:
-    enabled: true
+    enabled: false
     runID: humbleai-demo-20261020
     manifestSHA256: 58e2d4bb2881c898b89b3db5373a11b76c8f597cc653ccd94eae932ce7a1e291
 app-template:
   controllers:
     main:
-      replicas: 0
+      replicas: 1
       annotations:
-        # Replace clears the old server-defaulted rollingUpdate field during this transition.
+        # Preserve server defaults; replacement removed a historical live Pod annotation.
         argocd.argoproj.io/sync-options: Replace=false
       strategy: Recreate
       containers:
         main:
           image:
-            repository: 10.0.20.11:32309/humbleai
+            repository: registry.eaglepass.io/humbleai
             tag: demo
+            digest: sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
@@ -101,6 +102,16 @@ app-template:
             - humbleai-demo.eaglepass.io
           secretName: humbleai-tls
   defaultPodOptions:
+    nodeSelector:
+      kubernetes.io/arch: arm64
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
       operator.1password.io/item-name: "secrets"
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      existingClaim: humbleai-demo-data
+      advancedMounts:
+        main:
+          main:
+            - path: /app/server/data
