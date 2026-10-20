@@ -97,7 +97,7 @@ class BufferTransferTests(unittest.TestCase):
                     patch.object(TRANSFER, "source_query_count", return_value=5):
                 return TRANSFER.continuation_prefix(root, account, "synthetic")
         self.assertEqual(check(covered), {"start": 1, "end": 9, "source_accepted_records": 5})
-        second = {**covered, "phase": "buffered-continuation", "attempt": 18,
+        second = {**covered, "phase": "buffered-continuation", "attempt": 20,
                   "prefix_receipt_sha256": "c" * 64}
         data = json.dumps(second).encode()
         root.__truediv__.return_value.read_bytes.return_value = data
@@ -107,10 +107,10 @@ class BufferTransferTests(unittest.TestCase):
                 patch.object(TRANSFER, "continuation_prefix", return_value=prefix) as previous, \
                 patch.object(TRANSFER, "tail_audit", return_value=audit) as read, \
                 patch.object(TRANSFER, "source_query_count", return_value=5):
-            self.assertEqual(original(root, new, "synthetic", 18),
+            self.assertEqual(original(root, new, "synthetic", 20),
                              {"start": 1, "end": 9, "source_accepted_records": 5})
             previous.assert_called_once_with(root, old, "synthetic")
-            read.assert_called_once_with(root, 18, "synthetic", old, prefix, "continuation", "c" * 64)
+            read.assert_called_once_with(root, 20, "synthetic", old, prefix, "continuation", "c" * 64)
         with self.assertRaisesRegex(RuntimeError, "unqualified continuation checkpoint"):
             original(root, new, "synthetic", 19)
         for key, value in (("applied", False), ("all_source_records_visible", False), ("target_uid", "different"),

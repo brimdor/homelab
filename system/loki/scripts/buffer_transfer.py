@@ -469,9 +469,9 @@ def tail_audit(root, attempt, target_uid, accounting, prefix, phase="tail", pref
 
 
 def continuation_prefix(root, accounting, target_uid, covered_attempt=15):
-    if covered_attempt not in (15, 18):
+    if covered_attempt not in (15, 20):
         raise RuntimeError("unqualified continuation checkpoint")
-    second = covered_attempt == 18
+    second = covered_attempt == 20
     phase = "buffered-continuation" if second else "buffered-tail"
     receipt_hash = SECOND_CONTINUATION_RECEIPT_SHA256 if second else CONTINUATION_RECEIPT_SHA256
     previous_hash = CONTINUATION_RECEIPT_SHA256 if second else PREFIX_RECEIPT_SHA256
@@ -485,23 +485,35 @@ def continuation_prefix(root, accounting, target_uid, covered_attempt=15):
                        "continuation" if second else "tail", previous_hash)
     before = covered["target_counters_before"]; after = covered["target_counters_after"]
     fields = ("start", "end", "source_distinct_records", "source_sha256")
-    if not (covered["phase"] == phase and covered["attempt"] == covered_attempt and
-            covered["applied"] and covered["all_source_records_visible"] and
-            covered["frozen_tail_enumeration_complete"] and
-            covered["target_uid"] == target_uid and covered["source_uid"] == cold_recovery.BUFFER_POD_UID and
-            covered["prefix_receipt_sha256"] == previous_hash and
-            covered["start"] == audit["start"] and covered["end"] == audit["end"] and
-            covered["source_distinct_records"] == audit["tail_distinct_records"] and
-            covered["prefix_distinct_records"] == prefix["source_accepted_records"] and
-            [{k: w[k] for k in fields} for w in covered["windows"]] ==
-            [{k: w[k] for k in fields} for w in audit["windows"]] and
-            after["loki_distributor_lines_received_total"] == before["loki_distributor_lines_received_total"] + covered["missing_before"] and
-            after["loki_discarded_samples_total"] == before["loki_discarded_samples_total"] and
-            source_query_count(prefix["start"], audit["end"]) == old_accounting["accepted_records"] and
-            accounting["accepted_records"] > old_accounting["accepted_records"] and
-            accounting["received_attempts"] >= old_accounting["received_attempts"] and
-            accounting["rate_limited_attempts"] >= old_accounting["rate_limited_attempts"]):
-        raise RuntimeError("accepted buffered coverage, identity or accounting changed")
+    count = source_query_count(prefix["start"], audit["end"])
+    checks = {
+        "phase": covered["phase"] == phase,
+        "attempt": covered["attempt"] == covered_attempt,
+        "applied": covered["applied"],
+        "visible": covered["all_source_records_visible"],
+        "enumeration": covered["frozen_tail_enumeration_complete"],
+        "target_uid": covered["target_uid"] == target_uid,
+        "source_uid": covered["source_uid"] == cold_recovery.BUFFER_POD_UID,
+        "prefix_hash": covered["prefix_receipt_sha256"] == previous_hash,
+        "start": covered["start"] == audit["start"],
+        "end": covered["end"] == audit["end"],
+        "tail_count": covered["source_distinct_records"] == audit["tail_distinct_records"],
+        "prefix_count": covered["prefix_distinct_records"] == prefix["source_accepted_records"],
+        "window_hashes": [{k: w[k] for k in fields} for w in covered["windows"]] ==
+                         [{k: w[k] for k in fields} for w in audit["windows"]],
+        "target_delta": after["loki_distributor_lines_received_total"] == before["loki_distributor_lines_received_total"] + covered["missing_before"],
+        "target_discards": after["loki_discarded_samples_total"] == before["loki_discarded_samples_total"],
+        "source_count": count == old_accounting["accepted_records"],
+        "new_records": accounting["accepted_records"] > old_accounting["accepted_records"],
+        "received_counter": accounting["received_attempts"] >= old_accounting["received_attempts"],
+        "rejection_counter": accounting["rate_limited_attempts"] >= old_accounting["rate_limited_attempts"],
+    }
+    if not all(checks.values()):
+        raise RuntimeError("accepted buffered coverage, identity or accounting changed: " + json.dumps({
+            "failed_checks": [key for key, passed in checks.items() if not passed],
+            "covered_count": count, "expected_count": old_accounting["accepted_records"],
+            "current_count": accounting["accepted_records"],
+        }, sort_keys=True))
     return {"start": prefix["start"], "end": audit["end"],
             "source_accepted_records": old_accounting["accepted_records"]}
 
@@ -511,7 +523,7 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
     accounting = source_accounting()
     if accounting["received_attempts"] != received:
         raise RuntimeError("tail source accounting changed after flush")
-    checkpoint = 18 if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
+    checkpoint = 20 if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
     prefix_hash = ((SECOND_CONTINUATION_RECEIPT_SHA256 if checkpoint == 18 else CONTINUATION_RECEIPT_SHA256)
                    if phase == "continuation" else PREFIX_RECEIPT_SHA256)
     prefix = (continuation_prefix(root, accounting, target_uid, checkpoint)
@@ -590,7 +602,7 @@ def run_buffered_tail(root, target_uid, attempt, apply, phase="buffered-tail"):
     if not apply:
         raise RuntimeError("buffered tail requires the preceding complete read-only tail audit")
     continuation = phase == "buffered-continuation"
-    if continuation and attempt != 18:
+    if continuation and attempt != 20:
         raise RuntimeError("buffered continuation is restricted to the qualified checkpoint sequence")
     audit_phase = "continuation" if continuation else "tail"
     frozen = json.loads((root / (audit_phase + "-" + str(attempt - 1) + ".json")).read_bytes())
