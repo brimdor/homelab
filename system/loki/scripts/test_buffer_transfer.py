@@ -15,6 +15,40 @@ import test_cold_recovery as cold_fixture
 
 
 class BufferTransferTests(unittest.TestCase):
+    def test_read_only_presence_verification_resolves_underfill_without_any_push(self):
+        rows = self.rows()[:3]
+        with patch.object(TRANSFER, "windows", return_value=[(0, 4, rows)]), \
+                patch.object(TRANSFER, "observed", return_value={TRANSFER.fingerprint(rows[0])}), \
+                patch.object(TRANSFER, "prove_missing", return_value=([], {"strict": True})) as strict, \
+                patch.object(TRANSFER, "push") as push:
+            result = TRANSFER.transfer(0, 4, verify_presence=True)
+            self.assertTrue(result["all_source_records_visible"])
+            self.assertEqual(result["source_distinct_records"], 3)
+            self.assertFalse(result["applied"])
+            strict.assert_called_once_with(rows[1:], 0, 4)
+            push.assert_not_called()
+        with patch.object(TRANSFER, "push") as push:
+            with self.assertRaisesRegex(RuntimeError, "cannot write"):
+                TRANSFER.transfer(0, 4, apply=True, verify_presence=True)
+            with self.assertRaisesRegex(RuntimeError, "read-only"):
+                TRANSFER.run("synthetic", "prefix", 13, True)
+            push.assert_not_called()
+
+    def test_prefix_changed_accounting_cannot_write_a_receipt(self):
+        accounting = {"received_attempts": 6, "rate_limited_attempts": 1, "accepted_records": 5}
+        prefix = {"start": 1, "end": 4, "source_accepted_records": 3,
+                  "source_received_counter": 4, "source_rate_limited_attempts": 1}
+        with patch.object(TRANSFER, "source_accounting", side_effect=[accounting, {**accounting, "accepted_records": 6}]), \
+                patch.object(TRANSFER, "tail_prefix", return_value=prefix), \
+                patch.object(TRANSFER, "preserved_source_audit"), patch.object(TRANSFER, "frozen_source_audit"), \
+                patch.object(TRANSFER, "transfer", return_value={"source_distinct_records": 3}) as compare, \
+                patch.object(TRANSFER, "require_stage"), patch.object(TRANSFER.cold_recovery, "write_verified") as write:
+            with self.assertRaisesRegex(RuntimeError, "prefix changed"):
+                TRANSFER.run_prefix(Mock(), "synthetic", 13)
+            self.assertTrue(compare.call_args.kwargs["verify_presence"])
+            self.assertNotIn("apply", compare.call_args.kwargs)
+            write.assert_not_called()
+
     def rows(self):
         return [({"job": "synthetic", "stream": "stdout"}, n, "original-" + str(n)) for n in range(1, 7)]
 

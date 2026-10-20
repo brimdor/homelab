@@ -322,7 +322,9 @@ def frozen_source_audit(original, accounting, path=Path("/scripts/source-final-w
     return audit
 
 
-def transfer(start, end, apply=False, source_audit=None):
+def transfer(start, end, apply=False, source_audit=None, verify_presence=False):
+    if apply and verify_presence:
+        raise RuntimeError("presence verification cannot write originals")
     manifest = []
     total = missing_total = 0
     for left, right, rows in source_windows(start, end, source_audit):
@@ -332,8 +334,9 @@ def transfer(start, end, apply=False, source_audit=None):
         before = observed(TARGET, left, right)
         missing = sorted((row for key, row in unique.items() if key not in before), key=lambda row: row[1])
         evidence = {}
-        if apply:
+        if apply or verify_presence:
             missing, evidence = prove_missing(missing, left, right) if missing else ([], {})
+        if apply:
             for index in range(0, len(missing), 250):
                 push(missing[index:index + 250])
             confirm_visible(set(unique), left, right, list(unique.values()))
@@ -472,7 +475,32 @@ def run_tail(root, target_uid, attempt, apply):
     print(json.dumps(result), flush=True)
 
 
+def run_prefix(root, target_uid, attempt):
+    accounting = source_accounting()
+    prefix = tail_prefix(root, accounting)
+    original = preserved_source_audit(root)
+    old_accounting = {"received_attempts": prefix["source_received_counter"],
+                      "rate_limited_attempts": prefix["source_rate_limited_attempts"],
+                      "accepted_records": prefix["source_accepted_records"]}
+    frozen = frozen_source_audit(original, old_accounting)
+    result = transfer(prefix["start"], prefix["end"], source_audit=frozen, verify_presence=True)
+    if result["source_distinct_records"] != prefix["source_accepted_records"]:
+        raise RuntimeError("prefix enumeration differs from the accepted frozen originals")
+    require_stage(target_uid, "prefix")
+    if source_accounting() != accounting or source_query_count(prefix["start"], prefix["end"]) != prefix["source_accepted_records"]:
+        raise RuntimeError("preserved prefix changed during read-only verification")
+    result["prefix_distinct_records"] = result.pop("source_distinct_records")
+    result["all_prefix_records_visible"] = result.pop("all_source_records_visible")
+    result.update(phase="prefix", attempt=attempt, target_uid=target_uid,
+                  source_uid=cold_recovery.BUFFER_POD_UID, source_accounting=accounting,
+                  prefix_receipt_sha256=PREFIX_RECEIPT_SHA256, prefix_enumeration_complete=True)
+    cold_recovery.write_verified(root / ("prefix-" + str(attempt) + ".json"), result)
+    print(json.dumps(result), flush=True)
+
+
 def run(target_uid, phase, attempt, apply):
+    if phase == "prefix" and apply:
+        raise RuntimeError("prefix verification is read-only")
     root = Path("/recovery/cutover-transfer")
     root.mkdir(mode=0o700, exist_ok=True)
     receipt = root / (phase + "-" + str(attempt) + ".json")
@@ -486,6 +514,9 @@ def run(target_uid, phase, attempt, apply):
             raise RuntimeError("unexpected transfer server version")
     if phase == "tail":
         run_tail(root, target_uid, attempt, apply)
+        return
+    if phase == "prefix":
+        run_prefix(root, target_uid, attempt)
         return
     received = cold_recovery.flush_old(SOURCE) if phase == "final" else None
     accounting = source_accounting() if phase == "final" else None
@@ -527,7 +558,7 @@ def run(target_uid, phase, attempt, apply):
 if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=["bulk", "final", "tail"], required=True)
+    parser.add_argument("--phase", choices=["bulk", "final", "tail", "prefix"], required=True)
     parser.add_argument("--attempt", type=int, required=True)
     parser.add_argument("--target-uid", required=True)
     parser.add_argument("--apply", action="store_true")

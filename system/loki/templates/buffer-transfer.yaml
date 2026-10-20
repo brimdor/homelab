@@ -1,6 +1,9 @@
 {{- if .Values.maintenanceRecovery.transferEnabled }}
-{{- if not (has .Values.maintenanceRecovery.transferPhase (list "bulk" "final" "tail")) }}
-{{- fail "transferPhase must be bulk, final or tail" }}
+{{- if not (has .Values.maintenanceRecovery.transferPhase (list "bulk" "final" "tail" "prefix")) }}
+{{- fail "transferPhase must be bulk, final, tail or prefix" }}
+{{- end }}
+{{- if and (eq .Values.maintenanceRecovery.transferPhase "prefix") .Values.maintenanceRecovery.transferApply }}
+{{- fail "prefix verification is read-only" }}
 {{- end }}
 apiVersion: batch/v1
 kind: Job
