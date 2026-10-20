@@ -69,7 +69,8 @@ class GiteaGitRecoveryContract(unittest.TestCase):
                 'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'PidMode': '', 'IpcMode': 'private',
                 'UTSMode': '', 'UsernsMode': '', 'PidsLimit': 128, 'Memory': 1073741824,
-                'NanoCpus': 1000000000, 'Tmpfs': recovery.TMPFS, 'RestartPolicy': {'Name': 'no'}},
+                'NanoCpus': 1000000000, 'Tmpfs': recovery.TMPFS, 'RestartPolicy': {'Name': 'no'},
+                'LogConfig': {'Type': 'none', 'Config': {}}},
             'Mounts': [{'Type': 'bind', 'RW': False, 'Source': source, 'Destination': target}
                        for target, source in recovery.mounts(root, volumes).items()]}
 
@@ -83,6 +84,7 @@ class GiteaGitRecoveryContract(unittest.TestCase):
                     lambda v: v['HostConfig'].update(NetworkMode='host'),
                     lambda v: v['HostConfig'].update(Privileged=True),
                     lambda v: v['HostConfig'].update(CapAdd=['SYS_ADMIN']),
+                    lambda v: v['HostConfig'].update(LogConfig={'Type': 'json-file', 'Config': {}}),
                     lambda v: v['Config'].update(User='0:0'),
                     lambda v: v['Config'].update(Entrypoint=['/app/gitea/gitea']),
                     lambda v: v['Config'].update(Healthcheck={'Test': ['CMD-SHELL', 'unreviewed']}),

@@ -97,6 +97,7 @@ def mounts(scratch, volumes):
 
 def arguments(scratch, volumes, run_id, args):
     result = ['create', '--label', LABEL + '=' + run_id, '--network=none', '--read-only', '--no-healthcheck',
+              '--log-driver=none',
               '--cap-drop=ALL', '--security-opt=no-new-privileges:true', '--user=1000:1000',
               '--workdir=/tmp', '--pids-limit=128', '--memory=1g', '--cpus=1',
               '--tmpfs=/tmp:' + TMPFS['/tmp']]
@@ -112,7 +113,7 @@ def require_container(value, scratch, volumes, run_id, args, image_id):
     expected = {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'PidMode': '', 'IpcMode': 'private',
                 'UTSMode': '', 'UsernsMode': '', 'PidsLimit': 128, 'Memory': 1073741824,
-                'NanoCpus': 1000000000, 'Tmpfs': TMPFS}
+                'NanoCpus': 1000000000, 'Tmpfs': TMPFS, 'LogConfig': {'Type': 'none', 'Config': {}}}
     environment = dict(item.split('=', 1) for item in config.get('Env', []))
     actual_mounts = value['Mounts']
     if (config['Image'] != IMAGE or value['Image'] != image_id or config['User'] != '1000:1000' or
