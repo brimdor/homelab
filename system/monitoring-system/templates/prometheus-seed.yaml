@@ -71,7 +71,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: prometheus-retained-seed-20261020-quiesced
+  name: prometheus-retained-seed-20261020-quiesced-2
 spec:
   backoffLimit: 0
   template:
@@ -150,17 +150,21 @@ spec:
       app.kubernetes.io/name: prometheus-retained-seed
   policyTypes: [Ingress, Egress]
   ingress: []
+  egress: []
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: prometheus-retained-seed-api
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-retained-seed
+  # Cilium CIDR selectors exclude cluster-node identities by default.
   egress:
-    - to:
-        - ipBlock:
-            cidr: 10.0.20.50/32
-        - ipBlock:
-            cidr: 10.0.20.11/32
-        - ipBlock:
-            cidr: 10.0.20.12/32
-        - ipBlock:
-            cidr: 10.0.20.13/32
-      ports:
-        - protocol: TCP
-          port: 6443
+    - toEntities: [kube-apiserver]
+      toPorts:
+        - ports:
+            - protocol: TCP
+              port: '6443'
 {{- end }}
