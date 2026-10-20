@@ -115,8 +115,11 @@ def operation(scratch, run_id, args, marker, image_id):
 
 def config(root, database):
     path = root / 'offline.toml'
+    # The shared config builder requires paths; offline database commands never open TLS files.
     path.write_text('db_path = "/data/' + database + '"\ndomain = "auth.eaglepass.io"\n'
-                    'origin = "https://auth.eaglepass.io"\n')
+                    'origin = "https://auth.eaglepass.io"\n'
+                    'tls_chain = "/data/offline-unused.crt"\n'
+                    'tls_key = "/data/offline-unused.key"\n')
     path.chmod(0o600)
     os.chown(path, 1000, 1000)
 

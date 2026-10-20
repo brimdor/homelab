@@ -13,6 +13,19 @@ import kanidm_recovery as recovery
 
 
 class KanidmRecoveryContract(unittest.TestCase):
+    def test_offline_configuration_has_inert_tls_paths_without_credentials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(recovery.os, 'chown') as owner:
+                recovery.config(root, 'restored.db')
+            path = root / 'offline.toml'
+            self.assertIn('db_path = "/data/restored.db"', path.read_text())
+            self.assertIn('tls_chain = "/data/offline-unused.crt"', path.read_text())
+            self.assertIn('tls_key = "/data/offline-unused.key"', path.read_text())
+            self.assertEqual(list(root.iterdir()), [path])
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            owner.assert_called_once_with(path, 1000, 1000)
+
     def test_failure_output_stays_in_exclusive_private_diagnostic(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
