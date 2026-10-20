@@ -1,0 +1,89 @@
+{
+  "gitea": {
+    "node": "squirtle",
+    "pod_uid": "6f827acb-50b5-4484-b58d-41c8627d3805",
+    "claim": "data-gitea-postgresql-0",
+    "claim_uid": "4d6d356d-ec5d-4f2e-961e-090eae9e0c21",
+    "pv_uid": "5cadac3d-dd99-4e3e-8551-4d165826cf44",
+    "runtime": [
+      {
+        "container": "postgresql",
+        "container_id": "7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd",
+        "pid": 27892,
+        "image": "docker.io/bitnamilegacy/postgresql@sha256:233f361c5819c180b600d110d7da953bea6f1a00764752643ffb7b78ba85c628",
+        "user": {
+          "additionalGids": [
+            1001
+          ],
+          "gid": 1001,
+          "uid": 1001
+        },
+        "processes": [
+          {
+            "pid": 27892,
+            "start_ticks": "251480",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          },
+          {
+            "pid": 27993,
+            "start_ticks": "251596",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          },
+          {
+            "pid": 27994,
+            "start_ticks": "251596",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          },
+          {
+            "pid": 27996,
+            "start_ticks": "251690",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          },
+          {
+            "pid": 27997,
+            "start_ticks": "251690",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          },
+          {
+            "pid": 27998,
+            "start_ticks": "251690",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          },
+          {
+            "pid": 2069425,
+            "start_ticks": "10835899",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          },
+          {
+            "pid": 2393727,
+            "start_ticks": "12398913",
+            "exe": "/opt/bitnami/postgresql/bin/postgres",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod6f827acb_50b5_4484_b58d_41c8627d3805.slice/cri-containerd-7639ba6046cd4a00706641a24a1fc7c33299091a84ee11c4ffd9038d992ee4dd.scope\n",
+            "uid": 1001
+          }
+        ]
+      }
+    ],
+    "volume": {
+      "source": "/var/lib/kubelet/pods/6f827acb-50b5-4484-b58d-41c8627d3805/volumes/kubernetes.io~csi/pvc-4d6d356d-ec5d-4f2e-961e-090eae9e0c21/mount",
+      "destination": "/bitnami/postgresql",
+      "device": 64352,
+      "inode": 2
+    },
+    "sqlite_databases": []
+  }
+}
