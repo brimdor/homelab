@@ -19,7 +19,7 @@ maintenanceRecovery:
   cutoverBackupEnabled: false
   cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
-  transferEnabled: true
+  transferEnabled: false
   transferApply: false
   transferPhase: continuation
   transferAttempt: 16

@@ -16,6 +16,28 @@ import test_cold_recovery as cold_fixture
 
 
 class BufferTransferTests(unittest.TestCase):
+    def test_read_disconnect_subdivides_without_masking_persistent_or_security_failures(self):
+        rows = self.rows()[:3]
+
+        def read(_base, start, end, *_args, **_kwargs):
+            if (start, end) == (0, 3):
+                raise TRANSFER.http.client.RemoteDisconnected("synthetic closed response")
+            return [row for row in rows if start <= row[1] <= end]
+
+        with patch.object(TRANSFER, "query", side_effect=read):
+            found = list(TRANSFER.windows(TRANSFER.SOURCE, 0, 3))
+            self.assertEqual([row for _, _, page in found for row in page], rows)
+            self.assertEqual([(a, b) for a, b, _ in found], [(0, 1), (2, 3)])
+        with patch.object(TRANSFER, "query", side_effect=TRANSFER.http.client.RemoteDisconnected()) as query:
+            with self.assertRaisesRegex(RuntimeError, "bounded interval subdivision"):
+                list(TRANSFER.windows(TRANSFER.SOURCE, 0, 31))
+            self.assertEqual(query.call_count, 4)
+        denied = urllib.error.HTTPError("https://synthetic.invalid", 401, "denied", {}, None)
+        with patch.object(TRANSFER, "query", side_effect=denied) as query:
+            with self.assertRaises(urllib.error.HTTPError):
+                list(TRANSFER.windows(TRANSFER.SOURCE, 0, 3))
+            query.assert_called_once()
+
     def test_continuation_audit_ends_at_latest_actual_original(self):
         account = {"received_attempts": 8, "rate_limited_attempts": 1, "accepted_records": 7}
         prefix = {"start": 1, "end": 9, "source_accepted_records": 5}
@@ -33,7 +55,7 @@ class BufferTransferTests(unittest.TestCase):
             TRANSFER.run_tail(MagicMock(), "synthetic", 16, False, "continuation")
             query.assert_called_once_with(TRANSFER.SOURCE, 10, 100 + 600 * 10**9,
                                           limit=1, direction="backward")
-            transfer.assert_called_once_with(10, 12, False, None, max_record_age_ns=55 * 60 * 10**9)
+            transfer.assert_called_once_with(10, 12, False, None, max_record_age_ns=45 * 60 * 10**9)
             self.assertEqual(write.call_args.args[1]["end"], 12)
 
     def test_continuation_refuses_old_original_before_any_push(self):
@@ -75,7 +97,7 @@ class BufferTransferTests(unittest.TestCase):
                     patch.object(TRANSFER, "source_query_count", return_value=5):
                 return TRANSFER.continuation_prefix(root, account, "synthetic")
         self.assertEqual(check(covered), {"start": 1, "end": 9, "source_accepted_records": 5})
-        second = {**covered, "phase": "buffered-continuation", "attempt": 17,
+        second = {**covered, "phase": "buffered-continuation", "attempt": 18,
                   "prefix_receipt_sha256": "c" * 64}
         data = json.dumps(second).encode()
         root.__truediv__.return_value.read_bytes.return_value = data
@@ -85,10 +107,10 @@ class BufferTransferTests(unittest.TestCase):
                 patch.object(TRANSFER, "continuation_prefix", return_value=prefix) as previous, \
                 patch.object(TRANSFER, "tail_audit", return_value=audit) as read, \
                 patch.object(TRANSFER, "source_query_count", return_value=5):
-            self.assertEqual(original(root, new, "synthetic", 17),
+            self.assertEqual(original(root, new, "synthetic", 18),
                              {"start": 1, "end": 9, "source_accepted_records": 5})
             previous.assert_called_once_with(root, old, "synthetic")
-            read.assert_called_once_with(root, 17, "synthetic", old, prefix, "continuation", "c" * 64)
+            read.assert_called_once_with(root, 18, "synthetic", old, prefix, "continuation", "c" * 64)
         with self.assertRaisesRegex(RuntimeError, "unqualified continuation checkpoint"):
             original(root, new, "synthetic", 19)
         for key, value in (("applied", False), ("all_source_records_visible", False), ("target_uid", "different"),

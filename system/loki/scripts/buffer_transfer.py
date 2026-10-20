@@ -5,6 +5,7 @@ import argparse
 from collections import defaultdict
 import datetime
 import hashlib
+import http.client
 import json
 import math
 import os
@@ -63,27 +64,35 @@ def query(base, start, end, limit=5000, direction="forward", selector=SELECTOR):
     return sorted(rows, key=lambda row: (row[1], fingerprint(row)))
 
 
-def windows(base, start, end, limit=5000):
+def windows(base, start, end, limit=5000, transport_splits=0):
     if end < start:
         raise RuntimeError("invalid query interval")
     if end - start > SPAN:
         middle = (start + end) // 2
-        yield from windows(base, start, middle, limit)
-        yield from windows(base, middle + 1, end, limit)
+        yield from windows(base, start, middle, limit, transport_splits)
+        yield from windows(base, middle + 1, end, limit, transport_splits)
         return
-    rows = query(base, start, end, limit)
-    split = len(rows) >= limit
-    if not split:
-        # Merged query pages can underfill before all originals are returned.
-        # Opposite traversal exposed this in two frozen production intervals.
-        reverse = query(base, start, end, limit, direction="backward")
-        split = len(reverse) >= limit or {fingerprint(r) for r in rows} != {fingerprint(r) for r in reverse}
+    try:
+        rows = query(base, start, end, limit)
+        split = len(rows) >= limit
+        if not split:
+            # Merged query pages can underfill before all originals are returned.
+            # Opposite traversal exposed this in two frozen production intervals.
+            reverse = query(base, start, end, limit, direction="backward")
+            split = len(reverse) >= limit or {fingerprint(r) for r in rows} != {fingerprint(r) for r in reverse}
+    except (http.client.RemoteDisconnected, TimeoutError):
+        if start == end or transport_splits >= 3:
+            raise RuntimeError("read query unavailable after bounded interval subdivision; no accepted transfer receipt") from None
+        middle = (start + end) // 2
+        yield from windows(base, start, middle, limit, transport_splits + 1)
+        yield from windows(base, middle + 1, end, limit, transport_splits + 1)
+        return
     if split:
         if start == end:
             raise RuntimeError("cannot prove complete query at one timestamp")
         middle = (start + end) // 2
-        yield from windows(base, start, middle, limit)
-        yield from windows(base, middle + 1, end, limit)
+        yield from windows(base, start, middle, limit, transport_splits)
+        yield from windows(base, middle + 1, end, limit, transport_splits)
     else:
         yield start, end, rows
 
@@ -460,9 +469,9 @@ def tail_audit(root, attempt, target_uid, accounting, prefix, phase="tail", pref
 
 
 def continuation_prefix(root, accounting, target_uid, covered_attempt=15):
-    if covered_attempt not in (15, 17):
+    if covered_attempt not in (15, 18):
         raise RuntimeError("unqualified continuation checkpoint")
-    second = covered_attempt == 17
+    second = covered_attempt == 18
     phase = "buffered-continuation" if second else "buffered-tail"
     receipt_hash = SECOND_CONTINUATION_RECEIPT_SHA256 if second else CONTINUATION_RECEIPT_SHA256
     previous_hash = CONTINUATION_RECEIPT_SHA256 if second else PREFIX_RECEIPT_SHA256
@@ -502,8 +511,8 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
     accounting = source_accounting()
     if accounting["received_attempts"] != received:
         raise RuntimeError("tail source accounting changed after flush")
-    checkpoint = 17 if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
-    prefix_hash = ((SECOND_CONTINUATION_RECEIPT_SHA256 if checkpoint == 17 else CONTINUATION_RECEIPT_SHA256)
+    checkpoint = 18 if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
+    prefix_hash = ((SECOND_CONTINUATION_RECEIPT_SHA256 if checkpoint == 18 else CONTINUATION_RECEIPT_SHA256)
                    if phase == "continuation" else PREFIX_RECEIPT_SHA256)
     prefix = (continuation_prefix(root, accounting, target_uid, checkpoint)
               if phase == "continuation" else tail_prefix(root, accounting))
@@ -518,7 +527,7 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
     count = source_query_count(prefix["start"], end)
     if count != accounting["accepted_records"]:
         raise RuntimeError("tail full-source count differs from accepted counters")
-    result = (transfer(start, end, apply, audit, max_record_age_ns=55 * 60 * 10**9)
+    result = (transfer(start, end, apply, audit, max_record_age_ns=45 * 60 * 10**9)
               if phase == "continuation" else transfer(start, end, apply, audit))
     if result["source_distinct_records"] != count - prefix["source_accepted_records"]:
         raise RuntimeError("tail enumeration does not account for every new accepted original")
@@ -581,7 +590,7 @@ def run_buffered_tail(root, target_uid, attempt, apply, phase="buffered-tail"):
     if not apply:
         raise RuntimeError("buffered tail requires the preceding complete read-only tail audit")
     continuation = phase == "buffered-continuation"
-    if continuation and attempt != 17:
+    if continuation and attempt != 18:
         raise RuntimeError("buffered continuation is restricted to the qualified checkpoint sequence")
     audit_phase = "continuation" if continuation else "tail"
     frozen = json.loads((root / (audit_phase + "-" + str(attempt - 1) + ".json")).read_bytes())
