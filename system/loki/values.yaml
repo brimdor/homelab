@@ -22,7 +22,7 @@ maintenanceRecovery:
   transferEnabled: true
   transferApply: false
   transferPhase: continuation
-  transferAttempt: 25
+  transferAttempt: 27
   transferTargetPodUID: 9a102967-5aef-4ca7-885a-4e6eb20b7c8e
 server:
   nameOverride: loki
