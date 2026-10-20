@@ -87,6 +87,10 @@ class SnapshotTest(unittest.TestCase):
 
 
 class KeyBindingTest(unittest.TestCase):
+    def test_in_memory_remote_program_needs_no_source_file_path(self):
+        with patch.dict(recovery.__dict__, {"NODE_PROGRAM": "reviewed-native-program"}), patch.object(recovery, "__file__", None):
+            self.assertEqual(recovery.program("humbleai-demo"), "reviewed-native-program")
+
     def test_demo_key_field_binds_the_distinct_runtime_environment_name(self):
         key = recovery.SOURCES["humbleai-demo"]["key"]
         data = b"synthetic-demo-key"

@@ -47,9 +47,11 @@ LABEL = "io.eaglepass.sqlite-recovery"
 
 
 def program(namespace=None):
+    if globals().get("NODE_PROGRAM"):
+        return NODE_PROGRAM
     legacy = SOURCES.get(namespace, {}).get("legacy_sqlite3")
     path = Path(__file__).with_name("sqlite3_recovery.cjs") if legacy else Path(__file__).with_suffix(".cjs")
-    return globals().get("NODE_PROGRAM") or path.read_text()
+    return path.read_text()
 
 
 def node_flags(namespace):
