@@ -1,0 +1,76 @@
+{
+  "strata": {
+    "node": "growlithe",
+    "pod_uid": "48c5e581-43b4-4501-9eeb-aa24f2509043",
+    "claim": "strata-data",
+    "claim_uid": "51e6bf9a-bd31-44d9-b554-16e48298edd7",
+    "pv_uid": "723737c2-4486-43e2-ab85-57dd1f01acf3",
+    "runtime": [
+      {
+        "container": "main",
+        "container_id": "e848ad86e944e5db42e56d8da6c145f2f5c25cf0e9aea0f99a3d07df16559d41",
+        "pid": 24173,
+        "image": "10.0.20.11:32309/strata@sha256:36995dd084c38e32d5f7e7f9ca3bf7e2e51a41bd75508202df5dd02d24f8449b",
+        "user": {
+          "additionalGids": [
+            1000
+          ],
+          "gid": 1000,
+          "uid": 1000
+        },
+        "processes": [
+          {
+            "pid": 24173,
+            "start_ticks": "182181",
+            "exe": "/usr/local/bin/node",
+            "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod48c5e581_43b4_4501_9eeb_aa24f2509043.slice/cri-containerd-e848ad86e944e5db42e56d8da6c145f2f5c25cf0e9aea0f99a3d07df16559d41.scope\n",
+            "uid": 1000
+          }
+        ]
+      }
+    ],
+    "volume": {
+      "source": "/var/lib/kubelet/pods/48c5e581-43b4-4501-9eeb-aa24f2509043/volumes/kubernetes.io~csi/pvc-51e6bf9a-bd31-44d9-b554-16e48298edd7/mount",
+      "destination": "/app/data",
+      "device": 64320,
+      "inode": 2
+    },
+    "sqlite_databases": [],
+    "readonly_job_consumers": {
+      "cronjobs": {
+        "strata-backup": {
+          "uid": "71e995a6-ea65-4272-8a00-27eac21edfc5",
+          "spec_sha256": "c687ccc821007de4affba93431dfb9a9b3651034c880b3c1121c045331b3dba9"
+        }
+      },
+      "jobs": {
+        "strata-backup-29875290": {
+          "uid": "eb77cdfe-e4aa-490a-b58f-6afc9a3cead9",
+          "spec_sha256": "0d8298168ead729ed6f4baad3dc885798d58f7cec0810939c075fda64adeb508"
+        },
+        "strata-backup-29875320": {
+          "uid": "7ec1f266-62ca-4dde-bc56-4218a9b8510e",
+          "spec_sha256": "36c4a5e2cbbcc79cd50026fa2bacb5c7e7318848d9e71a8b565eb08655de31cd"
+        },
+        "strata-backup-29875350": {
+          "uid": "95544ee7-8da2-46df-aaaa-ce5955d3af1f",
+          "spec_sha256": "c91cccc2db6d1794038b1c7cc46d8f144da3095ab3a96f25369569d1a8e2f678"
+        }
+      },
+      "pods": {
+        "strata-backup-29875290-87jqc": {
+          "uid": "e3e1b868-71cd-45e2-a15b-4a8de1812154",
+          "spec_sha256": "4c2d1c4ebe54d1c17bc5cc4c138f65694d8bada1130ebc7083fe7c153afef299"
+        },
+        "strata-backup-29875320-tcgqm": {
+          "uid": "ec8cc382-e79a-4ccf-8916-0599502afd8e",
+          "spec_sha256": "423b16066239cd03b11e1fee2e8cd90ca9fc4df0826839948a5014d35efe6e06"
+        },
+        "strata-backup-29875350-79nwm": {
+          "uid": "2c44a0a7-3358-4c43-9bb2-9c14e0092917",
+          "spec_sha256": "9b55c076e36a58080a7918db78defac1d2ea4e17e8aedebbefb709022e0946e8"
+        }
+      }
+    }
+  }
+}

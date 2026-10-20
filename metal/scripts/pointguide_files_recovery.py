@@ -30,6 +30,9 @@ def available_memory():
 def source_identity(namespace):
     profile = PROFILES[namespace]
     common.require_host(profile['node'])
+    if 'readonly_job_consumers' in profile:
+        import retained_consumer_guard
+        retained_consumer_guard.observe(namespace, profile)
     root = Path(profile['volume']['source'])
     if any(p.is_symlink() for p in (root, *root.parents)):
         raise RuntimeError('unsafe Codex source ancestry')

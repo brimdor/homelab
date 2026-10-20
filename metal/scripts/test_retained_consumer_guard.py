@@ -1,0 +1,119 @@
+"""Refuse stale, active, writable or unproven shared-store consumers."""
+
+import copy
+import hashlib
+import json
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+import retained_consumer_guard as subject
+
+
+class ReadonlyConsumers(unittest.TestCase):
+    def setUp(self):
+        spec = {'restartPolicy': 'OnFailure',
+                'volumes': [{'name': 'data', 'persistentVolumeClaim': {'claimName': 'data'}}],
+                'containers': [{'name': 'backup', 'volumeMounts': [{'name': 'data', 'readOnly': True}],
+                                'securityContext': {'allowPrivilegeEscalation': False,
+                                                    'capabilities': {'drop': ['ALL']}}}]}
+        def resource(kind, name, value, parent=None):
+            meta = {'name': name, 'uid': name + '-uid', 'namespace': 'fixture'}
+            if parent:
+                meta['ownerReferences'] = [{'apiVersion': 'batch/v1', 'kind': parent[0],
+                                            'name': parent[1], 'uid': parent[1] + '-uid', 'controller': True}]
+            return {'kind': kind, 'metadata': meta, 'spec': copy.deepcopy(value), 'status': {}}
+        cron = resource('CronJob', 'schedule', {'jobTemplate': {'spec': {'template': {'spec': spec}}}})
+        job = resource('Job', 'job', {'template': {'spec': spec}}, ('CronJob', 'schedule'))
+        job['status'] = {'succeeded': 1, 'conditions': [{'type': 'Complete', 'status': 'True'}]}
+        pod = resource('Pod', 'completed', spec, ('Job', 'job'))
+        pod['status'] = {'phase': 'Succeeded', 'containerStatuses': [
+            {'name': 'backup', 'state': {'terminated': {'exitCode': 0}}}]}
+        main = resource('Pod', 'main', spec)
+        main['status'] = {'phase': 'Running'}
+        self.resources = [cron, job, pod, main]
+        self.profile = {'claim': 'data', 'pod_uid': 'main-uid', 'readonly_job_consumers': {}}
+        for key, item in zip(('cronjobs', 'jobs', 'pods'), self.resources):
+            self.profile['readonly_job_consumers'][key] = {item['metadata']['name']: {
+                'uid': item['metadata']['uid'],
+                'spec_sha256': hashlib.sha256(subject.common.canonical(item['spec'])).hexdigest()}}
+
+    def check(self):
+        return subject.check(self.resources, 'fixture', self.profile)
+
+    def test_exact_completion_and_native_observation_only_reads(self):
+        self.assertEqual(self.check(), {'cronjobs': ['schedule-uid'], 'jobs': ['job-uid'], 'pods': ['completed-uid']})
+        result = SimpleNamespace(stdout=json.dumps({'kind': 'List', 'items': self.resources}).encode())
+        with patch.object(subject.common, 'command', return_value=result) as command:
+            self.assertEqual(subject.observe('fixture', self.profile), self.check())
+        self.assertEqual(command.call_args.args[0], ['/usr/local/bin/k3s', 'kubectl', 'get',
+                                                     'pods,jobs,cronjobs', '-n', 'fixture', '-o', 'json'])
+
+    def test_stale_missing_extra_deleting_and_changed_spec_refused(self):
+        original = copy.deepcopy(self.resources)
+        for index in range(4):
+            for mutate in (lambda r: r['metadata'].update(uid='foreign'),
+                           lambda r: r['metadata'].update(deletionTimestamp='now'),
+                           lambda r: r['metadata'].update(namespace='foreign')):
+                self.resources = copy.deepcopy(original)
+                mutate(self.resources[index])
+                with self.assertRaises(RuntimeError):
+                    self.check()
+        for items in (original[1:], original + [copy.deepcopy(original[2])], original[:-1]):
+            self.resources = copy.deepcopy(items)
+            with self.assertRaises(RuntimeError):
+                self.check()
+        for index in range(3):
+            self.resources = copy.deepcopy(original)
+            self.resources[index]['spec']['changed'] = True
+            with self.assertRaises(RuntimeError):
+                self.check()
+
+    def test_phase_alone_owners_failed_containers_and_active_work_refused(self):
+        original = copy.deepcopy(self.resources)
+        changes = [(0, 'status', {'active': [{'uid': 'new'}]}),
+                   (1, 'status', {'succeeded': 1}),
+                   (1, 'status', {'succeeded': 1, 'active': 1, 'conditions': [{'type': 'Complete', 'status': 'True'}]}),
+                   (1, 'status', {'succeeded': 1, 'failed': 1, 'conditions': [{'type': 'Complete', 'status': 'True'}]}),
+                   (2, 'status', {'phase': 'Succeeded'}),
+                   (2, 'status', {'phase': 'Succeeded', 'containerStatuses': [
+                       {'name': 'backup', 'state': {'terminated': {'exitCode': 1}}}]}),
+                   (2, 'status', {'phase': 'Succeeded', 'initContainerStatuses': [{'name': 'unreviewed'}]})]
+        for index, key, value in changes:
+            self.resources = copy.deepcopy(original)
+            self.resources[index][key] = value
+            with self.assertRaises(RuntimeError):
+                self.check()
+        for index in (1, 2):
+            for value in ([], [{'controller': True, 'kind': 'Job', 'apiVersion': 'batch/v1',
+                               'name': 'job', 'uid': ''}]):
+                self.resources = copy.deepcopy(original)
+                self.resources[index]['metadata']['ownerReferences'] = value
+                with self.assertRaises(RuntimeError):
+                    self.check()
+
+    def test_writable_mount_and_escape_paths_refused_even_with_new_pin(self):
+        spec = self.resources[2]['spec']
+        variants = []
+        for key, value in (('readOnly', False), ('subPath', 'data'), ('subPathExpr', 'data')):
+            other = copy.deepcopy(spec)
+            other['containers'][0]['volumeMounts'][0][key] = value
+            variants.append(other)
+        for key, value in (('privileged', True), ('allowPrivilegeEscalation', True),
+                           ('capabilities', {'drop': ['ALL'], 'add': ['SYS_ADMIN']})):
+            other = copy.deepcopy(spec)
+            other['containers'][0]['securityContext'][key] = value
+            variants.append(other)
+        for key, value in (('hostPID', True), ('hostNetwork', True), ('hostIPC', True),
+                           ('initContainers', [{'name': 'writer'}]), ('ephemeralContainers', [{'name': 'writer'}])):
+            variants.append({**copy.deepcopy(spec), key: value})
+        other = copy.deepcopy(spec)
+        other['volumes'].append({'name': 'host', 'hostPath': {'path': '/'}})
+        variants.append(other)
+        for value in variants:
+            with self.assertRaises(RuntimeError):
+                subject.readonly(value, 'data')
+
+
+if __name__ == '__main__':
+    unittest.main()
