@@ -128,8 +128,7 @@ class Runtime:
                     osds.get('num_in_osds') == 1 and pgs and
                     all(p['state_name'] == 'active+clean' for p in pgs)):
                 checks = value['health'].get('checks', {})
-                if set(checks) - {'POOL_NO_REDUNDANCY', 'AUTH_INSECURE_CLIENT_KEY_TYPE',
-                                  'AUTH_INSECURE_KEYS_ALLOWED', 'AUTH_INSECURE_KEYS_CREATABLE'}:
+                if set(checks) - {'POOL_NO_REDUNDANCY'}:
                     raise RuntimeError('unexpected synthetic health checks: ' + ','.join(sorted(checks)))
                 return {'status': value['health']['status'], 'checks': sorted(checks)}
             time.sleep(2)
@@ -232,35 +231,35 @@ osd op num threads per shard = 1
         health = self.steady()
         payload = b'maintenance103 synthetic Ceph native qualification\n' * 127
         (self.root / 'payload').write_bytes(payload)
-        self.key('legacy', 'aes')
-        self.client('legacy', 'put', 'fixture', '/work/payload')
+        self.key('ordinary', 'aes256k')
+        self.client('ordinary', 'put', 'fixture', '/work/payload')
         def read(name):
             self.client(name, 'get', 'fixture', '/work/readback')
             if (self.root / 'readback').read_bytes() != payload:
                 raise RuntimeError('native synthetic payload differs')
-        read('legacy')
+        read('ordinary')
         self.stage = 'same-block OSD restart'
         self.stop('osd')
         self.start('osd', '0')
         self.steady()
         if block_identity(self.root) != before or (self.root / 'osd/fsid').read_text().strip() != osd_uuid:
             raise RuntimeError('OSD restart changed synthetic data identity')
-        read('legacy')
-        self.stage = 'explicit AES client rotation'
-        old = (self.root / 'legacy.keyring').read_bytes()
+        read('ordinary')
+        self.stage = 'explicit AES256K client rotation'
+        old = (self.root / 'ordinary.keyring').read_bytes()
         retired = self.root / 'retired.keyring'
         retired.write_bytes(old)
         retired.chmod(0o600)
-        self.ceph('auth', 'rotate', 'client.legacy', '--key-type=aes')
-        self.key('legacy', 'aes')
-        if (self.root / 'legacy.keyring').read_bytes() == old:
+        self.ceph('auth', 'rotate', 'client.ordinary', '--key-type=aes256k')
+        self.key('ordinary', 'aes256k')
+        if (self.root / 'ordinary.keyring').read_bytes() == old:
             raise RuntimeError('synthetic client key did not rotate')
-        denied = self.command(['rados', *self.conf, '-n', 'client.legacy', '-k', str(retired),
+        denied = self.command(['rados', *self.conf, '-n', 'client.ordinary', '-k', str(retired),
                                '-p', 'qualification', 'stat', 'fixture'], check=False)
         if denied.returncode == 0 or not any(message in denied.stderr.lower() for message in
                                             (b'permission denied', b'operation not permitted')):
             raise RuntimeError('retired synthetic key lacks explicit fresh-authentication refusal')
-        read('legacy')
+        read('ordinary')
         self.stage = 'AES256K ordinary client'
         self.key('modern', 'aes256k')
         read('modern')
@@ -268,7 +267,8 @@ osd op num threads per shard = 1
         return {'accepted': True, 'version': '20.2.4', 'synthetic_fsid': fsid,
                 'synthetic_osd_uuid': osd_uuid, 'block_identity_preserved': True,
                 'payload_sha256': hashlib.sha256(payload).hexdigest(), 'payload_bytes': len(payload),
-                'aes_client_io': True, 'aes_client_rotation_io': True, 'aes256k_client_io': True,
+                'aes256k_client_io': True, 'aes256k_client_rotation_io': True,
+                'legacy_aes_client_compatibility_unqualified': True,
                 'retired_client_key_fresh_authentication_refused': True,
                 'initial_health': health, 'final_health': final_health,
                 'production_data_or_credentials': False, 'rook_csi_core_rotation_unqualified': True}
