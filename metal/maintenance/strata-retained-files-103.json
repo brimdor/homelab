@@ -44,10 +44,6 @@
         }
       },
       "jobs": {
-        "strata-backup-29875290": {
-          "uid": "eb77cdfe-e4aa-490a-b58f-6afc9a3cead9",
-          "spec_sha256": "0d8298168ead729ed6f4baad3dc885798d58f7cec0810939c075fda64adeb508"
-        },
         "strata-backup-29875320": {
           "uid": "7ec1f266-62ca-4dde-bc56-4218a9b8510e",
           "spec_sha256": "36c4a5e2cbbcc79cd50026fa2bacb5c7e7318848d9e71a8b565eb08655de31cd"
@@ -55,13 +51,13 @@
         "strata-backup-29875350": {
           "uid": "95544ee7-8da2-46df-aaaa-ce5955d3af1f",
           "spec_sha256": "c91cccc2db6d1794038b1c7cc46d8f144da3095ab3a96f25369569d1a8e2f678"
+        },
+        "strata-backup-29875380": {
+          "uid": "4da9fa4d-bcef-41c6-9803-78d8f848d819",
+          "spec_sha256": "6dcbf3b6fa8b69b4b8db4d4495c30dbd3d7a63e4e237b1cbddb231704d05d971"
         }
       },
       "pods": {
-        "strata-backup-29875290-87jqc": {
-          "uid": "e3e1b868-71cd-45e2-a15b-4a8de1812154",
-          "spec_sha256": "4c2d1c4ebe54d1c17bc5cc4c138f65694d8bada1130ebc7083fe7c153afef299"
-        },
         "strata-backup-29875320-tcgqm": {
           "uid": "ec8cc382-e79a-4ccf-8916-0599502afd8e",
           "spec_sha256": "423b16066239cd03b11e1fee2e8cd90ca9fc4df0826839948a5014d35efe6e06"
@@ -69,6 +65,10 @@
         "strata-backup-29875350-79nwm": {
           "uid": "2c44a0a7-3358-4c43-9bb2-9c14e0092917",
           "spec_sha256": "9b55c076e36a58080a7918db78defac1d2ea4e17e8aedebbefb709022e0946e8"
+        },
+        "strata-backup-29875380-nnsfx": {
+          "uid": "55fe6136-252f-4a06-92cd-cbf70090e730",
+          "spec_sha256": "7d68f132ba77090b8b109d14aac6e75480c537d333b0b260375aae9dd337cef8"
         }
       }
     }

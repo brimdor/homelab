@@ -1,9 +1,59 @@
 """Prove exact completed read-only backup consumers; never change a scheduler."""
 
+from contextlib import contextmanager
 import hashlib
 import json
+import os
+import tempfile
 
 import etcd_recovery as common
+
+CACHE = None
+
+
+@contextmanager
+def operator_access(config):
+    """Reuse the existing inline operator configuration only in anonymous RAM."""
+    global CACHE
+    if (not isinstance(config, dict) or set(config) != {
+            'apiVersion', 'kind', 'current-context', 'clusters', 'users', 'contexts'} or
+            config['apiVersion'] != 'v1' or config['kind'] != 'Config' or
+            config['current-context'] != 'default' or
+            config['contexts'] != [{'name': 'default', 'context': {'cluster': 'default', 'user': 'default'}}] or
+            len(config['clusters']) != 1 or len(config['users']) != 1):
+        raise RuntimeError('existing inline operator configuration shape differs')
+    cluster, user = config['clusters'][0], config['users'][0]
+    if (set(cluster) != {'name', 'cluster'} or cluster['name'] != 'default' or
+            set(cluster['cluster']) != {'server', 'certificate-authority-data'} or
+            cluster['cluster']['server'] != 'https://10.0.20.50:6443' or
+            set(user) != {'name', 'user'} or user['name'] != 'default' or
+            set(user['user']) != {'client-certificate-data', 'client-key-data'} or
+            not all(isinstance(value, str) and value for value in
+                    [cluster['cluster']['certificate-authority-data'], *user['user'].values()])):
+        raise RuntimeError('existing operator API, inline credentials or TLS contract differs')
+    if not hasattr(os, 'memfd_create'):
+        raise RuntimeError('anonymous Linux credential storage unavailable')
+    descriptor = os.memfd_create('homelab-103-existing-operator', os.MFD_CLOEXEC)
+    path = '/proc/' + str(os.getpid()) + '/fd/' + str(descriptor)
+    previous = os.environ.get('KUBECONFIG')
+    previous_cache = CACHE
+    try:
+        os.fchmod(descriptor, 0o600)
+        data = common.canonical(config)
+        if os.write(descriptor, data) != len(data):
+            raise RuntimeError('incomplete anonymous operator configuration')
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        os.environ['KUBECONFIG'] = path
+        with tempfile.TemporaryDirectory(prefix='homelab-103-consumer-', dir='/run') as cache:
+            CACHE = cache
+            yield path
+    finally:
+        CACHE = previous_cache
+        if previous is None:
+            os.environ.pop('KUBECONFIG', None)
+        else:
+            os.environ['KUBECONFIG'] = previous
+        os.close(descriptor)
 
 
 def uses(spec, claim):
@@ -101,7 +151,10 @@ def check(resources, namespace, profile):
 
 
 def observe(namespace, profile):
-    value = json.loads(common.command(['/usr/local/bin/k3s', 'kubectl', 'get', 'pods,jobs,cronjobs',
+    if CACHE is None:
+        raise RuntimeError('anonymous existing-operator context required')
+    value = json.loads(common.command(['/usr/local/bin/k3s', 'kubectl', '--cache-dir=' + CACHE,
+                                       'get', 'pods,jobs,cronjobs',
                                        '-n', namespace, '-o', 'json']).stdout)
     if value.get('kind') != 'List' or not isinstance(value.get('items'), list):
         raise RuntimeError('native consumer inventory missing')
