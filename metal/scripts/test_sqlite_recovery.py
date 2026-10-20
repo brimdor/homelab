@@ -101,14 +101,14 @@ class KeyBindingTest(unittest.TestCase):
             self.assertEqual(command.call_args.args[0][-1], "OPENAI_ENCRYPTION_KEY")
 
     def test_demo_container_layer_contract_refuses_new_mounts_or_restarts(self):
-        expected = recovery.SOURCES["humbleai-demo"]
+        expected = {**recovery.SOURCES["humbleai-demo"], "pvc": None}
         pod = {"metadata": {"uid": expected["pod_uid"], "name": "reviewed-source"},
                "spec": {"nodeName": "pikachu", "containers": [{"name": "main"}]},
                "status": {"containerStatuses": [{"name": "main", "ready": True, "restartCount": 0,
                                                  "imageID": expected["image"]}]}}
         def kube(*args):
             return {"metadata": {"uid": recovery.common.CLUSTER_UID}} if args[1] == "namespace" else {"items": [pod]}
-        with patch.object(recovery, "kube", side_effect=kube):
+        with patch.dict(recovery.SOURCES, {"humbleai-demo": expected}), patch.object(recovery, "kube", side_effect=kube):
             self.assertEqual(recovery.source_identity("humbleai-demo")["data_storage"], "container-layer")
             pod["spec"]["volumes"] = [{"name": "unexpected"}]
             with self.assertRaisesRegex(RuntimeError, "ownership changed"):
@@ -117,6 +117,32 @@ class KeyBindingTest(unittest.TestCase):
             pod["status"]["containerStatuses"][0]["restartCount"] = 1
             with self.assertRaisesRegex(RuntimeError, "ownership changed"):
                 recovery.source_identity("humbleai-demo")
+
+    def test_retained_demo_mount_and_volume_identity_must_match(self):
+        expected = recovery.SOURCES["humbleai-demo"]
+        pod = {"metadata": {"uid": expected["pod_uid"], "name": "reviewed-source"},
+               "spec": {"nodeName": "growlithe", "containers": [{"name": "main", "volumeMounts": [{"name": "data", "mountPath": "/app/server/data"}]}],
+                        "volumes": [{"name": "data", "persistentVolumeClaim": {"claimName": expected["pvc"]}}]},
+               "status": {"containerStatuses": [{"name": "main", "ready": True, "restartCount": 0, "imageID": expected["image"]}]}}
+        claim = {"metadata": {"uid": expected["pvc_uid"]}, "status": {"phase": "Bound"},
+                 "spec": {"volumeName": "reviewed-volume", "storageClassName": "standard-rwo"}}
+        volume = {"metadata": {"uid": expected["pv_uid"]}, "spec": {"csi": {"driver": "rook-ceph.rbd.csi.ceph.com"},
+                  "claimRef": {"uid": expected["pvc_uid"]}}}
+        def kube(*args):
+            return {'namespace': {"metadata": {"uid": recovery.common.CLUSTER_UID}}, 'pods': {"items": [pod]},
+                    'pvc': claim, 'pv': volume}[args[1]]
+        with patch.object(recovery, "kube", side_effect=kube):
+            self.assertEqual(recovery.source_identity("humbleai-demo")["pvc_uid"], expected["pvc_uid"])
+            volume['spec']['claimRef']['uid'] = 'different-owner'
+            with self.assertRaisesRegex(RuntimeError, 'Ceph ownership changed'):
+                recovery.source_identity('humbleai-demo')
+
+    def test_only_reviewed_historical_and_current_sources_restore(self):
+        expected = recovery.SOURCES['humbleai-demo']
+        for uid in [expected['pod_uid'], *expected['previous_pod_uids']]:
+            recovery.require_restore_source({'source': {'namespace': 'humbleai-demo', 'pod_uid': uid, 'image': expected['image']}}, 'humbleai-demo')
+        with self.assertRaisesRegex(RuntimeError, 'restore source differs'):
+            recovery.require_restore_source({'source': {'namespace': 'humbleai-demo', 'pod_uid': 'unreviewed', 'image': expected['image']}}, 'humbleai-demo')
 
     def test_declared_key_must_match_same_secret_uid_and_running_process(self):
         data = b"synthetic-encryption-material"

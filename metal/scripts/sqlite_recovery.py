@@ -22,8 +22,11 @@ import mariadb_recovery as protected
 
 SOURCES = {
     "humbleai-demo": {
-        "pod_uid": "fae3621d-e4da-41a8-8087-e1768c066053", "container": "main",
-        "pvc": None, "database": "/app/server/data/humbleai.db", "directory": "/app/server/data",
+        "pod_uid": "94b113bd-9215-4be6-b560-3a22e99e3702", "container": "main",
+        "previous_pod_uids": ["fae3621d-e4da-41a8-8087-e1768c066053"],
+        "pvc": "humbleai-demo-data", "pvc_uid": "f1f77195-ff05-4c5a-bcc0-45953b9ad4f3",
+        "pv_uid": "91227a59-633f-427b-a659-cbacd6ec410a",
+        "database": "/app/server/data/humbleai.db", "directory": "/app/server/data",
         "image": "registry.eaglepass.io/humbleai@sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542",
         "architecture": "arm64", "node_version": "v20.20.2", "legacy_sqlite3": True,
         "key": {"secret": "secrets", "field": "openai-encryption-key", "environment": "OPENAI_ENCRYPTION_KEY",
@@ -76,7 +79,7 @@ def source_identity(namespace):
     image = status["imageID"]
     if not status["ready"] or image.split("@")[-1] != expected["image"].split("@")[-1]:
         raise RuntimeError("reviewed ready source image changed")
-    if namespace == "humbleai-demo":
+    if namespace == "humbleai-demo" and expected["pvc"] is None:
         if expected["pvc"] is not None or pod["spec"].get("volumes") or container.get("volumeMounts") or status["restartCount"] != 0:
             raise RuntimeError("reviewed demo container-layer ownership changed")
         return {"namespace": namespace, "pod": pod["metadata"]["name"], "pod_uid": expected["pod_uid"],
@@ -84,7 +87,7 @@ def source_identity(namespace):
                 "container": expected["container"], "node": pod["spec"]["nodeName"]}
     claim = kube("get", "pvc", expected["pvc"], "-n", namespace)
     pv = kube("get", "pv", claim["spec"]["volumeName"])
-    mount = [m for m in container["volumeMounts"] if m["mountPath"] == "/app/data"]
+    mount = [m for m in container["volumeMounts"] if m["mountPath"] == expected.get("directory", "/app/data")]
     volumes = {v["name"]: v for v in pod["spec"]["volumes"]}
     if (claim["metadata"]["uid"] != expected["pvc_uid"] or pv["metadata"]["uid"] != expected["pv_uid"] or
             claim["status"]["phase"] != "Bound" or claim["spec"]["storageClassName"] != "standard-rwo" or
@@ -117,6 +120,15 @@ def point_path(run_id):
     common.require_host("pikachu")
     common.private_root()
     return common.ROOT / ("sqlite-" + common.run_identifier(run_id))
+
+
+def require_restore_source(manifest, namespace):
+    expected = SOURCES[namespace]
+    # Historical protected points remain restorable after a reviewed storage handoff.
+    accepted = [expected["pod_uid"], *expected.get("previous_pod_uids", [])]
+    source = manifest["source"]
+    if source["namespace"] != namespace or source["pod_uid"] not in accepted or source["image"] != expected["image"]:
+        raise RuntimeError("reviewed protected restore source differs")
 
 
 def receive_database(source, destination):
@@ -351,10 +363,9 @@ def internal(mode, run_id, namespace, manifest_hash=""):
         assert mode == "restore"
         protected.protected_file(point / "verified.json"); raw = (point / "verified.json").read_bytes(); manifest = json.loads(raw)
         if (not re.fullmatch(r"[a-f0-9]{64}", manifest_hash) or hashlib.sha256(raw).hexdigest() != manifest_hash or
-                manifest["cluster_uid"] != common.CLUSTER_UID or manifest["source"]["namespace"] != namespace or
-                manifest["source"]["pod_uid"] != SOURCES[namespace]["pod_uid"] or
-                manifest["source"]["image"] != SOURCES[namespace]["image"]):
+                manifest["cluster_uid"] != common.CLUSTER_UID):
             raise RuntimeError("exact protected restore manifest differs")
+        require_restore_source(manifest, namespace)
         if manifest["encryption_key"] and protected.file_digest(point / "app-secrets-master-key.b64") != {k: manifest["encryption_key"][k] for k in ("bytes", "sha256")}:
             raise RuntimeError("protected recovery key changed")
         result = restore(point, manifest, hashlib.sha256(raw).hexdigest(), run_id)
