@@ -13,6 +13,20 @@ import kanidm_recovery as recovery
 
 
 class KanidmRecoveryContract(unittest.TestCase):
+    def test_difference_diagnostic_contains_only_schema_names_and_counts(self):
+        original = {'entries': [{'ent': {'V3': {'attrs': {'uuid': ['synthetic-id'],
+                                'secret': ['synthetic-secret']}, 'changestate': [1]}}}]}
+        restored = copy.deepcopy(original)
+        restored['entries'][0]['ent']['V3']['attrs']['secret'] = ['other-private-value']
+        restored['entries'][0]['ent']['V3']['changestate'] = [2]
+        result = recovery.backup_differences(original, restored)
+        self.assertEqual(result, {'removed_entries': 0, 'added_entries': 0,
+                                 'changed_entry_states': 1, 'changed_attribute_counts': {'secret': 1}})
+        self.assertNotIn('synthetic', json.dumps(result))
+        original['entries'].append(copy.deepcopy(original['entries'][0]))
+        with self.assertRaisesRegex(RuntimeError, 'identity/schema'):
+            recovery.backup_differences(original, restored)
+
     def test_offline_configuration_has_inert_tls_paths_without_credentials(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 import uuid
+from collections import Counter
 
 import pointguide_files_recovery as retained
 
@@ -38,7 +39,7 @@ def fingerprint(value):
                                 for key, item in metadata.items()}}
 
 
-def backup_fingerprint(path):
+def backup_value(path):
     limit = retained.available_memory() // 4
     if path.stat().st_size >= limit:
         raise RuntimeError('native Kanidm backup exceeds actual available RAM')
@@ -48,7 +49,35 @@ def backup_fingerprint(path):
         data = source.read(limit + 1)
     if len(data) > limit:
         raise RuntimeError('expanded native Kanidm backup exceeds actual available RAM')
-    return fingerprint(json.loads(data))
+    return json.loads(data)
+
+
+def backup_fingerprint(path):
+    return fingerprint(backup_value(path))
+
+
+def backup_differences(original, restored):
+    def index(value):
+        result = {}
+        for entry in value['entries']:
+            item = entry['ent']['V3']
+            identity = common.canonical(item['attrs']['uuid'])
+            if identity in result or any(not re.fullmatch('[a-z][a-z0-9_]*', key) for key in item['attrs']):
+                raise RuntimeError('native Kanidm diagnostic entry identity/schema differs')
+            result[identity] = item
+        return result
+    before, after = index(original), index(restored)
+    changed = Counter()
+    states = 0
+    for identity in before.keys() & after.keys():
+        left, right = before[identity], after[identity]
+        states += left['changestate'] != right['changestate']
+        for key in left['attrs'].keys() | right['attrs'].keys():
+            if common.canonical(left['attrs'].get(key)) != common.canonical(right['attrs'].get(key)):
+                changed[key] += 1
+    return {'removed_entries': len(before.keys() - after.keys()),
+            'added_entries': len(after.keys() - before.keys()),
+            'changed_entry_states': states, 'changed_attribute_counts': dict(changed)}
 
 
 def arguments(scratch, run_id, operation):
@@ -169,6 +198,8 @@ def restore(run_id):
             after = backup_fingerprint(root / 'restored.json.gz')
             result.setdefault('comparisons', []).append({'original': before, 'restored': after})
             if after != before:
+                result['differences'] = backup_differences(backup_value(root / 'original.json.gz'),
+                                                          backup_value(root / 'restored.json.gz'))
                 raise RuntimeError('native Kanidm restored entries or complete metadata differ')
             if number and result['fingerprint'] != before:
                 raise RuntimeError('independent native Kanidm recoveries differ')
