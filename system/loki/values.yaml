@@ -2,7 +2,7 @@ alloy:
   image: docker.io/grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
   paused: false
 maintenanceRecovery:
-  bufferEnabled: true
+  bufferEnabled: false
   coldCaptureEnabled: false
   coldBackupEnabled: false
   enabled: true
@@ -20,7 +20,7 @@ maintenanceRecovery:
   cutoverRestoreEnabled: false
   sourcePodUID: c9a2f14b-9842-487e-bdef-eeb0c304172f
   transferEnabled: false
-  transferReceiptVerifyEnabled: true
+  transferReceiptVerifyEnabled: false
   transferApply: false
   transferFrozenQueryCopy: true
   transferPhase: continuation
