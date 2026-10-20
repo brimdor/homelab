@@ -153,7 +153,6 @@ app-template:
       forceRename: pointview-triage
       type: cronjob
       cronjob:
-        suspend: true
         schedule: "0 3 * * *"
         timeZone: America/Chicago
         concurrencyPolicy: Forbid
@@ -178,7 +177,6 @@ app-template:
       forceRename: pointview-retention
       type: cronjob
       cronjob:
-        suspend: true
         schedule: "30 4 * * *"
         timeZone: America/Chicago
         concurrencyPolicy: Forbid
