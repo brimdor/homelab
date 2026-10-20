@@ -298,9 +298,11 @@ class RecoveryGuards(unittest.TestCase):
                 state["value"] = "T"
             watchdog.wait.side_effect = lambda **_: state.update(value="S")
             with patch.object(recovery.signal, "pidfd_send_signal", side_effect=send):
-                with self.assertRaisesRegex(RuntimeError, "independent watchdog retained"):
+                with self.assertRaisesRegex(RuntimeError, "independent watchdog retained") as raised:
                     with recovery.frozen(identity, marker):
                         pass
+            self.assertIsInstance(raised.exception.__cause__, OSError)
+            self.assertEqual(str(raised.exception.__cause__), "synthetic direct resume failure")
             watchdog.terminate.assert_not_called()
             watchdog.kill.assert_not_called()
             watchdog.wait.assert_called_once_with(timeout=14)

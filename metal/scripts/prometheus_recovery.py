@@ -102,7 +102,7 @@ def frozen(identity, marker):
         result["stopped_seconds"] = time.monotonic() - started
     finally:
         try:
-            resume_failed = False
+            resume_failed = None
             if stopped:
                 try:
                     signal.pidfd_send_signal(handle, signal.SIGCONT)
@@ -111,13 +111,13 @@ def frozen(identity, marker):
                         if time.monotonic() >= resumed_deadline:
                             raise RuntimeError("direct process resumption was not observed")
                         time.sleep(0.01)
-                except BaseException:
-                    resume_failed = True
+                except BaseException as error:
+                    resume_failed = error
             if watchdog is not None:
                 if resume_failed:
                     # Keep the independent rescue alive when direct SIGCONT is uncertain.
                     watchdog.wait(timeout=14)
-                    raise RuntimeError("direct resumption failed; independent watchdog retained until exit")
+                    raise RuntimeError("direct resumption failed; independent watchdog retained until exit") from resume_failed
                 else:
                     if watchdog.poll() is None:
                         watchdog.terminate()
