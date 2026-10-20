@@ -1,0 +1,15 @@
+{{- if .Values.maintenanceRecovery.alertmanagerClaimEnabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alertmanager-monitoring-system-kube-pro-alertmanager-db-alertmanager-monitoring-system-kube-pro-alertmanager-0
+  annotations:
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 2Gi
+{{- end }}
