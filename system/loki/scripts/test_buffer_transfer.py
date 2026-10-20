@@ -16,6 +16,22 @@ import test_cold_recovery as cold_fixture
 
 
 class BufferTransferTests(unittest.TestCase):
+    def test_checkpoint_count_requires_two_exact_reads_and_refuses_persistent_or_denied_reads(self):
+        with patch.object(TRANSFER, "source_query_count", side_effect=[3, 5, 5]) as query, \
+                patch.object(TRANSFER.time, "sleep"):
+            self.assertEqual(TRANSFER.settled_source_count(1, 9, 5), 5)
+            self.assertEqual(query.call_count, 3)
+        with patch.object(TRANSFER, "source_query_count", return_value=3) as query, \
+                patch.object(TRANSFER.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "did not converge"):
+                TRANSFER.settled_source_count(1, 9, 5)
+            self.assertEqual(query.call_count, 5)
+        denied = urllib.error.HTTPError("https://synthetic.invalid", 403, "denied", {}, None)
+        with patch.object(TRANSFER, "source_query_count", side_effect=denied) as query:
+            with self.assertRaises(urllib.error.HTTPError):
+                TRANSFER.settled_source_count(1, 9, 5)
+            query.assert_called_once()
+
     def test_read_disconnect_subdivides_without_masking_persistent_or_security_failures(self):
         rows = self.rows()[:3]
 
@@ -94,10 +110,10 @@ class BufferTransferTests(unittest.TestCase):
             with patch.object(TRANSFER, "CONTINUATION_RECEIPT_SHA256", hashlib.sha256(data).hexdigest()), \
                     patch.object(TRANSFER, "tail_prefix", return_value=prefix), \
                     patch.object(TRANSFER, "tail_audit", return_value=audit), \
-                    patch.object(TRANSFER, "source_query_count", return_value=5):
+                    patch.object(TRANSFER, "settled_source_count", return_value=5):
                 return TRANSFER.continuation_prefix(root, account, "synthetic")
         self.assertEqual(check(covered), {"start": 1, "end": 9, "source_accepted_records": 5})
-        second = {**covered, "phase": "buffered-continuation", "attempt": 20,
+        second = {**covered, "phase": "buffered-continuation", "attempt": 22,
                   "prefix_receipt_sha256": "c" * 64}
         data = json.dumps(second).encode()
         root.__truediv__.return_value.read_bytes.return_value = data
@@ -106,11 +122,11 @@ class BufferTransferTests(unittest.TestCase):
                 patch.object(TRANSFER, "SECOND_CONTINUATION_RECEIPT_SHA256", hashlib.sha256(data).hexdigest()), \
                 patch.object(TRANSFER, "continuation_prefix", return_value=prefix) as previous, \
                 patch.object(TRANSFER, "tail_audit", return_value=audit) as read, \
-                patch.object(TRANSFER, "source_query_count", return_value=5):
-            self.assertEqual(original(root, new, "synthetic", 20),
+                patch.object(TRANSFER, "settled_source_count", return_value=5):
+            self.assertEqual(original(root, new, "synthetic", 22),
                              {"start": 1, "end": 9, "source_accepted_records": 5})
             previous.assert_called_once_with(root, old, "synthetic")
-            read.assert_called_once_with(root, 20, "synthetic", old, prefix, "continuation", "c" * 64)
+            read.assert_called_once_with(root, 22, "synthetic", old, prefix, "continuation", "c" * 64)
         with self.assertRaisesRegex(RuntimeError, "unqualified continuation checkpoint"):
             original(root, new, "synthetic", 19)
         for key, value in (("applied", False), ("all_source_records_visible", False), ("target_uid", "different"),

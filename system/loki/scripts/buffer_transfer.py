@@ -30,6 +30,7 @@ SOURCE_AUDIT_SHA256 = "9ce2339207236861dd9bf0d93e599b089145922d9ac7057c673224ff4
 PREFIX_RECEIPT_SHA256 = "4966e695293c568d655b310783bda0b082a5dee155cc50cca59eade8542db350"
 CONTINUATION_RECEIPT_SHA256 = "452f4071f76d1b9e59b030fdb38b121c7ba5099ab342e95ae34a59af06170558"
 SECOND_CONTINUATION_RECEIPT_SHA256 = ""
+SECOND_CONTINUATION_ATTEMPT = 22
 
 
 def get_json(url):
@@ -159,6 +160,19 @@ def query_count(base, start, end, allow_empty=False, selector=SELECTOR):
 
 def source_query_count(start, end):
     return query_count(SOURCE, start, end)
+
+
+def settled_source_count(start, end, expected):
+    observations = []
+    for attempt in range(5):
+        count = source_query_count(start, end)
+        observations.append(count)
+        if len(observations) >= 2 and observations[-2:] == [expected, expected]:
+            return count
+        if attempt < 4:
+            time.sleep(5)
+    raise RuntimeError("preserved source count did not converge to its exact checkpoint: " +
+                       json.dumps({"observations": observations, "expected": expected}))
 
 
 def stream_presence(selector, start, end):
@@ -469,9 +483,9 @@ def tail_audit(root, attempt, target_uid, accounting, prefix, phase="tail", pref
 
 
 def continuation_prefix(root, accounting, target_uid, covered_attempt=15):
-    if covered_attempt not in (15, 20):
+    if covered_attempt not in (15, SECOND_CONTINUATION_ATTEMPT):
         raise RuntimeError("unqualified continuation checkpoint")
-    second = covered_attempt == 20
+    second = covered_attempt == SECOND_CONTINUATION_ATTEMPT
     phase = "buffered-continuation" if second else "buffered-tail"
     receipt_hash = SECOND_CONTINUATION_RECEIPT_SHA256 if second else CONTINUATION_RECEIPT_SHA256
     previous_hash = CONTINUATION_RECEIPT_SHA256 if second else PREFIX_RECEIPT_SHA256
@@ -485,7 +499,7 @@ def continuation_prefix(root, accounting, target_uid, covered_attempt=15):
                        "continuation" if second else "tail", previous_hash)
     before = covered["target_counters_before"]; after = covered["target_counters_after"]
     fields = ("start", "end", "source_distinct_records", "source_sha256")
-    count = source_query_count(prefix["start"], audit["end"])
+    count = settled_source_count(prefix["start"], audit["end"], old_accounting["accepted_records"])
     checks = {
         "phase": covered["phase"] == phase,
         "attempt": covered["attempt"] == covered_attempt,
@@ -523,7 +537,7 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
     accounting = source_accounting()
     if accounting["received_attempts"] != received:
         raise RuntimeError("tail source accounting changed after flush")
-    checkpoint = 20 if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
+    checkpoint = SECOND_CONTINUATION_ATTEMPT if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
     prefix_hash = ((SECOND_CONTINUATION_RECEIPT_SHA256 if checkpoint == 18 else CONTINUATION_RECEIPT_SHA256)
                    if phase == "continuation" else PREFIX_RECEIPT_SHA256)
     prefix = (continuation_prefix(root, accounting, target_uid, checkpoint)
@@ -602,7 +616,7 @@ def run_buffered_tail(root, target_uid, attempt, apply, phase="buffered-tail"):
     if not apply:
         raise RuntimeError("buffered tail requires the preceding complete read-only tail audit")
     continuation = phase == "buffered-continuation"
-    if continuation and attempt != 20:
+    if continuation and attempt != SECOND_CONTINUATION_ATTEMPT:
         raise RuntimeError("buffered continuation is restricted to the qualified checkpoint sequence")
     audit_phase = "continuation" if continuation else "tail"
     frozen = json.loads((root / (audit_phase + "-" + str(attempt - 1) + ".json")).read_bytes())
