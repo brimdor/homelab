@@ -67,8 +67,11 @@ def reconciliation_progress(raw):
             raise RuntimeError("native CSI reconciliation event identity changed; raw output discarded")
         if failed:
             error = fields.get("error")
-            if not isinstance(error, str) or not re.fullmatch(r'Operation cannot be fulfilled on (configmaps|csidrivers\.storage\.k8s\.io|deployments\.apps|daemonsets\.apps) "[^"\n]+": the object has been modified; please apply your changes to the latest version and try again', error):
-                raise RuntimeError("native CSI non-conflict reconciliation error; " + manager_failure(line))
+            errors = error.splitlines() if isinstance(error, str) else []
+            matched = [bool(re.fullmatch(r'Operation cannot be fulfilled on (configmaps|csidrivers\.storage\.k8s\.io|deployments\.apps|daemonsets\.apps) "[^"\n]+": the object has been modified; please apply your changes to the latest version and try again', item)) for item in errors]
+            if not matched or not all(matched):
+                raise RuntimeError("native CSI non-conflict reconciliation error; " + manager_failure(line) +
+                                   "; " + json.dumps({"error_lines": len(errors), "matched_conflict_lines": sum(matched)}))
             conflicts += 1
             successful.discard(name)
         else:

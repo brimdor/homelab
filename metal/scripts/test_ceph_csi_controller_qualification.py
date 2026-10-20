@@ -22,11 +22,16 @@ class ControllerGuards(unittest.TestCase):
         self.assertEqual(subject.reconciliation_progress(failure + success),
                          {"successful_drivers": [name], "optimistic_conflict_events": 1})
         self.assertEqual(subject.reconciliation_progress(success + failure)["successful_drivers"], [])
+        joined = {**fields, "error": fields["error"] + "\n" + fields["error"]}
+        self.assertEqual(subject.reconciliation_progress(b'ERROR Reconciler error ' + json.dumps(joined).encode() + b'\n' + success),
+                         {"successful_drivers": [name], "optimistic_conflict_events": 1})
         for change in ({"error": "private-sentinel-value"}, {"namespace": "foreign"}, {"name": "foreign"}):
             bad = {**fields, **change}
             with self.assertRaises(RuntimeError) as caught:
                 subject.reconciliation_progress(b'ERROR Reconciler error ' + json.dumps(bad).encode())
             self.assertNotIn("private-sentinel-value", str(caught.exception))
+        with self.assertRaises(RuntimeError):
+            subject.reconciliation_progress(b'ERROR Reconciler error ' + json.dumps({**fields, "error": fields["error"] + "\nprivate-sentinel-value"}).encode())
         with self.assertRaises(RuntimeError):
             subject.reconciliation_progress(b'ERROR Reconciler error malformed')
 
