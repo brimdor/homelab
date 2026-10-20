@@ -30,6 +30,33 @@ kube-prometheus-stack:
       enabled: false
       patch:
         enabled: false
+    image:
+      registry: quay.io
+      repository: prometheus-operator/prometheus-operator
+      tag: v0.91.0
+      sha: ''
+      pullPolicy: IfNotPresent
+    prometheusConfigReloader:
+      image:
+        registry: quay.io
+        repository: prometheus-operator/prometheus-config-reloader
+        tag: v0.91.0
+        sha: ''
+  kube-state-metrics:
+    image:
+      registry: registry.k8s.io
+      repository: kube-state-metrics/kube-state-metrics
+      tag: v2.19.0
+      sha: ''
+      pullPolicy: IfNotPresent
+  prometheus-node-exporter:
+    image:
+      registry: quay.io
+      repository: prometheus/node-exporter
+      tag: v1.11.1-distroless
+      distroless: false
+      pullPolicy: IfNotPresent
+      digest: ''
   grafana:
     enabled: false
     forceDeployDatasources: true
@@ -63,6 +90,12 @@ kube-prometheus-stack:
       probeSelectorNilUsesHelmValues: false
   alertmanager:
     alertmanagerSpec:
+      image:
+        registry: quay.io
+        repository: prometheus/alertmanager
+        tag: v0.32.1
+        sha: ''
+        pullPolicy: IfNotPresent
       replicas: 1
       persistentVolumeClaimRetentionPolicy:
         whenDeleted: Retain
