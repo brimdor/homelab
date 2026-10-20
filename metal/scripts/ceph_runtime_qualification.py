@@ -145,6 +145,50 @@ class Runtime:
         return self.command(['rados', *self.conf, '-n', 'client.' + name,
                              '-k', str(self.root / (name + '.keyring')), '-p', 'qualification', *args]).stdout
 
+    def rotate_keyring(self, entity, original, destination):
+        old = self.command(['ceph-authtool', str(original), '-n', entity, '-p']).stdout.strip()
+        raw = self.ceph('auth', 'rotate', entity, '--key-type=aes256k')
+        descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, 'wb') as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(raw)
+        new = self.command(['ceph-authtool', str(destination), '-n', entity, '-p']).stdout.strip()
+        if not old or not new or old == new:
+            raise RuntimeError('synthetic ' + entity + ' key did not rotate')
+
+    def rotate_core(self):
+        self.stage = 'AES256K monitor rotation'
+        self.rotate_keyring('mon.', self.root / 'mon.keyring', self.root / 'rotated-mon.keyring')
+        self.stop('mon')
+        self.start('mon', 'a')
+        self.steady()
+        for kind, identity in (('mgr', 'a'), ('osd', '0')):
+            self.stage = 'AES256K ' + kind + ' rotation'
+            self.stop(kind)
+            if kind == 'osd':
+                self.ceph('osd', 'down', identity)
+            keyring = self.root / kind / 'keyring'
+            self.rotate_keyring(kind + '.' + identity, keyring, keyring)
+            self.start(kind, identity)
+            self.steady()
+        self.stage = 'AES256K administrator rotation'
+        emergency = self.ceph('auth', 'get-or-create', 'client.emergency', 'mon', 'allow *',
+                              '--key-type=aes256k')
+        path = self.root / 'emergency.keyring'
+        path.write_bytes(emergency)
+        path.chmod(0o600)
+        self.command(['ceph', *self.conf, '-n', 'client.emergency', '-k', str(path), 'status'])
+        retired = self.root / 'retired-admin.keyring'
+        retired.write_bytes((self.root / 'admin.keyring').read_bytes())
+        retired.chmod(0o600)
+        self.rotate_keyring('client.admin', self.root / 'admin.keyring', self.root / 'admin.keyring')
+        self.status()
+        denied = self.command(['ceph', *self.conf, '-n', 'client.admin', '-k', str(retired),
+                               'status'], check=False)
+        if denied.returncode == 0 or not any(message in denied.stderr.lower() for message in
+                                            (b'permission denied', b'operation not permitted')):
+            raise RuntimeError('retired synthetic admin key lacks explicit authentication refusal')
+
     def run(self):
         if not self.command(['ceph', '--version']).stdout.startswith(b'ceph version 20.2.4 '):
             raise RuntimeError('candidate native version differs')
@@ -263,6 +307,11 @@ osd op num threads per shard = 1
         self.stage = 'AES256K ordinary client'
         self.key('modern', 'aes256k')
         read('modern')
+        self.rotate_core()
+        if block_identity(self.root) != before or (self.root / 'osd/fsid').read_text().strip() != osd_uuid:
+            raise RuntimeError('core rotation changed synthetic data identity')
+        read('ordinary')
+        read('modern')
         final_health = self.steady()
         return {'accepted': True, 'version': '20.2.4', 'synthetic_fsid': fsid,
                 'synthetic_osd_uuid': osd_uuid, 'block_identity_preserved': True,
@@ -270,6 +319,9 @@ osd op num threads per shard = 1
                 'aes256k_client_io': True, 'aes256k_client_rotation_io': True,
                 'legacy_aes_client_compatibility_unqualified': True,
                 'retired_client_key_fresh_authentication_refused': True,
+                'native_aes256k_core_and_admin_rotation_io': True,
+                'retired_admin_key_fresh_authentication_refused': True,
+                'legacy_service_ticket_transition_unqualified': True,
                 'initial_health': health, 'final_health': final_health,
                 'production_data_or_credentials': False, 'rook_csi_core_rotation_unqualified': True}
 

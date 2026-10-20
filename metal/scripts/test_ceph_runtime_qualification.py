@@ -5,6 +5,7 @@ import copy
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 import ceph_runtime_qualification as subject
 
@@ -65,6 +66,28 @@ class RuntimeGuardTests(unittest.TestCase):
             subject.Runtime(Path('/not-the-fixture'), 'fixture-103')
         secret = b'key = AQAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNN===='
         self.assertNotIn('AQAABBBB', subject.sanitized(secret))
+
+    def test_rotation_requires_changed_key_and_private_regular_destination(self):
+        runtime = object.__new__(subject.Runtime)
+        runtime.ceph = Mock(return_value=b'[client.fixture]\nkey = synthetic\n')
+        with tempfile.TemporaryDirectory() as directory:
+            original = Path(directory) / 'original'
+            original.write_bytes(b'original')
+            destination = Path(directory) / 'rotated'
+            runtime.command = Mock(side_effect=[Mock(stdout=b'old\n'), Mock(stdout=b'new\n')])
+            runtime.rotate_keyring('client.fixture', original, destination)
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(destination.read_bytes(), runtime.ceph.return_value)
+            runtime.ceph.assert_called_once_with('auth', 'rotate', 'client.fixture', '--key-type=aes256k')
+            runtime.command = Mock(side_effect=[Mock(stdout=b'same'), Mock(stdout=b'same')])
+            with self.assertRaises(RuntimeError):
+                runtime.rotate_keyring('client.fixture', original, destination)
+            destination.unlink()
+            destination.symlink_to(original)
+            runtime.command = Mock(return_value=Mock(stdout=b'old'))
+            with self.assertRaises(OSError):
+                runtime.rotate_keyring('client.fixture', original, destination)
+            self.assertEqual(original.read_bytes(), b'original')
 
 
 if __name__ == '__main__':
