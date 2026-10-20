@@ -69,7 +69,7 @@ class Qualification(fedora.Qualification):
 
     def guest(self, body, expected=0):
         bundle = {name: Path(__file__).with_name(name + '.py').read_text() for name in MODULES}
-        header = 'bundle=' + repr(bundle) + '\nrevision=' + repr(self.args.revision) + '\n' + '''import types,sys,json,pathlib,subprocess,hashlib,time,os,shutil
+        header = 'bundle=' + repr(bundle) + '\nrevision=' + repr(self.args.revision) + '\n' + '''import types,sys,json,pathlib,subprocess,hashlib,time,os,shutil,re
 assert subprocess.check_output(['hostname']).strip()==b'qualification-fedora44'
 assert 'VERSION_ID=44' in pathlib.Path('/etc/os-release').read_text()
 for name,source in bundle.items():
@@ -79,7 +79,17 @@ global_owner=sys.modules['maintenance_coordination'];actors=sys.modules['mainten
 def identity():
  return {'machine':pathlib.Path('/etc/machine-id').read_text().strip(),
          'root_uuid':subprocess.check_output(['findmnt','-n','-o','UUID','/']).decode().strip()}
-def native(*args):return subprocess.check_output(args,stderr=subprocess.PIPE)
+def native(*args):
+ result=subprocess.run(args,capture_output=True)
+ if result.returncode:
+  diagnostic={'command':list(args),'exit':result.returncode,'stderr':result.stderr.decode(errors='replace')[-2000:]}
+  if 'qualification-k3s.service'in args:
+   fields=subprocess.run(['systemctl','show','qualification-k3s.service','--property=LoadState,ActiveState,SubState,Result,ExecMainCode,ExecMainStatus'],capture_output=True)
+   diagnostic['service_state']=fields.stdout.decode(errors='replace')[-2000:]
+   logs=subprocess.run(['journalctl','-u','qualification-k3s.service','--no-pager','--output=cat','-n','80'],capture_output=True)
+   diagnostic['safe_error_lines']=[line[:500]for line in logs.stdout.decode(errors='replace').splitlines()if re.search(r'error|fail|denied|unknown|invalid|fatal',line,re.I)and not re.search(r'token|password|secret|credential|authorization|private.key',line,re.I)][-20:]
+  raise RuntimeError('synthetic native failure '+json.dumps(diagnostic))
+ return result.stdout
 def hashed(value):return hashlib.sha256(hops.canonical(value)).hexdigest()
 api=global_owner.Kubectl('/usr/local/bin/qualification-kubectl')
 def context():return json.loads((actors.STATE/'combined-context.json').read_bytes())
