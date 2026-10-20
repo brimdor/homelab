@@ -29,7 +29,7 @@ FROZEN_SOURCE_SHA256 = "41d4f77e26147287092c6936e7ffd7d247657aebdc4f08a1ef886b53
 SOURCE_AUDIT_SHA256 = "9ce2339207236861dd9bf0d93e599b089145922d9ac7057c673224ff47c6ab97"
 PREFIX_RECEIPT_SHA256 = "4966e695293c568d655b310783bda0b082a5dee155cc50cca59eade8542db350"
 CONTINUATION_RECEIPT_SHA256 = "452f4071f76d1b9e59b030fdb38b121c7ba5099ab342e95ae34a59af06170558"
-SECOND_CONTINUATION_RECEIPT_SHA256 = ""
+SECOND_CONTINUATION_RECEIPT_SHA256 = "7c77235ed40ff13b80a631f6668d892b3f26c10b49c9f013b9b50124ff7514b5"
 SECOND_CONTINUATION_ATTEMPT = 24
 
 
@@ -539,7 +539,7 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
     if accounting["received_attempts"] != received:
         raise RuntimeError("tail source accounting changed after flush")
     checkpoint = SECOND_CONTINUATION_ATTEMPT if SECOND_CONTINUATION_RECEIPT_SHA256 else 15
-    prefix_hash = ((SECOND_CONTINUATION_RECEIPT_SHA256 if checkpoint == 18 else CONTINUATION_RECEIPT_SHA256)
+    prefix_hash = ((SECOND_CONTINUATION_RECEIPT_SHA256 if checkpoint == SECOND_CONTINUATION_ATTEMPT else CONTINUATION_RECEIPT_SHA256)
                    if phase == "continuation" else PREFIX_RECEIPT_SHA256)
     prefix = (continuation_prefix(root, accounting, target_uid, checkpoint)
               if phase == "continuation" else tail_prefix(root, accounting))

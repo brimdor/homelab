@@ -62,6 +62,25 @@ class BufferTransferTests(unittest.TestCase):
                 list(TRANSFER.windows(TRANSFER.SOURCE, 0, 3))
             query.assert_called_once()
 
+    def test_continuation_uses_the_accepted_second_checkpoint_hash(self):
+        account = {"received_attempts": 8, "rate_limited_attempts": 1, "accepted_records": 7}
+        prefix = {"start": 1, "end": 9, "source_accepted_records": 5}
+        result = {"source_distinct_records": 2, "all_source_records_visible": False, "end": 12}
+        with patch.object(TRANSFER, "SECOND_CONTINUATION_RECEIPT_SHA256", "b" * 64), \
+                patch.object(TRANSFER.cold_recovery, "flush_old", return_value=8), \
+                patch.object(TRANSFER, "source_accounting", return_value=account), \
+                patch.object(TRANSFER, "continuation_prefix", return_value=prefix) as checkpoint, \
+                patch.object(TRANSFER, "query", return_value=[({"job": "synthetic"}, 12, "original")]), \
+                patch.object(TRANSFER, "source_query_count", side_effect=[7, 5, 7]), \
+                patch.object(TRANSFER, "transfer", return_value=result), \
+                patch.object(TRANSFER, "require_stage"), \
+                patch.object(TRANSFER.cold_recovery, "metrics", return_value=(0, 8)), \
+                patch.object(TRANSFER.cold_recovery, "write_verified") as write:
+            root = MagicMock()
+            TRANSFER.run_tail(root, "synthetic", 25, False, "continuation")
+            checkpoint.assert_called_once_with(root, account, "synthetic", TRANSFER.SECOND_CONTINUATION_ATTEMPT)
+            self.assertEqual(write.call_args.args[1]["prefix_receipt_sha256"], "b" * 64)
+
     def test_continuation_audit_ends_at_latest_actual_original(self):
         account = {"received_attempts": 8, "rate_limited_attempts": 1, "accepted_records": 7}
         prefix = {"start": 1, "end": 9, "source_accepted_records": 5}

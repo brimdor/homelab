@@ -94,7 +94,7 @@ loki.source.file "kubernetes_pods" {
 
 loki.write "default" {
 	endpoint {
-		url = "http://loki-cutover-buffer:3100/loki/api/v1/push"
+		url = "http://loki:3100/loki/api/v1/push"
 	}
 	external_labels = {}
 }
