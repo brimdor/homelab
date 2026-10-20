@@ -26,6 +26,7 @@ CLAIM_UID = "656cee92-dc36-4fc8-8742-b691c670cf77"
 IMAGE_DIGEST = "sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193"
 FROZEN_SOURCE_SHA256 = "41d4f77e26147287092c6936e7ffd7d247657aebdc4f08a1ef886b53fece95fa"
 SOURCE_AUDIT_SHA256 = "9ce2339207236861dd9bf0d93e599b089145922d9ac7057c673224ff47c6ab97"
+PREFIX_RECEIPT_SHA256 = "4966e695293c568d655b310783bda0b082a5dee155cc50cca59eade8542db350"
 
 
 def get_json(url):
@@ -395,6 +396,82 @@ def require_stage(target_uid, phase):
     return source_claim
 
 
+def tail_prefix(root, accounting):
+    data = (root / "final-10.json").read_bytes()
+    if hashlib.sha256(data).hexdigest() != PREFIX_RECEIPT_SHA256:
+        raise RuntimeError("accepted prefix receipt changed")
+    prefix = json.loads(data)
+    original = preserved_source_audit(root)
+    frozen_source_audit(original, {
+        "received_attempts": prefix["source_received_counter"],
+        "rate_limited_attempts": prefix["source_rate_limited_attempts"],
+        "accepted_records": prefix["source_accepted_records"],
+    })
+    if not (prefix["applied"] and prefix["all_source_records_visible"] and
+            prefix["enumeration_complete"] and prefix["complete_source_quiescence"] and
+            prefix["source_uid"] == cold_recovery.BUFFER_POD_UID and
+            prefix["frozen_source_sha256"] == FROZEN_SOURCE_SHA256 and
+            source_query_count(prefix["start"], prefix["end"]) == prefix["source_accepted_records"] and
+            accounting["accepted_records"] > prefix["source_accepted_records"] and
+            accounting["received_attempts"] >= prefix["source_received_counter"] and
+            accounting["rate_limited_attempts"] >= prefix["source_rate_limited_attempts"]):
+        raise RuntimeError("accepted prefix identity or independent count changed")
+    return prefix
+
+
+def tail_audit(root, attempt, target_uid, accounting, prefix):
+    audit = json.loads((root / ("tail-" + str(attempt - 1) + ".json")).read_bytes())
+    if not (audit["phase"] == "tail" and not audit["applied"] and
+            audit["tail_enumeration_complete"] and audit["target_uid"] == target_uid and
+            audit["source_uid"] == cold_recovery.BUFFER_POD_UID and
+            audit["source_accounting"] == accounting and
+            audit["prefix_receipt_sha256"] == PREFIX_RECEIPT_SHA256 and
+            audit["start"] == prefix["end"] + 1 and audit["end"] >= audit["start"] and
+            sum(w["source_distinct_records"] for w in audit["windows"]) ==
+            audit["tail_distinct_records"] == accounting["accepted_records"] - prefix["source_accepted_records"]):
+        raise RuntimeError("fresh complete read-only tail audit is required")
+    left = audit["start"]
+    for window in audit["windows"]:
+        if not (left <= window["start"] <= window["end"] <= audit["end"] and
+                type(window["source_distinct_records"]) is int and window["source_distinct_records"] > 0 and
+                re.fullmatch(r"[a-f0-9]{64}", window["source_sha256"])):
+            raise RuntimeError("tail audit windows overlap or are invalid")
+        left = window["end"] + 1
+    return audit
+
+
+def run_tail(root, target_uid, attempt, apply):
+    received = cold_recovery.flush_old(SOURCE)
+    accounting = source_accounting()
+    if accounting["received_attempts"] != received:
+        raise RuntimeError("tail source accounting changed after flush")
+    prefix = tail_prefix(root, accounting)
+    audit = tail_audit(root, attempt, target_uid, accounting, prefix) if apply else None
+    start = prefix["end"] + 1
+    end = audit["end"] if audit else time.time_ns() + 600 * 10**9
+    count = source_query_count(prefix["start"], end)
+    if count != accounting["accepted_records"]:
+        raise RuntimeError("tail full-source count differs from accepted counters")
+    result = transfer(start, end, apply, audit)
+    if result["source_distinct_records"] != count - prefix["source_accepted_records"]:
+        raise RuntimeError("tail enumeration does not account for every new accepted original")
+    require_stage(target_uid, "tail")
+    if (cold_recovery.metrics(SOURCE) != (0, received) or source_accounting() != accounting or
+            source_query_count(prefix["start"], prefix["end"]) != prefix["source_accepted_records"] or
+            source_query_count(prefix["start"], end) != count):
+        raise RuntimeError("quiescent tail or accepted prefix changed during transfer")
+    result["tail_distinct_records"] = result.pop("source_distinct_records")
+    result["all_tail_records_visible"] = result.pop("all_source_records_visible")
+    result.update(phase="tail", attempt=attempt, target_uid=target_uid,
+                  source_uid=cold_recovery.BUFFER_POD_UID, source_accounting=accounting,
+                  prefix_receipt_sha256=PREFIX_RECEIPT_SHA256,
+                  prefix_distinct_records=prefix["source_accepted_records"],
+                  tail_enumeration_complete=True, source_query_count=count,
+                  complete_source_quiescence=True)
+    cold_recovery.write_verified(root / ("tail-" + str(attempt) + ".json"), result)
+    print(json.dumps(result), flush=True)
+
+
 def run(target_uid, phase, attempt, apply):
     root = Path("/recovery/cutover-transfer")
     root.mkdir(mode=0o700, exist_ok=True)
@@ -407,6 +484,9 @@ def run(target_uid, phase, attempt, apply):
     for base in (SOURCE, TARGET):
         if get_json(base + "/loki/api/v1/status/buildinfo")["version"] != "3.7.8":
             raise RuntimeError("unexpected transfer server version")
+    if phase == "tail":
+        run_tail(root, target_uid, attempt, apply)
+        return
     received = cold_recovery.flush_old(SOURCE) if phase == "final" else None
     accounting = source_accounting() if phase == "final" else None
     if accounting and accounting["received_attempts"] != received:
@@ -447,7 +527,7 @@ def run(target_uid, phase, attempt, apply):
 if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=["bulk", "final"], required=True)
+    parser.add_argument("--phase", choices=["bulk", "final", "tail"], required=True)
     parser.add_argument("--attempt", type=int, required=True)
     parser.add_argument("--target-uid", required=True)
     parser.add_argument("--apply", action="store_true")

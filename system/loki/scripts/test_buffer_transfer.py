@@ -18,6 +18,66 @@ class BufferTransferTests(unittest.TestCase):
     def rows(self):
         return [({"job": "synthetic", "stream": "stdout"}, n, "original-" + str(n)) for n in range(1, 7)]
 
+    def test_tail_prefix_requires_exact_receipt_and_unchanged_independent_prefix_count(self):
+        prefix = {"applied": True, "all_source_records_visible": True, "enumeration_complete": True,
+                  "complete_source_quiescence": True, "source_uid": TRANSFER.cold_recovery.BUFFER_POD_UID,
+                  "frozen_source_sha256": TRANSFER.FROZEN_SOURCE_SHA256,
+                  "source_received_counter": 4, "source_rate_limited_attempts": 1,
+                  "source_accepted_records": 3, "start": 1, "end": 4}
+        data = json.dumps(prefix).encode()
+        root = Mock()
+        root.__truediv__ = Mock(return_value=Mock(read_bytes=Mock(return_value=data)))
+        accounting = {"received_attempts": 6, "rate_limited_attempts": 1, "accepted_records": 5}
+        with patch.object(TRANSFER, "PREFIX_RECEIPT_SHA256", hashlib.sha256(data).hexdigest()), \
+                patch.object(TRANSFER, "preserved_source_audit"), patch.object(TRANSFER, "frozen_source_audit"), \
+                patch.object(TRANSFER, "source_query_count", return_value=3) as count:
+            self.assertEqual(TRANSFER.tail_prefix(root, accounting), prefix)
+            count.return_value = 4
+            with self.assertRaisesRegex(RuntimeError, "independent count"):
+                TRANSFER.tail_prefix(root, accounting)
+            root.__truediv__.return_value.read_bytes.return_value = data + b" "
+            with self.assertRaisesRegex(RuntimeError, "receipt changed"):
+                TRANSFER.tail_prefix(root, accounting)
+
+    def test_tail_apply_requires_fresh_audit_identity_counters_and_nonoverlapping_windows(self):
+        accounting = {"received_attempts": 6, "rate_limited_attempts": 1, "accepted_records": 5}
+        prefix = {"end": 4, "source_accepted_records": 3}
+        audit = {"phase": "tail", "applied": False, "tail_enumeration_complete": True,
+                 "target_uid": "synthetic", "source_uid": TRANSFER.cold_recovery.BUFFER_POD_UID,
+                 "source_accounting": accounting, "prefix_receipt_sha256": TRANSFER.PREFIX_RECEIPT_SHA256,
+                 "start": 5, "end": 9, "tail_distinct_records": 2,
+                 "windows": [{"start": 5, "end": 9, "source_distinct_records": 2,
+                              "source_sha256": "a" * 64}]}
+        root = Mock()
+        root.__truediv__ = Mock(return_value=Mock())
+        def check(value):
+            root.__truediv__.return_value.read_bytes.return_value = json.dumps(value).encode()
+            return TRANSFER.tail_audit(root, 12, "synthetic", accounting, prefix)
+        self.assertEqual(check(audit), audit)
+        for key, value in (("applied", True), ("target_uid", "changed"), ("source_uid", "changed"),
+                           ("source_accounting", {}), ("tail_distinct_records", 1),
+                           ("tail_enumeration_complete", False), ("start", 4)):
+            changed = copy.deepcopy(audit); changed[key] = value
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                check(changed)
+        changed = copy.deepcopy(audit)
+        changed["windows"] *= 2; changed["windows"][0]["source_distinct_records"] = 1
+        with self.assertRaisesRegex(RuntimeError, "overlap"):
+            check(changed)
+
+    def test_tail_incomplete_enumeration_cannot_write_acceptance_receipt(self):
+        accounting = {"received_attempts": 6, "rate_limited_attempts": 1, "accepted_records": 5}
+        prefix = {"start": 1, "end": 4, "source_accepted_records": 3}
+        with patch.object(TRANSFER.cold_recovery, "flush_old", return_value=6), \
+                patch.object(TRANSFER, "source_accounting", return_value=accounting), \
+                patch.object(TRANSFER, "tail_prefix", return_value=prefix), \
+                patch.object(TRANSFER, "source_query_count", return_value=5), \
+                patch.object(TRANSFER, "transfer", return_value={"source_distinct_records": 1}), \
+                patch.object(TRANSFER.cold_recovery, "write_verified") as write:
+            with self.assertRaisesRegex(RuntimeError, "every new accepted original"):
+                TRANSFER.run_tail(Mock(), "synthetic", 11, False)
+            write.assert_not_called()
+
     def test_full_pages_split_without_losing_boundary_records(self):
         rows = self.rows()
 

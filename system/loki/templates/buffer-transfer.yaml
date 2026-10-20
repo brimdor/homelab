@@ -1,6 +1,6 @@
 {{- if .Values.maintenanceRecovery.transferEnabled }}
-{{- if not (has .Values.maintenanceRecovery.transferPhase (list "bulk" "final")) }}
-{{- fail "transferPhase must be bulk or final" }}
+{{- if not (has .Values.maintenanceRecovery.transferPhase (list "bulk" "final" "tail")) }}
+{{- fail "transferPhase must be bulk, final or tail" }}
 {{- end }}
 apiVersion: batch/v1
 kind: Job
