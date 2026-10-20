@@ -20,6 +20,7 @@ class KanidmRecoveryContract(unittest.TestCase):
                 recovery.config(root, 'restored.db')
             path = root / 'offline.toml'
             self.assertIn('db_path = "/data/restored.db"', path.read_text())
+            self.assertIn('db_arc_size = 2048', path.read_text())
             self.assertIn('tls_chain = "/data/offline-unused.crt"', path.read_text())
             self.assertIn('tls_key = "/data/offline-unused.key"', path.read_text())
             self.assertEqual(list(root.iterdir()), [path])

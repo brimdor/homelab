@@ -116,7 +116,9 @@ def operation(scratch, run_id, args, marker, image_id):
 def config(root, database):
     path = root / 'offline.toml'
     # The shared config builder requires paths; offline database commands never open TLS files.
+    # Explicit native minimum avoids auto-sizing against a fresh database before schema setup.
     path.write_text('db_path = "/data/' + database + '"\ndomain = "auth.eaglepass.io"\n'
+                    'db_arc_size = 2048\n'
                     'origin = "https://auth.eaglepass.io"\n'
                     'tls_chain = "/data/offline-unused.crt"\n'
                     'tls_key = "/data/offline-unused.key"\n')
