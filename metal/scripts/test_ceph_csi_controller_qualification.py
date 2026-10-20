@@ -37,7 +37,8 @@ class ControllerGuards(unittest.TestCase):
                                "CapAdd": [], "CapDrop": ["ALL"], "PidMode": "", "IpcMode": "private", "Devices": [],
                                "PortBindings": {}, "LogConfig": {"Type": "none", "Config": {}},
                                "SecurityOpt": ["no-new-privileges:true"]},
-                "Mounts": [{"Type": "bind", "Source": "/owned/identity", "Destination": "/identity", "RW": False}]}
+                "Mounts": [{"Type": "bind", "Source": "/owned/identity", "Destination": "/identity", "RW": False},
+                           {"Type": "bind", "Source": "/owned/identity/namespace", "Destination": subject.NAMESPACE_FILE, "RW": False}]}
 
     def test_unreviewed_bundle_refused_before_any_runtime(self):
         with patch.object(subject.common, "qualify") as native:
@@ -55,6 +56,9 @@ class ControllerGuards(unittest.TestCase):
                    lambda v: v["HostConfig"].update(SecurityOpt=[]),
                    lambda v: v["Mounts"][0].update(RW=True),
                    lambda v: v["Mounts"][0].update(Source="/real/credentials"),
+                   lambda v: v["Mounts"].pop(),
+                   lambda v: v["Mounts"][1].update(Source="/real/namespace"),
+                   lambda v: v["Mounts"][1].update(RW=True),
                    lambda v: v["Config"]["Env"].append("KUBECONFIG=/real/config"),
                    lambda v: v["Config"]["Labels"].update({"io.eaglepass.recovery-run": "other"})]
         for change in changes:

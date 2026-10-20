@@ -18,6 +18,7 @@ IMAGE = "quay.io/cephcsi/ceph-csi-operator@sha256:a14d8d1a610f381fc1c735eaed43bb
 BUNDLE_SHA256 = "6f48e7a309e80341b7ae5f4b21bc7d7ac3a2cb810616d0f2be250b19d290413d"
 NAMESPACE = "rook-ceph"
 LEASE = "0a62cc8a.ceph.io"
+NAMESPACE_FILE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 DRIVERS = {"rook-ceph.rbd.csi.ceph.com", "rook-ceph.cephfs.csi.ceph.com"}
 
 
@@ -39,7 +40,8 @@ def manager_failure(raw, state):
                           "conflict", "timeout", "connection refused", "invalid", "required", "failed to create",
                           "failed to update", "failed to get", "unable to load", "configmap", "config map",
                           "imageset", "image set", "operatorconfig", "clientprofile", "cephconnection",
-                          "snapshotmetadataservice", "volumesnapshot", "namespace", "panic", "unknown flag")
+                          "snapshotmetadataservice", "volumesnapshot", "namespace", "panic", "unknown flag",
+                          "unable to find leader election namespace", "not running in-cluster", "unable to start manager")
                if v.encode() in errors]
     return "native CSI manager failed: " + json.dumps({"running": state["Running"], "exit": state["ExitCode"],
                                                        "oom_killed": state["OOMKilled"], "markers": markers,
@@ -67,7 +69,8 @@ def require_manager(value, api_id, identity, run_id):
             host.get("PidMode") or host.get("IpcMode") != "private" or host.get("Devices") or
             host.get("PortBindings") or host.get("LogConfig") != {"Type": "none", "Config": {}} or
             "no-new-privileges:true" not in host.get("SecurityOpt", []) or
-            mounts != {("bind", str(identity), "/identity", False)}):
+            mounts != {("bind", str(identity), "/identity", False),
+                       ("bind", str(identity / "namespace"), NAMESPACE_FILE, False)}):
         raise RuntimeError("native CSI manager isolation changed")
     environment = dict(v.split("=", 1) for v in config.get("Env", []))
     if any(environment.get(k) != v for k, v in {"KUBECONFIG": "/identity/config", "OPERATOR_NAMESPACE": NAMESPACE,
@@ -179,6 +182,10 @@ def qualify(bundle, run_id):
         path.write_bytes(common.canonical(synthetic_config))
         path.chmod(0o600)
         os.chown(path, 65532, 65532)
+        namespace_path = identity / "namespace"
+        namespace_path.write_text(NAMESPACE)
+        namespace_path.chmod(0o600)
+        os.chown(namespace_path, 65532, 65532)
         before_images = set(common.docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
         manager = image_id = capture = None
         captures = []
@@ -201,6 +208,7 @@ def qualify(bundle, run_id):
                                     "--ipc=private", "--pids-limit=128", "--cpus=1", "--memory=256m",
                                     "--label=io.eaglepass.maintenance=103", "--label=io.eaglepass.recovery-run=" + identifier,
                                     "--mount=type=bind,source=" + str(identity) + ",target=/identity,readonly",
+                                    "--mount=type=bind,source=" + str(namespace_path) + ",target=" + NAMESPACE_FILE + ",readonly",
                                     "--env=KUBECONFIG=/identity/config", "--env=OPERATOR_NAMESPACE=" + NAMESPACE,
                                     "--env=WATCH_NAMESPACE=", "--env=CSI_SERVICE_ACCOUNT_PREFIX=",
                                     "--env=KUBERNETES_CLUSTER_DOMAIN=cluster.local", IMAGE, "--leader-elect",
