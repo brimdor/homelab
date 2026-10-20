@@ -275,6 +275,8 @@ class Qualification:
 
     def dns_preflight(self):
         self.identity()
+        self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
+                      "status", "--wait", "--wait-duration=10m", "--interactive=false"])
         # Deploy only the official fixture; zero selected cases provide no connectivity acceptance.
         with self.hubble_forward() as address:
             self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,

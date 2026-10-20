@@ -36,6 +36,8 @@ class QualificationGuards(unittest.TestCase):
                     patch.object(runner, 'hubble_forward', return_value=nullcontext('127.0.0.1:12345')), \
                     patch.object(runner, 'kubectl', side_effect=kube) as native:
                 runner.dns_preflight()
+                self.assertIn('status', command.call_args_list[0].args[0])
+                self.assertIn('--wait', command.call_args_list[0].args[0])
                 self.assertIn('--test=^$', command.call_args.args[0])
                 self.assertEqual(len([c for c in native.call_args_list if c.args[0] == 'exec']), 6)
                 for bad in (b'Address: 127.0.0.1\n', b'Address: 1.1.1.1\n', b''):
