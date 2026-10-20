@@ -1,6 +1,6 @@
 maintenanceRecovery:
   alertmanagerClaimEnabled: true
-  alertmanagerSeedEnabled: true
+  alertmanagerSeedEnabled: false
   alertmanagerManifestSHA256: "66ac574e91f9ffdf26ab793871c157ced26651e94db3044317603f8b484ff69e"
   alertmanagerClaimUID: "a3b7362e-f5fb-4db4-8979-5f568ec4be6b"
   alertmanagerPVName: "pvc-a3b7362e-f5fb-4db4-8979-5f568ec4be6b"
@@ -63,6 +63,7 @@ kube-prometheus-stack:
       probeSelectorNilUsesHelmValues: false
   alertmanager:
     alertmanagerSpec:
+      replicas: 0
       containers:
         - name: ntfy-relay
           image: ghcr.io/khuedoan/webhook-transformer:v0.0.3
