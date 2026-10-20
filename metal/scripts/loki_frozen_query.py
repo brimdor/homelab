@@ -32,7 +32,8 @@ LABEL = "io.eaglepass.loki-frozen-query-103"
 START = 1792425257955388935
 RANGES = {"prefix": (1792465477456599213, 7090404), "full": (1792470820200149129, 7368160)}
 MODES = [
-    ("standalone-store-only", ["-target=querier", "-querier.query-store-only=true"]),
+    ("standalone-store-only", ["-target=querier,compactor", "-querier.query-store-only=true",
+                               "-common.compactor-grpc-address=127.0.0.1:9095"]),
 ]
 
 
@@ -213,14 +214,17 @@ def diagnose():
                     code = "import sys,urllib.request;sys.stdout.buffer.write(urllib.request.urlopen('http://127.0.0.1:3100'+sys.argv[1],timeout=210).read())"
                     return command(ns + ["python3", "-B", "-c", code, path])
 
+                ready = False
                 for _ in range(90):
                     try:
                         if http("/ready").strip() == b"ready":
+                            ready = True
                             break
                     except RuntimeError:
-                        pass
+                        if not json.loads(docker("inspect", container))[0]["State"]["Running"]:
+                            break
                     time.sleep(1)
-                else:
+                if not ready:
                     state = json.loads(docker("inspect", container))[0]["State"]
                     # WAL replay and all queries are disabled in this startup-only phase.
                     startup = subprocess.run(["docker", "--host", "unix:///var/run/docker.sock", "logs", container], capture_output=True)
