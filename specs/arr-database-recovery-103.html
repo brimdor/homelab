@@ -1,0 +1,58 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Arr database recovery — Maintenance 103</title>
+<style>:root{color-scheme:dark;background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui}body{max-width:1000px;margin:auto;padding:32px}a{color:#9bd0ff}code{overflow-wrap:anywhere}th,td{border:1px solid #425268;padding:10px;text-align:left}table{border-collapse:collapse;width:100%}</style>
+<h1>Radarr and Sonarr database recovery</h1>
+<p>Approved scope: <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103 RECOVERY_PROOF</a>.
+Protect the two application databases, their complete SQLite journals and original configuration through existing strict SSH and protected non-NAS recovery storage.
+This is database recovery; it does not cover every retained PVC file or NAS media/backups.</p>
+<h2>Evidence and assumptions</h2>
+<p>Read-only source inventory1k79tt2q and runtime contracts yjfeilel/28kbjwok on2026-10-20 bind both unchanged Ready zero-restart Pods,
+their sole Ceph config claim and three separate original NFS mounts. Native applications run UID99/GID100/groups100,1000,
+with <code>-nobrowser -data=/config</code>. Each container has ten processes: the application plus s6 supervision and one BusyBox process.
+Freezing only the original container init PID would not stop the database writer.</p>
+<table><tr><th>Identity</th><th>Radarr</th><th>Sonarr</th></tr>
+<tr><td>Host / application PID</td><td>charmander /8723</td><td>pikachu /11428</td></tr>
+<tr><td>Pod UID</td><td>cf016efa-f55f-4b0b-b3bc-af3a237f7cfd</td><td>fff2f81f-a8f6-4a3c-afd7-a6e420ec060a</td></tr>
+<tr><td>Container ID</td><td>85ebe232a17fdb1b84aa12ede041790d9cc3288ad679bf3cdd18d8ab980a79a8</td><td>198539c0ff5f0e92674a238b7116c958cfeef1c42010fe36ee778913dbcf2aa2</td></tr>
+<tr><td>Image SHA256</td><td>ea6822c956d26db648b237919f41340318f32e5b7dcc4ba702cf256a0f5f3c12</td><td>44b06045a98bc1f237b9ffefc4b28dab64cb29305e4a2a94875ae93b5224e4cc</td></tr>
+<tr><td>Config PVC UID / PV UID</td><td>9a72e224-8f4f-4676-832b-836f06e81b1a / c24a4aae-338a-4abf-98c8-4e7ec956c10e</td><td>1a0abfcd-a3e9-44e9-b632-8c3f42cec27c /58c09e20-41c6-4cb9-941f-c61e606e38db</td></tr>
+<tr><td>CSI source PV name / device / inode</td><td>pvc-edaac728-7287-4b7b-99b9-c41cd9334459 /64320 /2</td><td>pvc-1a0abfcd-a3e9-44e9-b632-8c3f42cec27c /64288 /2</td></tr>
+<tr><td>Database observation</td><td>radarr.db184,549,376bytes plus WAL/SHM; logs.db962,924,544bytes</td><td>sonarr.db473,178,112bytes plus WAL/SHM; logs.db40,316,928bytes</td></tr>
+<tr><td>Whole Ceph tree observation</td><td>17,068files/6,047,032,401bytes</td><td>4,485files/1,189,797,031bytes</td></tr></table>
+<p>Capture only config.xml, the application database, logs.db and every existing journal/WAL/SHM companion for those two databases.
+Do not traverse Backups, media/downloads mounts, images, logs directories or other assets. Those remain explicit coverage gaps.
+No source SQLite connection or checkpoint is opened by the capture. SQLite WAL must remain with its matching database;
+see <a href="https://www.sqlite.org/wal.html">official WAL guidance</a>.</p>
+<h2>Plan and acceptance tasks</h2>
+<ol>
+<li>Add a fixed-profile helper and regression tests reusing the already-qualified protected framing, permission, typed SQLite fingerprint and watchdog primitives.
+Use exact container tasks/PID start identities and executable/UID contracts; refuse unknown or changed tasks. Bind the canonical CSI mount and exclusive Kubernetes consumer before and after capture.</li>
+<li>Qualify coordinated multi-process pause/resume on an owned native synthetic process tree first, including cancellation/refusal and independent rescue.
+Each PID uses its own pidfd and independent bounded resume watchdog. Freeze supervisors before the application, require all threads stopped,
+recheck the complete task set and resume/reap all owned watchdogs in finally. A failed or over-budget capture produces no accepted stream.</li>
+<li>Warm only the selected database files through read-only file I/O before pausing. Re-read fresh identity afterwards.
+Require actual available RAM for the entire selected capture. Capture the whole selected set to RAM while all source processes are stopped,
+with no disk/SSH transfer until all original processes have resumed. Preserve complete journals, stable file identities and one shared stopped interval below ten seconds.</li>
+<li>Publish the reviewed helper/test/spec candidate to canonical Gitea before touching a live writer. Receive a complete hash-committed stream on existing protected Pikachu storage0700/0600; preserve any uncertain partial.</li>
+<li>Open only disposable copied databases for WAL recovery, integrity/FK and full typed schema/metadata/row/rowid multiset fingerprints.
+Never modify a protected point. Boot a second untouched copy in the exact AMD64 native image with UID99/GID100, no network, privileges, ports, host/NAS mounts or actual provider route.
+Run the original executable directly, require native readiness and clean shutdown, then fingerprint stopped copies. Report any native startup changes honestly.</li>
+<li>Verify original Pod/container/process/image/PVC/PV/mount/exclusive consumer identities and zero restarts after capture.
+Finally remove exact owned containers, new unused images, copied data, scratch and children; require protected hashes unchanged. Record only aggregate hashes/counts/versions, no credentials or records.</li>
+</ol>
+<h2>Structure, commands and style</h2>
+<p>Implementation: <code>metal/scripts/arr_database_recovery.py</code>; tests: <code>metal/scripts/test_arr_database_recovery.py</code>.
+Use standard-library Python, existing local helper imports and existing strict SSH. Follow their fail-fast argument-array and exact-identity style.
+Example: <code>if observed_tasks != reviewed_tasks: raise RuntimeError("container task set changed")</code>.</p>
+<p>Run scoped tests through the operator's verified disposable environment:
+<code>python3 -B -m unittest discover -s metal/scripts -p test_arr_database_recovery.py</code>, then
+<code>pre-commit run --files metal/scripts/arr_database_recovery.py metal/scripts/test_arr_database_recovery.py specs/arr-database-recovery-103.html</code>.
+Native execution requires explicit namespace/run identifier/manifest SHA and the exact published source bundle, using the existing tracked pipe and finally cleanup pattern.</p>
+<h2>Boundaries and rollback</h2>
+<p>Always protect original data and preserve failed evidence. Existing authorization covers independent database recovery work; no new approval gate is introduced here.
+Explicit application releases, provider actions, destructive data changes and production rollout gates remain separate.
+Never write NAS/NFS, trigger native backup endpoints, copy real data to disposable workstation storage, reset credentials,
+mount originals in a test container, downgrade live data or claim public login/media/offsite/all-PVC recovery proof.
+Capture rollback is unconditional exact-PID resumption; restore rollback is exact owned fixture cleanup. No production chart, Pod, volume or application configuration changes.</p>
+<h2>Status</h2><p>Source contracts and plan recorded. Coordinated-pause implementation and qualification remain unfinished.</p>
+</html>
