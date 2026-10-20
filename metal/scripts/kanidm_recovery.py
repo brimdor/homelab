@@ -91,7 +91,9 @@ def validate_native_restore(original, restored, started_ns, ended_ns, expected_c
 
     old_max, new_max = duration(original['db_ts_max']), duration(restored['db_ts_max'])
     if not old_max < started_ns <= new_max <= ended_ns:
-        raise RuntimeError('native Kanidm restore clock interval differs')
+        raise RuntimeError('native Kanidm restore clock interval differs: ' + json.dumps({
+            'start_minus_original_ns': started_ns - old_max,
+            'new_minus_start_ns': new_max - started_ns, 'end_minus_new_ns': ended_ns - new_max}))
 
     def fresh(cid):
         if (not isinstance(cid, dict) or set(cid) != {'s', 't'} or cid['s'] != original['db_s_uuid'] or
@@ -119,11 +121,12 @@ def validate_native_restore(original, restored, started_ns, ended_ns, expected_c
     changed = 0
     for identity, left in before.items():
         right = after[identity]
-        if left == right:
+        if common.canonical(left) == common.canonical(right):
             continue
         left_attrs, right_attrs = left['attrs'], right['attrs']
         if (left_attrs.keys() != right_attrs.keys() or
-                any(left_attrs[key] != right_attrs[key] for key in left_attrs if key != 'last_modified_cid')):
+                any(common.canonical(left_attrs[key]) != common.canonical(right_attrs[key])
+                    for key in left_attrs if key != 'last_modified_cid')):
             raise RuntimeError('native Kanidm restored attribute data differs')
         value = right_attrs['last_modified_cid']
         if not isinstance(value, dict) or set(value) != {'CI'} or len(value['CI']) != 1:
@@ -134,10 +137,12 @@ def validate_native_restore(original, restored, started_ns, ended_ns, expected_c
             raise RuntimeError('native Kanidm changed entry is not live')
         old_state, new_state = left['changestate']['V1Live'], right['changestate']['V1Live']
         if (set(old_state) != {'at', 'changes'} or set(new_state) != {'at', 'changes'} or
-                old_state['at'] != new_state['at'] or old_state['changes'].keys() != new_state['changes'].keys()):
+                common.canonical(old_state['at']) != common.canonical(new_state['at']) or
+                old_state['changes'].keys() != new_state['changes'].keys()):
             raise RuntimeError('native Kanidm original change history differs')
-        changes = [key for key in old_state['changes'] if old_state['changes'][key] != new_state['changes'][key]]
-        if not changes or any(new_state['changes'][key] != cid for key in changes):
+        changes = [key for key in old_state['changes']
+                   if common.canonical(old_state['changes'][key]) != common.canonical(new_state['changes'][key])]
+        if not changes or any(common.canonical(new_state['changes'][key]) != common.canonical(cid) for key in changes):
             raise RuntimeError('native Kanidm attribute change identities differ')
         right_attrs['last_modified_cid'] = deepcopy(left_attrs['last_modified_cid'])
         right['changestate'] = deepcopy(left['changestate'])
