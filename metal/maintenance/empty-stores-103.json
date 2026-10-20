@@ -1,0 +1,192 @@
+{
+  "jovo": {
+    "namespace": "jovo",
+    "node": "cyndaquil",
+    "pod_uid": "4401f919-4c85-4a15-aa6c-fa30ad44bbee",
+    "container": "backend",
+    "container_id": "7c7f6cefe1a74470e6a5cc8ec5f0a45332d94e8d1502bb51ca5a09dcdf64e314",
+    "pid": 817786,
+    "image_ref": "10.0.20.11:32309/broville/jovo_backend@sha256:318caf0dff23a37af6be2bc1caa396899d73cee1ea9b5e18a2d63418cd3cf031",
+    "process_user": {
+      "additionalGids": [
+        999,
+        1000
+      ],
+      "gid": 1000,
+      "uid": 1000
+    },
+    "tasks": {
+      "817786": {
+        "exe": "/usr/local/bin/python3.12",
+        "start_ticks": "5353128",
+        "uid": 1000,
+        "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod4401f919_4c85_4a15_aa6c_fa30ad44bbee.slice/cri-containerd-7c7f6cefe1a74470e6a5cc8ec5f0a45332d94e8d1502bb51ca5a09dcdf64e314.scope\n"
+      }
+    },
+    "volumes": [
+      {
+        "destination": "/data",
+        "source": "/var/lib/kubelet/pods/4401f919-4c85-4a15-aa6c-fa30ad44bbee/volumes/kubernetes.io~csi/pvc-e5e31d52-c5dc-42c1-96a8-35402d5f5b3c/mount",
+        "device": 64336,
+        "inode": 2,
+        "files": 0,
+        "directories": 1,
+        "symlinks": 0,
+        "specials": 0,
+        "foreign_devices": 0,
+        "bytes": 0,
+        "sqlite_named_files": 0
+      }
+    ],
+    "claim": "jovo-audio",
+    "claim_uid": "e5e31d52-c5dc-42c1-96a8-35402d5f5b3c",
+    "pv_uid": "d4c7de4e-6362-43d8-9215-f22e98753535"
+  },
+  "jovo-canary": {
+    "namespace": "jovo-canary",
+    "node": "charmander",
+    "pod_uid": "5f3ce8bb-ce75-41c1-8f87-051902e1512e",
+    "container": "backend",
+    "container_id": "10502f424e7ff258f12b8723ddfa61adb35faf65c4ff3e5b1761562be1976fd1",
+    "pid": 966985,
+    "image_ref": "10.0.20.11:32309/broville/jovo_backend@sha256:318caf0dff23a37af6be2bc1caa396899d73cee1ea9b5e18a2d63418cd3cf031",
+    "process_user": {
+      "additionalGids": [
+        999,
+        1000
+      ],
+      "gid": 1000,
+      "uid": 1000
+    },
+    "tasks": {
+      "966985": {
+        "exe": "/usr/local/bin/python3.12",
+        "start_ticks": "5407363",
+        "uid": 1000,
+        "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod5f3ce8bb_ce75_41c1_8f87_051902e1512e.slice/cri-containerd-10502f424e7ff258f12b8723ddfa61adb35faf65c4ff3e5b1761562be1976fd1.scope\n"
+      }
+    },
+    "volumes": [
+      {
+        "destination": "/data",
+        "source": "/var/lib/kubelet/pods/5f3ce8bb-ce75-41c1-8f87-051902e1512e/volumes/kubernetes.io~csi/pvc-4bab6501-5810-43ac-bba9-9bbb8a103a74/mount",
+        "device": 64272,
+        "inode": 2,
+        "files": 0,
+        "directories": 1,
+        "symlinks": 0,
+        "specials": 0,
+        "foreign_devices": 0,
+        "bytes": 0,
+        "sqlite_named_files": 0
+      }
+    ],
+    "claim": "jovo-canary-audio",
+    "claim_uid": "4bab6501-5810-43ac-bba9-9bbb8a103a74",
+    "pv_uid": "db3719d1-aef0-462c-9714-1c855914a05c"
+  },
+  "podwave": {
+    "namespace": "podwave",
+    "node": "pikachu",
+    "pod_uid": "dedfbbae-f4c2-422f-8c23-61d5c805b769",
+    "container": "main",
+    "container_id": "d8aef51786a7ff9ee37fd7aab5d2678f2f905bbcf7bc59f5bf02b9b46426c00f",
+    "pid": 74546,
+    "image_ref": "10.0.20.11:32309/podwave@sha256:6168b0fd487c4ed796590e9a4295102efad3412a712594bc33828f0c0c41321e",
+    "process_user": {
+      "additionalGids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        10,
+        11,
+        20,
+        26,
+        27
+      ],
+      "gid": 0,
+      "uid": 0
+    },
+    "tasks": {
+      "74546": {
+        "exe": "/usr/local/bin/node",
+        "start_ticks": "3219679",
+        "uid": 0,
+        "cgroup": "0::/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-poddedfbbae_f4c2_422f_8c23_61d5c805b769.slice/cri-containerd-d8aef51786a7ff9ee37fd7aab5d2678f2f905bbcf7bc59f5bf02b9b46426c00f.scope\n"
+      }
+    },
+    "volumes": [
+      {
+        "destination": "/app/downloads",
+        "source": "/var/lib/kubelet/pods/dedfbbae-f4c2-422f-8c23-61d5c805b769/volumes/kubernetes.io~csi/pvc-0315ee16-e8bc-482b-9f75-ef02ca8b3d4b/mount",
+        "device": 64416,
+        "inode": 2,
+        "files": 0,
+        "directories": 1,
+        "symlinks": 0,
+        "specials": 0,
+        "foreign_devices": 0,
+        "bytes": 0,
+        "sqlite_named_files": 0
+      }
+    ],
+    "claim": "podwave-downloads",
+    "claim_uid": "0315ee16-e8bc-482b-9f75-ef02ca8b3d4b",
+    "pv_uid": "eae1f732-23d5-43a4-83bd-31398eaefa8a"
+  },
+  "podwave-canary": {
+    "namespace": "podwave-canary",
+    "node": "pikachu",
+    "pod_uid": "822a0b23-63b4-4076-b153-1c2c082bfbea",
+    "container": "main",
+    "container_id": "1d3c0180ef905dcc9eeb259b205527e83d17f83da85a773af39aaef31ac741fe",
+    "pid": 73398,
+    "image_ref": "10.0.20.11:32309/podwave@sha256:7287526d09dcf1685c6f1213d79747eb9037589cff1abe933752cb03662fc2d4",
+    "process_user": {
+      "additionalGids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        10,
+        11,
+        20,
+        26,
+        27
+      ],
+      "gid": 0,
+      "uid": 0
+    },
+    "tasks": {
+      "73398": {
+        "exe": "/usr/local/bin/node",
+        "start_ticks": "3180040",
+        "uid": 0,
+        "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod822a0b23_63b4_4076_b153_1c2c082bfbea.slice/cri-containerd-1d3c0180ef905dcc9eeb259b205527e83d17f83da85a773af39aaef31ac741fe.scope\n"
+      }
+    },
+    "volumes": [
+      {
+        "destination": "/app/downloads",
+        "source": "/var/lib/kubelet/pods/822a0b23-63b4-4076-b153-1c2c082bfbea/volumes/kubernetes.io~csi/pvc-54f5d1ac-c73c-42a1-a0b4-e7007599f82d/mount",
+        "device": 64384,
+        "inode": 2,
+        "files": 0,
+        "directories": 1,
+        "symlinks": 0,
+        "specials": 0,
+        "foreign_devices": 0,
+        "bytes": 0,
+        "sqlite_named_files": 0
+      }
+    ],
+    "claim": "podwave-canary-downloads",
+    "claim_uid": "54f5d1ac-c73c-42a1-a0b4-e7007599f82d",
+    "pv_uid": "d7fa6055-7e5a-4644-b6ed-76ed041384fb"
+  }
+}

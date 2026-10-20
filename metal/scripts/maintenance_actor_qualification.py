@@ -27,6 +27,13 @@ def identity():
          'root_uuid':subprocess.check_output(['findmnt','-n','-o','UUID','/']).decode().strip()}
 def timer(name):
  return subprocess.check_output(['systemctl','show',name,'-p','UnitFileState','-p','ActiveState']).decode()
+def triggered():
+ unit=json.loads(subprocess.check_output(['busctl','--json=short','call','org.freedesktop.systemd1',
+      '/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','GetUnit','s','dnf-automatic.timer']))['data'][0]
+ value=json.loads(subprocess.check_output(['busctl','--json=short','get-property','org.freedesktop.systemd1',
+      unit,'org.freedesktop.systemd1.Timer','LastTriggerUSecMonotonic']))
+ assert value['type']=='t' and len(value['data'])==1 and type(value['data'][0])is int
+ return value['data'][0]
 def counter():
  p=m.STATE/'fixture-executed';return p.stat().st_mtime_ns if p.exists() else None
 owner=m.Hold(m.Systemd(),identity,lambda value:value==token)
@@ -66,11 +73,11 @@ for service in m.SERVICES:
  subprocess.run(['systemctl','start',service],check=True,capture_output=True)
  assert counter()==original
 owner.systemd.idle(owner.marker)
-old=int(subprocess.check_output(['systemctl','show','dnf-automatic.timer','-p','LastTriggerUSecMonotonic','--value']).strip()or b'0')
+old=triggered()
 subprocess.run(['systemctl','restart','dnf-automatic.timer'],check=True,capture_output=True)
 deadline=time.monotonic()+180
 while True:
- value=int(subprocess.check_output(['systemctl','show','dnf-automatic.timer','-p','LastTriggerUSecMonotonic','--value']).strip()or b'0')
+ value=triggered()
  if value>old:break
  if time.monotonic()>deadline:raise RuntimeError('owned two-second timer did not trigger')
  time.sleep(.25)
