@@ -322,9 +322,11 @@ def frozen_source_audit(original, accounting, path=Path("/scripts/source-final-w
     return audit
 
 
-def transfer(start, end, apply=False, source_audit=None, verify_presence=False):
+def transfer(start, end, apply=False, source_audit=None, verify_presence=False, flush_after_push=False):
     if apply and verify_presence:
         raise RuntimeError("presence verification cannot write originals")
+    if flush_after_push and not apply:
+        raise RuntimeError("native flush is restricted to the buffered apply path")
     manifest = []
     total = missing_total = 0
     for left, right, rows in source_windows(start, end, source_audit):
@@ -339,6 +341,12 @@ def transfer(start, end, apply=False, source_audit=None, verify_presence=False):
         if apply:
             for index in range(0, len(missing), 250):
                 push(missing[index:index + 250])
+            if missing and flush_after_push:
+                # Old ranges can exclude ingesters under the normal three-hour query horizon.
+                request = urllib.request.Request(TARGET + "/flush", data=b"", method="POST")
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    if response.status != 204:
+                        raise RuntimeError("buffered target flush failed")
             confirm_visible(set(unique), left, right, list(unique.values()))
         total += len(unique)
         missing_total += len(missing)
@@ -363,8 +371,9 @@ def require_stage(target_uid, phase):
             cold_recovery.BUFFER_CLAIM_UID and all(not p["metadata"].get("deletionTimestamp") and
             p["status"]["phase"] == "Bound" for p in (claim, source_claim))):
         raise RuntimeError("transfer storage identity changed")
-    expected_url = cold_recovery.BUFFER_URL if phase == "bulk" else cold_recovery.OLD_URL
-    other_url = cold_recovery.OLD_URL if phase == "bulk" else cold_recovery.BUFFER_URL
+    buffered = phase in ("bulk", "buffered-tail")
+    expected_url = cold_recovery.BUFFER_URL if buffered else cold_recovery.OLD_URL
+    other_url = cold_recovery.OLD_URL if buffered else cold_recovery.BUFFER_URL
     checksum = hashlib.sha256(config.encode()).hexdigest()
     collectors = [p for p in pods if p["metadata"].get("labels", {}).get("app.kubernetes.io/name") == "promtail"]
     if not (config.count(expected_url) == 1 and other_url not in config and
@@ -498,6 +507,54 @@ def run_prefix(root, target_uid, attempt):
     print(json.dumps(result), flush=True)
 
 
+def target_counters():
+    with urllib.request.urlopen(TARGET + "/metrics", timeout=30) as response:
+        lines = response.read().decode().splitlines()
+    values = {}
+    for name in ("loki_distributor_lines_received_total", "loki_discarded_samples_total",
+                 "loki_ingester_memory_chunks", "loki_ingester_memory_streams"):
+        samples = [float(line.split()[-1]) for line in lines
+                   if line.startswith((name + " ", name + "{"))]
+        if (not samples and name != "loki_discarded_samples_total") or any(
+                not math.isfinite(value) or value < 0 or not value.is_integer() for value in samples):
+            raise RuntimeError("invalid buffered target counter evidence")
+        values[name] = sum(int(value) for value in samples)
+    return values
+
+
+def run_buffered_tail(root, target_uid, attempt, apply):
+    if not apply:
+        raise RuntimeError("buffered tail requires the preceding complete read-only tail audit")
+    frozen = json.loads((root / ("tail-" + str(attempt - 1) + ".json")).read_bytes())
+    accounting = frozen["source_accounting"]
+    prefix = tail_prefix(root, accounting)
+    audit = tail_audit(root, attempt, target_uid, accounting, prefix)
+    if source_query_count(prefix["start"], audit["end"]) != accounting["accepted_records"]:
+        raise RuntimeError("frozen tail changed before buffered recovery")
+    received = cold_recovery.flush_old(TARGET)
+    before = target_counters()
+    if (before["loki_distributor_lines_received_total"] != received or
+            before["loki_ingester_memory_chunks"] or before["loki_ingester_memory_streams"]):
+        raise RuntimeError("buffered target has not removed every flushed stream")
+    result = transfer(audit["start"], audit["end"], True, audit, flush_after_push=True)
+    if result["source_distinct_records"] != audit["tail_distinct_records"]:
+        raise RuntimeError("buffered tail does not cover its complete audited originals")
+    require_stage(target_uid, "buffered-tail")
+    after = target_counters()
+    if (after["loki_distributor_lines_received_total"] != received + result["missing_before"] or
+            after["loki_discarded_samples_total"] != before["loki_discarded_samples_total"] or
+            source_query_count(prefix["start"], audit["end"]) != accounting["accepted_records"]):
+        raise RuntimeError("buffered receiver rejected records, had another writer or frozen source changed")
+    result.update(phase="buffered-tail", attempt=attempt, target_uid=target_uid,
+                  source_uid=cold_recovery.BUFFER_POD_UID, source_accounting=accounting,
+                  prefix_receipt_sha256=PREFIX_RECEIPT_SHA256,
+                  prefix_distinct_records=prefix["source_accepted_records"],
+                  frozen_tail_enumeration_complete=True, complete_source_quiescence=False,
+                  target_counters_before=before, target_counters_after=after)
+    cold_recovery.write_verified(root / ("buffered-tail-" + str(attempt) + ".json"), result)
+    print(json.dumps(result), flush=True)
+
+
 def run(target_uid, phase, attempt, apply):
     if phase == "prefix" and apply:
         raise RuntimeError("prefix verification is read-only")
@@ -517,6 +574,9 @@ def run(target_uid, phase, attempt, apply):
         return
     if phase == "prefix":
         run_prefix(root, target_uid, attempt)
+        return
+    if phase == "buffered-tail":
+        run_buffered_tail(root, target_uid, attempt, apply)
         return
     received = cold_recovery.flush_old(SOURCE) if phase == "final" else None
     accounting = source_accounting() if phase == "final" else None
@@ -558,7 +618,7 @@ def run(target_uid, phase, attempt, apply):
 if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=["bulk", "final", "tail", "prefix"], required=True)
+    parser.add_argument("--phase", choices=["bulk", "final", "tail", "prefix", "buffered-tail"], required=True)
     parser.add_argument("--attempt", type=int, required=True)
     parser.add_argument("--target-uid", required=True)
     parser.add_argument("--apply", action="store_true")

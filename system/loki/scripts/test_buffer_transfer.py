@@ -9,12 +9,83 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 from unittest.mock import Mock
+from unittest.mock import MagicMock
 
 import buffer_transfer as TRANSFER
 import test_cold_recovery as cold_fixture
 
 
 class BufferTransferTests(unittest.TestCase):
+    def test_buffered_flush_only_follows_proven_missing_writes(self):
+        rows = self.rows()[:2]
+        existing = {TRANSFER.fingerprint(rows[0])}
+        response = MagicMock()
+        response.__enter__.return_value.status = 204
+        events = []
+        with patch.object(TRANSFER, "windows", return_value=[(0, 4, rows)]), \
+                patch.object(TRANSFER, "observed", return_value=existing), \
+                patch.object(TRANSFER, "prove_missing", side_effect=lambda pending, *_: (pending, {})), \
+                patch.object(TRANSFER, "push", side_effect=lambda pending: events.append(("push", pending))), \
+                patch.object(TRANSFER.urllib.request, "urlopen", side_effect=lambda *_args, **_kw: (events.append(("flush",)), response)[1]) as post, \
+                patch.object(TRANSFER, "confirm_visible", side_effect=lambda *_args: events.append(("verify",))):
+            TRANSFER.transfer(0, 4, apply=True, flush_after_push=True)
+            self.assertEqual(events, [("push", rows[1:]), ("flush",), ("verify",)])
+            self.assertEqual(post.call_args.args[0].full_url, TRANSFER.TARGET + "/flush")
+            self.assertEqual(post.call_args.args[0].method, "POST")
+        with patch.object(TRANSFER.urllib.request, "urlopen") as post, self.assertRaisesRegex(RuntimeError, "restricted"):
+            TRANSFER.transfer(0, 4, flush_after_push=True)
+        post.assert_not_called()
+
+    def test_target_metric_contract_handles_tenant_labels_and_refuses_bad_counters(self):
+        data = ("loki_distributor_lines_received_total{tenant=\"fake\"} 42\n"
+                "loki_discarded_samples_total{reason=\"too_far_behind\",tenant=\"fake\"} 2\n"
+                "loki_ingester_memory_chunks 0\nloki_ingester_memory_streams{tenant=\"fake\"} 0\n")
+        with patch.object(TRANSFER.urllib.request, "urlopen", return_value=io.BytesIO(data.encode())):
+            counters = TRANSFER.target_counters()
+        self.assertEqual(counters["loki_distributor_lines_received_total"], 42)
+        self.assertEqual(counters["loki_discarded_samples_total"], 2)
+        self.assertEqual(counters["loki_ingester_memory_streams"], 0)
+        for changed in (data.replace(" 42", " NaN"), data.replace(" 42", " 42.5"),
+                        data.replace("loki_ingester_memory_streams", "unrelated_metric")):
+            with self.subTest(data=changed), patch.object(TRANSFER.urllib.request, "urlopen", return_value=io.BytesIO(changed.encode())), self.assertRaises(RuntimeError):
+                TRANSFER.target_counters()
+
+    def test_buffered_tail_requires_removed_streams_and_exact_write_accounting(self):
+        frozen = {"source_accounting": {"accepted_records": 5}}
+        root = Mock()
+        root.__truediv__ = Mock(return_value=Mock(read_bytes=Mock(return_value=json.dumps(frozen).encode())))
+        prefix = {"start": 0, "source_accepted_records": 3}
+        audit = {"start": 10, "end": 20, "tail_distinct_records": 2}
+        before = {"loki_distributor_lines_received_total": 100, "loki_discarded_samples_total": 2,
+                  "loki_ingester_memory_chunks": 0, "loki_ingester_memory_streams": 0}
+        after = {**before, "loki_distributor_lines_received_total": 102}
+        for changed, expected_error in ((after, None),
+                ({**after, "loki_discarded_samples_total": 3}, "rejected"),
+                ({**after, "loki_distributor_lines_received_total": 103}, "another writer"),
+                ({**before, "loki_ingester_memory_streams": 1}, "removed every")):
+            initial = changed if expected_error == "removed every" else before
+            with patch.object(TRANSFER, "tail_prefix", return_value=prefix), \
+                    patch.object(TRANSFER, "tail_audit", return_value=audit), \
+                    patch.object(TRANSFER, "source_query_count", return_value=5), \
+                    patch.object(TRANSFER.cold_recovery, "flush_old", return_value=100), \
+                    patch.object(TRANSFER, "target_counters", side_effect=[initial, changed]), \
+                    patch.object(TRANSFER, "transfer", return_value={"missing_before": 2, "source_distinct_records": 2}) as transfer, \
+                    patch.object(TRANSFER, "require_stage") as stage, \
+                    patch.object(TRANSFER.cold_recovery, "write_verified") as write:
+                if expected_error:
+                    with self.assertRaisesRegex(RuntimeError, expected_error):
+                        TRANSFER.run_buffered_tail(root, "target", 15, True)
+                    write.assert_not_called()
+                    if expected_error == "removed every":
+                        transfer.assert_not_called()
+                else:
+                    TRANSFER.run_buffered_tail(root, "target", 15, True)
+                    transfer.assert_called_once_with(10, 20, True, audit, flush_after_push=True)
+                    stage.assert_called_once_with("target", "buffered-tail")
+                    self.assertFalse(write.call_args.args[1]["complete_source_quiescence"])
+        with self.assertRaisesRegex(RuntimeError, "preceding complete"):
+            TRANSFER.run_buffered_tail(root, "target", 15, False)
+
     def test_read_only_presence_verification_resolves_underfill_without_any_push(self):
         rows = self.rows()[:3]
         with patch.object(TRANSFER, "windows", return_value=[(0, 4, rows)]), \
