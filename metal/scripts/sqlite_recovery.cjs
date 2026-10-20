@@ -7,6 +7,12 @@ const {pipeline} = require('node:stream/promises');
 const hash = data => crypto.createHash('sha256').update(data).digest('hex');
 const canonical = data => JSON.stringify(data);
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
+let stage = 'source_contract';
+async function fileHash(path) {
+  const digest = crypto.createHash('sha256');
+  for await (const chunk of fs.createReadStream(path)) digest.update(chunk);
+  return digest.digest('hex');
+}
 function value(v) {
   if (v === null) return ['null'];
   if (typeof v === 'bigint') return ['integer', String(v)];
@@ -51,24 +57,31 @@ async function main() {
   const scratch = fs.mkdtempSync(directory + '/.sqlite-recovery-103-'); fs.chmodSync(scratch,0o700);
   const destination = scratch + '/database.sqlite'; let db;
   try {
+    stage = 'source_snapshot';
     db = new DatabaseSync(source,{readOnly:true, timeout:10000, allowExtension:false});
     db.exec('BEGIN'); const before = snapshot(db);
+    stage = 'online_backup';
     await backup(db,destination); assert.deepEqual(snapshot(db),before); db.exec('ROLLBACK'); db.close(); db=null;
     fs.chmodSync(destination,0o600);
     // Convert only the owned backup to a standalone rollback-journal file.
+    stage = 'normalize_copy';
     const copy = new DatabaseSync(destination,{timeout:10000,allowExtension:false});
     try {assert.equal(copy.prepare('PRAGMA journal_mode=DELETE').get().journal_mode,'delete');} finally {copy.close();}
     assert(!fs.existsSync(destination+'-wal') && !fs.existsSync(destination+'-shm'));
     const restored = new DatabaseSync(destination,{readOnly:true,timeout:10000,allowExtension:false});
+    stage = 'verify_copy';
     let after;
     try {check(restored); after=snapshot(restored);} finally {restored.close();}
     assert.deepEqual(after,before);
     if (mode==='restore') {
+      stage = 'compare_restore';
       assert.deepEqual(after,JSON.parse(expected));
       process.stdout.write(canonical({accepted:true, snapshot:after, integrity_valid:true, foreign_keys_valid:true, native_backup_restored:true}));
     } else {
-      const bytes=fs.readFileSync(destination); const header={format:1,bytes:bytes.length,sha256:hash(bytes),snapshot:after};
+      stage = 'hash_copy';
+      const header={format:1,bytes:fs.statSync(destination).size,sha256:await fileHash(destination),snapshot:after};
       const line=canonical(header); process.stdout.write(line+'\n');
+      stage = 'stream_payload';
       await pipeline(fs.createReadStream(destination),process.stdout,{end:false});
       process.stdout.write(canonical({commit:hash(line)})+'\n');
     }
@@ -77,5 +90,9 @@ async function main() {
     finally {fs.rmSync(scratch,{recursive:true}); assert(!fs.existsSync(scratch));}
   }
 }
-if (require.main===module || ['capture','restore'].includes(process.argv[1])) main().catch(()=>{process.stderr.write('SQLite recovery failed; no production records emitted\n');process.exitCode=1;});
+if (require.main===module || ['capture','restore'].includes(process.argv[1])) main().catch(error=>{
+  const type = ['Error','AssertionError','TypeError','RangeError'].includes(error.name) ? error.name : 'Unknown';
+  const code = ['ERR_ASSERTION','ERR_STREAM_PREMATURE_CLOSE','SQLITE_BUSY','SQLITE_CORRUPT','SQLITE_FULL','SQLITE_IOERR','SQLITE_READONLY','EPIPE','ENOSPC'].includes(error.code) ? error.code : 'UNKNOWN';
+  process.stderr.write(`SQLite recovery failed; stage=${stage}; type=${type}; code=${code}; no production records emitted\n`);process.exitCode=1;
+});
 module.exports={value,snapshot,check,hash};

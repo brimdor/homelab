@@ -85,6 +85,50 @@ class SnapshotTest(unittest.TestCase):
         self.assertFalse(missing.exists())
         self.assertEqual(list(self.root.glob(".sqlite-recovery-103-*")), [])
 
+    def test_large_snapshot_stream_has_complete_payload_and_final_commit(self):
+        self.native("const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync(process.argv[1]);"
+                    "db.exec('CREATE TABLE bulk(data BLOB);BEGIN');const s=db.prepare('INSERT INTO bulk VALUES (zeroblob(1048576))');"
+                    "for(let i=0;i<200;i++)s.run();db.exec('COMMIT');db.close();", str(self.database))
+        child = subprocess.Popen([NODE, "--disable-warning=ExperimentalWarning", "-e", PROGRAM,
+                                  "capture", str(self.database), str(self.root)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            header = recovery.receive_database(child.stdout, self.root / "large-copy.sqlite", self.root / "header.json")
+            _, error = child.communicate()
+            self.assertEqual((child.returncode, error), (0, b""))
+            self.assertGreater(header["bytes"], 200 * 1048576)
+            self.assertEqual(header["snapshot"]["rows"], 204)
+            self.assertEqual(json.loads((self.root / "header.json").read_text()), header)
+        finally:
+            if child.poll() is None:
+                child.terminate(); child.wait()
+            child.stdout.close(); child.stderr.close()
+        self.assertEqual(list(self.root.glob(".sqlite-recovery-103-*")), [])
+
+
+class CaptureDiagnosticTest(unittest.TestCase):
+    def test_partial_capture_preserves_validated_header_and_never_finalizes(self):
+        header = {"format": 1, "bytes": 10, "sha256": "a" * 64,
+                  "snapshot": {"tables": 1, "rows": 0, "schema_sha256": "b" * 64,
+                               "data_sha256": "c" * 64, "metadata_sha256": "d" * 64, "sqlite_version": "3.51.3"}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(RuntimeError, 'truncated SQLite snapshot'):
+                recovery.receive_database(io.BytesIO(json.dumps(header).encode() + b'\nshort'),
+                                          root / 'database.sqlite', root / 'header.json')
+            self.assertEqual(json.loads((root / 'header.json').read_text()), header)
+            self.assertEqual((root / 'database.sqlite').stat().st_size, 5)
+            self.assertFalse((root / 'capture.json').exists())
+
+    def test_failure_reports_only_exit_codes_and_fixed_public_diagnostics(self):
+        native = b'SQLite recovery failed; stage=stream_payload; type=Error; code=EPIPE; no production records emitted\n'
+        error = b'secret-record-content\nRuntimeError: truncated SQLite snapshot\n'
+        result = str(recovery.capture_failure(1, 1, native, error))
+        self.assertIn('producer_exit=1; receiver_exit=1; receiver=truncated_payload', result)
+        self.assertIn('stage=stream_payload', result)
+        self.assertNotIn('secret-record-content', result)
+        self.assertIn('native_diagnostic_unavailable', str(recovery.capture_failure(1, 1,
+                      native.replace(b'stream_payload', b'secret_record_content'), error)))
+
 
 class KeyBindingTest(unittest.TestCase):
     def test_reviewed_canary_emptydir_refuses_backend_mount_and_restart_changes(self):
