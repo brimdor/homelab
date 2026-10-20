@@ -78,7 +78,7 @@ the owned container and scratch; protected hashes remained unchanged. Same origi
 radarr.db integrity and foreign keys passed; logs.db had100reported integrity diagnostics, including a rowid-order error and99missing index entries,
 with zero foreign-key violations. fjlvk7ri identifies the structural rowid-order diagnostic and original schema without exposing records.
 This is an unresolved recovery finding, not accepted restore proof or an identified historical cause.
-An exact image library check is pending to distinguish native-engine behavior from the host diagnostic.
+The later exact-image SQLite3.53.4 check below confirms the native-engine failure.
 Both diagnostics removed their exact scratch. No original or protected database was opened for SQLite writes.</p>
 <p>Independent Sonarr point <code>/var/lib/homelab-recovery/maintenance-103/sonarr-databases-20261020-1312-native</code>
 has manifest <code>2defb992ef1e31813aa57cab09ae8bf4c639350b2afeae613c73ebadbc7a0b27</code>:
@@ -105,6 +105,17 @@ before native startup; require native ping, clean stop and post-start integrity/
 The normal full restore must retain its failing-log guard. No production repair, log deletion, credential change or log-recovery acceptance follows.
 Add a real malformed-log regression proving the narrow mode recovers committed application WAL rows while full mode still refuses the malformed logs.
 Publish the helper/test/spec before executing the narrow mode against the existing protected point.</p>
+<h2>Accepted Radarr application-only recovery</h2>
+<p>Published candidate fa5534018e8556a9181de8fade3b2133cb79bed4 passed eight regressions with zero skips and scoped hooks.
+Run zjrylqu4 passed at 2026-10-20T13:23:41Z against the existing protected point: exact native image,
+network none/loopback-only, ping200 and clean exit0. The application database retained all42tables/314,215rows,
+identical schema, metadata and complete typed data fingerprints. Fresh disposable logs contained4tables/151rows;
+this is explicitly not recovery of historical logs.</p>
+<p>The original protected point and prior failed full-restore receipt stayed unchanged; failed receipt SHA256
+88bd2bd2daa0541c056d7825d910b1c8a803debfaebce30d7ea60fe1b5743dd2.
+Original Pod/container/image/mount/PVC/PV identities remained Ready with zero restarts.
+Owned native container, new unused image and scratch were removed;923,561,984allocated bytes were reclaimed.
+The separate application-only receipt records logs_recovery_accepted=false. Historical logs corruption remains open.</p>
 <h2>Status</h2><p>Sonarr selected-database native recovery accepted. Radarr copied logs integrity finding remains unresolved;
 remaining full-PVC/NAS coverage is incomplete.</p>
 </html>

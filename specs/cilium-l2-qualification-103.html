@@ -76,5 +76,17 @@ CAP_ prefixed and unprefixed capability names as equivalent. Accept only the sin
 and require native effective and bounding capability masks to equal bit13 exactly. Require drop ALL, read-only root,
 one exact synthetic network/address and no mounts or privileged flag. Retain a sanitized isolation receipt before refusal.
 Extra capabilities, mounts or networks remain failures. No ARP, HTTP or failover acceptance is inferred.</p>
-<h2>Status</h2><p>Native external-client contract correction prepared; no native L2 acceptance yet.</p>
+<h2>Accepted native adjacent L2 bridge</h2>
+<p>Run cilium-native-client-l2-adjacent-ormrwpfc passed at2026-10-20T13:26:30Z from98374b44a94e0c8557b76bb02ed66cddd32433b7.
+All seventeen stages passed:1.15.1 baseline,1.15.19 patch, then adjacent1.16.19,1.17.18,1.18.15,1.19.9 and1.20.3
+upgrades, preceding-minor rollbacks and forward returns. Each retained the same cluster, pool, Service and lease UIDs,
+VIP172.31.240.226 and three ready backends. External raw ARP resolved exactly the current holder MAC;
+ten HTTP200 responses with the required payload passed before and after each deliberate holder exclusion.
+All seventeen lease transfers passed;340HTTP requests passed. The client's effective and bounding capability masks
+were exactly NET_RAW, with read-only root, drop ALL, one synthetic network and no mounts.</p>
+<p>Finally stop/delete exited0. Owned VM, processes, native paths and root were absent; all children were reaped;
+177,311,744allocated bytes were removed. Prior failed receipts remain preserved. This isolated ARM64/Linux6.8/k3s1.33.6
+fixture does not qualify physical VLAN callers, Fedora/AMD64 kernels, GPU, CSI or a future k3s upgrade.
+Production CNI, pools and nodes were unchanged. Remaining recovery, security and production compatibility gates keep K3S_CILIUM open.</p>
+<h2>Status</h2><p>Seventeen-stage isolated native L2 qualification accepted; production-specific gates remain open.</p>
 </html>

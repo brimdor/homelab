@@ -35,18 +35,18 @@ SQLite database and every journal/WAL/SHM companion together. Never print creden
 and only disposable copies of the two stores. Provide separate disposable destinations for any required output paths; never mount originals or NAS.</li>
 <li>Require native loopback <code>/api?mode=version&amp;output=json</code> to identify 5.1.3 and clean shutdown.
 The <a href="https://sabnzbd.org/wiki/configuration/4.5/api">official API contract</a> exempts version from API-key requirements;
-verify the exact 5.1.3 implementation before use. Do not use credentials, reset authentication, resume downloads or invoke provider-facing endpoints.</li>
+exact5.1.3 source run0_m5s4pl confirms version/auth exemption in interface.py and the native version response in api.py. Do not use credentials, reset authentication, resume downloads or invoke provider-facing endpoints.</li>
 <li>Check copied SQLite integrity/FK/schema and complete typed data before and after native execution. Report native startup changes honestly.
 Finally remove exact owned containers, new unused images, synthetic/copy data and processes; require protected hashes unchanged.</li>
 </ol>
 <h2>Structure and verification</h2>
-<p>Prospective implementation: <code>metal/scripts/sabnzbd_recovery.py</code> and <code>metal/scripts/test_sabnzbd_recovery.py</code>.
+<p>Implementation: <code>metal/scripts/sabnzbd_recovery.py</code> and <code>metal/scripts/test_sabnzbd_recovery.py</code>.
 Follow existing helper argument arrays, fixed profiles, fail-fast identity checks and tracked finally cleanup. Unit cases must reject changed
 tasks, a second/foreign device, lost store, wrong image, extra mount/network/capability and truncated or uncommitted transfer.
-Native image volume/default and API source contracts remain to be reviewed before implementation is executed.</p>
+Exact image volume/default and API source contracts were reviewed in grw1tc0e and0_m5s4pl. API source SHA2569b291761140d13cf284849d9d7ae3a158c886fc075d9ea4c81970278c0f28caa; interface SHA25603b4bd51dc0d0a5cdb94ff0864c31826cdba01d1da9fb519e01eeef42df2f14e. The isolated fixture forces loopback8080 explicitly. A prior unscoped configuration regex could select a provider port; it is not evidence of the HTTP port.</p>
 <h2>Rollback and limits</h2>
 <p>Capture rollback resumes the exact original processes unconditionally. Restore rollback removes only the owned disconnected fixture.
 No production deployment or data migration occurs. This work cannot prove NAS backups, external provider credentials, successful downloads,
 media integrity, public login, offsite recovery or writes after the captured instant. Existing explicit approval and data-safety gates remain applicable.</p>
-<h2>Status</h2><p>Source metadata and implementation plan recorded. No SABnzbd capture, native fixture or restore accepted.</p>
+<h2>Status</h2><p>Five focused regressions passed in si9qg7wv at13:28:44Z with zero skips. No SABnzbd capture, native fixture or restore accepted yet.</p>
 </html>
