@@ -3,6 +3,10 @@
   extends: [
     'config:recommended',
   ],
+  // Look up cluster-pull images through the registry's trusted HTTPS endpoint.
+  registryAliases: {
+    '10.0.20.11:32309': 'registry.eaglepass.io',
+  },
   packageRules: [
     {
       matchUpdateTypes: [
