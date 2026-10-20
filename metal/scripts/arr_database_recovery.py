@@ -257,6 +257,23 @@ def require_container(value, scratch, namespace, run_id):
         raise RuntimeError('native Arr restore isolation changed')
 
 
+def require_image(description, namespace):
+    if (description['Architecture'] != 'amd64' or description['Os'] != 'linux' or
+            description['Config'].get('Volumes') != {'/config': {}} or
+            image(namespace) not in description.get('RepoDigests', [])):
+        raise RuntimeError('exact native Arr image contract changed')
+
+
+def native_arguments(scratch, namespace, run_id):
+    executable = SOURCES[namespace]['tasks'][str(SOURCES[namespace]['app_pid'])]
+    return ['create', '--network=none', '--read-only', '--cap-drop=ALL', '--user=99:100', '--group-add=1000',
+            '--security-opt=no-new-privileges:true', '--ipc=private', '--pids-limit=128', '--memory=4g', '--cpus=1',
+            '--label=' + LABEL + '=' + run_id, '--tmpfs=/tmp:rw,nosuid,nodev,uid=99,gid=100,mode=1777',
+            '--mount=type=bind,source=' + str(scratch / 'native') + ',target=/config',
+            '--env=HOME=/tmp', '--env=XDG_CONFIG_HOME=/config/xdg', '--env=TZ=America/Chicago',
+            '--entrypoint=' + executable, image(namespace), '-nobrowser', '-data=/config']
+
+
 def restore(namespace, run_id, checksum):
     point = point_path(namespace, run_id)
     manifest = verify(point, checksum, namespace)
@@ -273,23 +290,14 @@ def restore(namespace, run_id, checksum):
         common.docker('pull', image(namespace))
         description = json.loads(common.docker('image', 'inspect', image(namespace)).stdout)[0]
         image_id = description['Id']
-        if (description['Architecture'] != 'amd64' or description['Os'] != 'linux' or
-                description['Config'].get('Volumes') or image(namespace) not in description.get('RepoDigests', [])):
-            raise RuntimeError('exact native Arr image contract changed')
+        require_image(description, namespace)
         files.copy_tree(point / 'data', scratch / 'before')
         result['source_snapshot'] = fingerprints(scratch / 'before', scratch / 'before-canonical', namespace)
         files.copy_tree(point / 'data', scratch / 'native')
         os.chown(scratch / 'native', 99, 100)
         for path in (scratch / 'native').iterdir():
             os.chown(path, 99, 100)
-        executable = SOURCES[namespace]['tasks'][str(SOURCES[namespace]['app_pid'])]
-        args = ['create', '--network=none', '--read-only', '--cap-drop=ALL', '--user=99:100', '--group-add=1000',
-                '--security-opt=no-new-privileges:true', '--ipc=private', '--pids-limit=128', '--memory=4g', '--cpus=1',
-                '--label=' + LABEL + '=' + run_id, '--tmpfs=/tmp:rw,nosuid,nodev,uid=99,gid=100,mode=1777',
-                '--mount=type=bind,source=' + str(scratch / 'native') + ',target=/config',
-                '--env=HOME=/tmp', '--env=XDG_CONFIG_HOME=/config/xdg', '--env=TZ=America/Chicago',
-                '--entrypoint=' + executable, image(namespace), '-nobrowser', '-data=/config']
-        container = common.docker(*args).stdout.decode().strip()
+        container = common.docker(*native_arguments(scratch, namespace, run_id)).stdout.decode().strip()
         if not re.fullmatch('[a-f0-9]{64}', container):
             raise RuntimeError('invalid owned native Arr container')
         require_container(common.inspect(container), scratch, namespace, run_id)

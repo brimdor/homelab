@@ -184,6 +184,16 @@ class ArrRecovery(unittest.TestCase):
             mutate(bad)
             with self.assertRaises(RuntimeError):
                 arr.require_container(bad, scratch, 'radarr', 'fixture')
+        image = {'Architecture': 'amd64', 'Os': 'linux', 'Config': {'Volumes': {'/config': {}}},
+                 'RepoDigests': [arr.image('radarr')]}
+        arr.require_image(image, 'radarr')
+        image['Config']['Volumes']['/other'] = {}
+        with self.assertRaises(RuntimeError):
+            arr.require_image(image, 'radarr')
+        arguments = arr.native_arguments(scratch, 'radarr', 'fixture')
+        self.assertEqual(sum(a.startswith('--mount=') for a in arguments), 1)
+        self.assertIn('--network=none', arguments)
+        self.assertIn('--user=99:100', arguments)
 
 
 if __name__ == '__main__':

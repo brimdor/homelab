@@ -54,5 +54,14 @@ Explicit application releases, provider actions, destructive data changes and pr
 Never write NAS/NFS, trigger native backup endpoints, copy real data to disposable workstation storage, reset credentials,
 mount originals in a test container, downgrade live data or claim public login/media/offsite/all-PVC recovery proof.
 Capture rollback is unconditional exact-PID resumption; restore rollback is exact owned fixture cleanup. No production chart, Pod, volume or application configuration changes.</p>
-<h2>Status</h2><p>Source contracts and plan recorded. Coordinated-pause implementation and qualification remain unfinished.</p>
+<h2>Qualified coordinated pause and native image contract</h2>
+<p>Published49db724f passed seven regressions with zero skips. Native ten-process fixture _29rzhwv passed2026-10-20T12:51:19Z:
+normal hold0.499175s; all counters resumed; actual SIGTERM cancellation and partial-entry failure resumed every process;
+ten independent watchdog rescues fired and refused the over-budget capture. Watchdogs, fixture processes and scratch were absent.
+No original writer was touched. j8ho7i3z confirms the shared pidfd identity primitive resolves the image's/bin/busybox link to/usr/bin/busybox on the Fedora hosts.</p>
+<p>Exact AMD64 image configuration ii0df_54 records only the declared/config volume on both images, entrypoint/init and no command.
+The native restore overrides that one volume with its disposable bind and overrides/init with the observed application executable.
+Permit only that exact declared volume and continue requiring exactly one actual bind; reject any additional declared/anonymous storage.
+The coordinated capture code is unchanged by this native image-contract correction.</p>
+<h2>Status</h2><p>Coordinated native pause accepted. Direct native application fixture, live capture and protected restore acceptance remain pending.</p>
 </html>

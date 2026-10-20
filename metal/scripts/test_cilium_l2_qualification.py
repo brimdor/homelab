@@ -85,8 +85,12 @@ class L2Guards(unittest.TestCase):
                    "spec": {"type": "LoadBalancer", "externalTrafficPolicy": "Cluster"},
                    "status": {"loadBalancer": {"ingress": [{"ip": l2.VIP}]}}}
         l2.validate_service(service, "service-uid")
+        service["status"]["loadBalancer"]["ingress"][0]["ipMode"] = "VIP"
+        l2.validate_service(service, "service-uid")
         for mutator in [lambda s: s["metadata"].update(uid="replacement"),
                         lambda s: s["spec"].update(externalTrafficPolicy="Local"),
+                        lambda s: s["status"]["loadBalancer"]["ingress"][0].update(ipMode="Proxy"),
+                        lambda s: s["status"]["loadBalancer"].update(ingress=[{"ip": l2.VIP}] * 2),
                         lambda s: s["status"]["loadBalancer"].update(ingress=[]),
                         lambda s: s["status"]["loadBalancer"].update(ingress=[{"ip": "172.31.240.227"}])]:
             bad = copy.deepcopy(service)

@@ -83,11 +83,16 @@ def validate_pool(pool, uid, *, migrated):
         raise RuntimeError("synthetic pool identity or usable range changed")
 
 
+def allocated_vip(service):
+    ingress = service.get("status", {}).get("loadBalancer", {}).get("ingress")
+    return ingress in ([{"ip": VIP}], [{"ip": VIP, "ipMode": "VIP"}])
+
+
 def validate_service(service, uid):
     if (not uid or service.get("metadata", {}).get("uid") != uid or
             service.get("spec", {}).get("type") != "LoadBalancer" or
             service.get("spec", {}).get("externalTrafficPolicy") != "Cluster" or
-            service.get("status", {}).get("loadBalancer", {}).get("ingress") != [{"ip": VIP}]):
+            not allocated_vip(service)):
         raise RuntimeError("synthetic Service identity, traffic policy or VIP changed")
 
 
@@ -252,7 +257,7 @@ class L2Qualification:
         q.kubectl("apply", "-f", "-", data=json.dumps(manifest()).encode(), json_output=False)
         self.pool_uid = self.get_pool()["metadata"]["uid"]
         self.service_uid = self.get_service()["metadata"]["uid"]
-        await_value(self.get_service, lambda s: s.get("status", {}).get("loadBalancer", {}).get("ingress") == [{"ip": VIP}], "synthetic VIP allocation")
+        await_value(self.get_service, allocated_vip, "synthetic VIP allocation")
         q.kubectl("rollout", "status", "deployment/" + NAME, "-n", NAMESPACE, "--timeout=300s", json_output=False)
         q.command(["docker", "run", "--detach", "--name", self.client, "--network", "k3d-" + q.args.name,
                    "--ip", "172.31.240.10", "--cap-drop=ALL", "--cap-add=NET_RAW", "--read-only",

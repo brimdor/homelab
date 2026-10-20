@@ -60,5 +60,12 @@ requires WireGuard; it is disabled. No bugtool/sysdump or key material was colle
 includes this old release and enabled L7 configuration. Metadata-only walk cru57wp2 found no admin socket under either/run/cilium or/var/run/cilium
 on the nine nodes at that instant; observed ordinary/access-log/xDS sockets were0660. This is not proof of immunity or safe future activation.
 No socket connection, secret dump, permission change, exploit or production CNI action occurred. Patched candidate versions and complete advisory review remain prerequisites.</p>
-<h2>Status</h2><p>Implementation prepared for local validation; no native L2 acceptance yet.</p>
+<h2>First native run and checker correction</h2>
+<p>Run1yl8hlbh ended2026-10-20T12:54:27Z before accepting any stage. The Service allocated172.31.240.226,
+but Kubernetes defaulted status.loadBalancer.ingress.ipMode to VIP and the checker required the older exact JSON shape.
+<a href="https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-ip-address-mode">The Kubernetes contract</a>
+defines VIP as the default. Accept the same single IP with absent or explicit VIP mode; reject Proxy, duplicate entries and changed IPs.
+Apply the same predicate during allocation wait and subsequent identity checks. ARP, HTTP, lease and migration requirements are unchanged.
+The failed run's cleanup removed the VM, owned processes, native paths and174600192 allocated bytes. Retain its failed receipt.</p>
+<h2>Status</h2><p>Checker correction prepared; no native L2 acceptance yet.</p>
 </html>
