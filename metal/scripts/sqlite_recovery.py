@@ -45,6 +45,17 @@ SOURCES = {
         "pv_uid": "9e5a8b79-92a3-49cb-8fd5-c3b85da25d08", "database": "/app/data/podwave.db",
         "image": "registry.eaglepass.io/podwave@sha256:6168b0fd487c4ed796590e9a4295102efad3412a712594bc33828f0c0c41321e",
         "architecture": "amd64", "node_version": "v22.23.2"},
+    "strata": {
+        "pod_uid": "48c5e581-43b4-4501-9eeb-aa24f2509043", "container": "main",
+        "pvc": "strata-data", "pvc_uid": "51e6bf9a-bd31-44d9-b554-16e48298edd7",
+        "pv_uid": "723737c2-4486-43e2-ab85-57dd1f01acf3", "database": "/app/data/strata.sqlite",
+        "image": "registry.eaglepass.io/strata@sha256:36995dd084c38e32d5f7e7f9ca3bf7e2e51a41bd75508202df5dd02d24f8449b",
+        "architecture": "amd64", "node_version": "v22.23.3", "image_volumes": ["/app/data"]},
+    "strata-canary": {
+        "pod_uid": "20a4a771-bea4-4e17-98c9-f797faf635e5", "container": "main",
+        "pvc": None, "emptydir_volume": "data", "database": "/app/data/strata.sqlite",
+        "image": "registry.eaglepass.io/strata@sha256:d1b0a74f71e4c7afa999362632ffaaa1d8a7d4d1f5bfdd58eff1b0cd4875fbb3",
+        "architecture": "amd64", "node_version": "v22.23.3", "image_volumes": ["/app/data"]},
 }
 LABEL = "io.eaglepass.sqlite-recovery"
 
@@ -79,6 +90,16 @@ def source_identity(namespace):
     image = status["imageID"]
     if not status["ready"] or image.split("@")[-1] != expected["image"].split("@")[-1]:
         raise RuntimeError("reviewed ready source image changed")
+    if expected.get("emptydir_volume"):
+        name = expected["emptydir_volume"]
+        volumes = [v for v in pod["spec"].get("volumes", []) if v["name"] == name]
+        mounts = [m for m in container.get("volumeMounts", []) if m["mountPath"].startswith("/app/data")]
+        if (expected["pvc"] is not None or volumes != [{"name": name, "emptyDir": {}}] or
+                mounts != [{"name": name, "mountPath": "/app/data"}] or status["restartCount"] != 0):
+            raise RuntimeError("reviewed source emptyDir ownership changed")
+        return {"namespace": namespace, "pod": pod["metadata"]["name"], "pod_uid": expected["pod_uid"],
+                "data_storage": "emptyDir", "volume": name, "image": expected["image"],
+                "database": expected["database"], "container": expected["container"], "node": pod["spec"]["nodeName"]}
     if namespace == "humbleai-demo" and expected["pvc"] is None:
         if expected["pvc"] is not None or pod["spec"].get("volumes") or container.get("volumeMounts") or status["restartCount"] != 0:
             raise RuntimeError("reviewed demo container-layer ownership changed")
@@ -233,7 +254,8 @@ def backup(namespace, run_id):
 def require_image(image, namespace):
     expected = SOURCES[namespace]
     if (image.get("Architecture") != expected["architecture"] or image.get("Os") != "linux" or
-            image["Config"].get("Volumes") or expected["image"] not in image.get("RepoDigests", [])):
+            set(image["Config"].get("Volumes") or {}) != set(expected.get("image_volumes", [])) or
+            expected["image"] not in image.get("RepoDigests", [])):
         raise RuntimeError("reviewed native application image contract changed")
     result = {"architecture": image["Architecture"]}
     if image["Architecture"] == "arm64":
@@ -262,6 +284,13 @@ def restore(point, manifest, manifest_hash, run_id):
         image = json.loads(common.docker("image", "inspect", image_ref).stdout)[0]; image_id = image["Id"]
         stage = "image_contract"
         result.update(require_image(image, manifest["source"]["namespace"]))
+        owned_mounts = []
+        for number, path in enumerate(SOURCES[manifest["source"]["namespace"]].get("image_volumes", [])):
+            directory = scratch / ("image-volume-" + str(number))
+            directory.mkdir(mode=0o700)
+            owned_mounts.append((str(directory), path, True))
+        volume_args = ["--mount=type=bind,source=" + source + ",target=" + target
+                       for source, target, _ in owned_mounts]
         stage = "create_isolated_container"
         identity = common.docker("create", "--platform=linux/" + image["Architecture"],
             "--network=none", "--read-only", "--cap-drop=ALL", "--user=0:0",
@@ -269,6 +298,7 @@ def restore(point, manifest, manifest_hash, run_id):
             "--label=" + LABEL + "=" + run_id,
             "--mount=type=bind,source=" + str(scratch) + ",target=/work",
             "--mount=type=bind,source=" + str(point / "database.sqlite") + ",target=/original/database.sqlite,readonly",
+            *volume_args,
             "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=node", image_ref, *node_flags(manifest["source"]["namespace"]),
             "-e", "setInterval(()=>{},2147483647)").stdout.decode().strip()
         container = common.inspect(identity); host = container["HostConfig"]
@@ -276,9 +306,11 @@ def restore(point, manifest, manifest_hash, run_id):
                 host["CapDrop"] != ["ALL"] or host.get("CapAdd") or host.get("Devices") or host.get("DeviceRequests") or
                 host.get("PortBindings") or host["SecurityOpt"] != ["no-new-privileges:true"] or
                 host["PidMode"] or host["IpcMode"] != "private" or
-                len(container["Mounts"]) != 2 or
+                len(container["Mounts"]) != 2 + len(owned_mounts) or
+                any(m.get("Type") != "bind" for m in container["Mounts"]) or
                 {(m["Source"], m["Destination"], m["RW"]) for m in container["Mounts"]} !=
-                {(str(scratch), "/work", True), (str(point / "database.sqlite"), "/original/database.sqlite", False)}):
+                ({(str(scratch), "/work", True), (str(point / "database.sqlite"), "/original/database.sqlite", False)} |
+                 set(owned_mounts))):
             raise RuntimeError("SQLite restore isolation changed")
         # No application entrypoint, credentials, host networking or writable recovery mount.
         stage = "start_and_verify_isolation"

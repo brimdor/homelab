@@ -87,6 +87,31 @@ class SnapshotTest(unittest.TestCase):
 
 
 class KeyBindingTest(unittest.TestCase):
+    def test_reviewed_canary_emptydir_refuses_backend_mount_and_restart_changes(self):
+        expected = recovery.SOURCES['strata-canary']
+        pod = {'metadata': {'uid': expected['pod_uid'], 'name': 'reviewed-source'},
+               'spec': {'nodeName': 'pikachu', 'volumes': [{'name': 'data', 'emptyDir': {}}],
+                        'containers': [{'name': 'main', 'volumeMounts': [{'name': 'data', 'mountPath': '/app/data'}]}]},
+               'status': {'containerStatuses': [{'name': 'main', 'ready': True, 'restartCount': 0,
+                                                 'imageID': expected['image']}]}}
+        def kube(*args):
+            return {'metadata': {'uid': recovery.common.CLUSTER_UID}} if args[1] == 'namespace' else {'items': [pod]}
+        with patch.object(recovery, 'kube', side_effect=kube):
+            self.assertEqual(recovery.source_identity('strata-canary')['data_storage'], 'emptyDir')
+            for backend in ({'nfs': {'server': '10.0.40.3', 'path': '/protected'}},
+                            {'persistentVolumeClaim': {'claimName': 'unreviewed'}}, {'emptyDir': {'medium': 'Memory'}}):
+                pod['spec']['volumes'] = [{'name': 'data', **backend}]
+                with self.assertRaisesRegex(RuntimeError, 'emptyDir ownership changed'):
+                    recovery.source_identity('strata-canary')
+            pod['spec']['volumes'] = [{'name': 'data', 'emptyDir': {}}]
+            pod['status']['containerStatuses'][0]['restartCount'] = 1
+            with self.assertRaisesRegex(RuntimeError, 'emptyDir ownership changed'):
+                recovery.source_identity('strata-canary')
+            pod['status']['containerStatuses'][0]['restartCount'] = 0
+            pod['spec']['containers'][0]['volumeMounts'][0]['subPath'] = 'different'
+            with self.assertRaisesRegex(RuntimeError, 'emptyDir ownership changed'):
+                recovery.source_identity('strata-canary')
+
     def test_in_memory_remote_program_needs_no_source_file_path(self):
         with patch.dict(recovery.__dict__, {"NODE_PROGRAM": "reviewed-native-program"}), patch.object(recovery, "__file__", None):
             self.assertEqual(recovery.program("humbleai-demo"), "reviewed-native-program")
@@ -160,6 +185,15 @@ class KeyBindingTest(unittest.TestCase):
 
 
 class ImageContractTest(unittest.TestCase):
+    def test_only_the_exact_reviewed_strata_image_volume_is_allowed(self):
+        for namespace in ('strata', 'strata-canary'):
+            image = {'Architecture': 'amd64', 'Os': 'linux', 'Config': {'Volumes': {'/app/data': {}}},
+                     'RepoDigests': [recovery.SOURCES[namespace]['image']]}
+            self.assertEqual(recovery.require_image(image, namespace)['architecture'], 'amd64')
+            for wrong in (None, {'/': {}}, {'/app/data': {}, '/unexpected': {}}):
+                with self.assertRaises(RuntimeError):
+                    recovery.require_image({**image, 'Config': {'Volumes': wrong}}, namespace)
+
     def test_exact_architecture_digest_and_existing_emulation_required(self):
         source = recovery.SOURCES["second-brain"]
         image = {"Architecture": "arm64", "Os": "linux", "Config": {"Volumes": None},
