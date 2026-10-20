@@ -276,9 +276,29 @@ def native_arguments(scratch, namespace, run_id):
             '--entrypoint=' + executable, image(namespace), '-nobrowser', '-data=/config']
 
 
-def restore(namespace, run_id, checksum, *, application_only=False):
+def reconstruct_copied_logs(scratch):
+    import radarr_log_reconstruction
+    work = scratch / 'reconstruction'
+    work.mkdir(mode=0o700)
+    (work / 'copy').mkdir(mode=0o700)
+    before = scratch / 'before'
+    names = [p.name for p in before.iterdir() if p.name == 'logs.db' or p.name.startswith('logs.db-')]
+    for name in names:
+        shutil.copyfile(before / name, work / 'copy' / name)
+    result = radarr_log_reconstruction.reconstruct(work)
+    # Only this disposable input is replaced; the original point and failed receipt remain intact.
+    os.replace(work / 'rebuilt.db', before / 'logs.db')
+    for name in names:
+        if name != 'logs.db':
+            (before / name).unlink()
+    return result
+
+
+def restore(namespace, run_id, checksum, *, application_only=False, reconstructed_logs=False):
     if application_only and namespace != 'radarr':
         raise RuntimeError('application-only qualification is reviewed for Radarr only')
+    if reconstructed_logs and (namespace != 'radarr' or application_only):
+        raise RuntimeError('readable-log reconstruction is reviewed for full Radarr copies only')
     point = point_path(namespace, run_id)
     manifest = verify(point, checksum, namespace)
     if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
@@ -300,9 +320,13 @@ def restore(namespace, run_id, checksum, *, application_only=False):
         image_id = description['Id']
         require_image(description, namespace)
         files.copy_tree(point / 'data', scratch / 'before', skip=skip)
+        if reconstructed_logs:
+            result.update(scope='selected-databases-and-config-with-reconstructed-readable-logs',
+                          historical_logs_completeness_unknown=True,
+                          reconstruction=reconstruct_copied_logs(scratch))
         result['source_snapshot'] = fingerprints(scratch / 'before', scratch / 'before-canonical', namespace,
                                                application_only=application_only)
-        files.copy_tree(point / 'data', scratch / 'native', skip=skip)
+        files.copy_tree(scratch / 'before' if reconstructed_logs else point / 'data', scratch / 'native', skip=skip)
         os.chown(scratch / 'native', 99, 100)
         for path in (scratch / 'native').iterdir():
             os.chown(path, 99, 100)
@@ -340,6 +364,8 @@ def restore(namespace, run_id, checksum, *, application_only=False):
                for db in result['source_snapshot']):
             raise RuntimeError('exact native Arr startup changed database schema/metadata')
         result.update(accepted=True, native_ping_status=200, clean_exit=0, network='none', only_loopback=True)
+        if reconstructed_logs:
+            result['readable_logs_recovery_accepted'] = True
     finally:
         if container:
             require_container(common.inspect(container), scratch, namespace, run_id)
@@ -358,14 +384,16 @@ def restore(namespace, run_id, checksum, *, application_only=False):
         verify(point, checksum, namespace)
         result['cleanup'] = {'scratch_absent': True, 'container_absent': True, 'protected_unchanged': True,
                              'allocated_bytes_removed': allocated}
-        receipt_name = 'native-application-only-restore.json' if application_only else 'native-restore.json'
+        receipt_name = ('native-reconstructed-readable-logs-restore.json' if reconstructed_logs else
+                        'native-application-only-restore.json' if application_only else 'native-restore.json')
         files.write_json(point / receipt_name, result)
     return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=['send', 'receive', 'verify', 'restore', 'restore-application-only'])
+    parser.add_argument('mode', choices=['send', 'receive', 'verify', 'restore', 'restore-application-only',
+                                       'restore-reconstructed-readable-logs'])
     parser.add_argument('--namespace', choices=sorted(SOURCES), required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--manifest-sha256')
@@ -381,7 +409,8 @@ def main():
         if not args.manifest_sha256 or not re.fullmatch('[a-f0-9]{64}', args.manifest_sha256):
             parser.error('protected manifest SHA256 is required')
         result = (restore(args.namespace, args.run_id, args.manifest_sha256,
-                          application_only=args.mode == 'restore-application-only') if args.mode.startswith('restore') else
+                          application_only=args.mode == 'restore-application-only',
+                          reconstructed_logs=args.mode == 'restore-reconstructed-readable-logs') if args.mode.startswith('restore') else
                   {'verified': bool(verify(point, args.manifest_sha256, args.namespace))})
     print(json.dumps(result), flush=True)
 

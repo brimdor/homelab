@@ -145,6 +145,23 @@ class ArrRecovery(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     arr.transfer.receive(io.BytesIO(data), root / str(index), 'radarr', validator=arr.validate_manifest, verifier=arr.verify)
 
+    def test_reconstructed_mode_refuses_wrong_namespace_and_preserves_input_on_schema_refusal(self):
+        for namespace, application_only in (('sonarr', False), ('radarr', True)):
+            with self.assertRaisesRegex(RuntimeError, 'full Radarr copies'):
+                arr.restore(namespace, 'synthetic', 'a' * 64, application_only=application_only,
+                            reconstructed_logs=True)
+        with tempfile.TemporaryDirectory() as temporary:
+            scratch = Path(temporary)
+            (scratch / 'before').mkdir()
+            original = scratch / 'before/logs.db'
+            db = sqlite3.connect(original)
+            db.execute('CREATE TABLE unreviewed(value)')
+            db.close()
+            checksum = hashlib.sha256(original.read_bytes()).hexdigest()
+            with self.assertRaisesRegex(RuntimeError, 'schema'):
+                arr.reconstruct_copied_logs(scratch)
+            self.assertEqual(hashlib.sha256(original.read_bytes()).hexdigest(), checksum)
+
     def test_coordinated_pause_unwinds_every_process_on_exception_and_partial_enter(self):
         identities = [{'pid': 101}, {'pid': 102}, {'pid': 103}]
         states = {i['pid']: 'S' for i in identities}
