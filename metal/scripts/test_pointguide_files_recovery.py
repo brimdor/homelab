@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import socket
 import subprocess
 import sys
 import tempfile
@@ -146,6 +147,40 @@ class CodexFilesRecovery(unittest.TestCase):
         self.assertEqual(result['sqlite_databases_verified'], 0)
         self.assertIsNone(result['independent_sqlite_restore_equal'])
         self.assertTrue(result['cleanup']['protected_point_unchanged'])
+
+    def test_only_exact_reviewed_runtime_socket_is_excluded(self):
+        self.profile['sqlite_databases'] = []
+        source = self.root / 'source'
+        source.mkdir()
+        (source / 'payload').write_bytes(b'synthetic retained data')
+        endpoint = source / 'kanidmd.sock'
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+            listener.bind(str(endpoint))
+            value = endpoint.lstat()
+            expected = {'kanidmd.sock': {'device': value.st_dev, 'inode': value.st_ino,
+                        'mode': recovery.stat.S_IMODE(value.st_mode), 'uid': value.st_uid, 'gid': value.st_gid}}
+            self.profile['runtime_sockets'] = expected
+            with self.assertRaises(RuntimeError):
+                recovery.inventory(source)
+            tree, payloads = recovery.snapshot(source, expected)
+            self.assertNotIn('kanidmd.sock', tree)
+            self.assertEqual(payloads, {'payload': b'synthetic retained data'})
+            changed = json.loads(json.dumps(expected))
+            changed['kanidmd.sock']['inode'] += 1
+            with self.assertRaisesRegex(RuntimeError, 'runtime socket changed'):
+                recovery.snapshot(source, changed)
+            with patch.object(recovery, 'snapshot', return_value=(tree, payloads)):
+                _, checksum, wire = self.stream(source)
+            point = self.root / 'protected'
+            recovery.receive(io.BytesIO(wire), point, 'fixture')
+            result = recovery.restore(point, checksum, 'fixture')
+            self.assertTrue(result['accepted'])
+            self.assertEqual(result['runtime_sockets_not_restored'], ['kanidmd.sock'])
+            self.assertTrue(recovery.stat.S_ISSOCK(endpoint.lstat().st_mode))
+        endpoint.unlink()
+        endpoint.write_bytes(b'synthetic non-socket replacement')
+        with self.assertRaisesRegex(RuntimeError, 'runtime socket changed'):
+            recovery.snapshot(source, expected)
 
     def test_four_native_writers_resume_after_capture_failure(self):
         children = []

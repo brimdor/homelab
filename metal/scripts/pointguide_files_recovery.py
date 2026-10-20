@@ -64,7 +64,26 @@ def source_identity(namespace):
             raise RuntimeError('reviewed Codex CSI mount changed')
     if len(identities) != len({p['pid'] for p in identities}):
         raise RuntimeError('duplicated Codex writer')
+    checked_runtime_sockets(root, profile.get('runtime_sockets', {}))
     return identities
+
+
+def checked_runtime_sockets(root, expected):
+    for name, identity in expected.items():
+        transfer.safe_name(name)
+        if (not isinstance(identity, dict) or set(identity) != {'device', 'inode', 'mode', 'uid', 'gid'} or
+                any(type(v) is not int or v < 0 for v in identity.values())):
+            raise RuntimeError('invalid reviewed runtime socket identity')
+        path = root / name
+        if any(p.is_symlink() for p in (path, *path.parents)):
+            raise RuntimeError('unsafe runtime socket ancestry')
+        value = path.lstat()
+        actual = {'device': value.st_dev, 'inode': value.st_ino, 'mode': stat.S_IMODE(value.st_mode),
+                  'uid': value.st_uid, 'gid': value.st_gid}
+        if (not stat.S_ISSOCK(value.st_mode) or value.st_nlink != 1 or
+                value.st_dev != root.stat().st_dev or actual != identity):
+            raise RuntimeError('reviewed runtime socket changed')
+    return set(expected)
 
 
 def metadata(path):
@@ -88,9 +107,10 @@ def metadata(path):
     return result
 
 
-def inventory(root):
+def inventory(root, runtime_sockets=None):
     if any(p.is_symlink() for p in (root, *root.parents)) or not root.is_dir():
         raise RuntimeError('unsafe Codex tree root')
+    sockets = checked_runtime_sockets(root, runtime_sockets or {})
     result = {'': metadata(root)}
     device = root.stat().st_dev
     for parent, directories, names in os.walk(root, followlinks=False):
@@ -99,6 +119,8 @@ def inventory(root):
             if path.lstat().st_dev != device:
                 raise RuntimeError('Codex tree crosses a device')
             relative = str(path.relative_to(root))
+            if relative in sockets:
+                continue
             transfer.safe_name(relative)
             result[relative] = metadata(path)
     return dict(sorted(result.items()))
@@ -115,8 +137,8 @@ def read_payload(path):
     return data
 
 
-def snapshot(root):
-    tree = inventory(root)
+def snapshot(root, runtime_sockets=None):
+    tree = inventory(root, runtime_sockets)
     if sum(v.get('bytes', 0) for v in tree.values()) * 2 >= available_memory():
         raise RuntimeError('actual available RAM cannot hold Codex snapshot')
     payloads = {}
@@ -124,7 +146,7 @@ def snapshot(root):
         if record['kind'] == 'file':
             payloads[name] = read_payload(root / name)
             record['sha256'] = hashlib.sha256(payloads[name]).hexdigest()
-    if inventory(root) != {name: {k: v for k, v in record.items() if k != 'sha256'}
+    if inventory(root, runtime_sockets) != {name: {k: v for k, v in record.items() if k != 'sha256'}
                            for name, record in tree.items()}:
         raise RuntimeError('Codex tree changed during capture')
     return tree, payloads
@@ -141,6 +163,8 @@ def validate(value, namespace):
                 for p in value['pauses']) or not isinstance(value['tree'], dict)):
         raise RuntimeError('Codex capture identity or pause contract changed')
     tree = value['tree']
+    if set(PROFILES[namespace].get('runtime_sockets', {})) & set(tree):
+        raise RuntimeError('runtime socket included in retained file tree')
     if '' not in tree or tree['']['kind'] != 'directory':
         raise RuntimeError('Codex root directory missing')
     for name, record in tree.items():
@@ -174,8 +198,9 @@ def validate(value, namespace):
 def send(namespace, output):
     identities = source_identity(namespace)
     root = Path(PROFILES[namespace]['volume']['source'])
+    sockets = PROFILES[namespace].get('runtime_sockets', {})
     # Warm reads occur in this separate process, never inside a SQLite writer.
-    for name, record in inventory(root).items():
+    for name, record in inventory(root, sockets).items():
         if record['kind'] == 'file':
             read_payload(root / name)
     if source_identity(namespace) != identities:
@@ -184,7 +209,7 @@ def send(namespace, output):
         with coordinated.stopped(identities, Path(temporary) / 'markers') as pauses:
             if source_identity(namespace) != identities:
                 raise RuntimeError('Codex writers changed before capture')
-            tree, payloads = snapshot(root)
+            tree, payloads = snapshot(root, sockets)
             if source_identity(namespace) != identities:
                 raise RuntimeError('Codex writers changed during capture')
         if source_identity(namespace) != identities:
@@ -348,6 +373,7 @@ def restore(point, checksum, namespace):
                 raise RuntimeError('independent Codex SQLite recoveries differ')
         result.update(accepted=True, databases=restored, sqlite_version=sqlite3.sqlite_version,
                       complete_bytes_metadata_and_symlinks_equal=True, complete_independent_file_restores_equal=True,
+                      runtime_sockets_not_restored=sorted(PROFILES[namespace].get('runtime_sockets', {})),
                       sqlite_databases_verified=len(restored), independent_sqlite_restore_equal=True if restored else None,
                       native_codex_application_and_external_link_targets_unqualified=True,
                       application_not_started=True, providers_not_invoked=True)
