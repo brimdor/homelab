@@ -1,0 +1,126 @@
+---
+- name: Qualify Fedora 44 primitives only inside the owned offline VM
+  hosts: fixture
+  gather_facts: true
+  become: true
+  any_errors_fatal: true
+  tasks:
+    - name: Require the exact synthetic target
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Fedora'
+          - ansible_facts.distribution_major_version == '44'
+          - ansible_facts.architecture == 'x86_64'
+          - ansible_facts.python.version.major == 3
+          - ansible_facts.python.version.minor == 14
+          - ansible_facts.hostname == 'qualification-fedora44'
+          - ansible_host == '127.0.0.1'
+
+    - name: Exercise refusal before any target change
+      ansible.builtin.assert:
+        that: not (qualification_refuse | default(false) | bool)
+        fail_msg: INTENTIONAL_QUALIFICATION_PREFLIGHT_REFUSAL
+
+    - name: Create the fixture repository mountpoint
+      ansible.builtin.file:
+        path: /mnt/qualification-repo
+        state: directory
+        mode: '0755'
+
+    - name: Mount the exact read-only DVD device
+      ansible.posix.mount:
+        path: /mnt/qualification-repo
+        src: /dev/disk/by-id/virtio-qualification-repo
+        fstype: iso9660
+        opts: ro
+        state: ephemeral
+
+    - name: Define the offline signed fixture repository
+      ansible.builtin.copy:
+        dest: /etc/yum.repos.d/qualification.repo
+        mode: '0644'
+        content: |
+          [qualification]
+          name=Verified Fedora 44 DVD
+          baseurl=file:///mnt/qualification-repo
+          enabled=0
+          gpgcheck=1
+          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-x86_64
+
+    - name: Check the native DNF5 Python binding
+      ansible.builtin.command:
+        argv: [/usr/bin/python3, -c, 'import libdnf5']
+      register: binding
+      changed_when: false
+      failed_when: binding.rc not in [0, 1]
+
+    - name: Bootstrap a missing binding only from signed offline media
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/dnf5
+          - --disable-repo=*
+          - --enable-repo=qualification
+          - --assumeyes
+          - install
+          - python3-libdnf5
+      when: binding.rc == 1
+      changed_when: true
+
+    - name: Exercise the actual DNF5 module and package transaction
+      ansible.builtin.dnf5:
+        name: [cronie, dnf5-plugins, dnf5-plugin-automatic]
+        state: present
+        disablerepo: ['*']
+        enablerepo: [qualification]
+        disable_gpg_check: false
+        auto_install_module_deps: false
+        install_weak_deps: false
+
+    - name: Require package idempotence
+      ansible.builtin.dnf5:
+        name: [cronie, dnf5-plugins, dnf5-plugin-automatic]
+        state: present
+        disablerepo: ['*']
+        enablerepo: [qualification]
+        disable_gpg_check: false
+        auto_install_module_deps: false
+        install_weak_deps: false
+      register: repeated
+
+    - name: Verify the repeated package transaction changed nothing
+      ansible.builtin.assert:
+        that: not repeated.changed
+
+    - name: Hold the native automatic updater inside the fixture
+      ansible.builtin.systemd_service:
+        name: dnf5-automatic.timer
+        state: stopped
+        enabled: false
+        masked: true
+
+    - name: Exercise the exact installed sysctl collection on the native kernel
+      ansible.posix.sysctl:
+        name: vm.swappiness
+        value: '61'
+        sysctl_file: /etc/sysctl.d/90-qualification.conf
+        reload: true
+
+    - name: Reboot only the owned synthetic target
+      ansible.builtin.reboot:
+        reboot_timeout: 1200
+        connect_timeout: 10
+        post_reboot_delay: 0
+
+    - name: Verify the updater remains held after reboot
+      ansible.builtin.command:
+        argv: [systemctl, is-enabled, dnf5-automatic.timer]
+      register: updater
+      changed_when: false
+      failed_when: updater.rc != 1 or updater.stdout != 'masked'
+
+    - name: Verify the persistent native sysctl after reboot
+      ansible.builtin.command:
+        argv: [sysctl, -n, vm.swappiness]
+      register: sysctl_result
+      changed_when: false
+      failed_when: sysctl_result.stdout != '61'
