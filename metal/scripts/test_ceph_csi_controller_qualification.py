@@ -93,7 +93,7 @@ class ControllerGuards(unittest.TestCase):
                 plugin = {"image": "plugin", "args": ["--v=0", "--forcecephkernelclient=true"],
                           "resources": {"limits": {"memory": "1Gi"}}}
                 spec = {"replicas": 2, "strategy": {"type": "Recreate"}, "updateStrategy": {"type": "RollingUpdate"},
-                        "template": {"spec": {"hostNetwork": True, "containers": [plugin],
+                        "template": {"spec": {"hostNetwork": kind != "Deployment", "containers": [plugin],
                                              "tolerations": [{"key": "dedicated", "operator": "Exists", "effect": "NoSchedule"}],
                                              "volumes": [{"hostPath": {"path": "/var/lib/kubelet/plugins"}}]}}}
                 rows.append({"kind": kind, "metadata": {"name": kind + owner, "uid": kind + owner,
@@ -109,6 +109,7 @@ class ControllerGuards(unittest.TestCase):
                        lambda v: v[0]["metadata"]["ownerReferences"][0].update(uid="wrong"),
                        lambda v: v[0]["spec"]["template"]["spec"]["containers"][0].update(image="old"),
                        lambda v: v[0]["spec"].update(replicas=1),
+                       lambda v: v[0]["spec"]["template"]["spec"].update(hostNetwork=True),
                        lambda v: v[2]["spec"]["template"]["spec"]["containers"][0].update(args=["--v=0"])):
             bad = copy.deepcopy(rows)
             change(bad)

@@ -143,8 +143,11 @@ def require_workloads(rows, drivers, plugin_image, verbosity):
                    t.get("effect") == "NoSchedule" for t in pod.get("tolerations", [])):
             raise RuntimeError("generated CSI tolerations changed")
         if value["kind"] == "Deployment":
-            if spec.get("replicas") != 2 or spec.get("strategy", {}).get("type") != "Recreate" or not pod.get("hostNetwork"):
-                raise RuntimeError("generated controller replica/network/strategy intent changed")
+            # Native current controllers use pod networking; OperatorConfig hostNetwork is not merged into a populated Driver.
+            mismatches = {"replicas": spec.get("replicas") != 2, "strategy": spec.get("strategy", {}).get("type") != "Recreate",
+                          "host_network": pod.get("hostNetwork", False) is not False}
+            if any(mismatches.values()):
+                raise RuntimeError("generated controller intent changed: " + json.dumps(mismatches))
         else:
             if spec.get("updateStrategy", {}).get("type") != "RollingUpdate":
                 raise RuntimeError("generated node update strategy changed")
