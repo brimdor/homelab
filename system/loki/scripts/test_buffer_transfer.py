@@ -16,6 +16,14 @@ import test_cold_recovery as cold_fixture
 
 
 class BufferTransferTests(unittest.TestCase):
+    def test_default_pages_are_bounded_without_changing_originals(self):
+        rows = self.rows()
+        with patch.object(TRANSFER, "query", return_value=rows) as query:
+            result = list(TRANSFER.windows("synthetic", 0, 7))
+        self.assertEqual(result, [(0, 7, rows)])
+        self.assertEqual(query.call_args_list[0].args, ("synthetic", 0, 7, 500))
+        self.assertEqual(query.call_args_list[1].kwargs, {"direction": "backward"})
+
     def test_checkpoint_count_requires_two_exact_reads_and_refuses_persistent_or_denied_reads(self):
         with patch.object(TRANSFER, "source_query_count", side_effect=[3, 5, 5]) as query, \
                 patch.object(TRANSFER.time, "sleep"):
@@ -113,7 +121,7 @@ class BufferTransferTests(unittest.TestCase):
                     patch.object(TRANSFER, "settled_source_count", return_value=5):
                 return TRANSFER.continuation_prefix(root, account, "synthetic")
         self.assertEqual(check(covered), {"start": 1, "end": 9, "source_accepted_records": 5})
-        second = {**covered, "phase": "buffered-continuation", "attempt": 22,
+        second = {**covered, "phase": "buffered-continuation", "attempt": 24,
                   "prefix_receipt_sha256": "c" * 64}
         data = json.dumps(second).encode()
         root.__truediv__.return_value.read_bytes.return_value = data
@@ -123,10 +131,10 @@ class BufferTransferTests(unittest.TestCase):
                 patch.object(TRANSFER, "continuation_prefix", return_value=prefix) as previous, \
                 patch.object(TRANSFER, "tail_audit", return_value=audit) as read, \
                 patch.object(TRANSFER, "settled_source_count", return_value=5):
-            self.assertEqual(original(root, new, "synthetic", 22),
+            self.assertEqual(original(root, new, "synthetic", 24),
                              {"start": 1, "end": 9, "source_accepted_records": 5})
             previous.assert_called_once_with(root, old, "synthetic")
-            read.assert_called_once_with(root, 22, "synthetic", old, prefix, "continuation", "c" * 64)
+            read.assert_called_once_with(root, 24, "synthetic", old, prefix, "continuation", "c" * 64)
         with self.assertRaisesRegex(RuntimeError, "unqualified continuation checkpoint"):
             original(root, new, "synthetic", 19)
         for key, value in (("applied", False), ("all_source_records_visible", False), ("target_uid", "different"),

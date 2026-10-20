@@ -30,7 +30,7 @@ SOURCE_AUDIT_SHA256 = "9ce2339207236861dd9bf0d93e599b089145922d9ac7057c673224ff4
 PREFIX_RECEIPT_SHA256 = "4966e695293c568d655b310783bda0b082a5dee155cc50cca59eade8542db350"
 CONTINUATION_RECEIPT_SHA256 = "452f4071f76d1b9e59b030fdb38b121c7ba5099ab342e95ae34a59af06170558"
 SECOND_CONTINUATION_RECEIPT_SHA256 = ""
-SECOND_CONTINUATION_ATTEMPT = 22
+SECOND_CONTINUATION_ATTEMPT = 24
 
 
 def get_json(url):
@@ -65,7 +65,8 @@ def query(base, start, end, limit=5000, direction="forward", selector=SELECTOR):
     return sorted(rows, key=lambda row: (row[1], fingerprint(row)))
 
 
-def windows(base, start, end, limit=5000, transport_splits=0):
+# Keep complete bidirectional pages within the anchored buffer HTTP budget.
+def windows(base, start, end, limit=500, transport_splits=0):
     if end < start:
         raise RuntimeError("invalid query interval")
     if end - start > SPAN:
