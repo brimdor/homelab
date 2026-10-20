@@ -37,10 +37,9 @@ def inventory(root):
     return result
 
 
-def seed(source, target, guard, owner=(1000, 2000), expected=MANIFEST_SHA256):
-    for root in (source, target):
-        if not root.is_dir() or any(p.is_symlink() for p in (root, *root.parents)):
-            raise RuntimeError("seed root or ancestry is unsafe")
+def protected_manifest(source, expected):
+    if not source.is_dir() or any(p.is_symlink() for p in (source, *source.parents)):
+        raise RuntimeError("seed root or ancestry is unsafe")
     metadata = source / "verified.json"
     if metadata.is_symlink() or not metadata.is_file():
         raise RuntimeError("protected manifest is unsafe")
@@ -58,6 +57,13 @@ def seed(source, target, guard, owner=(1000, 2000), expected=MANIFEST_SHA256):
     records = manifest["files"]
     if inventory(source / "data") != records:
         raise RuntimeError("protected source files changed")
+    return encoded, records
+
+
+def seed(source, target, guard, owner=(1000, 2000), expected=MANIFEST_SHA256):
+    if not target.is_dir() or any(p.is_symlink() for p in (target, *target.parents)):
+        raise RuntimeError("seed root or ancestry is unsafe")
+    encoded, records = protected_manifest(source, expected)
     guard()
     entries = list(target.iterdir())
     if any(p.name != "lost+found" or p.is_symlink() or not p.is_dir() or any(p.iterdir()) for p in entries):
@@ -71,7 +77,14 @@ def seed(source, target, guard, owner=(1000, 2000), expected=MANIFEST_SHA256):
             path = destination / name
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             with (source / "data" / name).open("rb") as original, path.open("xb") as output:
-                shutil.copyfileobj(original, output)
+                # Bound dirty file-cache charges while copying large files to RBD.
+                while block := original.read(1024 * 1024):
+                    output.write(block)
+                    if output.tell() % (16 * 1024 * 1024) == 0:
+                        output.flush()
+                        os.fsync(output.fileno())
+                        os.posix_fadvise(output.fileno(), 0, output.tell(), os.POSIX_FADV_DONTNEED)
+                        os.posix_fadvise(original.fileno(), 0, original.tell(), os.POSIX_FADV_DONTNEED)
                 output.flush()
                 os.fchmod(output.fileno(), 0o640)
                 os.fchown(output.fileno(), *owner)
@@ -105,6 +118,32 @@ def seed(source, target, guard, owner=(1000, 2000), expected=MANIFEST_SHA256):
             if destination.is_symlink() or destination.stat().st_ino != identity:
                 raise RuntimeError("owned seed directory changed; preserved")
             shutil.rmtree(destination)
+
+
+def remove_owned_partial(source, target, guard, expected_inventory, expected_inode,
+                         expected=MANIFEST_SHA256):
+    protected_manifest(source, expected)
+    if not target.is_dir() or any(p.is_symlink() for p in (target, *target.parents)):
+        raise RuntimeError("partial target ancestry is unsafe")
+    guard()
+    files = inventory(target)
+    fingerprint = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    destination = target / "prometheus-db"
+    if (fingerprint != expected_inventory or destination.is_symlink() or
+            destination.stat().st_ino != expected_inode or
+            any(not name.startswith("prometheus-db/") for name in files) or
+            any(p.name not in ("prometheus-db", "lost+found") for p in target.iterdir())):
+        raise RuntimeError("owned partial seed changed; preserved")
+    guard()
+    shutil.rmtree(destination)
+    descriptor = os.open(target, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    protected_manifest(source, expected)
+    return {"owned_partial_removed": True, "inventory_sha256": fingerprint,
+            "directory_inode": expected_inode, "original_unchanged": True}
 
 
 def validate_storage(claim, volume, pods, env):
@@ -145,10 +184,16 @@ def cluster_guard():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--inspect-only", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--inspect-only", action="store_true")
+    modes.add_argument("--remove-owned-partial", action="store_true")
     args = parser.parse_args()
     os.umask(0o077)
-    if args.inspect_only:
+    if args.remove_owned_partial:
+        print(json.dumps(remove_owned_partial(
+            Path("/source"), Path("/target"), cluster_guard,
+            os.environ["PARTIAL_INVENTORY_SHA256"], int(os.environ["PARTIAL_DIRECTORY_INODE"]))), flush=True)
+    elif args.inspect_only:
         cluster_guard()
         target = Path("/target")
         result = {"inspect_only": True, "files": inventory(target),

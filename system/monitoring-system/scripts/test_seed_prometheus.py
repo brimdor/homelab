@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 
 SPEC = importlib.util.spec_from_file_location("seed", Path(__file__).with_name("seed-prometheus.py"))
@@ -102,6 +102,41 @@ class SeedTests(unittest.TestCase):
             SEED.validate_storage(claim, volume, [pod], env)
         pod["status"]["phase"] = "Succeeded"
         SEED.validate_storage(claim, volume, [pod], env)
+
+    def test_large_copy_bounds_dirty_cache_and_preserves_complete_hash(self):
+        (self.source / "data/wal/00000000").write_bytes(b"x" * (17 * 1024 * 1024))
+        self.manifest["files"] = SEED.inventory(self.source / "data")
+        encoded = json.dumps(self.manifest).encode()
+        (self.source / "verified.json").write_bytes(encoded)
+        self.expected = hashlib.sha256(encoded).hexdigest()
+        with patch.object(SEED.os, "posix_fadvise", create=True) as advise, \
+                patch.object(SEED.os, "POSIX_FADV_DONTNEED", 4, create=True):
+            self.assertTrue(self.seed()["accepted"])
+            self.assertEqual(advise.call_count, 2)
+        self.assertEqual(SEED.inventory(self.target / "prometheus-db"), self.manifest["files"])
+
+    def test_partial_cleanup_requires_exact_inventory_inode_and_consumer_guard(self):
+        partial = self.target / "prometheus-db"
+        partial.mkdir()
+        (partial / "owned-partial").write_bytes(b"synthetic-incomplete-copy")
+        (self.target / "lost+found").mkdir()
+        fingerprint = hashlib.sha256(json.dumps(SEED.inventory(self.target), sort_keys=True,
+                                                separators=(",", ":")).encode()).hexdigest()
+        inode = partial.stat().st_ino
+        def remove(digest=fingerprint, identity=inode, guard=None):
+            return SEED.remove_owned_partial(self.source, self.target, guard or Mock(),
+                                             digest, identity, expected=self.expected)
+        for digest, identity in (("wrong", inode), (fingerprint, inode + 1)):
+            with self.assertRaisesRegex(RuntimeError, "changed; preserved"):
+                remove(digest, identity)
+            self.assertTrue(partial.is_dir())
+        with self.assertRaisesRegex(RuntimeError, "consumer changed"):
+            remove(guard=Mock(side_effect=[None, RuntimeError("consumer changed")]))
+        self.assertTrue(partial.is_dir())
+        self.assertTrue(remove()["owned_partial_removed"])
+        self.assertFalse(partial.exists())
+        self.assertTrue((self.target / "lost+found").is_dir())
+        self.assertEqual(SEED.inventory(self.source / "data"), self.manifest["files"])
 
 
 if __name__ == "__main__":
