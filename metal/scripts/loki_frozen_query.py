@@ -31,6 +31,10 @@ DATA = Path("/var/lib/kubelet/pods") / POD / "volumes/kubernetes.io~csi" / ("pvc
 LABEL = "io.eaglepass.loki-frozen-query-103"
 START = 1792425257955388935
 RANGES = {"prefix": (1792465477456599213, 7090404), "full": (1792470820200149129, 7368160)}
+MODES = [
+    ("ingester-store-entire-range", ["-ingester.query-store-max-look-back-period=-1ns"]),
+    ("standalone-store-only", ["-target=querier", "-querier.query-store-only=true"]),
+]
 
 
 def sha(data):
@@ -185,8 +189,7 @@ def diagnose():
         image_id = image["Id"]
         if image["Os"] != "linux" or image["Architecture"] != "amd64" or image["Config"].get("Volumes"):
             raise RuntimeError("isolated native image contract differs")
-        for mode, flags in [("default", []), ("store-only", ["-querier.query-store-only=true"]),
-                            ("no-sharding", ["-querier.parallelise-shardable-queries=false"])]:
+        for mode, flags in MODES:
             scratch = Path(tempfile.mkdtemp(prefix="loki-frozen-query-", dir=ROOT))
             scratch.chmod(0o700)
             container = None
@@ -220,9 +223,17 @@ def diagnose():
                     time.sleep(1)
                 else:
                     raise RuntimeError("isolated query runtime did not become ready")
+                runtime_config = http("/config").decode()
+                for field, expected in (("query_store_only", "true" if mode == "standalone-store-only" else "false"),
+                                        ("query_store_max_look_back_period", "0s" if mode == "standalone-store-only" else "-1ns")):
+                    if not re.search(r"(?m)^  " + field + ": " + re.escape(expected) + r"$", runtime_config):
+                        raise RuntimeError("isolated query cutoff configuration differs")
+                print(json.dumps({"mode": mode, "runtime_cutoff_configuration_verified": True}), flush=True)
                 for round_number in range(3):
                     for name, (end, expected) in RANGES.items():
                         result = summarize(json.loads(http(query_path(end))))
+                        if result["ingester_chunks" if mode == "standalone-store-only" else "querier_chunks"] != 0:
+                            raise RuntimeError("isolated query used an unexpected store path")
                         result.update(mode=mode, round=round_number, range=name, expected=expected,
                                       matches=result["count"] == expected)
                         results.append(result)
