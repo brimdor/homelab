@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>SearxNG recovery — Maintenance 103</title>
+<style>:root{color-scheme:dark;background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui}body{max-width:1000px;margin:auto;padding:32px}a{color:#9bd0ff}code{overflow-wrap:anywhere}</style>
+<h1>SearxNG recovery</h1><p>Scope: <a href="https://git.eaglepass.io/ops/homelab/issues/103">RECOVERY_PROOF in103</a>.
+Protect both existing Ceph stores and their effective ConfigMap overlays, then qualify a disconnected native copy. No production deployment, provider query, authentication reset or NAS operation.</p>
+<h2>Observed source contract</h2>
+<p>Read-only runs4plns6m5/vka7tu5h/hlpzvgrm/gdt5dobh on2026-10-20 identify Growlithe Pod e387c878-9c07-4ee2-a450-1cc2a0caac15,
+container a6a515725b4130d02f369bb479727ce11b7f03a8ef80a940fb84c07bf5c5e91d,
+image docker.io/searxng/searxng@sha256:b4e34a39f76b1c860bbc53a0f35b10492029b2b18ef1d868df464fe43d7e0b93,
+Ready/zero restarts. Three Python3.14 processes7420/8316/8317 run UID0. Native entrypoint SHA256
+3d0c5d9fbc338de25e7a688dfbc99b28e2661408e1992bbf1dd99f5b6392ecfc executes /usr/local/searxng/.venv/bin/granian searx.webapp:app;
+image configuration supplies WSGI, port8080, /etc/searxng, /var/cache/searxng and version2026.10.16-ff8f5ddcc.</p>
+<p>Configuration claim0cf8a4be-983c-4fc0-97b4-ef92dea29276/PV55778a89-0f40-42b1-87cf-2fd82a17a51c has two zero-byte files and one directory, device64288/inode2.
+Cache claim5536c27e-9a6f-4564-bd4e-4628899803e5/PVa8da26de-2e49-4078-aa90-6a548d08946c has zero files and one directory, device64256/inode2.
+No symlink, special or foreign-device entry was observed. Redis has no persistent volume; do not claim retained Redis recovery.</p>
+<p>Effective settings.yml is a separate9199-byte ConfigMap subpath, SHA256d7b4ec531078dad40a721c240ad5f7efedfc48bb7ab0649fe18f0c747529acbf.
+Effective limiter.toml is452bytes, SHA256e6266df52c2d049a42c6c958fa7b2eb0d951e3623c7a58eba3154a088678e404.
+Both match the corresponding committed apps/searxng/values.yaml ConfigMap data exactly. Capture the effective bytes separately from their empty CSI underlays.</p>
+<h2>Plan and acceptance</h2><ol>
+<li>Add metal/scripts/searxng_recovery.py and focused tests. Reuse reviewed pidfd/coordinated pause, complete two-store memory snapshot, committed protected framing and full-tree copies.</li>
+<li>Before capture verify exact cluster/Pod/container/image/processes/CSI/PVC/PV/all mounts and exclusive consumers; compare mounted overlay hashes to current ConfigMap UIDs/resource versions and committed source. Refuse changed or nonempty unreviewed payloads.</li>
+<li>Warm only the two Ceph stores; freeze all three source processes together below ten seconds with independent resume watchdogs. Capture both full zero-byte trees and fixed effective overlays in that hold. Resume all originals before strict-SSH binary transport into existing protected Pikachu recovery storage.</li>
+<li>Validate complete frame/commit/EOF/hash/permissions and original identity/readiness after capture. Preserve uncertain partial points. Publish the exact candidate on canonical Gitea master before any source pause.</li>
+<li>Inspect the exact pinned AMD64 image contract. Qualify only disposable copied stores with effective overlays, direct native Granian, WSGI, loopback8080, network none/read-only root/drop ALL/no privileges/ports/host mounts. Use an explicit synthetic server secret for the disconnected fixture; preserve production secrets untouched. No search query or external request.</li>
+<li>Require native root HTTP200 with identifiable SearxNG HTML, loopback-only interface and clean shutdown. Compare copied recovery trees before startup and report all native changes honestly. Finally remove exact owned container/new unused image/scratch and reap children; verify protected hashes and original production identities unchanged.</li>
+</ol><h2>Tests and boundaries</h2><p>Use standard-library unittest. Cover missing process/store/overlay, wrong namespace/hash, nonzero unreviewed CSI content, unsafe framing, native network/privilege/foreign mount and mismatched image. The previously accepted twelve-process native pause/cancellation/partial-entry/watchdog fixture exercises the same primitives; also require a three-process qualification before this capture. Record every actual result and source hash.</p>
+<p>Rollback resumes exact original processes; fixture rollback removes only owned disconnected resources. This does not prove external search providers, Redis persistence, production secret recovery, public behavior, later writes, offsite recovery or whole-homelab GREEN. Existing issue/release/security gates remain scoped.</p><h2>Status</h2><p>Source review and plan only. No SearxNG capture or native restore accepted.</p></html>
