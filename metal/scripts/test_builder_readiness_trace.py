@@ -8,8 +8,8 @@ import builder_readiness_trace as subject
 
 def event(edge, call='fsync', timestamp='100.000000', payload=None, tid=7894):
     if payload is None:
-        payload = 'fd: 0x0000000b' if edge == 'enter' else '0x0'
-    return f' node-{tid} [002] .... {timestamp}: sys_{edge}_{call}: {payload}'
+        payload = '(fd: b)' if edge == 'enter' else ' -> 0x0'
+    return f' node-{tid} [002] .... {timestamp}: sys_{call}{payload}'
 
 
 class TraceSamples(unittest.TestCase):
@@ -20,8 +20,8 @@ class TraceSamples(unittest.TestCase):
         value = self.samples()
         value.add(event('enter'))
         value.add(event('exit', timestamp='100.500123'))
-        value.add(event('enter', 'fdatasync', '101.000000', 'fd: 0x0000000c'))
-        value.add(event('exit', 'fdatasync', '106.000000', '0xfffffffffffffffB'))
+        value.add(event('enter', 'fdatasync', '101.000000', '(fd: c)'))
+        value.add(event('exit', 'fdatasync', '106.000000', ' -> 0xfffffffffffffffB'))
         result = value.result()
         self.assertEqual(result['completed'], 2)
         recovery = result['groups']['recovery/fsync']
@@ -44,7 +44,8 @@ class TraceSamples(unittest.TestCase):
 
     def test_loss_foreign_pid_format_duplicate_and_clock_refusals(self):
         for line in ('CPU:2 [LOST 10 EVENTS]', event('enter', tid=200),
-                     event('enter', payload='fd: 11'), event('exit', payload='ret=0')):
+                     event('enter', payload='(fd: 0xb)'), event('exit', payload='ret=0'),
+                     ' node-7894 [002] .... 100.000000: sys_enter_fsync: fd: 0x0000000b'):
             with self.assertRaises(RuntimeError):
                 self.samples().add(line)
         for bad in (event('enter'), event('exit', timestamp='99.999999'), event('exit', 'fdatasync')):

@@ -16,7 +16,7 @@ import builder_recovery as source
 
 ROOT = Path('/sys/kernel/tracing')
 EVENTS = tuple('sys_' + edge + '_' + call for call in ('fsync', 'fdatasync') for edge in ('enter', 'exit'))
-LINE = re.compile(r'^\s*.+-(\d+)\s+\[\d+\]\s+\S+\s+(\d+)\.(\d{1,9}):\s+(sys_(enter|exit)_(fsync|fdatasync)):\s+(.*)$')
+LINE = re.compile(r'^\s*.+-(\d+)\s+\[\d+\]\s+\S+\s+(\d+)\.(\d{1,9}):\s+sys_(fsync|fdatasync)(\(fd: [0-9a-fA-F]+\)| -> 0x[0-9a-fA-F]+)$')
 
 
 class Samples:
@@ -36,16 +36,18 @@ class Samples:
             raise RuntimeError('lost, foreign or unrecognized native trace event')
         tid = int(match[1])
         timestamp = int(match[2]) * 10**9 + int(match[3].ljust(9, '0'))
-        edge, call, payload = match[5], match[6], match[7]
+        call, payload = match[4], match[5]
+        edge = 'enter' if payload.startswith('(') else 'exit'
         if edge == 'enter':
-            value = re.fullmatch(r'fd: 0x([0-9a-fA-F]+)', payload)
+            value = re.fullmatch(r'\(fd: ([0-9a-fA-F]+)\)', payload)
             if not value or tid in self.pending:
                 raise RuntimeError('native syscall enter sequence differs')
             fd = int(value[1], 16)
             self.pending[tid] = (timestamp, call, self.descriptors.get(fd, {}).get('store', 'unattributed'))
             self.seen_tids.add(tid)
         else:
-            if not re.fullmatch(r'0x[0-9a-fA-F]+', payload):
+            value = re.fullmatch(r' -> (0x[0-9a-fA-F]+)', payload)
+            if not value:
                 raise RuntimeError('native syscall return format differs')
             previous = self.pending.pop(tid, None)
             if previous is None:
@@ -58,7 +60,7 @@ class Samples:
             if call != expected or timestamp < started:
                 raise RuntimeError('native syscall pair or monotonic clock differs')
             self.completed.append({'call': call, 'store': store, 'duration_ns': timestamp - started,
-                                   'successful': int(payload, 16) == 0})
+                                   'successful': int(value[1], 16) == 0})
 
     def result(self):
         groups = {}
