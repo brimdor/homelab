@@ -35,6 +35,7 @@ SERVER_FLAGS = ("--flannel-backend=none", "--disable-network-policy", "--disable
                 "--disable=local-storage", "--disable=metrics-server", "--secrets-encryption")
 MARKER = "qualification-k3s-snapshot"
 DATA = "/var/lib/rancher/k3s"
+ECHO_IMAGE = "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603"
 
 
 class CommandFailure(RuntimeError):
@@ -203,6 +204,45 @@ class Qualification(cq.Qualification):
                 if not startup_pending(error.stderr) or time.monotonic() >= deadline:
                     raise
             time.sleep(1)
+
+    def dns_preflight(self):
+        try:
+            return super().dns_preflight()
+        except CommandFailure as error:
+            if not {"access-refused", "trust-refused"}.intersection(failure_classes(error.stderr)):
+                try:
+                    self.fixture_failure_status()
+                except (CommandFailure, RuntimeError, KeyError, ValueError) as diagnostic_error:
+                    (self.work / "fixture-diagnostic-error.json").write_text(json.dumps({
+                        "type": type(diagnostic_error).__name__, "original_failure_preserved": True}))
+            raise
+
+    def fixture_failure_status(self):
+        # Inspect only this guarded synthetic cluster; never persist Pod messages, env or termination text.
+        self.identity()
+        pods = self.kubectl("get", "pods", "-n", "cilium-test-1")["items"]
+        statuses = []
+        for pod in pods:
+            item = {"name": pod["metadata"]["name"], "uid": pod["metadata"]["uid"],
+                    "phase": pod["status"]["phase"], "node": pod["spec"].get("nodeName"),
+                    "images": {c["name"]: c["image"] for c in pod["spec"]["containers"]}, "containers": []}
+            for container in pod["status"].get("containerStatuses", []):
+                terminated = container.get("lastState", {}).get("terminated", {})
+                item["containers"].append({"name": container["name"], "ready": container["ready"],
+                    "restarts": container["restartCount"], "state": sorted(container.get("state", {})),
+                    "last_exit_code": terminated.get("exitCode"), "last_signal": terminated.get("signal"),
+                    "last_reason": terminated.get("reason")})
+                spec = next(c for c in pod["spec"]["containers"] if c["name"] == container["name"])
+                if (container["restartCount"] and container["name"] in ("echo-same-node", "echo-other-node") and
+                        spec["image"] == ECHO_IMAGE and not spec.get("env") and not spec.get("envFrom") and
+                        all(m.get("readOnly") and m["name"].startswith("kube-api-access-")
+                            for m in spec.get("volumeMounts", []))):
+                    # Only the pinned public HTTP fixture, without application data/config, may persist its error log.
+                    raw = self.kubectl("logs", "-n", "cilium-test-1", item["name"], "-c", container["name"],
+                                       "--previous", "--tail=80", json_output=False)
+                    (self.work / ("synthetic-" + container["name"] + "-error.log.gz")).write_bytes(gzip.compress(raw))
+            statuses.append(item)
+        (self.work / "fixture-failure-status.json").write_text(json.dumps(statuses, indent=2))
 
     def select_client(self, version):
         self.args.kubectl = self.args.kubectl35 if minor(version) >= 35 else self.args.kubectl34

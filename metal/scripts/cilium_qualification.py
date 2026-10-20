@@ -282,7 +282,7 @@ class Qualification:
             self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
                           "connectivity", "test", "--test=^$", "--ip-families=ipv4",
                           "--flow-validation=strict", "--hubble=true", "--hubble-server=" + address,
-                          "--collect-sysdump-on-failure=false"])
+                          "--collect-sysdump-on-failure=false"], private=False)
         pods = self.kubectl("get", "pods", "-n", "cilium-test-1")["items"]
         clients = [p for p in pods if p["metadata"]["name"].startswith("client")]
         if len(clients) != 3 or any(not all(c["ready"] for c in p["status"]["containerStatuses"]) for p in clients):

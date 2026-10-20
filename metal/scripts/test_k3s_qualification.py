@@ -187,6 +187,32 @@ class Guards(unittest.TestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(children[0].pid, 0)
 
+    def test_fixture_failure_evidence_excludes_injected_data_and_termination_messages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = q.Qualification.__new__(q.Qualification)
+            runner.work = Path(directory)
+            pod = {"metadata": {"name": "echo-same-node-synthetic", "uid": "owned-pod"},
+                   "spec": {"containers": [{"name": "echo-same-node", "image": q.ECHO_IMAGE}]},
+                   "status": {"phase": "Running", "containerStatuses": [{"name": "echo-same-node", "ready": False,
+                       "restartCount": 3, "state": {"waiting": {"message": "private waiting text"}},
+                       "lastState": {"terminated": {"exitCode": 134, "reason": "Error", "message": "private termination text"}}}]}}
+            for injected in (None, "env", "envFrom", "volumeMounts", "image"):
+                fixture = copy.deepcopy(pod)
+                spec = fixture["spec"]["containers"][0]
+                if injected == "image":
+                    spec["image"] = "unknown-image"
+                elif injected:
+                    spec[injected] = [{"name": "application-data"}]
+                with patch.object(runner, "identity") as identity, patch.object(runner, "kubectl", side_effect=[{"items": [fixture]}, b"public fixture failure"]) as native:
+                    runner.fixture_failure_status()
+                identity.assert_called_once()
+                self.assertEqual(native.call_count, 2 if injected is None else 1)
+                text = (Path(directory) / "fixture-failure-status.json").read_text()
+                self.assertNotIn("private", text)
+                self.assertIn('"last_exit_code": 134', text)
+                for path in Path(directory).glob("*.log.gz"):
+                    path.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()
