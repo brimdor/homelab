@@ -129,6 +129,7 @@ def restore(run_id):
     common.require_host('pikachu')
     common.private_root()
     value = retained.verify(POINT, CHECKSUM, 'kanidm')
+    retained.require_capacity(common.ROOT, value['tree'], 6)
     if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
         raise RuntimeError('owned Kanidm recovery already active')
     if shutil.disk_usage(common.ROOT).free <= sum(r.get('bytes', 0) for r in value['tree'].values()) * 6:

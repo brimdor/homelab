@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -16,6 +17,15 @@ import pointguide_files_recovery as recovery
 
 
 class CodexFilesRecovery(unittest.TestCase):
+    def test_capacity_accounts_for_all_copies_and_kubelet_reclaim_threshold(self):
+        tree = {'': {'kind': 'directory'}, 'payload': {'kind': 'file', 'bytes': 1025}}
+        with patch.object(recovery.os, 'statvfs', return_value=SimpleNamespace(f_frsize=1024)):
+            with patch.object(recovery.shutil, 'disk_usage', return_value=SimpleNamespace(total=100000, free=40000)):
+                recovery.require_capacity(self.root, tree, 3)
+            with patch.object(recovery.shutil, 'disk_usage', return_value=SimpleNamespace(total=100000, free=30000)):
+                with self.assertRaisesRegex(RuntimeError, 'kubelet capacity'):
+                    recovery.require_capacity(self.root, tree, 3)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)

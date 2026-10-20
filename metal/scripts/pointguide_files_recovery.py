@@ -261,6 +261,16 @@ def send(namespace, output):
     output.flush()
 
 
+def require_capacity(path, tree, copies):
+    usage = shutil.disk_usage(path)
+    block = os.statvfs(path).f_frsize
+    allocated = sum(((record.get('bytes', 0) + block - 1) // block + 1) * block
+                    for record in tree.values())
+    # Pikachu's verified kubelet image-GC low threshold is 80%; preserve that free space.
+    if usage.free - allocated * copies <= (usage.total + 4) // 5:
+        raise RuntimeError('retained recovery would cross receiver kubelet capacity threshold')
+
+
 def receive(source, point, namespace):
     header = common.read_frame(source)
     if (set(header) != {'manifest_bytes', 'sha256'} or type(header['manifest_bytes']) is not int or
@@ -271,6 +281,7 @@ def receive(source, point, namespace):
     if len(encoded) != header['manifest_bytes'] or hashlib.sha256(encoded).hexdigest() != header['sha256']:
         raise RuntimeError('Codex manifest truncated or changed')
     value = validate(json.loads(encoded), namespace)
+    require_capacity(point.parent, value['tree'], 3)
     if (any(p.is_symlink() for p in (point.parent, *point.parent.parents)) or
             sum(r.get('bytes', 0) for r in value['tree'].values()) >= shutil.disk_usage(point.parent).free):
         raise RuntimeError('Codex protected destination unsafe or full')
@@ -387,6 +398,7 @@ def sqlite_restore(root, target):
 
 def restore(point, checksum, namespace):
     value = verify(point, checksum, namespace)
+    require_capacity(point.parent, value['tree'], 2)
     scratch = Path(tempfile.mkdtemp(prefix=namespace + '-codex-restore-', dir=point.parent))
     scratch.chmod(0o700)
     result = {'accepted': False, 'manifest_sha256': checksum}
