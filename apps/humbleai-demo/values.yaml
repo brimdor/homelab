@@ -2,9 +2,9 @@ maintenanceData:
   enabled: true
   holdFixtureEnabled: false
   seed:
-    enabled: false
-    runID: ''
-    manifestSHA256: ''
+    enabled: true
+    runID: humbleai-demo-20261020
+    manifestSHA256: 58e2d4bb2881c898b89b3db5373a11b76c8f597cc653ccd94eae932ce7a1e291
 app-template:
   controllers:
     main:
