@@ -34,18 +34,20 @@ def checked_docker(*args, stage):
     return result
 
 
-def manager_failure(raw, state):
+def manager_failure(raw, state=None):
     errors = b"\n".join(line.lower() for line in raw.splitlines() if b"error" in line.lower() or b"panic" in line.lower())
     markers = [v for v in ("not found", "no matches for kind", "already exists", "object has been modified",
                           "conflict", "timeout", "connection refused", "invalid", "required", "failed to create",
                           "failed to update", "failed to get", "unable to load", "configmap", "config map",
                           "imageset", "image set", "operatorconfig", "clientprofile", "cephconnection",
                           "snapshotmetadataservice", "volumesnapshot", "namespace", "panic", "unknown flag",
-                          "unable to find leader election namespace", "not running in-cluster", "unable to start manager")
+                          "unable to find leader election namespace", "not running in-cluster", "unable to start manager",
+                          "context canceled", "the server could not find the requested resource")
                if v.encode() in errors]
-    return "native CSI manager failed: " + json.dumps({"running": state["Running"], "exit": state["ExitCode"],
-                                                       "oom_killed": state["OOMKilled"], "markers": markers,
-                                                       "raw_output_discarded": True})
+    diagnostic = {"markers": markers, "raw_output_discarded": True}
+    if state is not None:
+        diagnostic.update(running=state["Running"], exit=state["ExitCode"], oom_killed=state["OOMKilled"])
+    return "native CSI manager failed: " + json.dumps(diagnostic)
 
 
 def reconciliation_progress(raw):
@@ -66,7 +68,7 @@ def reconciliation_progress(raw):
         if failed:
             error = fields.get("error")
             if not isinstance(error, str) or not re.fullmatch(r'Operation cannot be fulfilled on (configmaps|csidrivers\.storage\.k8s\.io|deployments\.apps|daemonsets\.apps) "[^"\n]+": the object has been modified; please apply your changes to the latest version and try again', error):
-                raise RuntimeError("native CSI non-conflict reconciliation error; raw output discarded")
+                raise RuntimeError("native CSI non-conflict reconciliation error; " + manager_failure(line))
             conflicts += 1
             successful.discard(name)
         else:
