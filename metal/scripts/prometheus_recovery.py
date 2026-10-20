@@ -6,7 +6,7 @@ from contextlib import contextmanager
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import select
 import signal
@@ -14,7 +14,9 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
+import urllib.parse
 
 import etcd_recovery as common
 
@@ -196,6 +198,16 @@ def source_identity(container_id):
             "data_device": before.st_dev, "data_inode": before.st_ino, "process": process}
 
 
+def preparation_files(inventory):
+    prepared = {name for name in inventory if BLOCK.fullmatch(Path(name).parts[0])}
+    for parent in ("wal", "chunks_head"):
+        segments = [name for name in inventory if Path(name).parent == Path(parent) and Path(name).name.isdigit()]
+        if segments:
+            newest = max(segments, key=lambda name: int(Path(name).name))
+            prepared.update(name for name in segments if name != newest)
+    return prepared
+
+
 def capture(run_id, container_id):
     identity = source_identity(container_id)
     common.private_root()
@@ -209,15 +221,14 @@ def capture(run_id, container_id):
     if sum(v[2] for v in initial.values()) > shutil.disk_usage(point).free:
         raise RuntimeError("insufficient actual capture capacity")
     records = {}
-    for name, metadata in initial.items():
-        if BLOCK.fullmatch(Path(name).parts[0]):
-            records[name] = copy_file(DATA / name, target / name, metadata)
+    for name in sorted(preparation_files(initial)):
+        records[name] = copy_file(DATA / name, target / name, initial[name])
     if source_identity(container_id) != identity:
         raise RuntimeError("source changed during immutable-block preparation")
     with frozen(identity["process"], point / "watchdog-fired") as pause:
         current = files(DATA)
         if any(name not in current or current[name] != initial[name] for name in records):
-            raise RuntimeError("prepared immutable block changed; candidate remains unaccepted")
+            raise RuntimeError("prepared block or closed segment changed; candidate remains unaccepted")
         for name, metadata in current.items():
             if name not in records:
                 records[name] = copy_file(DATA / name, target / name, metadata)
@@ -246,6 +257,243 @@ def capture(run_id, container_id):
         os.close(descriptor)
     return {"point": str(point), "manifest_sha256": hashlib.sha256(data).hexdigest(),
             "bytes": manifest["bytes"], "files": len(records), **pause}
+
+
+def validate_manifest(manifest):
+    if (not isinstance(manifest, dict) or not isinstance(manifest.get("source"), dict) or
+            manifest.get("format") != 1 or manifest["source"].get("pod_uid") != POD_UID or
+            manifest["source"].get("image") != IMAGE or
+            not isinstance(manifest.get("files"), dict) or not manifest["files"] or
+            len(manifest["files"]) > 10000 or not 0 < manifest.get("stopped_seconds", 0) < 10):
+        raise RuntimeError("protected store manifest identity changed")
+    for name, record in manifest["files"].items():
+        if not isinstance(name, str) or not name or len(name) > 512:
+            raise RuntimeError("unsafe protected store filename")
+        path = PurePosixPath(name)
+        if (not path.parts or path.is_absolute() or
+                str(path) != name or any(part in (".", "..") for part in path.parts) or
+                path.parts[0] not in ("wal", "chunks_head", "lock", "queries.active") and
+                not BLOCK.fullmatch(path.parts[0]) or
+                (path.parts[0] in ("lock", "queries.active")) != (len(path.parts) == 1) or
+                not isinstance(record, dict) or set(record) != {"bytes", "sha256"} or
+                type(record["bytes"]) is not int or record["bytes"] < 0 or
+                not isinstance(record["sha256"], str) or
+                not re.fullmatch(r"[a-f0-9]{64}", record["sha256"])):
+            raise RuntimeError("unsafe protected store file manifest")
+    if manifest.get("bytes") != sum(v["bytes"] for v in manifest["files"].values()):
+        raise RuntimeError("protected store byte accounting changed")
+    if not any(PurePosixPath(name).parts[0] == "wal" for name in manifest["files"]):
+        raise RuntimeError("protected store WAL is missing")
+    return manifest
+
+
+def verify_point(point, expected_hash):
+    if any(p.is_symlink() for p in (point, *point.parents)):
+        raise RuntimeError("protected point has symlink ancestry")
+    common.source_record("verified.json", point / "verified.json")
+    descriptor = os.open(point / "verified.json", os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as source:
+        encoded = source.read(1048577)
+    if len(encoded) > 1048576:
+        raise RuntimeError("protected manifest exceeds framing contract")
+    if hashlib.sha256(encoded).hexdigest() != expected_hash:
+        raise RuntimeError("protected manifest hash changed")
+    manifest = validate_manifest(json.loads(encoded))
+    actual = files(point / "data")
+    if set(actual) != set(manifest["files"]):
+        raise RuntimeError("protected store file set changed")
+    for name, expected in manifest["files"].items():
+        path = point / "data" / name
+        before = file_identity(path)
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as source:
+            metadata = os.fstat(source.fileno())
+            if metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != 0o600:
+                raise RuntimeError("protected store file permissions changed")
+            digest = hashlib.sha256()
+            for chunk in iter(lambda: source.read(1048576), b""):
+                digest.update(chunk)
+        if file_identity(path) != before or {"bytes": before[2], "sha256": digest.hexdigest()} != expected:
+            raise RuntimeError("protected store file hash changed")
+    return manifest, encoded
+
+
+def send_point(output, point, expected_hash):
+    manifest, encoded = verify_point(point, expected_hash)
+    if len(encoded) > 1048576 or b"\n" in encoded:
+        raise RuntimeError("protected manifest exceeds framing contract")
+    output.write(encoded + b"\n")
+    for name in sorted(manifest["files"]):
+        descriptor = os.open(point / "data" / name, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as source:
+            for chunk in iter(lambda: source.read(1048576), b""):
+                output.write(chunk)
+    verify_point(point, expected_hash)
+    output.write(common.canonical({"commit": expected_hash}) + b"\n")
+    output.flush()
+
+
+def receive_point(source, point, expected_hash):
+    encoded = source.readline(1048578)
+    if not encoded.endswith(b"\n") or len(encoded) > 1048577:
+        raise RuntimeError("invalid protected store framing")
+    encoded = encoded[:-1]
+    if hashlib.sha256(encoded).hexdigest() != expected_hash:
+        raise RuntimeError("incoming protected manifest hash changed")
+    manifest = validate_manifest(json.loads(encoded))
+    if any(p.is_symlink() for p in (point.parent, *point.parent.parents)):
+        raise RuntimeError("recovery destination ancestry contains a symlink")
+    if manifest["bytes"] > shutil.disk_usage(point.parent).free:
+        raise RuntimeError("insufficient actual off-master recovery capacity")
+    point.mkdir(mode=0o700)
+    data = point / "data"
+    data.mkdir(mode=0o700)
+    for name, record in sorted(manifest["files"].items()):
+        target = data / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        digest = hashlib.sha256()
+        remaining = record["bytes"]
+        with target.open("xb") as output:
+            os.fchmod(output.fileno(), 0o600)
+            while remaining:
+                chunk = source.read(min(remaining, 1048576))
+                if not chunk:
+                    raise RuntimeError("protected store transfer truncated")
+                output.write(chunk)
+                digest.update(chunk)
+                remaining -= len(chunk)
+            output.flush()
+            os.fsync(output.fileno())
+        if digest.hexdigest() != record["sha256"]:
+            raise RuntimeError("incoming protected store file hash changed")
+    if common.read_frame(source) != {"commit": expected_hash} or source.read(1):
+        raise RuntimeError("protected store transfer commit missing or trailing data present")
+    with (point / "verified.json").open("xb") as output:
+        os.fchmod(output.fileno(), 0o600)
+        output.write(encoded)
+        output.flush()
+        os.fsync(output.fileno())
+    for parent, _, _ in os.walk(point, topdown=False):
+        descriptor = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    verify_point(point, expected_hash)
+    return {"manifest_sha256": expected_hash, "bytes": manifest["bytes"], "files": len(manifest["files"])}
+
+
+def query_fingerprint(value):
+    if (value.get("status") != "success" or value.get("data", {}).get("resultType") != "vector" or
+            not isinstance(value["data"].get("result"), list) or not value["data"]["result"]):
+        raise RuntimeError("nonempty successful native query evidence is required")
+    rows = sorted(value["data"]["result"], key=common.canonical)
+    return {"rows": len(rows), "sha256": hashlib.sha256(common.canonical(rows)).hexdigest()}
+
+
+def restore(point, expected_hash, run_id, probes):
+    common.require_host("pikachu")
+    common.private_root()
+    common.run_identifier(run_id)
+    manifest, _ = verify_point(point, expected_hash)
+    if not probes or any(set(p) != {"query", "time", "expected"} for p in probes):
+        raise RuntimeError("fixed native query probes are required")
+    label = "io.eaglepass.prometheus-recovery"
+    if common.docker("ps", "-aq", "--filter=label=" + label).stdout.strip():
+        raise RuntimeError("another owned Prometheus recovery is active")
+    if manifest["bytes"] > shutil.disk_usage(common.ROOT).free:
+        raise RuntimeError("insufficient actual isolated restore capacity")
+    previous_images = set(common.docker("image", "ls", "--no-trunc", "-q").stdout.decode().split())
+    scratch = Path(tempfile.mkdtemp(prefix=run_id + "-restore-", dir=common.ROOT))
+    container = image_id = None
+    result = {"accepted": False, "manifest_sha256": expected_hash}
+    try:
+        scratch.chmod(0o700)
+        shutil.copytree(point / "data", scratch / "data")
+        config = scratch / "prometheus.yml"
+        config.write_text("global:\n  scrape_interval: 1m\nscrape_configs: []\n")
+        config.chmod(0o600)
+        common.docker("pull", IMAGE)
+        image = json.loads(common.docker("image", "inspect", IMAGE).stdout)[0]
+        image_id = image["Id"]
+        if image["Architecture"] != "amd64" or image["Os"] != "linux" or image["Config"].get("Volumes"):
+            raise RuntimeError("reviewed image architecture or volume contract changed")
+        args = ["create", "--network=none", "--read-only", "--cap-drop=ALL", "--user=0:0",
+                "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=256",
+                "--cpus=2", "--memory=2g", "--label=" + label + "=" + run_id,
+                "--mount=type=bind,source=" + str(scratch) + ",target=/work",
+                "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=/usr/bin/prometheus", IMAGE,
+                "--config.file=/work/prometheus.yml", "--storage.tsdb.path=/work/data",
+                "--storage.tsdb.retention.time=10d", "--web.listen-address=127.0.0.1:9090"]
+        container = common.docker(*args).stdout.decode().strip()
+        if not re.fullmatch(r"[a-f0-9]{64}", container):
+            raise RuntimeError("invalid owned restore container identity")
+        state = common.inspect(container)
+        host = state["HostConfig"]
+        if (state["Config"].get("Labels", {}).get(label) != run_id or
+                host["NetworkMode"] != "none" or not host["ReadonlyRootfs"] or host["Privileged"] or
+                host["CapDrop"] != ["ALL"] or host.get("CapAdd") or host.get("Devices") or
+                host.get("DeviceRequests") or host.get("PortBindings") or host.get("PidMode") or
+                host.get("IpcMode") != "private" or host.get("UTSMode") or host.get("UsernsMode") or
+                host.get("Tmpfs") != {"/tmp": "rw,nosuid,nodev"} or
+                host["SecurityOpt"] != ["no-new-privileges:true"] or
+                [(m.get("Type"), m.get("Source"), m.get("Destination"), m.get("RW"))
+                 for m in state["Mounts"]] != [("bind", str(scratch), "/work", True)]):
+            raise RuntimeError("native restore isolation contract changed")
+        common.docker("start", container)
+        pid = str(common.inspect(container)["State"]["Pid"])
+        network = ["nsenter", "--target", pid, "--net", "--"]
+        links = json.loads(common.command(network + ["ip", "-j", "address"]).stdout)
+        routes = sum((json.loads(common.command(network + ["ip", family, "-j", "route", "show", "table", "all"]).stdout)
+                      for family in ("-4", "-6")), [])
+        common.require_network(links, routes)
+        if common.command(network + ["ip", "route", "get", "10.0.20.50"], check=False).returncode == 0:
+            raise RuntimeError("native restore can route to production")
+        read = "import sys,urllib.request;sys.stdout.buffer.write(urllib.request.urlopen(sys.argv[1],timeout=60).read())"
+        def request(path, check=True):
+            return common.command(network + ["python3", "-B", "-c", read, "http://127.0.0.1:9090" + path], check=check)
+        while request("/-/ready", check=False).returncode:
+            if not common.inspect(container)["State"]["Running"]:
+                raise RuntimeError("native recovery exited before readiness")
+            time.sleep(1)
+        version = json.loads(request("/api/v1/status/buildinfo").stdout)["data"]["version"]
+        if version != "3.12.0":
+            raise RuntimeError("native Prometheus version changed")
+        checks = []
+        for probe in probes:
+            value = json.loads(request("/api/v1/query?" + urllib.parse.urlencode(
+                {"query": probe["query"], "time": probe["time"]})).stdout)
+            actual = query_fingerprint(value)
+            checks.append({"query_sha256": hashlib.sha256(probe["query"].encode()).hexdigest(),
+                           "time": probe["time"], **actual, "matches": actual == probe["expected"]})
+            if actual != probe["expected"]:
+                raise RuntimeError("native restored historical query differs")
+        native_logs = common.docker("logs", container)
+        logs = native_logs.stdout + native_logs.stderr
+        if re.search(rb"(?i)(corrupt|repair|discard|level=error|level=\"ERROR\")", logs):
+            raise RuntimeError("native TSDB recovery emitted an error or repair diagnostic")
+        if b"WAL replay completed" not in logs:
+            raise RuntimeError("native WAL replay completion is unproven")
+        result.update(accepted=True, version=version, queries=checks, network_none=True,
+                      no_scrape_alert_or_remote_write_config=True, native_wal_replay_completed=True)
+    finally:
+        if container is not None:
+            if common.inspect(container)["Config"].get("Labels", {}).get(label) != run_id:
+                raise RuntimeError("owned restore container identity changed during cleanup")
+            common.docker("rm", "-f", "--volumes", container)
+        shutil.rmtree(scratch)
+        removed = False
+        if image_id and image_id not in previous_images:
+            if not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
+                common.docker("image", "rm", image_id)
+                removed = common.docker("image", "inspect", image_id, check=False).returncode != 0
+                if not removed:
+                    raise RuntimeError("new native restore image remains")
+        verify_point(point, expected_hash)
+        result["cleanup"] = {"scratch_absent": not scratch.exists(), "new_image_removed": removed,
+                             "owned_container_absent": not common.docker("ps", "-aq", "--filter=label=" + label).stdout.strip(),
+                             "protected_original_unchanged": True}
+    return result
 
 
 def interrupted(number, frame):

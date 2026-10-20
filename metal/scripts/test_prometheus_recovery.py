@@ -3,6 +3,8 @@
 
 from contextlib import ExitStack
 import hashlib
+import io
+import json
 import os
 from pathlib import Path
 import signal
@@ -17,6 +19,61 @@ import prometheus_recovery as recovery
 
 
 class RecoveryGuards(unittest.TestCase):
+    def test_only_blocks_and_older_numbered_segments_are_prepared_live(self):
+        names = ["01ARZ3NDEKTSV4RRFFQ69G5FAV/index", "wal/00000009", "wal/00000010",
+                 "chunks_head/000001", "chunks_head/000002", "wal/checkpoint.00000008/00000000",
+                 "queries.active", "lock"]
+        self.assertEqual(recovery.preparation_files(dict.fromkeys(names)),
+                         {names[0], "wal/00000009", "chunks_head/000001"})
+
+    def test_native_query_fingerprint_preserves_values_and_ignores_vector_order(self):
+        rows = [{"metric": {"instance": "synthetic-a"}, "value": [123, "1"]},
+                {"metric": {"instance": "synthetic-b"}, "value": [123, "2"]}]
+        def result(values):
+            return {"status": "success", "data": {"resultType": "vector", "result": values}}
+        expected = recovery.query_fingerprint(result(rows))
+        self.assertEqual(recovery.query_fingerprint(result(list(reversed(rows)))), expected)
+        changed = json.loads(json.dumps(rows))
+        changed[1]["value"][1] = "3"
+        self.assertNotEqual(recovery.query_fingerprint(result(changed)), expected)
+        for value in ({"status": "error"}, result([])):
+            with self.assertRaises(RuntimeError):
+                recovery.query_fingerprint(value)
+
+    def test_stream_preserves_complete_store_and_refuses_truncation_corruption_and_trailing_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            point = root / "original"
+            (point / "data/wal").mkdir(parents=True)
+            payloads = {"wal/00000000": b"synthetic WAL", "lock": b""}
+            for name, value in payloads.items():
+                path = point / "data" / name
+                path.write_bytes(value)
+                path.chmod(0o600)
+            manifest = {"format": 1, "source": {"pod_uid": recovery.POD_UID, "image": recovery.IMAGE},
+                        "stopped_seconds": 0.1, "bytes": sum(map(len, payloads.values())),
+                        "files": {name: {"bytes": len(value), "sha256": hashlib.sha256(value).hexdigest()}
+                                  for name, value in payloads.items()}}
+            encoded = recovery.common.canonical(manifest)
+            (point / "verified.json").write_bytes(encoded)
+            (point / "verified.json").chmod(0o600)
+            expected = hashlib.sha256(encoded).hexdigest()
+            output = io.BytesIO()
+            recovery.send_point(output, point, expected)
+            stream = output.getvalue()
+            recovery.receive_point(io.BytesIO(stream), root / "received", expected)
+            self.assertEqual(recovery.verify_point(root / "received", expected)[0], manifest)
+            for index, value in enumerate((stream[:-8], stream.replace(b"synthetic WAL", b"corrupted WAL"), stream + b"extra")):
+                destination = root / ("invalid-" + str(index))
+                with self.assertRaises(RuntimeError):
+                    recovery.receive_point(io.BytesIO(value), destination, expected)
+                self.assertFalse((destination / "verified.json").exists())
+            for name in ("../escape", "/absolute", "wal/../escape", "wal//segment", "", "wal"):
+                changed = json.loads(encoded)
+                changed["files"] = {name: manifest["files"]["wal/00000000"]}
+                with self.subTest(name=name), self.assertRaises(RuntimeError):
+                    recovery.validate_manifest(changed)
+
     @unittest.skipUnless(sys.platform == "linux", "native Linux pidfd qualification runs on the owned remote fixture")
     def test_native_watchdog_resumes_owned_fixture_after_capture_parent_is_killed(self):
         import ctypes
