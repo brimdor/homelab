@@ -87,21 +87,28 @@ def validate_manifest(value, namespace):
             not isinstance(value['tree']['directories'], list) or not isinstance(value['tree']['files'], dict) or
             not {'sporecast.db', 'sporecast.db-wal', 'sporecast.db-shm'} <= set(value['tree']['files'])):
         raise RuntimeError('protected Sporecast source/paused WAL contract changed')
-    for name in value['tree']['directories']: safe_name(name)
-    if len(set(value['tree']['directories'])) != len(value['tree']['directories']): raise RuntimeError('duplicate recovery directories')
-    directories = set(value['tree']['directories'])
-    names = set(value['tree']['files'])
+    if type(value.get('bytes')) is not int or value['bytes'] != validate_tree(value['tree']):
+        raise RuntimeError('recovery byte accounting differs')
+    return value
+
+
+def validate_tree(tree):
+    if (not isinstance(tree, dict) or set(tree) != {'directories', 'files'} or
+            not isinstance(tree['directories'], list) or not isinstance(tree['files'], dict)):
+        raise RuntimeError('invalid recovery tree')
+    for name in tree['directories']: safe_name(name)
+    if len(set(tree['directories'])) != len(tree['directories']): raise RuntimeError('duplicate recovery directories')
+    directories = set(tree['directories'])
+    names = set(tree['files'])
     if directories & names: raise RuntimeError('conflicting recovery paths')
-    for name, record in value['tree']['files'].items():
+    for name, record in tree['files'].items():
         safe_name(name)
         if (not isinstance(record, dict) or set(record) != {'bytes', 'sha256'} or type(record['bytes']) is not int or record['bytes'] < 0 or
                 not isinstance(record['sha256'], str) or not re.fullmatch('[a-f0-9]{64}', record['sha256'])): raise RuntimeError('unsafe recovery record')
     for name in directories | names:
         if any(str(p) in names for p in PurePosixPath(name).parents if str(p) != '.'):
             raise RuntimeError('recovery file has descendants')
-    if type(value.get('bytes')) is not int or value['bytes'] != sum(r['bytes'] for r in value['tree']['files'].values()):
-        raise RuntimeError('recovery byte accounting differs')
-    return value
+    return sum(r['bytes'] for r in tree['files'].values())
 
 
 def memory_snapshot(root):
@@ -145,10 +152,11 @@ def point_path(namespace, run_id):
     return point
 
 
-def receive(source, point, namespace):
+def receive(source, point, namespace, validator=None, verifier=None):
+    validator = validator or validate_manifest; verifier = verifier or verify
     frame = source.readline(1048578)
     if not frame.endswith(b'\n') or len(frame) > 1048577: raise RuntimeError('invalid incoming manifest frame')
-    encoded = frame[:-1]; manifest = validate_manifest(json.loads(encoded), namespace); checksum = hashlib.sha256(encoded).hexdigest()
+    encoded = frame[:-1]; manifest = validator(json.loads(encoded), namespace); checksum = hashlib.sha256(encoded).hexdigest()
     if any(p.is_symlink() for p in (point.parent, *point.parent.parents)): raise RuntimeError('unsafe receiver ancestry')
     if manifest['bytes'] >= shutil.disk_usage(point.parent).free: raise RuntimeError('actual recovery capacity exhausted')
     point.mkdir(mode=0o700); data = point / 'data'; data.mkdir(mode=0o700)
@@ -164,14 +172,15 @@ def receive(source, point, namespace):
             output.flush(); os.fsync(output.fileno())
         if checksummer.hexdigest() != record['sha256']: raise RuntimeError('payload hash differs; protected partial retained')
     if common.read_frame(source) != {'commit': checksum} or source.read(1): raise RuntimeError('source commit missing or trailing bytes')
-    files.write_json(point / 'verified.json', manifest); verify(point, checksum, namespace)
+    files.write_json(point / 'verified.json', manifest); verifier(point, checksum, namespace)
     return {'point': str(point), 'manifest_sha256': checksum, 'files': len(manifest['tree']['files']), 'bytes': manifest['bytes'], 'pause': manifest['pause']}
 
 
-def verify(point, checksum, namespace):
+def verify(point, checksum, namespace, validator=None):
+    validator = validator or validate_manifest
     common.source_record('verified.json', point / 'verified.json'); raw = (point / 'verified.json').read_bytes()
     if hashlib.sha256(raw).hexdigest() != checksum: raise RuntimeError('protected manifest changed')
-    manifest = validate_manifest(json.loads(raw), namespace)
+    manifest = validator(json.loads(raw), namespace)
     if (any(p.is_symlink() for p in (point, *point.parents)) or point.stat().st_uid != os.geteuid() or
             stat.S_IMODE(point.stat().st_mode) != 0o700 or files.tree(point / 'data') != manifest['tree']):
         raise RuntimeError('protected source tree changed')
