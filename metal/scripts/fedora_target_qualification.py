@@ -18,6 +18,9 @@ import pycdlib
 import yaml
 
 
+AUTOMATIC_RPM_SHA256 = '59940bf52907d6dee1fd018338b90b7519143d9f4e78c48d136e8ee8a9869990'
+
+
 MEDIA = {
     'cloud': '28680fe5b371a5a82ebf43a31926e086a168e59949d03969c5093e7071f90b7f',
     'server': '85837793bfa36db6bc709b4cecd2ec116951b87d9c53c3d95eb2fac8dcf7cf1f',
@@ -68,6 +71,7 @@ class Qualification:
         require_root(args.work_dir)
         for name in MEDIA:
             require_media(args.work_dir, getattr(args, name + '_image'), MEDIA[name])
+        require_media(args.work_dir, args.automatic_rpm, AUTOMATIC_RPM_SHA256)
         self.args = args
         self.root = args.work_dir / 'runtime'
         self.root.mkdir(mode=0o700)
@@ -121,6 +125,8 @@ class Qualification:
             ):
                 iso.add_fp(io.BytesIO(raw), len(raw), iso_path='/' + iso_name + '.;1',
                            rr_name=name, joliet_path='/' + name)
+            iso.add_file(str(self.args.automatic_rpm), iso_path='/AUTOMATIC.RPM;1',
+                         rr_name='automatic.rpm', joliet_path='/automatic.rpm')
             iso.write(str(seed))
         finally:
             iso.close()
@@ -231,7 +237,7 @@ print(json.dumps({'machine':p('/etc/machine-id').read_text().strip(),
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('work-dir', 'cloud-image', 'server-image', 'ansible-playbook', 'collection-dir'):
+    for name in ('work-dir', 'cloud-image', 'server-image', 'ansible-playbook', 'collection-dir', 'automatic-rpm'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--qemu-img', default='qemu-img')

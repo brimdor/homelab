@@ -35,6 +35,35 @@
         opts: ro
         state: ephemeral
 
+    - name: Mount the exact read-only seed containing the supplemental RPM
+      ansible.posix.mount:
+        path: /mnt/qualification-seed
+        src: /dev/disk/by-id/virtio-qualification-seed
+        fstype: iso9660
+        opts: ro
+        state: ephemeral
+
+    - name: Require signatures for repository and local package transactions
+      ansible.builtin.copy:
+        dest: /etc/dnf/dnf.conf
+        mode: '0644'
+        content: |
+          [main]
+          gpgcheck=True
+          localpkg_gpgcheck=True
+
+    - name: Import only the release key from the verified cloud image
+      ansible.builtin.command:
+        argv: [rpmkeys, --import, /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-x86_64]
+      changed_when: true
+
+    - name: Verify the supplemental RPM using the native trusted key
+      ansible.builtin.command:
+        argv: [rpmkeys, --checksig, --verbose, /mnt/qualification-seed/automatic.rpm]
+      register: signature
+      changed_when: false
+      failed_when: signature.rc != 0 or 'NOT OK' in signature.stdout or 'NOKEY' in signature.stdout
+
     - name: Define the offline signed fixture repository
       ansible.builtin.copy:
         dest: /etc/yum.repos.d/qualification.repo
@@ -68,7 +97,7 @@
 
     - name: Exercise the actual DNF5 module and package transaction
       ansible.builtin.dnf5:
-        name: [cronie, dnf5-plugins, dnf5-plugin-automatic]
+        name: [cronie, dnf5-plugins, /mnt/qualification-seed/automatic.rpm]
         state: present
         disablerepo: ['*']
         enablerepo: [qualification]
@@ -78,7 +107,7 @@
 
     - name: Require package idempotence
       ansible.builtin.dnf5:
-        name: [cronie, dnf5-plugins, dnf5-plugin-automatic]
+        name: [cronie, dnf5-plugins, /mnt/qualification-seed/automatic.rpm]
         state: present
         disablerepo: ['*']
         enablerepo: [qualification]
