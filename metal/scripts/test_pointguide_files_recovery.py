@@ -182,6 +182,39 @@ class CodexFilesRecovery(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'runtime socket changed'):
             recovery.snapshot(source, expected)
 
+    def test_prepared_bytes_are_reused_only_for_unchanged_complete_file_identity(self):
+        source = self.root / 'source'
+        source.mkdir()
+        stable = source / 'stable'
+        changed = source / 'changed'
+        removed = source / 'removed'
+        for path in (stable, changed, removed):
+            path.write_bytes(b'synthetic initial bytes')
+        prepared = recovery.prepare_file_cache(source)
+        old = changed.stat()
+        changed.write_bytes(b'synthetic updated bytes')
+        os.utime(changed, ns=(old.st_atime_ns, old.st_mtime_ns))
+        removed.unlink()
+        (source / 'new').write_bytes(b'new synthetic file')
+        original = recovery.read_payload
+        read = []
+        def capture(path):
+            self.assertNotEqual(path, stable)
+            read.append(path.name)
+            return original(path)
+        with patch.object(recovery, 'read_payload', side_effect=capture):
+            tree, payloads = recovery.snapshot(source, prepared=prepared)
+        self.assertEqual(set(read), {'changed', 'new'})
+        self.assertEqual(payloads, {'stable': b'synthetic initial bytes',
+                                  'changed': b'synthetic updated bytes', 'new': b'new synthetic file'})
+        self.assertNotIn('removed', tree)
+        self.assertEqual(tree['changed']['sha256'], recovery.hashlib.sha256(payloads['changed']).hexdigest())
+        with patch.object(recovery, 'available_memory', return_value=1), self.assertRaisesRegex(RuntimeError, 'RAM'):
+            recovery.prepare_file_cache(source)
+        with patch.object(recovery, 'read_payload', side_effect=PermissionError('synthetic denied')):
+            with self.assertRaises(PermissionError):
+                recovery.prepare_file_cache(source)
+
     def test_four_native_writers_resume_after_capture_failure(self):
         children = []
         try:

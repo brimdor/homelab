@@ -137,15 +137,47 @@ def read_payload(path):
     return data
 
 
-def snapshot(root, runtime_sockets=None):
+def prepare_file_cache(root, runtime_sockets=None):
+    tree = inventory(root, runtime_sockets)
+    if sum(v.get('bytes', 0) for v in tree.values()) * 2 >= available_memory():
+        raise RuntimeError('actual available RAM cannot hold prepared file cache')
+    prepared = {}
+    for name, record in tree.items():
+        if record['kind'] != 'file':
+            continue
+        path = root / name
+        try:
+            identity = process.file_identity(path)
+            if identity[2] * 2 >= available_memory():
+                raise RuntimeError('actual available RAM cannot read prepared file')
+            data = read_payload(path)
+            if process.file_identity(path) == identity:
+                prepared[name] = (identity, data, hashlib.sha256(data).hexdigest())
+        except FileNotFoundError:
+            continue
+        except RuntimeError as error:
+            if str(error) not in ('Codex file changed before open', 'Codex file changed while reading'):
+                raise
+    return prepared
+
+
+def snapshot(root, runtime_sockets=None, prepared=None):
     tree = inventory(root, runtime_sockets)
     if sum(v.get('bytes', 0) for v in tree.values()) * 2 >= available_memory():
         raise RuntimeError('actual available RAM cannot hold Codex snapshot')
-    payloads = {}
+    payloads, identities = {}, {}
     for name, record in tree.items():
         if record['kind'] == 'file':
-            payloads[name] = read_payload(root / name)
-            record['sha256'] = hashlib.sha256(payloads[name]).hexdigest()
+            identity = process.file_identity(root / name)
+            cached = (prepared or {}).get(name)
+            if cached is not None and cached[0] == identity:
+                payloads[name], record['sha256'] = cached[1:]
+            else:
+                payloads[name] = read_payload(root / name)
+                record['sha256'] = hashlib.sha256(payloads[name]).hexdigest()
+            identities[name] = identity
+    if any(process.file_identity(root / name) != identity for name, identity in identities.items()):
+        raise RuntimeError('retained file identity changed during capture')
     if inventory(root, runtime_sockets) != {name: {k: v for k, v in record.items() if k != 'sha256'}
                            for name, record in tree.items()}:
         raise RuntimeError('Codex tree changed during capture')
@@ -199,17 +231,19 @@ def send(namespace, output):
     identities = source_identity(namespace)
     root = Path(PROFILES[namespace]['volume']['source'])
     sockets = PROFILES[namespace].get('runtime_sockets', {})
-    # Warm reads occur in this separate process, never inside a SQLite writer.
-    for name, record in inventory(root, sockets).items():
-        if record['kind'] == 'file':
-            read_payload(root / name)
+    # Prepare only the reviewed large tree; unchanged inode/ctime-bound bytes avoid a long stop.
+    prepared = prepare_file_cache(root, sockets) if PROFILES[namespace].get('prepare_file_cache') is True else None
+    if prepared is None:
+        for name, record in inventory(root, sockets).items():
+            if record['kind'] == 'file':
+                read_payload(root / name)
     if source_identity(namespace) != identities:
         raise RuntimeError('Codex writers changed during warm read')
     with tempfile.TemporaryDirectory(prefix='homelab-codex-recovery-', dir='/run') as temporary:
         with coordinated.stopped(identities, Path(temporary) / 'markers') as pauses:
             if source_identity(namespace) != identities:
                 raise RuntimeError('Codex writers changed before capture')
-            tree, payloads = snapshot(root, sockets)
+            tree, payloads = snapshot(root, sockets, prepared)
             if source_identity(namespace) != identities:
                 raise RuntimeError('Codex writers changed during capture')
         if source_identity(namespace) != identities:

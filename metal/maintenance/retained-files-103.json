@@ -530,7 +530,8 @@
       "device": 64320,
       "inode": 2
     },
-    "sqlite_databases": []
+    "sqlite_databases": [],
+    "prepare_file_cache": true
   },
   "sonarr": {
     "node": "pikachu",
