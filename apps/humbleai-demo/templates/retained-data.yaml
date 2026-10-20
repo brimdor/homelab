@@ -1,0 +1,15 @@
+{{- if .Values.maintenanceData.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: humbleai-demo-data
+  annotations:
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 1Gi
+{{- end }}

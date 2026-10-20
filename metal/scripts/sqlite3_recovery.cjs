@@ -46,14 +46,59 @@ async function backup(db, destination) {
     await new Promise((resolve, reject) => copy.finish(e => e ? reject(e) : resolve()));
   }
 }
+async function holdWriter(source) {
+  const db = await open(source, sqlite.OPEN_READWRITE);
+  let locked = false, timer, keepAlive, onData, onEnd, onSignal;
+  try {
+    db.configure('busyTimeout', 1000);
+    await exec(db, 'BEGIN IMMEDIATE'); locked = true;
+    const state = await snapshot(db);
+    await new Promise((resolve, reject) => {
+      let armed = false, sequence = 0, pending = '';
+      const acknowledge = () => process.stdout.write(JSON.stringify({held: true, armed, sequence, pid: process.pid, snapshot: state}) + '\n');
+      const renew = () => {clearTimeout(timer); if (!armed) timer = setTimeout(() => reject(new Error('writer lease heartbeat lost')), 30000);};
+      onEnd = () => {if (!armed) resolve();};
+      onSignal = () => {if (!armed) resolve();};
+      onData = chunk => {
+        try {
+          pending += chunk.toString('utf8'); assert(pending.length <= 4096);
+          while (pending.includes('\n')) {
+            const index = pending.indexOf('\n'); const value = JSON.parse(pending.slice(0, index)); pending = pending.slice(index + 1);
+            assert.deepEqual(Object.keys(value).sort(), ['command','sequence']);
+            assert.equal(value.sequence, sequence + 1); sequence = value.sequence;
+            assert(['ping','arm','release'].includes(value.command));
+            if (value.command === 'release') {resolve(); return;}
+            if (value.command === 'arm') {
+              // Once rollout is published, transport loss must never resume an obsolete writer.
+              armed = true; if (!keepAlive) keepAlive = setInterval(() => {}, 1000);
+            }
+            renew(); acknowledge();
+          }
+        } catch (error) {if (!armed) reject(error);}
+      };
+      process.stdin.on('data', onData); process.stdin.on('end', onEnd); process.stdin.on('error', onEnd);
+      process.on('SIGTERM', onSignal); process.on('SIGINT', onSignal);
+      renew(); acknowledge(); process.stdin.resume();
+    });
+  } finally {
+    clearTimeout(timer); clearInterval(keepAlive);
+    if (onData) process.stdin.removeListener('data', onData);
+    if (onEnd) {process.stdin.removeListener('end', onEnd); process.stdin.removeListener('error', onEnd);}
+    process.stdin.pause();
+    if (onSignal) {process.removeListener('SIGTERM', onSignal); process.removeListener('SIGINT', onSignal);}
+    try {if (locked) await exec(db, 'ROLLBACK');} finally {await close(db);}
+  }
+  process.stdout.write(JSON.stringify({held: false, released: true}) + '\n');
+}
 async function main() {
   process.umask(0o077);
   assert.equal(process.version, 'v20.20.2'); assert.equal(require('sqlite3/package.json').version, '5.1.7');
   const [mode, source, directory, expected] = process.argv.slice(process.argv[1] === __filename ? 2 : 1);
-  assert(['capture','restore'].includes(mode));
+  assert(['capture','restore','hold-writer'].includes(mode));
   assert(fs.lstatSync(source).isFile() && !fs.lstatSync(source).isSymbolicLink());
   assert(fs.lstatSync(directory).isDirectory() && !fs.lstatSync(directory).isSymbolicLink());
   assert.equal(fs.realpathSync(source), source); assert.equal(fs.realpathSync(directory), directory);
+  if (mode === 'hold-writer') {await holdWriter(source); return;}
   const scratch = fs.mkdtempSync(directory + '/.sqlite-recovery-103-'); fs.chmodSync(scratch, 0o700);
   const destination = scratch + '/database.sqlite'; let db, copy;
   try {
@@ -80,7 +125,7 @@ async function main() {
     finally {fs.rmSync(scratch, {recursive: true}); assert(!fs.existsSync(scratch));}
   }
 }
-if (require.main === module || ['capture','restore'].includes(process.argv[1])) main().catch(() => {
+if (require.main === module || ['capture','restore','hold-writer'].includes(process.argv[1])) main().catch(() => {
   process.stderr.write('Native sqlite3 recovery failed; no production records emitted\n'); process.exitCode = 1;
 });
 module.exports = {snapshot, scalar, backup};

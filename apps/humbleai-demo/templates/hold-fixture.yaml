@@ -1,0 +1,67 @@
+{{- if .Values.maintenanceData.holdFixtureEnabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: humbleai-writer-hold-qualification-20261020-a
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: humbleai-writer-hold-qualification
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: growlithe
+      containers:
+        - name: fixture
+          image: registry.eaglepass.io/humbleai@sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542
+          command: [node, -e]
+          args:
+            - |
+              const sqlite = require('sqlite3');
+              const db = new sqlite.Database('/work/source.sqlite');
+              db.exec("CREATE TABLE fixture(id INTEGER PRIMARY KEY, value TEXT); INSERT INTO fixture VALUES(1,'synthetic');", error => {
+                if (error) throw error;
+                db.close(error => {
+                  if (error) throw error;
+                  console.log(JSON.stringify({synthetic: true, ready: true}));
+                });
+              });
+              process.on('SIGTERM', () => process.exit(0));
+              setInterval(() => {}, 1000);
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: '1'
+              memory: 512Mi
+          volumeMounts:
+            - name: fixture
+              mountPath: /work
+      volumes:
+        - name: fixture
+          emptyDir: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: humbleai-writer-hold-qualification
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: humbleai-writer-hold-qualification
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+{{- end }}

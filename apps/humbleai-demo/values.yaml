@@ -1,3 +1,6 @@
+maintenanceData:
+  enabled: true
+  holdFixtureEnabled: true
 app-template:
   controllers:
     main:
