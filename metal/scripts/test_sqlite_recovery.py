@@ -98,7 +98,7 @@ class SnapshotTest(unittest.TestCase):
             header = recovery.receive_database(child.stdout, self.root / "large-copy.sqlite", self.root / "header.json", prepared)
             child.stdin.close(); child.stdin = None
             _, error = child.communicate()
-            self.assertEqual((child.returncode, error), (0, b""))
+            self.assertEqual((child.returncode, error), (0, b"SQLite transfer acknowledged\n"))
             self.assertGreater(header["bytes"], 200 * 1048576)
             self.assertEqual(header["snapshot"]["rows"], 204)
             self.assertEqual(json.loads((self.root / "header.json").read_text()), header)

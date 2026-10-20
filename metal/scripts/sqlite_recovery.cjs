@@ -103,7 +103,10 @@ async function main() {
       await pipeline(fs.createReadStream(destination),process.stdout,{end:false});
       process.stdout.write(canonical({commit:hash(line)})+'\n');
       // Keep exec alive until the protected receiver has verified every byte and the final commit.
-      if (expected === 'acknowledged') {stage = 'transfer_acknowledgement'; await confirmTransfer(hash(line));}
+      if (expected === 'acknowledged') {
+        stage = 'transfer_acknowledgement'; await confirmTransfer(hash(line));
+        process.stderr.write('SQLite transfer acknowledged\n');
+      }
     }
   } finally {
     try {if (db) {try {db.exec('ROLLBACK');} finally {db.close();}}}

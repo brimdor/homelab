@@ -257,6 +257,8 @@ def backup(namespace, run_id):
             if set(ready) != {"prepared"} or not isinstance(ready["prepared"], str) or not re.fullmatch(r"[a-f0-9]{64}", ready["prepared"]):
                 raise RuntimeError("invalid SQLite prepared transfer receipt")
             producer.stdin.write((ready["prepared"] + "\n").encode()); producer.stdin.flush()
+            if producer.stderr.readline() != b"SQLite transfer acknowledged\n":
+                raise RuntimeError("SQLite producer did not confirm transfer acknowledgement")
             producer.stdin.close(); producer.stdin = None
         output, error = receiver.communicate(); _, native_error = producer.communicate()
         if producer.returncode or receiver.returncode or error or native_error:
