@@ -87,6 +87,33 @@ class SnapshotTest(unittest.TestCase):
 
 
 class KeyBindingTest(unittest.TestCase):
+    def test_demo_key_field_binds_the_distinct_runtime_environment_name(self):
+        key = recovery.SOURCES["humbleai-demo"]["key"]
+        data = b"synthetic-demo-key"
+        secret = {"metadata": {"uid": key["uid"]}, "data": {key["field"]: base64.b64encode(data).decode()}}
+        response = SimpleNamespace(stdout=hashlib.sha256(data).hexdigest().encode())
+        with patch.object(recovery, "kube", return_value=secret), patch.object(recovery.common, "command", return_value=response) as command:
+            self.assertEqual(recovery.declared_key("humbleai-demo", {"pod": "reviewed-source"}), data)
+            self.assertEqual(command.call_args.args[0][-1], "OPENAI_ENCRYPTION_KEY")
+
+    def test_demo_container_layer_contract_refuses_new_mounts_or_restarts(self):
+        expected = recovery.SOURCES["humbleai-demo"]
+        pod = {"metadata": {"uid": expected["pod_uid"], "name": "reviewed-source"},
+               "spec": {"nodeName": "pikachu", "containers": [{"name": "main"}]},
+               "status": {"containerStatuses": [{"name": "main", "ready": True, "restartCount": 0,
+                                                 "imageID": expected["image"]}]}}
+        def kube(*args):
+            return {"metadata": {"uid": recovery.common.CLUSTER_UID}} if args[1] == "namespace" else {"items": [pod]}
+        with patch.object(recovery, "kube", side_effect=kube):
+            self.assertEqual(recovery.source_identity("humbleai-demo")["data_storage"], "container-layer")
+            pod["spec"]["volumes"] = [{"name": "unexpected"}]
+            with self.assertRaisesRegex(RuntimeError, "ownership changed"):
+                recovery.source_identity("humbleai-demo")
+            del pod["spec"]["volumes"]
+            pod["status"]["containerStatuses"][0]["restartCount"] = 1
+            with self.assertRaisesRegex(RuntimeError, "ownership changed"):
+                recovery.source_identity("humbleai-demo")
+
     def test_declared_key_must_match_same_secret_uid_and_running_process(self):
         data = b"synthetic-encryption-material"
         key = recovery.SOURCES["second-brain"]["key"]

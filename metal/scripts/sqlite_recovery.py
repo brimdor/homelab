@@ -21,6 +21,13 @@ import etcd_recovery as common
 import mariadb_recovery as protected
 
 SOURCES = {
+    "humbleai-demo": {
+        "pod_uid": "fae3621d-e4da-41a8-8087-e1768c066053", "container": "main",
+        "pvc": None, "database": "/app/server/data/humbleai.db", "directory": "/app/server/data",
+        "image": "registry.eaglepass.io/humbleai@sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542",
+        "architecture": "amd64", "node_version": "v20.20.2", "legacy_sqlite3": True,
+        "key": {"secret": "secrets", "field": "openai-encryption-key", "environment": "OPENAI_ENCRYPTION_KEY",
+                "uid": "8d3d65c0-e6da-4dc8-9ad6-1b0ddc20e595"}},
     "second-brain": {
         "pod_uid": "52fc3f42-1813-4a05-a424-468e30f8af4c", "container": "second-brain",
         "pvc": "second-brain", "pvc_uid": "e6710211-dfb7-4a1d-ba2c-e1fba53cf6c6",
@@ -39,8 +46,14 @@ SOURCES = {
 LABEL = "io.eaglepass.sqlite-recovery"
 
 
-def program():
-    return globals().get("NODE_PROGRAM") or Path(__file__).with_suffix(".cjs").read_text()
+def program(namespace=None):
+    legacy = SOURCES.get(namespace, {}).get("legacy_sqlite3")
+    path = Path(__file__).with_name("sqlite3_recovery.cjs") if legacy else Path(__file__).with_suffix(".cjs")
+    return globals().get("NODE_PROGRAM") or path.read_text()
+
+
+def node_flags(namespace):
+    return [] if SOURCES[namespace].get("legacy_sqlite3") else ["--disable-warning=ExperimentalWarning"]
 
 
 def kube(*args):
@@ -61,6 +74,12 @@ def source_identity(namespace):
     image = status["imageID"]
     if not status["ready"] or image.split("@")[-1] != expected["image"].split("@")[-1]:
         raise RuntimeError("reviewed ready source image changed")
+    if namespace == "humbleai-demo":
+        if expected["pvc"] is not None or pod["spec"].get("volumes") or container.get("volumeMounts") or status["restartCount"] != 0:
+            raise RuntimeError("reviewed demo container-layer ownership changed")
+        return {"namespace": namespace, "pod": pod["metadata"]["name"], "pod_uid": expected["pod_uid"],
+                "data_storage": "container-layer", "image": expected["image"], "database": expected["database"],
+                "container": expected["container"], "node": pod["spec"]["nodeName"]}
     claim = kube("get", "pvc", expected["pvc"], "-n", namespace)
     pv = kube("get", "pv", claim["spec"]["volumeName"])
     mount = [m for m in container["volumeMounts"] if m["mountPath"] == "/app/data"]
@@ -83,7 +102,7 @@ def remote(mode, run_id, namespace, manifest_hash=""):
         encoded = base64.b64encode(Path(__file__).with_name(name + ".py").read_bytes()).decode()
         code += "m=types.ModuleType(" + repr(name) + ");sys.modules[" + repr(name) + "]=m;"
         if name == "sqlite_recovery":
-            code += "m.NODE_PROGRAM=base64.b64decode(" + repr(base64.b64encode(program().encode()).decode()) + ").decode();"
+            code += "m.NODE_PROGRAM=base64.b64decode(" + repr(base64.b64encode(program(namespace).encode()).decode()) + ").decode();"
         code += "exec(base64.b64decode(" + repr(encoded) + "),m.__dict__);"
     code += "m.internal(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])"
     encoded = base64.b64encode(zlib.compress(code.encode())).decode()
@@ -148,7 +167,7 @@ def declared_key(namespace, identity):
         raise RuntimeError("empty declared encryption key")
     script = "process.stdout.write(require('node:crypto').createHash('sha256').update(process.env[process.argv[1]]||'').digest('hex'))"
     actual = common.command([os.environ.get("KUBECTL", "kubectl"), "exec", "-n", namespace,
-        identity["pod"], "-c", SOURCES[namespace]["container"], "--", "node", "-e", script, key["field"]]).stdout.strip()
+        identity["pod"], "-c", SOURCES[namespace]["container"], "--", "node", "-e", script, key.get("environment", key["field"])]).stdout.strip()
     if not hmac.compare_digest(actual, hashlib.sha256(data).hexdigest().encode()):
         raise RuntimeError("declared encryption key differs from the running application")
     return data
@@ -160,8 +179,8 @@ def backup(namespace, run_id):
     producer = receiver = None
     try:
         producer = subprocess.Popen([os.environ.get("KUBECTL", "kubectl"), "exec", "-i", "-n", namespace,
-            identity["pod"], "-c", expected["container"], "--", "node", "--disable-warning=ExperimentalWarning",
-            "-e", program(), "capture", expected["database"], "/app/data"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            identity["pod"], "-c", expected["container"], "--", "node", *node_flags(namespace),
+            "-e", program(namespace), "capture", expected["database"], expected.get("directory", "/app/data")], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         receiver = subprocess.Popen(remote("receive", run_id, namespace), stdin=producer.stdout,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         producer.stdout.close(); output, error = receiver.communicate(); _, native_error = producer.communicate()
@@ -236,7 +255,7 @@ def restore(point, manifest, manifest_hash, run_id):
             "--label=" + LABEL + "=" + run_id,
             "--mount=type=bind,source=" + str(scratch) + ",target=/work",
             "--mount=type=bind,source=" + str(point / "database.sqlite") + ",target=/original/database.sqlite,readonly",
-            "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=node", image_ref, "--disable-warning=ExperimentalWarning",
+            "--tmpfs=/tmp:rw,nosuid,nodev", "--entrypoint=node", image_ref, *node_flags(manifest["source"]["namespace"]),
             "-e", "setInterval(()=>{},2147483647)").stdout.decode().strip()
         container = common.inspect(identity); host = container["HostConfig"]
         if (host["NetworkMode"] != "none" or not host["ReadonlyRootfs"] or host["Privileged"] or
@@ -267,7 +286,7 @@ def restore(point, manifest, manifest_hash, run_id):
             raise RuntimeError("reviewed native runtime or ELF architecture changed")
         result["native_runtime"] = native
         stage = "native_snapshot_restore"
-        response = common.docker("exec", identity, "node", "--disable-warning=ExperimentalWarning", "-e", program(),
+        response = common.docker("exec", identity, "node", *node_flags(manifest["source"]["namespace"]), "-e", program(manifest["source"]["namespace"]),
                                  "restore", "/original/database.sqlite", "/work", json.dumps(manifest["capture"]["snapshot"]), check=False)
         if response.returncode or response.stderr:
             raise RuntimeError("isolated native SQLite restore failed")
