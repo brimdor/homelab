@@ -1,5 +1,10 @@
 maintenanceRecovery:
   alertmanagerClaimEnabled: true
+  alertmanagerSeedEnabled: false
+  alertmanagerManifestSHA256: ""
+  alertmanagerClaimUID: "a3b7362e-f5fb-4db4-8979-5f568ec4be6b"
+  alertmanagerPVName: "pvc-a3b7362e-f5fb-4db4-8979-5f568ec4be6b"
+  alertmanagerPVUID: "b2ed3855-9157-4a9a-979a-f93ed7bd1756"
   prometheusClaimEnabled: true
   prometheusSeedEnabled: false
   prometheusClaimUID: "5d3f4f44-6907-4ccf-adb3-0bb6923649a1"

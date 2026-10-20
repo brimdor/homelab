@@ -1,0 +1,172 @@
+{{- if .Values.maintenanceRecovery.alertmanagerSeedEnabled }}
+{{- $claim := "alertmanager-monitoring-system-kube-pro-alertmanager-db-alertmanager-monitoring-system-kube-pro-alertmanager-0" }}
+{{- range $key := list "alertmanagerClaimUID" "alertmanagerPVUID" }}
+{{- if not (regexMatch "^[a-f0-9-]{36}$" (index $.Values.maintenanceRecovery $key)) }}
+{{- fail (printf "%s requires the verified retained storage UID" $key) }}
+{{- end }}
+{{- end }}
+{{- $pv := required "alertmanagerPVName is required" .Values.maintenanceRecovery.alertmanagerPVName }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-retained-seed
+data:
+  seed_common.py: |
+{{ .Files.Get "scripts/seed-prometheus.py" | indent 4 }}
+  seed-alertmanager.py: |
+{{ .Files.Get "scripts/seed-alertmanager.py" | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alertmanager-retained-seed
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alertmanager-retained-seed
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    resourceNames: [{{ $claim | quote }}]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alertmanager-retained-seed
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alertmanager-retained-seed
+subjects:
+  - kind: ServiceAccount
+    name: alertmanager-retained-seed
+    namespace: monitoring-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: maintenance-103-alertmanager-retained-seed
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumes]
+    resourceNames: [{{ $pv | quote }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: maintenance-103-alertmanager-retained-seed
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: maintenance-103-alertmanager-retained-seed
+subjects:
+  - kind: ServiceAccount
+    name: alertmanager-retained-seed
+    namespace: monitoring-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: alertmanager-retained-seed-20261020-held-current-1
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: alertmanager-retained-seed
+    spec:
+      restartPolicy: Never
+      serviceAccountName: alertmanager-retained-seed
+      nodeSelector:
+        kubernetes.io/hostname: pikachu
+      containers:
+        - name: seed
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/seed-alertmanager.py]
+          env:
+            - name: MANIFEST_SHA256
+              value: {{ required "alertmanagerManifestSHA256 is required" .Values.maintenanceRecovery.alertmanagerManifestSHA256 | quote }}
+            - name: CLAIM_NAME
+              value: {{ $claim | quote }}
+            - name: CLAIM_UID
+              value: {{ .Values.maintenanceRecovery.alertmanagerClaimUID | quote }}
+            - name: PV_NAME
+              value: {{ $pv | quote }}
+            - name: PV_UID
+              value: {{ .Values.maintenanceRecovery.alertmanagerPVUID | quote }}
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 2000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: '1'
+              memory: 128Mi
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: target
+              mountPath: /target
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: source
+          hostPath:
+            path: /var/lib/homelab-recovery/maintenance-103/alertmanager-monitoring-20261020-held-current
+            type: Directory
+        - name: target
+          persistentVolumeClaim:
+            claimName: {{ $claim }}
+        - name: script
+          configMap:
+            name: alertmanager-retained-seed
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alertmanager-retained-seed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alertmanager-retained-seed
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: alertmanager-retained-seed-api
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: alertmanager-retained-seed
+  # Cilium CIDR selectors exclude cluster-node identities by default.
+  egress:
+    - toEntities: [kube-apiserver]
+      toPorts:
+        - ports:
+            - protocol: TCP
+              port: '6443'
+{{- end }}
