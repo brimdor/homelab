@@ -171,7 +171,11 @@ app-template:
       enabled: true
       data:
         settings.yml: |
-          use_default_settings: true
+          use_default_settings:
+            engines:
+              remove:
+                - ahmia
+                - torch
           general:
             instance_name: "Eagle-SearXNG"
 
@@ -427,12 +431,6 @@ app-template:
               shortcut: ppdm
               piped_filter: music_songs
               timeout: 3.0
-              categories: [music]
-              disabled: false
-
-            - name: podcastindex
-              engine: podcastindex
-              shortcut: podcast
               categories: [music]
               disabled: false
 
