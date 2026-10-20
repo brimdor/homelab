@@ -13,6 +13,48 @@ import kanidm_recovery as recovery
 
 
 class KanidmRecoveryContract(unittest.TestCase):
+    def test_native_startup_transformation_preserves_all_data_and_prior_history(self):
+        original = self.backup()
+        old = {'s': 'source', 't': {'secs': 1, 'nanos': 0}}
+        new = {'s': 'source', 't': {'secs': 3, 'nanos': 0}}
+        original['db_ts_max'] = old['t']
+        original['repl_meta'] = {'V1': {'ruv': [old]}}
+        original['entries'] = [{'ent': {'V3': {
+            'attrs': {'uuid': ['entry'], 'credential': {'opaque': 'private'}, 'last_modified_cid': {'CI': [old]}},
+            'changestate': {'V1Live': {'at': old, 'changes': {'credential': old}}}}}}]
+        restored = copy.deepcopy(original)
+        restored['db_ts_max'] = {'secs': 4, 'nanos': 0}
+        restored['repl_meta']['V1']['ruv'].append(new)
+        item = restored['entries'][0]['ent']['V3']
+        item['attrs']['last_modified_cid'] = {'CI': [new]}
+        item['changestate']['V1Live']['changes']['credential'] = new
+        result = recovery.validate_native_restore(original, restored, 2 * 10**9, 5 * 10**9, 1)
+        self.assertTrue(result['data_equal'])
+        self.assertEqual(result['normalized_fingerprint'], recovery.fingerprint(original))
+        self.assertEqual(result['validated_new_replication_points'], 1)
+        self.assertNotIn('private', json.dumps(result))
+        mutations = [
+            lambda v: v['entries'][0]['ent']['V3']['attrs'].update(credential={'opaque': 'altered'}),
+            lambda v: v['entries'][0]['ent']['V3']['attrs'].pop('credential'),
+            lambda v: v['entries'].clear(),
+            lambda v: v['entries'].append(copy.deepcopy(v['entries'][0])),
+            lambda v: v['entries'][0]['ent']['V3']['changestate']['V1Live'].update(at=new),
+            lambda v: v['entries'][0]['ent']['V3']['changestate']['V1Live']['changes'].clear(),
+            lambda v: v['repl_meta']['V1']['ruv'].pop(0),
+            lambda v: v.update(db_ts_max={'secs': 9, 'nanos': 0}),
+            lambda v: v['repl_meta']['V1']['ruv'].append({'s': 'foreign', 't': new['t']}),
+            lambda v: v['repl_meta']['V1']['ruv'].append({'s': 'source', 't': {'secs': 1, 'nanos': 1}}),
+            lambda v: v['repl_meta']['V1']['ruv'].append({'s': 'source', 't': {'secs': 8, 'nanos': 0}}),
+            lambda v: v.update(keyhandles={'changed': 'secret'}),
+        ]
+        for mutation in mutations:
+            value = copy.deepcopy(restored)
+            mutation(value)
+            with self.assertRaises(RuntimeError):
+                recovery.validate_native_restore(original, value, 2 * 10**9, 5 * 10**9, 1)
+        with self.assertRaisesRegex(RuntimeError, 'count differs'):
+            recovery.validate_native_restore(original, restored, 2 * 10**9, 5 * 10**9, 2)
+
     def test_difference_diagnostic_contains_only_schema_names_and_counts(self):
         original = {'entries': [{'ent': {'V3': {'attrs': {'uuid': ['synthetic-id'],
                                 'secret': ['synthetic-secret']}, 'changestate': [1]}}}]}

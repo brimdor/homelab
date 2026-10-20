@@ -10,6 +10,8 @@ import shutil
 import tempfile
 import uuid
 from collections import Counter
+from copy import deepcopy
+import time
 
 import pointguide_files_recovery as retained
 
@@ -78,6 +80,93 @@ def backup_differences(original, restored):
     return {'removed_entries': len(before.keys() - after.keys()),
             'added_entries': len(after.keys() - before.keys()),
             'changed_entry_states': states, 'changed_attribute_counts': dict(changed)}
+
+
+def validate_native_restore(original, restored, started_ns, ended_ns, expected_changes=92):
+    def duration(value):
+        if (not isinstance(value, dict) or set(value) != {'secs', 'nanos'} or
+                any(type(item) is not int or item < 0 for item in value.values()) or value['nanos'] >= 10**9):
+            raise RuntimeError('native Kanidm duration differs')
+        return value['secs'] * 10**9 + value['nanos']
+
+    old_max, new_max = duration(original['db_ts_max']), duration(restored['db_ts_max'])
+    if not old_max < started_ns <= new_max <= ended_ns:
+        raise RuntimeError('native Kanidm restore clock interval differs')
+
+    def fresh(cid):
+        if (not isinstance(cid, dict) or set(cid) != {'s', 't'} or cid['s'] != original['db_s_uuid'] or
+                not started_ns <= duration(cid['t']) <= new_max):
+            raise RuntimeError('native Kanidm new change identity differs')
+
+    def index(value):
+        result = {}
+        for entry in value['entries']:
+            if set(entry) != {'ent'} or set(entry['ent']) != {'V3'}:
+                raise RuntimeError('native Kanidm restored entry version differs')
+            item = entry['ent']['V3']
+            if set(item) != {'attrs', 'changestate'}:
+                raise RuntimeError('native Kanidm restored entry fields differ')
+            identity = common.canonical(item['attrs']['uuid'])
+            if identity in result:
+                raise RuntimeError('native Kanidm duplicate restored identity')
+            result[identity] = item
+        return result
+
+    normalized = deepcopy(restored)
+    before, after = index(original), index(normalized)
+    if before.keys() != after.keys():
+        raise RuntimeError('native Kanidm restored entry identities differ')
+    changed = 0
+    for identity, left in before.items():
+        right = after[identity]
+        if left == right:
+            continue
+        left_attrs, right_attrs = left['attrs'], right['attrs']
+        if (left_attrs.keys() != right_attrs.keys() or
+                any(left_attrs[key] != right_attrs[key] for key in left_attrs if key != 'last_modified_cid')):
+            raise RuntimeError('native Kanidm restored attribute data differs')
+        value = right_attrs['last_modified_cid']
+        if not isinstance(value, dict) or set(value) != {'CI'} or len(value['CI']) != 1:
+            raise RuntimeError('native Kanidm last modified identity differs')
+        cid = value['CI'][0]
+        fresh(cid)
+        if set(left['changestate']) != {'V1Live'} or set(right['changestate']) != {'V1Live'}:
+            raise RuntimeError('native Kanidm changed entry is not live')
+        old_state, new_state = left['changestate']['V1Live'], right['changestate']['V1Live']
+        if (set(old_state) != {'at', 'changes'} or set(new_state) != {'at', 'changes'} or
+                old_state['at'] != new_state['at'] or old_state['changes'].keys() != new_state['changes'].keys()):
+            raise RuntimeError('native Kanidm original change history differs')
+        changes = [key for key in old_state['changes'] if old_state['changes'][key] != new_state['changes'][key]]
+        if not changes or any(new_state['changes'][key] != cid for key in changes):
+            raise RuntimeError('native Kanidm attribute change identities differ')
+        right_attrs['last_modified_cid'] = deepcopy(left_attrs['last_modified_cid'])
+        right['changestate'] = deepcopy(left['changestate'])
+        changed += 1
+    if changed != expected_changes:
+        raise RuntimeError('native Kanidm startup change count differs')
+
+    def ruv(value):
+        if set(value) != {'V1'} or set(value['V1']) != {'ruv'} or not isinstance(value['V1']['ruv'], list):
+            raise RuntimeError('native Kanidm replication format differs')
+        records = {common.canonical(item): item for item in value['V1']['ruv']}
+        if len(records) != len(value['V1']['ruv']):
+            raise RuntimeError('native Kanidm duplicate replication point')
+        return records
+    old_ruv, new_ruv = ruv(original['repl_meta']), ruv(restored['repl_meta'])
+    if not old_ruv.keys() <= new_ruv.keys():
+        raise RuntimeError('native Kanidm original replication history missing')
+    added = new_ruv.keys() - old_ruv.keys()
+    if not added:
+        raise RuntimeError('native Kanidm startup replication point missing')
+    for key in added:
+        fresh(new_ruv[key])
+    normalized['db_ts_max'] = deepcopy(original['db_ts_max'])
+    normalized['repl_meta'] = deepcopy(original['repl_meta'])
+    if fingerprint(normalized) != fingerprint(original):
+        raise RuntimeError('native Kanidm complete normalized fingerprint differs')
+    return {'data_equal': True, 'all_original_runtime_metadata_accounted_for': True,
+            'validated_startup_entries': changed, 'validated_new_replication_points': len(added),
+            'normalized_fingerprint': fingerprint(normalized)}
 
 
 def arguments(scratch, run_id, operation):
@@ -192,7 +281,9 @@ def restore(run_id):
             result['operations'].append(run(['backup', '--compression=gzip', '/data/original.json.gz'], b'Backup success!'))
             before = backup_fingerprint(root / 'original.json.gz')
             config(root, 'restored.db')
+            started_ns = time.time_ns()
             result['operations'].append(run(['restore', '/data/original.json.gz'], b'Restore Success!'))
+            ended_ns = time.time_ns()
             result['operations'].append(run(['verify'], b'Verification passed!'))
             result['operations'].append(run(['backup', '--compression=gzip', '/data/restored.json.gz'], b'Backup success!'))
             after = backup_fingerprint(root / 'restored.json.gz')
@@ -200,11 +291,13 @@ def restore(run_id):
             if after != before:
                 result['differences'] = backup_differences(backup_value(root / 'original.json.gz'),
                                                           backup_value(root / 'restored.json.gz'))
-                raise RuntimeError('native Kanidm restored entries or complete metadata differ')
+                transformed = validate_native_restore(backup_value(root / 'original.json.gz'),
+                                                      backup_value(root / 'restored.json.gz'), started_ns, ended_ns)
+                result.setdefault('startup_transformations', []).append(transformed)
             if number and result['fingerprint'] != before:
                 raise RuntimeError('independent native Kanidm recoveries differ')
             result['fingerprint'] = before
-        result.update(accepted=True, native_verify_backup_restore_equal=True, independent_restores=2,
+        result.update(accepted=True, native_data_equal_startup_metadata_validated=True, independent_restores=2,
                       network='none', live_admin_socket_not_accessed=True, login_not_attempted=True,
                       tls_secrets_and_public_sso_unqualified=True)
     finally:
