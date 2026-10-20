@@ -143,11 +143,12 @@ class Qualification:
                   '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known),
                   '-o', 'GlobalKnownHostsFile=/dev/null', '-o', 'UpdateHostKeys=no',
                   '-o', 'ControlMaster=no', '-o', 'ControlPersist=no', '-o', 'IdentityAgent=none',
-                  '-o', 'ConnectTimeout=10']
+                  '-o', 'ConnectTimeout=60']
         self.ssh = ['ssh', *common, '-i', str(self.root / 'login'), '-p', str(port), 'fixture@127.0.0.1']
         inventory = {'all': {'hosts': {'fixture': {'ansible_host': '127.0.0.1', 'ansible_port': port,
                       'ansible_user': 'fixture', 'ansible_ssh_private_key_file': str(self.root / 'login'),
                       'ansible_python_interpreter': '/usr/bin/python3',
+                      'ansible_ssh_timeout': 60,
                       'ansible_ssh_common_args': shlex.join(common)}}}}
         (self.root / 'inventory.yml').write_text(yaml.safe_dump(inventory))
         serial = self.root / 'serial.log'

@@ -54,7 +54,7 @@ def arguments(scratch, run_id, operation):
             '--pids-limit=128', '--memory=1g', '--cpus=1',
             '--tmpfs=/tmp:rw,nosuid,nodev,uid=1000,gid=1000,mode=1777',
             '--mount', 'type=bind,source=' + str(scratch) + ',target=/data',
-            '--entrypoint=/sbin/kanidmd', IMAGE, '--config=/data/offline.toml', 'database', *operation]
+            '--entrypoint=/sbin/kanidmd', IMAGE, '--config-path=/data/offline.toml', 'database', *operation]
 
 
 def require_container(value, scratch, run_id, operation, image_id):
@@ -66,7 +66,7 @@ def require_container(value, scratch, run_id, operation, image_id):
                 'Tmpfs': {'/tmp': 'rw,nosuid,nodev,uid=1000,gid=1000,mode=1777'}}
     if (config['Image'] != IMAGE or value['Image'] != image_id or config['User'] != '1000:1000' or
             config['Entrypoint'] != ['/sbin/kanidmd'] or
-            config['Cmd'] != ['--config=/data/offline.toml', 'database', *operation] or
+            config['Cmd'] != ['--config-path=/data/offline.toml', 'database', *operation] or
             config.get('Labels', {}).get(LABEL) != run_id or
             any(host.get(key) != expected_value for key, expected_value in expected.items()) or
             host.get('RestartPolicy', {}).get('Name') != 'no' or

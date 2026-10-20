@@ -56,7 +56,7 @@ class KanidmRecoveryContract(unittest.TestCase):
         args = ['verify']
         value = {'Image': 'sha256:owned', 'Config': {
             'Image': recovery.IMAGE, 'User': '1000:1000', 'Entrypoint': ['/sbin/kanidmd'],
-            'Cmd': ['--config=/data/offline.toml', 'database', *args],
+            'Cmd': ['--config-path=/data/offline.toml', 'database', *args],
             'Labels': {recovery.LABEL: 'fixture'}}, 'HostConfig': {
                 'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'PidMode': '', 'IpcMode': 'private',
