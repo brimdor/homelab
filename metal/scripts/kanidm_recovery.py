@@ -156,13 +156,13 @@ def restore(run_id):
             config(root, 'kanidm.db')
             run = lambda args, marker: operation(root, run_id, args, marker, image_id)
             result['operations'].append(run(['verify'], b'Verification passed!'))
-            result['operations'].append(run(['backup', '/data/original.json'], b'Backup success!'))
-            before = backup_fingerprint(root / 'original.json')
+            result['operations'].append(run(['backup', '--compression=gzip', '/data/original.json.gz'], b'Backup success!'))
+            before = backup_fingerprint(root / 'original.json.gz')
             config(root, 'restored.db')
-            result['operations'].append(run(['restore', '/data/original.json'], b'Restore Success!'))
+            result['operations'].append(run(['restore', '/data/original.json.gz'], b'Restore Success!'))
             result['operations'].append(run(['verify'], b'Verification passed!'))
-            result['operations'].append(run(['backup', '/data/restored.json'], b'Backup success!'))
-            if backup_fingerprint(root / 'restored.json') != before:
+            result['operations'].append(run(['backup', '--compression=gzip', '/data/restored.json.gz'], b'Backup success!'))
+            if backup_fingerprint(root / 'restored.json.gz') != before:
                 raise RuntimeError('native Kanidm restored entries or complete metadata differ')
             if number and result['fingerprint'] != before:
                 raise RuntimeError('independent native Kanidm recoveries differ')
