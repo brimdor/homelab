@@ -1,0 +1,15 @@
+{{- if .Values.maintenanceRecovery.prometheusClaimEnabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-monitoring-system-kube-pro-prometheus-db-prometheus-monitoring-system-kube-pro-prometheus-0
+  annotations:
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 40Gi
+{{- end }}
