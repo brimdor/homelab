@@ -4,6 +4,7 @@ No mutation CLI. The controller must verify the shared Kured owner and host iden
 """
 
 from contextlib import contextmanager
+import ctypes
 import fcntl
 import json
 import os
@@ -58,8 +59,41 @@ class Systemd:
     @staticmethod
     def call(*args):
         p = subprocess.run(args, capture_output=True)
-        require(p.returncode == 0, 'native actor query failed; retain ownership')
+        require(p.returncode == 0, 'native actor query failed; retain ownership: ' +
+                repr(args) + ' exit ' + str(p.returncode) + ': ' +
+                p.stderr.decode(errors='replace')[-1024:])
         return p.stdout
+
+    @contextmanager
+    def reference(self, service):
+        # A private client reference prevents inactive-unit GC between query clients.
+        library = ctypes.CDLL('libsystemd.so.0')
+        pointer = ctypes.c_void_p
+        library.sd_bus_open_system.argtypes = [ctypes.POINTER(pointer)]
+        library.sd_bus_open_system.restype = ctypes.c_int
+        library.sd_bus_call_method.argtypes = [pointer, ctypes.c_char_p, ctypes.c_char_p,
+                                              ctypes.c_char_p, ctypes.c_char_p, pointer,
+                                              ctypes.POINTER(pointer), ctypes.c_char_p]
+        library.sd_bus_call_method.restype = ctypes.c_int
+        library.sd_bus_message_unref.argtypes = [pointer]
+        library.sd_bus_message_unref.restype = pointer
+        library.sd_bus_flush_close_unref.argtypes = [pointer]
+        library.sd_bus_flush_close_unref.restype = pointer
+        bus, reply = pointer(), pointer()
+        try:
+            result = library.sd_bus_open_system(ctypes.byref(bus))
+            require(result >= 0, 'native system bus open failed: ' + str(result))
+            result = library.sd_bus_call_method(bus, b'org.freedesktop.systemd1',
+                     b'/org/freedesktop/systemd1', b'org.freedesktop.systemd1.Manager',
+                     b'RefUnit', None, ctypes.byref(reply), b's', ctypes.c_char_p(service.encode()))
+            require(result >= 0, 'native unit reference failed; retain ownership: ' +
+                    service + ' errno ' + str(result))
+            yield
+        finally:
+            if reply.value:
+                library.sd_bus_message_unref(reply)
+            if bus.value:
+                library.sd_bus_flush_close_unref(bus)
 
     def reload(self):
         self.call('systemctl', 'daemon-reload')
@@ -77,17 +111,11 @@ class Systemd:
                     values.get('Job') in ('', '0'), 'automatic service active or has a pending job')
             if values['LoadState'] == 'masked':
                 continue
-            unit = json.loads(self.call('busctl', '--json=short', 'call', 'org.freedesktop.systemd1',
-                              '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager',
-                              'GetUnit', 's', service))['data'][0]
-            require(isinstance(unit, str) and unit.startswith('/org/freedesktop/systemd1/unit/'),
-                    'unreviewed systemd unit identity')
-            conditions = json.loads(self.call('busctl', '--json=short', 'get-property',
-                                    'org.freedesktop.systemd1', unit,
-                                    'org.freedesktop.systemd1.Unit', 'Conditions'))['data']
-            require(any(len(c) == 5 and c[0] == 'ConditionPathExists' and c[1] is False and
-                        c[2] is True and c[3] == str(marker) for c in conditions),
-                    'effective systemd hold condition absent')
+            with self.reference(service):
+                require(raw == self.call('systemctl', 'show', service, '-p', 'LoadState', '-p', 'ActiveState',
+                        '-p', 'MainPID', '-p', 'ControlPID', '-p', 'Job').decode(),
+                        'automatic service changed while referencing; retain ownership')
+                self.condition(service, marker)
         for path in Path('/proc').iterdir():
             if not path.name.isdigit():
                 continue
@@ -97,6 +125,19 @@ class Systemd:
                 continue
             require(not any(os.path.basename(a) in (b'dnf', b'dnf5', b'rpm', b'rpmdb', b'packagekitd', b'pkcon')
                             for a in arguments), 'native package actor active; never terminate it')
+
+    def condition(self, service, marker):
+        unit = json.loads(self.call('busctl', '--json=short', 'call', 'org.freedesktop.systemd1',
+                          '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager',
+                          'GetUnit', 's', service))['data'][0]
+        require(isinstance(unit, str) and unit.startswith('/org/freedesktop/systemd1/unit/'),
+                'unreviewed systemd unit identity')
+        conditions = json.loads(self.call('busctl', '--json=short', 'get-property',
+                                'org.freedesktop.systemd1', unit,
+                                'org.freedesktop.systemd1.Unit', 'Conditions'))['data']
+        require(any(len(c) == 5 and c[0] == 'ConditionPathExists' and c[1] is False and
+                    c[2] is True and c[3] == str(marker) for c in conditions),
+                'effective systemd hold condition absent')
 
 
 class Hold:

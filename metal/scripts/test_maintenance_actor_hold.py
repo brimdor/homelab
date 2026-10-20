@@ -1,10 +1,11 @@
 """Persistent owner/guard safety tests; native systemd qualification is separate."""
 
 import json
+from contextlib import nullcontext
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import maintenance_actor_hold as actors
 
@@ -141,7 +142,9 @@ class ActorHold(unittest.TestCase):
                 return b'{"type":"o","data":["/org/freedesktop/systemd1/unit/synthetic"]}'
             return json.dumps({'type': 'a(sbbsi)', 'data': condition}).encode()
 
-        with patch.object(native, 'call', side_effect=call), patch.object(Path, 'iterdir', return_value=iter(())):
+        with patch.object(native, 'call', side_effect=call), \
+                patch.object(native, 'reference', side_effect=lambda _s: nullcontext()), \
+                patch.object(Path, 'iterdir', return_value=iter(())):
             native.idle(marker)
             condition[0][2] = False
             with self.assertRaisesRegex(RuntimeError, 'condition absent'):
@@ -150,6 +153,33 @@ class ActorHold(unittest.TestCase):
             properties = properties.replace(b'Job=\n', b'Job=73\n')
             with self.assertRaisesRegex(RuntimeError, 'pending job'):
                 native.idle(marker)
+
+    def test_private_native_reference_closes_on_success_query_error_and_refusal(self):
+        native = actors.Systemd()
+        for outcome in ('success', 'query-error', 'refused'):
+            library = MagicMock()
+
+            def opened(pointer):
+                pointer._obj.value = 123
+                return 0
+
+            def referenced(*args):
+                args[6]._obj.value = 456
+                return -5 if outcome == 'refused' else 0
+
+            library.sd_bus_open_system.side_effect = opened
+            library.sd_bus_call_method.side_effect = referenced
+            with patch.object(actors.ctypes, 'CDLL', return_value=library):
+                if outcome == 'success':
+                    with native.reference(actors.SERVICES[0]):
+                        library.sd_bus_flush_close_unref.assert_not_called()
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'reference failed|query error'):
+                        with native.reference(actors.SERVICES[0]):
+                            raise RuntimeError('query error')
+            library.sd_bus_flush_close_unref.assert_called_once()
+            library.sd_bus_message_unref.assert_called_once()
+            self.assertEqual(library.sd_bus_call_method.call_args.args[4], b'RefUnit')
 
 
 if __name__ == '__main__':
