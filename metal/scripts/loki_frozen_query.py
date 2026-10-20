@@ -32,7 +32,6 @@ LABEL = "io.eaglepass.loki-frozen-query-103"
 START = 1792425257955388935
 RANGES = {"prefix": (1792465477456599213, 7090404), "full": (1792470820200149129, 7368160)}
 MODES = [
-    ("ingester-store-entire-range", ["-ingester.query-store-max-look-back-period=-1ns"]),
     ("standalone-store-only", ["-target=querier", "-querier.query-store-only=true"]),
 ]
 
@@ -222,6 +221,14 @@ def diagnose():
                         pass
                     time.sleep(1)
                 else:
+                    state = json.loads(docker("inspect", container))[0]["State"]
+                    # WAL replay and all queries are disabled in this startup-only phase.
+                    startup = subprocess.run(["docker", "--host", "unix:///var/run/docker.sock", "logs", container], capture_output=True)
+                    if startup.returncode:
+                        raise RuntimeError("cannot read owned startup diagnostic")
+                    logs = startup.stdout + startup.stderr
+                    print(json.dumps({"mode": mode, "startup_exit": state["ExitCode"],
+                                      "startup_running": state["Running"], "startup_diagnostic": logs.decode()[-3000:]}), flush=True)
                     raise RuntimeError("isolated query runtime did not become ready")
                 runtime_config = http("/config").decode()
                 for field, expected in (("query_store_only", "true" if mode == "standalone-store-only" else "false"),

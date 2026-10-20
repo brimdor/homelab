@@ -10,6 +10,18 @@ import etcd_recovery as common
 GROUPS = {"ceph.rook.io", "csi.ceph.io"}
 
 
+def command_objects(data):
+    text = data.decode().strip()
+    rows = []
+    while text:
+        value, end = json.JSONDecoder().raw_decode(text)
+        if not isinstance(value, dict):
+            raise RuntimeError("invalid native admission response")
+        rows.extend(value["items"] if value.get("kind") == "List" else [value])
+        text = text[end:].lstrip()
+    return rows
+
+
 def validate_bundle(bundle):
     if set(bundle) != {"crds", "resources"} or len(bundle["crds"]) != 24 or len(bundle["resources"]) != 10:
         raise RuntimeError("candidate Ceph admission inventory changed")
@@ -46,8 +58,7 @@ def qualify(bundle, run_id):
             args = [*client, "create", "--validate=strict", "-f=/work/" + filename, "-o=json"]
             if dry_run:
                 args.append("--dry-run=server")
-            value = json.loads(common.docker(*args).stdout)
-            rows = value["items"] if value.get("kind") == "List" else [value]
+            rows = command_objects(common.docker(*args).stdout)
             if len(rows) != len(items):
                 raise RuntimeError("synthetic admission returned incomplete evidence")
             return rows

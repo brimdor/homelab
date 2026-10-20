@@ -8,6 +8,14 @@ import ceph_admission_qualification as subject
 
 
 class AdmissionInput(unittest.TestCase):
+    def test_native_output_accepts_multiple_documents_without_dropping_one(self):
+        self.assertEqual(subject.command_objects(b'{"kind":"A"}\n{"kind":"B"}\n'),
+                         [{"kind": "A"}, {"kind": "B"}])
+        self.assertEqual(subject.command_objects(b'{"kind":"List","items":[{"kind":"A"}]}'),
+                         [{"kind": "A"}])
+        with self.assertRaises(ValueError):
+            subject.command_objects(b'{"kind":"A"} invalid')
+
     def test_rejects_foreign_and_production_metadata(self):
         bundle = {"crds": [{"apiVersion": "apiextensions.k8s.io/v1", "kind": "CustomResourceDefinition",
                             "metadata": {"name": "things" + str(i) + ".ceph.rook.io"},
