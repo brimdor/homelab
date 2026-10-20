@@ -69,7 +69,7 @@ class Qualification(fedora.Qualification):
 
     def guest(self, body, expected=0):
         bundle = {name: Path(__file__).with_name(name + '.py').read_text() for name in MODULES}
-        header = 'bundle=' + repr(bundle) + '\nrevision=' + repr(self.args.revision) + '\n' + '''import types,sys,json,pathlib,subprocess,hashlib,time,os
+        header = 'bundle=' + repr(bundle) + '\nrevision=' + repr(self.args.revision) + '\n' + '''import types,sys,json,pathlib,subprocess,hashlib,time,os,shutil
 assert subprocess.check_output(['hostname']).strip()==b'qualification-fedora44'
 assert 'VERSION_ID=44' in pathlib.Path('/etc/os-release').read_text()
 for name,source in bundle.items():
@@ -138,10 +138,10 @@ def ready():
 state=pathlib.Path('/sys/fs/selinux/enforce');enforcement=state.read_text().strip()if state.exists()else None
 assert not pathlib.Path('/usr/local/bin/k3s').exists() and not pathlib.Path('/var/lib/rancher/k3s').exists()
 assets=pathlib.Path('/run/qualification-assets')
-(assets/'k3s').rename('/usr/local/bin/k3s');pathlib.Path('/usr/local/bin/k3s').chmod(0o755)
+shutil.move(str(assets/'k3s'),'/usr/local/bin/k3s');pathlib.Path('/usr/local/bin/k3s').chmod(0o755)
 assert b'v1.33.6+k3s1' in native('/usr/local/bin/k3s','--version')
 images=pathlib.Path('/var/lib/rancher/k3s/agent/images');images.mkdir(parents=True)
-(assets/'airgap.tar.zst').rename(images/'airgap.tar.zst');(assets/'kured.tar').rename(images/'kured.tar')
+shutil.move(str(assets/'airgap.tar.zst'),str(images/'airgap.tar.zst'));shutil.move(str(assets/'kured.tar'),str(images/'kured.tar'))
 wrapper=pathlib.Path('/usr/local/bin/qualification-kubectl');assert not wrapper.exists()
 wrapper.write_text('#!/bin/sh\\nset -eu\\nexport KUBECONFIG=/etc/rancher/k3s/k3s.yaml\\nexec /usr/local/bin/k3s kubectl "$@"\\n');wrapper.chmod(0o755)
 unit=pathlib.Path('/etc/systemd/system/qualification-k3s.service');assert not unit.exists()
