@@ -48,6 +48,32 @@ def manager_failure(raw, state):
                                                        "raw_output_discarded": True})
 
 
+def reconciliation_progress(raw):
+    successful, conflicts = set(), 0
+    for line in raw.splitlines():
+        failed = b"CSI Driver reconciliation failed" in line or b"Reconciler error" in line
+        if not failed and b"CSI Driver reconciliation completed successfully" not in line:
+            continue
+        try:
+            fields = json.loads(line[line.index(b"{"):])
+        except (ValueError, UnicodeError):
+            raise RuntimeError("native CSI reconciliation event shape changed; raw output discarded") from None
+        if not isinstance(fields, dict):
+            raise RuntimeError("native CSI reconciliation event shape changed; raw output discarded")
+        name = fields.get("name")
+        if fields.get("namespace") != NAMESPACE or not isinstance(name, str) or name not in DRIVERS:
+            raise RuntimeError("native CSI reconciliation event identity changed; raw output discarded")
+        if failed:
+            error = fields.get("error")
+            if not isinstance(error, str) or not re.fullmatch(r'Operation cannot be fulfilled on (configmaps|csidrivers\.storage\.k8s\.io|deployments\.apps|daemonsets\.apps) "[^"\n]+": the object has been modified; please apply your changes to the latest version and try again', error):
+                raise RuntimeError("native CSI non-conflict reconciliation error; raw output discarded")
+            conflicts += 1
+            successful.discard(name)
+        else:
+            successful.add(name)
+    return {"successful_drivers": sorted(successful), "optimistic_conflict_events": conflicts}
+
+
 def validate_bundle(bundle):
     if hashlib.sha256(common.canonical(bundle)).hexdigest() != BUNDLE_SHA256:
         raise RuntimeError("reviewed CSI controller bundle changed")
@@ -223,8 +249,9 @@ def qualify(bundle, run_id):
                 raw = capture.output().stdout
                 if re.search(rb"\b(forbidden|unauthorized)\b|x509:|permission denied", raw, re.I):
                     raise RuntimeError("native CSI manager encountered an access or trust denial; raw output discarded")
-                if not value["State"]["Running"] or b"CSI Driver reconciliation failed" in raw or b"Reconciler error" in raw:
+                if not value["State"]["Running"]:
                     raise RuntimeError(manager_failure(raw, value["State"]))
+                reconciliation_progress(raw)
                 return value
 
             def await_value(read, accept, description, seconds=180):
@@ -264,8 +291,12 @@ def qualify(bundle, run_id):
 
             capture = common.CapturedContainer(manager)
             captures.append(capture)
+            def reconciled(offset, expected, description):
+                return await_value(lambda: reconciliation_progress(capture.output().stdout[offset:]),
+                                   lambda p: set(p["successful_drivers"]) >= expected, description)
             await_value(health, bool, "native manager probes")
             first_lease = await_value(lease, lambda x: bool(x.get("spec", {}).get("holderIdentity")), "leader ownership")
+            reconciled(0, DRIVERS, "initial successful native reconciliations")
             baseline = require_workloads(await_value(workloads, complete, "four generated workloads"), drivers, plugin,
                                          {n: 0 for n in DRIVERS})
             csidrivers = get("csidrivers.storage.k8s.io")["items"]
@@ -273,9 +304,11 @@ def qualify(bundle, run_id):
             original = next(copy.deepcopy(x) for x in bundle["resources"] if x["kind"] == "Driver" and x["metadata"]["name"] == "rook-ceph.rbd.csi.ceph.com")
             changed = copy.deepcopy(original["spec"])
             changed.setdefault("log", {})["verbosity"] = 3
+            offset = len(capture.output().stdout)
             kubectl("patch", "driver", original["metadata"]["name"], "-n", NAMESPACE, "--type=json", "-p",
                     json.dumps([{"op": "test", "path": "/metadata/uid", "value": drivers[original["metadata"]["name"]]},
                                 {"op": "replace", "path": "/spec", "value": changed}]))
+            reconciled(offset, {original["metadata"]["name"]}, "changed Driver successful reconciliation")
             def changed_ready(rows):
                 return sum(c.get("image") == plugin and "--v=3" in c.get("args", [])
                            for r in rows for c in r["spec"]["template"]["spec"]["containers"]) == 2
@@ -283,9 +316,11 @@ def qualify(bundle, run_id):
                                         {n: 3 if n == original["metadata"]["name"] else 0 for n in DRIVERS})
             if {k: v["uid"] for k, v in updated.items()} != {k: v["uid"] for k, v in baseline.items()}:
                 raise RuntimeError("CSI update replaced generated workload identities")
+            offset = len(capture.output().stdout)
             kubectl("patch", "driver", original["metadata"]["name"], "-n", NAMESPACE, "--type=json", "-p",
                     json.dumps([{"op": "test", "path": "/metadata/uid", "value": drivers[original["metadata"]["name"]]},
                                 {"op": "replace", "path": "/spec", "value": original["spec"]}]))
+            reconciled(offset, {original["metadata"]["name"]}, "restored Driver successful reconciliation")
             def restored(rows):
                 return require_workloads(rows, drivers, plugin, {n: 0 for n in DRIVERS}) == baseline
             # Wait for the known changed argument before strict comparison of the complete restored specification.
@@ -294,13 +329,15 @@ def qualify(bundle, run_id):
                 raise RuntimeError("CSI specification restoration differs from baseline")
             common.docker("stop", "--time=10", manager)
             alive_output = capture.output().stdout
-            if b"CSI Driver reconciliation failed" in alive_output or b"Reconciler error" in alive_output:
-                raise RuntimeError(manager_failure(alive_output, common.inspect(manager)["State"]))
+            first_progress = reconciliation_progress(alive_output)
+            if set(first_progress["successful_drivers"]) != DRIVERS:
+                raise RuntimeError("native CSI stopped with unresolved reconciliation conflicts")
             capture.close()
             capture = common.CapturedContainer(manager)
             captures.append(capture)
             await_value(health, bool, "restarted manager probes")
             next_lease = await_value(lease, lambda x: x.get("spec", {}).get("holderIdentity") != first_lease["spec"]["holderIdentity"] and bool(x.get("spec", {}).get("renewTime")), "new native leader owner")
+            next_progress = reconciled(0, DRIVERS, "restarted successful native reconciliations")
             if (next_lease["metadata"]["uid"] != first_lease["metadata"]["uid"] or
                     next_lease["spec"].get("leaseTransitions", 0) <= first_lease["spec"].get("leaseTransitions", 0) or
                     not restored(workloads()) or require_csidrivers(get("csidrivers.storage.k8s.io")["items"]) != baseline_csidrivers):
@@ -314,6 +351,7 @@ def qualify(bundle, run_id):
                     "generated_spec_sha256": hashlib.sha256(common.canonical(baseline)).hexdigest(),
                     "actual_service_account": "system:serviceaccount:rook-ceph:ceph-csi", "native_leader_restart": True,
                     "synthetic_change_and_restore": True, "resource_uids_preserved": True, "synthetic_nodes": 0,
+                    "resolved_optimistic_conflict_events": first_progress["optimistic_conflict_events"] + next_progress["optimistic_conflict_events"],
                     "scheduled_plugins": 0, "production_writes": 0,
                     "measured_scratch_allocated_bytes": sum(p.lstat().st_blocks * 512 for p in scratch.rglob("*")),
                     "limitation": "native CSI controller generation only; plugins, kernel mounts and Rook/Ceph orchestration unqualified"}

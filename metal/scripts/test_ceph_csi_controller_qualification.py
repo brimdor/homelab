@@ -12,6 +12,24 @@ import ceph_csi_controller_qualification as subject
 
 
 class ControllerGuards(unittest.TestCase):
+    def test_conflicts_require_later_native_success_for_the_same_driver(self):
+        name = sorted(subject.DRIVERS)[0]
+        fields = {"name": name, "namespace": subject.NAMESPACE,
+                  "error": 'Operation cannot be fulfilled on configmaps "ceph-csi-config": the object has been modified; please apply your changes to the latest version and try again'}
+        failure = b'ERROR Reconciler error ' + json.dumps(fields).encode() + b'\n'
+        success = b'INFO CSI Driver reconciliation completed successfully ' + json.dumps(fields).encode() + b'\n'
+        self.assertEqual(subject.reconciliation_progress(failure)["successful_drivers"], [])
+        self.assertEqual(subject.reconciliation_progress(failure + success),
+                         {"successful_drivers": [name], "optimistic_conflict_events": 1})
+        self.assertEqual(subject.reconciliation_progress(success + failure)["successful_drivers"], [])
+        for change in ({"error": "private-sentinel-value"}, {"namespace": "foreign"}, {"name": "foreign"}):
+            bad = {**fields, **change}
+            with self.assertRaises(RuntimeError) as caught:
+                subject.reconciliation_progress(b'ERROR Reconciler error ' + json.dumps(bad).encode())
+            self.assertNotIn("private-sentinel-value", str(caught.exception))
+        with self.assertRaises(RuntimeError):
+            subject.reconciliation_progress(b'ERROR Reconciler error malformed')
+
     def test_manager_failure_keeps_only_fixed_error_markers_and_state(self):
         raw = b'INFO image set loaded\nERROR unable to load config map: private-sentinel-value not found\n'
         failure = subject.manager_failure(raw, {"Running": True, "ExitCode": 0, "OOMKilled": False})
