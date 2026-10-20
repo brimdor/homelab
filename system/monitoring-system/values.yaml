@@ -1,6 +1,6 @@
 maintenanceRecovery:
   prometheusClaimEnabled: true
-  prometheusSeedEnabled: true
+  prometheusSeedEnabled: false
   prometheusClaimUID: "5d3f4f44-6907-4ccf-adb3-0bb6923649a1"
   prometheusPVName: "pvc-5d3f4f44-6907-4ccf-adb3-0bb6923649a1"
   prometheusPVUID: "c3d3fdf7-6204-4942-826a-b139a43fa185"
@@ -34,6 +34,7 @@ kube-prometheus-stack:
         url: http://loki.loki:3100
   prometheus:
     prometheusSpec:
+      replicas: 0
       ruleSelectorNilUsesHelmValues: false
       serviceMonitorSelectorNilUsesHelmValues: false
       podMonitorSelectorNilUsesHelmValues: false
