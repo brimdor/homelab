@@ -30,4 +30,29 @@ The disconnected fixture uses the direct native Granian executable and explicit 
 with drop ALL, no-new-privileges, read-only root and only the two disposable binds. Every server secret is explicitly synthetic.</p>
 <p>Source implementation and three focused regressions added. Initial malformed-manifest case2ihk33ub found an unhandled null source;
 fix the trust-boundary parser to refuse it explicitly. All three regressions passed in w3ytvh1d with zero skips.
-Native qualification and actual capture still remain unaccepted.</p><h2>Status</h2><p>Source review and plan only. No SearxNG capture or native restore accepted.</p></html>
+Native qualification and actual capture still remain unaccepted.</p><h2>Protected baseline and engine repair plan</h2>
+<p>Run1eoao1pt passed at2026-10-20T13:51:23Z from47f52636b7cf0302541a9b5db70915f927a999f1.
+Protected point /var/lib/homelab-recovery/maintenance-103/searxng-20261020-1351-native,
+manifest09865316c3d69ea885e5aae665a469f1322d0679e44b5a23b6701ba1895f98f2 contains four files/9651bytes:
+both complete zero-byte CSI trees plus the two effective overlays. Three-process shared hold0.5546995879994938seconds,
+all resumed before transport. Exact disconnected native root200/clean exit0; after applying effective overlays,
+startup changed zero files/directories. Protected hashes, original Pod/container/image/ConfigMap/all-mount/PVC/PV/CSI/consumer
+identities stayed unchanged and Ready/zero restarts. Owned container/new unused image/scratch absent; all children reaped;
+32,768allocated bytes removed. This restores the baseline, including its known engine limitations; it is not healthy search certification.</p>
+<p>Native diagnostic nxdnnlg3 retained sanitized disconnected logs: ClearURL/radio-browser DNS initialization is blocked by network none;
+the direct root request lacks proxy headers. These are fixture-origin observations, not production failures.
+Production bounded logs vyyqnswx independently confirm podcastindex/Ahmia/Torch registration messages.
+Exact-image source wbi407e7 proves podcastindex.py absent; committed values explicitly select that missing module.
+Ahmia is present; the loader excludes onion engines without Tor, while no Tor proxy is configured here.
+Do not report an absent torch.py alone as proof of a missing Torch engine: engine names can use another module.</p>
+<p>Make the smallest configuration repair: remove the explicit missing podcastindex engine and exclude unused ahmia/torch defaults
+with use_default_settings.engines.remove. The <a href="https://docs.searxng.org/admin/settings/settings.html#use-default-settings">official settings contract</a>
+and exact installed settings_loader.py(7f29d8ed5a3ea18ceb5571c014a5967e71b500bd1174bcfb43ebdc1e07cae434)
+implement that exclusion. Preserve all other engines, secrets, PVC/PV identities, image, ports, probes and ingress.</p>
+<p>Render/lint the pinned chart and review the resource diff. Qualify the exact new ConfigMap bytes in a disconnected native fixture:
+root/config response200, these three engine names absent from the loaded catalog, no corresponding registration failure,
+clean shutdown and owned cleanup. Record remaining offline-only diagnostics honestly. Commit/push to Gitea master,
+refresh/wait for Argo, then verify the new Pod readiness, startup logs, normal public TLS/root/config and unchanged storage bindings.
+If required, use a harmless nonbillable normal search only after the configuration is healthy; do not add provider credentials or bypass access denials.
+Rollback reverts only the configuration Git commit and preserves the protected old baseline. No storage or authentication migration occurs.</p>
+<h2>Status</h2><p>Baseline recovery accepted for its recorded scope. Engine configuration repair remains in progress.</p></html>
