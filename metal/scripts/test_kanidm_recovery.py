@@ -58,6 +58,7 @@ class KanidmRecoveryContract(unittest.TestCase):
     def test_complete_entries_duplicates_and_metadata(self):
         value = self.backup()
         original = recovery.fingerprint(value)
+        self.assertEqual(set(original['metadata_fields']), set(value) - {'entries'})
         changed = copy.deepcopy(value)
         changed['entries'].reverse()
         self.assertEqual(recovery.fingerprint(changed), original)

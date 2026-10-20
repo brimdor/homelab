@@ -33,7 +33,9 @@ def fingerprint(value):
         digest.update(record)
     metadata = {key: value[key] for key in expected - {'entries'}}
     return {'entries': len(value['entries']), 'entries_sha256': digest.hexdigest(),
-            'metadata_sha256': hashlib.sha256(common.canonical(metadata)).hexdigest()}
+            'metadata_sha256': hashlib.sha256(common.canonical(metadata)).hexdigest(),
+            'metadata_fields': {key: hashlib.sha256(common.canonical(item)).hexdigest()
+                                for key, item in metadata.items()}}
 
 
 def backup_fingerprint(path):
@@ -164,7 +166,9 @@ def restore(run_id):
             result['operations'].append(run(['restore', '/data/original.json.gz'], b'Restore Success!'))
             result['operations'].append(run(['verify'], b'Verification passed!'))
             result['operations'].append(run(['backup', '--compression=gzip', '/data/restored.json.gz'], b'Backup success!'))
-            if backup_fingerprint(root / 'restored.json.gz') != before:
+            after = backup_fingerprint(root / 'restored.json.gz')
+            result.setdefault('comparisons', []).append({'original': before, 'restored': after})
+            if after != before:
                 raise RuntimeError('native Kanidm restored entries or complete metadata differ')
             if number and result['fingerprint'] != before:
                 raise RuntimeError('independent native Kanidm recoveries differ')
