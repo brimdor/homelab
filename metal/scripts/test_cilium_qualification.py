@@ -18,6 +18,16 @@ import cilium_qualification as qualification
 
 
 class QualificationGuards(unittest.TestCase):
+    def test_inherited_resolver_requires_one_private_nonloopback_ipv4_upstream(self):
+        self.assertEqual(qualification.inherited_resolver(
+            "nameserver 172.31.240.1\n# ExtServers: [host(192.168.5.1)]\n"), "192.168.5.1")
+        for line in ("nameserver 127.0.0.11", "# ExtServers: [host(127.0.0.1)]",
+                     "# ExtServers: [host(0.0.0.0)]", "# ExtServers: [host(8.8.8.8)]",
+                     "# ExtServers: [host(192.168.5.1) host(192.168.5.2)]",
+                     "# ExtServers: [host(192.168.5.999)]"):
+            with self.subTest(line=line), self.assertRaises((RuntimeError, ValueError)):
+                qualification.inherited_resolver(line)
+
     def setUp(self):
         self.name = "qualification-1234abcd"
         self.config = {"current-context": "k3d-" + self.name, "clusters": [
@@ -97,6 +107,7 @@ class QualificationGuards(unittest.TestCase):
             signal.signal(signal.SIGTERM, previous)
         self.assertEqual(len(children), 1)
         self.assertIsNotNone(children[0].poll())
+        self.assertTrue(all(stream.closed for stream in (children[0].stdin, children[0].stdout, children[0].stderr)))
         with self.assertRaises(ProcessLookupError):
             os.kill(children[0].pid, 0)
 

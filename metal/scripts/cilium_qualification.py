@@ -5,6 +5,7 @@ import argparse
 from contextlib import contextmanager
 import gzip
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -32,6 +33,16 @@ K3S = "docker.io/rancher/k3s:v1.33.6-k3s1@sha256:d7119ab9e0054692a86a8eda454f2d3
 TESTS = ("no-policies", "all-ingress-deny", "all-egress-deny", "client-egress-l7")
 TEST_FILTER = "^(" + "|".join(TESTS) + ")/"
 PRODUCTION_UID = "7ff226e0-565a-4610-8a3e-97e7e87355a3"
+
+
+def inherited_resolver(text):
+    match = re.search(r"(?m)^# ExtServers: \[host\(([0-9.]+)\)\]$", text)
+    if not match:
+        raise RuntimeError("owned Docker node has no single inherited IPv4 resolver")
+    address = ipaddress.ip_address(match[1])
+    if address.version != 4 or not address.is_private or address.is_loopback or address.is_unspecified:
+        raise RuntimeError("owned Docker resolver is outside the reviewed private upstream contract")
+    return str(address)
 
 
 def require_root(root, name, docker_host):
@@ -95,6 +106,7 @@ class Qualification:
         self.stages = []
         self.count = 0
         self.creation_started = False
+        self.resolver = None
 
     def command(self, command, *, data=None, private=False):
         self.count += 1
@@ -110,6 +122,8 @@ class Qualification:
                 except subprocess.TimeoutExpired:
                     os.killpg(child.pid, signal.SIGKILL)
                     child.wait()
+            for stream in (child.stdin, child.stdout, child.stderr):
+                stream.close()
         if not private:
             (self.work / (str(self.count) + ".log.gz")).write_bytes(gzip.compress(stdout + stderr))
         if child.returncode:
@@ -158,6 +172,25 @@ class Qualification:
         for suffix in ("-server-0", "-agent-0", "-agent-1"):
             self.command(["docker", "exec", "k3d-" + self.args.name + suffix,
                           "test", "-d", "/sys/fs/cgroup/kubepods"])
+        resolvers = set()
+        for suffix in ("-server-0", "-agent-0", "-agent-1"):
+            node = "k3d-" + self.args.name + suffix
+            resolver = inherited_resolver(self.command(["docker", "exec", node, "cat", "/etc/resolv.conf"]).decode())
+            self.command(["docker", "exec", node, "nslookup", "example.com.", resolver])
+            resolvers.add(resolver)
+        if len(resolvers) != 1:
+            raise RuntimeError("owned nodes disagree on their inherited DNS upstream")
+        self.resolver = resolvers.pop()
+        self.identity()
+        config = self.kubectl("get", "configmap", "coredns", "-n", "kube-system")
+        corefile = config["data"]["Corefile"]
+        if corefile.count("forward . /etc/resolv.conf") != 1:
+            raise RuntimeError("unexpected synthetic CoreDNS forwarding contract")
+        # k3d's gateway-DNAT resolver timed out from Cilium pods; retain its actual inherited upstream.
+        patch = [{"op": "test", "path": "/data/Corefile", "value": corefile},
+                 {"op": "replace", "path": "/data/Corefile", "value": corefile.replace(
+                     "forward . /etc/resolv.conf", "forward . " + self.resolver)}]
+        self.kubectl("patch", "configmap", "coredns", "-n", "kube-system", "--type=json", "-p", json.dumps(patch))
         values = {"operator": {"replicas": 1}, "kubeProxyReplacement": True,
                   # Nested container automount selected the agent's empty subtree instead of the node's workloads.
                   "cgroup": {"autoMount": {"enabled": False}, "hostRoot": "/sys/fs/cgroup"},
@@ -256,7 +289,8 @@ class Qualification:
             self.validate(version, "return-" + version)
             previous = version
         return {"connectivity_stages_accepted": True, "stages": self.stages,
-                "production_change": False, "production_hardware_kernel_gpu_l2_unqualified": True}
+                "production_change": False, "test_dns_inherited_upstream": self.resolver,
+                "production_hardware_kernel_gpu_l2_unqualified": True}
 
 
 def interrupted(_number, _frame):
