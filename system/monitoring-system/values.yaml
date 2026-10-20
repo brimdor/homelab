@@ -34,7 +34,7 @@ kube-prometheus-stack:
         url: http://loki.loki:3100
   prometheus:
     prometheusSpec:
-      replicas: 0
+      replicas: 1
       persistentVolumeClaimRetentionPolicy:
         whenDeleted: Retain
         whenScaled: Retain
