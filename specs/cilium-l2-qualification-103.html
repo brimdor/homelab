@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cilium L2 qualification — Maintenance 103</title>
+<style>:root{color-scheme:dark;background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui}body{max-width:1000px;margin:auto;padding:32px}a{color:#9bd0ff}code{overflow-wrap:anywhere}th,td{border:1px solid #425268;padding:10px;text-align:left}table{border-collapse:collapse;width:100%}</style>
+<h1>Cilium L2 qualification</h1>
+<p>Approved scope: <a href="https://git.eaglepass.io/ops/homelab/issues/103">#103 K3S_CILIUM</a>.
+This independent fixture addresses the missing pool/ARP/lease/application-traffic prerequisite identified in
+<a href="k3s-cilium-compatibility-audit.html">the compatibility audit</a>. No production application or physical-network acceptance follows from a synthetic pass.</p>
+<h2>Evidence and design assumptions</h2>
+<p>The existing helper binds an empty owned Docker VM, loopback-only API, non-production cluster UID,
+three synthetic k3s1.33.6 nodes and SHA256-verified Cilium charts. Reuse those checks without modifying the active bridge run.
+Use its synthetic172.31.240.0/24 Docker network; never use production10.0.20.224/27.
+An ordinary external Docker client on that bridge represents a same-L2 caller, not a physical VLAN, switch or Tailnet caller.</p>
+<p><a href="https://docs.cilium.io/en/stable/network/l2-announcements/">Official L2 guidance</a>
+describes ARP ownership by one lease holder, interface selection, kube-proxy replacement and the incompatibility of externalTrafficPolicy Local.
+<a href="https://docs.cilium.io/en/stable/network/lb-ipam/">Official LB-IPAM guidance</a> defines blocks and reserved boundary addresses.
+The existing source audit establishes blocks support in1.15.1 and cidrs removal in1.16.</p>
+<p>Exact1.15.1 official LB-IPAM source contract nz3zwc2b identifies the older annotation name io.cilium/lb-ipam-ips,
+while the new documentation uses lbipam.cilium.io/ips. Use the explicitly supported single-address spec.loadBalancerIP across this bridge,
+preserving the requested VIP without assuming the newer annotation works on the baseline.</p>
+<h2>Objective and acceptance</h2>
+<ul>
+<li>Create the original cidrs pool on1.15.1 with boundary addresses reserved. Allocate a fixed synthetic VIP and prove normal HTTP service traffic.</li>
+<li>Migrate cidrs to identical blocks with a JSON patch testing UID/resourceVersion/old CIDRs. Require unchanged pool UID and service VIP.</li>
+<li>At baseline, every patched adjacent forward version, rollback and return, require three ready exact-version agents, the same pool and Service UIDs, original VIP and three ready backend endpoints.</li>
+<li>From a client outside Kubernetes, send native raw ARP requests. Require exactly one unique responding MAC equal to the current lease holder's Docker interface MAC. Require the exact synthetic HTTP response.</li>
+<li>Exclude the current holder through the synthetic policy's node label, require the same lease UID to move to another eligible node with increased transition count, repeat ARP/HTTP checks and restore eligibility.</li>
+<li>Every required stage must produce its own receipt. Missing stages, ambiguous ARP, stale lease, wrong payload, version, UID or address fail. Retain failed evidence; do not skip it.</li>
+</ul>
+<h2>Implementation plan and tasks</h2>
+<table><tr><th>Step</th><th>Files and verification</th></tr>
+<tr><td>1. Define guards and native probe</td><td>metal/scripts/cilium_l2_qualification.py; standard-library Python and existing Qualification. Pinned official Python image supplies both non-root HTTP backends and the isolated raw-ARP client.</td></tr>
+<tr><td>2. Reject invalid evidence</td><td>metal/scripts/test_cilium_l2_qualification.py; meaningful malformed ARP, identity, allocation, lease and manifest regression cases; no skipped required cases.</td></tr>
+<tr><td>3. Publish exact candidate</td><td>Review complete diff, scoped hooks, tests and source hashes; commit/push only these three files to canonical Gitea master before execution.</td></tr>
+<tr><td>4. Native qualification</td><td>Owned no-mount VM, current helper's verified tool downloads and finally cleanup. Execute all17 stages. Save aggregate receipts and cleanup evidence; remove owned VM, native socket paths, fixture containers/images, downloaded inputs and scratch.</td></tr></table>
+<h2>Commands and code conventions</h2>
+<p>Under the operator's process-local verified disposable environment, run
+<code>python3 -B -m unittest discover -s metal/scripts -p test_cilium_l2_qualification.py</code> and
+<code>pre-commit run --files metal/scripts/cilium_l2_qualification.py metal/scripts/test_cilium_l2_qualification.py specs/cilium-l2-qualification-103.html</code>.
+The native harness constructs the existing Qualification with explicit private work directory, Docker host/server, random qualification name and checksum-verified k3d/Cilium tools,
+then calls <code>cilium_l2_qualification.qualify(q)</code> inside its tracked finally path.</p>
+<p>Follow the existing helper's fail-fast Python style: exact identity comparisons, argument arrays, private kubeconfig and explicit owned cleanup.
+Example: <code>if observed_uid != expected_uid: raise RuntimeError("pool identity changed")</code>.</p>
+<h2>Boundaries and rollback</h2>
+<p>Always bind every mutation to the owned synthetic cluster; preserve the separate active bridge unchanged. Use network-isolated credentials and synthetic data only.
+The raw client has only NET_RAW and an ordinary dedicated bridge attachment; backend Pods have no credentials, privileges, host mounts or writable root.
+Never run production Helm, patch production pools/leases/nodes, weaken failing checks, use real data or claim physical-network proof.
+An explicit production approval, data-safety or hardware gate remains applicable to its dependent action.
+Rollback is deletion of the exact synthetic cluster and its owned VM through the parent finally path; no production state changes.</p>
+<h2>Independent production advisory observations</h2>
+<p>Read-only2026-10-20 observations6lsfil4p and xrz652uy bound all nine active agent Pod UIDs and pinned1.15.1 image.
+All nine report EnableEndpointRoutes=false, EnableHostLegacyRouting=true, EnableWireguard=false,
+EnableL7Proxy=true, EnableEnvoyConfig=false and tunnel/cluster-pool networking. Each reports embedded Envoy with zero active redirects.
+The <a href="https://github.com/cilium/cilium/security/advisories/GHSA-hxv8-4j4r-cqgv">same-node policy advisory</a>
+requires per-endpoint routes; that prerequisite is absent in this observation.
+The <a href="https://github.com/cilium/cilium/security/advisories/GHSA-gj49-89wh-h4gj">WireGuard bugtool advisory</a>
+requires WireGuard; it is disabled. No bugtool/sysdump or key material was collected.</p>
+<p>The <a href="https://github.com/cilium/cilium/security/advisories/GHSA-3fcv-jvfp-m4q9">Envoy admin socket advisory</a>
+includes this old release and enabled L7 configuration. Metadata-only walk cru57wp2 found no admin socket under either/run/cilium or/var/run/cilium
+on the nine nodes at that instant; observed ordinary/access-log/xDS sockets were0660. This is not proof of immunity or safe future activation.
+No socket connection, secret dump, permission change, exploit or production CNI action occurred. Patched candidate versions and complete advisory review remain prerequisites.</p>
+<h2>Status</h2><p>Implementation prepared for local validation; no native L2 acceptance yet.</p>
+</html>
