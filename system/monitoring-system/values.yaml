@@ -35,6 +35,22 @@ kube-prometheus-stack:
   prometheus:
     prometheusSpec:
       replicas: 0
+      persistentVolumeClaimRetentionPolicy:
+        whenDeleted: Retain
+        whenScaled: Retain
+      storageSpec:
+        volumeClaimTemplate:
+          metadata:
+            name: prometheus-monitoring-system-kube-pro-prometheus-db
+            annotations:
+              helm.sh/resource-policy: keep
+              argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          spec:
+            accessModes: [ReadWriteOnce]
+            storageClassName: standard-rwo
+            resources:
+              requests:
+                storage: 40Gi
       ruleSelectorNilUsesHelmValues: false
       serviceMonitorSelectorNilUsesHelmValues: false
       podMonitorSelectorNilUsesHelmValues: false
