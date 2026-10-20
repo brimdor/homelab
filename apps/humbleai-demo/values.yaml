@@ -103,7 +103,7 @@ app-template:
           secretName: humbleai-tls
   defaultPodOptions:
     nodeSelector:
-      kubernetes.io/arch: arm64
+      kubernetes.io/hostname: growlithe
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/qw3p77rkxgtdu6xm3pyiduurrq"
       operator.1password.io/item-name: "secrets"
