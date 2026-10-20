@@ -27,6 +27,10 @@ data:
 {{ .Files.Get "scripts/cold_recovery.py" | indent 4 }}
   buffer_transfer.py: |
 {{ .Files.Get "scripts/buffer_transfer.py" | indent 4 }}
+  frozen_query_copy.py: |
+{{ .Files.Get "scripts/frozen_query_copy.py" | indent 4 }}
+  buffer-loki.yaml: |
+{{ .Files.Get "files/buffer-loki.yaml" | indent 4 }}
   source-final-windows.json: |
 {{ .Files.Get "files/source-final-windows.json" | indent 4 }}
   loki.yaml: |

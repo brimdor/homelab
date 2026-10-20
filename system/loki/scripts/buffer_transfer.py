@@ -21,6 +21,7 @@ import cold_recovery
 
 SOURCE = "http://loki-cutover-buffer.loki:3100"
 TARGET = "http://loki.loki:3100"
+FROZEN_QUERY_COPY = os.environ.get("LOKI_FROZEN_QUERY_COPY") == "1"
 SELECTOR = '{job=~".+"}'
 SPAN = 120 * 10**9
 CLAIM_UID = "656cee92-dc36-4fc8-8742-b691c670cf77"
@@ -48,7 +49,8 @@ def query(base, start, end, limit=5000, direction="forward", selector=SELECTOR):
     # Loki's HTTP end is exclusive; internal windows include both endpoints.
     parameters = {"query": selector, "start": str(start), "end": str(end + 1),
                   "limit": str(limit), "direction": direction}
-    value = get_json(base + "/loki/api/v1/query_range?" + urllib.parse.urlencode(parameters))
+    query_base = "http://127.0.0.1:3100" if FROZEN_QUERY_COPY and base == SOURCE else base
+    value = get_json(query_base + "/loki/api/v1/query_range?" + urllib.parse.urlencode(parameters))
     if (value.get("status") != "success" or value.get("data", {}).get("resultType") != "streams" or
             not isinstance(value.get("data", {}).get("result"), list)):
         raise RuntimeError("buffer comparison query failed")
@@ -122,7 +124,8 @@ def qualified_owned_log_rejection(count, size):
 
 def source_accounting():
     # Received counts parsed attempts, including whole batches rejected with 429.
-    # Never discount other refusal classes or infer that a rejected batch retried.
+    # Only the separately hash-qualified owned metadata rejection is also excluded.
+    # Never infer that a rejected batch retried or discount any other refusal class.
     with urllib.request.urlopen(SOURCE + "/metrics", timeout=30) as response:
         lines = response.read().decode().splitlines()
     received = []
@@ -176,7 +179,8 @@ def query_count(base, start, end, allow_empty=False, selector=SELECTOR):
     _, upper, duration = aggregate_bounds(start, end, allow_empty)
     parameters = {"query": "sum(count_over_time(" + selector + "[" + str(duration) + "s]))",
                   "time": str(upper)}
-    value = get_json(base + "/loki/api/v1/query?" + urllib.parse.urlencode(parameters))
+    query_base = "http://127.0.0.1:3100" if FROZEN_QUERY_COPY and base == SOURCE else base
+    value = get_json(query_base + "/loki/api/v1/query?" + urllib.parse.urlencode(parameters))
     data = value.get("data", {})
     result = data.get("result", [])
     if (value.get("status") != "success" or data.get("resultType") != "vector" or
@@ -423,13 +427,19 @@ def transfer(start, end, apply=False, source_audit=None, verify_presence=False, 
             "start": start, "end": end}
 
 
-def require_stage(target_uid, phase):
+def require_stage(target_uid, phase, preparing_copy=False):
     api = cold_recovery.api
     claim = api("/api/v1/namespaces/loki/persistentvolumeclaims/loki-data")
     source_claim = api("/api/v1/namespaces/loki/persistentvolumeclaims/loki-cutover-buffer")
     ds = api("/apis/apps/v1/namespaces/loki/daemonsets/loki-promtail")
     config = api("/api/v1/namespaces/loki/configmaps/loki-alloy")["data"]["config.alloy"]
     pods = api("/api/v1/namespaces/loki/pods")["items"]
+    copy_consumer = None
+    if FROZEN_QUERY_COPY:
+        import frozen_query_copy
+        if phase != "continuation":
+            raise RuntimeError("frozen query copy is qualified only for continuation audit")
+        copy_consumer = frozen_query_copy.require_consumer(pods)
     if not (claim["metadata"]["uid"] == CLAIM_UID and source_claim["metadata"]["uid"] ==
             cold_recovery.BUFFER_CLAIM_UID and all(not p["metadata"].get("deletionTimestamp") and
             p["status"]["phase"] == "Bound" for p in (claim, source_claim))):
@@ -461,13 +471,15 @@ def require_stage(target_uid, phase):
                      ("Succeeded", "Failed") and any(v.get("persistentVolumeClaim", {}).get(
                          "claimName") == pvc for v in p["spec"].get("volumes", []))]
         if not (len(matches) == 1 and matches[0]["metadata"]["uid"] == uid and
-                consumers == [uid] and
+                sorted(consumers) == sorted([uid] + ([copy_consumer] if copy_consumer and pvc == "loki-cutover-buffer" else [])) and
                 not matches[0]["metadata"].get("deletionTimestamp") and
                 any(v.get("persistentVolumeClaim", {}).get("claimName") == pvc for v in matches[0]["spec"]["volumes"]) and
                 matches[0]["status"].get("containerStatuses") and all(s["ready"] and s.get("imageID", "").endswith(
                     "@" + IMAGE_DIGEST) for s in matches[0]["status"]["containerStatuses"]) and
                 api("/api/v1/namespaces/loki/services/" + service)["spec"]["selector"] == selector):
             raise RuntimeError("receiver Pod, Service, image or claim identity changed")
+    if FROZEN_QUERY_COPY and not preparing_copy:
+        frozen_query_copy.require_copy(source_accounting())
     return source_claim
 
 
@@ -587,7 +599,8 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
     count = source_query_count(prefix["start"], end)
     if count != accounting["accepted_records"]:
         raise RuntimeError("tail full-source count differs from accepted counters")
-    result = (transfer(start, end, apply, audit, max_record_age_ns=45 * 60 * 10**9)
+    result = (transfer(start, end, verify_presence=True) if FROZEN_QUERY_COPY else
+              transfer(start, end, apply, audit, max_record_age_ns=45 * 60 * 10**9)
               if phase == "continuation" else transfer(start, end, apply, audit))
     if result["source_distinct_records"] != count - prefix["source_accepted_records"]:
         raise RuntimeError("tail enumeration does not account for every new accepted original")
@@ -604,6 +617,9 @@ def run_tail(root, target_uid, attempt, apply, phase="tail"):
                   prefix_distinct_records=prefix["source_accepted_records"],
                   tail_enumeration_complete=True, source_query_count=count,
                   complete_source_quiescence=True)
+    if FROZEN_QUERY_COPY:
+        import frozen_query_copy
+        result["frozen_query_copy"] = frozen_query_copy.require_copy(accounting)
     cold_recovery.write_verified(root / (phase + "-" + str(attempt) + ".json"), result)
     print(json.dumps(result, indent=2), flush=True)
 
@@ -685,6 +701,8 @@ def run_buffered_tail(root, target_uid, attempt, apply, phase="buffered-tail"):
 
 
 def run(target_uid, phase, attempt, apply):
+    if FROZEN_QUERY_COPY and (apply or phase != "continuation"):
+        raise RuntimeError("frozen query copy is read-only and continuation-only")
     if phase == "prefix" and apply:
         raise RuntimeError("prefix verification is read-only")
     root = Path("/recovery/cutover-transfer")
