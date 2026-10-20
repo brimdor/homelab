@@ -5,6 +5,7 @@ import gzip
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -12,6 +13,29 @@ import kanidm_recovery as recovery
 
 
 class KanidmRecoveryContract(unittest.TestCase):
+    def test_failure_output_stays_in_exclusive_private_diagnostic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def docker(*args, **_kwargs):
+                if args[0] == 'create':
+                    return SimpleNamespace(stdout=('a' * 64).encode())
+                if args[0] == 'start':
+                    return SimpleNamespace(stdout=b'synthetic-private-record', stderr=b'', returncode=2)
+                return SimpleNamespace(returncode=1 if args[0] == 'inspect' else 0)
+            state = {'State': {'Running': False, 'ExitCode': 2, 'OOMKilled': False}}
+            with patch.object(recovery, 'POINT', root), patch.object(recovery.common, 'docker', side_effect=docker), \
+                    patch.object(recovery.common, 'inspect', return_value=state), \
+                    patch.object(recovery, 'require_container'):
+                for _ in range(2):
+                    with self.assertRaises(RuntimeError) as caught:
+                        recovery.operation(root, 'fixture', ['verify'], b'Verification passed!', 'owned')
+                    self.assertNotIn('synthetic-private-record', str(caught.exception))
+            logs = list(root.glob('native-failure-fixture-*.log'))
+            self.assertEqual(len(logs), 2)
+            for path in logs:
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(path.read_bytes(), b'synthetic-private-record')
+
     def backup(self):
         return {'version': '1.10', 'db_s_uuid': 'source', 'db_d_uuid': 'domain', 'db_ts_max': [1, 2],
                 'keyhandles': {'a': 'synthetic'}, 'repl_meta': {'ruv': []},

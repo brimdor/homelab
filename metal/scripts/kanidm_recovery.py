@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import uuid
 
 import pointguide_files_recovery as retained
 
@@ -91,10 +92,17 @@ def operation(scratch, run_id, args, marker, image_id):
         output = response.stdout + response.stderr
         if (response.returncode or state['Running'] or state['ExitCode'] != 0 or state.get('OOMKilled') or
                 marker not in output or re.search(rb'\bERROR\b', output)):
+            diagnostic = POINT / ('native-failure-' + run_id + '-' + uuid.uuid4().hex + '.log')
+            descriptor = os.open(diagnostic, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(descriptor, 'wb') as target:
+                target.write(output)
+                target.flush()
+                os.fsync(target.fileno())
             raise RuntimeError('native Kanidm ' + args[0] + ' failed: ' + json.dumps({
                 'exit': state['ExitCode'], 'transport': response.returncode, 'oom': state.get('OOMKilled'),
                 'required_marker': marker.decode(), 'marker_present': marker in output,
-                'output_sha256': hashlib.sha256(output).hexdigest(), 'output_bytes': len(output)}))
+                'output_sha256': hashlib.sha256(output).hexdigest(), 'output_bytes': len(output),
+                'protected_private_diagnostic': str(diagnostic)}))
         return {'operation': args[0], 'exit': 0, 'marker_present': True,
                 'output_sha256': hashlib.sha256(output).hexdigest()}
     finally:
@@ -170,5 +178,5 @@ def restore(run_id):
         retained.verify(POINT, CHECKSUM, 'kanidm')
         result['cleanup'] = {'scratch_absent': not scratch.exists(), 'containers_absent': True,
                              'protected_original_unchanged': True, 'allocated_bytes_removed': allocated}
-        retained.files.write_json(POINT / 'native-offline-restore.json', result)
+        retained.files.write_json(POINT / ('native-offline-restore-' + run_id + '.json'), result)
     return result
