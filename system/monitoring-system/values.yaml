@@ -78,6 +78,7 @@ kube-prometheus-stack:
     config:
       route:
         receiver: maintenance-null
+        routes: []
         group_by:
           - namespace
         group_wait: 30s

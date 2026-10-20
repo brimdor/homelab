@@ -102,6 +102,22 @@ def state(pid):
     return selected
 
 
+def quiet_state(pid, config_sha256):
+    """Require the reviewed integration-free config and exact notification counters."""
+    status = json.loads(request(pid, "/api/v2/status").stdout)
+    config = status["config"]["original"]
+    if (digest(config.encode()) != config_sha256 or "maintenance-null" not in config or
+            re.search(r"(?m)^\s*\w+_configs:", config)):
+        raise RuntimeError("reviewed notification hold config changed")
+    lines = request(pid, "/metrics").stdout.decode().splitlines()
+    counters = {line.split()[0]: float(line.split()[1]) for line in lines
+                if line.startswith(("alertmanager_notifications_total{", "alertmanager_notifications_failed_total{",
+                                    "alertmanager_nflog_queries_total "))}
+    if "alertmanager_nflog_queries_total" not in counters or len(counters) < 3:
+        raise RuntimeError("notification hold counters are incomplete")
+    return counters
+
+
 def protected_write(path, data):
     with path.open("xb") as output:
         os.fchmod(output.fileno(), 0o600)
@@ -136,6 +152,20 @@ def validate_manifest(value):
             raise RuntimeError("native snapshot size, hash or capture age is invalid")
         if name == "silences" and item["bytes"] != 0:
             raise RuntimeError("nonempty silences require a separate native comparison contract")
+    if "current_persisted_ram_proven" in value:
+        hold = value.get("quiescence", {})
+        if (value["current_persisted_ram_proven"] is not True or
+                set(hold) != {"held_at", "config_sha256", "counters_before", "counters_after",
+                              "maintenance_before", "maintenance_after"} or
+                not re.fullmatch(r"[a-f0-9]{64}", hold.get("config_sha256", "")) or
+                not isinstance(hold.get("held_at"), (int, float)) or
+                hold["counters_before"] != hold["counters_after"] or
+                "alertmanager_nflog_queries_total" not in hold["counters_before"] or
+                set(hold["maintenance_before"]) != {"nflog", "silences"} or
+                set(hold["maintenance_after"]) != {"nflog", "silences"} or
+                any(hold["maintenance_after"][n] <= hold["maintenance_before"][n] or
+                    value["files"][n]["snapshot_mtime"] <= hold["held_at"] for n in NAMES)):
+            raise RuntimeError("fresh full-state snapshot evidence is incomplete or changed")
 
 
 def verify_point(point, expected):
@@ -184,9 +214,13 @@ def write_point(point, value, payloads):
     return digest(manifest)
 
 
-def capture(run_id):
+def capture(run_id, hold=None):
     identity = source_identity()
     before = state(identity["process"]["pid"])
+    if hold is not None:
+        quiet_before = quiet_state(identity["process"]["pid"], hold["config_sha256"])
+        if quiet_before != hold["counters"]:
+            raise RuntimeError("notification counters changed after the reviewed hold")
     payloads, identities = {}, {}
     for name in sorted(NAMES):
         payloads[name], identities[name] = read_file(DATA / name)
@@ -196,6 +230,13 @@ def capture(run_id):
              "unsnapshotted_ram_proven": False, "metrics": before,
              "files": {n: {"bytes": len(data), "sha256": digest(data), "snapshot_mtime": identities[n][3] / 1e9}
                        for n, data in payloads.items()}}
+    if hold is not None:
+        value.update(current_persisted_ram_proven=True, quiescence={
+            "held_at": hold["held_at"], "config_sha256": hold["config_sha256"],
+            "counters_before": quiet_before,
+            "counters_after": quiet_state(identity["process"]["pid"], hold["config_sha256"]),
+            "maintenance_before": hold["maintenance"],
+            "maintenance_after": {n: before["alertmanager_" + n + "_maintenance_total"] for n in NAMES}})
     validate_manifest(value)
     if (any(shared.file_identity(DATA / n) != identities[n] for n in NAMES) or
             state(identity["process"]["pid"]) != before or source_identity() != identity or
@@ -209,7 +250,8 @@ def capture(run_id):
     expected = write_point(point, value, payloads)
     return {"manifest_sha256": expected, "bytes": sum(map(len, payloads.values())),
             "snapshot_ages_seconds": {n: captured - value["files"][n]["snapshot_mtime"] for n in NAMES},
-            "nflog": records(payloads["nflog"]), "silences": 0, "unsnapshotted_ram_proven": False}
+            "nflog": records(payloads["nflog"]), "silences": 0, "unsnapshotted_ram_proven": False,
+            "current_persisted_ram_proven": hold is not None}
 
 
 def send_point(output, point, expected):

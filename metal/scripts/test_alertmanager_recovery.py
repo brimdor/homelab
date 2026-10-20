@@ -11,6 +11,28 @@ import alertmanager_recovery as recovery
 
 
 class NativeSnapshots(unittest.TestCase):
+    def test_fresh_full_state_requires_post_hold_snapshots_maintenance_and_unchanged_counters(self):
+        value, _ = self.fixture()
+        counters = {"alertmanager_nflog_queries_total": 3}
+        value.update(current_persisted_ram_proven=True, quiescence={
+            "held_at": 800, "config_sha256": "a" * 64,
+            "counters_before": counters, "counters_after": dict(counters),
+            "maintenance_before": {"nflog": 1, "silences": 1},
+            "maintenance_after": {"nflog": 2, "silences": 2}})
+        recovery.validate_manifest(value)
+        for change in ("counter", "maintenance", "snapshot", "proof"):
+            changed = json.loads(json.dumps(value))
+            if change == "counter":
+                changed["quiescence"]["counters_after"]["alertmanager_nflog_queries_total"] += 1
+            elif change == "maintenance":
+                changed["quiescence"]["maintenance_after"]["nflog"] = 1
+            elif change == "snapshot":
+                changed["files"]["nflog"]["snapshot_mtime"] = 799
+            else:
+                del changed["quiescence"]["config_sha256"]
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                recovery.validate_manifest(changed)
+
     def fixture(self):
         payloads = {"nflog": b"\x03one\x03two", "silences": b""}
         value = {"format": 1, "kind": "alertmanager-native-persisted-snapshots", "image": recovery.IMAGE,
