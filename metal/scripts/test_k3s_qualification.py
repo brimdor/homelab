@@ -213,6 +213,16 @@ class Guards(unittest.TestCase):
                 for path in Path(directory).glob("*.log.gz"):
                     path.unlink()
 
+    def test_guest_kernel_configuration_never_reaches_wrong_or_occupied_daemon(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.args = SimpleNamespace(docker_server="colima-q")
+        for responses, count in (([b"production-docker"], 1), ([b"colima-q", b"existing-container"], 2)):
+            with patch.object(runner, "command", side_effect=responses) as command:
+                with self.assertRaisesRegex(RuntimeError, "expected empty owned VM"):
+                    runner.create()
+                self.assertEqual(command.call_count, count)
+                self.assertFalse(any("run" in call.args[0] for call in command.call_args_list))
+
 
 if __name__ == "__main__":
     unittest.main()

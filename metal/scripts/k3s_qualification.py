@@ -288,6 +288,17 @@ class Qualification(cq.Qualification):
         daemon = self.command(["docker", "info", "--format", "{{.Name}}"]).decode().strip()
         if daemon != self.args.docker_server or self.command(["docker", "ps", "-aq"]).strip():
             raise RuntimeError("Docker daemon is not the expected empty owned VM")
+        # Nested nodes share the guest kernel's per-user inotify instance limit.
+        raw = self.command(["docker", "run", "--rm", "--name", self.args.name + "-kernel-capacity",
+                            "--network=none", "--log-driver=none", "--privileged", "--entrypoint=/bin/sh", cq.K3S,
+                            "-ec", "before=$(cat /proc/sys/fs/inotify/max_user_instances); "
+                            "if test \"$before\" -lt 512; then sysctl -w fs.inotify.max_user_instances=512 >/dev/null; fi; "
+                            "after=$(cat /proc/sys/fs/inotify/max_user_instances); printf '%s\\n%s\\n' \"$before\" \"$after\""])
+        before, after = map(int, raw.split())
+        if after != max(before, 512):
+            raise RuntimeError("private guest inotify capacity was not established")
+        (self.work / "guest-inotify-capacity.json").write_text(json.dumps({
+            "before": before, "after": after, "production_change": False}))
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
