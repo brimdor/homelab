@@ -259,15 +259,18 @@ def verify(point, checksum, namespace):
     if hashlib.sha256(raw).hexdigest() != checksum:
         raise RuntimeError('Codex protected manifest changed')
     value = validate(json.loads(raw), namespace)
-    expected = set()
+    expected = {}
     for number, (_, record) in enumerate(sorted(value['tree'].items())):
         if record['kind'] == 'file':
-            expected.add(str(number))
-            actual, _ = common.source_record(str(number), point / 'data' / str(number))
-            if actual['size'] != record['bytes'] or actual['sha256'] != record['sha256']:
-                raise RuntimeError('Codex protected file changed')
-    if {p.name for p in (point / 'data').iterdir()} != expected:
-        raise RuntimeError('unexpected Codex protected data')
+            expected[str(number)] = {'bytes': record['bytes'], 'sha256': record['sha256']}
+            path = point / 'data' / str(number)
+            actual = path.lstat()
+            if (not stat.S_ISREG(actual.st_mode) or actual.st_nlink != 1 or
+                    actual.st_uid != os.geteuid() or stat.S_IMODE(actual.st_mode) != 0o600):
+                raise RuntimeError('Codex protected file permissions changed')
+    # Ordinary retained files may be empty; the shared manifest-only reader forbids zero bytes.
+    if files.tree(point / 'data') != {'directories': [], 'files': expected}:
+        raise RuntimeError('Codex protected file set or checksum changed')
     return value
 
 

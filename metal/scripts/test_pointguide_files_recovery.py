@@ -40,6 +40,7 @@ class CodexFilesRecovery(unittest.TestCase):
         source.mkdir()
         (source / 'directory').mkdir(mode=0o750)
         (source / 'directory/credential').write_bytes(b'synthetic credential only')
+        (source / 'directory/empty').touch()
         os.setxattr(source / 'directory/credential', 'user.fixture', b'metadata')
         os.symlink('/never-read-external-target', source / 'external')
         os.symlink('directory', source / 'relative')
