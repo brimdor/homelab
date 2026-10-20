@@ -132,12 +132,18 @@ kube-prometheus-stack:
             name: webhook-transformer
     config:
       route:
-        receiver: maintenance-null
-        routes: []
+        receiver: ntfy
         group_by:
           - namespace
         group_wait: 30s
         group_interval: 5m
         repeat_interval: 12h
+        routes:
+          - receiver: ntfy
+            matchers:
+              - alertname = "Watchdog"
       receivers:
-        - name: maintenance-null
+        - name: ntfy
+          webhook_configs:
+            - url: http://localhost:8081
+              send_resolved: true
