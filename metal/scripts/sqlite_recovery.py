@@ -25,7 +25,7 @@ SOURCES = {
         "pod_uid": "fae3621d-e4da-41a8-8087-e1768c066053", "container": "main",
         "pvc": None, "database": "/app/server/data/humbleai.db", "directory": "/app/server/data",
         "image": "registry.eaglepass.io/humbleai@sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542",
-        "architecture": "amd64", "node_version": "v20.20.2", "legacy_sqlite3": True,
+        "architecture": "arm64", "node_version": "v20.20.2", "legacy_sqlite3": True,
         "key": {"secret": "secrets", "field": "openai-encryption-key", "environment": "OPENAI_ENCRYPTION_KEY",
                 "uid": "8d3d65c0-e6da-4dc8-9ad6-1b0ddc20e595"}},
     "second-brain": {
