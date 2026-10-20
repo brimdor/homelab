@@ -116,6 +116,17 @@ this is explicitly not recovery of historical logs.</p>
 Original Pod/container/image/mount/PVC/PV identities remained Ready with zero restarts.
 Owned native container, new unused image and scratch were removed;923,561,984allocated bytes were reclaimed.
 The separate application-only receipt records logs_recovery_accepted=false. Historical logs corruption remains open.</p>
+<h2>Copied-log reconstruction investigation</h2>
+<p>Continue the independent software investigation using only disposable copies of the existing verified Radarr point.
+The <a href="https://www.sqlite.org/lang_vacuum.html">SQLite VACUUM INTO contract</a> creates a separate rebuilt database;
+it can change hidden rowids, so a successful command alone is insufficient. Use the exact Radarr SQLite3.53.4 library,
+compare all original schema, user/application version metadata, and complete typed row multisets including rowid from full NOT INDEXED scans.
+Require integrity_check and foreign_key_check on the output. Any source scan error, changed/missing/duplicate row or schema difference remains a finding.
+Do not infer that all historical records survived merely from current-readable-row equality.</p>
+<p>Inspect only copied logs.db and every captured companion inside an exact pinned disconnected native fixture with readonly root,
+UID99:100, drop ALL, no privileges and one disposable bind. Preserve and rehash every protected file and prior failed receipt.
+No original process pause, application deployment, source/protected SQLite write, NAS operation, log deletion, production REINDEX/VACUUM or automatic repair.
+If a reconstructed copy passes, record it as a candidate only; native Radarr acceptance and a reviewed durable recovery recipe still follow.</p>
 <h2>Status</h2><p>Sonarr selected-database native recovery accepted. Radarr copied logs integrity finding remains unresolved;
 remaining full-PVC/NAS coverage is incomplete.</p>
 </html>
