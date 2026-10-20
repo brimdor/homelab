@@ -50,6 +50,27 @@ def startup_pending(stderr):
                 (b"Error from server (InternalError)" in stderr and b"readyz check failed" in stderr))
 
 
+def failure_classes(stderr):
+    patterns = {
+        "access-refused": rb"(?i)forbidden|unauthorized|permission denied|access.?denied|\b40[13]\b",
+        "trust-refused": rb"(?i)x509|certificate|private key|client-key|error loading config|invalid configuration",
+        "connection-refused": rb"connection refused",
+        "connection-reset": rb"connection reset by peer",
+        "connection-eof": rb"Unable to connect to the server: EOF|unexpected EOF",
+        "connection-goaway": rb"server sent GOAWAY.*ErrCode=NO_ERROR",
+        "transport-timeout": rb"TLS handshake timeout|net/http: request canceled|i/o timeout|context deadline exceeded",
+        "api-unavailable": rb"ServiceUnavailable|server is currently unable to handle",
+        "api-notready": rb"readyz check failed",
+    }
+    return [name for name, pattern in patterns.items() if re.search(pattern, stderr)] or ["unclassified"]
+
+
+def read_transport_pending(stderr):
+    classes = set(failure_classes(stderr))
+    allowed = {"connection-refused", "connection-reset", "connection-eof", "connection-goaway", "transport-timeout", "api-unavailable"}
+    return bool(classes) and classes <= allowed
+
+
 def minor(version):
     match = re.fullmatch(r"v1\.(\d+)\.\d+\+k3s\d+", version)
     if not match:
@@ -124,12 +145,13 @@ class Qualification(cq.Qualification):
         self.snapshots = []
         self.l2 = l2.L2Qualification(self)
         self.helpers = set()
+        self.read_retries = []
 
-    def command(self, command, *, data=None, private=True):
+    def command(self, command, *, data=None, private=True, merge_stderr=False):
         # Synthetic kubeconfigs/tokens/restore output never enter persistent command logs.
         self.count += 1
         child = subprocess.Popen(command, env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, start_new_session=True)
+                                 stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE, start_new_session=True)
         try:
             stdout, stderr = child.communicate(data)
         finally:
@@ -141,12 +163,32 @@ class Qualification(cq.Qualification):
                     os.killpg(child.pid, signal.SIGKILL)
                     child.wait()
             for stream in (child.stdin, child.stdout, child.stderr):
-                stream.close()
+                if stream is not None:
+                    stream.close()
+        stderr = stderr or b""
         if not private:
             (self.work / (str(self.count) + ".log.gz")).write_bytes(gzip.compress(stdout + stderr))
         if child.returncode:
+            if merge_stderr:
+                stderr = stdout
+            (self.work / "last-command-failure.json").write_text(json.dumps({
+                "number": self.count, "classes": failure_classes(stderr), "stderr_bytes": len(stderr),
+                "stderr_sha256": hashlib.sha256(stderr).hexdigest()}, indent=2))
             raise CommandFailure(self.count, child.returncode, stderr)
         return stdout
+
+    def kubectl(self, *args, json_output=True, data=None):
+        deadline = time.monotonic() + 120
+        while True:
+            try:
+                return super().kubectl(*args, json_output=json_output, data=data)
+            except CommandFailure as error:
+                if not args or args[0] != "get" or not read_transport_pending(error.stderr) or time.monotonic() >= deadline:
+                    raise
+                self.read_retries.append({"command_number": self.count, "classes": failure_classes(error.stderr),
+                                          "stderr_sha256": hashlib.sha256(error.stderr).hexdigest()})
+                self.persist()
+                time.sleep(2)
 
     def wait_api(self, node):
         deadline = time.monotonic() + 600
@@ -318,7 +360,7 @@ class Qualification(cq.Qualification):
 
     def persist(self):
         (self.work / "progress.json").write_text(json.dumps({"stages": self.stages, "transitions": self.transitions,
-            "snapshots": self.snapshots, "containers": self.containers, "production_change": False}, indent=2))
+            "snapshots": self.snapshots, "containers": self.containers, "read_retries": self.read_retries, "production_change": False}, indent=2))
 
     def binary(self, version):
         if version not in self.binary_paths:
@@ -432,7 +474,7 @@ class Qualification(cq.Qualification):
             volume = [m for m in actual["Mounts"] if m["Destination"] == DATA]
             if len(volume) != 1 or volume[0].get("Name") != self.containers[node]["volume"] or actual["HostConfig"]["LogConfig"]["Type"] != "none" or actual.get("LogPath"):
                 raise RuntimeError("synthetic helper datastore/logging identity changed")
-            raw = self.command(["docker", "start", "--attach", helper_id])
+            raw = self.command(["docker", "start", "--attach", helper_id], merge_stderr=True)
             finished = json.loads(self.command(["docker", "inspect", helper_id]))[0]
             if finished["State"]["Running"] or finished["State"]["ExitCode"] != 0:
                 raise RuntimeError("synthetic datastore helper failed")
@@ -494,7 +536,7 @@ class Qualification(cq.Qualification):
         if len(self.stages) != 13 or len(self.transitions) != 40 or not all(s.get("matching_version_restore_accepted") for s in self.snapshots):
             raise RuntimeError("K3s upgrade/restore qualification is incomplete")
         return {"k3s_ha_qualification_accepted": True, "stages": self.stages, "transitions": self.transitions,
-                "snapshots": self.snapshots, "production_change": False, "production_host_security_hardware_unqualified": True}
+                "snapshots": self.snapshots, "read_retries": self.read_retries, "production_change": False, "production_host_security_hardware_unqualified": True}
 
     def cleanup(self):
         for helper_id in list(self.helpers):

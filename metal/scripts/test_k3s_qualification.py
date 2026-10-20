@@ -3,8 +3,11 @@
 
 import copy
 import json
+import os
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -144,6 +147,45 @@ class Guards(unittest.TestCase):
         with patch.object(runner, "command", return_value=b'{"clientVersion":{"minor":"35"}}'):
             runner.select_client("v1.36.5+k3s1")
         self.assertEqual(runner.args.kubectl, "client35")
+
+    def test_only_metadata_get_can_retry_classified_transport_without_changing_identity(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.read_retries, runner.count = [], 1
+        error = q.CommandFailure(1, 1, b"Unable to connect to the server: read tcp: connection reset by peer")
+        with patch.object(q.cq.Qualification, "kubectl", side_effect=[error, {"kind": "NodeList"}]) as native, \
+                patch.object(runner, "persist"), patch.object(q.time, "sleep"):
+            self.assertEqual(runner.kubectl("get", "nodes"), {"kind": "NodeList"})
+            self.assertEqual(native.call_count, 2)
+            self.assertEqual(native.call_args_list[0], native.call_args_list[1])
+        self.assertEqual(runner.read_retries[0]["classes"], ["connection-reset"])
+        for operation, stderr in (("patch", error.stderr), ("get", b"Forbidden: connection reset by peer"),
+                                  ("get", b"x509: certificate failed; connection reset by peer"),
+                                  ("get", b"unknown failure")):
+            with patch.object(q.cq.Qualification, "kubectl", side_effect=q.CommandFailure(1, 1, stderr)) as native:
+                with self.assertRaises(q.CommandFailure):
+                    runner.kubectl(operation, "nodes")
+                self.assertEqual(native.call_count, 1)
+
+    def test_private_merged_capture_reaps_child_without_persisting_stderr(self):
+        children = []
+        real_popen = subprocess.Popen
+
+        def start(*args, **kwargs):
+            child = real_popen(*args, **kwargs)
+            children.append(child)
+            return child
+
+        with tempfile.TemporaryDirectory() as directory:
+            runner = q.Qualification.__new__(q.Qualification)
+            runner.work, runner.env, runner.count = Path(directory), os.environ.copy(), 0
+            with patch.object(q.subprocess, "Popen", side_effect=start):
+                raw = runner.command([sys.executable, "-c", "import os;os.write(2,b'private synthetic restore status')"], merge_stderr=True)
+            self.assertEqual(raw, b"private synthetic restore status")
+            self.assertEqual(list(Path(directory).iterdir()), [])
+        self.assertIsNotNone(children[0].poll())
+        self.assertTrue(all(stream.closed for stream in (children[0].stdin, children[0].stdout)))
+        with self.assertRaises(ProcessLookupError):
+            os.kill(children[0].pid, 0)
 
 
 if __name__ == "__main__":
