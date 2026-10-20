@@ -201,6 +201,7 @@ class Qualification(cq.Qualification):
                 raise RuntimeError("synthetic node is not Ready without pressure")
 
     def create(self):
+        print(json.dumps({"phase": "create-owned-ha-cluster", "servers": 3, "agents": 2}), flush=True)
         daemon = self.command(["docker", "info", "--format", "{{.Name}}"]).decode().strip()
         if daemon != self.args.docker_server or self.command(["docker", "ps", "-aq"]).strip():
             raise RuntimeError("Docker daemon is not the expected empty owned VM")
@@ -308,8 +309,12 @@ class Qualification(cq.Qualification):
             self.kubectl("label", "node", holder, l2.LABEL + "=true", "--overwrite", json_output=False)
         self.stages.append({"phase": phase, "k3s": version, "cilium": CILIUM, "cluster_uid": self.cluster_uid,
                             "node_uids": self.node_uids, "pool_uid": self.l2.pool_uid, "service_uid": self.l2.service_uid,
+                            "node_runtime": {n["metadata"]["name"]: {key: n["status"]["nodeInfo"][key] for key in
+                                ("containerRuntimeVersion", "kernelVersion", "osImage", "architecture", "kubeletVersion")}
+                                for n in self.kubectl("get", "nodes")["items"]},
                             "lease_uid": second["metadata"]["uid"], "before": before, "after": after, **result})
         self.persist()
+        print(json.dumps({"accepted_phase": phase, "executed_cases": result["executed_cases"]}), flush=True)
 
     def persist(self):
         (self.work / "progress.json").write_text(json.dumps({"stages": self.stages, "transitions": self.transitions,
@@ -365,6 +370,7 @@ class Qualification(cq.Qualification):
 
     def forward(self, previous, target, phase):
         require_transition(previous, target)
+        print(json.dumps({"phase": phase, "previous": previous, "target": target}), flush=True)
         self.binary(target)
         self.select_client(target)
         for node in self.versions:
@@ -401,6 +407,7 @@ class Qualification(cq.Qualification):
             self.transitions.append({"phase": phase, "node": node, "target": target, "surviving_ready_apis": surviving,
                                      "quorum_write": quorum_write, "binary_sha256": self.binary(target)[1], "application": probe})
             self.persist()
+            print(json.dumps({"upgraded_node": node, "target": target, "surviving_ready_apis": len(surviving)}), flush=True)
         self.checkpoint(target, phase)
 
     def helper(self, node, command, *, version=None, restore=False):
@@ -437,6 +444,7 @@ class Qualification(cq.Qualification):
 
     def rollback(self, snapshot):
         previous = snapshot["previous"]
+        print(json.dumps({"phase": "matching-version-snapshot-restore", "target": previous}), flush=True)
         self.ready()
         server = next(iter(self.versions))
         path = snapshot_path(snapshot["path"], snapshot["prefix"])
