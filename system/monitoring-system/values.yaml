@@ -1,9 +1,9 @@
 maintenanceRecovery:
   prometheusClaimEnabled: true
-  prometheusSeedEnabled: false
-  prometheusClaimUID: ""
-  prometheusPVName: ""
-  prometheusPVUID: ""
+  prometheusSeedEnabled: true
+  prometheusClaimUID: "5d3f4f44-6907-4ccf-adb3-0bb6923649a1"
+  prometheusPVName: "pvc-5d3f4f44-6907-4ccf-adb3-0bb6923649a1"
+  prometheusPVUID: "c3d3fdf7-6204-4942-826a-b139a43fa185"
 kube-prometheus-stack:
   # k3s embeds the scheduler and controller manager and runs Cilium as the
   # kube-proxy replacement, so these upstream scrape targets do not exist.

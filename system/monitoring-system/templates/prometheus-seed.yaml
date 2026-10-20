@@ -1,0 +1,166 @@
+{{- if .Values.maintenanceRecovery.prometheusSeedEnabled }}
+{{- $claim := "prometheus-monitoring-system-kube-pro-prometheus-db-prometheus-monitoring-system-kube-pro-prometheus-0" }}
+{{- range $key := list "prometheusClaimUID" "prometheusPVUID" }}
+{{- if not (regexMatch "^[a-f0-9-]{36}$" (index $.Values.maintenanceRecovery $key)) }}
+{{- fail (printf "%s requires the verified retained storage UID" $key) }}
+{{- end }}
+{{- end }}
+{{- $pv := required "prometheusPVName is required" .Values.maintenanceRecovery.prometheusPVName }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-retained-seed
+data:
+  seed-prometheus.py: |
+{{ .Files.Get "scripts/seed-prometheus.py" | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-retained-seed
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-retained-seed
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    resourceNames: [{{ $claim | quote }}]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-retained-seed
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-retained-seed
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-retained-seed
+    namespace: monitoring-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: maintenance-103-prometheus-retained-seed
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumes]
+    resourceNames: [{{ $pv | quote }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: maintenance-103-prometheus-retained-seed
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: maintenance-103-prometheus-retained-seed
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-retained-seed
+    namespace: monitoring-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: prometheus-retained-seed-20261020-quiesced
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus-retained-seed
+    spec:
+      restartPolicy: Never
+      serviceAccountName: prometheus-retained-seed
+      nodeSelector:
+        kubernetes.io/hostname: pikachu
+      securityContext:
+        fsGroup: 2000
+      containers:
+        - name: seed
+          image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/seed-prometheus.py]
+          env:
+            - name: CLAIM_NAME
+              value: {{ $claim | quote }}
+            - name: CLAIM_UID
+              value: {{ .Values.maintenanceRecovery.prometheusClaimUID | quote }}
+            - name: PV_NAME
+              value: {{ $pv | quote }}
+            - name: PV_UID
+              value: {{ .Values.maintenanceRecovery.prometheusPVUID | quote }}
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 2000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: '1'
+              memory: 256Mi
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: target
+              mountPath: /target
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: source
+          hostPath:
+            path: /var/lib/homelab-recovery/maintenance-103/prometheus-monitoring-20261020-quiesced
+            type: Directory
+        - name: target
+          persistentVolumeClaim:
+            claimName: {{ $claim }}
+        - name: script
+          configMap:
+            name: prometheus-retained-seed
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-retained-seed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-retained-seed
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.20.50/32
+        - ipBlock:
+            cidr: 10.0.20.11/32
+        - ipBlock:
+            cidr: 10.0.20.12/32
+        - ipBlock:
+            cidr: 10.0.20.13/32
+      ports:
+        - protocol: TCP
+          port: 6443
+{{- end }}
