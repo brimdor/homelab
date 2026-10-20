@@ -223,6 +223,16 @@ class Guards(unittest.TestCase):
                 self.assertEqual(command.call_count, count)
                 self.assertFalse(any("run" in call.args[0] for call in command.call_args_list))
 
+    def test_native_api_uses_multicall_alias_without_redundant_subcommand(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        node = next(iter(self.versions))
+        with patch.object(runner, "inspect") as inspect, \
+                patch.object(runner, "command", return_value=b"[+]etcd ok\nreadyz check passed\n") as command:
+            runner.wait_api(node)
+        inspect.assert_called_once_with(node)
+        self.assertEqual(command.call_args.args[0][:5], ["docker", "exec", node, "/bin/kubectl", "get"])
+        self.assertNotIn("kubectl", command.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()

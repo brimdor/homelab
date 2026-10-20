@@ -198,7 +198,7 @@ class Qualification(cq.Qualification):
             self.inspect(node)
             try:
                 # This exact synthetic health endpoint contains no configuration or credential dump.
-                raw = self.command(["docker", "exec", node, "/bin/k3s", "kubectl", "get", "--raw=/readyz?verbose", "--request-timeout=10s"], private=False)
+                raw = self.command(["docker", "exec", node, "/bin/kubectl", "get", "--raw=/readyz?verbose", "--request-timeout=10s"], private=False)
                 if b"[+]etcd ok" in raw and b"readyz check passed" in raw:
                     return
                 raise RuntimeError("native server returned incomplete API/etcd readiness")
@@ -484,11 +484,11 @@ class Qualification(cq.Qualification):
                 for peer in [n for n in self.versions if "-server-" in n and n != node]:
                     self.inspect(peer)
                     self.wait_api(peer)
-                    raw = self.command(["docker", "exec", peer, "/bin/k3s", "kubectl", "get", "--raw=/readyz?verbose"])
+                    raw = self.command(["docker", "exec", peer, "/bin/kubectl", "get", "--raw=/readyz?verbose"])
                     if b"[+]etcd ok" not in raw or b"readyz check passed" not in raw:
                         raise RuntimeError("surviving server API/etcd readiness failed")
                     surviving.append(peer)
-                write = json.loads(self.command(["docker", "exec", surviving[0], "/bin/k3s", "kubectl", "patch", "configmap", MARKER,
+                write = json.loads(self.command(["docker", "exec", surviving[0], "/bin/kubectl", "patch", "configmap", MARKER,
                     "--type=merge", "-p", json.dumps({"data": {"quorum": phase + ":" + node}}), "-o", "json"]))
                 if write["data"].get("quorum") != phase + ":" + node:
                     raise RuntimeError("surviving etcd quorum did not accept the synthetic write")
