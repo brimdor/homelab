@@ -273,9 +273,34 @@ class Qualification:
                             "agent_uids": [p["metadata"]["uid"] for p in pods], **results})
         (self.work / "progress.json").write_text(json.dumps(self.stages, indent=2))
 
+    def dns_preflight(self):
+        self.identity()
+        # Deploy only the official fixture; zero selected cases provide no connectivity acceptance.
+        with self.hubble_forward() as address:
+            self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
+                          "connectivity", "test", "--test=^$", "--ip-families=ipv4",
+                          "--flow-validation=strict", "--hubble=true", "--hubble-server=" + address,
+                          "--collect-sysdump-on-failure=false"])
+        pods = self.kubectl("get", "pods", "-n", "cilium-test-1")["items"]
+        clients = [p for p in pods if p["metadata"]["name"].startswith("client")]
+        if len(clients) != 3 or any(not all(c["ready"] for c in p["status"]["containerStatuses"]) for p in clients):
+            raise RuntimeError("expected three ready synthetic DNS clients")
+        for pod in clients:
+            for resolver in ([], [self.resolver]):
+                raw = self.kubectl("exec", "-n", "cilium-test-1", pod["metadata"]["name"],
+                                   "-c", pod["spec"]["containers"][0]["name"], "--",
+                                   "nslookup", "one.one.one.one.", *resolver, json_output=False)
+                if not all(re.search(rb"(?m)^Address:\s+" + re.escape(ip) + rb"\s*$", raw)
+                           for ip in (b"1.1.1.1", b"1.0.0.1")):
+                    raise RuntimeError("synthetic pod-origin external DNS prerequisite failed")
+        (self.work / "dns-preflight.json").write_text(json.dumps({
+            "client_uids": [p["metadata"]["uid"] for p in clients], "inherited_upstream": self.resolver,
+            "core_dns_and_direct_upstream_passed": True, "connectivity_acceptance": False}, indent=2))
+
     def run(self):
         self.create()
         self.install("1.15.1")
+        self.dns_preflight()
         self.validate("1.15.1", "baseline")
         self.install("1.15.19")
         self.validate("1.15.19", "patched-baseline")

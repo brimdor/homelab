@@ -2,6 +2,7 @@
 """Guard production identity and reject incomplete synthetic test evidence."""
 
 import copy
+from contextlib import nullcontext
 import os
 import re
 import signal
@@ -18,6 +19,37 @@ import cilium_qualification as qualification
 
 
 class QualificationGuards(unittest.TestCase):
+    def test_dns_preflight_requires_three_ready_clients_and_both_exact_answers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = qualification.Qualification.__new__(qualification.Qualification)
+            runner.work, runner.env = Path(directory), {'KUBECONFIG': 'synthetic'}
+            runner.context, runner.resolver = 'synthetic', '192.168.5.1'
+            runner.args = SimpleNamespace(cilium='cilium')
+            pods = [{'metadata': {'name': name, 'uid': name},
+                     'spec': {'containers': [{'name': 'client'}]},
+                     'status': {'containerStatuses': [{'ready': True}]}}
+                    for name in ('client-one', 'client2-two', 'client3-three')]
+            answer = b'Address: 1.1.1.1\nAddress: 1.0.0.1\n'
+            def kube(*args, **_kwargs):
+                return {'items': pods} if args[0] == 'get' else answer
+            with patch.object(runner, 'identity', create=True), patch.object(runner, 'command') as command, \
+                    patch.object(runner, 'hubble_forward', return_value=nullcontext('127.0.0.1:12345')), \
+                    patch.object(runner, 'kubectl', side_effect=kube) as native:
+                runner.dns_preflight()
+                self.assertIn('--test=^$', command.call_args.args[0])
+                self.assertEqual(len([c for c in native.call_args_list if c.args[0] == 'exec']), 6)
+                for bad in (b'Address: 127.0.0.1\n', b'Address: 1.1.1.1\n', b''):
+                    answer = bad
+                    with self.assertRaisesRegex(RuntimeError, 'DNS prerequisite failed'):
+                        runner.dns_preflight()
+                answer = b'Address: 1.1.1.1\nAddress: 1.0.0.1\n'
+                pods[0]['status']['containerStatuses'][0]['ready'] = False
+                with self.assertRaisesRegex(RuntimeError, 'three ready'):
+                    runner.dns_preflight()
+                pods.pop()
+                with self.assertRaisesRegex(RuntimeError, 'three ready'):
+                    runner.dns_preflight()
+
     def test_inherited_resolver_requires_one_private_nonloopback_ipv4_upstream(self):
         self.assertEqual(qualification.inherited_resolver(
             "nameserver 172.31.240.1\n# ExtServers: [host(192.168.5.1)]\n"), "192.168.5.1")
