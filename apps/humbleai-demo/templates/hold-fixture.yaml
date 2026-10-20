@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: humbleai-writer-hold-qualification-20261020-a
+  name: humbleai-writer-hold-qualification-20261020-b
 spec:
   backoffLimit: 0
   template:
