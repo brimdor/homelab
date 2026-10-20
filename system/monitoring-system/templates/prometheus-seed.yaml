@@ -71,7 +71,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: prometheus-retained-cleanup-20261020-quiesced-4
+  name: prometheus-retained-seed-20261020-quiesced-5
 spec:
   backoffLimit: 0
   template:
@@ -87,7 +87,6 @@ spec:
         - name: seed
           image: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
           command: [python3, -B, /scripts/seed-prometheus.py]
-          args: [--remove-owned-partial]
           env:
             - name: CLAIM_NAME
               value: {{ $claim | quote }}
@@ -97,10 +96,6 @@ spec:
               value: {{ $pv | quote }}
             - name: PV_UID
               value: {{ .Values.maintenanceRecovery.prometheusPVUID | quote }}
-            - name: PARTIAL_INVENTORY_SHA256
-              value: "62884d8d44ec66ca722ea6ed06ecc10802b8f433ab214e11284b2c5d925fd210"
-            - name: PARTIAL_DIRECTORY_INODE
-              value: "2359297"
             - name: POD_UID
               valueFrom:
                 fieldRef:
@@ -112,6 +107,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+              add: [CHOWN]
             seccompProfile:
               type: RuntimeDefault
           resources:
