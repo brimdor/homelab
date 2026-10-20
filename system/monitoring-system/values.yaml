@@ -64,6 +64,22 @@ kube-prometheus-stack:
   alertmanager:
     alertmanagerSpec:
       replicas: 0
+      persistentVolumeClaimRetentionPolicy:
+        whenDeleted: Retain
+        whenScaled: Retain
+      storage:
+        volumeClaimTemplate:
+          metadata:
+            name: alertmanager-monitoring-system-kube-pro-alertmanager-db
+            annotations:
+              helm.sh/resource-policy: keep
+              argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          spec:
+            accessModes: [ReadWriteOnce]
+            storageClassName: standard-rwo
+            resources:
+              requests:
+                storage: 2Gi
       containers:
         - name: ntfy-relay
           image: ghcr.io/khuedoan/webhook-transformer:v0.0.3
