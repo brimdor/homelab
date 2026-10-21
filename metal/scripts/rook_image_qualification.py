@@ -7,10 +7,19 @@ import hashlib
 import json
 import os
 import re
+import stat
 import struct
 
 import cilium_qualification as common
 import rook_native_candidate as candidate
+
+
+ANONYMOUS_CONFIG = {'auths': {'https://index.docker.io/v1/': {}, 'quay.io': {}}}
+
+
+def require_anonymous_config(value):
+    if value != ANONYMOUS_CONFIG:
+        raise RuntimeError('native image client configuration is not the exact anonymous profile')
 
 
 def default_key_metadata(raw):
@@ -64,17 +73,29 @@ def require_container(value, name, image_id, entrypoint, arguments):
 
 class Qualification(common.Qualification):
     def __init__(self, args):
-        private_config = args.work_dir / 'd'
+        private_config = args.work_dir / 'i'
+        config_file = private_config / 'config.json'
         if (os.environ.get('DOCKER_CONFIG') != str(private_config) or
                 not private_config.is_dir() or private_config.is_symlink() or
-                list(private_config.iterdir())):
-            raise RuntimeError('native image qualification requires an empty private Docker configuration')
+                sorted(p.name for p in private_config.iterdir()) != ['config.json'] or
+                config_file.is_symlink() or not config_file.is_file() or
+                config_file.stat().st_uid != os.getuid() or
+                stat.S_IMODE(config_file.stat().st_mode) != 0o600):
+            raise RuntimeError('native image qualification requires its exact private Docker configuration')
+        require_anonymous_config(json.loads(config_file.read_text()))
         super().__init__(args)
-        self.env.pop('DOCKER_CONTEXT', None)
+        self.anonymous_config = config_file
+        for key in ('DOCKER_CONTEXT', 'DOCKER_AUTH_CONFIG', 'DOCKER_CERT_PATH',
+                    'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CUSTOM_HEADERS'):
+            self.env.pop(key, None)
         self.active_container = None
 
     def command(self, arguments, *, data=None, private=True):
         # Version/key output may contain secrets on failure; keep all raw output in RAM.
+        if arguments and arguments[0] == 'docker':
+            if self.anonymous_config.is_symlink():
+                raise RuntimeError('native image client configuration became a link')
+            require_anonymous_config(json.loads(self.anonymous_config.read_text()))
         return super().command(arguments, data=data, private=True)
 
     def execute(self, image, image_id, entrypoint, *arguments):

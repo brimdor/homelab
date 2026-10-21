@@ -10,6 +10,14 @@ import rook_image_qualification as subject
 
 
 class ImageTests(unittest.TestCase):
+    def test_anonymous_profile_cannot_load_stored_auth_or_helpers(self):
+        subject.require_anonymous_config(copy.deepcopy(subject.ANONYMOUS_CONFIG))
+        for value in [{}, {'auths': {}}, subject.ANONYMOUS_CONFIG | {'credsStore': 'osxkeychain'},
+                      subject.ANONYMOUS_CONFIG | {'credHelpers': {'quay.io': 'helper'}},
+                      {'auths': {'quay.io': {'username': 'synthetic'}}}]:
+            with self.subTest(value=value), self.assertRaises(RuntimeError):
+                subject.require_anonymous_config(value)
+
     def test_native_key_header_and_legacy_or_malformed_refusal(self):
         modern = struct.pack('<HIIH', 2, 1, 999_999_999, 32) + bytes(32)
         self.assertEqual(subject.default_key_metadata(base64.b64encode(modern))['type'], 2)

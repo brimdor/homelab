@@ -63,6 +63,11 @@ class DiskGuardTests(unittest.TestCase):
             changed['additionalDisks'][1][key] = True
             with self.assertRaises(RuntimeError):
                 subject.added_config(before, changed, names)
+        subject.require_config(before | {'vmType': 'qemu'}, 'qemu')
+        for value, expected in [(before, 'qemu'), (before | {'vmType': 'qemu'}, 'vz'),
+                                (before, 'unreviewed')]:
+            with self.assertRaises(RuntimeError):
+                subject.require_config(value, expected)
 
     def test_guest_requires_three_distinct_blank_serial_bound_whole_devices(self):
         names = ['rook-12345678-' + str(n) for n in range(3)]

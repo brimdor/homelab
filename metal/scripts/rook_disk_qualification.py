@@ -63,15 +63,16 @@ def file_identity(path):
     return {'device': metadata.st_dev, 'inode': metadata.st_ino, 'bytes': metadata.st_size}
 
 
-def require_config(value):
-    if (value.get('vmType') != 'vz' or value.get('mounts') or value.get('blockDevices') or
+def require_config(value, vm_type='vz'):
+    if (vm_type not in ('vz', 'qemu') or value.get('vmType') != vm_type or
+            value.get('mounts') or value.get('blockDevices') or
             value.get('cpus') != 2 or value.get('memory') != '2048MiB' or
             value.get('ssh', {}).get('forwardAgent') is not False):
         raise RuntimeError('owned disk fixture VM contract differs')
 
 
-def added_config(before, after, names):
-    require_config(before)
+def added_config(before, after, names, vm_type='vz'):
+    require_config(before, vm_type)
     expected = before | {'additionalDisks': [*(before.get('additionalDisks') or []),
                                            *({'name': name, 'format': False, 'mount': False}
                                              for name in names)]}
@@ -108,12 +109,12 @@ def guest_disks(value, names):
 
 
 class Fixture:
-    def __init__(self, root, run_id):
+    def __init__(self, root, run_id, vm_type='vz'):
         metadata = root.lstat()
         if (not root.is_absolute() or not re.fullmatch(r'v-[a-z0-9_]{8}', root.name) or
                 not re.fullmatch(r'rook-[a-f0-9]{8}', run_id) or not root.is_dir() or
                 stat.S_IMODE(metadata.st_mode) != 0o700 or metadata.st_uid != os.getuid() or
-                any(p.is_symlink() for p in (root, *root.parents))):
+                any(p.is_symlink() for p in (root, *root.parents)) or vm_type not in ('vz', 'qemu')):
             raise RuntimeError('owned VM root or run identity differs')
         for name in ('h', 'l', 'd'):
             path = root / name
@@ -122,6 +123,7 @@ class Fixture:
                     metadata.st_uid != os.getuid()):
                 raise RuntimeError('owned VM environment directory differs')
         self.root = root
+        self.vm_type = vm_type
         self.names = [run_id + '-' + str(number) for number in range(3)]
         self.env = os.environ.copy()
         self.env.pop('DOCKER_CONTEXT', None)
@@ -164,6 +166,11 @@ class Fixture:
         if (not versions['colima'].startswith('colima version 0.10.3\n') or
                 versions['lima'].strip() != 'limactl version 2.2.1'):
             raise RuntimeError('reviewed VM tooling version changed')
+        if self.vm_type == 'qemu':
+            for tool, prefix in [('/opt/homebrew/bin/qemu-system-aarch64', b'QEMU emulator version 11.1.2\n'),
+                                 ('/opt/homebrew/bin/qemu-img', b'qemu-img version 11.1.2\n')]:
+                if not self.command([tool, '--version']).startswith(prefix):
+                    raise RuntimeError('reviewed QEMU tooling version changed')
         config_path = self.root / 'l/colima-q/lima.yaml'
         socket_path = self.root / 'h/q/docker.sock'
         if (any(path.is_symlink() for path in (config_path, config_path.parent, socket_path.parent)) or
@@ -177,7 +184,7 @@ class Fixture:
         if self.command([TOOLS['docker'], '--host', self.env['DOCKER_HOST'], 'ps', '-aq']).strip():
             raise RuntimeError('owned disk fixture requires an empty Docker daemon')
         before = yaml.safe_load(config_path.read_text())
-        require_config(before)
+        require_config(before, self.vm_type)
         self.stage = 'stop-owned-vm-before-attachment'
         self.colima('stop')
         identities = {}
@@ -203,10 +210,10 @@ class Fixture:
         expression = '.additionalDisks += ' + json.dumps(additions)
         self.command([TOOLS['lima'], 'edit', 'colima-q', '--set', expression])
         after = yaml.safe_load(config_path.read_text())
-        added_config(before, after, self.names)
+        added_config(before, after, self.names, self.vm_type)
         self.stage = 'start-owned-vm-with-raw-files'
         self.command([TOOLS['lima'], 'start', 'colima-q'])
-        added_config(before, yaml.safe_load(config_path.read_text()), self.names)
+        added_config(before, yaml.safe_load(config_path.read_text()), self.names, self.vm_type)
         self.stage = 'read-only-guest-disk-inventory'
         raw = self.colima('ssh', '--', 'lsblk', '--json', '--bytes', '--output',
                           'PATH,TYPE,SIZE,SERIAL,FSTYPE,MOUNTPOINTS,PKNAME,MAJ:MIN,RO')
