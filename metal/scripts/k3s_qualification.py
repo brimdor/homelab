@@ -406,6 +406,7 @@ class Qualification(cq.Qualification):
         allocated = {str(ipaddress.ip_interface(c["IPv4Address"]).ip) for c in network["Containers"].values()}
         if [c["Subnet"] for c in network["IPAM"]["Config"]] != [l2.NETWORK] or "172.31.240.10" in allocated or any(ipaddress.ip_address(x) in ipaddress.ip_network(l2.CIDR) for x in allocated):
             raise RuntimeError("synthetic caller/VIP collides with bridge allocation")
+        self.l2_network_id = network["Id"]
         for node in self.versions:
             item = self.inspect(node)
             self.l2.nodes[node] = item["NetworkSettings"]["Networks"]["k3d-" + self.args.name]["MacAddress"].lower()
@@ -435,11 +436,33 @@ class Qualification(cq.Qualification):
             self.cilium_ready()
             self.kubectl("rollout", "status", "deployment/" + l2.NAME, "-n", l2.NAMESPACE, "--timeout=300s", json_output=False)
             lease = self.l2.get_lease()
-            l2.validate_lease(lease, self.l2.nodes)
-            return self.l2.external(lease)
+            return self.l2_probe(lease)
         except RuntimeError as error:
             self.record_fixture_failure(error)
             raise
+
+    def l2_probe(self, lease):
+        l2.validate_lease(lease, self.l2.nodes)
+        holder = lease["spec"]["holderIdentity"]
+        item = self.inspect(holder)
+        networks = item["NetworkSettings"]["Networks"]
+        network = networks.get("k3d-" + self.args.name, {})
+        mac = network.get("MacAddress")
+        if (not item["State"]["Running"] or set(networks) != {"k3d-" + self.args.name} or
+                network.get("NetworkID") != self.l2_network_id or
+                not re.fullmatch(r"[a-f0-9]{64}", network.get("EndpointID", "")) or
+                not isinstance(mac, str) or not re.fullmatch(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}", mac) or
+                mac == "00:00:00:00:00:00"):
+            raise RuntimeError("owned L2 holder network identity is incomplete or changed")
+        native = self.command(["docker", "exec", item["Id"], "cat", "/sys/class/net/eth0/address"]).decode().strip()
+        if native != mac:
+            raise RuntimeError("owned L2 holder Docker and native interface MAC disagree")
+        # Docker may recreate the endpoint/MAC while preserving the same stopped container.
+        self.l2.nodes[holder] = mac
+        (self.work / ("l2-node-network-" + str(self.count) + ".json")).write_text(json.dumps({
+            "holder": holder, "container_id": item["Id"], "network_id": self.l2_network_id,
+            "endpoint_id": network["EndpointID"], "mac": mac, "native_mac_verified": True}, indent=2))
+        return self.l2.external(lease)
 
     def checkpoint(self, version, phase):
         self.ready()
@@ -471,7 +494,7 @@ class Qualification(cq.Qualification):
         try:
             second = l2.await_value(self.l2.get_lease, lambda item: item["spec"].get("holderIdentity") in self.l2.nodes and item["spec"]["holderIdentity"] != holder and item["spec"].get("leaseTransitions", 0) > first["spec"]["leaseTransitions"], "synthetic L2 lease transfer")
             l2.validate_lease(second, self.l2.nodes, previous=first)
-            after = self.l2.external(second)
+            after = self.l2_probe(second)
         finally:
             self.kubectl("label", "node", holder, l2.LABEL + "=true", "--overwrite", json_output=False)
         self.stages.append({"phase": phase, "k3s": version, "cilium": CILIUM, "cluster_uid": self.cluster_uid,

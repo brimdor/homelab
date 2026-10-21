@@ -10,7 +10,7 @@ import subprocess
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import k3s_qualification as q
 
@@ -194,8 +194,8 @@ class Guards(unittest.TestCase):
         runner = q.Qualification.__new__(q.Qualification)
         runner.l2 = SimpleNamespace(get_lease=lambda: {"owned": True}, nodes={})
         error = q.CommandFailure(300, 1, b"TimeoutError: timed out\n")
-        with patch.object(runner, "cilium_ready"), patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
-                patch.object(runner.l2, "external", create=True, side_effect=error) as probe, \
+        with patch.object(runner, "cilium_ready"), patch.object(runner, "kubectl"), \
+                patch.object(runner, "l2_probe", side_effect=error) as probe, \
                 patch.object(runner, "record_fixture_failure") as record:
             with self.assertRaises(q.CommandFailure) as caught:
                 runner.app_probe()
@@ -209,8 +209,8 @@ class Guards(unittest.TestCase):
             runner.work = Path(directory)
             runner.l2 = SimpleNamespace(get_lease=lambda: {"owned": True}, nodes={})
             error = RuntimeError("private synthetic refusal")
-            with patch.object(runner, "cilium_ready"), patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
-                    patch.object(runner.l2, "external", create=True, side_effect=error), \
+            with patch.object(runner, "cilium_ready"), patch.object(runner, "kubectl"), \
+                    patch.object(runner, "l2_probe", side_effect=error), \
                     patch.object(runner, "fixture_failure_status", side_effect=RuntimeError("secondary")):
                 with self.assertRaises(RuntimeError) as caught:
                     runner.app_probe()
@@ -241,13 +241,12 @@ class Guards(unittest.TestCase):
     def test_app_probe_waits_for_cilium_before_lease_or_traffic_and_stops_on_failure(self):
         runner = q.Qualification.__new__(q.Qualification)
         trace = []
-        runner.l2 = SimpleNamespace(nodes={}, get_lease=lambda: trace.append("lease") or {"owned": True},
-                                    external=lambda lease: trace.append("probe") or {"accepted": True})
+        runner.l2 = SimpleNamespace(get_lease=lambda: trace.append("lease") or {"owned": True})
         with patch.object(runner, "cilium_ready", side_effect=lambda: trace.append("cilium")), \
                 patch.object(runner, "kubectl", side_effect=lambda *a, **k: trace.append("rollout")), \
-                patch.object(q.l2, "validate_lease", side_effect=lambda *a: trace.append("validate")):
+                patch.object(runner, "l2_probe", side_effect=lambda lease: trace.append("probe") or {"accepted": True}):
             self.assertEqual(runner.app_probe(), {"accepted": True})
-        self.assertEqual(trace, ["cilium", "rollout", "lease", "validate", "probe"])
+        self.assertEqual(trace, ["cilium", "rollout", "lease", "probe"])
         trace.clear()
         failure = q.CommandFailure(1, 2, b"Forbidden")
         with patch.object(runner, "cilium_ready", side_effect=failure), patch.object(runner, "kubectl") as app, \
@@ -258,6 +257,55 @@ class Guards(unittest.TestCase):
         self.assertEqual(trace, [])
         app.assert_not_called()
         record.assert_called_once_with(failure)
+
+    def test_l2_probe_measures_current_exact_holder_instead_of_cached_mac(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = q.Qualification.__new__(q.Qualification)
+            runner.args, runner.work, runner.count = SimpleNamespace(name=self.name), Path(directory), 10
+            runner.l2_network_id = "a" * 64
+            holder = next(iter(self.versions))
+            mac = "02:02:03:04:05:06"
+            runner.l2 = SimpleNamespace(nodes={holder: "02:01:02:03:04:05"}, external=Mock(return_value={"accepted": True}))
+            lease = {"metadata": {"uid": "lease-uid"}, "spec": {"holderIdentity": holder,
+                     "leaseTransitions": 3, "renewTime": "2026-10-21T00:00:00Z"}}
+            item = {"Id": "owned-container-id", "State": {"Running": True}, "NetworkSettings": {
+                "Networks": {"k3d-" + self.name: {"NetworkID": runner.l2_network_id, "EndpointID": "b" * 64,
+                                                "MacAddress": mac}}}}
+            with patch.object(runner, "inspect", return_value=item) as inspect, \
+                    patch.object(runner, "command", return_value=(mac + "\n").encode()) as command:
+                self.assertEqual(runner.l2_probe(lease), {"accepted": True})
+            inspect.assert_called_once_with(holder)
+            command.assert_called_once_with(["docker", "exec", "owned-container-id", "cat", "/sys/class/net/eth0/address"])
+            runner.l2.external.assert_called_once_with(lease)
+            self.assertEqual(runner.l2.nodes[holder], mac)
+            evidence = json.loads((runner.work / "l2-node-network-10.json").read_text())
+            self.assertEqual((evidence["container_id"], evidence["mac"], evidence["native_mac_verified"]),
+                             (item["Id"], mac, True))
+            for fault in ("holder", "container", "network", "endpoint", "extra-network", "missing-mac", "malformed-mac", "zero-mac", "native", "stopped"):
+                bad_lease, bad_item = copy.deepcopy((lease, item))
+                network = bad_item["NetworkSettings"]["Networks"]["k3d-" + self.name]
+                if fault == "holder":
+                    bad_lease["spec"]["holderIdentity"] = "unknown-node"
+                elif fault == "network":
+                    network["NetworkID"] = "c" * 64
+                elif fault == "endpoint":
+                    network["EndpointID"] = ""
+                elif fault == "extra-network":
+                    bad_item["NetworkSettings"]["Networks"]["other"] = {}
+                elif fault in ("missing-mac", "malformed-mac", "zero-mac"):
+                    network["MacAddress"] = {"missing-mac": None, "malformed-mac": "private unexpected value",
+                                             "zero-mac": "00:00:00:00:00:00"}[fault]
+                elif fault == "stopped":
+                    bad_item["State"]["Running"] = False
+                runner.l2.external.reset_mock()
+                before = (runner.work / "l2-node-network-10.json").read_bytes()
+                with self.subTest(fault=fault), patch.object(runner, "inspect", return_value=bad_item,
+                        side_effect=RuntimeError("container identity changed") if fault == "container" else None), \
+                        patch.object(runner, "command", return_value=b"02:ff:ff:ff:ff:ff\n" if fault == "native" else (mac + "\n").encode()):
+                    with self.assertRaises(RuntimeError):
+                        runner.l2_probe(bad_lease)
+                runner.l2.external.assert_not_called()
+                self.assertEqual((runner.work / "l2-node-network-10.json").read_bytes(), before)
 
     def test_private_merged_capture_reaps_child_without_persisting_stderr(self):
         children = []
