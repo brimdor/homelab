@@ -78,6 +78,7 @@ def qualify(bundle, run_id):
                 raise RuntimeError("dry-run unexpectedly persisted a custom resource")
         return {"accepted": True, "crds_established": len(names), "current_specs_server_dry_run": len(result),
                 "bundle_sha256": hashlib.sha256(common.canonical(bundle)).hexdigest(),
+                "measured_scratch_allocated_bytes": sum(p.lstat().st_blocks * 512 for p in scratch.rglob("*")),
                 "production_writes": 0, "controllers_executed": 0,
                 "limitation": "Kubernetes schema/CEL/defaulting only; no Rook/CSI webhook or daemon runtime"}
 
