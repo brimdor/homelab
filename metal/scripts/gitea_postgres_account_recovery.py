@@ -18,6 +18,18 @@ BIN = '/opt/bitnami/postgresql/bin/'
 DATA = '/bitnami/postgresql/data'
 ENV = {'LC_ALL': 'C', 'LANG': 'C', 'PG_COLOR': 'never'}
 TMPFS = {'/tmp': 'rw,nosuid,nodev,uid=1001,gid=1001,mode=1777'}
+NSS_LIBRARY = '/opt/bitnami/common/lib/libnss_wrapper.so.0.3.5'
+NSS_SHA256 = 'aee52fd8be9d5786b51449cd4e6ba1d6dce94ddfe34cd793bd31b4ea080f36d1'
+MISSING_USER = b'postgres: could not look up effective user ID 1001: user does not exist\n'
+SINGLE_WRAPPER = '''source /opt/bitnami/scripts/libpostgresql.sh
+source /opt/bitnami/scripts/postgresql-env.sh
+export TMPDIR=/tmp
+postgresql_enable_nss_wrapper
+[[ "$LD_PRELOAD" == /opt/bitnami/common/lib/libnss_wrapper.so ]]
+[[ "$NSS_WRAPPER_PASSWD" == /tmp/tmp.* && "$NSS_WRAPPER_GROUP" == /tmp/tmp.* ]]
+trap 'rm -f -- "$NSS_WRAPPER_PASSWD" "$NSS_WRAPPER_GROUP"' EXIT
+"$@"
+'''
 OPTIONS = ['-c', 'config_file=/tmp/fixture.conf', '-c', 'hba_file=/tmp/source-hba.conf',
            '-c', 'listen_addresses=', '-c', 'unix_socket_directories=/tmp',
            '-c', 'unix_socket_permissions=0700', '-c', 'logging_collector=off',
@@ -154,7 +166,8 @@ def error_classes(raw):
 def single(container, sql, expected_failure=False):
     # No shell, credential environment, command argument, persisted SQL, or native log file.
     execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
-    response = execute(container, BIN + 'postgres', '--single', '-D', DATA, *OPTIONS, 'postgres',
+    response = execute(container, '/bin/bash', '-ceu', SINGLE_WRAPPER, 'native-single-user',
+                       BIN + 'postgres', '--single', '-D', DATA, *OPTIONS, 'postgres',
                        input=sql, allow_error=expected_failure)
     if expected_failure and (response.returncode or len(re.findall(rb'ERROR:\s+(?:22012:\s+)?division by zero', response.stderr)) != 1 or
                              re.search(rb'\b(?:FATAL|PANIC):', response.stderr)):
@@ -216,6 +229,11 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         if common.command([*net, 'ip', 'route', 'get', '10.0.20.50'], check=False).returncode == 0:
             raise RuntimeError('copied PostgreSQL can route to production')
         execute(container, '/bin/sh', '-c', 'umask 077; cat > /tmp/source-hba.conf; : > /tmp/fixture.conf', input=hba)
+        uid = execute(container, '/usr/bin/getent', 'passwd', '1001', allow_error=True)
+        if uid.returncode != 2 or uid.stdout or uid.stderr:
+            raise RuntimeError('reviewed original image UID lookup contract changed')
+        if hashlib.sha256(execute(container, '/bin/cat', NSS_LIBRARY).stdout).hexdigest() != NSS_SHA256:
+            raise RuntimeError('reviewed native image NSS wrapper library changed')
         # This stale lock belongs only to an exact copied historical point, never a live volume.
         pid = work / 'copy/data/postmaster.pid'
         if not pid.is_file() or pid.is_symlink():
@@ -224,6 +242,10 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         start(container)
         before_dump = dumps(container, credentials['app'], 'gitea')
         stop(container)
+        failed_uid = execute(container, BIN + 'postgres', '--single', '-D', DATA, *OPTIONS, 'postgres',
+                             input=b'', allow_error=True)
+        if failed_uid.returncode != 1 or failed_uid.stdout or failed_uid.stderr != MISSING_USER:
+            raise RuntimeError('unwrapped standalone UID failure differs from exact upstream source')
         baseline = parse_catalog(single(container, catalog_sql().encode()).stdout)
         for mode in ('rollback', 'failed', 'interrupted'):
             single(container, role_transaction(credentials['admin'], mode), expected_failure=mode == 'failed')
@@ -253,6 +275,7 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 'role_only': True, 'rollback_unchanged': True, 'failed_transaction_unchanged': True,
                 'interrupted_transaction_unchanged': True,
                 'admin_and_application_normal_md5_auth': True, 'source_hba_unchanged': True,
+                'native_vendor_nss_wrapper_same_uid_gid': True,
                 'native_crash_recovery_and_clean_shutdown': True, 'control': state}
     finally:
         if container:

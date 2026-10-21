@@ -124,6 +124,15 @@ class RecoveryContract(unittest.TestCase):
         self.assertIn('missing_config', str(caught.exception))
         self.assertNotIn('private-value', str(caught.exception))
 
+    def test_single_uses_existing_vendor_uid_resolution_and_stdin_only(self):
+        with patch.object(recovery, 'execute', return_value=SimpleNamespace(stdout=b'')) as execute:
+            recovery.single('owned', b'secret-verifier-in-stdin')
+        args, kwargs = execute.call_args
+        self.assertIn('postgresql_enable_nss_wrapper', args[3])
+        self.assertIn('trap', args[3])
+        self.assertNotIn('secret-verifier', str(args))
+        self.assertEqual(kwargs['input'], b'secret-verifier-in-stdin')
+
 
 if __name__ == '__main__':
     unittest.main()
