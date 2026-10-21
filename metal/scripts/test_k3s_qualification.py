@@ -275,6 +275,62 @@ class Guards(unittest.TestCase):
         self.assertEqual(command.call_args.args[0][:5], ["docker", "exec", node, "/bin/kubectl", "get"])
         self.assertNotIn("kubectl", command.call_args.args[0])
 
+    def affinity_fixture(self, directory, fault=None):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.args = SimpleNamespace(name=self.name)
+        runner.work, runner.versions, runner.containers = Path(directory), dict(self.versions), {}
+        nodes = {name: {"Id": name + "-container", "Name": "/" + name,
+                        "Config": {"Labels": {"k3d.cluster": self.name}},
+                        "HostConfig": {"CpusetCpus": "", "Memory": 0},
+                        "Mounts": [{"Destination": q.DATA, "Type": "volume", "Name": name + "-data", "RW": True}]}
+                 for name in self.versions}
+        first = next(iter(nodes.values()))
+        if fault == "owner":
+            first["Config"]["Labels"]["k3d.cluster"] = "production"
+        elif fault == "existing":
+            first["HostConfig"]["CpusetCpus"] = "0"
+        updates = []
+
+        def command(argv):
+            if argv[:2] == ["docker", "info"]:
+                return b"6" if fault == "guest" else b"8"
+            if argv[:2] == ["docker", "inspect"]:
+                return json.dumps([nodes[argv[2]]]).encode()
+            self.assertEqual(argv[:2], ["docker", "update"])
+            item = next(n for n in nodes.values() if n["Id"] == argv[3])
+            item["HostConfig"]["CpusetCpus"] = argv[2].split("=", 1)[1]
+            if fault == "configuration":
+                item["HostConfig"]["Memory"] = 1
+            updates.append(argv[3])
+            return b""
+
+        runner.command = command
+        return runner, nodes, updates
+
+    def test_cpu_affinity_covers_distinct_owned_nodes_without_shared_cpus(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner, nodes, updates = self.affinity_fixture(directory)
+            runner.bind_cpus()
+            bindings = json.loads((Path(directory) / "guest-cpu-affinity.json").read_text())
+            assigned = []
+            for name, binding in bindings.items():
+                self.assertEqual(binding["id"], nodes[name]["Id"])
+                bounds = list(map(int, binding["cpus"].split("-")))
+                cpus = list(range(bounds[0], bounds[-1] + 1))
+                self.assertEqual(len(cpus), 2 if "-server-" in name else 1)
+                assigned.extend(cpus)
+            self.assertEqual(sorted(assigned), list(range(8)))
+            self.assertEqual(set(updates), {n["Id"] for n in nodes.values()})
+
+    def test_cpu_affinity_refuses_wrong_guest_owner_existing_limits_or_other_changes(self):
+        for fault in ("guest", "owner", "existing", "configuration"):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
+                runner, _, updates = self.affinity_fixture(directory, fault)
+                with self.assertRaises(RuntimeError):
+                    runner.bind_cpus()
+                self.assertEqual(len(updates), 1 if fault == "configuration" else 0)
+                self.assertFalse((Path(directory) / "guest-cpu-affinity.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

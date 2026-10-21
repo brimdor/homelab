@@ -302,6 +302,24 @@ class Qualification(cq.Qualification):
             if conditions.get("Ready") != "True" or any(conditions.get(k) != "False" for k in ("MemoryPressure", "DiskPressure", "PIDPressure")):
                 raise RuntimeError("synthetic node is not Ready without pressure")
 
+    def bind_cpus(self):
+        if self.command(["docker", "info", "--format", "{{.NCPU}}"]).strip() != b"8":
+            raise RuntimeError("the declared synthetic CPU affinity requires an eight-CPU guest")
+        bindings = {}
+        for suffix, cpus in zip(SUFFIXES, ("0-1", "2-3", "4-5", "6", "7")):
+            node = "k3d-" + self.args.name + suffix
+            item = self.inspect(node)
+            if item["HostConfig"]["CpusetCpus"] != "":
+                raise RuntimeError("synthetic node already has unexpected CPU affinity")
+            self.command(["docker", "update", "--cpuset-cpus=" + cpus, item["Id"]])
+            item["HostConfig"]["CpusetCpus"] = cpus
+            expected = container_identity(item, node, self.args.name)
+            actual = container_identity(self.inspect(node), node, self.args.name)
+            if actual != expected:
+                raise RuntimeError("synthetic CPU binding changed undeclared container configuration")
+            bindings[node] = {"cpus": cpus, **actual}
+        (self.work / "guest-cpu-affinity.json").write_text(json.dumps(bindings, indent=2))
+
     def create(self):
         print(json.dumps({"phase": "create-owned-ha-cluster", "servers": 3, "agents": 2}), flush=True)
         daemon = self.command(["docker", "info", "--format", "{{.Name}}"]).decode().strip()
@@ -331,6 +349,7 @@ class Qualification(cq.Qualification):
                       "--volume=" + self.args.guest_resolver_file + ":/etc/qualification-resolv.conf:ro@all",
                       "--kubeconfig-update-default=false", "--kubeconfig-switch-context=false",
                       *[f.replace(self.args.guest_resolver_file, "/etc/qualification-resolv.conf") for f in flags]])
+        self.bind_cpus()
         path = Path(self.env["KUBECONFIG"])
         with path.open("xb") as output:
             os.fchmod(output.fileno(), 0o600)
