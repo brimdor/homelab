@@ -100,10 +100,12 @@ class Guards(unittest.TestCase):
                      b'has prevented the request from succeeding\n')
         self.assertEqual(q.failure_classes(poststart), ["api-notready"])
         self.assertFalse(q.read_transport_pending(poststart))
-        for expected in (poststart, local_refusal, b"connect: connection refused", b"Error from server (ServiceUnavailable): server is currently unable to handle the request", b"net/http: TLS handshake timeout",
+        for expected in (poststart, local_refusal, b"connect: connection refused", b"connection reset by peer",
+                         b"Unable to connect to the server: EOF", b"server sent GOAWAY; ErrCode=NO_ERROR",
+                         b"Error from server (ServiceUnavailable): server is currently unable to handle the request", b"net/http: TLS handshake timeout",
                          b"Error from server (InternalError): [-]etcd failed: reason withheld; readyz check failed"):
             self.assertTrue(q.startup_pending(expected))
-            for denial in (b"Forbidden", b"Unauthorized", b"permission denied", b"x509: certificate failed", b"HTTP 403"):
+            for denial in (b"Forbidden", b"Unauthorized", b"permission denied", b"x509: certificate failed", b"HTTP 403", b"invalid configuration"):
                 self.assertFalse(q.startup_pending(expected + b"\n" + denial))
                 self.assertFalse(q.read_transport_pending(local_refusal + b"\n" + denial))
         for other in (b"", b"executable not found", b"unknown error"):

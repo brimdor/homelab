@@ -47,11 +47,9 @@ class CommandFailure(RuntimeError):
 
 
 def startup_pending(stderr):
-    if re.search(rb"(?i)forbidden|unauthorized|permission denied|access.?denied|x509|certificate|\b40[13]\b", stderr):
+    if {"access-refused", "trust-refused"}.intersection(failure_classes(stderr)):
         return False
-    return bool(re.search(CONNECTION_REFUSED, stderr) or
-                re.search(rb"ServiceUnavailable|server is currently unable to handle|TLS handshake timeout|net/http: request canceled", stderr) or
-                stderr.startswith(b"Error from server (InternalError):"))
+    return read_transport_pending(stderr) or stderr.startswith(b"Error from server (InternalError):")
 
 
 def failure_classes(stderr):
