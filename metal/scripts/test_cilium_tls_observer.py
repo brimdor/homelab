@@ -72,17 +72,24 @@ class Guards(unittest.TestCase):
             path = Path(directory) / "typed.gz"
             observer.output = gzip.open(path, "wb")
             observer.read(io.BytesIO(LINE + b"\n"), True)
-            observer.read(io.BytesIO(o.BANNER.encode() + o.READY.encode() + b"1 packet captured\n"
+            observer.read(io.BytesIO(o.DLT_BANNER.encode() + o.BANNER.encode() + o.READY.encode() + b"1 packet captured\n"
                                     b"2 packets received by filter\n0 packets dropped by kernel\n"), False)
             self.assertEqual(observer.stats, {"captured": 1, "received": 2, "dropped": 0})
             self.assertTrue(observer.ready.is_set())
             observer.read(io.BytesIO(b"PRIVATE_TOKEN\n"), True)
             observer.output.close()
             self.assertNotIn("PRIVATE_TOKEN", json.dumps(observer.errors))
+            self.assertNotIn("PRIVATE_TOKEN", json.dumps(observer.status_failures))
+            self.assertEqual(observer.status_failures[0]["classes"], ["packet-format-refused"])
             self.assertNotIn(b"PRIVATE_TOKEN", gzip.decompress(path.read_bytes()))
             self.assertEqual(observer.count, 1)
             with self.assertRaises(RuntimeError):
                 observer.check()
+        with tempfile.TemporaryDirectory() as directory:
+            observer = self.observer(directory)
+            observer.read(io.BytesIO(b"tcpdump: permission denied PRIVATE_TOKEN\n"), False)
+            self.assertEqual(observer.status_failures[0]["classes"], ["access-refused"])
+            self.assertNotIn("PRIVATE_TOKEN", json.dumps(observer.status_failures))
 
     def test_counter_failure_still_removes_exact_container_and_reaps(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -9,6 +9,8 @@ import re
 import subprocess
 import threading
 
+from k3s_qualification import failure_classes
+
 
 IMAGE = "docker.io/nicolaka/netshoot:v0.16@sha256:b09d9b21381f47a79b3cbcb30da25266dc17186ea00ae65e99fdc51396f48e70"
 TARGETS = {"1.1.1.1", "1.0.0.1"}
@@ -26,6 +28,7 @@ OPTION = re.compile(r"(?:mss [0-9]{1,5}|sackOK|TS val [0-9]{1,10} ecr [0-9]{1,10
                     r"wscale [0-9]{1,2}|eol|sack [1-4] (?:\{[0-9]{1,10}:[0-9]{1,10}\}){1,4})")
 READY = "listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 128 bytes\n"
 BANNER = "tcpdump: verbose output suppressed, use -v[v]... for full protocol decode\n"
+DLT_BANNER = "tcpdump: data link type LINUX_SLL2\n"
 STATISTICS = {"captured": "captured", "received by filter": "received", "dropped by kernel": "dropped"}
 
 
@@ -92,6 +95,7 @@ class Observer:
         self.peers.append(ipaddress.ip_network("172.31.240.0/24"))
         self.ready = threading.Event()
         self.errors, self.stats, self.threads = [], {}, []
+        self.status_failures = []
         self.container = self.child = self.output = self.created_id = None
         self.count = 0
 
@@ -117,7 +121,7 @@ class Observer:
                         if self.ready.is_set():
                             raise RuntimeError("duplicate capture ready banner")
                         self.ready.set()
-                    elif raw not in (b"\n", BANNER.encode()):
+                    elif raw not in (b"\n", BANNER.encode(), DLT_BANNER.encode()):
                         match = re.fullmatch(rb"([0-9]{1,12}) packet(s?) (captured|received by filter|dropped by kernel)\n", raw)
                         if (not match or bool(match[2]) != (int(match[1]) != 1) or
                                 STATISTICS[match[3].decode()] in self.stats):
@@ -126,6 +130,9 @@ class Observer:
                 except (RuntimeError, ValueError):
                     # Drain without retaining further input so owner shutdown cannot block on a full pipe.
                     self.errors.append("packet-format-refused" if packets else "capture-status-refused")
+                    self.status_failures.append({"stream": "packets" if packets else "status", "bytes": len(raw),
+                                                 "sha256": hashlib.sha256(raw).hexdigest(),
+                                                 "classes": failure_classes(raw) if not packets else ["packet-format-refused"]})
                     self.ready.set()
         except BaseException as error:
             self.errors.append(type(error).__name__)
