@@ -37,6 +37,14 @@ def core_key_changes(previous, current):
             for name in expected]
 
 
+def native_monitor_key(rows):
+    if (not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict) or
+            rows[0].get('entity') != 'mon.' or not isinstance(rows[0].get('key'), str)):
+        raise RuntimeError('native monitor key evidence differs')
+    images.default_key_metadata(rows[0]['key'].encode())
+    return rows[0]['key']
+
+
 def resources(name, disk_run, inventory):
     rows = candidate.resources(name, disk_run, inventory)
     # Rook disables this crashing Ceph 20.2.4 module; this profile cannot qualify it.
@@ -584,6 +592,11 @@ class Qualification(images.Qualification):
         for row in keys:
             images.default_key_metadata(row['key'].encode())
         current = {row['entity']: row['key'] for row in keys}
+        # auth ls omits the monitor's extra keyring; auth get checks it natively.
+        mon_key = native_monitor_key(self.ceph('auth', 'get', 'mon.'))
+        if 'mon.' in current and current['mon.'] != mon_key:
+            raise RuntimeError('native monitor key evidence differs')
+        current['mon.'] = mon_key
         pods = self.kubectl('get', 'pods', '-n', candidate.NAMESPACE)['items']
         tools = [row for row in pods if row['metadata']['name'] == 'qualification-tools']
         if len(tools) != 1:
@@ -665,7 +678,8 @@ class Qualification(images.Qualification):
             raise RuntimeError('native no-CSI fixture has CSI operator CRDs')
         self.evidence['stages'].append({'name': label, 'health': 'HEALTH_OK', 'generation': generation,
                                         'fsid': self.fsid, 'osd_uuids': dict(observed_osds),
-                                        'resource_uids': list(uids), 'modern_key_count': len(keys),
+                                        'resource_uids': list(uids), 'modern_key_count': len(current),
+                                        'auth_dump_key_count': len(keys), 'native_monitor_key_verified': True,
                                         'all_pools_size': 3, 'all_pools_min_size': 2,
                                         'all_osds_native_ok_to_stop': True})
         return current

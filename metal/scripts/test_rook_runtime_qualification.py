@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Reject unsafe runtime evidence without running a daemon or using a credential."""
 
+import base64
 import copy
 import json
+import struct
 import unittest
 from unittest.mock import Mock, patch
 
@@ -11,6 +13,24 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_monitor_key_requires_exact_native_entity_and_modern_key(self):
+        key = base64.b64encode(struct.pack('<HIIH', 2, 1, 0, 32) + bytes(32)).decode()
+        self.assertEqual(subject.native_monitor_key([{'entity': 'mon.', 'key': key}]), key)
+        invalid = [None, {}, [], [{'entity': 'mon.', 'key': key}] * 2,
+                   [{'entity': 'client.admin', 'key': key}], [{'entity': 'mon.'}],
+                   [{'entity': 'mon.', 'key': b'private-output'}],
+                   [{'entity': 'mon.', 'key': 'private-output'}]]
+        for rows in invalid:
+            with self.subTest(shape=type(rows).__name__), self.assertRaises(RuntimeError) as error:
+                subject.native_monitor_key(rows)
+            self.assertNotIn('private-output', str(error.exception))
+        previous = {name: key for name in ('client.admin', 'mgr.a', 'mgr.b', 'osd.0', 'osd.1', 'osd.2')}
+        self.assertFalse(all(row['changed'] for row in subject.core_key_changes(previous, previous)))
+        previous['mon.'] = key
+        changed = base64.b64encode(struct.pack('<HIIH', 2, 2, 0, 32) + bytes(32)).decode()
+        self.assertTrue(all(row['changed'] for row in subject.core_key_changes(
+            previous, {name: changed for name in previous})))
+
     def test_key_change_diagnostic_never_retains_keys_or_foreign_names(self):
         previous = {'client.admin': 'secret-before', 'mon.': 'same-secret',
                     'mgr.a': 'removed-secret', 'foreign-secret-name': 'foreign-secret-value'}
