@@ -326,6 +326,7 @@ class Qualification(cq.Qualification):
             flags.append("--k3s-arg=--resolv-conf=" + self.args.guest_resolver_file + "@" + role)
         self.creation_started = True
         self.command([self.args.k3d, "cluster", "create", self.args.name, "--servers=3", "--agents=2",
+                      "--env=GOMAXPROCS=2@server:*", "--env=GOMAXPROCS=1@agent:*",
                       "--image=" + cq.K3S, "--api-port=127.0.0.1:" + str(port), "--subnet=" + l2.NETWORK,
                       "--volume=" + self.args.guest_resolver_file + ":/etc/qualification-resolv.conf:ro@all",
                       "--kubeconfig-update-default=false", "--kubeconfig-switch-context=false",
@@ -340,7 +341,10 @@ class Qualification(cq.Qualification):
                            for node in self.versions}
         require_separate_datastores(self.containers)
         for node in self.versions:
-            self.inspect(node)
+            item = self.inspect(node)
+            concurrency = "2" if "-server-" in node else "1"
+            if [value for value in item["Config"]["Env"] if value.startswith("GOMAXPROCS=")] != ["GOMAXPROCS=" + concurrency]:
+                raise RuntimeError("synthetic node Go concurrency differs from its declared role")
             self.command(["docker", "exec", node, "test", "-d", "/sys/fs/cgroup/kubepods"])
             inherited = cq.inherited_resolver(self.command(["docker", "exec", node, "cat", "/etc/resolv.conf"]).decode())
             if inherited != self.resolver or self.command(["docker", "exec", node, "cat", "/etc/qualification-resolv.conf"]) != ("nameserver " + self.resolver + "\n").encode():
