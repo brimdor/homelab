@@ -141,6 +141,10 @@ class RuntimeGuardTests(unittest.TestCase):
         runner.identity = Mock()
         runner.cluster_uid, runner.node_uids = evidence['cluster_uid'], evidence['node_uids']
         runner.resource_uids = ('ceph-uid', 'pool-uid')
+        runner.evidence = {}
+        runner.workloads_ready = Mock()
+        runner.storage_ready = Mock(return_value=(
+            {'quorum_names': ['a', 'b', 'c']}, [{'size': 3, 'min_size': 2}]))
         cluster = {'metadata': {'uid': 'ceph-uid'}, 'status': {
             'phase': 'Ready', 'ceph': {'health': 'HEALTH_OK'},
             'cephx': {key: {'keyGeneration': 2, 'keyCephVersion': '20.2.4-0'}
@@ -150,11 +154,13 @@ class RuntimeGuardTests(unittest.TestCase):
         stats = {'node': {'runtime': {'imageFs': witness['nodes']['owned-0']['image_fs']}}}
         runner.kubectl = Mock(side_effect=[cluster, {'items': nodes},
                                             json.dumps(stats), json.dumps(stats), json.dumps(stats),
-                                            {'items': []}, {'items': []}, {'items': []}])
+                                            cluster, {'items': []}, {'items': []}, {'items': []}])
         runner.command = Mock(return_value=b'2026-10-21T19:05:00Z Image garbage collection succeeded\n')
         result = runner.warning_witness()
         self.assertEqual(set(result['nodes']), set(evidence['node_uids']))
         self.assertEqual(result['events'], [])
+        runner.workloads_ready.assert_called_once_with()
+        runner.storage_ready.assert_called_once_with()
         self.assertEqual(runner.command.call_count, 3)
         for call in runner.command.call_args_list:
             self.assertTrue(call.kwargs['combined'])
@@ -167,6 +173,44 @@ class RuntimeGuardTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             runner.warning_witness()
         runner.command.assert_not_called()
+
+    def test_final_cluster_waits_only_for_healthy_owned_generation_two_progress(self):
+        runner = object.__new__(subject.Qualification)
+        runner.resource_uids = ('ceph-uid', 'pool-uid')
+        cluster = {'metadata': {'uid': 'ceph-uid'}, 'status': {
+            'phase': 'Ready', 'ceph': {'health': 'HEALTH_OK'},
+            'cephx': {key: {'keyGeneration': 2, 'keyCephVersion': '20.2.4-0'}
+                      for key in subject.CORE_KEYS}}}
+        progressing = copy.deepcopy(cluster)
+        progressing['status']['phase'] = 'Progressing'
+        runner.evidence = {}
+        runner.kubectl = Mock(side_effect=[progressing, progressing, cluster])
+        with patch.object(subject.time, 'sleep') as sleep:
+            runner.final_cluster_ready()
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual([row['phase'] for row in runner.evidence['final_cluster_observations']],
+                         ['Progressing', 'Ready'])
+        for field in ('uid', 'phase', 'health', 'generation'):
+            invalid = copy.deepcopy(cluster)
+            if field == 'uid':invalid['metadata']['uid'] = 'private-output'
+            elif field == 'phase':invalid['status']['phase'] = 'private-output'
+            elif field == 'health':invalid['status']['ceph']['health'] = 'private-output'
+            else:invalid['status']['cephx']['mon']['keyGeneration'] = 1
+            runner.evidence = {}
+            runner.kubectl = Mock(return_value=invalid)
+            with self.subTest(field=field), patch.object(subject.time, 'sleep') as sleep:
+                with self.assertRaises(RuntimeError):
+                    runner.final_cluster_ready()
+                sleep.assert_not_called()
+                self.assertEqual(runner.kubectl.call_count, 1)
+                self.assertNotIn('private-output', json.dumps(runner.evidence))
+        runner.evidence = {}
+        runner.kubectl = Mock(return_value=progressing)
+        with patch.object(subject.time, 'monotonic', side_effect=[0, 1200]), \
+                patch.object(subject.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'did not converge'):
+                runner.final_cluster_ready()
+            sleep.assert_not_called()
 
     def test_monitor_key_requires_exact_native_entity_and_modern_key(self):
         key = base64.b64encode(struct.pack('<HIIH', 2, 1, 0, 32) + bytes(32)).decode()

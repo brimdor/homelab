@@ -78,6 +78,15 @@
       ldtiwixn records a corrected direct gauge query and distinct native/delivery timestamps.</li>
     <li>d_s77_u1 proves all three API endpoints and the VIP pass native readyz after recovery.
       Current readiness and Ceph HEALTH_OK do not resolve the underlying incident.</li>
+    <li>Existing-tool capability jzgs2nee and passive SMART receipt k9lq3r9u removed the missing-reader
+      gap. Strict authenticated root SSH used the existing smartctl 7.2 executable in the exact
+      running monitor container, without copying or installing a binary. Native container/PID,
+      executable inode and block-device identity were checked before and after the read; the WAL
+      mount was bound to ext4 /dev/sda2 before the query.
+      The fixed --all --json query returned exit 0, SMART passed, ATA error count 0, reallocated and
+      pending sectors 0, offline uncorrectable sectors 0 and UDMA CRC errors 0. No self-test or device
+      mutation was requested. Threshold success and zero recorded errors cannot explain or exclude
+      the observed latency fault. No failed disk, cable or controller is established.</li>
   </ul>
 
   <h2>Execution plan and gates</h2>

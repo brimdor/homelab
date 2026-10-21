@@ -782,6 +782,21 @@ class Qualification(images.Qualification):
             for container in pod['spec'].get('containers', []) + pod['spec'].get('initContainers', []):
                 if 'mon-auth-emergency-allowed-ciphers' in json.dumps(container.get('args', [])):
                     raise RuntimeError('native Rook enabled emergency cipher arguments')
+        self.workloads_ready()
+        warnings = self.kubectl('get', 'events', '-A', '--field-selector=type=Warning')['items']
+        self.evidence['warning_reasons'] = sorted({row.get('reason', '') for row in warnings})
+        self.evidence['warning_observations'].append({
+            'stage': label, 'events': [warning_record(row) for row in warnings]})
+        self.evidence['stages'].append({'name': label, 'health': 'HEALTH_OK', 'generation': generation,
+                                        'observed_at': datetime.now(timezone.utc).isoformat(),
+                                        'fsid': self.fsid, 'osd_uuids': dict(observed_osds),
+                                        'resource_uids': list(uids), 'modern_key_count': len(current),
+                                        'auth_dump_key_count': len(keys), 'native_monitor_key_verified': True,
+                                        'all_pools_size': 3, 'all_pools_min_size': 2,
+                                        'all_osds_native_ok_to_stop': True})
+        return current
+
+    def workloads_ready(self):
         for kind in ('deployments', 'daemonsets'):
             for row in self.kubectl('get', kind, '-n', candidate.NAMESPACE)['items']:
                 status_row = row.get('status', {})
@@ -809,32 +824,39 @@ class Qualification(images.Qualification):
             job_uids.add(job['metadata']['uid'])
         for pod in self.kubectl('get', 'pods', '-A')['items']:
             require_pod_completion(pod, job_uids)
-        warnings = self.kubectl('get', 'events', '-A', '--field-selector=type=Warning')['items']
-        self.evidence['warning_reasons'] = sorted({row.get('reason', '') for row in warnings})
-        self.evidence['warning_observations'].append({
-            'stage': label, 'events': [warning_record(row) for row in warnings]})
         if self.kubectl('get', 'csidrivers')['items']:
             raise RuntimeError('native no-CSI fixture has a CSI driver')
         crds = self.kubectl('get', 'crds')['items']
         if any(row['spec']['group'] == 'csi.ceph.io' for row in crds):
             raise RuntimeError('native no-CSI fixture has CSI operator CRDs')
-        self.evidence['stages'].append({'name': label, 'health': 'HEALTH_OK', 'generation': generation,
-                                        'observed_at': datetime.now(timezone.utc).isoformat(),
-                                        'fsid': self.fsid, 'osd_uuids': dict(observed_osds),
-                                        'resource_uids': list(uids), 'modern_key_count': len(current),
-                                        'auth_dump_key_count': len(keys), 'native_monitor_key_verified': True,
-                                        'all_pools_size': 3, 'all_pools_min_size': 2,
-                                        'all_osds_native_ok_to_stop': True})
-        return current
+
+    def final_cluster_ready(self):
+        deadline = time.monotonic() + 1200
+        history = self.evidence.setdefault('final_cluster_observations', [])
+        while True:
+            cluster = self.kubectl('get', 'cephcluster', candidate.NAMESPACE, '-n', candidate.NAMESPACE)
+            phase = cluster.get('status', {}).get('phase')
+            health = cluster.get('status', {}).get('ceph', {}).get('health')
+            observation = {
+                'identity_matches': cluster.get('metadata', {}).get('uid') == self.resource_uids[0],
+                'phase': phase if phase in ('Ready', 'Progressing') else 'other-or-absent',
+                'health': 'HEALTH_OK' if health == 'HEALTH_OK' else 'other-or-absent'}
+            if not history or history[-1] != observation:
+                history.append(observation)
+            if not observation['identity_matches'] or health != 'HEALTH_OK':
+                raise RuntimeError('private final cluster identity or health differs')
+            require_generation(cluster, 2)
+            if phase == 'Ready':
+                return
+            if phase != 'Progressing':
+                raise RuntimeError('private final cluster phase is not supported')
+            if time.monotonic() >= deadline:
+                raise RuntimeError('private final cluster did not converge to Ready')
+            time.sleep(2)
 
     def warning_witness(self):
         self.identity()
-        cluster = self.kubectl('get', 'cephcluster', candidate.NAMESPACE, '-n', candidate.NAMESPACE)
-        if (cluster['metadata']['uid'] != self.resource_uids[0] or
-                cluster.get('status', {}).get('phase') != 'Ready' or
-                cluster.get('status', {}).get('ceph', {}).get('health') != 'HEALTH_OK'):
-            raise RuntimeError('private fixture has unresolved warning events')
-        require_generation(cluster, 2)
+        self.final_cluster_ready()
         nodes = self.kubectl('get', 'nodes')['items']
         if {row['metadata']['name']: row['metadata']['uid'] for row in nodes} != self.node_uids:
             raise RuntimeError('private node identities changed')
@@ -853,6 +875,12 @@ class Qualification(images.Qualification):
                                for row in node.get('status', {}).get('conditions', [])],
                 'gc': gc, 'image_fs': {key: fs.get(key) for key in (
                     'time', 'capacityBytes', 'availableBytes', 'usedBytes', 'inodes', 'inodesFree')}}
+        self.workloads_ready()
+        status, pools = self.storage_ready()
+        if (len(status.get('quorum_names', [])) != 3 or not pools or
+                any(row.get('size') != 3 or row.get('min_size') != 2 for row in pools)):
+            raise RuntimeError('private final native quorum or pool policy differs')
+        self.final_cluster_ready()
         services = self.kubectl('get', 'services', '-A')['items']
         addresses = self.kubectl('get', 'ipaddresses')['items']
         events = self.kubectl('get', 'events', '-A', '--field-selector=type=Warning')['items']
