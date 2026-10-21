@@ -2,12 +2,22 @@
 
 from copy import deepcopy
 import json
+from pathlib import Path
 import unittest
 
 import kanidm_account_recovery as recovery
 
 
 class AccountRecoveryTests(unittest.TestCase):
+    def test_native_container_arguments_preserve_label_value_pairs(self):
+        for operation in ('server', 'cert-generate'):
+            args = recovery.server_arguments(Path('/synthetic'), 'fixture', operation)
+            labels = [args[i + 1] for i, arg in enumerate(args) if arg == '--label']
+            self.assertEqual(labels, [recovery.LABEL + '=fixture', recovery.native.LABEL + '=fixture'])
+            self.assertEqual(args[-3:], [recovery.native.IMAGE, '--config-path=/data/offline.toml', operation])
+        with self.assertRaises(RuntimeError):
+            recovery.server_arguments(Path('/synthetic'), 'fixture', 'other')
+
     def test_native_success_and_sanitized_refusals(self):
         password = 'synthetic-password-value-103'
         self.assertEqual(recovery.decode_password(json.dumps({'status': 'ok', 'output': password})), password)

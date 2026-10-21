@@ -95,6 +95,14 @@ def account_changes(before, after):
             'admin_changed_fields': sorted(changes), 'no_existing_admin_passkeys_or_expiry_removed': True}
 
 
+def server_arguments(root, run_id, operation):
+    if operation not in {'server', 'cert-generate'}:
+        raise RuntimeError('unapproved rehearsal operation')
+    args = native.arguments(root, run_id, [])
+    args[-1] = operation
+    return [args[0], '--label', LABEL + '=' + run_id, *args[1:]]
+
+
 def require_server(container, root, run_id, image_id, operation='server'):
     expected = native.arguments(root, run_id, [])
     value = deepcopy(container)
@@ -148,9 +156,7 @@ def rehearse(point, checksum, run_id):
                           'tls_chain="/data/synthetic-tls/rehearsal.crt"\n'
                           'tls_key="/data/synthetic-tls/rehearsal.key"\n')
         # Use the exact daemon's native generator; no host package or real TLS key.
-        args = native.arguments(root, run_id, [])
-        args[-1] = 'cert-generate'
-        args[2:2] = ['--label', LABEL + '=' + run_id]
+        args = server_arguments(root, run_id, 'cert-generate')
         generator = common.docker(*args).stdout.decode().strip()
         try:
             require_server(common.inspect(generator), root, run_id, image_id, 'cert-generate')
@@ -167,9 +173,7 @@ def rehearse(point, checksum, run_id):
             common.docker('rm', '-f', generator)
             if common.docker('inspect', generator, check=False).returncode == 0:
                 raise RuntimeError('owned synthetic TLS generator remains')
-        args = native.arguments(root, run_id, [])
-        args[-1] = 'server'
-        args[2:2] = ['--label', LABEL + '=' + run_id]
+        args = server_arguments(root, run_id, 'server')
         container = common.docker(*args).stdout.decode().strip()
         require_server(common.inspect(container), root, run_id, image_id)
         common.docker('start', container)
