@@ -2,6 +2,11 @@
 """Reject incomplete or contradictory native L2 evidence."""
 
 import copy
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+from unittest.mock import Mock
 import socket
 import struct
 import unittest
@@ -30,6 +35,36 @@ class L2Guards(unittest.TestCase):
             mutate(bad)
             with self.assertRaises(RuntimeError):
                 l2.validate_client(bad, "fixture")
+
+    def test_probe_evidence_excludes_unexpected_strings_and_fields(self):
+        result = {"vip": "private unexpected value", "arp_macs": ["private unexpected value"],
+                  "http_statuses": ["private unexpected value"], "extra": "private unexpected value"}
+        evidence = l2.probe_evidence(result)
+        self.assertNotIn("private", json.dumps(evidence))
+        self.assertFalse(evidence["vip_matches"])
+        self.assertIsNone(evidence["arp_macs"])
+        self.assertIsNone(evidence["http_statuses"])
+        self.assertIsNone(l2.probe_evidence([])["arp_macs"])
+        with self.assertRaises(RuntimeError):
+            l2.validate_probe([], "02:01:02:03:04:05")
+
+    def test_rejected_probe_preserves_observation_before_raising(self):
+        client = {"NetworkSettings": {"Networks": {"k3d-fixture": {"IPAddress": "172.31.240.10"}}},
+                  "Mounts": [], "HostConfig": {"CapAdd": ["NET_RAW"], "CapDrop": ["ALL"],
+                                               "Privileged": False, "ReadonlyRootfs": True}}
+        result = {"vip": l2.VIP, "arp_macs": ["02:02:03:04:05:06"], "http_statuses": [200] * 10}
+        with tempfile.TemporaryDirectory() as directory:
+            q = SimpleNamespace(args=SimpleNamespace(name="fixture"), work=Path(directory), count=300,
+                identity=Mock(), command=Mock(side_effect=[json.dumps([client]).encode(),
+                    b'{"CapEff":8192,"CapBnd":8192}', json.dumps(result).encode()]))
+            fixture = l2.L2Qualification(q)
+            fixture.nodes = {"node-a": "02:01:02:03:04:05", "node-b": "02:02:03:04:05:06"}
+            with self.assertRaisesRegex(RuntimeError, "ARP/HTTP"):
+                fixture.external(self.lease())
+            evidence = json.loads((q.work / "l2-probe-300.json").read_text())
+            self.assertEqual(evidence["arp_macs"], result["arp_macs"])
+            self.assertEqual(evidence["holder"], "node-a")
+            self.assertEqual(q.command.call_count, 3)
 
     def pool(self):
         return {"metadata": {"uid": "pool-uid", "resourceVersion": "37"},

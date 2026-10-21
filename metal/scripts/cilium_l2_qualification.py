@@ -3,6 +3,7 @@
 
 import ipaddress
 import inspect
+import hashlib
 import json
 import re
 import socket
@@ -68,8 +69,20 @@ print(json.dumps({'vip':VIP,'arp_macs':sorted(responses),'http_statuses':respons
 PROBE = "import socket,struct\n" + inspect.getsource(arp_response) + "\n" + PROBE
 
 
+def probe_evidence(result):
+    evidence = {"result_sha256": hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()}
+    result = result if isinstance(result, dict) else {}
+    macs, statuses = result.get("arp_macs"), result.get("http_statuses")
+    evidence.update(vip_matches=result.get("vip") == VIP,
+                    arp_macs=macs if isinstance(macs, list) and len(macs) <= 32 and all(
+                        isinstance(m, str) and re.fullmatch(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}", m) for m in macs) else None,
+                    http_statuses=statuses if isinstance(statuses, list) and len(statuses) <= 10 and all(
+                        type(code) is int and 100 <= code <= 599 for code in statuses) else None)
+    return evidence
+
+
 def validate_probe(result, mac):
-    if (result.get("vip") != VIP or result.get("arp_macs") != [mac.lower()] or
+    if (not isinstance(result, dict) or result.get("vip") != VIP or result.get("arp_macs") != [mac.lower()] or
             result.get("http_statuses") != [200] * 10):
         raise RuntimeError("external ARP/HTTP evidence is missing, ambiguous or wrong")
 
@@ -196,7 +209,13 @@ class L2Qualification:
         if json.loads(caps) != {"CapEff": 1 << 13, "CapBnd": 1 << 13}:
             raise RuntimeError("external caller must have exactly native CAP_NET_RAW")
         result = json.loads(self.q.command(["docker", "exec", self.client, "python3", "-B", "-c", PROBE]))
-        validate_probe(result, self.nodes[lease["spec"]["holderIdentity"]])
+        expected_mac = self.nodes[lease["spec"]["holderIdentity"]]
+        proof = {"expected_mac": expected_mac, "lease_uid": lease["metadata"]["uid"],
+                 "holder": lease["spec"]["holderIdentity"], "transitions": lease["spec"]["leaseTransitions"],
+                 **probe_evidence(result)}
+        path = self.q.work / ("l2-probe-" + str(self.q.count) + ".json")
+        path.write_text(json.dumps(proof, indent=2))
+        validate_probe(result, expected_mac)
         return result
 
     def stage(self, version, phase, *, migrated=True):

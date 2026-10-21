@@ -203,6 +203,23 @@ class Guards(unittest.TestCase):
         probe.assert_called_once_with({"owned": True})
         record.assert_called_once_with(error)
 
+    def test_semantic_probe_refusal_is_preserved_before_secondary_diagnostic_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = q.Qualification.__new__(q.Qualification)
+            runner.work = Path(directory)
+            runner.l2 = SimpleNamespace(get_lease=lambda: {"owned": True}, nodes={})
+            error = RuntimeError("private synthetic refusal")
+            with patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
+                    patch.object(runner.l2, "external", create=True, side_effect=error), \
+                    patch.object(runner, "fixture_failure_status", side_effect=RuntimeError("secondary")):
+                with self.assertRaises(RuntimeError) as caught:
+                    runner.app_probe()
+            self.assertIs(caught.exception, error)
+            primary = (runner.work / "fixture-primary-failure.json").read_text()
+            self.assertNotIn("private", primary)
+            self.assertEqual(json.loads(primary)["classes"], ["acceptance-refused"])
+            self.assertTrue(json.loads((runner.work / "fixture-diagnostic-error.json").read_text())["original_failure_preserved"])
+
     def test_private_merged_capture_reaps_child_without_persisting_stderr(self):
         children = []
         real_popen = subprocess.Popen
@@ -229,6 +246,9 @@ class Guards(unittest.TestCase):
             runner = q.Qualification.__new__(q.Qualification)
             runner.work = Path(directory)
             runner.containers = {"synthetic-node": {}}
+            runner.l2 = SimpleNamespace(service_uid="owned-service", nodes={"synthetic-node": "02:01:02:03:04:05"}, get_lease=lambda: {
+                "metadata": {"uid": "owned-lease"}, "spec": {"holderIdentity": "synthetic-node",
+                "leaseTransitions": 1, "renewTime": "2026-10-21T00:00:00Z"}})
             node = {"Id": "owned-container", "RestartCount": 1,
                     "State": {"Running": True, "Status": "running", "OOMKilled": False,
                               "ExitCode": 0, "StartedAt": "now", "FinishedAt": "before", "Error": "private runtime error"}}

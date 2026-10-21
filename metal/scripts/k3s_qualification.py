@@ -222,20 +222,30 @@ class Qualification(cq.Qualification):
 
     def record_fixture_failure(self, error):
         # Later diagnostic reads may fail too; retain the triggering failure separately.
-        (self.work / "fixture-primary-failure.json").write_text(json.dumps({
-            "number": error.number, "exit_code": error.code, "classes": failure_classes(error.stderr),
-            "stderr_bytes": len(error.stderr), "stderr_sha256": hashlib.sha256(error.stderr).hexdigest()}, indent=2))
-        if {"access-refused", "trust-refused"}.intersection(failure_classes(error.stderr)):
+        if isinstance(error, CommandFailure):
+            primary = {"number": error.number, "exit_code": error.code, "classes": failure_classes(error.stderr),
+                       "stderr_bytes": len(error.stderr), "stderr_sha256": hashlib.sha256(error.stderr).hexdigest()}
+        else:
+            primary = {"type": type(error).__name__, "classes": ["acceptance-refused"],
+                       "message_sha256": hashlib.sha256(str(error).encode()).hexdigest()}
+        (self.work / "fixture-primary-failure.json").write_text(json.dumps(primary, indent=2))
+        if {"access-refused", "trust-refused"}.intersection(primary["classes"]):
             return
         try:
             self.fixture_failure_status()
         except (CommandFailure, RuntimeError, KeyError, ValueError) as diagnostic_error:
             (self.work / "fixture-diagnostic-error.json").write_text(json.dumps({
-                "type": type(diagnostic_error).__name__, "original_failure_preserved": True}))
+                "type": type(diagnostic_error).__name__, "original_failure_preserved": True,
+                "classes": failure_classes(diagnostic_error.stderr) if isinstance(diagnostic_error, CommandFailure) else []}))
 
     def fixture_failure_status(self):
         # Inspect only this guarded synthetic cluster; never persist Pod messages, env or termination text.
         self.identity()
+        if self.l2.service_uid is not None:
+            lease = self.l2.get_lease()
+            l2.validate_lease(lease, self.l2.nodes)
+            (self.work / "fixture-l2-lease.json").write_text(json.dumps({"uid": lease["metadata"]["uid"], **{
+                key: lease["spec"][key] for key in ("holderIdentity", "leaseTransitions", "renewTime")}}, indent=2))
         nodes = []
         for node in self.containers:
             item = self.inspect(node)
@@ -418,7 +428,7 @@ class Qualification(cq.Qualification):
         l2.validate_lease(lease, self.l2.nodes)
         try:
             return self.l2.external(lease)
-        except CommandFailure as error:
+        except RuntimeError as error:
             self.record_fixture_failure(error)
             raise
 
