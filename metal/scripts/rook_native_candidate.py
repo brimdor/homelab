@@ -4,6 +4,8 @@
 import hashlib
 import re
 
+import yaml
+
 import rook_disk_qualification as disks
 
 
@@ -93,3 +95,67 @@ def resources(cluster_name, disk_run_id, inventory):
          'spec': {'failureDomain': 'host', 'replicated': {'size': 2, 'requireSafeReplicaSize': True},
                   'parameters': {'min_size': '2'}}},
     ]
+
+
+def qualify_admission(version, operator_render, cluster_name, disk_run_id, inventory, run_id):
+    """Dry-run the fresh profile in the existing disconnected, agentless API fixture."""
+    require_operator_render(version, operator_render)
+    candidate = resources(cluster_name, disk_run_id, inventory)
+    crds = [row for row in yaml.safe_load_all(operator_render)
+            if row and row['kind'] == 'CustomResourceDefinition']
+    if len(crds) != 21:
+        raise RuntimeError('reviewed Rook CRD inventory differs')
+
+    import ceph_admission_qualification as admission
+    import etcd_recovery as common
+
+    observed = {'stage': 'before-native-api', 'native_controllers_executed': 0}
+
+    def check(_container, scratch, client, _run_id):
+        def create(items, filename, dry_run=False):
+            observed['stage'] = filename
+            (scratch / filename).write_bytes(common.canonical({'apiVersion': 'v1',
+                                                              'kind': 'List', 'items': items}))
+            arguments = [*client, 'create', '--validate=strict', '-f=/work/' + filename, '-o=json']
+            if dry_run:
+                arguments.append('--dry-run=server')
+            result = common.docker(*arguments, check=False)
+            if result.returncode:
+                observed['failure'] = {
+                    'exit': result.returncode, 'stderr_bytes': len(result.stderr),
+                    'stderr_sha256': hashlib.sha256(result.stderr).hexdigest(),
+                    'field_paths': sorted({field for field in re.findall(
+                        rb'\bspec\.[a-zA-Z0-9_.\[\]]+', result.stderr) if len(field) <= 256})[:16],
+                }
+                observed['failure']['field_paths'] = [p.decode() for p in observed['failure']['field_paths']]
+                raise RuntimeError('native candidate admission failed at ' + filename)
+            rows = admission.command_objects(result.stdout)
+            if len(rows) != len(items):
+                raise RuntimeError('native candidate admission evidence incomplete')
+            return rows
+
+        try:
+            create(crds, 'candidate-crds.json')
+            names = sorted(row['metadata']['name'] for row in crds)
+            observed['stage'] = 'crds-established'
+            common.docker(*client, 'wait', '--for=condition=Established', '--timeout=180s',
+                          *['crd/' + name for name in names])
+            create(candidate[:2], 'namespace-and-public-config.json')
+            accepted = create(candidate[2:], 'fresh-profile.json', dry_run=True)
+            observed['stage'] = 'prove-custom-resource-absence'
+            for name in names:
+                if admission.command_objects(common.docker(*client, 'get', name, '-A', '-o=json').stdout):
+                    raise RuntimeError('native candidate dry-run persisted a custom resource')
+            observed['stage'] = 'accepted'
+            return {'accepted': True, 'operator_version': version, 'crds_established': len(crds),
+                    'fresh_specs_server_dry_run': len(accepted),
+                    'operator_render_sha256': hashlib.sha256(operator_render).hexdigest(),
+                    'candidate_sha256': hashlib.sha256(common.canonical(candidate)).hexdigest(),
+                    'native_controllers_executed': 0, 'production_writes': 0}
+        finally:
+            observed['allocated_synthetic_bytes_before_cleanup'] = sum(
+                path.lstat().st_blocks * 512 for path in scratch.rglob('*'))
+
+    result = common.qualify(common.run_identifier(run_id), synthetic_check=check)
+    result['candidate_admission_observation'] = observed
+    return result

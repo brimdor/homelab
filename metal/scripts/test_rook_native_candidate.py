@@ -69,6 +69,9 @@ class CandidateTests(unittest.TestCase):
             for raw in (b'', b'kind: Secret\n', b'foreign render', None):
                 with self.assertRaises(RuntimeError):
                     subject.require_operator_render(version, raw)
+                with self.assertRaises(RuntimeError):
+                    subject.qualify_admission(version, raw, 'qualification-12345678',
+                                              'rook-12345678', inventory(), 'synthetic')
 
 
 if __name__ == '__main__':
