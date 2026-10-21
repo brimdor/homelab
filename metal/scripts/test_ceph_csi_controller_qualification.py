@@ -34,6 +34,9 @@ class ControllerGuards(unittest.TestCase):
             subject.reconciliation_progress(b'ERROR Reconciler error ' + json.dumps({**fields, "error": fields["error"] + "\nprivate-sentinel-value"}).encode())
         with self.assertRaises(RuntimeError):
             subject.reconciliation_progress(b'ERROR Reconciler error malformed')
+        policy_conflict = {**fields, "error": fields["error"].replace("configmaps", "networkpolicies.networking.k8s.io")}
+        self.assertEqual(subject.reconciliation_progress(b'ERROR Reconciler error ' + json.dumps(policy_conflict).encode() + b'\n' + success),
+                         {"successful_drivers": [name], "optimistic_conflict_events": 1})
 
     def test_manager_failure_keeps_only_fixed_error_markers_and_state(self):
         raw = b'INFO image set loaded\nERROR unable to load config map: private-sentinel-value not found\n'
@@ -89,6 +92,42 @@ class ControllerGuards(unittest.TestCase):
             change(value)
             with self.subTest(value=value), self.assertRaises(RuntimeError):
                 subject.require_manager(value, "api", Path("/owned/identity"), "run")
+
+    def test_minor_image_is_bound_to_its_exact_reviewed_identity(self):
+        value = self.manager()
+        with self.assertRaises(RuntimeError):
+            subject.require_manager(value, "api", Path("/owned/identity"), "run", subject.MINOR_IMAGE)
+        value["Config"]["Image"] = subject.MINOR_IMAGE
+        subject.require_manager(value, "api", Path("/owned/identity"), "run", subject.MINOR_IMAGE)
+        with self.assertRaises(RuntimeError):
+            subject.require_manager(value, "api", Path("/owned/identity"), "run")
+        value["Config"]["Image"] = "foreign"
+        with self.assertRaises(RuntimeError):
+            subject.require_manager(value, "api", Path("/owned/identity"), "run", "foreign")
+
+    def test_minor_policies_require_exact_ownership_selection_and_traffic(self):
+        drivers = {n: n + "-uid" for n in subject.DRIVERS}
+        rows = [{"kind": "NetworkPolicy", "metadata": {"name": n + "-ctrlplugin", "namespace": subject.NAMESPACE,
+                 "uid": n + "-policy", "ownerReferences": [{"apiVersion": "csi.ceph.io/v1", "kind": "Driver",
+                 "controller": True, "name": n, "uid": uid}]},
+                 "spec": {"podSelector": {"matchLabels": {"app": n + "-ctrlplugin"}}, "egress": [{}],
+                          "policyTypes": ["Ingress", "Egress"]}} for n, uid in sorted(drivers.items())]
+        self.assertEqual(len(subject.require_policies(rows, drivers)), 2)
+        empty_ingress = copy.deepcopy(rows)
+        empty_ingress[0]["spec"]["ingress"] = []
+        self.assertEqual(len(subject.require_policies(empty_ingress, drivers)), 2)
+        changes = [lambda v: v.pop(), lambda v: v.append(v[0]),
+                   lambda v: v[0]["metadata"].update(namespace="foreign"),
+                   lambda v: v[0]["metadata"]["ownerReferences"][0].update(uid="foreign"),
+                   lambda v: v[0]["spec"].update(podSelector={}),
+                   lambda v: v[0]["spec"].update(ingress=[{}]),
+                   lambda v: v[0]["spec"].update(egress=[]),
+                   lambda v: v[0]["spec"].update(policyTypes=["Ingress"])]
+        for change in changes:
+            value = copy.deepcopy(rows)
+            change(value)
+            with self.assertRaises(RuntimeError):
+                subject.require_policies(value, drivers)
 
     def workloads(self):
         drivers = {n: n + "-uid" for n in subject.DRIVERS}

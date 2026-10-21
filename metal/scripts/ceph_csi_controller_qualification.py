@@ -16,6 +16,8 @@ from ceph_admission_qualification import command_objects
 
 IMAGE = "quay.io/cephcsi/ceph-csi-operator@sha256:a14d8d1a610f381fc1c735eaed43bb18d8ccc04c92cc603af6eab5dc1a37b4f3"
 BUNDLE_SHA256 = "6f48e7a309e80341b7ae5f4b21bc7d7ac3a2cb810616d0f2be250b19d290413d"
+MINOR_IMAGE = "quay.io/cephcsi/ceph-csi-operator@sha256:e1d393dcf8cc9d01f045146896333b5126fca1f40b896e9a6008e2cbdffa2a81"
+MINOR_BUNDLE_SHA256 = "e77be14b2bb092e7d4f1d96c1eb754a91160a8a19afc13081865fb2007e04763"
 NAMESPACE = "rook-ceph"
 LEASE = "0a62cc8a.ceph.io"
 NAMESPACE_FILE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
@@ -68,7 +70,7 @@ def reconciliation_progress(raw):
         if failed:
             error = fields.get("error")
             errors = error.splitlines() if isinstance(error, str) else []
-            matched = [bool(re.fullmatch(r'Operation cannot be fulfilled on (configmaps|csidrivers\.storage\.k8s\.io|deployments\.apps|daemonsets\.apps) "[^"\n]+": the object has been modified; please apply your changes to the latest version and try again', item)) for item in errors]
+            matched = [bool(re.fullmatch(r'Operation cannot be fulfilled on (configmaps|csidrivers\.storage\.k8s\.io|deployments\.apps|daemonsets\.apps|networkpolicies\.networking\.k8s\.io) "[^"\n]+": the object has been modified; please apply your changes to the latest version and try again', item)) for item in errors]
             if not matched or not all(matched):
                 raise RuntimeError("native CSI non-conflict reconciliation error; " + manager_failure(line) +
                                    "; " + json.dumps({"error_lines": len(errors), "matched_conflict_lines": sum(matched)}))
@@ -80,18 +82,21 @@ def reconciliation_progress(raw):
 
 
 def validate_bundle(bundle):
-    if hashlib.sha256(common.canonical(bundle)).hexdigest() != BUNDLE_SHA256:
+    digest = hashlib.sha256(common.canonical(bundle)).hexdigest()
+    if digest not in (BUNDLE_SHA256, MINOR_BUNDLE_SHA256):
         raise RuntimeError("reviewed CSI controller bundle changed")
-    if set(bundle) != {"crds", "setup", "resources"} or len(bundle["crds"]) != 5:
+    minor = digest == MINOR_BUNDLE_SHA256
+    if set(bundle) != {"crds", "setup", "resources"} or len(bundle["crds"]) != (6 if minor else 5):
         raise RuntimeError("CSI controller input inventory changed")
     if any(x["spec"]["group"] != "csi.ceph.io" for x in bundle["crds"]):
         raise RuntimeError("foreign CSI CRD")
+    return minor
 
 
-def require_manager(value, api_id, identity, run_id):
+def require_manager(value, api_id, identity, run_id, image=IMAGE):
     host, config = value["HostConfig"], value["Config"]
     mounts = {(m.get("Type"), m.get("Source"), m.get("Destination"), m.get("RW")) for m in value["Mounts"]}
-    if (config.get("Image") != IMAGE or config.get("User") != "65532:65532" or
+    if (image not in (IMAGE, MINOR_IMAGE) or config.get("Image") != image or config.get("User") != "65532:65532" or
             config.get("Entrypoint") != ["/manager"] or config.get("Cmd") != ["--leader-elect"] or
             config.get("Labels", {}).get("io.eaglepass.recovery-run") != run_id or
             config.get("Labels", {}).get("io.eaglepass.maintenance") != "103" or
@@ -169,8 +174,35 @@ def require_workloads(rows, drivers, plugin_image, verbosity):
     return snapshots
 
 
+def require_policies(rows, drivers):
+    snapshots = {}
+    for value in rows:
+        meta = value["metadata"]
+        owners = [o for o in meta.get("ownerReferences", []) if o.get("apiVersion") == "csi.ceph.io/v1" and
+                  o.get("kind") == "Driver" and o.get("controller") is True and o.get("name") in DRIVERS and
+                  o.get("uid") == drivers[o["name"]]]
+        if (value.get("kind") != "NetworkPolicy" or len(owners) != 1 or not meta.get("uid") or
+                meta.get("namespace") != NAMESPACE or meta.get("name") != owners[0]["name"] + "-ctrlplugin" or
+                meta["name"] in snapshots):
+            raise RuntimeError("generated CSI NetworkPolicy ownership differs")
+        expected = {"podSelector": {"matchLabels": {"app": meta["name"]}},
+                    "egress": [{}], "policyTypes": ["Ingress", "Egress"]}
+        spec = copy.deepcopy(value["spec"])
+        if spec.get("ingress") == []:
+            spec.pop("ingress")
+        if spec != expected:
+            raise RuntimeError("generated CSI NetworkPolicy traffic intent differs")
+        snapshots[meta["name"]] = {"uid": meta["uid"], "spec": value["spec"]}
+    if set(snapshots) != {n + "-ctrlplugin" for n in DRIVERS}:
+        raise RuntimeError("generated CSI NetworkPolicy inventory differs")
+    return snapshots
+
+
 def qualify(bundle, run_id):
-    validate_bundle(bundle)
+    minor = validate_bundle(bundle)
+    image = MINOR_IMAGE if minor else IMAGE
+    bundle_sha256 = MINOR_BUNDLE_SHA256 if minor else BUNDLE_SHA256
+    plugin = "quay.io/cephcsi/cephcsi:v3.18.1" if minor else "quay.io/cephcsi/cephcsi:v3.17.1"
 
     def controller(api_id, scratch, client, identifier):
         def kubectl(*args, stage=None):
@@ -196,8 +228,8 @@ def qualify(bundle, run_id):
         drivers = {d["metadata"]["name"]: d["metadata"]["uid"] for d in get("drivers.csi.ceph.io")["items"]}
         if set(drivers) != DRIVERS or any(not v for v in drivers.values()):
             raise RuntimeError("synthetic CSI Driver identities changed")
-        plugin = next(x["data"]["plugin"] for x in bundle["setup"] if x["kind"] == "ConfigMap")
-        if plugin != "quay.io/cephcsi/cephcsi:v3.17.1":
+        configured_plugin = next(x["data"]["plugin"] for x in bundle["setup"] if x["kind"] == "ConfigMap")
+        if configured_plugin != ("" if minor else plugin):
             raise RuntimeError("reviewed candidate CSI plugin changed")
         config = json.loads(kubectl("config", "view", "--raw", "--minify", "-o=json").stdout)
         cluster = config["clusters"][0]["cluster"]
@@ -227,12 +259,12 @@ def qualify(bundle, run_id):
             capacity = shutil.disk_usage(scratch)
             if capacity.free / capacity.total <= 0.2:
                 raise RuntimeError("insufficient actual capacity for native CSI qualification")
-            checked_docker("pull", IMAGE, stage="pull reviewed manager image")
-            image = json.loads(common.docker("image", "inspect", IMAGE).stdout)[0]
-            image_id = image["Id"]
-            if (image.get("Architecture") != "amd64" or image.get("Os") != "linux" or
-                    image["Config"].get("Volumes") or image["Config"].get("User") != "65532:65532" or
-                    image["Config"].get("Entrypoint") != ["/manager"]):
+            checked_docker("pull", image, stage="pull reviewed manager image")
+            image_config = json.loads(common.docker("image", "inspect", image).stdout)[0]
+            image_id = image_config["Id"]
+            if (image_config.get("Architecture") != "amd64" or image_config.get("Os") != "linux" or
+                    image_config["Config"].get("Volumes") or image_config["Config"].get("User") != "65532:65532" or
+                    image_config["Config"].get("Entrypoint") != ["/manager"]):
                 raise RuntimeError("native CSI manager image contract changed")
             capacity = shutil.disk_usage(scratch)
             if capacity.free / capacity.total <= 0.2:
@@ -245,15 +277,15 @@ def qualify(bundle, run_id):
                                     "--mount=type=bind,source=" + str(namespace_path) + ",target=" + NAMESPACE_FILE + ",readonly",
                                     "--env=KUBECONFIG=/identity/config", "--env=OPERATOR_NAMESPACE=" + NAMESPACE,
                                     "--env=WATCH_NAMESPACE=", "--env=CSI_SERVICE_ACCOUNT_PREFIX=",
-                                    "--env=KUBERNETES_CLUSTER_DOMAIN=cluster.local", IMAGE, "--leader-elect",
+                                    "--env=KUBERNETES_CLUSTER_DOMAIN=cluster.local", image, "--leader-elect",
                                     stage="create isolated manager").stdout.decode().strip()
             if not re.fullmatch(r"[a-f0-9]{64}", manager):
                 raise RuntimeError("native CSI manager returned an invalid container identity")
-            require_manager(common.inspect(manager), api_id, identity, identifier)
+            require_manager(common.inspect(manager), api_id, identity, identifier, image)
 
             def alive():
                 value = common.inspect(manager)
-                require_manager(value, api_id, identity, identifier)
+                require_manager(value, api_id, identity, identifier, image)
                 raw = capture.output().stdout
                 if re.search(rb"\b(forbidden|unauthorized)\b|x509:|permission denied", raw, re.I):
                     raise RuntimeError("native CSI manager encountered an access or trust denial; raw output discarded")
@@ -309,6 +341,7 @@ def qualify(bundle, run_id):
                                          {n: 0 for n in DRIVERS})
             csidrivers = get("csidrivers.storage.k8s.io")["items"]
             baseline_csidrivers = require_csidrivers(csidrivers)
+            baseline_policies = require_policies(get("networkpolicies")["items"], drivers) if minor else {}
             original = next(copy.deepcopy(x) for x in bundle["resources"] if x["kind"] == "Driver" and x["metadata"]["name"] == "rook-ceph.rbd.csi.ceph.com")
             changed = copy.deepcopy(original["spec"])
             changed.setdefault("log", {})["verbosity"] = 3
@@ -333,7 +366,7 @@ def qualify(bundle, run_id):
                 return require_workloads(rows, drivers, plugin, {n: 0 for n in DRIVERS}) == baseline
             # Wait for the known changed argument before strict comparison of the complete restored specification.
             await_value(workloads, lambda rows: all("--v=3" not in c.get("args", []) for r in rows for c in r["spec"]["template"]["spec"]["containers"]), "original verbosity")
-            if not restored(workloads()):
+            if not restored(workloads()) or (minor and require_policies(get("networkpolicies")["items"], drivers) != baseline_policies):
                 raise RuntimeError("CSI specification restoration differs from baseline")
             common.docker("stop", "--time=10", manager)
             alive_output = capture.output().stdout
@@ -348,24 +381,26 @@ def qualify(bundle, run_id):
             next_progress = reconciled(0, DRIVERS, "restarted successful native reconciliations")
             if (next_lease["metadata"]["uid"] != first_lease["metadata"]["uid"] or
                     next_lease["spec"].get("leaseTransitions", 0) <= first_lease["spec"].get("leaseTransitions", 0) or
-                    not restored(workloads()) or require_csidrivers(get("csidrivers.storage.k8s.io")["items"]) != baseline_csidrivers):
+                    not restored(workloads()) or require_csidrivers(get("csidrivers.storage.k8s.io")["items"]) != baseline_csidrivers or
+                    (minor and require_policies(get("networkpolicies")["items"], drivers) != baseline_policies)):
                 raise RuntimeError("native CSI restart changed resource identity or generated specification")
             nodes = get("nodes")["items"]
             pods = get("pods")["items"]
             if nodes or any(p.get("spec", {}).get("nodeName") for p in pods):
                 raise RuntimeError("agentless CSI generation unexpectedly scheduled a workload")
-            return {"accepted": True, "bundle_sha256": BUNDLE_SHA256, "image": IMAGE,
+            return {"accepted": True, "bundle_sha256": bundle_sha256, "image": image,
                     "drivers": sorted(DRIVERS), "generated_workloads": len(baseline), "generated_csidrivers": len(csidrivers),
                     "generated_spec_sha256": hashlib.sha256(common.canonical(baseline)).hexdigest(),
                     "actual_service_account": "system:serviceaccount:rook-ceph:ceph-csi", "native_leader_restart": True,
                     "synthetic_change_and_restore": True, "resource_uids_preserved": True, "synthetic_nodes": 0,
+                    "generated_networkpolicies": len(baseline_policies),
                     "resolved_optimistic_conflict_events": first_progress["optimistic_conflict_events"] + next_progress["optimistic_conflict_events"],
                     "scheduled_plugins": 0, "production_writes": 0,
                     "measured_scratch_allocated_bytes": sum(p.lstat().st_blocks * 512 for p in scratch.rglob("*")),
                     "limitation": "native CSI controller generation only; plugins, kernel mounts and Rook/Ceph orchestration unqualified"}
         finally:
             if manager:
-                require_manager(common.inspect(manager), api_id, identity, identifier)
+                require_manager(common.inspect(manager), api_id, identity, identifier, image)
                 common.docker("rm", "--force", "--volumes", manager)
                 if common.docker("inspect", manager, check=False).returncode == 0:
                     raise RuntimeError("owned CSI manager remains after cleanup")
@@ -376,7 +411,7 @@ def qualify(bundle, run_id):
             shutil.rmtree(identity)
             if image_id and image_id not in before_images:
                 if not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
-                    common.docker("image", "rm", IMAGE)
+                    common.docker("image", "rm", image)
                     if common.docker("image", "inspect", image_id, check=False).returncode == 0:
                         raise RuntimeError("new unused CSI test image remains")
 
