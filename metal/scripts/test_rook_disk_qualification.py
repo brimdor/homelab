@@ -4,12 +4,56 @@
 import copy
 from pathlib import Path
 import tempfile
+import shlex
 import unittest
 
 import rook_disk_qualification as subject
 
 
 class DiskGuardTests(unittest.TestCase):
+    def test_explicit_qemu_arguments_bind_only_owned_raw_files_and_serials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            identities = {}
+            for number in range(3):
+                name = 'rook-12345678-' + str(number)
+                path = root / 'l/_disks' / name / 'datadisk'
+                path.parent.mkdir(parents=True)
+                with path.open('xb') as stream:
+                    stream.truncate(subject.DISK_BYTES)
+                identities[name] = {'path': str(path), **subject.file_identity(path)}
+            arguments = shlex.split(subject.qemu_arguments(identities, root))
+            self.assertEqual(arguments[0], '/opt/homebrew/bin/qemu-system-aarch64')
+            self.assertEqual(arguments.count('-drive'), 3)
+            self.assertEqual(arguments.count('-device'), 3)
+            self.assertIn('virtio-blk-pci,drive=rook-12345678-2,id=rook-12345678-2,serial=lima-rook-12345678-2',
+                          arguments)
+            for field, value in [('inode', -1), ('bytes', 0), ('path', '/dev/disk0')]:
+                changed = copy.deepcopy(identities)
+                changed['rook-12345678-0'][field] = value
+                with self.assertRaises(RuntimeError):
+                    subject.qemu_arguments(changed, root)
+            with self.assertRaises(RuntimeError):
+                subject.qemu_arguments(dict(list(identities.items())[:2]), root)
+
+    def test_qemu_native_backend_must_match_every_declared_file_and_device(self):
+        identities = {'rook-12345678-' + str(n): {'path': '/owned/' + str(n)} for n in range(3)}
+        rows = [{'device': name, 'qdev': '/machine/peripheral/' + name + '/virtio-backend',
+                 'inserted': {'file': value['path'], 'drv': 'raw', 'ro': False,
+                              'image': {'filename': value['path'], 'format': 'raw',
+                                        'virtual-size': subject.DISK_BYTES}}}
+                for name, value in identities.items()]
+        self.assertEqual(len(subject.require_qemu_backends(rows, identities)), 3)
+        for field, value in [('file', '/dev/disk0'), ('drv', 'qcow2'), ('ro', True),
+                             ('image', {'format': 'raw', 'virtual-size': 4096})]:
+            changed = copy.deepcopy(rows)
+            changed[0]['inserted'][field] = value
+            with self.assertRaises(RuntimeError):
+                subject.require_qemu_backends(changed, identities)
+        for changed in [rows[:-1], rows + [rows[0]], [rows[0] | {'qdev': '/foreign'}, *rows[1:]]]:
+            with self.assertRaises(RuntimeError):
+                subject.require_qemu_backends(changed, identities)
+
     def test_owned_environment_refuses_symlink_or_foreign_root_before_commands(self):
         with tempfile.TemporaryDirectory(prefix='v-') as directory:
             root = Path(directory)
