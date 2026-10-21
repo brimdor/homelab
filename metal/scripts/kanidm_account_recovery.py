@@ -138,11 +138,15 @@ def rehearse(point, checksum, run_id):
         native.operation(root, run_id, ['backup', '--compression=gzip', '/data/before.json.gz'],
                          b'Backup success!', image_id)
         before = native.backup_value(root / 'before.json.gz')
+        tls = root / 'synthetic-tls'
+        tls.mkdir(mode=0o700)
+        os.chown(tls, 1000, 1000)
         config = root / 'offline.toml'
         config.write_text('db_path="/data/kanidm.db"\ndb_arc_size=2048\n'
                           'domain="auth.eaglepass.io"\norigin="https://auth.eaglepass.io"\n'
                           'bindaddress="127.0.0.1:8443"\nadminbindpath="/data/rehearsal.sock"\n'
-                          'tls_chain="/data/rehearsal.crt"\ntls_key="/data/rehearsal.key"\n')
+                          'tls_chain="/data/synthetic-tls/rehearsal.crt"\n'
+                          'tls_key="/data/synthetic-tls/rehearsal.key"\n')
         # Use the exact daemon's native generator; no host package or real TLS key.
         args = native.arguments(root, run_id, [])
         args[-1] = 'cert-generate'
@@ -155,7 +159,7 @@ def rehearse(point, checksum, run_id):
             if response.returncode or state['Running'] or state['ExitCode'] or state.get('OOMKilled'):
                 raise RuntimeError('native synthetic certificate generation failed')
             for name in ('rehearsal.key', 'rehearsal.crt'):
-                path = root / name
+                path = tls / name
                 if not path.is_file() or path.is_symlink() or not path.stat().st_size:
                     raise RuntimeError('native synthetic TLS material missing')
         finally:
