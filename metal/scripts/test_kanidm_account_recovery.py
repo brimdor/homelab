@@ -4,11 +4,33 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+from contextlib import nullcontext
+from types import SimpleNamespace
 
 import kanidm_account_recovery as recovery
 
 
 class AccountRecoveryTests(unittest.TestCase):
+    def test_authenticated_identity_and_logout_on_refusal(self):
+        for name in ('admin', 'foreign-account'):
+            calls = []
+            class Opener:
+                def open(self, request, **_kwargs):
+                    calls.append(request.full_url)
+                    values = [{'state': {'choose': ['password']}},
+                              {'state': {'continue': ['password']}},
+                              {'state': {'success': 'synthetic-session'}},
+                              {'youare': {'attrs': {'name': [name]}}}, None]
+                    return nullcontext(SimpleNamespace(status=200, read=lambda _limit: json.dumps(values[len(calls)-1]).encode()))
+            with patch.object(recovery.urllib.request, 'build_opener', return_value=Opener()):
+                if name == 'admin':
+                    self.assertTrue(recovery.verify_https_login('synthetic-password')['session_logout'])
+                else:
+                    with self.assertRaises(RuntimeError):
+                        recovery.verify_https_login('synthetic-password')
+            self.assertEqual(calls[-1], 'https://auth.eaglepass.io/v1/logout')
+
     def test_existing_multifactor_credential_is_not_discarded(self):
         account = {'name': {'N8': ['admin']}, 'primary_credential': {
             'CR': [{'t': 'primary', 'd': {'type_': 'V2GPw'}}]}}
@@ -49,8 +71,13 @@ class AccountRecoveryTests(unittest.TestCase):
         password = 'synthetic-password-value-103'
         updated = recovery.replace_password(original, password)
         self.assertEqual(original['fields'][1]['value'], 'old')
+        updated['fields'][1]['password_details'] = {'history': ['old']}
         updated['version'] = 4
         recovery.verify_vault(original, updated, password)
+        altered = deepcopy(updated)
+        altered['fields'][1]['password_details']['history'] = ['unapproved-history']
+        with self.assertRaises(RuntimeError):
+            recovery.verify_vault(original, altered, password)
         updated['fields'][0]['value'] = 'other'
         with self.assertRaises(RuntimeError):
             recovery.verify_vault(original, updated, password)

@@ -83,7 +83,7 @@ def verify_https_login(password):
             raise RuntimeError('normal administrator authentication did not succeed')
         token = state['success']
         who = request('/v1/self')
-        if who.get('you', {}).get('attrs', {}).get('name') != ['admin']:
+        if who.get('youare', {}).get('attrs', {}).get('name') != ['admin']:
             raise RuntimeError('normal authenticated account identity differs')
         result.update(password_login=True, authenticated_self_is_existing_admin=True)
     finally:
@@ -137,6 +137,15 @@ def replace_password(item, password):
 def verify_vault(before, after, password):
     expected = replace_password(before, password)
     after = deepcopy(after)
+    original = next(f for f in before['fields'] if f.get('purpose') == 'PASSWORD')
+    field = next(f for f in expected['fields'] if f.get('purpose') == 'PASSWORD')
+    # The native CLI appends the old password; preserve every existing history entry.
+    if original['value'] != password:
+        details = field.setdefault('password_details', {})
+        history = details.get('history', [])
+        if not isinstance(history, list) or any(not isinstance(x, str) for x in history):
+            raise RuntimeError('existing vault password history differs')
+        details['history'] = [*history, original['value']]
     # Native edit updates only these provider-managed revision fields.
     for value in (expected, after):
         for key in ('version', 'updated_at', 'last_edited_by'):
