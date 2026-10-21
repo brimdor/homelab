@@ -8,6 +8,7 @@ import etcd_recovery as common
 
 
 GROUPS = {"ceph.rook.io", "csi.ceph.io"}
+MINOR_BUNDLE_SHA256 = "83131d0514fc7b085ef5111c1fb38a9d26acc9bd23b067a57677629ba116fde4"
 
 
 def command_objects(data):
@@ -23,8 +24,10 @@ def command_objects(data):
 
 
 def validate_bundle(bundle):
-    if set(bundle) != {"crds", "resources"} or len(bundle["crds"]) != 24 or len(bundle["resources"]) != 10:
+    if set(bundle) != {"crds", "resources"} or len(bundle["crds"]) not in (24, 25) or len(bundle["resources"]) != 10:
         raise RuntimeError("candidate Ceph admission inventory changed")
+    if len(bundle["crds"]) == 25 and hashlib.sha256(common.canonical(bundle)).hexdigest() != MINOR_BUNDLE_SHA256:
+        raise RuntimeError("reviewed minor Ceph admission bundle changed")
     served = set()
     names = set()
     for crd in bundle["crds"]:

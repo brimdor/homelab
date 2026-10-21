@@ -3,11 +3,18 @@
 
 import copy
 import unittest
+from unittest.mock import patch
 
 import ceph_admission_qualification as subject
 
 
 class AdmissionInput(unittest.TestCase):
+    def test_unreviewed_minor_bundle_never_starts_a_runtime(self):
+        bundle = {"crds": [{} for _ in range(25)], "resources": [{} for _ in range(10)]}
+        with patch.object(subject.common, "qualify") as native, self.assertRaisesRegex(RuntimeError, "minor Ceph admission bundle changed"):
+            subject.qualify(bundle, "test-12345678")
+        native.assert_not_called()
+
     def test_native_output_accepts_multiple_documents_without_dropping_one(self):
         self.assertEqual(subject.command_objects(b'{"kind":"A"}\n{"kind":"B"}\n'),
                          [{"kind": "A"}, {"kind": "B"}])
