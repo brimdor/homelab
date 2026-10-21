@@ -17,6 +17,9 @@ import cilium_tls_observer as o
 
 LINE = (b"1792587900.123456 eth0 Out IP 192.168.5.2.30123 > 1.0.0.1.443: Flags [S], "
         b"seq 4294967295, win 64240, options [mss 1460,sackOK,TS val 123 ecr 0,nop,wscale 7], length 0\n")
+RUNTIME = (b"Uid:\t0 0 0 0\nGid:\t0 0 0 0\nGroups:\t0\nCapInh:\t0000000000000000\n"
+           b"CapPrm:\t0000000000002000\nCapEff:\t0000000000002000\nCapBnd:\t0000000000002000\n"
+           b"CapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\n")
 
 
 class Guards(unittest.TestCase):
@@ -50,6 +53,17 @@ class Guards(unittest.TestCase):
         reply = (b"1792587900.123457 eth0 In IP 1.0.0.1.443 > 192.168.5.2.30123: "
                  b"Flags [P.], seq 123:140, ack 22, win 12, length 17\n")
         self.assertEqual(o.packet(reply, peers)["length"], 17)
+
+    def test_runtime_identity_requires_the_approved_identity_and_only_net_raw(self):
+        self.assertEqual(o.runtime_identity(RUNTIME)["CapEff"], 8192)
+        self.assertEqual(o.runtime_identity(RUNTIME.replace(b"Groups:\t0", b"Groups:\t"))["Groups"], [])
+        for old, new in ((b"Uid:\t0 0 0 0", b"Uid:\t1 1 1 1"), (b"Groups:\t0", b"Groups:\t0 1"),
+                         (b"CapEff:\t0000000000002000", b"CapEff:\t0000000000002040"),
+                         (b"NoNewPrivs:\t1", b"NoNewPrivs:\t0"), (b"Seccomp:\t2", b"Seccomp:\t0")):
+            with self.assertRaises(RuntimeError):
+                o.runtime_identity(RUNTIME.replace(old, new))
+        with self.assertRaises(RuntimeError):
+            o.runtime_identity(RUNTIME + b"Uid:\t0 0 0 0\n")
 
     def test_exact_minimal_container_configuration(self):
         item = self.item()
@@ -97,6 +111,7 @@ class Guards(unittest.TestCase):
                           {"captured": 1, "received": 1, "dropped": 1}, {}):
                 observer = self.observer(directory)
                 observer.container = o.identity(self.item(), observer.name)
+                observer.runtime = o.runtime_identity(RUNTIME)
                 observer.created_id = observer.container["container_id"]
                 observer.count, observer.stats = 1, stats
                 observer.child = Mock(returncode=0, stdout=io.BytesIO(), stderr=io.BytesIO())
@@ -113,7 +128,7 @@ class Guards(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             observer = self.observer(directory)
             observer.fixture.command.reset_mock()
-            observer.fixture.command.side_effect = [b"a" * 64, json.dumps([self.item()]).encode(),
+            observer.fixture.command.side_effect = [b"a" * 64, json.dumps([self.item()]).encode(), RUNTIME,
                                                      json.dumps([self.item()]).encode(), b"", b""]
             child = Mock(returncode=0, stdout=io.BytesIO(LINE), stderr=io.BytesIO(
                 o.READY.encode() + b"1 packet captured\n1 packet received by filter\n0 packets dropped by kernel\n"))

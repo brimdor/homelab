@@ -16,7 +16,7 @@ IMAGE = "docker.io/nicolaka/netshoot:v0.16@sha256:b09d9b21381f47a79b3cbcb30da252
 TARGETS = {"1.1.1.1", "1.0.0.1"}
 FILTER = "ip and tcp port 443 and (host 1.1.1.1 or host 1.0.0.1)"
 FLAGS = ["-tt", "-nn", "-l", "-K", "-S", "-i", "any", "-p", "-s", "128",
-         "--immediate-mode", "-Z", "root", FILTER]
+         "--immediate-mode", FILTER]
 PACKET = re.compile(
     r"(?P<epoch>[0-9]{10}\.[0-9]{6}) (?P<interface>[a-zA-Z0-9_.-]{1,15}) +(?P<direction>In|Out) +IP "
     r"(?P<source>[0-9.]+)\.(?P<source_port>[0-9]{1,5}) > "
@@ -77,6 +77,34 @@ def identity(item, name, expected_id=None, expected_image=None):
     return {"container_id": item["Id"], "image_id": item["Image"],
             "configuration_sha256": hashlib.sha256(json.dumps(
                 {key: item[key] for key in ("Config", "HostConfig", "Mounts")}, sort_keys=True).encode()).hexdigest()}
+
+
+def runtime_identity(raw):
+    if len(raw) > 65536:
+        raise RuntimeError("TLS observer process metadata exceeds contract")
+    expected = {"Uid": [0, 0, 0, 0], "Gid": [0, 0, 0, 0], "Groups": [0],
+                "CapInh": 0, "CapPrm": 8192, "CapEff": 8192, "CapBnd": 8192, "CapAmb": 0,
+                "NoNewPrivs": 1, "Seccomp": 2}
+    result = {}
+    for line in raw.decode("ascii").splitlines():
+        key, separator, value = line.partition(":")
+        if not separator or key not in expected:
+            continue
+        if key in result:
+            raise RuntimeError("duplicate observer process metadata")
+        if key == "Groups" and not value.strip():
+            result[key] = []
+            continue
+        pattern = r"[0-9a-f]{16}" if key.startswith("Cap") else r"[0-9]+(?:\s+[0-9]+)*"
+        if not re.fullmatch(pattern, value.strip()):
+            raise RuntimeError("invalid observer process metadata")
+        numbers = [int(part, 16 if key.startswith("Cap") else 10) for part in value.split()]
+        result[key] = numbers if key in ("Uid", "Gid", "Groups") else numbers[0] if len(numbers) == 1 else None
+    if result.get("Groups") in ([], [0]):
+        expected["Groups"] = result["Groups"]
+    if result != expected:
+        raise RuntimeError("TLS observer runtime identity refused")
+    return result
 
 
 class Observer:
@@ -165,6 +193,10 @@ class Observer:
         if not self.ready.wait(30):
             raise RuntimeError("TLS observer readiness not established")
         self.check()
+        # Preserve Docker's explicit identity; never request a redundant group change.
+        self.runtime = runtime_identity(self.fixture.command(
+            ["docker", "exec", self.container["container_id"], "cat", "/proc/1/status"]))
+        self.check()
         return self.container
 
     def stop(self):
@@ -186,6 +218,7 @@ class Observer:
                 if self.errors or set(self.stats) != {"captured", "received", "dropped"} or self.stats["dropped"] or self.stats["captured"] != self.count or not self.count:
                     raise RuntimeError("TLS observer metadata/counters incomplete")
                 return {**self.container, "parsed_packets": self.count, **self.stats,
+                        "runtime_identity": self.runtime,
                         "payload_or_raw_lines_retained": False, "production_change": False}
         finally:
             cleanup_error = None
