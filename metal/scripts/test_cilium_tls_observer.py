@@ -45,6 +45,10 @@ class Guards(unittest.TestCase):
         item = o.packet(LINE, peers)
         self.assertEqual(item["sequence"], 4294967295)
         self.assertNotIn("options", item)
+        forwarded = LINE.replace(b"eth0 Out", b"veth1234 P")
+        self.assertEqual(o.packet(forwarded, peers)["direction"], "P")
+        with self.assertRaises(RuntimeError):
+            o.packet(forwarded.replace(b"192.168.5.2", b"192.168.5.3"), peers)
         for old, new in ((b"192.168.5.2", b"192.168.5.3"), (b"1.0.0.1", b"8.8.8.8"),
                          (b".443:", b".80:"), (b"30123", b"65536"), (b"4294967295", b"4294967296"),
                          (b"wscale 7", b"secret=do-not-save"), (b"length 0", b"length 0: PRIVATE_PAYLOAD"),
@@ -112,6 +116,8 @@ class Guards(unittest.TestCase):
             self.assertNotIn("PRIVATE_TOKEN", json.dumps(observer.errors))
             self.assertNotIn("PRIVATE_TOKEN", json.dumps(observer.status_failures))
             self.assertEqual(observer.status_failures[0]["classes"], ["packet-format-refused"])
+            self.assertEqual(observer.status_failures[0]["reason"], "unrecognized packet metadata")
+            self.assertIsNone(observer.status_failures[0]["cooked_packet_type"])
             self.assertNotIn(b"PRIVATE_TOKEN", gzip.decompress(path.read_bytes()))
             self.assertEqual(observer.count, 1)
             with self.assertRaises(RuntimeError):

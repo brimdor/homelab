@@ -18,7 +18,7 @@ FILTER = "ip and tcp port 443 and (host 1.1.1.1 or host 1.0.0.1)"
 FLAGS = ["-tt", "-nn", "-l", "-K", "-S", "-i", "any", "-p", "-s", "128",
          "--immediate-mode", FILTER]
 PACKET = re.compile(
-    r"(?P<epoch>[0-9]{10}\.[0-9]{6}) (?P<interface>[a-zA-Z0-9_.-]{1,15}) +(?P<direction>In|Out) +IP "
+    r"(?P<epoch>[0-9]{10}\.[0-9]{6}) (?P<interface>[a-zA-Z0-9_.-]{1,15}) +(?P<direction>In|Out|P) +IP "
     r"(?P<source>[0-9.]+)\.(?P<source_port>[0-9]{1,5}) > "
     r"(?P<destination>[0-9.]+)\.(?P<destination_port>[0-9]{1,5}): Flags \[(?P<flags>[FSRPAUEW.]+|none)\], "
     r"(?:seq (?P<sequence>[0-9]{1,10})(?::(?P<sequence_end>[0-9]{1,10}))?, )?"
@@ -30,6 +30,9 @@ READY = "listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot leng
 BANNER = "tcpdump: verbose output suppressed, use -v[v]... for full protocol decode\n"
 DLT_BANNER = "tcpdump: data link type LINUX_SLL2\n"
 STATISTICS = {"captured": "captured", "received by filter": "received", "dropped by kernel": "dropped"}
+PACKET_REASONS = {"packet metadata line exceeds contract", "unrecognized packet metadata",
+                  "unrecognized TCP option metadata", "invalid TCP numeric metadata",
+                  "invalid TCP port", "foreign packet endpoint"}
 
 
 def packet(raw, peers):
@@ -161,12 +164,17 @@ class Observer:
                                 STATISTICS[match[3].decode()] in self.stats):
                             raise RuntimeError("unrecognized capture status")
                         self.stats[STATISTICS[match[3].decode()]] = int(match[1])
-                except (RuntimeError, ValueError):
+                except (RuntimeError, ValueError) as error:
                     # Drain without retaining further input so owner shutdown cannot block on a full pipe.
                     self.errors.append("packet-format-refused" if packets else "capture-status-refused")
-                    self.status_failures.append({"stream": "packets" if packets else "status", "bytes": len(raw),
+                    diagnostic = {"stream": "packets" if packets else "status", "bytes": len(raw),
                                                  "sha256": hashlib.sha256(raw).hexdigest(),
-                                                 "classes": failure_classes(raw) if not packets else ["packet-format-refused"]})
+                                                 "classes": failure_classes(raw) if not packets else ["packet-format-refused"]}
+                    if packets:
+                        diagnostic["reason"] = str(error) if str(error) in PACKET_REASONS else "invalid-ipv4-metadata"
+                        prefix = re.match(rb"[0-9]{10}\.[0-9]{6} [a-zA-Z0-9_.-]{1,15} +(In|Out|P|B|M) +IP ", raw)
+                        diagnostic["cooked_packet_type"] = prefix[1].decode() if prefix else None
+                    self.status_failures.append(diagnostic)
                     self.ready.set()
         except BaseException as error:
             self.errors.append(type(error).__name__)
