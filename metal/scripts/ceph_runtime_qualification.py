@@ -223,12 +223,14 @@ class Runtime:
         for number in (1, 2):
             root = self.root / ('osd' + str(number))
             root.mkdir(mode=0o700)
-            with (root / 'block').open('xb') as output:
+            block_root = self.root / ('block-store' + str(number))
+            block_root.mkdir(mode=0o700)
+            with (block_root / 'block').open('xb') as output:
                 output.truncate(BLOCK_BYTES)
-            before = block_identity(root)
+            before = block_identity(block_root)
             with (self.root / 'ceph.conf').open('a') as output:
                 output.write(f'\n[osd.{number}]\nosd data = {root}\nkeyring = {root}/keyring\n'
-                             f'osd objectstore = bluestore\nbluestore block path = {root}/block\n'
+                             f'osd objectstore = bluestore\nbluestore block path = {block_root}/block\n'
                              'bluestore block create = false\nbluestore block db create = false\n'
                              'bluestore block wal create = false\nosd memory target = 536870912\n'
                              'osd op num shards = 2\nosd op num threads per shard = 1\n')
@@ -249,7 +251,7 @@ class Runtime:
                           '--setuser=root', '--setgroup=root'])
             self.ceph('osd', 'crush', 'add', entity, '1.0', 'root=default', 'host=qualification')
             self.start('osd', str(number))
-            identities[number] = (root, root, osd_uuid, before)
+            identities[number] = (block_root, root, osd_uuid, before)
         self.ceph('osd', 'pool', 'set', 'qualification', 'size', '2')
         self.ceph('osd', 'pool', 'set', 'qualification', 'min_size', '2')
         payloads = {f'replica-{number:03d}': hashlib.sha256(str(number).encode()).digest() * 512
