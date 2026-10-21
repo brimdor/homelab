@@ -11,6 +11,22 @@ import ceph_runtime_qualification as subject
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_health_diagnostic_keeps_only_codes_and_numeric_pool_policy(self):
+        value = {'health': {'status': 'HEALTH_WARN', 'checks': {'POOL_NO_REDUNDANCY': {
+            'summary': {'message': 'PRIVATE_SENTINEL'}}}}}
+        pools = [{'pool_name': 'qualification', 'pool_id': 1, 'size': 2, 'min_size': 2,
+                  'arbitrary': 'PRIVATE_SENTINEL'}]
+        diagnostic = subject.replica_health_diagnostic(value, pools)
+        self.assertEqual(diagnostic['health_codes'], ['POOL_NO_REDUNDANCY'])
+        self.assertNotIn('PRIVATE_SENTINEL', str(diagnostic))
+        self.assertEqual(diagnostic['pool_policies'][0]['size'], 2)
+        with self.assertRaises(RuntimeError):
+            subject.replica_health_diagnostic({'health': {'status': 'PRIVATE_SENTINEL'}}, pools)
+        with self.assertRaises(RuntimeError):
+            subject.replica_health_diagnostic(value, [pools[0] | {'pool_name': 'unsafe/path'}])
+        with self.assertRaises(RuntimeError):
+            subject.replica_health_diagnostic(value, [pools[0] | {'size': True}])
+
     def test_replication_requires_exact_cluster_and_clean_two_copy_state(self):
         value = {'fsid': 'synthetic', 'mgrmap': {'available': True},
                  'pgmap': {'pgs_by_state': [{'state_name': 'active+clean'}]},

@@ -87,6 +87,22 @@ def replica_placement(mapping, name, active):
     return set(acting)
 
 
+def replica_health_diagnostic(value, pools):
+    health = value['health']
+    codes = sorted(health.get('checks', {}))
+    if (health['status'] not in ('HEALTH_OK', 'HEALTH_WARN', 'HEALTH_ERR') or len(codes) > 64 or
+            any(not re.fullmatch(r'[A-Z][A-Z0-9_]{0,63}', code) for code in codes) or
+            len(pools) > 8):
+        raise RuntimeError('synthetic health diagnostic shape changed')
+    policies = []
+    for pool in pools:
+        if (not re.fullmatch(r'[a-zA-Z0-9_.-]{1,64}', pool['pool_name']) or
+                any(type(pool[key]) is not int or pool[key] < 0 for key in ('pool_id', 'size', 'min_size'))):
+            raise RuntimeError('synthetic pool diagnostic shape changed')
+        policies.append({key: pool[key] for key in ('pool_name', 'pool_id', 'size', 'min_size')})
+    return {'health_status': health['status'], 'health_codes': codes, 'pool_policies': policies}
+
+
 class Runtime:
     def __init__(self, root, run_id):
         if (root != Path('/work') or os.geteuid() != 0 or socket.gethostname() != 'ceph103-' + run_id or
@@ -266,6 +282,8 @@ class Runtime:
             while True:
                 value = self.status()
                 rows = json.loads(self.ceph('osd', 'dump', '-f', 'json'))['osds']
+                self.replica_diagnostic = replica_health_diagnostic(
+                    value, json.loads(self.ceph('osd', 'pool', 'ls', 'detail', '-f', 'json')))
                 if replica_state(value, rows, active, fsid):
                     pool = json.loads(self.ceph('osd', 'pool', 'get', 'qualification', 'all', '-f', 'json'))
                     if pool.get('size') != 2 or pool.get('min_size') != 2:
@@ -547,6 +565,8 @@ def main():
         result = runtime.run(args.replicated)
     except Exception as error:
         result = {'accepted': False, 'stage': runtime.stage, 'error': str(error)}
+        if hasattr(runtime, 'replica_diagnostic'):
+            result['replica_diagnostic'] = runtime.replica_diagnostic
     finally:
         for name in list(reversed(runtime.children)):
             runtime.stop(name)
