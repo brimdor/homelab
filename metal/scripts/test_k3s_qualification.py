@@ -194,7 +194,7 @@ class Guards(unittest.TestCase):
         runner = q.Qualification.__new__(q.Qualification)
         runner.l2 = SimpleNamespace(get_lease=lambda: {"owned": True}, nodes={})
         error = q.CommandFailure(300, 1, b"TimeoutError: timed out\n")
-        with patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
+        with patch.object(runner, "cilium_ready"), patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
                 patch.object(runner.l2, "external", create=True, side_effect=error) as probe, \
                 patch.object(runner, "record_fixture_failure") as record:
             with self.assertRaises(q.CommandFailure) as caught:
@@ -209,7 +209,7 @@ class Guards(unittest.TestCase):
             runner.work = Path(directory)
             runner.l2 = SimpleNamespace(get_lease=lambda: {"owned": True}, nodes={})
             error = RuntimeError("private synthetic refusal")
-            with patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
+            with patch.object(runner, "cilium_ready"), patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
                     patch.object(runner.l2, "external", create=True, side_effect=error), \
                     patch.object(runner, "fixture_failure_status", side_effect=RuntimeError("secondary")):
                 with self.assertRaises(RuntimeError) as caught:
@@ -219,6 +219,45 @@ class Guards(unittest.TestCase):
             self.assertNotIn("private", primary)
             self.assertEqual(json.loads(primary)["classes"], ["acceptance-refused"])
             self.assertTrue(json.loads((runner.work / "fixture-diagnostic-error.json").read_text())["original_failure_preserved"])
+
+    def test_cilium_recovery_requires_cli_wait_and_five_ready_agents(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.args = SimpleNamespace(cilium="owned-cli", name=self.name)
+        runner.env = {"KUBECONFIG": "owned-private-config"}
+        runner.context = "k3d-" + self.name
+        pods = [{"status": {"containerStatuses": [{"ready": True}]}} for _ in range(5)]
+        with patch.object(runner, "command") as status, patch.object(runner, "kubectl", return_value={"items": pods}):
+            self.assertEqual(runner.cilium_ready(), pods)
+        self.assertIn("--wait", status.call_args.args[0])
+        self.assertIn("--wait-duration=10m", status.call_args.args[0])
+        bad_sets = [pods[:4], pods + [pods[0]], copy.deepcopy(pods), copy.deepcopy(pods)]
+        bad_sets[2][0]["status"]["containerStatuses"][0]["ready"] = False
+        bad_sets[3][0]["status"]["containerStatuses"] = []
+        for bad in bad_sets:
+            with patch.object(runner, "command"), patch.object(runner, "kubectl", return_value={"items": bad}):
+                with self.assertRaisesRegex(RuntimeError, "five ready"):
+                    runner.cilium_ready()
+
+    def test_app_probe_waits_for_cilium_before_lease_or_traffic_and_stops_on_failure(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        trace = []
+        runner.l2 = SimpleNamespace(nodes={}, get_lease=lambda: trace.append("lease") or {"owned": True},
+                                    external=lambda lease: trace.append("probe") or {"accepted": True})
+        with patch.object(runner, "cilium_ready", side_effect=lambda: trace.append("cilium")), \
+                patch.object(runner, "kubectl", side_effect=lambda *a, **k: trace.append("rollout")), \
+                patch.object(q.l2, "validate_lease", side_effect=lambda *a: trace.append("validate")):
+            self.assertEqual(runner.app_probe(), {"accepted": True})
+        self.assertEqual(trace, ["cilium", "rollout", "lease", "validate", "probe"])
+        trace.clear()
+        failure = q.CommandFailure(1, 2, b"Forbidden")
+        with patch.object(runner, "cilium_ready", side_effect=failure), patch.object(runner, "kubectl") as app, \
+                patch.object(runner, "record_fixture_failure") as record:
+            with self.assertRaises(q.CommandFailure) as caught:
+                runner.app_probe()
+        self.assertIs(caught.exception, failure)
+        self.assertEqual(trace, [])
+        app.assert_not_called()
+        record.assert_called_once_with(failure)
 
     def test_private_merged_capture_reaps_child_without_persisting_stderr(self):
         children = []

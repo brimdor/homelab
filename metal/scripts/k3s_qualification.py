@@ -422,11 +422,20 @@ class Qualification(cq.Qualification):
                       "--security-opt=no-new-privileges", "--log-driver=none", "--entrypoint=python3", l2.IMAGE,
                       "-B", "-c", "import signal;signal.pause()"])
 
+    def cilium_ready(self):
+        self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
+                      "status", "--wait", "--wait-duration=10m", "--interactive=false"])
+        pods = self.kubectl("get", "pods", "-n", "kube-system", "-l", "k8s-app=cilium")["items"]
+        if len(pods) != 5 or any(not p["status"].get("containerStatuses") or not all(c["ready"] for c in p["status"]["containerStatuses"]) for p in pods):
+            raise RuntimeError("five ready native Cilium agents required")
+        return pods
+
     def app_probe(self):
-        self.kubectl("rollout", "status", "deployment/" + l2.NAME, "-n", l2.NAMESPACE, "--timeout=300s", json_output=False)
-        lease = self.l2.get_lease()
-        l2.validate_lease(lease, self.l2.nodes)
         try:
+            self.cilium_ready()
+            self.kubectl("rollout", "status", "deployment/" + l2.NAME, "-n", l2.NAMESPACE, "--timeout=300s", json_output=False)
+            lease = self.l2.get_lease()
+            l2.validate_lease(lease, self.l2.nodes)
             return self.l2.external(lease)
         except RuntimeError as error:
             self.record_fixture_failure(error)
@@ -435,11 +444,7 @@ class Qualification(cq.Qualification):
     def checkpoint(self, version, phase):
         self.ready()
         print(json.dumps({"phase": phase, "k3s": version, "cilium": CILIUM}), flush=True)
-        self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
-                      "status", "--wait", "--wait-duration=10m", "--interactive=false"])
-        pods = self.kubectl("get", "pods", "-n", "kube-system", "-l", "k8s-app=cilium")["items"]
-        if len(pods) != 5 or any(not p["status"].get("containerStatuses") or not all(c["ready"] for c in p["status"]["containerStatuses"]) for p in pods):
-            raise RuntimeError("five ready native Cilium agents required")
+        pods = self.cilium_ready()
         for pod in pods:
             self.kubectl("exec", "-n", "kube-system", pod["metadata"]["name"], "--", "test", "-d", "/sys/fs/cgroup/kubepods", json_output=False)
             raw = self.kubectl("exec", "-n", "kube-system", pod["metadata"]["name"], "--", "cilium-dbg", "version", json_output=False)
