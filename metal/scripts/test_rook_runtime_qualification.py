@@ -11,6 +11,40 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_three_copy_profile_preserves_two_copy_quorum_and_original_candidate(self):
+        arguments = ('qualification-12345678', 'rook-12345678', inventory())
+        original = subject.candidate.resources(*arguments)
+        rows = subject.resources(*arguments)
+        self.assertEqual(original[3]['spec']['replicated']['size'], 2)
+        self.assertEqual(rows[3]['spec']['replicated'], {'size': 3, 'requireSafeReplicaSize': True})
+        self.assertEqual(rows[3]['spec']['parameters']['min_size'], '2')
+        config = rows[2]['spec']['cephConfig']['global']
+        self.assertEqual(config['osd_pool_default_size'], '3')
+        self.assertEqual(config['osd_pool_default_min_size'], '2')
+        for key, value in config.items():
+            self.assertIn(key + ' = ' + value + '\n', rows[1]['data']['config'])
+        for key in ('skipUpgradeChecks', 'continueUpgradeAfterChecksEvenIfNotHealthy',
+                    'removeOSDsIfOutAndSafeToRemove'):
+            self.assertFalse(rows[2]['spec'][key])
+
+    def test_three_copy_objects_require_every_exact_osd_and_matching_up_set(self):
+        value = {'pool': 'qualification', 'objname': 'owned', 'acting': [2, 0, 1], 'up': [2, 0, 1]}
+        subject.require_three_copy_placement(value, 'owned')
+        for fields in ({'pool': 'foreign'}, {'objname': 'foreign'}, {'acting': [0, 1]},
+                       {'acting': [0, 1, 1]}, {'acting': [0, 1, 3]},
+                       {'acting': [0, True, 2]}, {'up': [0, 1, 2]}, {'acting': None}):
+            with self.subTest(fields=fields), self.assertRaises(RuntimeError):
+                subject.require_three_copy_placement(value | fields, 'owned')
+
+    def test_rolling_restart_requires_native_osd_safety_acceptance(self):
+        value = {'ok_to_stop': True, 'osds': [0], 'num_not_ok_pgs': 0}
+        subject.require_osd_stop_safety(value, 0)
+        for fields in ({'ok_to_stop': False}, {'ok_to_stop': 1}, {'osds': [1]},
+                       {'osds': [0, 1]}, {'osds': [False]}, {'num_not_ok_pgs': 1},
+                       {'num_not_ok_pgs': False}):
+            with self.subTest(fields=fields), self.assertRaises(RuntimeError):
+                subject.require_osd_stop_safety(value | fields, 0)
+
     def test_final_warning_gate_preserves_findings_from_every_prior_stage(self):
         subject.require_no_warnings([{'stage': name, 'events': []} for name in ('initial', 'final')])
         for rows in ([], [{'stage': 'initial', 'events': [{'reason': 'Failed'}]},

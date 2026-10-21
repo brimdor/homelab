@@ -33,8 +33,11 @@ def resources(name, disk_run, inventory):
     rows = candidate.resources(name, disk_run, inventory)
     # Rook disables this crashing Ceph 20.2.4 module; this profile cannot qualify it.
     rows[2]['spec']['mgr']['modules'] = [{'name': 'rook', 'enabled': False}]
-    rows[2]['spec']['cephConfig']['global'].update(MODES)
-    rows[1]['data']['config'] += ''.join(key + ' = secure\n' for key in MODES)
+    # Three copies retain min_size two while Rook safely restarts one OSD.
+    rows[2]['spec']['cephConfig']['global'].update(MODES, osd_pool_default_size='3')
+    rows[1]['data']['config'] = '[global]\n' + ''.join(
+        key + ' = ' + value + '\n' for key, value in rows[2]['spec']['cephConfig']['global'].items())
+    rows[3]['spec']['replicated']['size'] = 3
     return rows
 
 
@@ -183,6 +186,23 @@ def require_no_warnings(observations):
         raise RuntimeError('private fixture has unresolved warning events')
 
 
+def require_three_copy_placement(mapping, name):
+    acting = mapping.get('acting')
+    if (mapping.get('pool') != 'qualification' or mapping.get('objname') != name or
+            not isinstance(acting, list) or len(acting) != 3 or
+            any(type(osd) is not int for osd in acting) or set(acting) != {0, 1, 2} or
+            mapping.get('up') != acting):
+        raise RuntimeError('native three-copy object placement differs')
+
+
+def require_osd_stop_safety(value, osd):
+    reported = value.get('osds')
+    if (value.get('ok_to_stop') is not True or not isinstance(reported, list) or
+            any(type(number) is not int for number in reported) or reported != [osd] or
+            type(value.get('num_not_ok_pgs')) is not int or value['num_not_ok_pgs'] != 0):
+        raise RuntimeError('native OSD safety check refuses rolling restart')
+
+
 def storage_observation(status, osds, pools):
     value = ceph_checks.replica_health_diagnostic(status, pools)
     states = status.get('pgmap', {}).get('pgs_by_state', [])
@@ -263,7 +283,7 @@ class Qualification(images.Qualification):
         super().__init__(args)
         self.stage = 'preflight'
         self.evidence = {'accepted': False, 'stages': [], 'warning_observations': [],
-                         'scope': 'modern-rados-without-rook-orchestrator',
+                         'scope': 'modern-rados-three-copy-without-rook-orchestrator',
                          'rook_orchestrator_qualified': False}
         self.fsid = None
         self.osds = None
@@ -349,7 +369,8 @@ class Qualification(images.Qualification):
                      '--kubeconfig-switch-context=false',
                      '--volume=/run/udev:/run/udev:ro@server:*;agent:*',
                      '--k3s-arg=--cluster-cidr=172.20.0.0/16@server:*',
-                     '--k3s-arg=--service-cidr=172.21.0.0/16@server:*']
+                     '--k3s-arg=--service-cidr=172.21.0.0/16@server:*',
+                     '--k3s-arg=--kubelet-arg=v=1@server:*;agent:*']
         arguments.extend('--k3s-arg=--disable=' + name + '@server:*'
                          for name in ('traefik', 'servicelb', 'local-storage', 'metrics-server'))
         # Privileged k3d nodes share guest devices; hide the other two raw paths per node.
@@ -491,8 +512,10 @@ class Qualification(images.Qualification):
         manager = self.ceph('mgr', 'dump')
         if len(manager.get('standbys', [])) != 1:
             raise RuntimeError('native Rook manager redundancy differs')
-        if not pools or any(row.get('size') != 2 or row.get('min_size') != 2 for row in pools):
+        if not pools or any(row.get('size') != 3 or row.get('min_size') != 2 for row in pools):
             raise RuntimeError('native Rook pool redundancy differs')
+        for osd in range(3):
+            require_osd_stop_safety(self.ceph('osd', 'ok-to-stop', str(osd)), osd)
         monitors = self.ceph('mon', 'dump')
         require_mon_security(monitors)
         entities = messenger_entities(monitors, manager)
@@ -590,11 +613,11 @@ class Qualification(images.Qualification):
         self.evidence['stages'].append({'name': label, 'health': 'HEALTH_OK', 'generation': generation,
                                         'fsid': self.fsid, 'osd_uuids': dict(observed_osds),
                                         'resource_uids': list(uids), 'modern_key_count': len(keys),
-                                        'all_pools_size_and_min_size': 2})
+                                        'all_pools_size': 3, 'all_pools_min_size': 2,
+                                        'all_osds_native_ok_to_stop': True})
         return current
 
     def objects(self, write=False):
-        used = set()
         for number in range(64):
             name = f'replica-{number:03d}'
             payload = hashlib.sha256(str(number).encode()).digest() * 512
@@ -604,11 +627,8 @@ class Qualification(images.Qualification):
             self.tools('rados', '-p', 'qualification', 'get', name, '/work/readback')
             if self.tools('cat', '/work/readback') != payload:
                 raise RuntimeError('native Rook object bytes differ')
-            used.update(ceph_checks.replica_placement(self.ceph('osd', 'map', 'qualification', name),
-                                                      name, {0, 1, 2}))
-        if used != {0, 1, 2}:
-            raise RuntimeError('native Rook object placement omits an OSD')
-        self.evidence['stages'][-1].update(objects_verified=64, two_copy_placement_verified=True)
+            require_three_copy_placement(self.ceph('osd', 'map', 'qualification', name), name)
+        self.evidence['stages'][-1].update(objects_verified=64, three_copy_placement_verified=True)
 
     def run(self, fixture, inventory, identities):
         """The tracked parent must destroy the entire VM on every outcome."""
