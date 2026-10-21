@@ -10,6 +10,7 @@ import re
 import signal
 import socket
 import subprocess
+import time
 import urllib.request
 
 import yaml
@@ -145,6 +146,21 @@ def command_failure(arguments, code, raw):
                if word.encode() in raw.lower()]
     return {'executable': Path(arguments[0]).name, 'exit': code, 'markers': markers,
             'raw_output_retained': False}
+
+
+def storage_observation(status, osds, pools):
+    value = ceph_checks.replica_health_diagnostic(status, pools)
+    states = status.get('pgmap', {}).get('pgs_by_state', [])
+    names = [row.get('state_name', '') for row in states]
+    if (any(not isinstance(name, str) or not re.fullmatch(r'[a-z_+]{1,128}', name) for name in names) or
+            len(osds) != 3 or {row.get('osd') for row in osds} != {0, 1, 2} or
+            any(type(row.get(key)) is not int or row[key] not in (0, 1)
+                for row in osds for key in ('up', 'in'))):
+        raise RuntimeError('native storage diagnostic evidence shape differs')
+    available = status.get('mgrmap', {}).get('available')
+    value.update(pg_states=sorted(names), manager_available=available if type(available) is bool else None,
+                 osds=[{key: row[key] for key in ('osd', 'up', 'in')} for row in osds])
+    return value
 
 
 def require_toolbox(value):
@@ -372,8 +388,27 @@ class Qualification(images.Qualification):
             self.kubectl('delete', 'pod', 'qualification-tools', '-n', candidate.NAMESPACE,
                          '--wait=true', '--timeout=180s', json_output=False)
         self.wait('--for=create', 'secret/rook-ceph-mon', '-n', candidate.NAMESPACE)
+        self.wait('--for=create', 'configmap/rook-ceph-mon-endpoints', '-n', candidate.NAMESPACE)
         self.apply([toolbox()])
         self.wait('pod/qualification-tools', '-n', candidate.NAMESPACE, '--for=condition=Ready')
+
+    def storage_ready(self):
+        deadline = time.monotonic() + 1200
+        polls = 0
+        while True:
+            status = self.ceph('status')
+            self.fsid = self.fsid or status['fsid']
+            osds = self.ceph('osd', 'dump')['osds']
+            pools = self.ceph('osd', 'pool', 'ls', 'detail')
+            observation = storage_observation(status, osds, pools)
+            polls += 1
+            self.evidence['last_storage_observation'] = observation
+            self.evidence['storage_readiness_polls'] = polls
+            if ceph_checks.replica_state(status, osds, {0, 1, 2}, self.fsid):
+                return status, pools
+            if time.monotonic() >= deadline:
+                raise RuntimeError('native Rook storage did not converge to the required healthy state')
+            time.sleep(2)
 
     def snapshot(self, fixture, identities, requested, generation, label):
         self.stage = label
@@ -386,6 +421,8 @@ class Qualification(images.Qualification):
                   '--for=jsonpath={.status.phase}=Ready')
         self.wait('cephcluster/' + candidate.NAMESPACE, '-n', candidate.NAMESPACE,
                   '--for=jsonpath={.status.ceph.health}=HEALTH_OK')
+        self.wait('cephblockpool/qualification', '-n', candidate.NAMESPACE,
+                  '--for=jsonpath={.status.phase}=Ready')
         cluster = self.kubectl('get', 'cephcluster', candidate.NAMESPACE, '-n', candidate.NAMESPACE)
         pool = self.kubectl('get', 'cephblockpool', 'qualification', '-n', candidate.NAMESPACE)
         candidate.require_admitted_profile(requested[2:], [cluster, pool])
@@ -394,16 +431,11 @@ class Qualification(images.Qualification):
         if self.resource_uids is not None and uids != self.resource_uids:
             raise RuntimeError('Rook resource identities changed')
         self.resource_uids = uids
-        status = self.ceph('status')
-        self.fsid = self.fsid or status['fsid']
-        osds = self.ceph('osd', 'dump')['osds']
-        if not ceph_checks.replica_state(status, osds, {0, 1, 2}, self.fsid):
-            raise RuntimeError('native Rook storage is not healthy')
+        status, pools = self.storage_ready()
         if len(status.get('quorum_names', [])) != 3:
             raise RuntimeError('native Rook monitor quorum differs')
         if len(self.ceph('mgr', 'dump').get('standbys', [])) != 1:
             raise RuntimeError('native Rook manager redundancy differs')
-        pools = self.ceph('osd', 'pool', 'ls', 'detail')
         if not pools or any(row.get('size') != 2 or row.get('min_size') != 2 for row in pools):
             raise RuntimeError('native Rook pool redundancy differs')
         require_mon_security(self.ceph('mon', 'dump'))
@@ -525,6 +557,8 @@ class Qualification(images.Qualification):
         self.apply(requested[:2])
         self.operator('1.20.9')
         self.apply(requested[2:])
+        self.wait('cephcluster/' + candidate.NAMESPACE, '-n', candidate.NAMESPACE,
+                  '--for=jsonpath={.status.phase}=Ready')
         self.clients()
         self.snapshot(fixture, identities, requested, 1, 'initial')
         self.objects(write=True)

@@ -4,13 +4,55 @@
 import copy
 import json
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import rook_runtime_qualification as subject
 from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_storage_waits_for_native_convergence_without_weakening_identity_or_health(self):
+        healthy = {'fsid': 'owned', 'health': {'status': 'HEALTH_OK', 'checks': {}},
+                   'mgrmap': {'available': True},
+                   'pgmap': {'pgs_by_state': [{'state_name': 'active+clean'}]}}
+        pending = healthy | {'pgmap': {'pgs_by_state': [{'state_name': 'peering'}]}}
+        osds = [{'osd': number, 'up': 1, 'in': 1} for number in range(3)]
+        pools = [{'pool_name': 'qualification', 'pool_id': 1, 'size': 2, 'min_size': 2}]
+        runner = object.__new__(subject.Qualification)
+        runner.fsid = None
+        runner.evidence = {}
+        runner.ceph = Mock(side_effect=[pending, {'osds': osds}, pools,
+                                        healthy, {'osds': osds}, pools])
+        with patch.object(subject.time, 'sleep') as sleep:
+            self.assertEqual(runner.storage_ready(), (healthy, pools))
+            sleep.assert_called_once_with(2)
+        self.assertEqual(runner.evidence['storage_readiness_polls'], 2)
+        for changed in (healthy | {'fsid': 'foreign'},
+                        healthy | {'health': {'status': 'HEALTH_WARN', 'checks': {'OSD_DOWN': {}}}}):
+            runner.ceph = Mock(side_effect=[changed, {'osds': osds}, pools])
+            with self.assertRaises(RuntimeError):
+                runner.storage_ready()
+        runner.ceph = Mock(side_effect=[pending, {'osds': osds}, pools])
+        with patch.object(subject.time, 'monotonic', side_effect=[0, 1200]), self.assertRaises(RuntimeError):
+            runner.storage_ready()
+        self.assertEqual(runner.evidence['last_storage_observation']['pg_states'], ['peering'])
+
+    def test_native_storage_diagnostic_records_missing_manager_and_pending_pgs_without_raw_output(self):
+        status = {'health': {'status': 'HEALTH_OK', 'checks': {}},
+                  'pgmap': {'pgs_by_state': [{'state_name': 'peering'}]}}
+        osds = [{'osd': number, 'up': 1, 'in': 1} for number in range(3)]
+        pools = [{'pool_name': 'qualification', 'pool_id': 1, 'size': 2, 'min_size': 2}]
+        result = subject.storage_observation(status, osds, pools)
+        self.assertEqual(result['pg_states'], ['peering'])
+        self.assertIsNone(result['manager_available'])
+        self.assertEqual(result['osds'], osds)
+        for changed in (osds[:2], [osds[0] | {'up': 'unknown'}, *osds[1:]]):
+            with self.assertRaises(RuntimeError):
+                subject.storage_observation(status, changed, pools)
+        with self.assertRaises(RuntimeError):
+            subject.storage_observation(status | {'pgmap': {'pgs_by_state': [{'state_name': 'unsafe\nraw'}]}},
+                                        osds, pools)
+
     def test_node_visibility_assigns_one_exact_device_and_masks_only_other_owned_raw_paths(self):
         names = ['rook-12345678-' + str(n) for n in range(3)]
         rows = subject.node_layout(inventory(), names)
