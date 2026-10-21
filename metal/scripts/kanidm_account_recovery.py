@@ -84,12 +84,15 @@ def account_changes(before, after):
         for key in original.keys() | updated.keys():
             if key == 'last_modified_cid' or original.get(key) == updated.get(key):
                 continue
-            if original.get('name') != {'IN': ['admin']} or key != 'primary_credential':
+            if (original.get('name') != {'IN': ['admin']} or
+                    original.get('passkeys') or original.get('account_expire') or
+                    key not in {'primary_credential', 'account_valid_from'}):
                 raise RuntimeError('unapproved account attribute change')
             changes.append(key)
-    if changes != ['primary_credential']:
+    if set(changes) != {'primary_credential', 'account_valid_from'} or len(changes) != 2:
         raise RuntimeError('expected single existing administrator credential change missing')
-    return {'all_entry_identities_preserved': True, 'only_admin_primary_credential_changed': True}
+    return {'all_entry_identities_preserved': True, 'only_admin_native_recovery_fields_changed': True,
+            'admin_changed_fields': sorted(changes), 'no_existing_admin_passkeys_or_expiry_removed': True}
 
 
 def require_server(container, root, run_id, image_id):
@@ -208,7 +211,7 @@ def recover(point, checksum, rehearsal_id, restore_id):
         raise RuntimeError('fresh native restore qualification missing')
     proof = json.loads((point / ('account-rehearsal-' + rehearsal_id + '.json')).read_bytes())
     if (not proof.get('accepted') or proof.get('manifest_sha256') != checksum or
-            not proof.get('only_admin_primary_credential_changed') or
+            not proof.get('only_admin_native_recovery_fields_changed') or
             not proof.get('cleanup', {}).get('scratch_absent')):
         raise RuntimeError('approved account rehearsal proof missing')
     retained.source_identity('kanidm')
