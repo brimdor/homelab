@@ -31,9 +31,10 @@ class ImageTests(unittest.TestCase):
                 subject.default_key_metadata(raw)
 
     def test_versions_are_exact_and_bounded(self):
-        subject.require_version(b'rook: v1.21.0\n', '1.21.0', rook=True)
+        subject.require_version(b'rook: v1.21.0\ngo: go1.25.1\n', '1.21.0', rook=True)
         subject.require_version(b'ceph version 20.2.4 (public-hash) tentacle (stable)\n', '20.2.4')
-        for raw in [b'rook: v1.21.01\n', b'rook: v1.21.0\nextra', b'x' * 1025]:
+        for raw in [b'rook: v1.21.01\ngo: go1.25.1\n', b'rook: v1.21.0\nextra',
+                    b'rook: v1.21.0\n', b'rook: v1.21.0\ngo: go1.25.1\nextra', b'x' * 1025]:
             with self.assertRaises(RuntimeError):
                 subject.require_version(raw, '1.21.0', rook=True)
 

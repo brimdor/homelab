@@ -39,9 +39,10 @@ def default_key_metadata(raw):
 
 
 def require_version(raw, version, rook=False):
-    prefix = rb'rook: v' if rook else rb'ceph version '
-    if (not isinstance(raw, bytes) or len(raw) > 1024 or
-            not re.fullmatch(prefix + re.escape(version.encode()) + rb'(?:[ \t]+[^\r\n]*)?\r?\n?', raw)):
+    pattern = (rb'rook: v' + re.escape(version.encode()) +
+               rb'\r?\ngo: go[1-9][0-9]*\.[0-9]+\.[0-9]+\r?\n?') if rook else (
+                   rb'ceph version ' + re.escape(version.encode()) + rb'(?:[ \t]+[^\r\n]*)?\r?\n?')
+    if not isinstance(raw, bytes) or len(raw) > 1024 or not re.fullmatch(pattern, raw):
         raise RuntimeError('pinned native image version differs')
 
 
