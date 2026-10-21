@@ -18,11 +18,22 @@ TOOLS = {'colima': '/opt/homebrew/bin/colima', 'lima': '/opt/homebrew/bin/limact
          'docker': '/opt/homebrew/bin/docker'}
 
 
+class DiskIdentityError(RuntimeError):
+    def __init__(self, observation):
+        super().__init__('owned blank disk file identity differs')
+        self.observation = observation
+
+
 def file_identity(path):
     metadata = path.lstat()
-    if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid() or
-            metadata.st_size != DISK_BYTES or any(p.is_symlink() for p in (path, *path.parents))):
-        raise RuntimeError('owned blank disk file identity differs')
+    observation = {'regular_file': stat.S_ISREG(metadata.st_mode),
+                   'owned_by_current_user': metadata.st_uid == os.getuid(),
+                   'bytes': metadata.st_size, 'expected_bytes': DISK_BYTES,
+                   'symlink': path.is_symlink(),
+                   'ancestor_symlink': any(p.is_symlink() for p in path.parents)}
+    if (not observation['regular_file'] or not observation['owned_by_current_user'] or
+            metadata.st_size != DISK_BYTES or observation['symlink'] or observation['ancestor_symlink']):
+        raise DiskIdentityError(observation)
     with path.open('rb') as source:
         first = source.read(512)
         source.seek(-512, 2)

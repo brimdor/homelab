@@ -35,8 +35,12 @@ class DiskGuardTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 subject.file_identity(path)
             path.write_bytes(b'wrong size')
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(subject.DiskIdentityError) as rejected:
                 subject.file_identity(path)
+            self.assertEqual(rejected.exception.observation,
+                             {'regular_file': True, 'owned_by_current_user': True,
+                              'bytes': 10, 'expected_bytes': subject.DISK_BYTES,
+                              'symlink': False, 'ancestor_symlink': False})
             path.unlink()
             path.symlink_to('/etc/hosts')
             with self.assertRaises(RuntimeError):
