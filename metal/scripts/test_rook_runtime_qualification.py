@@ -12,7 +12,162 @@ import rook_runtime_qualification as subject
 from test_rook_native_candidate import inventory
 
 
+def warning_case():
+    stages = [{'name': name, 'generation': generation, 'health': 'HEALTH_OK',
+               'objects_verified': 64, 'three_copy_placement_verified': True,
+               'resource_uids': ['ceph-uid', 'pool-uid'], 'observed_at': when}
+              for name, generation, when in (
+                  ('initial', 1, '2026-10-21T19:07:00Z'),
+                  ('operator-restart', 1, '2026-10-21T19:08:00Z'),
+                  ('daemon-generation-two', 2, '2026-10-21T19:10:00Z'),
+                  ('operator-1.21.0', 2, '2026-10-21T19:12:00Z'))]
+    events = []
+    def event(uid, reason, message, obj, when, reporter, source=None, legacy=False):
+        return subject.warning_record({
+            'metadata': {'uid': uid}, 'reason': reason, 'message': message,
+            'involvedObject': obj, 'reportingComponent': reporter, 'source': source or {},
+            'count': 1 if legacy else None, 'firstTimestamp': when if legacy else None,
+            'lastTimestamp': when if legacy else None, 'eventTime': None if legacy else when})
+    events.append(event('gc-warning', 'InvalidDiskCapacity', 'invalid capacity 0 on image filesystem',
+                        {'kind': 'Node', 'name': 'owned-0', 'uid': 'owned-0'},
+                        '2026-10-21T19:00:00Z', 'kubelet',
+                        {'component': 'kubelet', 'host': 'owned-0'}, legacy=True))
+    events.append(event('ip-warning', 'IPAddressWrongReference',
+                        'IPAddress: 172.21.0.8 for Service rook-qualification/rook-ceph-mgr '
+                        'has a wrong reference; cleaning up',
+                        {'kind': 'IPAddress', 'name': '172.21.0.8', 'uid': 'old-ip-uid'},
+                        '2026-10-21T19:01:00Z', 'ipallocator-repair-controller'))
+    events.append(event('mon-warning', 'ReconcileFailed',
+                        'triggering a new reconcile to restart the mon daemons after mon cephx key rotation',
+                        {'kind': 'CephCluster', 'namespace': 'rook-qualification',
+                         'name': 'rook-qualification', 'uid': 'ceph-uid'},
+                        '2026-10-21T19:09:00Z', 'rook-ceph-cluster-controller'))
+    uids = {'owned-' + str(n): 'node-uid-' + str(n) for n in range(3)}
+    evidence = {'cluster_uid': 'cluster-uid', 'node_uids': uids, 'stages': stages,
+                'core_key_changes': subject.core_key_changes(
+                    {key: 'before' for key in ('client.admin', 'mon.', 'mgr.a', 'mgr.b',
+                                               'osd.0', 'osd.1', 'osd.2')},
+                    {key: 'after' for key in ('client.admin', 'mon.', 'mgr.a', 'mgr.b',
+                                              'osd.0', 'osd.1', 'osd.2')}),
+                'warning_observations': [{'stage': stage['name'], 'events': events[:2] if n < 2 else events}
+                                         for n, stage in enumerate(stages)]}
+    witness = {'cluster_uid': 'cluster-uid', 'events': events, 'nodes': {
+        name: {'uid': uid, 'created': '2026-10-21T19:00:00Z',
+               'conditions': [{'type': key, 'status': value} for key, value in (
+                   ('Ready', 'True'), ('DiskPressure', 'False'),
+                   ('MemoryPressure', 'False'), ('PIDPressure', 'False'))],
+               'gc': {'initial_failures': ['2026-10-21T19:00:00.1Z'],
+                      'repeated_failures': [], 'successes': ['2026-10-21T19:05:00Z']},
+               'image_fs': {'time': '2026-10-21T19:12:10Z', 'capacityBytes': 100,
+                            'availableBytes': 50, 'usedBytes': 50, 'inodes': 100, 'inodesFree': 50}}
+        for name, uid in uids.items()},
+        'services': [{'name': 'rook-ceph-mgr', 'namespace': 'rook-qualification',
+                      'uid': 'service-uid', 'ips': ['172.21.0.9']}],
+        'addresses': [{'name': '172.21.0.9', 'uid': 'current-ip-uid',
+                       'parent': {'resource': 'services', 'namespace': 'rook-qualification',
+                                  'name': 'rook-ceph-mgr'}}],
+        'observed_at': '2026-10-21T19:12:20Z'}
+    return evidence, witness
+
+
 class RuntimeGuardTests(unittest.TestCase):
+    def test_warning_resolution_requires_native_recovery_for_every_exact_event(self):
+        evidence, witness = warning_case()
+        result = subject.require_warning_resolutions(evidence, witness)
+        self.assertEqual({row['warning_uid'] for row in result}, {'gc-warning', 'ip-warning', 'mon-warning'})
+        self.assertEqual(len(result), 3)
+        self.assertEqual(len(witness['events']), 3)
+        for kind in ('unknown', 'wrong-source', 'wrong-count', 'wrong-object', 'series',
+                     'no-gc', 'repeated-gc', 'zero-capacity', 'stale-fs', 'node-uid',
+                     'node-pressure', 'old-ip', 'orphan-ip', 'duplicate-ip', 'bad-parent',
+                     'foreign-service', 'unrotated-key', 'wrong-key-entity', 'old-mon-event',
+                     'wrong-cluster', 'missing-object-check', 'missing-stage', 'missing-event'):
+            evidence, witness = warning_case()
+            gc, ip, mon = witness['events']
+            node = witness['nodes']['owned-0']
+            if kind == 'unknown':gc['reason'] = 'FailedMount'
+            elif kind == 'wrong-source':gc['source']['host'] = 'foreign'
+            elif kind == 'wrong-count':gc['count'] = 2
+            elif kind == 'wrong-object':mon['object']['uid'] = 'foreign'
+            elif kind == 'series':ip['series'] = {'count': 2}
+            elif kind == 'no-gc':node['gc']['successes'] = []
+            elif kind == 'repeated-gc':node['gc']['repeated_failures'] = ['2026-10-21T19:06:00Z']
+            elif kind == 'zero-capacity':node['image_fs']['capacityBytes'] = 0
+            elif kind == 'stale-fs':node['image_fs']['time'] = '2026-10-21T19:00:00Z'
+            elif kind == 'node-uid':node['uid'] = 'foreign'
+            elif kind == 'node-pressure':node['conditions'][1]['status'] = 'True'
+            elif kind == 'old-ip':witness['addresses'][0]['uid'] = 'old-ip-uid'
+            elif kind == 'orphan-ip':witness['addresses'].append(witness['addresses'][0] | {'name': '172.21.0.7'})
+            elif kind == 'duplicate-ip':witness['services'].append(witness['services'][0])
+            elif kind == 'bad-parent':witness['addresses'][0]['parent']['resource'] = 'foreign'
+            elif kind == 'foreign-service':ip['allocation'][1] = 'foreign'
+            elif kind == 'unrotated-key':evidence['core_key_changes'][0]['changed'] = False
+            elif kind == 'wrong-key-entity':evidence['core_key_changes'][0]['entity'] = 'foreign'
+            elif kind == 'old-mon-event':mon['event_time'] = '2026-10-21T19:01:00Z'
+            elif kind == 'wrong-cluster':witness['cluster_uid'] = 'foreign'
+            elif kind == 'missing-object-check':evidence['stages'][3]['objects_verified'] = 0
+            elif kind == 'missing-stage':evidence['stages'].pop()
+            elif kind == 'missing-event':witness['events'] = witness['events'][:-1]
+            with self.subTest(kind=kind), self.assertRaises(RuntimeError):
+                subject.require_warning_resolutions(evidence, witness)
+
+    def test_warning_record_and_gc_parser_do_not_retain_private_log_output(self):
+        record = subject.warning_record({'metadata': {'uid': 'owned'}, 'message': 'private-output'})
+        self.assertNotIn('private-output', json.dumps(record))
+        raw = (b'2026-10-21T19:00:00Z private-output\n'
+               b'2026-10-21T19:00:01Z Image garbage collection failed once. Stats initialization may not have completed yet\n'
+               b'2026-10-21T19:05:01Z Image garbage collection succeeded\n')
+        result = subject.image_gc_observation(raw)
+        self.assertNotIn('private-output', json.dumps(result))
+        self.assertEqual(result['successes'], ['2026-10-21T19:05:01Z'])
+        with self.assertRaises(RuntimeError):
+            subject.image_gc_observation(b'bad-time Image garbage collection succeeded')
+        with self.assertRaises(RuntimeError):
+            subject.timestamp('2026-10-21T19:00:00')
+
+    def test_changed_or_vanished_warning_evidence_cannot_be_reinterpreted(self):
+        evidence, witness = warning_case()
+        witness = copy.deepcopy(witness)
+        witness['events'][0]['message_sha256'] = 'changed'
+        with self.assertRaises(RuntimeError):
+            subject.require_warning_resolutions(evidence, witness)
+        witness['events'] = []
+        with self.assertRaises(RuntimeError):
+            subject.require_warning_resolutions(evidence, witness)
+
+    def test_witness_reads_exact_native_nodes_logs_stats_and_allocations(self):
+        evidence, witness = warning_case()
+        runner = object.__new__(subject.Qualification)
+        runner.identity = Mock()
+        runner.cluster_uid, runner.node_uids = evidence['cluster_uid'], evidence['node_uids']
+        runner.resource_uids = ('ceph-uid', 'pool-uid')
+        cluster = {'metadata': {'uid': 'ceph-uid'}, 'status': {
+            'phase': 'Ready', 'ceph': {'health': 'HEALTH_OK'},
+            'cephx': {key: {'keyGeneration': 2, 'keyCephVersion': '20.2.4-0'}
+                      for key in subject.CORE_KEYS}}}
+        nodes = [{'metadata': {'name': name, 'uid': row['uid'], 'creationTimestamp': row['created']},
+                  'status': {'conditions': row['conditions']}} for name, row in witness['nodes'].items()]
+        stats = {'node': {'runtime': {'imageFs': witness['nodes']['owned-0']['image_fs']}}}
+        runner.kubectl = Mock(side_effect=[cluster, {'items': nodes},
+                                            json.dumps(stats), json.dumps(stats), json.dumps(stats),
+                                            {'items': []}, {'items': []}, {'items': []}])
+        runner.command = Mock(return_value=b'2026-10-21T19:05:00Z Image garbage collection succeeded\n')
+        result = runner.warning_witness()
+        self.assertEqual(set(result['nodes']), set(evidence['node_uids']))
+        self.assertEqual(result['events'], [])
+        self.assertEqual(runner.command.call_count, 3)
+        for call in runner.command.call_args_list:
+            self.assertTrue(call.kwargs['combined'])
+            self.assertEqual(call.args[0][:3], ['docker', 'logs', '--timestamps'])
+        for call in runner.kubectl.call_args_list[2:5]:
+            self.assertFalse(call.kwargs['json_output'])
+            self.assertIn('/proxy/stats/summary', call.args[1])
+        runner.kubectl = Mock(return_value=cluster | {'metadata': {'uid': 'foreign'}})
+        runner.command.reset_mock()
+        with self.assertRaises(RuntimeError):
+            runner.warning_witness()
+        runner.command.assert_not_called()
+
     def test_monitor_key_requires_exact_native_entity_and_modern_key(self):
         key = base64.b64encode(struct.pack('<HIIH', 2, 1, 0, 32) + bytes(32)).decode()
         self.assertEqual(subject.native_monitor_key([{'entity': 'mon.', 'key': key}]), key)

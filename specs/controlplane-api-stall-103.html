@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Issue 103: control-plane API stall</title>
+  <style>
+    body{background:#10151d;color:#e1e8f1;font:17px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}
+    a,code{color:#93c5fd}h1,h2{color:#f9fafb}table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #42516a;text-align:left;padding:.6rem;vertical-align:top}
+  </style>
+</head>
+<body>
+  <h1>Issue 103: control-plane API stall</h1>
+  <p><strong>CONTROLPLANE_API_STALL: INCOMPLETE.</strong> This records the newly observed
+    2026-10-21 incident and its repair prerequisites. No production repair is represented here.</p>
+
+  <h2>Requirement and protected scope</h2>
+  <p>Establish the cause of slow persistent I/O preceding Bulbasaur's controller-manager lease loss
+    and K3s restart. Repair a proven software cause through repository desired state and verify
+    control-plane, storage and affected application behavior. Preserve lease/probe settings,
+    quorum, production data, original recovery material and the owner's rolling-restart schedule.</p>
+  <p>This incident occurred at 13:42–13:43 America/Chicago, outside the reported Monday/Wednesday/Friday
+    02:00 window. Source cron and Kured settings remain unchanged. Timing alone does not establish cause.</p>
+
+  <h2>Observed sequence, UTC</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Native observation</th><th>Evidence receipt</th></tr></thead>
+    <tbody>
+      <tr><td>18:42:37.670364</td><td>Ceph monitor mon.l starts RocksDB compaction job 840,
+        input 82946744 bytes, on Bulbasaur's root filesystem.</td><td>jd32wukm; ldtiwixn</td></tr>
+      <tr><td>18:42:41.945414</td><td>Embedded etcd reports WAL fdatasync 4.269530167 seconds.</td><td>qux5v0jv</td></tr>
+      <tr><td>18:42:42.243968</td><td>Etcd reports heartbeat delays 3.406210846/3.40633348 seconds.</td><td>qux5v0jv</td></tr>
+      <tr><td>18:42:47.329006</td><td>Another WAL fdatasync takes 5.084968953 seconds.</td><td>qux5v0jv</td></tr>
+      <tr><td>18:42:47.811072</td><td>Controller-manager cannot renew its lease, then reports leadership loss.</td><td>8ima6kkm</td></tr>
+      <tr><td>18:42:50.028077</td><td>Systemd records k3s.service exit 1/FAILURE.</td><td>8qzmgrov</td></tr>
+      <tr><td>18:42:50.190118</td><td>RocksDB job 840's embedded event timestamp records completion;
+        native compaction_time_micros 12213560. Its outer log delivery timestamp is 18:43:19.664538,
+        a 29.474420-second delivery delay. Do not substitute delivery time for native event time.</td><td>ldtiwixn</td></tr>
+      <tr><td>18:42:52;18:43:10</td><td>NFD workers on Squirtle and Pikachu report connection refused
+        to Kubernetes Service 10.43.0.1:443.</td><td>3gdcc2c2</td></tr>
+      <tr><td>18:42:55;18:43:26</td><td>Systemd starts K3s again and records it active.</td><td>d1b863l1</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Storage and workload correlation</h2>
+  <p>Etcd WAL resides on ext4 /dev/sda2. The same filesystem contains mon.l's host path
+    /var/lib/rook/mon-l/data. Exact monitor Pod UID 33c73d28-1501-495b-a332-8c2f50287965
+    and CephCluster UID 901ad331-70b6-40cf-8654-2c6ed97a06b2 bind the observations.
+    Historical container I/O shows the monitor as the largest observed container writer to /dev/sda
+    in the sampled interval, peaking at 3306030.57 bytes/second on one-minute rates. Do not add the
+    parent Pod cgroup series to its container series; that would double-count writes.</p>
+  <p>The physical disk is KingFast. An old /dev/sda3 BlueStore signature remains, but the current
+    Ceph OSD tree assigns no OSD to Bulbasaur. Desired state already excludes its old osd.4 because
+    of historical BlueFS stalled-read alerts. This incident does not prove active OSD contention
+    or identify the historical failing component. Never delete the partition or data from its signature.</p>
+  <p>Node one-minute rates reached disk busy fraction 0.8092333, write await 0.2985022 seconds and
+    flush await 0.0503090 seconds. Root free fraction stayed at least 0.4221973; average CPU-used
+    fraction peaked at 0.528. These averages cannot rule out shorter stalls or per-thread starvation.
+    Native monitor compaction overlaps the slow WAL and leadership loss, supporting shared I/O
+    contention as an investigation path; correlation does not prove whether compaction caused the
+    stall or both processes suffered the same underlying device delay.</p>
+
+  <h2>Evidence limits and corrections</h2>
+  <ul>
+    <li>qux5v0jv collected native journal records through strict authenticated SSH. No kernel records
+      were available in that journal window. The later current dmesg ring had no selected I/O/OOM
+      error markers. Neither result proves hardware fault-free.</li>
+    <li>rus4miyc returned no historical etcd metric series. Native localhost port 2381 metrics are available
+      now, as proved by 7k5nh468; they cannot reconstruct the missing pre-restart history.</li>
+    <li>jd32wukm normalizes offsets before time filtering and supersedes the naive string filters
+      in 9dbap2tc and or45zwaw. Their original observations remain preserved. In the corrected window,
+      one native RocksDB Stalls(count) record reports all zeros; a text match for stall is not a
+      nonzero stall count.</li>
+    <li>The tagged Ceph source defines compact_lasted as the last completed duration, not a
+      cumulative counter. The earlier increase query in or45zwaw is invalid for that field.
+      ldtiwixn records a corrected direct gauge query and distinct native/delivery timestamps.</li>
+    <li>d_s77_u1 proves all three API endpoints and the VIP pass native readyz after recovery.
+      Current readiness and Ceph HEALTH_OK do not resolve the underlying incident.</li>
+  </ul>
+
+  <h2>Execution plan and gates</h2>
+  <ol>
+    <li>Preserve the dated native and historical evidence. Keep this task open until the cause and
+      repair are demonstrated. Continue independent authorized maintenance.</li>
+    <li>Before any stateful relocation or node/storage intervention, satisfy the relevant protected
+      recovery and physical-storage prerequisites. Record exact source/destination media, live
+      consumer identities, Ceph monitor quorum, etcd recovery points, capacity and tested recovery.
+      Existing broad RECOVERY_PROOF and METAL_STORAGE_PATH tasks retain their own scopes.</li>
+    <li>Assess separating Ceph monitor and etcd persistent I/O only after those gates. A prospective
+      monitor placement change requires a verified independent destination and an isolated test of
+      the owning Rook failover workflow. Do not assume an affinity edit safely migrates hostPath data.</li>
+    <li>Define any selected repair in the owning chart or metal configuration. Render or syntax-check,
+      review exact identities and rollback, commit/push to canonical Gitea master, then use the owning
+      deployment workflow. No live-only pod, filesystem, service or timing edits.</li>
+    <li>Verify actual control-plane API/lease stability, native storage latency, Ceph quorum/health,
+      expected workload behavior, retained warnings and all six completion layers. A quiet observation
+      interval alone is not a cause or repair proof.</li>
+  </ol>
+  <p>Physical isolation, missing trusted access, recovery failure and explicit release approval remain
+    scoped gates. Do not stress or benchmark suspect production media, run SMART self-tests, change
+    link/firmware settings, disable durability, compact databases manually, or enlarge lease/probe
+    timeouts to manufacture success. No production mutation occurred in this evidence batch, so
+    rollback is unnecessary; a later repair needs its own exact source and data rollback plan.</p>
+
+  <h2>Primary sources</h2>
+  <ul>
+    <li><a href="https://etcd.io/docs/v3.5/faq/">Etcd: disk latency, apply delays and missed heartbeats</a></li>
+    <li><a href="https://raw.githubusercontent.com/kubernetes/kubernetes/v1.33.6/cmd/kube-controller-manager/app/controllermanager.go">Controller-manager leadership-loss exit</a></li>
+    <li><a href="https://raw.githubusercontent.com/ceph/ceph/v20.2.1/src/kv/RocksDBStore.cc">Ceph 20.2.1 native compaction metric semantics</a></li>
+    <li><a href="https://docs.k3s.io/cli/server">K3s server and etcd configuration contract</a></li>
+  </ul>
+</body>
+</html>

@@ -2,6 +2,7 @@
 """Exercise fresh modern-only Rook storage inside the owned serial-bound VM."""
 
 import copy
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -202,6 +203,151 @@ def require_no_warnings(observations):
         raise RuntimeError('private fixture has unresolved warning events')
 
 
+def warning_record(event):
+    message = event.get('message', '')
+    allocation = re.fullmatch(
+        r'IPAddress: ([0-9.]+) for Service ([a-z0-9-]+)/([a-z0-9-]+) '
+        r'has a wrong reference; cleaning up', message)
+    return {'uid': event['metadata']['uid'], 'reason': event.get('reason'),
+            'count': event.get('count'), 'first': event.get('firstTimestamp'),
+            'last': event.get('lastTimestamp'), 'event_time': event.get('eventTime'),
+            'series': event.get('series'),
+            'source': {key: event.get('source', {}).get(key) for key in ('component', 'host')},
+            'reporter': event.get('reportingComponent'),
+            'object': {key: event.get('involvedObject', {}).get(key)
+                       for key in ('kind', 'namespace', 'name', 'uid')},
+            'message_sha256': hashlib.sha256(message.encode()).hexdigest(),
+            'initial_zero_capacity': message == 'invalid capacity 0 on image filesystem',
+            'monitor_rotation_requeue': message.endswith(
+                'triggering a new reconcile to restart the mon daemons after mon cephx key rotation'),
+            'allocation': list(allocation.groups()) if allocation else None}
+
+
+def timestamp(value):
+    value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    if value.utcoffset() is None:
+        raise RuntimeError('native warning timestamp lacks timezone')
+    return value.astimezone(timezone.utc)
+
+
+def image_gc_observation(raw):
+    result = {'initial_failures': [], 'repeated_failures': [], 'successes': []}
+    markers = {
+        'initial_failures': 'Image garbage collection failed once. Stats initialization may not have completed yet',
+        'repeated_failures': 'Image garbage collection failed multiple times in a row',
+        'successes': 'Image garbage collection succeeded'}
+    for line in raw.decode(errors='replace').splitlines():
+        for key, marker in markers.items():
+            if marker in line:
+                when = line.split(' ', 1)[0]
+                try:
+                    timestamp(when)
+                except (ValueError, TypeError):
+                    raise RuntimeError('native image-GC timestamp differs') from None
+                result[key].append(when)
+    return result
+
+
+def require_warning_resolutions(evidence, witness):
+    """Accept only exact historical events with independently collected native recovery."""
+    def require(value):
+        if not value:
+            raise RuntimeError('private fixture has unresolved warning events')
+
+    stages = evidence['stages']
+    require([row['name'] for row in stages] == [
+        'initial', 'operator-restart', 'daemon-generation-two', 'operator-1.21.0'])
+    require(all(row['health'] == 'HEALTH_OK' and row.get('objects_verified') == 64 and
+                row.get('three_copy_placement_verified') is True for row in stages))
+    require([row['generation'] for row in stages] == [1, 1, 2, 2])
+    changes = evidence.get('core_key_changes', [])
+    require(len(changes) == 7 and {row['entity'] for row in changes} == {
+        'client.admin', 'mon.', 'mgr.a', 'mgr.b', 'osd.0', 'osd.1', 'osd.2'} and
+        all(row['changed'] is True for row in changes))
+    require(witness['cluster_uid'] == evidence['cluster_uid'])
+    final_events = {row['uid']: row for row in witness['events']}
+    require(len(final_events) == len(witness['events']))
+    observed = {}
+    observations = evidence['warning_observations']
+    require([row['stage'] for row in observations] == [row['name'] for row in stages])
+    for observation in observations:
+        for row in observation['events']:
+            require(row['uid'] in final_events and row == final_events[row['uid']])
+            observed[row['uid']] = row
+    require(observed == final_events)
+    require(set(witness['nodes']) == set(evidence['node_uids']))
+    for name, node in witness['nodes'].items():
+        require(node['uid'] == evidence['node_uids'][name])
+        conditions = {row['type']: row['status'] for row in node['conditions']}
+        require(conditions.get('Ready') == 'True' and all(
+            conditions.get(key) == 'False' for key in ('MemoryPressure', 'DiskPressure', 'PIDPressure')))
+    # Both directions must agree, including unrelated allocations within this owned cluster.
+    allocated = {}
+    services = set()
+    for service in witness['services']:
+        parent = (service['namespace'], service['name'])
+        services.add(parent)
+        for address in service['ips']:
+            require(address not in allocated)
+            allocated[address] = parent
+    addresses = {}
+    for address in witness['addresses']:
+        parent = address['parent']
+        require(parent.get('resource') == 'services' and parent.get('group', '') == '')
+        require(address['name'] not in addresses)
+        addresses[address['name']] = (parent.get('namespace'), parent.get('name'))
+    require(allocated == addresses)
+    if not final_events:
+        require_no_warnings(observations)
+        return []
+    resolutions = []
+    for event in final_events.values():
+        require(event['uid'] and event['object']['uid'] and event['series'] is None and
+                (event['count'] is None or type(event['count']) is int and event['count'] == 1))
+        obj = event['object']
+        if event['reason'] == 'InvalidDiskCapacity' and event['initial_zero_capacity'] is True:
+            name = obj['name']
+            require(obj['kind'] == 'Node' and not obj['namespace'] and name in witness['nodes'])
+            node = witness['nodes'][name]
+            require(obj['uid'] in (name, node['uid']) and event['source'] == {
+                'component': 'kubelet', 'host': name} and event['reporter'] == 'kubelet')
+            require(event['count'] == 1 and event['first'] == event['last'] and
+                    abs((timestamp(event['first']) - timestamp(node['created'])).total_seconds()) <= 15)
+            gc = node['gc']
+            require(len(gc['initial_failures']) == 1 and not gc['repeated_failures'] and gc['successes'])
+            failure = timestamp(gc['initial_failures'][0])
+            require(abs((failure - timestamp(event['first'])).total_seconds()) <= 2 and
+                    max(map(timestamp, gc['successes'])) > failure)
+            fs = node['image_fs']
+            require(all(type(fs.get(key)) is int and fs[key] > 0
+                        for key in ('capacityBytes', 'availableBytes', 'usedBytes', 'inodes', 'inodesFree')))
+            require(fs['availableBytes'] <= fs['capacityBytes'] and fs['usedBytes'] <= fs['capacityBytes'] and
+                    fs['inodesFree'] <= fs['inodes'] and
+                    timestamp(fs['time']) > max(map(timestamp, gc['successes'])))
+            cause = 'startup-image-gc-recovered'
+        elif event['reason'] == 'IPAddressWrongReference' and event['allocation']:
+            address, namespace, name = event['allocation']
+            require(event['reporter'] == 'ipallocator-repair-controller' and
+                    obj['kind'] == 'IPAddress' and not obj['namespace'] and obj['name'] == address)
+            require(namespace == candidate.NAMESPACE and (namespace, name) in services)
+            require(address not in allocated and address not in addresses and
+                    all(row['uid'] != obj['uid'] for row in witness['addresses']))
+            require(min(timestamp(row['created']) for row in witness['nodes'].values()) <=
+                    timestamp(event['event_time']) < timestamp(stages[0]['observed_at']))
+            cause = 'native-ipallocator-cleanup-complete'
+        elif event['reason'] == 'ReconcileFailed' and event['monitor_rotation_requeue'] is True:
+            require(event['reporter'] == 'rook-ceph-cluster-controller' and obj == {
+                'kind': 'CephCluster', 'namespace': candidate.NAMESPACE,
+                'name': candidate.NAMESPACE, 'uid': stages[-1]['resource_uids'][0]})
+            require(timestamp(stages[1]['observed_at']) < timestamp(event['event_time']) <
+                    timestamp(stages[-2]['observed_at']))
+            cause = 'native-monitor-rotation-reconcile-complete'
+        else:
+            require(False)
+        resolutions.append({'warning_uid': event['uid'], 'resolution': cause})
+    return resolutions
+
+
 def require_three_copy_placement(mapping, name):
     acting = mapping.get('acting')
     if (mapping.get('pool') != 'qualification' or mapping.get('objname') != name or
@@ -324,7 +470,7 @@ class Qualification(images.Qualification):
         self.operator_uid = None
         self.last_failure = None
 
-    def command(self, arguments, *, data=None, private=True):
+    def command(self, arguments, *, data=None, private=True, combined=False):
         if arguments and arguments[0] == 'docker':
             if self.anonymous_config.is_symlink():
                 raise RuntimeError('native image client configuration became a link')
@@ -355,7 +501,7 @@ class Qualification(images.Qualification):
                     raise RuntimeError('native OSD safety diagnostic differs')
                 error.osd_stop = value
             raise error
-        return stdout
+        return stdout + stderr if combined else stdout
 
     def apply(self, rows):
         self.identity()
@@ -665,24 +811,61 @@ class Qualification(images.Qualification):
             require_pod_completion(pod, job_uids)
         warnings = self.kubectl('get', 'events', '-A', '--field-selector=type=Warning')['items']
         self.evidence['warning_reasons'] = sorted({row.get('reason', '') for row in warnings})
-        self.evidence['warning_observations'].append({'stage': label, 'events': [
-            {'uid': row['metadata']['uid'], 'reason': row.get('reason'), 'count': row.get('count'),
-             'first': row.get('firstTimestamp'), 'last': row.get('lastTimestamp'),
-             'event_time': row.get('eventTime'), 'series': row.get('series'),
-             'object': {key: row.get('involvedObject', {}).get(key)
-                        for key in ('kind', 'namespace', 'name', 'uid')}} for row in warnings]})
+        self.evidence['warning_observations'].append({
+            'stage': label, 'events': [warning_record(row) for row in warnings]})
         if self.kubectl('get', 'csidrivers')['items']:
             raise RuntimeError('native no-CSI fixture has a CSI driver')
         crds = self.kubectl('get', 'crds')['items']
         if any(row['spec']['group'] == 'csi.ceph.io' for row in crds):
             raise RuntimeError('native no-CSI fixture has CSI operator CRDs')
         self.evidence['stages'].append({'name': label, 'health': 'HEALTH_OK', 'generation': generation,
+                                        'observed_at': datetime.now(timezone.utc).isoformat(),
                                         'fsid': self.fsid, 'osd_uuids': dict(observed_osds),
                                         'resource_uids': list(uids), 'modern_key_count': len(current),
                                         'auth_dump_key_count': len(keys), 'native_monitor_key_verified': True,
                                         'all_pools_size': 3, 'all_pools_min_size': 2,
                                         'all_osds_native_ok_to_stop': True})
         return current
+
+    def warning_witness(self):
+        self.identity()
+        cluster = self.kubectl('get', 'cephcluster', candidate.NAMESPACE, '-n', candidate.NAMESPACE)
+        if (cluster['metadata']['uid'] != self.resource_uids[0] or
+                cluster.get('status', {}).get('phase') != 'Ready' or
+                cluster.get('status', {}).get('ceph', {}).get('health') != 'HEALTH_OK'):
+            raise RuntimeError('private fixture has unresolved warning events')
+        require_generation(cluster, 2)
+        nodes = self.kubectl('get', 'nodes')['items']
+        if {row['metadata']['name']: row['metadata']['uid'] for row in nodes} != self.node_uids:
+            raise RuntimeError('private node identities changed')
+        result = {'cluster_uid': self.cluster_uid, 'nodes': {}}
+        for node in nodes:
+            name = node['metadata']['name']
+            logs = self.command(['docker', 'logs', '--timestamps', name], combined=True)
+            gc = image_gc_observation(logs)
+            del logs
+            summary = json.loads(self.kubectl(
+                'get', '--raw=/api/v1/nodes/' + name + '/proxy/stats/summary', json_output=False))
+            fs = summary.get('node', {}).get('runtime', {}).get('imageFs', {})
+            result['nodes'][name] = {
+                'uid': node['metadata']['uid'], 'created': node['metadata']['creationTimestamp'],
+                'conditions': [{'type': row['type'], 'status': row['status']}
+                               for row in node.get('status', {}).get('conditions', [])],
+                'gc': gc, 'image_fs': {key: fs.get(key) for key in (
+                    'time', 'capacityBytes', 'availableBytes', 'usedBytes', 'inodes', 'inodesFree')}}
+        services = self.kubectl('get', 'services', '-A')['items']
+        addresses = self.kubectl('get', 'ipaddresses')['items']
+        events = self.kubectl('get', 'events', '-A', '--field-selector=type=Warning')['items']
+        result.update(
+            services=[{'namespace': row['metadata']['namespace'], 'name': row['metadata']['name'],
+                       'uid': row['metadata']['uid'],
+                       'ips': [ip for ip in row['spec'].get('clusterIPs', []) if ip != 'None']}
+                      for row in services],
+            addresses=[{'name': row['metadata']['name'], 'uid': row['metadata']['uid'],
+                        'parent': row['spec'].get('parentRef', {})} for row in addresses],
+            events=[warning_record(row) for row in events],
+            observed_at=datetime.now(timezone.utc).isoformat())
+        return result
 
     def objects(self, write=False):
         for number in range(64):
@@ -744,7 +927,9 @@ class Qualification(images.Qualification):
         self.operator('1.21.0')
         self.snapshot(fixture, identities, requested, 2, 'operator-1.21.0')
         self.objects()
-        require_no_warnings(self.evidence['warning_observations'])
+        witness = self.warning_witness()
+        self.evidence['warning_resolution_witness'] = witness
+        self.evidence['warning_resolutions'] = require_warning_resolutions(self.evidence, witness)
         self.evidence.update(accepted=True, production_writes=0, raw_key_output_retained=False,
                              physical_fault_domains_qualified=False, kernel_csi_qualified=False,
                              legacy_ticket_transition_qualified=False, whole_vm_cleanup_required=True)
