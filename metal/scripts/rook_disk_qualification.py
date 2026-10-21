@@ -59,6 +59,14 @@ def added_config(before, after, names):
         raise RuntimeError('VM configuration changed beyond exact raw disk attachment')
 
 
+def require_imported_disk(value, name):
+    if not isinstance(value, dict):
+        raise RuntimeError('native imported disk metadata is missing')
+    native = {key.lower(): item for key, item in value.items()}
+    if native.get('name') != name or native.get('format') != 'raw' or native.get('size') != DISK_BYTES:
+        raise RuntimeError('native imported disk format or identity differs')
+
+
 def guest_disks(value, names):
     devices = value['blockdevices']
     found = []
@@ -154,12 +162,22 @@ class Fixture:
         self.colima('stop')
         identities = {}
         self.stage = 'create-owned-raw-files'
+        source = self.root / 'blank-source.raw'
+        with source.open('xb') as output:
+            output.truncate(DISK_BYTES)
+        source_identity = file_identity(source)
         for name in self.names:
-            self.command([TOOLS['lima'], 'disk', 'create', name, '--size=8GiB', '--format=raw'])
+            # Lima 2.2.1 accepts --format=raw but creates qcow2; import preserves a real raw source.
+            self.command([TOOLS['lima'], 'disk', 'import', name, str(source)])
             paths = list((self.root / 'l').glob('_disk*/' + name + '/datadisk'))
             if len(paths) != 1:
                 raise RuntimeError('owned raw disk path is missing or ambiguous')
             identities[name] = {'path': str(paths[0]), **file_identity(paths[0])}
+            native = json.loads(self.command([TOOLS['lima'], 'disk', 'list', name, '--json']))
+            require_imported_disk(native, name)
+        if file_identity(source) != source_identity:
+            raise RuntimeError('owned raw source identity changed during import')
+        source.unlink()
         self.stage = 'attach-only-owned-raw-files'
         additions = [{'name': name, 'format': False, 'mount': False} for name in self.names]
         expression = '.additionalDisks += ' + json.dumps(additions)
@@ -185,6 +203,12 @@ class Fixture:
             raise RuntimeError('owned guest CPU or udev prerequisite differs')
         self.stage = 'stop-owned-vm-after-observation'
         self.colima('stop')
+        self.stage = 'detach-only-owned-raw-files'
+        expression = ('.additionalDisks = ' + json.dumps(before['additionalDisks'])
+                      if 'additionalDisks' in before else 'del(.additionalDisks)')
+        self.command([TOOLS['lima'], 'edit', 'colima-q', '--set', expression])
+        if yaml.safe_load(config_path.read_text()) != before:
+            raise RuntimeError('VM configuration did not return to its exact pre-attachment state')
         self.stage = 'delete-owned-raw-files'
         for name, identity in identities.items():
             self.command([TOOLS['lima'], 'disk', 'delete', name])

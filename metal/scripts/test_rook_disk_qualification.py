@@ -81,6 +81,14 @@ class DiskGuardTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             subject.guest_disks({'blockdevices': rows + [rows[0]]}, names)
 
+    def test_native_import_must_preserve_raw_format_size_and_name(self):
+        value = {'Name': 'rook-12345678-0', 'Format': 'raw', 'Size': subject.DISK_BYTES}
+        subject.require_imported_disk(value, value['Name'])
+        for changed in [None, {}, value | {'Format': 'qcow2'},
+                        value | {'Size': 196736}, value | {'Name': 'foreign'}]:
+            with self.subTest(value=changed), self.assertRaises(RuntimeError):
+                subject.require_imported_disk(changed, value['Name'])
+
 
 if __name__ == '__main__':
     unittest.main()
