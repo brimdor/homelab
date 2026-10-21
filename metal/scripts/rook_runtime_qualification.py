@@ -203,6 +203,23 @@ def require_osd_stop_safety(value, osd):
         raise RuntimeError('native OSD safety check refuses rolling restart')
 
 
+def osd_stop_diagnostic(value, osd):
+    if (not isinstance(value, dict) or type(value.get('ok_to_stop')) is not bool or
+            value.get('osds') != [osd] or
+            any(type(number) is not int for number in value.get('osds', [])) or
+            any(type(value.get(key)) is not int or value[key] < 0
+                for key in ('num_ok_pgs', 'num_not_ok_pgs'))):
+        raise RuntimeError('native OSD safety diagnostic differs')
+    result = {key: value[key] for key in ('ok_to_stop', 'osds', 'num_ok_pgs', 'num_not_ok_pgs')}
+    for key in ('bad_become_inactive', 'bad_already_inactive', 'bad_no_pool', 'unknown'):
+        rows = value.get(key, [])
+        if not isinstance(rows, list) or any(
+                not isinstance(pg, str) or not re.fullmatch(r'[0-9]+\.[a-f0-9]+', pg) for pg in rows):
+            raise RuntimeError('native OSD safety diagnostic differs')
+        result[key] = rows
+    return result
+
+
 def storage_observation(status, osds, pools):
     value = ceph_checks.replica_health_diagnostic(status, pools)
     states = status.get('pgmap', {}).get('pgs_by_state', [])
@@ -314,7 +331,14 @@ class Qualification(images.Qualification):
         if child.returncode:
             self.last_failure = {'command_number': self.count,
                                  **command_failure(arguments, child.returncode, stderr)}
-            raise RuntimeError('private runtime command failed: ' + json.dumps(self.last_failure))
+            error = RuntimeError('private runtime command failed: ' + json.dumps(self.last_failure))
+            if (child.returncode == 16 and arguments[-6:-3] == ['ceph', 'osd', 'ok-to-stop'] and
+                    arguments[-3] in ('0', '1', '2') and arguments[-2:] == ['-f', 'json']):
+                value = osd_stop_diagnostic(json.loads(stdout), int(arguments[-3]))
+                if value['ok_to_stop'] or not value['num_not_ok_pgs']:
+                    raise RuntimeError('native OSD safety diagnostic differs')
+                error.osd_stop = value
+            raise error
         return stdout
 
     def apply(self, rows):
@@ -485,6 +509,28 @@ class Qualification(images.Qualification):
                 raise RuntimeError('native Rook storage did not converge to the required healthy state')
             time.sleep(2)
 
+    def osds_safe(self):
+        deadline = time.monotonic() + 1200
+        history = self.evidence.setdefault('osd_stop_refusals', [])
+        while True:
+            safe = True
+            for osd in range(3):
+                try:
+                    require_osd_stop_safety(self.ceph('osd', 'ok-to-stop', str(osd)), osd)
+                except RuntimeError as error:
+                    observation = getattr(error, 'osd_stop', None)
+                    if observation is None:
+                        raise
+                    row = {'stage': self.stage, **osd_stop_diagnostic(observation, osd)}
+                    if row not in history:
+                        history.append(row)
+                    safe = False
+            if safe:
+                return
+            if time.monotonic() >= deadline:
+                raise RuntimeError('native OSD safety check refuses rolling restart')
+            time.sleep(2)
+
     def snapshot(self, fixture, identities, requested, generation, label):
         self.stage = label
         self.identity()
@@ -514,8 +560,7 @@ class Qualification(images.Qualification):
             raise RuntimeError('native Rook manager redundancy differs')
         if not pools or any(row.get('size') != 3 or row.get('min_size') != 2 for row in pools):
             raise RuntimeError('native Rook pool redundancy differs')
-        for osd in range(3):
-            require_osd_stop_safety(self.ceph('osd', 'ok-to-stop', str(osd)), osd)
+        self.osds_safe()
         monitors = self.ceph('mon', 'dump')
         require_mon_security(monitors)
         entities = messenger_entities(monitors, manager)

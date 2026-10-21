@@ -11,6 +11,63 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_osd_refusal_retains_only_typed_native_fields(self):
+        value = {'ok_to_stop': False, 'osds': [0], 'num_ok_pgs': 0, 'num_not_ok_pgs': 1,
+                 'bad_become_inactive': ['2.a'], 'foreign': 'private-output-never-retain'}
+        result = subject.osd_stop_diagnostic(value, 0)
+        self.assertNotIn('foreign', result)
+        self.assertNotIn('private-output', str(result))
+        for fields in ({'osds': [1]}, {'osds': [False]}, {'ok_to_stop': 0},
+                       {'num_not_ok_pgs': True}, {'num_ok_pgs': -1},
+                       {'bad_become_inactive': ['private-output']}, {'unknown': '2.a'}):
+            with self.subTest(fields=fields), self.assertRaises(RuntimeError):
+                subject.osd_stop_diagnostic(value | fields, 0)
+
+    def test_only_exact_native_ebusy_can_supply_pending_safety_evidence(self):
+        value = {'ok_to_stop': False, 'osds': [0], 'num_ok_pgs': 0, 'num_not_ok_pgs': 1,
+                 'bad_become_inactive': ['2.a'], 'foreign': 'private-output-never-retain'}
+        arguments = ['kubectl', 'exec', '--', 'ceph', 'osd', 'ok-to-stop', '0', '-f', 'json']
+        runner = object.__new__(subject.Qualification)
+        runner.count, runner.env = 0, {}
+        child = Mock(returncode=16)
+        child.communicate.return_value = (json.dumps(value).encode(), b'unsafe to stop')
+        with patch.object(subject.subprocess, 'Popen', return_value=child), \
+                self.assertRaises(RuntimeError) as context:
+            runner.command(arguments)
+        self.assertEqual(context.exception.osd_stop['bad_become_inactive'], ['2.a'])
+        self.assertNotIn('private-output', str(context.exception.osd_stop))
+        for code, changed in ((13, arguments), (16, arguments[:-3] + ['1', '-f', 'json']),
+                              (16, arguments[:-6] + ['ceph', 'auth', 'get', '0', '-f', 'json'])):
+            child.returncode = code
+            with patch.object(subject.subprocess, 'Popen', return_value=child), \
+                    self.assertRaises(RuntimeError) as context:
+                runner.command(changed)
+            self.assertFalse(hasattr(context.exception, 'osd_stop'))
+
+    def test_osd_convergence_needs_all_three_native_successes_and_preserves_refusal(self):
+        runner = object.__new__(subject.Qualification)
+        runner.stage, runner.evidence = 'initial', {}
+        refusal = RuntimeError('native safety refusal')
+        refusal.osd_stop = {'ok_to_stop': False, 'osds': [0], 'num_ok_pgs': 0,
+                            'num_not_ok_pgs': 1, 'bad_become_inactive': ['2.a']}
+        def safe(osd):
+            return {'ok_to_stop': True, 'osds': [osd], 'num_not_ok_pgs': 0}
+        runner.ceph = Mock(side_effect=[refusal, safe(1), safe(2), safe(0), safe(1), safe(2)])
+        with patch.object(subject.time, 'sleep') as sleep:
+            runner.osds_safe()
+        self.assertEqual(runner.ceph.call_count, 6)
+        sleep.assert_called_once_with(2)
+        self.assertEqual(runner.evidence['osd_stop_refusals'][0]['bad_become_inactive'], ['2.a'])
+        runner.ceph = Mock(side_effect=RuntimeError('permission refused'))
+        with patch.object(subject.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+            runner.osds_safe()
+        sleep.assert_not_called()
+        runner.ceph = Mock(side_effect=[refusal, safe(1), safe(2)])
+        with patch.object(subject.time, 'monotonic', side_effect=[0, 1200]), \
+                patch.object(subject.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+            runner.osds_safe()
+        sleep.assert_not_called()
+
     def test_three_copy_profile_preserves_two_copy_quorum_and_original_candidate(self):
         arguments = ('qualification-12345678', 'rook-12345678', inventory())
         original = subject.candidate.resources(*arguments)
