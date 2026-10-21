@@ -11,6 +11,34 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_final_warning_gate_preserves_findings_from_every_prior_stage(self):
+        subject.require_no_warnings([{'stage': name, 'events': []} for name in ('initial', 'final')])
+        for rows in ([], [{'stage': 'initial', 'events': [{'reason': 'Failed'}]},
+                         {'stage': 'final', 'events': []}]):
+            with self.assertRaises(RuntimeError):
+                subject.require_no_warnings(rows)
+
+    def test_separate_profile_preserves_upstream_orchestrator_safety_without_changing_original_candidate(self):
+        arguments = ('qualification-12345678', 'rook-12345678', inventory())
+        original = subject.candidate.resources(*arguments)
+        rows = subject.resources(*arguments)
+        self.assertEqual(original[2]['spec']['mgr']['modules'], [{'name': 'rook', 'enabled': True}])
+        self.assertEqual(rows[2]['spec']['mgr']['modules'], [{'name': 'rook', 'enabled': False}])
+        modules = {'enabled_modules': [], 'always_on_modules': ['orchestrator', 'crash'],
+                   'force_disabled_modules': []}
+        subject.require_disabled_orchestrator(modules, [])
+        subject.require_disabled_orchestrator(modules, [{'name': 'mgr/orchestrator/orchestrator', 'value': ''}])
+        for changed, configuration in ((modules | {'enabled_modules': ['rook']}, []),
+                                        (modules | {'always_on_modules': ['orchestrator', 'rook']}, []),
+                                        (modules | {'always_on_modules': []}, []),
+                                        (modules | {'force_disabled_modules': ['rook']}, []),
+                                        ({}, []),
+                                        (modules, [{'name': 'mgr/orchestrator/orchestrator', 'value': 'rook'}]),
+                                        (modules, [{'name': 'mgr/orchestrator/orchestrator', 'value': 'cephadm'}]),
+                                        (modules, [{'name': 'mgr/orchestrator/a/orchestrator', 'value': 'rook'}])):
+            with self.assertRaises(RuntimeError):
+                subject.require_disabled_orchestrator(changed, configuration)
+
     def test_messenger_inspection_requires_every_running_daemon_and_valid_exact_names(self):
         mons = {'mons': [{'name': name} for name in ('a', 'b', 'c')]}
         manager = {'active_name': 'a', 'standbys': [{'name': 'b'}]}

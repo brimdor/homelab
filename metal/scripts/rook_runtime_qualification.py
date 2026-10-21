@@ -31,6 +31,8 @@ CORE_KEYS = ('admin', 'mon', 'mgr', 'osd', 'crashCollector', 'cephExporter')
 
 def resources(name, disk_run, inventory):
     rows = candidate.resources(name, disk_run, inventory)
+    # Rook disables this crashing Ceph 20.2.4 module; this profile cannot qualify it.
+    rows[2]['spec']['mgr']['modules'] = [{'name': 'rook', 'enabled': False}]
     rows[2]['spec']['cephConfig']['global'].update(MODES)
     rows[1]['data']['config'] += ''.join(key + ' = secure\n' for key in MODES)
     return rows
@@ -161,6 +163,26 @@ def messenger_entities(monitors, manager):
             ['mgr.' + name for name in sorted(mgrs)] + ['osd.0', 'osd.1', 'osd.2'])
 
 
+def require_disabled_orchestrator(modules, configuration):
+    enabled = modules.get('enabled_modules')
+    always = modules.get('always_on_modules')
+    if (not isinstance(enabled, list) or
+            any(not isinstance(name, str) for name in enabled) or
+            not isinstance(always, list) or 'orchestrator' not in always or
+            any(not isinstance(name, str) for name in always) or
+            modules.get('force_disabled_modules') != [] or 'rook' in enabled + always or
+            not isinstance(configuration, list) or any(
+                re.fullmatch(r'mgr/orchestrator/(?:[a-z0-9-]+/)?orchestrator', row.get('name', '')) and
+                row.get('value') != ''
+                for row in configuration)):
+        raise RuntimeError('native no-orchestrator safety contract differs')
+
+
+def require_no_warnings(observations):
+    if not observations or any(row['events'] for row in observations):
+        raise RuntimeError('private fixture has unresolved warning events')
+
+
 def storage_observation(status, osds, pools):
     value = ceph_checks.replica_health_diagnostic(status, pools)
     states = status.get('pgmap', {}).get('pgs_by_state', [])
@@ -223,7 +245,9 @@ class Qualification(images.Qualification):
     def __init__(self, args):
         super().__init__(args)
         self.stage = 'preflight'
-        self.evidence = {'accepted': False, 'stages': []}
+        self.evidence = {'accepted': False, 'stages': [], 'warning_observations': [],
+                         'scope': 'modern-rados-without-rook-orchestrator',
+                         'rook_orchestrator_qualified': False}
         self.fsid = None
         self.osds = None
         self.resource_uids = None
@@ -460,8 +484,7 @@ class Qualification(images.Qualification):
                 if self.tools('ceph', 'config', 'show', entity, key).strip() != b'secure':
                     raise RuntimeError('native Rook messenger encryption differs')
         self.evidence['messenger_entities_verified'] = entities
-        if 'rook' not in self.ceph('mgr', 'module', 'ls').get('enabled_modules', []):
-            raise RuntimeError('native Rook manager module is disabled')
+        require_disabled_orchestrator(self.ceph('mgr', 'module', 'ls'), self.ceph('config', 'dump'))
         keys = self.ceph('auth', 'ls').get('auth_dump', [])
         if len(keys) < 8 or any(row['entity'].startswith('client.csi') for row in keys):
             raise RuntimeError('native Rook key inventory differs')
@@ -536,8 +559,12 @@ class Qualification(images.Qualification):
             require_pod_completion(pod, job_uids)
         warnings = self.kubectl('get', 'events', '-A', '--field-selector=type=Warning')['items']
         self.evidence['warning_reasons'] = sorted({row.get('reason', '') for row in warnings})
-        if warnings:
-            raise RuntimeError('private fixture has unresolved warning events')
+        self.evidence['warning_observations'].append({'stage': label, 'events': [
+            {'uid': row['metadata']['uid'], 'reason': row.get('reason'), 'count': row.get('count'),
+             'first': row.get('firstTimestamp'), 'last': row.get('lastTimestamp'),
+             'event_time': row.get('eventTime'), 'series': row.get('series'),
+             'object': {key: row.get('involvedObject', {}).get(key)
+                        for key in ('kind', 'namespace', 'name', 'uid')}} for row in warnings]})
         if self.kubectl('get', 'csidrivers')['items']:
             raise RuntimeError('native no-CSI fixture has a CSI driver')
         crds = self.kubectl('get', 'crds')['items']
@@ -612,6 +639,7 @@ class Qualification(images.Qualification):
         self.operator('1.21.0')
         self.snapshot(fixture, identities, requested, 2, 'operator-1.21.0')
         self.objects()
+        require_no_warnings(self.evidence['warning_observations'])
         self.evidence.update(accepted=True, production_writes=0, raw_key_output_retained=False,
                              physical_fault_domains_qualified=False, kernel_csi_qualified=False,
                              legacy_ticket_transition_qualified=False, whole_vm_cleanup_required=True)
