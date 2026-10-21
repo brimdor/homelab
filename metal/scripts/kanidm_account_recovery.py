@@ -95,10 +95,11 @@ def account_changes(before, after):
             'admin_changed_fields': sorted(changes), 'no_existing_admin_passkeys_or_expiry_removed': True}
 
 
-def require_server(container, root, run_id, image_id):
+def require_server(container, root, run_id, image_id, operation='server'):
     expected = native.arguments(root, run_id, [])
     value = deepcopy(container)
-    if (value['Config']['Cmd'] != ['--config-path=/data/offline.toml', 'server'] or
+    if (operation not in {'server', 'cert-generate'} or
+            value['Config']['Cmd'] != ['--config-path=/data/offline.toml', operation] or
             value['Config'].get('Labels', {}).get(LABEL) != run_id or
             value['HostConfig'].get('LogConfig') != {'Type': 'none', 'Config': {}}):
         raise RuntimeError('isolated account rehearsal server differs')
@@ -137,17 +138,31 @@ def rehearse(point, checksum, run_id):
         native.operation(root, run_id, ['backup', '--compression=gzip', '/data/before.json.gz'],
                          b'Backup success!', image_id)
         before = native.backup_value(root / 'before.json.gz')
-        # Synthetic certificate belongs only to the disconnected rehearsal server.
-        common.command(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-                        '-keyout', str(root / 'rehearsal.key'), '-out', str(root / 'rehearsal.crt'),
-                        '-days', '1', '-subj', '/CN=auth.eaglepass.io'])
-        for name in ('rehearsal.key', 'rehearsal.crt'):
-            os.chown(root / name, 1000, 1000)
         config = root / 'offline.toml'
         config.write_text('db_path="/data/kanidm.db"\ndb_arc_size=2048\n'
                           'domain="auth.eaglepass.io"\norigin="https://auth.eaglepass.io"\n'
                           'bindaddress="127.0.0.1:8443"\nadminbindpath="/data/rehearsal.sock"\n'
                           'tls_chain="/data/rehearsal.crt"\ntls_key="/data/rehearsal.key"\n')
+        # Use the exact daemon's native generator; no host package or real TLS key.
+        args = native.arguments(root, run_id, [])
+        args[-1] = 'cert-generate'
+        args[2:2] = ['--label', LABEL + '=' + run_id]
+        generator = common.docker(*args).stdout.decode().strip()
+        try:
+            require_server(common.inspect(generator), root, run_id, image_id, 'cert-generate')
+            response = common.docker('start', '--attach', generator, check=False)
+            state = common.inspect(generator)['State']
+            if response.returncode or state['Running'] or state['ExitCode'] or state.get('OOMKilled'):
+                raise RuntimeError('native synthetic certificate generation failed')
+            for name in ('rehearsal.key', 'rehearsal.crt'):
+                path = root / name
+                if not path.is_file() or path.is_symlink() or not path.stat().st_size:
+                    raise RuntimeError('native synthetic TLS material missing')
+        finally:
+            require_server(common.inspect(generator), root, run_id, image_id, 'cert-generate')
+            common.docker('rm', '-f', generator)
+            if common.docker('inspect', generator, check=False).returncode == 0:
+                raise RuntimeError('owned synthetic TLS generator remains')
         args = native.arguments(root, run_id, [])
         args[-1] = 'server'
         args[2:2] = ['--label', LABEL + '=' + run_id]
