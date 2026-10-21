@@ -26,6 +26,19 @@ class Guards(unittest.TestCase):
                                   "status": {"nodeInfo": {"kubeletVersion": version}}}
                                  for name, version in self.versions.items()]}
 
+    def test_cli_version_must_match_before_fixture_creation(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.args = SimpleNamespace(cilium="owned-cli")
+        with patch.object(runner, "command", return_value=b"cilium-cli: v0.20.1 compiled with go1.27.1 on darwin/arm64\n") as command:
+            runner.require_cli()
+        command.assert_called_once_with(["owned-cli", "version", "--client"])
+        for raw in (b"", b"cilium-cli: v0.16.24 compiled with go\n", b"cilium-cli: v0.20.10\n",
+                    b"unknown client v0.20.1\n", b"cilium-cli: v0.20.1-custom\n"):
+            with patch.object(runner, "command", return_value=raw), patch.object(runner, "create") as create:
+                with self.assertRaisesRegex(RuntimeError, "pinned maintained"):
+                    runner.run()
+            create.assert_not_called()
+
     def test_ha_identity_rejects_production_extra_missing_and_changed_nodes(self):
         uids = {n["metadata"]["name"]: n["metadata"]["uid"] for n in self.nodes["items"]}
         self.assertEqual(q.require_nodes(self.config, self.name, self.namespace, self.nodes, self.versions, uids), "synthetic")

@@ -30,12 +30,13 @@ BINARIES = {
 }
 SUFFIXES = ("-server-0", "-server-1", "-server-2", "-agent-0", "-agent-1")
 CILIUM = "1.20.3"
+CLI_VERSION = "v0.20.1"
 SERVER_FLAGS = ("--flannel-backend=none", "--disable-network-policy", "--disable-kube-proxy",
                 "--disable-helm-controller", "--disable=traefik", "--disable=servicelb",
                 "--disable=local-storage", "--disable=metrics-server", "--secrets-encryption")
 MARKER = "qualification-k3s-snapshot"
 DATA = "/var/lib/rancher/k3s"
-ECHO_IMAGE = "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603"
+ECHO_IMAGE = "quay.io/cilium/json-mock:v1.4.1@sha256:6a66df90808a39c02e7a9d58af7bf0e54d8f8b7d4bc528f48c891969a7049195"
 ECHO_ENV = [{"name": "PORT", "value": "8080"}, {"name": "NAMED_PORT", "value": "http-8080"}]
 CONNECTION_REFUSED = rb"connection refused|The connection to the server 127\.0\.0\.1:6443 was refused - did you specify the right host or port\?"
 
@@ -667,7 +668,13 @@ class Qualification(cq.Qualification):
         snapshot["matching_version_restore_accepted"] = True
         self.checkpoint(previous, "rollback-" + snapshot["target"])
 
+    def require_cli(self):
+        raw = self.command([self.args.cilium, "version", "--client"])
+        if not re.search(rb"(?m)^cilium-cli: " + re.escape(CLI_VERSION.encode()) + rb"(?:\s|$)", raw):
+            raise RuntimeError("the HA fixture requires its pinned maintained Cilium CLI")
+
     def run(self):
+        self.require_cli()
         self.create()
         self.install(CILIUM)
         self.dns_preflight()
