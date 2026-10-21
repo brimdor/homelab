@@ -1,0 +1,49 @@
+{
+  "kanidm": {
+    "node": "pikachu",
+    "pod_uid": "8fe3da53-1f94-4b42-b7c9-9f550f5f2665",
+    "claim": "data-kanidm-0",
+    "claim_uid": "cd728e28-34e1-4373-8c8d-65a314b758ad",
+    "pv_uid": "c4a539ff-4ec2-4313-a053-29df5340615c",
+    "runtime": [
+      {
+        "container": "main",
+        "container_id": "cde8e9282ff3022a7af5617491325c3ec1ead406a356457ec52594df201d805d",
+        "pid": 2886,
+        "image": "docker.io/kanidm/server@sha256:d0ff76d6ec6d292d5710bd6ec801d9d5ccf12e3cdcdfe4d122efa5a351a97cbe",
+        "user": {
+          "additionalGids": [
+            0
+          ],
+          "gid": 0,
+          "uid": 0
+        },
+        "processes": [
+          {
+            "pid": 2886,
+            "start_ticks": "12634",
+            "exe": "/usr/sbin/kanidmd",
+            "cgroup": "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod8fe3da53_1f94_4b42_b7c9_9f550f5f2665.slice/cri-containerd-cde8e9282ff3022a7af5617491325c3ec1ead406a356457ec52594df201d805d.scope\n",
+            "uid": 0
+          }
+        ]
+      }
+    ],
+    "volume": {
+      "source": "/var/lib/kubelet/pods/8fe3da53-1f94-4b42-b7c9-9f550f5f2665/volumes/kubernetes.io~csi/pvc-cd728e28-34e1-4373-8c8d-65a314b758ad/mount",
+      "destination": "/data",
+      "device": 64256,
+      "inode": 2
+    },
+    "sqlite_databases": [],
+    "runtime_sockets": {
+      "kanidmd.sock": {
+        "device": 64256,
+        "inode": 19,
+        "mode": 488,
+        "uid": 0,
+        "gid": 1000
+      }
+    }
+  }
+}

@@ -1,0 +1,236 @@
+"""Approved Issue 103 recovery; never display credentials or native output."""
+
+from copy import deepcopy
+import json
+import os
+from pathlib import Path
+import shutil
+import stat
+import tempfile
+import time
+
+import kanidm_recovery as native
+
+
+ITEM = 'uccubcgzmubsxpkcklknbd434a'
+VAULT = '4uaua4a45yuhnwhehp5bwylmti'
+LABEL = 'io.eaglepass.kanidm-account-rehearsal'
+
+
+def decode_password(raw):
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError()
+            result[key] = value
+        return result
+    try:
+        value = json.loads(raw, object_pairs_hook=unique)
+        password = value['output']
+        if (set(value) != {'status', 'output'} or value['status'] != 'ok' or
+                not isinstance(password, str) or not 16 <= len(password) <= 256 or
+                any(not 33 <= ord(c) <= 126 for c in password)):
+            raise ValueError()
+    except (ValueError, TypeError, KeyError, UnicodeError):
+        raise RuntimeError('native recovery response refused; raw output discarded') from None
+    return password
+
+
+def replace_password(item, password):
+    decode_password(json.dumps({'status': 'ok', 'output': password}))
+    fields = item.get('fields', [])
+    if (item.get('id') != ITEM or item.get('vault', {}).get('id') != VAULT or
+            item.get('category') != 'LOGIN' or item.get('passkeys') or
+            any('passkey' in key.lower() for key in item) or
+            [f.get('value') for f in fields if f.get('purpose') == 'USERNAME'] != ['admin'] or
+            len([f for f in fields if f.get('purpose') == 'PASSWORD']) != 1):
+        raise RuntimeError('existing vault account contract differs')
+    output = deepcopy(item)
+    field = next(f for f in output['fields'] if f.get('purpose') == 'PASSWORD')
+    if field.get('id') != 'password' or field.get('type') != 'CONCEALED':
+        raise RuntimeError('existing vault password field differs')
+    field['value'] = password
+    return output
+
+
+def verify_vault(before, after, password):
+    expected = replace_password(before, password)
+    after = deepcopy(after)
+    # Native edit updates only these provider-managed revision fields.
+    for value in (expected, after):
+        for key in ('version', 'updated_at', 'last_edited_by'):
+            value.pop(key, None)
+    if expected != after:
+        raise RuntimeError('vault readback differs; do not repeat native recovery')
+
+
+def account_changes(before, after):
+    def index(value):
+        result = {}
+        for entry in value['entries']:
+            attrs = entry['ent']['V3']['attrs']
+            identity = native.common.canonical(attrs['uuid'])
+            if identity in result:
+                raise RuntimeError('duplicate account identity')
+            result[identity] = attrs
+        return result
+    left, right = index(before), index(after)
+    if left.keys() != right.keys():
+        raise RuntimeError('account identities changed')
+    changes = []
+    for identity, original in left.items():
+        updated = right[identity]
+        for key in original.keys() | updated.keys():
+            if key == 'last_modified_cid' or original.get(key) == updated.get(key):
+                continue
+            if original.get('name') != {'IN': ['admin']} or key != 'primary_credential':
+                raise RuntimeError('unapproved account attribute change')
+            changes.append(key)
+    if changes != ['primary_credential']:
+        raise RuntimeError('expected single existing administrator credential change missing')
+    return {'all_entry_identities_preserved': True, 'only_admin_primary_credential_changed': True}
+
+
+def require_server(container, root, run_id, image_id):
+    expected = native.arguments(root, run_id, [])
+    value = deepcopy(container)
+    if (value['Config']['Cmd'] != ['--config-path=/data/offline.toml', 'server'] or
+            value['Config'].get('Labels', {}).get(LABEL) != run_id or
+            value['HostConfig'].get('LogConfig') != {'Type': 'none', 'Config': {}}):
+        raise RuntimeError('isolated account rehearsal server differs')
+    value['Config']['Cmd'] = expected[expected.index(native.IMAGE) + 1:]
+    value['Config']['Labels'][native.LABEL] = run_id
+    native.require_container(value, root, run_id, [], image_id)
+
+
+def rehearse(point, checksum, run_id):
+    common, retained = native.common, native.retained
+    common.require_host('pikachu')
+    common.private_root()
+    common.run_identifier(run_id)
+    value = retained.verify(point, checksum, 'kanidm')
+    retained.require_capacity(common.ROOT, value['tree'], 4)
+    if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
+        raise RuntimeError('account rehearsal already active')
+    images = set(common.docker('image', 'ls', '-q', '--no-trunc').stdout.decode().split())
+    scratch = Path(tempfile.mkdtemp(prefix='kanidm-account-rehearsal-', dir=common.ROOT))
+    container = image_id = None
+    result = {'accepted': False, 'manifest_sha256': checksum}
+    try:
+        common.docker('pull', native.IMAGE)
+        image = json.loads(common.docker('image', 'inspect', native.IMAGE).stdout)[0]
+        image_id = image['Id']
+        if (image['Architecture'] != 'amd64' or image['Os'] != 'linux' or
+                not {native.IMAGE, native.IMAGE.removeprefix('docker.io/')}.intersection(image.get('RepoDigests', []))):
+            raise RuntimeError('account rehearsal image platform differs')
+        root = scratch / 'copy'
+        retained.materialize(point, root, value)
+        for parent, directories, files in os.walk(root, followlinks=False):
+            os.chown(parent, 1000, 1000)
+            for name in directories + files:
+                os.chown(Path(parent) / name, 1000, 1000, follow_symlinks=False)
+        native.config(root, 'kanidm.db')
+        native.operation(root, run_id, ['backup', '--compression=gzip', '/data/before.json.gz'],
+                         b'Backup success!', image_id)
+        before = native.backup_value(root / 'before.json.gz')
+        # Synthetic certificate belongs only to the disconnected rehearsal server.
+        common.command(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                        '-keyout', str(root / 'rehearsal.key'), '-out', str(root / 'rehearsal.crt'),
+                        '-days', '1', '-subj', '/CN=auth.eaglepass.io'])
+        for name in ('rehearsal.key', 'rehearsal.crt'):
+            os.chown(root / name, 1000, 1000)
+        config = root / 'offline.toml'
+        config.write_text('db_path="/data/kanidm.db"\ndb_arc_size=2048\n'
+                          'domain="auth.eaglepass.io"\norigin="https://auth.eaglepass.io"\n'
+                          'bindaddress="127.0.0.1:8443"\nadminbindpath="/data/rehearsal.sock"\n'
+                          'tls_chain="/data/rehearsal.crt"\ntls_key="/data/rehearsal.key"\n')
+        args = native.arguments(root, run_id, [])
+        args[-1] = 'server'
+        args[2:2] = ['--label', LABEL + '=' + run_id]
+        container = common.docker(*args).stdout.decode().strip()
+        require_server(common.inspect(container), root, run_id, image_id)
+        common.docker('start', container)
+        while not (root / 'rehearsal.sock').exists():
+            if not common.inspect(container)['State']['Running']:
+                raise RuntimeError('native rehearsal server exited; raw logs unavailable by design')
+            time.sleep(0.2)
+        response = common.docker('exec', container, '/sbin/kanidmd',
+                                 '--config-path=/data/offline.toml', 'scripting',
+                                 'recover-account', 'admin', check=False)
+        if response.returncode:
+            raise RuntimeError('native rehearsal recovery failed; raw output discarded')
+        decode_password(response.stdout)
+        require_server(common.inspect(container), root, run_id, image_id)
+        common.docker('stop', '--time=30', container)
+        if common.inspect(container)['State']['Running']:
+            raise RuntimeError('native rehearsal did not stop')
+        native.config(root, 'kanidm.db')
+        native.operation(root, run_id, ['backup', '--compression=gzip', '/data/after.json.gz'],
+                         b'Backup success!', image_id)
+        result.update(account_changes(before, native.backup_value(root / 'after.json.gz')))
+        result.update(accepted=True, existing_admin_recovered_in_copy=True, network='none',
+                      logging='none', original_not_mounted=True)
+    finally:
+        if container:
+            require_server(common.inspect(container), root, run_id, image_id)
+            common.docker('rm', '-f', container)
+            if common.docker('inspect', container, check=False).returncode == 0:
+                raise RuntimeError('owned account rehearsal container remains')
+        if common.docker('ps', '-aq', '--filter=label=' + native.LABEL).stdout.strip():
+            raise RuntimeError('owned native operation remains; preserve scratch')
+        allocated = sum(p.lstat().st_blocks * 512 for p in scratch.rglob('*'))
+        shutil.rmtree(scratch)
+        if image_id and image_id not in images and not common.docker('ps', '-aq', '--filter=ancestor=' + image_id).stdout.strip():
+            common.docker('image', 'rm', native.IMAGE)
+            if common.docker('image', 'inspect', image_id, check=False).returncode == 0:
+                raise RuntimeError('new unused account rehearsal image remains')
+        retained.verify(point, checksum, 'kanidm')
+        result['cleanup'] = {'scratch_absent': not scratch.exists(), 'containers_absent': True,
+                             'protected_original_unchanged': True, 'allocated_bytes_removed': allocated}
+        retained.files.write_json(point / ('account-rehearsal-' + run_id + '.json'), result)
+    return result
+
+
+def recover(point, checksum, rehearsal_id, restore_id):
+    """Return a secret to a RAM-only caller after durable protected retention."""
+    retained, common = native.retained, native.common
+    common.require_host('pikachu')
+    common.private_root()
+    if point.parent != common.ROOT:
+        raise RuntimeError('approved protected destination differs')
+    retained.verify(point, checksum, 'kanidm')
+    restore = json.loads((point / ('native-offline-restore-' + restore_id + '.json')).read_bytes())
+    if (not restore.get('accepted') or restore.get('manifest_sha256') != checksum or
+            not restore.get('native_data_equal_startup_metadata_validated') or
+            restore.get('independent_restores') != 2 or
+            not restore.get('cleanup', {}).get('protected_original_unchanged')):
+        raise RuntimeError('fresh native restore qualification missing')
+    proof = json.loads((point / ('account-rehearsal-' + rehearsal_id + '.json')).read_bytes())
+    if (not proof.get('accepted') or proof.get('manifest_sha256') != checksum or
+            not proof.get('only_admin_primary_credential_changed') or
+            not proof.get('cleanup', {}).get('scratch_absent')):
+        raise RuntimeError('approved account rehearsal proof missing')
+    retained.source_identity('kanidm')
+    started = point / 'account-recovery-started.json'
+    # Exclusive intent prevents a repeated reset after an uncertain transport outcome.
+    retained.files.write_json(started, {'account': 'admin', 'manifest_sha256': checksum})
+    cid = retained.PROFILES['kanidm']['runtime'][0]['container_id']
+    response = common.command(['/usr/local/bin/k3s', 'crictl', 'exec', cid, '/sbin/kanidmd',
+                               '--config-path=/data/server.toml', 'scripting',
+                               'recover-account', 'admin'], check=False)
+    if response.returncode:
+        raise RuntimeError('native account recovery uncertain; inspect protected intent, never blind retry')
+    password = decode_password(response.stdout)
+    path = point / 'admin-recovered-password.json'
+    retained.files.write_json(path, {'status': 'ok', 'output': password})
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != 0:
+        raise RuntimeError('protected recovered credential permissions differ')
+    descriptor = os.open(point, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    retained.source_identity('kanidm')
+    return password
