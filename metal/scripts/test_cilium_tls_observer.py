@@ -28,13 +28,17 @@ class Guards(unittest.TestCase):
                 "Config": {"Image": o.IMAGE, "User": "0:0", "Entrypoint": ["tcpdump"], "Cmd": o.FLAGS},
                 "HostConfig": {"NetworkMode": "host", "Privileged": False, "ReadonlyRootfs": True,
                                "CapAdd": ["CAP_NET_RAW"], "CapDrop": ["ALL"],
-                               "SecurityOpt": ["no-new-privileges:true"], "LogConfig": {"Type": "none"}},
+                               "SecurityOpt": ["no-new-privileges:true"], "LogConfig": {"Type": "none"},
+                               "OomKillDisable": False},
                 "Mounts": []}
 
     def observer(self, directory):
         fixture = SimpleNamespace(identity=Mock(), args=SimpleNamespace(name="qualification-1234abcd", docker_server="colima-q"),
-                                  command=Mock(return_value=b"colima-q\n"), work=Path(directory), env={})
-        return o.Observer(fixture, ["192.168.5.2"])
+                                  command=Mock(side_effect=[b"colima-q\n", b"2\n"]), work=Path(directory), env={})
+        observer = o.Observer(fixture, ["192.168.5.2"])
+        fixture.command.side_effect = None
+        fixture.command.return_value = b""
+        return observer
 
     def test_numeric_only_packet_and_refusals(self):
         peers = [ipaddress.ip_network("192.168.5.2/32")]
@@ -72,13 +76,26 @@ class Guards(unittest.TestCase):
                                     ("HostConfig", "Privileged", True), ("HostConfig", "CapAdd", ["NET_ADMIN"]),
                                     ("HostConfig", "LogConfig", {"Type": "json-file"}),
                                     ("HostConfig", "Binds", ["/private:/private"]),
-                                    ("HostConfig", "PidMode", "host"), ("Config", "User", "1000")):
+                                    ("HostConfig", "PidMode", "host"), ("Config", "User", "1000"),
+                                    ("HostConfig", "OomKillDisable", True)):
             changed = copy.deepcopy(item)
             changed[section][key] = value
             with self.assertRaises(RuntimeError):
                 o.identity(changed, item["Name"][1:])
         with self.assertRaises(RuntimeError):
             o.identity(item, item["Name"][1:], "foreign", accepted["image_id"])
+        changed = copy.deepcopy(item)
+        changed["HostConfig"]["OomKillDisable"] = None
+        self.assertEqual(o.identity(changed, item["Name"][1:]), accepted)
+        changed["HostConfig"]["Memory"] = 1234
+        self.assertNotEqual(o.identity(changed, item["Name"][1:]), accepted)
+
+    def test_cgroup_v1_is_refused_before_container_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            observer = self.observer(directory)
+            observer.fixture.command.side_effect = [b"colima-q\n", b"1\n"]
+            with self.assertRaises(RuntimeError):
+                o.Observer(observer.fixture, ["192.168.5.2"])
 
     def test_streams_retain_no_unclassified_output(self):
         with tempfile.TemporaryDirectory() as directory:

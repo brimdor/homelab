@@ -69,14 +69,18 @@ def identity(item, name, expected_id=None, expected_image=None):
             host["NetworkMode"] != "host" or host["Privileged"] or not host["ReadonlyRootfs"] or
             host["CapAdd"] != ["CAP_NET_RAW"] or host["CapDrop"] != ["ALL"] or
             host["SecurityOpt"] != ["no-new-privileges:true"] or host["LogConfig"]["Type"] != "none" or
+            (host["OomKillDisable"] is not None and host["OomKillDisable"] is not False) or
             host.get("Binds") or host.get("Devices") or host.get("PortBindings") or
             host.get("PidMode") or item["Mounts"] or config.get("Volumes") or
             (expected_id is not None and item["Id"] != expected_id) or
             (expected_image is not None and item["Image"] != expected_image)):
         raise RuntimeError("TLS observer container identity refused")
+    configuration = {key: item[key] for key in ("Config", "HostConfig", "Mounts")}
+    # Docker discards this unsupported cgroup-v2 flag at start; both forms leave OOM killing enabled.
+    configuration["HostConfig"] = dict(host, OomKillDisable=False)
     return {"container_id": item["Id"], "image_id": item["Image"],
             "configuration_sha256": hashlib.sha256(json.dumps(
-                {key: item[key] for key in ("Config", "HostConfig", "Mounts")}, sort_keys=True).encode()).hexdigest()}
+                configuration, sort_keys=True).encode()).hexdigest()}
 
 
 def runtime_identity(raw):
@@ -112,6 +116,8 @@ class Observer:
         fixture.identity()
         if fixture.command(["docker", "info", "--format", "{{.Name}}"]).decode().strip() != fixture.args.docker_server:
             raise RuntimeError("TLS observer requires the guarded private daemon")
+        if fixture.command(["docker", "info", "--format", "{{.CgroupVersion}}"]).strip() != b"2":
+            raise RuntimeError("TLS observer requires the verified cgroup-v2 guest")
         self.fixture = fixture
         self.name = fixture.args.name + "-tls-observer"
         if not re.fullmatch(r"qualification-[a-f0-9]{8}-tls-observer", self.name):
@@ -197,7 +203,7 @@ class Observer:
         self.runtime = runtime_identity(self.fixture.command(
             ["docker", "exec", self.container["container_id"], "cat", "/proc/1/status"]))
         self.check()
-        return self.container
+        return {**self.container, "runtime_identity": self.runtime}
 
     def stop(self):
         try:
