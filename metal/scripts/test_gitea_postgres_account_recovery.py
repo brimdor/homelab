@@ -125,13 +125,26 @@ class RecoveryContract(unittest.TestCase):
         self.assertNotIn('private-value', str(caught.exception))
 
     def test_single_uses_existing_vendor_uid_resolution_and_stdin_only(self):
-        with patch.object(recovery, 'execute', return_value=SimpleNamespace(stdout=b'')) as execute:
+        with patch.object(recovery, 'execute', return_value=SimpleNamespace(stdout=b'', stderr=b'')) as execute:
             recovery.single('owned', b'secret-verifier-in-stdin')
         args, kwargs = execute.call_args
         self.assertIn('postgresql_enable_nss_wrapper', args[3])
         self.assertIn('trap', args[3])
         self.assertNotIn('secret-verifier', str(args))
         self.assertEqual(kwargs['input'], b'secret-verifier-in-stdin')
+
+    def test_harmless_failure_requires_native_error_and_clean_exit(self):
+        for output in ('stdout', 'stderr'):
+            response = SimpleNamespace(stdout=b'', stderr=b'', returncode=0)
+            setattr(response, output, b'ERROR:  22012: division by zero\n')
+            with patch.object(recovery, 'execute', return_value=response) as execute:
+                recovery.single('owned', b'fixture', expected_failure=True)
+            self.assertIn('log_min_messages=error', execute.call_args.args)
+        for response in (SimpleNamespace(stdout=b'', stderr=b'', returncode=0),
+                         SimpleNamespace(stdout=b'ERROR: division by zero\n', stderr=b'', returncode=1),
+                         SimpleNamespace(stdout=b'ERROR: division by zero\nFATAL: failure', stderr=b'', returncode=0)):
+            with patch.object(recovery, 'execute', return_value=response), self.assertRaises(RuntimeError):
+                recovery.single('owned', b'fixture', expected_failure=True)
 
 
 if __name__ == '__main__':

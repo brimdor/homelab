@@ -166,11 +166,13 @@ def error_classes(raw):
 def single(container, sql, expected_failure=False):
     # No shell, credential environment, command argument, persisted SQL, or native log file.
     execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
+    options = [*OPTIONS, *(['-c', 'log_min_messages=error'] if expected_failure else [])]
     response = execute(container, '/bin/bash', '-ceu', SINGLE_WRAPPER, 'native-single-user',
-                       BIN + 'postgres', '--single', '-D', DATA, *OPTIONS, 'postgres',
+                       BIN + 'postgres', '--single', '-D', DATA, *options, 'postgres',
                        input=sql, allow_error=expected_failure)
-    if expected_failure and (response.returncode or len(re.findall(rb'ERROR:\s+(?:22012:\s+)?division by zero', response.stderr)) != 1 or
-                             re.search(rb'\b(?:FATAL|PANIC):', response.stderr)):
+    diagnostics = response.stdout + response.stderr
+    if expected_failure and (response.returncode or len(re.findall(rb'ERROR:\s+(?:22012:\s+)?division by zero', diagnostics)) != 1 or
+                             re.search(rb'\b(?:FATAL|PANIC):', diagnostics)):
         raise RuntimeError('copied harmless-failure rehearsal differs; raw output discarded')
     return response
 
