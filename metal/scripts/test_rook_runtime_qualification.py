@@ -2,13 +2,29 @@
 """Reject unsafe runtime evidence without running a daemon or using a credential."""
 
 import copy
+import json
 import unittest
+from unittest.mock import Mock
 
 import rook_runtime_qualification as subject
 from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_apply_handles_consecutive_native_objects_and_refuses_response_identity_drift(self):
+        runner = object.__new__(subject.Qualification)
+        runner.identity = Mock()
+        rows = subject.resources('qualification-12345678', 'rook-12345678', inventory())[:2]
+        for raw in (b'\n'.join(json.dumps(row).encode() for row in rows),
+                    json.dumps({'kind': 'List', 'items': rows}).encode()):
+            runner.kubectl = Mock(return_value=raw)
+            self.assertEqual(runner.apply(rows), rows)
+            self.assertFalse(runner.kubectl.call_args.kwargs['json_output'])
+        for value in (rows[:1], [rows[0], rows[1] | {'metadata': {'name': 'foreign'}}]):
+            runner.kubectl = Mock(return_value=json.dumps({'kind': 'List', 'items': value}).encode())
+            with self.assertRaises(RuntimeError):
+                runner.apply(rows)
+
     def test_node_device_fields_need_exact_framing_and_all_four_identities(self):
         device = inventory()['blockdevices'][0]
         raw = b'lima-rook-12345678-0\n254:32\n16777216\nfe:20\n'

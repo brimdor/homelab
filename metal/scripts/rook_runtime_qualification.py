@@ -15,6 +15,7 @@ import urllib.request
 import yaml
 
 import ceph_runtime_qualification as ceph_checks
+from ceph_admission_qualification import command_objects
 import cilium_qualification as common
 import rook_disk_qualification as disks
 import rook_image_qualification as images
@@ -220,9 +221,16 @@ class Qualification(images.Qualification):
 
     def apply(self, rows):
         self.identity()
-        return self.kubectl('apply', '--server-side', '--field-manager=rook-qualification',
-                            '--validate=strict', '-f=-',
-                            data=json.dumps({'apiVersion': 'v1', 'kind': 'List', 'items': rows}).encode())
+        raw = self.kubectl('apply', '--server-side', '--field-manager=rook-qualification',
+                           '--validate=strict', '-f=-', '-o=json', json_output=False,
+                           data=json.dumps({'apiVersion': 'v1', 'kind': 'List', 'items': rows}).encode())
+        admitted = command_objects(raw)
+        if len(admitted) != len(rows) or any(
+                actual.get('kind') != expected['kind'] or any(
+                    actual.get('metadata', {}).get(key) != expected['metadata'].get(key)
+                    for key in ('name', 'namespace')) for expected, actual in zip(rows, admitted)):
+            raise RuntimeError('native apply response identities differ')
+        return admitted
 
     def wait(self, *arguments):
         self.kubectl('wait', *arguments, '--timeout=1200s', json_output=False)
