@@ -333,7 +333,7 @@ class Qualification(cq.Qualification):
             if "-server-" in node:
                 self.node_ip(node)
                 continue
-            aliases = endpoint.get("Aliases", [])
+            aliases = [] if endpoint.get("Aliases") is None else endpoint["Aliases"]
             if (endpoint.get("IPAMConfig") not in (None, {}) or not isinstance(aliases, list) or
                     any(alias not in (node, item["Id"][:12]) for alias in aliases)):
                 raise RuntimeError("fresh agent endpoint has unexpected static configuration or aliases")

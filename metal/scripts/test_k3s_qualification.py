@@ -376,7 +376,7 @@ class Guards(unittest.TestCase):
                     runner.node_ip(node)
 
     def test_agent_static_setup_preserves_full_configuration_and_exact_addresses(self):
-        for fault in (None, "alias", "existing-static", "configuration", "wrong-subnet"):
+        for fault in (None, "null-aliases", "empty-aliases", "alias", "alias-type", "existing-static", "configuration", "wrong-subnet"):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
                 runner, nodes, _ = self.affinity_fixture(directory)
                 runner.containers = {n: q.container_identity(item, n, self.name) for n, item in nodes.items()}
@@ -389,7 +389,9 @@ class Guards(unittest.TestCase):
                         "Aliases": [name], "IPAMConfig": {"IPv4Address": address} if "-server-" in name else None}}}
                 agent = "k3d-" + self.name + "-agent-0"
                 endpoint = nodes[agent]["NetworkSettings"]["Networks"]["k3d-" + self.name]
-                if fault == "alias":
+                if fault in ("null-aliases", "empty-aliases", "alias-type"):
+                    endpoint["Aliases"] = {"null-aliases": None, "empty-aliases": [], "alias-type": {}}[fault]
+                elif fault == "alias":
                     endpoint["Aliases"] = ["unexpected-private-alias"]
                 elif fault == "existing-static":
                     endpoint["IPAMConfig"] = {"IPv4Address": endpoint["IPAddress"]}
@@ -417,7 +419,7 @@ class Guards(unittest.TestCase):
                     return b""
 
                 runner.command = command
-                if fault:
+                if fault not in (None, "null-aliases", "empty-aliases"):
                     with self.assertRaises(RuntimeError):
                         runner.pin_agent_ips()
                     self.assertFalse((runner.work / "guest-static-node-ips.json").exists())
