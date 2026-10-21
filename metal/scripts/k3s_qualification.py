@@ -63,6 +63,10 @@ def failure_classes(stderr):
         "connection-eof": rb"Unable to connect to the server: EOF|unexpected EOF",
         "connection-goaway": rb"server sent GOAWAY.*ErrCode=NO_ERROR",
         "transport-timeout": rb"TLS handshake timeout|net/http: request canceled|i/o timeout|context deadline exceeded",
+        "probe-timeout": rb"(?m)^(?:TimeoutError|socket\.timeout): timed out$",
+        "probe-connection-refused": rb"(?m)^ConnectionRefusedError:",
+        "probe-connection-reset": rb"(?m)^ConnectionResetError:",
+        "probe-url-error": rb"(?m)^urllib\.error\.URLError:",
         "api-unavailable": rb"ServiceUnavailable|server is currently unable to handle",
         "api-notready": rb"readyz check failed|^Error from server \(InternalError\):",
     }
@@ -412,7 +416,11 @@ class Qualification(cq.Qualification):
         self.kubectl("rollout", "status", "deployment/" + l2.NAME, "-n", l2.NAMESPACE, "--timeout=300s", json_output=False)
         lease = self.l2.get_lease()
         l2.validate_lease(lease, self.l2.nodes)
-        return self.l2.external(lease)
+        try:
+            return self.l2.external(lease)
+        except CommandFailure as error:
+            self.record_fixture_failure(error)
+            raise
 
     def checkpoint(self, version, phase):
         self.ready()

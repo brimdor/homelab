@@ -178,6 +178,31 @@ class Guards(unittest.TestCase):
                     runner.kubectl(operation, "nodes")
                 self.assertEqual(native.call_count, 1)
 
+    def test_probe_failure_classes_are_diagnostic_only_and_never_retry_permission(self):
+        for text, expected in ((b"TimeoutError: timed out\n", "probe-timeout"),
+                               (b"socket.timeout: timed out\n", "probe-timeout"),
+                               (b"ConnectionRefusedError: [Errno 111] Connection refused\n", "probe-connection-refused"),
+                               (b"ConnectionResetError: [Errno 104] Connection reset by peer\n", "probe-connection-reset"),
+                               (b"urllib.error.URLError: <urlopen error unknown>\n", "probe-url-error")):
+            self.assertIn(expected, q.failure_classes(text))
+            self.assertFalse(q.read_transport_pending(text))
+            self.assertFalse(q.startup_pending(text))
+            self.assertFalse(q.startup_pending(text + b"Forbidden: HTTP 403\n"))
+        self.assertEqual(q.failure_classes(b"unknown failure"), ["unclassified"])
+
+    def test_app_probe_records_primary_failure_and_preserves_original_exception(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.l2 = SimpleNamespace(get_lease=lambda: {"owned": True}, nodes={})
+        error = q.CommandFailure(300, 1, b"TimeoutError: timed out\n")
+        with patch.object(runner, "kubectl"), patch.object(q.l2, "validate_lease"), \
+                patch.object(runner.l2, "external", create=True, side_effect=error) as probe, \
+                patch.object(runner, "record_fixture_failure") as record:
+            with self.assertRaises(q.CommandFailure) as caught:
+                runner.app_probe()
+        self.assertIs(caught.exception, error)
+        probe.assert_called_once_with({"owned": True})
+        record.assert_called_once_with(error)
+
     def test_private_merged_capture_reaps_child_without_persisting_stderr(self):
         children = []
         real_popen = subprocess.Popen
