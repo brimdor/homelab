@@ -50,6 +50,7 @@ class RecoveryContract(unittest.TestCase):
                 recovery.role_transaction(password, mode)
 
     def test_native_catalog_rejects_errors_duplicates_and_uncovered_features(self):
+        self.assertEqual(recovery.catalog_sql().count('\n'), 1)
         def encoded(v):
             return b'backend> HOMELAB103:' + json.dumps(v).encode().hex().encode() + b'\nbackend> '
         raw = encoded(catalog())

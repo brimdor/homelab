@@ -23,6 +23,7 @@ OPTIONS = ['-c', 'config_file=/tmp/fixture.conf', '-c', 'hba_file=/tmp/source-hb
            '-c', 'unix_socket_permissions=0700', '-c', 'logging_collector=off',
            '-c', 'log_destination=stderr', '-c', 'log_statement=none',
            '-c', 'log_min_error_statement=panic', '-c', 'log_min_messages=panic',
+           '-c', 'log_error_verbosity=verbose',
            '-c', 'shared_preload_libraries=', '-c', 'session_preload_libraries=',
            '-c', 'local_preload_libraries=', '-c', 'autovacuum=off']
 CATALOG = """SELECT jsonb_build_object(
@@ -37,7 +38,8 @@ CATALOG = """SELECT jsonb_build_object(
 
 
 def catalog_sql():
-    return "COPY (SELECT 'HOMELAB103:' || encode(convert_to((" + CATALOG + ")::text,'UTF8'),'hex')) TO STDOUT;\n"
+    # Standalone mode treats each newline as a command boundary without -j.
+    return "COPY (SELECT 'HOMELAB103:' || encode(convert_to((" + CATALOG.replace('\n', ' ') + ")::text,'UTF8'),'hex')) TO STDOUT;\n"
 
 
 def parse_catalog(raw):
@@ -129,7 +131,10 @@ def execute(container, *args, input=None, allow_error=False):
     if not allow_error and (response.returncode or re.search(rb'\b(?:ERROR|FATAL|PANIC):', response.stderr)):
         raise RuntimeError('copied PostgreSQL native command failed; command=' + Path(args[0]).name +
                            '; classes=' + ','.join(error_classes(response.stderr)) + '; exit=' + str(response.returncode) +
-                           '; raw output discarded; bytes=' + str(len(response.stdout) + len(response.stderr)))
+                           '; sqlstates=' + ','.join(code.decode() for code in re.findall(
+                               rb'\b(?:ERROR|FATAL|PANIC):\s+([0-9A-Z]{5}):', response.stderr)) +
+                           '; raw output discarded; stdout_bytes=' + str(len(response.stdout)) +
+                           '; stderr_bytes=' + str(len(response.stderr)))
     return response
 
 
@@ -151,7 +156,7 @@ def single(container, sql, expected_failure=False):
     execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
     response = execute(container, BIN + 'postgres', '--single', '-D', DATA, *OPTIONS, 'postgres',
                        input=sql, allow_error=expected_failure)
-    if expected_failure and (response.returncode or response.stderr.count(b'ERROR:  division by zero') != 1 or
+    if expected_failure and (response.returncode or len(re.findall(rb'ERROR:\s+(?:22012:\s+)?division by zero', response.stderr)) != 1 or
                              re.search(rb'\b(?:FATAL|PANIC):', response.stderr)):
         raise RuntimeError('copied harmless-failure rehearsal differs; raw output discarded')
     return response
