@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import tempfile
@@ -87,7 +88,15 @@ def account_changes(before, after):
             if (original.get('name') != {'IN': ['admin']} or
                     original.get('passkeys') or original.get('account_expire') or
                     key not in {'primary_credential', 'account_valid_from'}):
-                raise RuntimeError('unapproved account attribute change')
+                name = original.get('name')
+                raise RuntimeError('unapproved account attribute change: ' + json.dumps({
+                    'attribute': key if re.fullmatch('[a-z][a-z0-9_]*', key) else 'UNRECOGNIZED',
+                    'admin_name_match': name == {'IN': ['admin']},
+                    'admin_name_structure': sorted(name) if isinstance(name, dict) and
+                    all(re.fullmatch('[A-Za-z_]+', k) for k in name) else type(name).__name__,
+                    'name_contains_admin_literal': 'admin' in str(name),
+                    'existing_passkeys': bool(original.get('passkeys')),
+                    'existing_expiry': bool(original.get('account_expire'))}))
             changes.append(key)
     if set(changes) != {'primary_credential', 'account_valid_from'} or len(changes) != 2:
         raise RuntimeError('expected single existing administrator credential change missing')
