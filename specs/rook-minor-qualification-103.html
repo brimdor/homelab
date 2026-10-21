@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103 — Rook 1.21 staged review</title>
+<style>body{background:#10151d;color:#e1e8f1;font:17px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#f9fafb}td,th{border:1px solid #64748b;padding:.5rem;text-align:left}table{border-collapse:collapse}li{margin:.6rem 0}</style>
+<h1>Issue 103: staged Rook 1.21 review</h1>
+<p>Status: offline prerequisites reviewed; no production rollout or full runtime acceptance. Scope is <a href="https://git.eaglepass.io/ops/homelab/issues/103">CHART_MINOR_UPDATES</a>, following the separately reviewed <a href="ceph-security-103.html">CEPH_SECURITY patch stage</a>. Baseline source <code>0db9be8230cee562a65181b18a166e4a6342ded7</code>. Keep Ceph20.2.4, the enabled rook manager module, explicit CSI keyType aes and existing snapshot-controller5.0.4. This is a separate candidate from the accepted native CSI operator1.0.4 qualification.</p>
+<h2>Evidence and exact inputs</h2>
+<p>The <a href="https://github.com/rook/rook/releases/tag/v1.21.0">official1.21.0 release</a> and <a href="https://raw.githubusercontent.com/rook/rook/v1.21.0/Documentation/Upgrade/rook-upgrade.md">tagged upgrade guide</a> describe the adjacent1.20→1.21 path, minimum Kubernetes1.32, msgrv2 default and OCI chart tags without the v prefix. Installed kernel6.11.9 exceeds the documented msgrv2 minimum5.11; that version comparison is not client-runtime proof. Do not upgrade Ceph to21 as part of this Rook minor change.</p>
+<p>Run <code>rook-minor-adjacent-render-review-3bsccsh7</code> passed at2026-10-21T11:32:55Z. Isolated copies of the repository chart were dependency-resolved, linted and rendered with Kubernetes1.33.6 and CRDs. The patch baseline reproduced123 resources; minor candidate rendered128. Run <code>rook-minor-semantic-policy-review-5saz1elo</code> passed at11:35:49Z using identical verified package hashes and reviewed actual policy/permission differences. Both runs removed their dependency/render/cache scratch; only compact sanitized evidence remains. No live apply, deletion, storage access or key rotation occurred.</p>
+<table><tr><th>Package</th><th>SHA256</th></tr>
+<tr><td>rook-ceph1.21.0</td><td><code>c070c7985deee72d7620e0377c07ce2afba28f566fbefe47bf934d00a5692cde</code></td></tr>
+<tr><td>rook-ceph-cluster1.21.0</td><td><code>eacccf8d733399407cb54254aed7f18b20a45b4436da195868c02f9cc7e0b0e0</code></td></tr>
+<tr><td>snapshot-controller5.0.4, unchanged</td><td><code>b310dcd54691fe0bc785eecc16d510af3d5e83f310a86885372d16fad3d95101</code></td></tr></table>
+<h2>Semantic findings</h2>
+<ul>
+<li>Five actual additions: clientprofilereplications.csi.ceph.io CRD, its three aggregated admin/editor/viewer ClusterRoles and the CSI controller-manager NetworkPolicy. No resource is removed after resolving an omitted namespaced ServiceAccount namespace to the Helm release namespace. The raw render's absent-to-explicit namespace is not evidence of a ServiceAccount replacement.</li>
+<li>Both complete rendered StorageClass definitions are unchanged. Preserve their live UIDs and parameters. The versioned guide's generic delete-and-recreate example is not a required action for these actual values and does not authorize deleting either class.</li>
+<li>Rook operator image becomes1.21.0; CSI operator becomes1.1.0. Toolbox/Ceph stay20.2.4; snapshot controller and conversion webhook stay8.5.0. The latter's certificates, Issuers and trust configuration remain separate existing resources.</li>
+<li>CephCluster network.connections.requireMsgr2 changes false→true. Existing compression/encryption defaults remain false. Observe actual remount and mon transition behavior before acceptance; a render cannot establish protocol use.</li>
+<li>The existing CSI manager ClusterRole adds create/delete/get/list/patch/update/watch on clientprofilereplications and networkpolicies, update on replication finalizers, and get/patch/update on replication status. It removes get/list/watch on cbt.storage.k8s.io snapshotmetadataservices. Rule reordering was normalized before comparison. Review the new replication roles and actual native controller behavior before declaring runtime compatibility.</li>
+<li>The new NetworkPolicy selects control-plane=ceph-csi-op-controller-manager, declares Ingress and Egress, has no ingress allowances and has unrestricted egress. This describes the rendered policy; it does not establish its effect on an actual Cilium datapath or qualify application access.</li>
+</ul>
+<h2>Ordered plan and acceptance</h2>
+<ol>
+<li>Finish the supported1.20.9/Ceph20.2.4 security patch and its existing recovery, SATA, legacy-client and key-transition requirements first. Continue independent preparation while those production dependencies remain open. Never combine this minor change with an unproven security rotation or device transition.</li>
+<li>Before implementing1.21, recheck current official release/support information and chart/image identities. Inspect the final CRDs, all RBAC additions, CSI image-set/defaults, generated resources and current custom specifications. Resolve any versioned narrative versus exact-chart discrepancy from the actual candidate; do not add a second CSI owner merely by copying a generic guide.</li>
+<li>Qualify the exact1.1.0 controller and plugin candidate before using it. The accepted1.0.4 native generation result does not transfer to1.1.0. Verify actual RBD/CephFS mounts, provisioning, snapshots/restoration, source storage identities, protocol transitions and dependent applications under the final supported kernel/OS. Preserve every actual access, trust and physical gate.</li>
+<li>Define the final change in system/rook-ceph, render/lint/review, commit and push canonical Gitea master, then reconcile through Argo CD. Observe operator, CSI, mon/mgr/OSD versions, health, PGs, all storage consumers, ingress/monitoring and application behavior after each stage. Finish all six layer checks after the last mutation.</li>
+</ol>
+<p>Rollback must retain the exact preceding image/chart/configuration and verified recovery identities. A Git revert is not proof that a changed Ceph state, CRD schema, CSI controller state or protocol transition can be reversed. Do not delete CRDs, recreate StorageClasses, run an older incompatible daemon against changed data, purge OSDs, edit live applications or alter NAS/trust restrictions. Stop an affected transition on a new failure and preserve evidence. CHART_MINOR_UPDATES remains open until its actual required rollouts and acceptance pass.</p>
+</html>
