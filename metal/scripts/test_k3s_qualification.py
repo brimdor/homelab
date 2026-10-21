@@ -575,6 +575,34 @@ class Guards(unittest.TestCase):
         self.assertEqual(command.call_args.args[0][:5], ["docker", "exec", node, "/bin/kubectl", "get"])
         self.assertNotIn("kubectl", command.call_args.args[0])
 
+    def test_kubelet_cgroup_wait_requires_exact_positive_predicate(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        node = "k3d-" + self.name + "-agent-0"
+        absent = q.CommandFailure(1, 1, b"")
+        with patch.object(runner, "inspect") as inspect, \
+                patch.object(runner, "command", side_effect=[absent, b""]) as command, \
+                patch.object(q.time, "monotonic", side_effect=[0, 1]), patch.object(q.time, "sleep") as sleep:
+            self.assertEqual(runner.wait_kubelet_cgroup(node), 2)
+        self.assertEqual(inspect.call_count, 2)
+        self.assertTrue(all(call.args[0] == ["docker", "exec", node, "test", "-d", "/sys/fs/cgroup/kubepods"]
+                            for call in command.call_args_list))
+        sleep.assert_called_once_with(1)
+        for error in (q.CommandFailure(1, 2, b""), q.CommandFailure(1, 1, b"permission denied"),
+                      q.CommandFailure(1, 1, b"Forbidden"), q.CommandFailure(1, 1, b"x509: certificate failed"),
+                      q.CommandFailure(1, 1, b"unknown error"), absent):
+            with self.subTest(code=error.code, stderr=error.stderr), patch.object(runner, "inspect"), \
+                    patch.object(runner, "command", side_effect=error) as command, \
+                    patch.object(q.time, "monotonic", side_effect=[0, 600]), patch.object(q.time, "sleep") as sleep:
+                with self.assertRaises(q.CommandFailure):
+                    runner.wait_kubelet_cgroup(node)
+                command.assert_called_once()
+                sleep.assert_not_called()
+        with patch.object(runner, "inspect", side_effect=RuntimeError("identity changed")), \
+                patch.object(runner, "command") as command:
+            with self.assertRaises(RuntimeError):
+                runner.wait_kubelet_cgroup(node)
+        command.assert_not_called()
+
     def affinity_fixture(self, directory, fault=None):
         runner = q.Qualification.__new__(q.Qualification)
         runner.args = SimpleNamespace(name=self.name)

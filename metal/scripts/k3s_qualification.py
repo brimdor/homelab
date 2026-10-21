@@ -214,6 +214,21 @@ class Qualification(cq.Qualification):
                     raise
             time.sleep(1)
 
+    def wait_kubelet_cgroup(self, node):
+        deadline = time.monotonic() + 600
+        attempts = 0
+        while True:
+            self.inspect(node)
+            attempts += 1
+            try:
+                self.command(["docker", "exec", node, "test", "-d", "/sys/fs/cgroup/kubepods"])
+                return attempts
+            except CommandFailure as error:
+                # Only a quiet false result from this exact predicate means the directory is not ready.
+                if error.code != 1 or error.stderr or time.monotonic() >= deadline:
+                    raise
+            time.sleep(1)
+
     def dns_preflight(self):
         try:
             return super().dns_preflight()
@@ -429,12 +444,16 @@ class Qualification(cq.Qualification):
                            for node in self.versions}
         require_separate_datastores(self.containers)
         self.pin_agent_ips()
+        cgroup_waits = {}
         for node in self.versions:
             item = self.inspect(node)
             concurrency = "2" if "-server-" in node else "1"
             if [value for value in item["Config"]["Env"] if value.startswith("GOMAXPROCS=")] != ["GOMAXPROCS=" + concurrency]:
                 raise RuntimeError("synthetic node Go concurrency differs from its declared role")
-            self.command(["docker", "exec", node, "test", "-d", "/sys/fs/cgroup/kubepods"])
+            cgroup_waits[node] = self.wait_kubelet_cgroup(node)
+            (self.work / "guest-kubelet-cgroup-readiness.json").write_text(json.dumps({
+                "attempts_by_node": cgroup_waits, "directory_required": "/sys/fs/cgroup/kubepods",
+                "production_change": False}, indent=2))
             inherited = cq.inherited_resolver(self.command(["docker", "exec", node, "cat", "/etc/resolv.conf"]).decode())
             if inherited != self.resolver or self.command(["docker", "exec", node, "cat", "/etc/qualification-resolv.conf"]) != ("nameserver " + self.resolver + "\n").encode():
                 raise RuntimeError("node resolver differs from the proven guest upstream")
