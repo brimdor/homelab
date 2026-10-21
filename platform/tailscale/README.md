@@ -35,7 +35,8 @@ goes through Tailscale.
 - CRDs: `connectors.tailscale.com`, `dnsconfigs.tailscale.com`,
   `proxyclasses.tailscale.com`, `proxygroups.tailscale.com`,
   `recorders.tailscale.com`, `tailscale.com/ingress`, etc.
-- Secret: `operator-oauth` (managed by ExternalSecret, sourced from 1Password)
+- Secret: `operator-oauth` (managed by ExternalSecret, sourced from Kubernetes
+  Secrets in `global-secrets`; the store's provider is Kubernetes, not 1Password)
 
 The pinned upstream chart is stored under `vendor/tailscale-operator`. The only
 local patch makes the operator replica count configurable because upstream
@@ -51,10 +52,15 @@ are required. See the top of `values.yaml` for the full step-by-step:
    https://login.tailscale.com/admin/settings/trust-credentials
    with `write` scope on `General/Services`, `Devices/Core`, and
    `Keys/Auth Keys`, tagged with `tag:k8s-operator`. Store the
-   client_id and client_secret in the 1Password `secrets` item as
-   `ts-oauth-client-id` and `ts-oauth-client-secret`.
+   client_id and client_secret through a repository-owned secret delivery path.
+   The existing ExternalSecret reads Kubernetes Secrets `ts-oauth-client-id`
+   and `ts-oauth-client-secret`, each with its same-named key, from namespace
+   `global-secrets`. Neither source currently has a 1Password owner. A
+   `SecretSynced` condition proves delivery only; it does not prove provider
+   acceptance. Never commit credential values or patch live Secrets as a shortcut.
 
-2. **ACL tagOwners** — at
+2. **ACL tagOwners** — the following historical examples require review of the
+   actual tailnet policy and explicit approval of the exact change before use. At
    https://login.tailscale.com/admin/acls/file, add to the `tagOwners`
    section:
 

@@ -21,17 +21,19 @@
 #   3. Visit https://login.tailscale.com/admin/acls/file
 #   4. Add to `tagOwners`:
 #        "tagOwners": { "tag:k8s-operator": [], "tag:k8s": ["tag:k8s-operator"] }
-#   5. Store the client_id and client_secret in the 1Password `secrets`
-#      item as `ts-oauth-client-id` and `ts-oauth-client-secret`.
-#      The `templates/externalsecret.yaml` pulls them into a Secret in
-#      the `tailscale` namespace that the operator consumes.
+#   5. Qualify the replacement through repository-owned secret delivery.
+#      The current ClusterSecretStore reads two Kubernetes Secrets in
+#      global-secrets, not a 1Password item. See templates/externalsecret.yaml.
+#      Never put credential values in Git or update live Secrets as a shortcut.
+# These historical ACL examples are not authority to change policy; review
+# the actual tailnet policy and obtain exact-candidate approval first.
 
 tailscale-operator:
   namespace: tailscale
 
   # OAuth client ID and secret are populated from a Secret by the operator
   # chart's templating. The Secret is created by `templates/externalsecret.yaml`
-  # from 1Password.
+  # from the global-secrets Kubernetes provider.
   oauth:
     clientId: ""
     clientSecret: ""
