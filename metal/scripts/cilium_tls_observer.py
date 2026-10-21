@@ -24,10 +24,9 @@ PACKET = re.compile(
     r"(?:options \[(?P<options>[^\]]+)\], )?length (?P<length>[0-9]{1,5})\n")
 OPTION = re.compile(r"(?:mss [0-9]{1,5}|sackOK|TS val [0-9]{1,10} ecr [0-9]{1,10}|nop|"
                     r"wscale [0-9]{1,2}|eol|sack [1-4] (?:\{[0-9]{1,10}:[0-9]{1,10}\}){1,4})")
-READY = "tcpdump: listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 128 bytes\n"
+READY = "listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 128 bytes\n"
 BANNER = "tcpdump: verbose output suppressed, use -v[v]... for full protocol decode\n"
-STATISTICS = {"packets captured": "captured", "packets received by filter": "received",
-              "packets dropped by kernel": "dropped"}
+STATISTICS = {"captured": "captured", "received by filter": "received", "dropped by kernel": "dropped"}
 
 
 def packet(raw, peers):
@@ -65,7 +64,7 @@ def identity(item, name, expected_id=None, expected_image=None):
             config["Image"] != IMAGE or config["User"] != "0:0" or
             config["Entrypoint"] != ["tcpdump"] or config["Cmd"] != FLAGS or
             host["NetworkMode"] != "host" or host["Privileged"] or not host["ReadonlyRootfs"] or
-            host["CapAdd"] != ["NET_RAW"] or host["CapDrop"] != ["ALL"] or
+            host["CapAdd"] != ["CAP_NET_RAW"] or host["CapDrop"] != ["ALL"] or
             host["SecurityOpt"] != ["no-new-privileges:true"] or host["LogConfig"]["Type"] != "none" or
             host.get("Binds") or host.get("Devices") or host.get("PortBindings") or
             host.get("PidMode") or item["Mounts"] or config.get("Volumes") or
@@ -105,6 +104,8 @@ class Observer:
                 raw = stream.readline(4097)
                 if not raw:
                     break
+                if packets and raw == b"\n":
+                    continue
                 if self.errors:
                     continue
                 try:
@@ -117,10 +118,11 @@ class Observer:
                             raise RuntimeError("duplicate capture ready banner")
                         self.ready.set()
                     elif raw not in (b"\n", BANNER.encode()):
-                        match = re.fullmatch(rb"([0-9]{1,12}) (packets captured|packets received by filter|packets dropped by kernel)\n", raw)
-                        if not match or STATISTICS[match[2].decode()] in self.stats:
+                        match = re.fullmatch(rb"([0-9]{1,12}) packet(s?) (captured|received by filter|dropped by kernel)\n", raw)
+                        if (not match or bool(match[2]) != (int(match[1]) != 1) or
+                                STATISTICS[match[3].decode()] in self.stats):
                             raise RuntimeError("unrecognized capture status")
-                        self.stats[STATISTICS[match[2].decode()]] = int(match[1])
+                        self.stats[STATISTICS[match[3].decode()]] = int(match[1])
                 except (RuntimeError, ValueError):
                     # Drain without retaining further input so owner shutdown cannot block on a full pipe.
                     self.errors.append("packet-format-refused" if packets else "capture-status-refused")

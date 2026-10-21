@@ -24,7 +24,7 @@ class Guards(unittest.TestCase):
         return {"Id": "a" * 64, "Name": "/qualification-1234abcd-tls-observer", "Image": "sha256:" + "b" * 64,
                 "Config": {"Image": o.IMAGE, "User": "0:0", "Entrypoint": ["tcpdump"], "Cmd": o.FLAGS},
                 "HostConfig": {"NetworkMode": "host", "Privileged": False, "ReadonlyRootfs": True,
-                               "CapAdd": ["NET_RAW"], "CapDrop": ["ALL"],
+                               "CapAdd": ["CAP_NET_RAW"], "CapDrop": ["ALL"],
                                "SecurityOpt": ["no-new-privileges:true"], "LogConfig": {"Type": "none"}},
                 "Mounts": []}
 
@@ -71,8 +71,8 @@ class Guards(unittest.TestCase):
             observer = self.observer(directory)
             path = Path(directory) / "typed.gz"
             observer.output = gzip.open(path, "wb")
-            observer.read(io.BytesIO(LINE), True)
-            observer.read(io.BytesIO(o.BANNER.encode() + o.READY.encode() + b"1 packets captured\n"
+            observer.read(io.BytesIO(LINE + b"\n"), True)
+            observer.read(io.BytesIO(o.BANNER.encode() + o.READY.encode() + b"1 packet captured\n"
                                     b"2 packets received by filter\n0 packets dropped by kernel\n"), False)
             self.assertEqual(observer.stats, {"captured": 1, "received": 2, "dropped": 0})
             self.assertTrue(observer.ready.is_set())
@@ -109,7 +109,7 @@ class Guards(unittest.TestCase):
             observer.fixture.command.side_effect = [b"a" * 64, json.dumps([self.item()]).encode(),
                                                      json.dumps([self.item()]).encode(), b"", b""]
             child = Mock(returncode=0, stdout=io.BytesIO(LINE), stderr=io.BytesIO(
-                o.READY.encode() + b"1 packets captured\n1 packets received by filter\n0 packets dropped by kernel\n"))
+                o.READY.encode() + b"1 packet captured\n1 packet received by filter\n0 packets dropped by kernel\n"))
             child.poll.return_value = None
             with patch.object(o.subprocess, "Popen", return_value=child) as launch:
                 observer.start()
