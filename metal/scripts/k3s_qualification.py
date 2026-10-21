@@ -213,21 +213,32 @@ class Qualification(cq.Qualification):
         try:
             return super().dns_preflight()
         except CommandFailure as error:
-            if not {"access-refused", "trust-refused"}.intersection(failure_classes(error.stderr)):
-                try:
-                    self.fixture_failure_status()
-                except (CommandFailure, RuntimeError, KeyError, ValueError) as diagnostic_error:
-                    (self.work / "fixture-diagnostic-error.json").write_text(json.dumps({
-                        "type": type(diagnostic_error).__name__, "original_failure_preserved": True}))
+            self.record_fixture_failure(error)
             raise
+
+    def record_fixture_failure(self, error):
+        if {"access-refused", "trust-refused"}.intersection(failure_classes(error.stderr)):
+            return
+        try:
+            self.fixture_failure_status()
+        except (CommandFailure, RuntimeError, KeyError, ValueError) as diagnostic_error:
+            (self.work / "fixture-diagnostic-error.json").write_text(json.dumps({
+                "type": type(diagnostic_error).__name__, "original_failure_preserved": True}))
 
     def fixture_failure_status(self):
         # Inspect only this guarded synthetic cluster; never persist Pod messages, env or termination text.
         self.identity()
-        pods = self.kubectl("get", "pods", "-n", "cilium-test-1")["items"]
+        nodes = []
+        for node in self.containers:
+            item = self.inspect(node)
+            nodes.append({"name": node, "id": item["Id"], "restarts": item["RestartCount"],
+                          "state": {key: item["State"][key] for key in
+                                    ("Running", "Status", "OOMKilled", "ExitCode", "StartedAt", "FinishedAt")}})
+            (self.work / "fixture-node-failure-status.json").write_text(json.dumps(nodes, indent=2))
+        pods = self.kubectl("get", "pods", "-A")["items"]
         statuses = []
         for pod in pods:
-            item = {"name": pod["metadata"]["name"], "uid": pod["metadata"]["uid"],
+            item = {"name": pod["metadata"]["name"], "namespace": pod["metadata"]["namespace"], "uid": pod["metadata"]["uid"],
                     "phase": pod["status"]["phase"], "node": pod["spec"].get("nodeName"),
                     "images": {c["name"]: c["image"] for c in pod["spec"]["containers"]}, "containers": []}
             for container in pod["status"].get("containerStatuses", []):
@@ -237,7 +248,8 @@ class Qualification(cq.Qualification):
                     "last_exit_code": terminated.get("exitCode"), "last_signal": terminated.get("signal"),
                     "last_reason": terminated.get("reason")})
                 spec = next(c for c in pod["spec"]["containers"] if c["name"] == container["name"])
-                if (container["restartCount"] and container["name"] in ("echo-same-node", "echo-other-node") and
+                if (item["namespace"] == "cilium-test-1" and container["restartCount"] and
+                        container["name"] in ("echo-same-node", "echo-other-node") and
                         spec["image"] == ECHO_IMAGE and spec.get("env") == ECHO_ENV and not spec.get("envFrom") and
                         all(m.get("readOnly") and m["name"].startswith("kube-api-access-")
                             for m in spec.get("volumeMounts", []))):
@@ -391,10 +403,14 @@ class Qualification(cq.Qualification):
         self.dns_preflight()
         path = self.work / (phase + ".xml")
         with self.hubble_forward() as address:
-            self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
-                          "connectivity", "test", "--test=" + cq.TEST_FILTER, "--ip-families=ipv4",
-                          "--flow-validation=strict", "--hubble=true", "--hubble-server=" + address,
-                          "--collect-sysdump-on-failure=false", "--junit-file=" + str(path)], private=False)
+            try:
+                self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
+                              "connectivity", "test", "--test=" + cq.TEST_FILTER, "--ip-families=ipv4",
+                              "--flow-validation=strict", "--hubble=true", "--hubble-server=" + address,
+                              "--collect-sysdump-on-failure=false", "--junit-file=" + str(path)], private=False)
+            except CommandFailure as error:
+                self.record_fixture_failure(error)
+                raise
         result = cq.require_results(path)
         l2.validate_pool(self.l2.get_pool(), self.l2.pool_uid, migrated=True)
         l2.validate_service(self.l2.get_service(), self.l2.service_uid)

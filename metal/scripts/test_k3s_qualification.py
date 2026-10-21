@@ -196,27 +196,49 @@ class Guards(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             runner = q.Qualification.__new__(q.Qualification)
             runner.work = Path(directory)
-            pod = {"metadata": {"name": "echo-same-node-synthetic", "uid": "owned-pod"},
+            runner.containers = {"synthetic-node": {}}
+            node = {"Id": "owned-container", "RestartCount": 1,
+                    "State": {"Running": True, "Status": "running", "OOMKilled": False,
+                              "ExitCode": 0, "StartedAt": "now", "FinishedAt": "before", "Error": "private runtime error"}}
+            pod = {"metadata": {"name": "echo-same-node-synthetic", "namespace": "cilium-test-1", "uid": "owned-pod"},
                    "spec": {"containers": [{"name": "echo-same-node", "image": q.ECHO_IMAGE, "env": copy.deepcopy(q.ECHO_ENV)}]},
                    "status": {"phase": "Running", "containerStatuses": [{"name": "echo-same-node", "ready": False,
                        "restartCount": 3, "state": {"waiting": {"message": "private waiting text"}},
                        "lastState": {"terminated": {"exitCode": 134, "reason": "Error", "message": "private termination text"}}}]}}
-            for injected in (None, "env", "envFrom", "volumeMounts", "image"):
+            for injected in (None, "env", "envFrom", "volumeMounts", "image", "namespace"):
                 fixture = copy.deepcopy(pod)
                 spec = fixture["spec"]["containers"][0]
                 if injected == "image":
                     spec["image"] = "unknown-image"
+                elif injected == "namespace":
+                    fixture["metadata"]["namespace"] = "kube-system"
                 elif injected:
                     spec[injected] = [{"name": "application-data"}]
-                with patch.object(runner, "identity") as identity, patch.object(runner, "kubectl", side_effect=[{"items": [fixture]}, b"public fixture failure"]) as native:
+                with patch.object(runner, "identity") as identity, patch.object(runner, "inspect", return_value=node), \
+                        patch.object(runner, "kubectl", side_effect=[{"items": [fixture]}, b"public fixture failure"]) as native:
                     runner.fixture_failure_status()
                 identity.assert_called_once()
                 self.assertEqual(native.call_count, 2 if injected is None else 1)
                 text = (Path(directory) / "fixture-failure-status.json").read_text()
                 self.assertNotIn("private", text)
+                self.assertNotIn("private", (Path(directory) / "fixture-node-failure-status.json").read_text())
                 self.assertIn('"last_exit_code": 134', text)
                 for path in Path(directory).glob("*.log.gz"):
                     path.unlink()
+
+    def test_failure_diagnostics_stop_on_access_and_preserve_original_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = q.Qualification.__new__(q.Qualification)
+            runner.work = Path(directory)
+            for stderr in (b"Forbidden", b"x509: certificate failed"):
+                with patch.object(runner, "fixture_failure_status") as diagnostic:
+                    runner.record_fixture_failure(q.CommandFailure(1, 1, stderr))
+                diagnostic.assert_not_called()
+            with patch.object(runner, "fixture_failure_status", side_effect=RuntimeError("diagnostic failed")):
+                runner.record_fixture_failure(q.CommandFailure(1, 1, b"synthetic test failed"))
+            result = json.loads((runner.work / "fixture-diagnostic-error.json").read_text())
+            self.assertTrue(result["original_failure_preserved"])
+            self.assertNotIn("diagnostic failed", json.dumps(result))
 
     def test_guest_kernel_configuration_never_reaches_wrong_or_occupied_daemon(self):
         runner = q.Qualification.__new__(q.Qualification)
