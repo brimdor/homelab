@@ -5,12 +5,65 @@ import copy
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import ceph_runtime_qualification as subject
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_replication_requires_exact_cluster_and_clean_two_copy_state(self):
+        value = {'fsid': 'synthetic', 'mgrmap': {'available': True},
+                 'pgmap': {'pgs_by_state': [{'state_name': 'active+clean'}]},
+                 'health': {'status': 'HEALTH_OK', 'checks': {}}}
+        rows = [{'osd': number, 'up': 1, 'in': 1} for number in range(3)]
+        self.assertTrue(subject.replica_state(value, rows, {0, 1, 2}, 'synthetic'))
+        rows[0].update(up=0, **{'in': 0})
+        self.assertTrue(subject.replica_state(value, rows, {1, 2}, 'synthetic'))
+        self.assertFalse(subject.replica_state(value, rows, {0, 1, 2}, 'synthetic'))
+        rows[0]['in'] = 1
+        self.assertFalse(subject.replica_state(value, rows, {1, 2}, 'synthetic'))
+        for wrong in ('foreign', None):
+            with self.assertRaises(RuntimeError):
+                subject.replica_state(value, rows, {1, 2}, wrong)
+        with self.assertRaises(RuntimeError):
+            subject.replica_state(value, rows[:2], {1, 2}, 'synthetic')
+        with self.assertRaises(RuntimeError):
+            subject.replica_state(value, rows, {1}, 'synthetic')
+        rows[0]['in'] = 0
+        changed = copy.deepcopy(value)
+        changed['pgmap']['pgs_by_state'][0]['state_name'] = 'active+undersized+degraded'
+        self.assertFalse(subject.replica_state(changed, rows, {1, 2}, 'synthetic'))
+        changed = copy.deepcopy(value)
+        changed['health'] = {'status': 'HEALTH_WARN', 'checks': {'OSD_DOWN': {}}}
+        with self.assertRaises(RuntimeError):
+            subject.replica_state(changed, rows, {1, 2}, 'synthetic')
+
+    def test_object_requires_two_distinct_live_copies_and_matching_up_set(self):
+        value = {'pool': 'qualification', 'objname': 'replica-000', 'acting': [1, 2], 'up': [1, 2]}
+        self.assertEqual(subject.replica_placement(value, 'replica-000', {1, 2}), {1, 2})
+        for fields in ({'pool': 'foreign'}, {'objname': 'foreign'}, {'acting': [1]},
+                       {'acting': [1, 1]}, {'acting': [0, 1]}, {'up': [2, 1]}, {'acting': None}):
+            with self.assertRaises(RuntimeError):
+                subject.replica_placement(value | fields, 'replica-000', {1, 2})
+
+    def test_distinct_osd_children_do_not_replace_existing_owned_process(self):
+        runtime = object.__new__(subject.Runtime)
+        runtime.children = {}
+        runtime.conf = ['-c', '/work/ceph.conf']
+        with tempfile.TemporaryDirectory() as directory:
+            runtime.root = Path(directory)
+            children = [Mock(), Mock(), Mock()]
+            with patch.object(subject.subprocess, 'Popen', side_effect=children) as spawn:
+                for number in range(3):
+                    runtime.start('osd', str(number))
+                self.assertEqual(runtime.children, dict(zip(('osd', 'osd.1', 'osd.2'), children)))
+                with self.assertRaises(RuntimeError):
+                    runtime.start('osd', '1')
+                self.assertEqual(spawn.call_count, 3)
+                for number, call in enumerate(spawn.call_args_list):
+                    self.assertEqual(call.args[0], ['ceph-osd', *runtime.conf, '-i', str(number), '-f',
+                                                    '--setuser=root', '--setgroup=root'])
+
     def container(self):
         return {'Config': {'Image': subject.IMAGE, 'Hostname': 'ceph103-fixture-103',
                            'Labels': {'io.eaglepass.maintenance': '103',

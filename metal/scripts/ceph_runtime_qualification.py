@@ -63,6 +63,30 @@ def sanitized(data):
     return re.sub(r'[A-Za-z0-9+/]{28,}={0,2}', '[redacted]', text)
 
 
+def replica_state(value, rows, active, fsid):
+    if (active not in ({0, 1, 2}, {0, 1}, {0, 2}, {1, 2}) or
+            value.get('fsid') != fsid or len(rows) != 3 or
+            {row['osd'] for row in rows} != {0, 1, 2}):
+        raise RuntimeError('replicated synthetic cluster inventory changed')
+    pgs = value.get('pgmap', {}).get('pgs_by_state', [])
+    if (any((row['up'], row['in']) != ((1, 1) if row['osd'] in active else (0, 0)) for row in rows) or
+            not value.get('mgrmap', {}).get('available') or not pgs or
+            any(row['state_name'] != 'active+clean' for row in pgs)):
+        return False
+    if value['health']['status'] != 'HEALTH_OK' or value['health'].get('checks'):
+        raise RuntimeError('replicated steady state has health findings')
+    return True
+
+
+def replica_placement(mapping, name, active):
+    acting = mapping.get('acting')
+    if (mapping.get('pool') != 'qualification' or mapping.get('objname') != name or
+            not isinstance(acting, list) or len(acting) != 2 or len(set(acting)) != 2 or
+            not set(acting) <= active or mapping.get('up') != acting):
+        raise RuntimeError('replicated object placement differs')
+    return set(acting)
+
+
 class Runtime:
     def __init__(self, root, run_id):
         if (root != Path('/work') or os.geteuid() != 0 or socket.gethostname() != 'ceph103-' + run_id or
@@ -86,14 +110,17 @@ class Runtime:
         return self.command([*self.admin, *args]).stdout
 
     def start(self, kind, identity):
-        log = (self.root / (kind + '.log')).open('ab')
+        name = kind if kind != 'osd' or identity == '0' else 'osd.' + identity
+        if name in self.children:
+            raise RuntimeError('owned native child already exists')
+        log = (self.root / (name + '.log')).open('ab')
         try:
             child = subprocess.Popen(['ceph-' + kind, *self.conf, '-i', identity, '-f',
                                       '--setuser=root', '--setgroup=root'], stdout=log,
                                      stderr=subprocess.STDOUT, start_new_session=True)
         finally:
             log.close()
-        self.children[kind] = child
+        self.children[name] = child
 
     def running(self):
         for name, child in self.children.items():
@@ -189,7 +216,100 @@ class Runtime:
                                             (b'permission denied', b'operation not permitted')):
             raise RuntimeError('retired synthetic admin key lacks explicit authentication refusal')
 
-    def run(self):
+    def replicated(self, fsid, original_uuid, original_block):
+        """Exercise synthetic replica-two evacuation/rejoin, never host failure."""
+        self.stage = 'three synthetic OSD bootstrap'
+        identities = {0: (self.root, self.root / 'osd', original_uuid, original_block)}
+        for number in (1, 2):
+            root = self.root / ('osd' + str(number))
+            root.mkdir(mode=0o700)
+            with (root / 'block').open('xb') as output:
+                output.truncate(BLOCK_BYTES)
+            before = block_identity(root)
+            with (self.root / 'ceph.conf').open('a') as output:
+                output.write(f'\n[osd.{number}]\nosd data = {root}\nkeyring = {root}/keyring\n'
+                             f'osd objectstore = bluestore\nbluestore block path = {root}/block\n'
+                             'bluestore block create = false\nbluestore block db create = false\n'
+                             'bluestore block wal create = false\nosd memory target = 536870912\n'
+                             'osd op num shards = 2\nosd op num threads per shard = 1\n')
+            entity = 'osd.' + str(number)
+            self.command(['ceph-authtool', str(root / 'keyring'), '--create-keyring', '--gen-key',
+                          '--key-type=aes256k', '-n', entity, '--cap', 'mon', 'allow profile osd',
+                          '--cap', 'osd', 'allow *', '--cap', 'mgr', 'allow profile osd'])
+            (root / 'keyring').chmod(0o600)
+            secret = self.command(['ceph-authtool', str(root / 'keyring'), '-n', entity, '-p']).stdout.strip().decode()
+            osd_uuid = str(uuid.uuid4())
+            new = root / 'new.json'
+            new.write_text(json.dumps({'cephx_secret': secret}))
+            new.chmod(0o600)
+            if self.ceph('osd', 'new', osd_uuid, '-i', str(new)).strip() != str(number).encode():
+                raise RuntimeError('additional synthetic OSD id differs')
+            new.unlink()
+            self.command(['ceph-osd', *self.conf, '-i', str(number), '--mkfs', '--osd-uuid', osd_uuid,
+                          '--setuser=root', '--setgroup=root'])
+            self.ceph('osd', 'crush', 'add', entity, '1.0', 'root=default', 'host=qualification')
+            self.start('osd', str(number))
+            identities[number] = (root, root, osd_uuid, before)
+        self.ceph('osd', 'pool', 'set', 'qualification', 'size', '2')
+        self.ceph('osd', 'pool', 'set', 'qualification', 'min_size', '2')
+        payloads = {f'replica-{number:03d}': hashlib.sha256(str(number).encode()).digest() * 512
+                    for number in range(64)}
+
+        def verify_identity():
+            for root, data, osd_uuid, before in identities.values():
+                if block_identity(root) != before or (data / 'fsid').read_text().strip() != osd_uuid:
+                    raise RuntimeError('replicated synthetic block or OSD identity changed')
+
+        def converge(active):
+            while True:
+                value = self.status()
+                rows = json.loads(self.ceph('osd', 'dump', '-f', 'json'))['osds']
+                if replica_state(value, rows, active, fsid):
+                    pool = json.loads(self.ceph('osd', 'pool', 'get', 'qualification', 'all', '-f', 'json'))
+                    if pool.get('size') != 2 or pool.get('min_size') != 2:
+                        raise RuntimeError('replicated pool policy differs')
+                    verify_identity()
+                    return {'health': value['health']['status'], 'active_osds': sorted(active),
+                            'size': 2, 'min_size': 2}
+                time.sleep(2)
+
+        def verify_objects(active):
+            used = set()
+            for name, payload in payloads.items():
+                self.client('ordinary', 'get', name, '/work/readback')
+                if (self.root / 'readback').read_bytes() != payload:
+                    raise RuntimeError('replicated synthetic object bytes differ')
+                mapping = json.loads(self.ceph('osd', 'map', 'qualification', name, '-f', 'json'))
+                used.update(replica_placement(mapping, name, active))
+            if used != active:
+                raise RuntimeError('synthetic objects do not cover every active OSD')
+
+        stages = [converge({0, 1, 2})]
+        for name, payload in payloads.items():
+            (self.root / 'replica-payload').write_bytes(payload)
+            self.client('ordinary', 'put', name, '/work/replica-payload')
+        verify_objects({0, 1, 2})
+        for number in (0, 1, 2):
+            self.stage = 'synthetic OSD evacuation ' + str(number)
+            self.stop('osd' if number == 0 else 'osd.' + str(number))
+            self.ceph('osd', 'down', str(number))
+            self.ceph('osd', 'out', str(number))
+            active = {0, 1, 2} - {number}
+            stages.append({'removed_osd': number, **converge(active)})
+            verify_objects(active)
+            self.stage = 'same-block synthetic OSD rejoin ' + str(number)
+            self.start('osd', str(number))
+            self.ceph('osd', 'in', str(number))
+            stages.append({'returned_osd': number, **converge({0, 1, 2})})
+            verify_objects({0, 1, 2})
+        verify_identity()
+        return {'accepted': True, 'objects': len(payloads), 'bytes_per_object': 16384,
+                'manifest_sha256': hashlib.sha256(common.canonical({
+                    name: hashlib.sha256(value).hexdigest() for name, value in payloads.items()})).hexdigest(),
+                'stages': stages, 'same_block_identities': True,
+                'host_failure_or_continuous_degraded_io_qualified': False}
+
+    def run(self, replicated=False):
         if not self.command(['ceph', '--version']).stdout.startswith(b'ceph version 20.2.4 '):
             raise RuntimeError('candidate native version differs')
         self.stage = 'synthetic bootstrap'
@@ -313,6 +433,7 @@ osd op num threads per shard = 1
         read('ordinary')
         read('modern')
         final_health = self.steady()
+        replication = self.replicated(fsid, osd_uuid, before) if replicated else None
         return {'accepted': True, 'version': '20.2.4', 'synthetic_fsid': fsid,
                 'synthetic_osd_uuid': osd_uuid, 'block_identity_preserved': True,
                 'payload_sha256': hashlib.sha256(payload).hexdigest(), 'payload_bytes': len(payload),
@@ -322,16 +443,18 @@ osd op num threads per shard = 1
                 'native_aes256k_core_and_admin_rotation_io': True,
                 'retired_admin_key_fresh_authentication_refused': True,
                 'legacy_service_ticket_transition_unqualified': True,
-                'initial_health': health, 'final_health': final_health,
-                'production_data_or_credentials': False, 'rook_csi_core_rotation_unqualified': True}
+                'initial_health': health, 'single_osd_final_health': final_health,
+                'final_health': {'status': 'HEALTH_OK', 'checks': []} if replication else final_health,
+                'production_data_or_credentials': False, 'rook_csi_core_rotation_unqualified': True,
+                'replica_two_evacuation_rejoin': replication}
 
 
-def qualify(run_id, source, common_source):
+def qualify(run_id, source, common_source, replicated=False):
     common.require_host('totodile')
     common.private_root()
     if common.docker('ps', '--all', '--quiet', '--filter=label=io.eaglepass.maintenance=103').stdout.strip():
         raise RuntimeError('another owned fixture is active; leave it alone')
-    if shutil.disk_usage(common.ROOT).free <= BLOCK_BYTES:
+    if shutil.disk_usage(common.ROOT).free <= BLOCK_BYTES * (3 if replicated else 1):
         raise RuntimeError('insufficient actual capacity for the synthetic block')
     scratch = Path(tempfile.mkdtemp(prefix=run_id + '-ceph-', dir=common.ROOT))
     scratch.chmod(0o700)
@@ -377,8 +500,9 @@ def qualify(run_id, source, common_source):
                                json.loads(common.command(['nsenter', '-t', pid, '-n', 'ip', '-j', 'route']).stdout))
         if common.command(['nsenter', '-t', pid, '-n', 'ip', 'route', 'get', '10.0.20.50'], check=False).returncode == 0:
             raise RuntimeError('synthetic Ceph has a production route')
+        extra = ['--replicated'] if replicated else []
         output = common.docker('exec', container, 'python3', '-B', '/work/ceph_runtime_qualification.py',
-                               '--internal-runtime', '--run-id', run_id, check=False)
+                               '--internal-runtime', '--run-id', run_id, *extra, check=False)
         result.update(json.loads(output.stdout))
         if output.returncode or not result.get('accepted'):
             raise RuntimeError('native Ceph runtime refused acceptance')
@@ -407,9 +531,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-id', type=common.run_identifier, required=True)
     parser.add_argument('--internal-runtime', action='store_true')
+    parser.add_argument('--replicated', action='store_true')
     args = parser.parse_args()
     if not args.internal_runtime:
-        qualify(args.run_id, Path(__file__).read_text(), Path(common.__file__).read_text())
+        qualify(args.run_id, Path(__file__).read_text(), Path(common.__file__).read_text(), args.replicated)
         return
     runtime = Runtime(Path('/work'), args.run_id)
     def cancel(_number, _frame):
@@ -417,7 +542,7 @@ def main():
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, cancel)
     try:
-        result = runtime.run()
+        result = runtime.run(args.replicated)
     except Exception as error:
         result = {'accepted': False, 'stage': runtime.stage, 'error': str(error)}
     finally:
