@@ -7,7 +7,9 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import socket
+import subprocess
 import urllib.request
 
 import yaml
@@ -111,6 +113,31 @@ def require_osd_device(value, osd, fsid, device):
     return matches[0]['osd_uuid']
 
 
+def require_node_device(raw, device):
+    major, minor = map(int, device['maj:min'].split(':'))
+    expected = [device['serial'], device['maj:min'],
+                str(disks.DISK_BYTES // 512), f'{major:x}:{minor:x}']
+    actual = raw.decode('ascii', errors='replace').splitlines()
+    if actual != expected:
+        error = RuntimeError('assigned node virtual-device binding differs')
+        error.observation = {'expected': expected, 'returned_fields': len(actual),
+                             'actual': [row if re.fullmatch(r'[a-zA-Z0-9:._-]{1,128}', row)
+                                        else 'unclassified' for row in actual[:8]]}
+        raise error
+    return {'serial': actual[0], 'major_minor': actual[1], 'sectors': int(actual[2]),
+            'device_number_hex': actual[3]}
+
+
+def command_failure(arguments, code, raw):
+    markers = [word for word in ('forbidden', 'unauthorized', 'permission denied', 'x509',
+                                'certificate', 'unknown flag', 'not found', 'no such file',
+                                'strict decoding', 'timed out', 'connection refused', 'invalid',
+                                'denied', 'conflict', 'already exists', 'field is immutable')
+               if word.encode() in raw.lower()]
+    return {'executable': Path(arguments[0]).name, 'exit': code, 'markers': markers,
+            'raw_output_retained': False}
+
+
 def require_toolbox(value):
     expected = toolbox()['spec']
 
@@ -166,14 +193,30 @@ class Qualification(images.Qualification):
         self.last_failure = None
 
     def command(self, arguments, *, data=None, private=True):
+        if arguments and arguments[0] == 'docker':
+            if self.anonymous_config.is_symlink():
+                raise RuntimeError('native image client configuration became a link')
+            images.require_anonymous_config(json.loads(self.anonymous_config.read_text()))
+        self.count += 1
+        child = subprocess.Popen(arguments, env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, start_new_session=True)
         try:
-            return super().command(arguments, data=data, private=True)
-        except BaseException as error:
+            stdout, stderr = child.communicate(data)
+        finally:
+            if child.poll() is None:
+                os.killpg(child.pid, signal.SIGTERM)
+                try:
+                    child.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    os.killpg(child.pid, signal.SIGKILL)
+                    child.wait()
+            for stream in (child.stdin, child.stdout, child.stderr):
+                stream.close()
+        if child.returncode:
             self.last_failure = {'command_number': self.count,
-                                 'executable': Path(arguments[0]).name,
-                                 'operation': arguments[1] if len(arguments) > 1 else '',
-                                 'exception_sha256': hashlib.sha256(str(error).encode()).hexdigest()}
-            raise
+                                 **command_failure(arguments, child.returncode, stderr)}
+            raise RuntimeError('private runtime command failed: ' + json.dumps(self.last_failure))
+        return stdout
 
     def apply(self, rows):
         self.identity()
@@ -230,17 +273,17 @@ class Qualification(images.Qualification):
         self.node_uids = {row['metadata']['name']: row['metadata']['uid']
                           for row in self.kubectl('get', 'nodes')['items']}
         selected = disks.guest_disks(inventory, fixture.names)
+        bindings = {}
         for suffix, device in zip(('-server-0', '-agent-0', '-agent-1'), selected):
             node = 'k3d-' + self.args.name + suffix
             block = Path(device['path']).name
-            major, minor = map(int, device['maj:min'].split(':'))
             raw = self.command(['docker', 'exec', node, 'sh', '-ec',
-                                f'test -b /dev/{block}; cat /sys/class/block/{block}/serial; '
-                                f'cat /sys/class/block/{block}/dev; cat /sys/class/block/{block}/size; '
-                                f'stat -c %t:%T /dev/{block}'])
-            if raw.decode().splitlines() != [device['serial'], device['maj:min'],
-                                             str(disks.DISK_BYTES // 512), f'{major:x}:{minor:x}']:
-                raise RuntimeError('assigned node virtual-device binding differs')
+                                f'test -b /dev/{block}; printf \'%s\\n\' '
+                                f'"$(cat /sys/class/block/{block}/serial)" '
+                                f'"$(cat /sys/class/block/{block}/dev)" '
+                                f'"$(cat /sys/class/block/{block}/size)" '
+                                f'"$(stat -c %t:%T /dev/{block})"'])
+            bindings[node] = require_node_device(raw, device)
             self.command(['docker', 'exec', node, 'test', '-d', '/run/udev'])
         server = 'k3d-' + self.args.name + '-server-0'
         resolver = common.inherited_resolver(self.command(['docker', 'exec', server, 'cat',
@@ -257,7 +300,8 @@ class Qualification(images.Qualification):
                                                           'forward . ' + resolver)}]))
         self.route(fixture)
         self.evidence.update(cluster_uid=self.cluster_uid, node_uids=self.node_uids,
-                             production_route_blackholed=True, assigned_devices_verified=True)
+                             production_route_blackholed=True, assigned_devices_verified=True,
+                             node_device_bindings=bindings)
 
     def operator(self, version):
         self.stage = 'operator-' + version

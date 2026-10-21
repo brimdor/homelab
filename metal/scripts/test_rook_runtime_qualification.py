@@ -9,6 +9,25 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_node_device_fields_need_exact_framing_and_all_four_identities(self):
+        device = inventory()['blockdevices'][0]
+        raw = b'lima-rook-12345678-0\n254:32\n16777216\nfe:20\n'
+        self.assertEqual(subject.require_node_device(raw, device)['major_minor'], '254:32')
+        for changed in (raw.replace(b'-0\n', b'-0254:32\n', 1), raw.replace(b'fe:20', b'fe:21'),
+                        raw.replace(b'16777216', b'4096'), raw + b'extra\n', b'\xff\n'):
+            with self.subTest(raw=changed), self.assertRaises(RuntimeError) as context:
+                subject.require_node_device(changed, device)
+            self.assertIn('actual', context.exception.observation)
+
+    def test_failure_evidence_retains_only_fixed_markers_and_no_output_or_key_hash(self):
+        secret = b'synthetic-private-output-never-retain'
+        value = subject.command_failure(['/owned/kubectl', 'exec'], 9,
+                                        b'Permission denied: ' + secret)
+        self.assertEqual(value['markers'], ['permission denied', 'denied'])
+        self.assertEqual(set(value), {'executable', 'exit', 'markers', 'raw_output_retained'})
+        self.assertNotIn(secret.decode(), str(value))
+        self.assertFalse(value['raw_output_retained'])
+
     def test_runtime_requires_every_secure_mode_in_both_configuration_paths(self):
         rows = subject.resources('qualification-12345678', 'rook-12345678', inventory())
         for key in subject.MODES:
