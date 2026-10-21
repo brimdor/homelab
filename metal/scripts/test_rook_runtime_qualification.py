@@ -3,6 +3,7 @@
 
 import base64
 import copy
+import hashlib
 import json
 import struct
 import unittest
@@ -71,6 +72,44 @@ def warning_case():
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_missing_service_allocation_requires_exact_native_message_identity_and_repair(self):
+        for mutation in (None, 'reporter', 'uid', 'namespace', 'message', 'missing-ip',
+                         'wrong-parent', 'foreign-range', 'late', 'recurring'):
+            evidence, witness = warning_case()
+            event = subject.warning_record({
+                'metadata': {'uid': 'service-warning'}, 'reason': 'ClusterIPNotAllocated',
+                'message': 'Cluster IP [IPv4]: 172.21.0.9 is not allocated; repairing',
+                'eventTime': '2026-10-21T19:01:00Z',
+                'reportingComponent': 'ipallocator-repair-controller',
+                'involvedObject': {'kind': 'Service', 'namespace': 'rook-qualification',
+                                   'name': 'rook-ceph-mgr', 'uid': 'service-uid'}})
+            for observation in evidence['warning_observations']:
+                observation['events'] = observation['events'] + [event]
+            witness['events'].append(event)
+            if mutation == 'reporter':event['reporter'] = 'foreign'
+            elif mutation == 'uid':event['object']['uid'] = 'replaced-service'
+            elif mutation == 'namespace':event['object']['namespace'] = 'foreign'
+            elif mutation == 'message':event['message_sha256'] = hashlib.sha256(
+                b'the ClusterIP [IPv4]: 172.21.0.9 for Service rook-qualification/rook-ceph-mgr '
+                b'has a wrong reference; repairing').hexdigest()
+            elif mutation == 'missing-ip':witness['addresses'] = []
+            elif mutation == 'wrong-parent':witness['addresses'][0]['parent']['name'] = 'foreign'
+            elif mutation == 'foreign-range':
+                witness['services'][0]['ips'] = ['10.0.0.1']
+                witness['addresses'][0]['name'] = '10.0.0.1'
+                event['message_sha256'] = hashlib.sha256(
+                    b'Cluster IP [IPv4]: 10.0.0.1 is not allocated; repairing').hexdigest()
+            elif mutation == 'late':event['event_time'] = '2026-10-21T19:11:00Z'
+            elif mutation == 'recurring':event['count'] = 2
+            with self.subTest(mutation=mutation):
+                if mutation is None:
+                    result = subject.require_warning_resolutions(evidence, witness)
+                    self.assertIn({'warning_uid': 'service-warning',
+                                   'resolution': 'native-service-allocation-restored'}, result)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        subject.require_warning_resolutions(evidence, witness)
+
     def test_warning_resolution_requires_native_recovery_for_every_exact_event(self):
         evidence, witness = warning_case()
         result = subject.require_warning_resolutions(evidence, witness)

@@ -4,6 +4,7 @@
 import copy
 from datetime import datetime, timezone
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -335,6 +336,22 @@ def require_warning_resolutions(evidence, witness):
             require(min(timestamp(row['created']) for row in witness['nodes'].values()) <=
                     timestamp(event['event_time']) < timestamp(stages[0]['observed_at']))
             cause = 'native-ipallocator-cleanup-complete'
+        elif event['reason'] == 'ClusterIPNotAllocated':
+            require(event['reporter'] == 'ipallocator-repair-controller' and
+                    obj['kind'] == 'Service' and obj['namespace'] == candidate.NAMESPACE)
+            matching = [row for row in witness['services'] if
+                        (row['namespace'], row['name'], row['uid']) ==
+                        (obj['namespace'], obj['name'], obj['uid'])]
+            require(len(matching) == 1 and len(matching[0]['ips']) == 1)
+            address = matching[0]['ips'][0]
+            require(ipaddress.ip_address(address) in ipaddress.ip_network('172.21.0.0/16'))
+            message = f'Cluster IP [IPv4]: {address} is not allocated; repairing'
+            require(event['message_sha256'] == hashlib.sha256(message.encode()).hexdigest() and
+                    allocated.get(address) == (obj['namespace'], obj['name']) and
+                    addresses.get(address) == (obj['namespace'], obj['name']))
+            require(min(timestamp(row['created']) for row in witness['nodes'].values()) <=
+                    timestamp(event['event_time']) < timestamp(stages[0]['observed_at']))
+            cause = 'native-service-allocation-restored'
         elif event['reason'] == 'ReconcileFailed' and event['monitor_rotation_requeue'] is True:
             require(event['reporter'] == 'rook-ceph-cluster-controller' and obj == {
                 'kind': 'CephCluster', 'namespace': candidate.NAMESPACE,
