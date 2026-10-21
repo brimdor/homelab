@@ -241,11 +241,19 @@ class Guards(unittest.TestCase):
                 with patch.object(runner, "fixture_failure_status") as diagnostic:
                     runner.record_fixture_failure(q.CommandFailure(1, 1, stderr))
                 diagnostic.assert_not_called()
+                primary = json.loads((runner.work / "fixture-primary-failure.json").read_text())
+                self.assertEqual(primary["number"], 1)
+                self.assertEqual(primary["stderr_sha256"], q.hashlib.sha256(stderr).hexdigest())
+                self.assertNotIn(stderr.decode(), json.dumps(primary))
             with patch.object(runner, "fixture_failure_status", side_effect=RuntimeError("diagnostic failed")):
-                runner.record_fixture_failure(q.CommandFailure(1, 1, b"synthetic test failed"))
+                runner.record_fixture_failure(q.CommandFailure(56, 2, b"private synthetic primary failure"))
             result = json.loads((runner.work / "fixture-diagnostic-error.json").read_text())
             self.assertTrue(result["original_failure_preserved"])
             self.assertNotIn("diagnostic failed", json.dumps(result))
+            primary = json.loads((runner.work / "fixture-primary-failure.json").read_text())
+            self.assertEqual((primary["number"], primary["exit_code"]), (56, 2))
+            self.assertEqual(primary["stderr_sha256"], q.hashlib.sha256(b"private synthetic primary failure").hexdigest())
+            self.assertNotIn("private", json.dumps(primary))
 
     def test_guest_kernel_configuration_never_reaches_wrong_or_occupied_daemon(self):
         runner = q.Qualification.__new__(q.Qualification)

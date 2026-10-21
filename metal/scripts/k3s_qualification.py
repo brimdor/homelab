@@ -43,6 +43,8 @@ CONNECTION_REFUSED = rb"connection refused|The connection to the server 127\.0\.
 class CommandFailure(RuntimeError):
     def __init__(self, number, code, stderr):
         super().__init__("qualification command " + str(number) + " exited " + str(code))
+        self.number = number
+        self.code = code
         self.stderr = stderr
 
 
@@ -215,6 +217,10 @@ class Qualification(cq.Qualification):
             raise
 
     def record_fixture_failure(self, error):
+        # Later diagnostic reads may fail too; retain the triggering failure separately.
+        (self.work / "fixture-primary-failure.json").write_text(json.dumps({
+            "number": error.number, "exit_code": error.code, "classes": failure_classes(error.stderr),
+            "stderr_bytes": len(error.stderr), "stderr_sha256": hashlib.sha256(error.stderr).hexdigest()}, indent=2))
         if {"access-refused", "trust-refused"}.intersection(failure_classes(error.stderr)):
             return
         try:
