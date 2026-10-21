@@ -11,6 +11,19 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_key_change_diagnostic_never_retains_keys_or_foreign_names(self):
+        previous = {'client.admin': 'secret-before', 'mon.': 'same-secret',
+                    'mgr.a': 'removed-secret', 'foreign-secret-name': 'foreign-secret-value'}
+        current = {'client.admin': 'secret-after', 'mon.': 'same-secret', 'osd.0': 'new-secret'}
+        rows = subject.core_key_changes(previous, current)
+        self.assertEqual(len(rows), 7)
+        self.assertTrue(rows[0]['changed'])
+        self.assertFalse(rows[1]['changed'])
+        self.assertFalse(rows[2]['present_after'])
+        self.assertFalse(rows[4]['present_before'])
+        self.assertNotIn('secret', json.dumps(rows))
+        self.assertTrue(all(type(row['changed']) is bool for row in rows))
+
     def test_osd_refusal_retains_only_typed_native_fields(self):
         value = {'ok_to_stop': False, 'osds': [0], 'num_ok_pgs': 0, 'num_not_ok_pgs': 1,
                  'bad_become_inactive': ['2.a'], 'foreign': 'private-output-never-retain'}

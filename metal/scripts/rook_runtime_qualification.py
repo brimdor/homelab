@@ -29,6 +29,14 @@ MODES = {name: 'secure' for name in (
 CORE_KEYS = ('admin', 'mon', 'mgr', 'osd', 'crashCollector', 'cephExporter')
 
 
+def core_key_changes(previous, current):
+    """Retain only fixed entity names and comparison booleans, never key material."""
+    expected = ('client.admin', 'mon.', 'mgr.a', 'mgr.b', 'osd.0', 'osd.1', 'osd.2')
+    return [{'entity': name, 'present_before': name in previous, 'present_after': name in current,
+             'changed': name in previous and name in current and previous[name] != current[name]}
+            for name in expected]
+
+
 def resources(name, disk_run, inventory):
     rows = candidate.resources(name, disk_run, inventory)
     # Rook disables this crashing Ceph 20.2.4 module; this profile cannot qualify it.
@@ -711,6 +719,7 @@ class Qualification(images.Qualification):
                       '--for=jsonpath={.status.cephx.' + name + '.keyGeneration}=2')
         self.clients(recreate=True)
         current_keys = self.snapshot(fixture, identities, requested, 2, 'daemon-generation-two')
+        self.evidence['core_key_changes'] = core_key_changes(previous_keys, current_keys)
         core = {name for name in previous_keys if name == 'client.admin' or
                 name == 'mon.' or name.startswith(('mgr.', 'osd.'))}
         if len(core) < 7 or any(name not in current_keys or current_keys[name] == previous_keys[name]
