@@ -95,7 +95,12 @@ class Guards(unittest.TestCase):
         local_refusal = b"The connection to the server 127.0.0.1:6443 was refused - did you specify the right host or port?\n"
         self.assertEqual(q.failure_classes(local_refusal), ["connection-refused"])
         self.assertTrue(q.read_transport_pending(local_refusal))
-        for expected in (local_refusal, b"connect: connection refused", b"Error from server (ServiceUnavailable): server is currently unable to handle the request", b"net/http: TLS handshake timeout",
+        poststart = (b'Error from server (InternalError): an error on the server ("[+]etcd ok\\n'
+                     b'[-]poststarthook/start-apiserver-admission-initializer failed: reason withheld\\n[-]postst") '
+                     b'has prevented the request from succeeding\n')
+        self.assertEqual(q.failure_classes(poststart), ["api-notready"])
+        self.assertFalse(q.read_transport_pending(poststart))
+        for expected in (poststart, local_refusal, b"connect: connection refused", b"Error from server (ServiceUnavailable): server is currently unable to handle the request", b"net/http: TLS handshake timeout",
                          b"Error from server (InternalError): [-]etcd failed: reason withheld; readyz check failed"):
             self.assertTrue(q.startup_pending(expected))
             for denial in (b"Forbidden", b"Unauthorized", b"permission denied", b"x509: certificate failed", b"HTTP 403"):

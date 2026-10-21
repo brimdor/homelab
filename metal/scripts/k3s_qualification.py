@@ -51,7 +51,7 @@ def startup_pending(stderr):
         return False
     return bool(re.search(CONNECTION_REFUSED, stderr) or
                 re.search(rb"ServiceUnavailable|server is currently unable to handle|TLS handshake timeout|net/http: request canceled", stderr) or
-                (b"Error from server (InternalError)" in stderr and b"readyz check failed" in stderr))
+                stderr.startswith(b"Error from server (InternalError):"))
 
 
 def failure_classes(stderr):
@@ -64,7 +64,7 @@ def failure_classes(stderr):
         "connection-goaway": rb"server sent GOAWAY.*ErrCode=NO_ERROR",
         "transport-timeout": rb"TLS handshake timeout|net/http: request canceled|i/o timeout|context deadline exceeded",
         "api-unavailable": rb"ServiceUnavailable|server is currently unable to handle",
-        "api-notready": rb"readyz check failed",
+        "api-notready": rb"readyz check failed|^Error from server \(InternalError\):",
     }
     return [name for name, pattern in patterns.items() if re.search(pattern, stderr)] or ["unclassified"]
 
