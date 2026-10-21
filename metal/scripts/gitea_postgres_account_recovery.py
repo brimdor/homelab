@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import shutil
@@ -128,9 +127,23 @@ def execute(container, *args, input=None, allow_error=False):
     common.require_no_logging(container)
     response = subprocess.run(['docker', 'exec', '-i', container, *args], input=input, capture_output=True)
     if not allow_error and (response.returncode or re.search(rb'\b(?:ERROR|FATAL|PANIC):', response.stderr)):
-        raise RuntimeError('copied PostgreSQL native command failed; exit=' + str(response.returncode) +
+        raise RuntimeError('copied PostgreSQL native command failed; command=' + Path(args[0]).name +
+                           '; classes=' + ','.join(error_classes(response.stderr)) + '; exit=' + str(response.returncode) +
                            '; raw output discarded; bytes=' + str(len(response.stdout) + len(response.stderr)))
     return response
+
+
+def error_classes(raw):
+    patterns = {'file_access': rb'(?:Permission denied|could not (?:open|access|create|read) (?:file|directory))',
+                'invalid_checkpoint': rb'(?:could not locate a valid checkpoint|invalid primary checkpoint record)',
+                'missing_config': rb'(?:configuration file .* does not exist|could not access the server configuration file)',
+                'shared_memory': rb'(?:could not (?:create|resize|map) shared memory|No space left on device)',
+                'missing_library': rb'(?:could not (?:access|load) (?:file|library)|error while loading shared libraries)',
+                'server_start': rb'could not start server', 'authentication': rb'password authentication failed',
+                'role_permission': rb'permission denied (?:for|to)', 'missing_relation': rb'relation .* does not exist',
+                'lock_file': rb'lock file .* already exists', 'config_parameter': rb'(?:unrecognized configuration parameter|invalid value for parameter)',
+                'sql_syntax': rb'syntax error', 'division_by_zero': rb'division by zero'}
+    return [k for k, p in patterns.items() if re.search(p, raw)] or ['unclassified']
 
 
 def single(container, sql, expected_failure=False):
@@ -156,7 +169,12 @@ def client(container, password, role, binary, *args):
 def start(container):
     # Server output is captured in anonymous tmpfs, never CRI/journald or retained evidence.
     options = ' '.join("'" + a.replace("'", "'\\''") + "'" for a in OPTIONS)
-    execute(container, BIN + 'pg_ctl', '-D', DATA, '-l', '/tmp/server.log', '-o', options, '-w', 'start')
+    try:
+        execute(container, BIN + 'pg_ctl', '-D', DATA, '-l', '/tmp/server.log', '-o', options, '-w', 'start')
+    except RuntimeError as error:
+        raw = execute(container, '/bin/cat', '/tmp/server.log', allow_error=True).stdout
+        raise RuntimeError(str(error) + '; server_log_classes=' + ','.join(error_classes(raw)) +
+                           '; server_log_bytes=' + str(len(raw)) + '; server_log_sha256=' + hashlib.sha256(raw).hexdigest()) from None
 
 
 def stop(container):

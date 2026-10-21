@@ -110,6 +110,19 @@ class RecoveryContract(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             recovery.client('owned', 'secret\nextra', 'gitea', 'psql')
 
+    def test_start_failure_projects_only_fixed_classes_and_hashes(self):
+        raw = b'FATAL: could not access the server configuration file "private-value": Permission denied'
+        def execute(_container, *args, **_kwargs):
+            if args[0].endswith('pg_ctl'):
+                raise RuntimeError('fixed start failure')
+            return SimpleNamespace(stdout=raw)
+        with patch.object(recovery, 'execute', side_effect=execute):
+            with self.assertRaises(RuntimeError) as caught:
+                recovery.start('owned')
+        self.assertIn('file_access', str(caught.exception))
+        self.assertIn('missing_config', str(caught.exception))
+        self.assertNotIn('private-value', str(caught.exception))
+
 
 if __name__ == '__main__':
     unittest.main()
