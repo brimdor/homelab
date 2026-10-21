@@ -299,6 +299,23 @@ class Qualification(cq.Qualification):
             raise RuntimeError("synthetic node must be fully stopped before datastore mutation")
         return item
 
+    def node_ip(self, node):
+        item = self.inspect(node)
+        networks = item["NetworkSettings"]["Networks"]
+        network = networks.get("k3d-" + self.args.name, {})
+        try:
+            address = ipaddress.ip_address(network.get("IPAddress", ""))
+        except ValueError:
+            raise RuntimeError("owned node bridge address is missing or invalid") from None
+        subnet = ipaddress.ip_network(l2.NETWORK)
+        if (not item["State"]["Running"] or set(networks) != {"k3d-" + self.args.name} or
+                network.get("NetworkID") != self.l2_network_id or
+                not re.fullmatch(r"[a-f0-9]{64}", network.get("EndpointID", "")) or
+                address not in subnet or address in (subnet.network_address, subnet.broadcast_address, subnet.network_address + 1) or
+                address == ipaddress.ip_address("172.31.240.10") or address in ipaddress.ip_network(l2.CIDR)):
+            raise RuntimeError("owned node bridge identity or address changed")
+        return str(address)
+
     def identity(self):
         config = yaml.safe_load(Path(self.env["KUBECONFIG"]).read_text())
         nodes = self.kubectl("get", "nodes")
@@ -642,13 +659,22 @@ class Qualification(cq.Qualification):
         digest = self.command(["docker", "exec", server, "sha256sum", path]).decode().split()[0]
         if digest != snapshot["sha256"]:
             raise RuntimeError("snapshot changed before restoration")
+        addresses = {node: self.node_ip(node) for node in self.versions}
+        nodes = self.kubectl("get", "nodes")["items"]
+        if (len(nodes) != 5 or len(set(addresses.values())) != 5 or {n["metadata"]["name"] for n in nodes} != set(addresses) or
+                any([a["address"] for a in n["status"]["addresses"] if a["type"] == "InternalIP"] !=
+                    [addresses[n["metadata"]["name"]]] for n in nodes)):
+            raise RuntimeError("restore node addresses disagree with exact Kubernetes identities")
+        (self.work / (snapshot["prefix"] + "-restore-network.json")).write_text(json.dumps({
+            "network_id": self.l2_network_id, "node_ips": addresses}, indent=2))
         self.kubectl("drain", *self.versions, "--ignore-daemonsets", "--delete-emptydir-data", "--timeout=600s", json_output=False)
         for node in self.versions:
             item = self.inspect(node)
             self.command(["docker", "stop", "--time=30", item["Id"]])
         for node in self.versions:
             self.replace_binary(node, previous, stopped=True)
-        self.helper(server, ["server", "--node-name=" + server, *SERVER_FLAGS, "--cluster-reset",
+        # Reset listens on loopback but must advertise the original node, not the helper's IP.
+        self.helper(server, ["server", "--node-name=" + server, "--node-ip=" + addresses[server], *SERVER_FLAGS, "--cluster-reset",
                             "--cluster-reset-restore-path=" + path, "--token-file=" + DATA + "/server/token"], version=previous, restore=True)
         for peer in [n for n in self.versions if "-server-" in n and n != server]:
             self.helper(peer, ["-ec", "test -d " + DATA + "/server/db; rm -rf " + DATA + "/server/db; test ! -e " + DATA + "/server/db"])
@@ -657,6 +683,8 @@ class Qualification(cq.Qualification):
         for node in self.versions:
             item = self.inspect(node, stopped=True)
             self.command(["docker", "start", item["Id"]])
+            if self.node_ip(node) != addresses[node]:
+                raise RuntimeError("restored node bridge address changed before API acceptance")
             if "-server-" in node:
                 self.wait_api(node)
             if self.command(["docker", "exec", node, "sha256sum", "/bin/k3s"]).decode().split()[0] != self.binary(previous)[1]:

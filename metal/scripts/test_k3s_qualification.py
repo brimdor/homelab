@@ -342,6 +342,101 @@ class Guards(unittest.TestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(children[0].pid, 0)
 
+    def test_restore_address_requires_exact_running_owned_bridge_endpoint(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.args = SimpleNamespace(name=self.name)
+        runner.l2_network_id = "a" * 64
+        node = next(iter(self.versions))
+        item = {"State": {"Running": True}, "NetworkSettings": {"Networks": {
+            "k3d-" + self.name: {"NetworkID": runner.l2_network_id, "EndpointID": "b" * 64,
+                                 "IPAddress": "172.31.240.3"}}}}
+        with patch.object(runner, "inspect", return_value=item) as inspect:
+            self.assertEqual(runner.node_ip(node), "172.31.240.3")
+        inspect.assert_called_once_with(node)
+        for fault in ("network", "endpoint", "extra-network", "stopped", "missing", "invalid", "outside", "ipv6",
+                      "network-address", "gateway", "broadcast", "client", "vip"):
+            bad = copy.deepcopy(item)
+            network = bad["NetworkSettings"]["Networks"]["k3d-" + self.name]
+            if fault == "network":
+                network["NetworkID"] = "c" * 64
+            elif fault == "endpoint":
+                network["EndpointID"] = ""
+            elif fault == "extra-network":
+                bad["NetworkSettings"]["Networks"]["other"] = {}
+            elif fault == "stopped":
+                bad["State"]["Running"] = False
+            else:
+                network["IPAddress"] = {"missing": "", "invalid": "unexpected private text", "outside": "10.0.20.10",
+                    "ipv6": "fd00::3", "network-address": "172.31.240.0", "gateway": "172.31.240.1",
+                    "broadcast": "172.31.240.255", "client": "172.31.240.10", "vip": "172.31.240.226"}[fault]
+            with self.subTest(fault=fault), patch.object(runner, "inspect", return_value=bad):
+                with self.assertRaises(RuntimeError):
+                    runner.node_ip(node)
+
+    def test_restore_advertises_original_node_ip_and_refuses_changed_identity(self):
+        for fault in (None, "kubernetes-address", "duplicate-address", "extra-node", "restart-address"):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
+                runner = q.Qualification.__new__(q.Qualification)
+                runner.work, runner.versions = Path(directory), dict(self.versions)
+                runner.l2_network_id = "a" * 64
+                names = list(runner.versions)
+                addresses = {n: "172.31.240." + str(i + 3) for i, n in enumerate(names)}
+                nodes = [{"metadata": {"name": n}, "status": {"addresses": [{"type": "InternalIP", "address": ip}]},
+                          "spec": {}} for n, ip in addresses.items()]
+                if fault == "kubernetes-address":
+                    nodes[0]["status"]["addresses"][0]["address"] = "172.31.240.20"
+                elif fault == "duplicate-address":
+                    addresses[names[1]] = addresses[names[0]]
+                elif fault == "extra-node":
+                    nodes.append(copy.deepcopy(nodes[0]))
+                snapshot = {"previous": q.BASELINE, "target": next(iter(q.BINARIES)), "prefix": "qualification-0",
+                            "path": q.DATA + "/server/db/snapshots/qualification-0-owned-123", "sha256": "c" * 64,
+                            "marker_data": {"value": "before"}, "marker_uid": "marker-uid"}
+
+                def native(command):
+                    if command[:2] == ["docker", "exec"]:
+                        return (("c" if command[-1] == snapshot["path"] else "d") * 64).encode()
+                    return b""
+
+                def kubectl(*args, **_kwargs):
+                    if args[:2] == ("get", "nodes"):
+                        return {"items": nodes}
+                    if args[:2] == ("get", "configmap"):
+                        return {"metadata": {"uid": snapshot["marker_uid"]}, "data": snapshot["marker_data"]}
+                    return b""
+
+                measured = list(addresses.values()) + [addresses[n] for n in names]
+                if fault == "restart-address":
+                    measured[5] = "172.31.240.20"
+                with patch.object(runner, "ready"), patch.object(runner, "node_ip", side_effect=measured), \
+                        patch.object(runner, "inspect", side_effect=lambda n, **kw: {"Id": n}), \
+                        patch.object(runner, "command", side_effect=native) as command, \
+                        patch.object(runner, "kubectl", side_effect=kubectl) as api, \
+                        patch.object(runner, "replace_binary"), patch.object(runner, "helper") as helper, \
+                        patch.object(runner, "select_client"), patch.object(runner, "wait_api") as wait_api, \
+                        patch.object(runner, "binary", return_value=(None, "d" * 64)), \
+                        patch.object(runner, "checkpoint") as checkpoint:
+                    if fault:
+                        with self.assertRaises(RuntimeError):
+                            runner.rollback(snapshot)
+                        checkpoint.assert_not_called()
+                        wait_api.assert_not_called()
+                        self.assertFalse(snapshot.get("matching_version_restore_accepted", False))
+                        if fault != "restart-address":
+                            helper.assert_not_called()
+                            self.assertFalse(any(c.args[0] == "drain" for c in api.call_args_list))
+                            self.assertFalse(any(c.args[0][:2] == ["docker", "stop"] for c in command.call_args_list))
+                            continue
+                    else:
+                        runner.rollback(snapshot)
+                        checkpoint.assert_called_once_with(q.BASELINE, "rollback-" + snapshot["target"])
+                        self.assertTrue(snapshot["matching_version_restore_accepted"])
+                    reset = helper.call_args_list[0]
+                    self.assertEqual(reset.args[0], names[0])
+                    self.assertIn("--node-ip=" + addresses[names[0]], reset.args[1])
+                    self.assertIn("--token-file=" + q.DATA + "/server/token", reset.args[1])
+                    self.assertEqual(reset.kwargs, {"version": q.BASELINE, "restore": True})
+
     def test_fixture_failure_evidence_excludes_injected_data_and_termination_messages(self):
         with tempfile.TemporaryDirectory() as directory:
             runner = q.Qualification.__new__(q.Qualification)
