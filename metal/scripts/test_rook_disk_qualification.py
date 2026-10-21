@@ -108,6 +108,13 @@ class DiskGuardTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 subject.added_config(before, changed, names)
         subject.require_config(before | {'vmType': 'qemu'}, 'qemu')
+        storage = before | {'vmType': 'qemu', 'cpus': 8, 'memory': '12288MiB'}
+        subject.require_config(storage, 'qemu', 'storage')
+        for value, backend, profile in [(storage, 'qemu', 'substrate'),
+                                        (storage | {'vmType': 'vz'}, 'vz', 'storage'),
+                                        (storage, 'qemu', 'unreviewed')]:
+            with self.assertRaises(RuntimeError):
+                subject.require_config(value, backend, profile)
         for value, expected in [(before, 'qemu'), (before | {'vmType': 'qemu'}, 'vz'),
                                 (before, 'unreviewed')]:
             with self.assertRaises(RuntimeError):

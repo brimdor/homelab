@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""Exercise fresh modern-only Rook storage inside the owned serial-bound VM."""
+
+import copy
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import socket
+import urllib.request
+
+import yaml
+
+import ceph_runtime_qualification as ceph_checks
+import cilium_qualification as common
+import rook_disk_qualification as disks
+import rook_image_qualification as images
+import rook_native_candidate as candidate
+
+
+MODES = {name: 'secure' for name in (
+    'ms_cluster_mode', 'ms_service_mode', 'ms_client_mode',
+    'ms_mon_cluster_mode', 'ms_mon_service_mode', 'ms_mon_client_mode')}
+CORE_KEYS = ('admin', 'mon', 'mgr', 'osd', 'crashCollector', 'cephExporter')
+
+
+def resources(name, disk_run, inventory):
+    rows = candidate.resources(name, disk_run, inventory)
+    rows[2]['spec']['cephConfig']['global'].update(MODES)
+    rows[1]['data']['config'] += ''.join(key + ' = secure\n' for key in MODES)
+    return rows
+
+
+def toolbox():
+    script = '''set -euo pipefail
+umask 077
+while true; do
+  printf '[%s]\\nkey = %s\\n' "$ROOK_CEPH_USERNAME" "$(cat /run/mon/secret.keyring)" > /etc/ceph/keyring.new
+  mv /etc/ceph/keyring.new /etc/ceph/keyring
+  endpoints=$(sed 's/[a-z0-9_-]\\+=//g' /run/rook/mon-endpoints)
+  printf '[global]\\nmon_host = %s\\nlog_to_file = false\\n[client.admin]\\nkeyring = /etc/ceph/keyring\\n' "$endpoints" > /etc/ceph/ceph.conf.new
+  mv /etc/ceph/ceph.conf.new /etc/ceph/ceph.conf
+  sleep 10
+done
+'''
+    return {'apiVersion': 'v1', 'kind': 'Pod',
+            'metadata': {'name': 'qualification-tools', 'namespace': candidate.NAMESPACE},
+            'spec': {
+                'automountServiceAccountToken': False, 'restartPolicy': 'Never',
+                'securityContext': {'runAsNonRoot': True, 'runAsUser': 2016,
+                                    'runAsGroup': 2016, 'fsGroup': 2016},
+                'containers': [{
+                    'name': 'tools', 'image': candidate.CEPH_IMAGE,
+                    'command': ['/bin/bash', '-ec', script],
+                    'readinessProbe': {'exec': {'command': ['sh', '-ec',
+                                                           'test -s /etc/ceph/keyring && test -s /etc/ceph/ceph.conf']},
+                                       'periodSeconds': 2},
+                    'securityContext': {'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True,
+                                        'capabilities': {'drop': ['ALL']}},
+                    'resources': {'requests': {'cpu': '100m', 'memory': '256Mi'},
+                                  'limits': {'memory': '512Mi'}},
+                    'env': [{'name': 'ROOK_CEPH_USERNAME', 'valueFrom': {
+                        'secretKeyRef': {'name': 'rook-ceph-mon', 'key': 'ceph-username'}}}],
+                    'volumeMounts': [{'name': name, 'mountPath': path, 'readOnly': readonly}
+                                     for name, path, readonly in (
+                                         ('config', '/etc/ceph', False), ('work', '/work', False),
+                                         ('tmp', '/tmp', False), ('key', '/run/mon', True),
+                                         ('endpoints', '/run/rook', True))],
+                }],
+                'volumes': [
+                    *({'name': name, 'emptyDir': {'medium': 'Memory', 'sizeLimit': size}}
+                      for name, size in (('config', '1Mi'), ('work', '8Mi'), ('tmp', '16Mi'))),
+                    {'name': 'key', 'secret': {'secretName': 'rook-ceph-mon', 'defaultMode': 0o440,
+                                             'items': [{'key': 'ceph-secret', 'path': 'secret.keyring'}]}},
+                    {'name': 'endpoints', 'configMap': {'name': 'rook-ceph-mon-endpoints',
+                                                      'items': [{'key': 'data', 'path': 'mon-endpoints'}]}},
+                ],
+            }}
+
+
+def require_generation(cluster, generation):
+    statuses = cluster.get('status', {}).get('cephx', {})
+    for name in CORE_KEYS:
+        value = statuses.get(name, {})
+        if (value.get('keyGeneration') != generation or
+                not re.fullmatch(r'20\.2\.4-[0-9]+', value.get('keyCephVersion', '')) or
+                value.get('keyType', '') not in ('', 'aes256k')):
+            raise RuntimeError('native Rook key-generation status differs')
+
+
+def require_mon_security(value):
+    expected = {'name': 'aes256k', 'value': 2}
+    if (value.get('auth_allowed_ciphers') != [expected] or
+            value.get('auth_service_cipher') != expected or
+            value.get('auth_preferred_cipher') != expected or len(value.get('mons', [])) != 3):
+        raise RuntimeError('native monitor cipher policy differs')
+    if any(not row.get('public_addrs', {}).get('addrvec') or
+           any(address.get('type') != 'v2' for address in row['public_addrs']['addrvec'])
+           for row in value['mons']):
+        raise RuntimeError('native monitor still exposes a non-msgr2 address')
+
+
+def require_osd_device(value, osd, fsid, device):
+    matches = [row for row in value.values() if row.get('osd_id') == osd]
+    if (len(matches) != 1 or matches[0].get('device') != device or
+            matches[0].get('ceph_fsid') != fsid or
+            not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}',
+                             matches[0].get('osd_uuid', ''))):
+        raise RuntimeError('native Rook OSD device or data identity differs')
+    return matches[0]['osd_uuid']
+
+
+def require_toolbox(value):
+    expected = toolbox()['spec']
+
+    def included(left, right):
+        if isinstance(left, dict):
+            return isinstance(right, dict) and all(
+                key in right and included(item, right[key]) for key, item in left.items())
+        if isinstance(left, list):
+            return isinstance(right, list) and len(left) == len(right) and all(
+                included(a, b) for a, b in zip(left, right))
+        return type(left) is type(right) and left == right
+
+    spec = value.get('spec', {})
+    if (not included(expected, spec) or spec.get('hostNetwork') or spec.get('hostPID') or
+            spec.get('hostIPC') or spec.get('initContainers') or
+            spec['containers'][0]['securityContext'].get('privileged') or
+            spec['containers'][0]['securityContext'].get('capabilities', {}).get('add')):
+        raise RuntimeError('native toolbox isolation differs')
+
+
+def require_pod_completion(pod, job_uids):
+    metadata, spec, status = pod['metadata'], pod['spec'], pod['status']
+    statuses = status.get('containerStatuses', [])
+    init = status.get('initContainerStatuses', [])
+    if (metadata.get('deletionTimestamp') or not statuses or
+            {row['name'] for row in statuses} != {row['name'] for row in spec['containers']} or
+            {row['name'] for row in init} != {row['name'] for row in spec.get('initContainers', [])}):
+        raise RuntimeError('private fixture container evidence is incomplete')
+    if status['phase'] == 'Succeeded':
+        if (not any(row.get('kind') == 'Job' and row.get('uid') and row['uid'] in job_uids
+                    for row in metadata.get('ownerReferences', [])) or
+                spec.get('restartPolicy') not in ('Never', 'OnFailure') or
+                any(row.get('state', {}).get('terminated', {}).get('exitCode') != 0
+                    for row in statuses + init)):
+            raise RuntimeError('private fixture completion is not proven')
+    elif (status['phase'] != 'Running' or
+          not any(row.get('type') == 'Ready' and row.get('status') == 'True'
+                  for row in status.get('conditions', [])) or
+          any(not row.get('ready') or not row.get('state', {}).get('running') for row in statuses) or
+          any(row.get('state', {}).get('terminated', {}).get('exitCode') != 0 for row in init)):
+        raise RuntimeError('private fixture pod is not ready')
+
+
+class Qualification(images.Qualification):
+    def __init__(self, args):
+        super().__init__(args)
+        self.stage = 'preflight'
+        self.evidence = {'accepted': False, 'stages': []}
+        self.fsid = None
+        self.osds = None
+        self.resource_uids = None
+        self.operator_uid = None
+        self.last_failure = None
+
+    def command(self, arguments, *, data=None, private=True):
+        try:
+            return super().command(arguments, data=data, private=True)
+        except BaseException as error:
+            self.last_failure = {'command_number': self.count,
+                                 'executable': Path(arguments[0]).name,
+                                 'operation': arguments[1] if len(arguments) > 1 else '',
+                                 'exception_sha256': hashlib.sha256(str(error).encode()).hexdigest()}
+            raise
+
+    def apply(self, rows):
+        self.identity()
+        return self.kubectl('apply', '--server-side', '--field-manager=rook-qualification',
+                            '--validate=strict', '-f=-',
+                            data=json.dumps({'apiVersion': 'v1', 'kind': 'List', 'items': rows}).encode())
+
+    def wait(self, *arguments):
+        self.kubectl('wait', *arguments, '--timeout=1200s', json_output=False)
+
+    def tools(self, *arguments, data=None):
+        return self.kubectl('exec', '-n', candidate.NAMESPACE, '-i', 'qualification-tools',
+                            '-c', 'tools', '--', *arguments, data=data, json_output=False)
+
+    def ceph(self, *arguments):
+        return json.loads(self.tools('ceph', *arguments, '-f', 'json'))
+
+    def route(self, fixture):
+        rows = json.loads(fixture.colima('ssh', '--', 'sudo', 'ip', '-j', 'route', 'show',
+                                        'exact', '10.0.0.0/16'))
+        if len(rows) != 1 or rows[0].get('type') != 'blackhole' or rows[0].get('dst') != '10.0.0.0/16':
+            raise RuntimeError('owned VM production-network blackhole is absent')
+
+    def create_storage_cluster(self, fixture, inventory):
+        self.stage = 'private-three-node-cluster'
+        if not self.command([self.args.k3d, 'version']).startswith(b'k3d version v5.9.0\n'):
+            raise RuntimeError('reviewed k3d version differs')
+        info = json.loads(self.command(['docker', 'info', '--format={{json .}}']))
+        if (info.get('Name') != 'colima-q' or info.get('OSType') != 'linux' or
+                info.get('Architecture') != 'aarch64' or self.command(['docker', 'ps', '-aq']).strip()):
+            raise RuntimeError('storage consumer requires the exact empty private daemon')
+        fixture.colima('ssh', '--', 'sudo', 'ip', 'route', 'add', 'blackhole', '10.0.0.0/16')
+        self.route(fixture)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(('127.0.0.1', 0))
+            port = listener.getsockname()[1]
+        self.creation_started = True
+        arguments = [self.args.k3d, 'cluster', 'create', self.args.name, '--servers=1', '--agents=2',
+                     '--image=' + common.K3S, '--api-port=127.0.0.1:' + str(port),
+                     '--subnet=172.31.240.0/24', '--kubeconfig-update-default=false',
+                     '--kubeconfig-switch-context=false',
+                     '--volume=/run/udev:/run/udev:ro@server:*;agent:*',
+                     '--k3s-arg=--cluster-cidr=172.20.0.0/16@server:*',
+                     '--k3s-arg=--service-cidr=172.21.0.0/16@server:*']
+        arguments.extend('--k3s-arg=--disable=' + name + '@server:*'
+                         for name in ('traefik', 'servicelb', 'local-storage', 'metrics-server'))
+        self.command(arguments)
+        raw = self.command([self.args.k3d, 'kubeconfig', 'get', self.args.name])
+        with Path(self.env['KUBECONFIG']).open('xb') as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(raw)
+        self.identity()
+        self.wait('node', '--all', '--for=condition=Ready')
+        self.node_uids = {row['metadata']['name']: row['metadata']['uid']
+                          for row in self.kubectl('get', 'nodes')['items']}
+        selected = disks.guest_disks(inventory, fixture.names)
+        for suffix, device in zip(('-server-0', '-agent-0', '-agent-1'), selected):
+            node = 'k3d-' + self.args.name + suffix
+            block = Path(device['path']).name
+            major, minor = map(int, device['maj:min'].split(':'))
+            raw = self.command(['docker', 'exec', node, 'sh', '-ec',
+                                f'test -b /dev/{block}; cat /sys/class/block/{block}/serial; '
+                                f'cat /sys/class/block/{block}/dev; cat /sys/class/block/{block}/size; '
+                                f'stat -c %t:%T /dev/{block}'])
+            if raw.decode().splitlines() != [device['serial'], device['maj:min'],
+                                             str(disks.DISK_BYTES // 512), f'{major:x}:{minor:x}']:
+                raise RuntimeError('assigned node virtual-device binding differs')
+            self.command(['docker', 'exec', node, 'test', '-d', '/run/udev'])
+        server = 'k3d-' + self.args.name + '-server-0'
+        resolver = common.inherited_resolver(self.command(['docker', 'exec', server, 'cat',
+                                                          '/etc/resolv.conf']).decode())
+        self.command(['docker', 'exec', server, 'nslookup', 'example.com.', resolver])
+        config = self.kubectl('get', 'configmap', 'coredns', '-n', 'kube-system')
+        before = config['data']['Corefile']
+        if before.count('forward . /etc/resolv.conf') != 1:
+            raise RuntimeError('private DNS forwarding contract differs')
+        self.kubectl('patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=json', '-p',
+                     json.dumps([{'op': 'test', 'path': '/data/Corefile', 'value': before},
+                                 {'op': 'replace', 'path': '/data/Corefile',
+                                  'value': before.replace('forward . /etc/resolv.conf',
+                                                          'forward . ' + resolver)}]))
+        self.route(fixture)
+        self.evidence.update(cluster_uid=self.cluster_uid, node_uids=self.node_uids,
+                             production_route_blackholed=True, assigned_devices_verified=True)
+
+    def operator(self, version):
+        self.stage = 'operator-' + version
+        values = candidate.OPERATORS[version]
+        with urllib.request.urlopen('https://charts.rook.io/release/' + values['package'], timeout=30) as response:
+            raw = response.read()
+        if hashlib.sha256(raw).hexdigest() != values['package_sha256']:
+            raise RuntimeError('reviewed operator package differs')
+        package = self.work / values['package']
+        package.write_bytes(raw)
+        settings = self.work / 'operator-values.yaml'
+        settings.write_text(yaml.safe_dump(candidate.operator_values(version)))
+        rendered = self.command(['helm', 'template', 'rook-native', str(package),
+                                  '--namespace=' + candidate.NAMESPACE, '--kube-version=1.33.6',
+                                  '--values=' + str(settings)])
+        candidate.require_operator_render(version, rendered)
+        rows = [row for row in yaml.safe_load_all(rendered) if row]
+        self.apply(rows)
+        crds = [row['metadata']['name'] for row in rows if row['kind'] == 'CustomResourceDefinition']
+        self.wait('--for=condition=Established', *['crd/' + name for name in crds])
+        self.kubectl('rollout', 'status', 'deployment/rook-ceph-operator', '-n', candidate.NAMESPACE,
+                     '--timeout=1200s', json_output=False)
+        deployment = self.kubectl('get', 'deployment', 'rook-ceph-operator', '-n', candidate.NAMESPACE)
+        uid = deployment['metadata']['uid']
+        if not uid or (self.operator_uid is not None and uid != self.operator_uid):
+            raise RuntimeError('native operator deployment identity changed')
+        self.operator_uid = uid
+        expected = 'docker.io/rook/ceph:v' + version + '@sha256:' + values['image_sha256']
+        if deployment['spec']['template']['spec']['containers'][0]['image'] != expected:
+            raise RuntimeError('native operator image differs')
+
+    def clients(self, recreate=False):
+        self.stage = 'owned-toolbox'
+        if recreate:
+            self.kubectl('delete', 'pod', 'qualification-tools', '-n', candidate.NAMESPACE,
+                         '--wait=true', '--timeout=180s', json_output=False)
+        self.wait('--for=create', 'secret/rook-ceph-mon', '-n', candidate.NAMESPACE)
+        self.apply([toolbox()])
+        self.wait('pod/qualification-tools', '-n', candidate.NAMESPACE, '--for=condition=Ready')
+
+    def snapshot(self, fixture, identities, requested, generation, label):
+        self.stage = label
+        self.identity()
+        if {row['metadata']['name']: row['metadata']['uid']
+            for row in self.kubectl('get', 'nodes')['items']} != self.node_uids:
+            raise RuntimeError('private node identities changed')
+        self.route(fixture)
+        self.wait('cephcluster/' + candidate.NAMESPACE, '-n', candidate.NAMESPACE,
+                  '--for=jsonpath={.status.phase}=Ready')
+        self.wait('cephcluster/' + candidate.NAMESPACE, '-n', candidate.NAMESPACE,
+                  '--for=jsonpath={.status.ceph.health}=HEALTH_OK')
+        cluster = self.kubectl('get', 'cephcluster', candidate.NAMESPACE, '-n', candidate.NAMESPACE)
+        pool = self.kubectl('get', 'cephblockpool', 'qualification', '-n', candidate.NAMESPACE)
+        candidate.require_admitted_profile(requested[2:], [cluster, pool])
+        require_generation(cluster, generation)
+        uids = (cluster['metadata']['uid'], pool['metadata']['uid'])
+        if self.resource_uids is not None and uids != self.resource_uids:
+            raise RuntimeError('Rook resource identities changed')
+        self.resource_uids = uids
+        status = self.ceph('status')
+        self.fsid = self.fsid or status['fsid']
+        osds = self.ceph('osd', 'dump')['osds']
+        if not ceph_checks.replica_state(status, osds, {0, 1, 2}, self.fsid):
+            raise RuntimeError('native Rook storage is not healthy')
+        if len(status.get('quorum_names', [])) != 3:
+            raise RuntimeError('native Rook monitor quorum differs')
+        if len(self.ceph('mgr', 'dump').get('standbys', [])) != 1:
+            raise RuntimeError('native Rook manager redundancy differs')
+        pools = self.ceph('osd', 'pool', 'ls', 'detail')
+        if not pools or any(row.get('size') != 2 or row.get('min_size') != 2 for row in pools):
+            raise RuntimeError('native Rook pool redundancy differs')
+        require_mon_security(self.ceph('mon', 'dump'))
+        for key in MODES:
+            if self.tools('ceph', 'config', 'get', 'global', key).strip() != b'secure':
+                raise RuntimeError('native Rook messenger encryption differs')
+        if 'rook' not in self.ceph('mgr', 'module', 'ls').get('enabled_modules', []):
+            raise RuntimeError('native Rook manager module is disabled')
+        keys = self.ceph('auth', 'ls').get('auth_dump', [])
+        if len(keys) < 8 or any(row['entity'].startswith('client.csi') for row in keys):
+            raise RuntimeError('native Rook key inventory differs')
+        for row in keys:
+            images.default_key_metadata(row['key'].encode())
+        current = {row['entity']: row['key'] for row in keys}
+        pods = self.kubectl('get', 'pods', '-n', candidate.NAMESPACE)['items']
+        tools = [row for row in pods if row['metadata']['name'] == 'qualification-tools']
+        if len(tools) != 1:
+            raise RuntimeError('native toolbox identity is ambiguous')
+        require_toolbox(tools[0])
+        allowed = {candidate.CEPH_IMAGE, *('docker.io/rook/ceph:v' + version + '@sha256:' +
+                                         value['image_sha256']
+                                         for version, value in candidate.OPERATORS.items())}
+        for pod in pods:
+            declared = {row['name']: row['image'] for row in pod['spec']['containers']}
+            for row in pod.get('status', {}).get('containerStatuses', []):
+                image = declared[row['name']]
+                if image not in allowed or not row.get('imageID', '').endswith(image[image.index('@'):]):
+                    raise RuntimeError('native Rook running image digest differs')
+        osd_pods = [row for row in pods if row['metadata'].get('labels', {}).get('app') == 'rook-ceph-osd']
+        selected = requested[2]['spec']['storage']['nodes']
+        device_by_node = {row['name']: row['devices'][0]['name'] for row in selected}
+        observed_osds = {}
+        if len(osd_pods) != 3:
+            raise RuntimeError('native Rook OSD pod count differs')
+        for pod in osd_pods:
+            number = int(pod['metadata']['labels']['ceph-osd-id'])
+            raw = self.kubectl('exec', '-n', candidate.NAMESPACE, pod['metadata']['name'],
+                               '-c', 'osd', '--', 'ceph-volume', 'raw', 'list', '--format=json',
+                               json_output=False)
+            observed_osds[number] = require_osd_device(json.loads(raw), number, self.fsid,
+                                                       device_by_node[pod['spec']['nodeName']])
+        if set(observed_osds) != {0, 1, 2} or (self.osds is not None and observed_osds != self.osds):
+            raise RuntimeError('native Rook OSD UUID identities changed')
+        self.osds = observed_osds
+        for identity in identities.values():
+            if disks.backing_identity(Path(identity['path'])) != {
+                    key: identity[key] for key in ('device', 'inode', 'bytes')}:
+                raise RuntimeError('native Rook backing file identity changed')
+        disks.qemu_observation(fixture.root, identities)
+        for pod in pods:
+            for container in pod['spec'].get('containers', []) + pod['spec'].get('initContainers', []):
+                if 'mon-auth-emergency-allowed-ciphers' in json.dumps(container.get('args', [])):
+                    raise RuntimeError('native Rook enabled emergency cipher arguments')
+        for kind in ('deployments', 'daemonsets'):
+            for row in self.kubectl('get', kind, '-n', candidate.NAMESPACE)['items']:
+                status_row = row.get('status', {})
+                desired = row['spec'].get('replicas', status_row.get('desiredNumberScheduled'))
+                ready = status_row.get('readyReplicas', status_row.get('numberReady', 0))
+                if (not desired or ready != desired or
+                        status_row.get('observedGeneration', 0) < row['metadata']['generation']):
+                    raise RuntimeError('native Rook controller is not ready')
+                if kind == 'deployments' and (
+                        status_row.get('updatedReplicas') != desired or
+                        status_row.get('availableReplicas') != desired or status_row.get('unavailableReplicas', 0)):
+                    raise RuntimeError('native Rook deployment rollout is incomplete')
+                if kind == 'daemonsets' and (
+                        status_row.get('updatedNumberScheduled') != desired or
+                        status_row.get('numberAvailable') != desired or status_row.get('numberUnavailable', 0)):
+                    raise RuntimeError('native Rook daemonset rollout is incomplete')
+        jobs = self.kubectl('get', 'jobs', '-A')['items']
+        job_uids = set()
+        for job in jobs:
+            if (job.get('status', {}).get('failed', 0) or job.get('status', {}).get('active', 0) or
+                    job.get('status', {}).get('succeeded', 0) < job['spec'].get('completions', 1)):
+                raise RuntimeError('private fixture job is failed or incomplete')
+            if not job['metadata'].get('uid'):
+                raise RuntimeError('private fixture job identity is absent')
+            job_uids.add(job['metadata']['uid'])
+        for pod in self.kubectl('get', 'pods', '-A')['items']:
+            require_pod_completion(pod, job_uids)
+        warnings = self.kubectl('get', 'events', '-A', '--field-selector=type=Warning')['items']
+        self.evidence['warning_reasons'] = sorted({row.get('reason', '') for row in warnings})
+        if warnings:
+            raise RuntimeError('private fixture has unresolved warning events')
+        if self.kubectl('get', 'csidrivers')['items']:
+            raise RuntimeError('native no-CSI fixture has a CSI driver')
+        crds = self.kubectl('get', 'crds')['items']
+        if any(row['spec']['group'] == 'csi.ceph.io' for row in crds):
+            raise RuntimeError('native no-CSI fixture has CSI operator CRDs')
+        self.evidence['stages'].append({'name': label, 'health': 'HEALTH_OK', 'generation': generation,
+                                        'fsid': self.fsid, 'osd_uuids': dict(observed_osds),
+                                        'resource_uids': list(uids), 'modern_key_count': len(keys),
+                                        'all_pools_size_and_min_size': 2})
+        return current
+
+    def objects(self, write=False):
+        used = set()
+        for number in range(64):
+            name = f'replica-{number:03d}'
+            payload = hashlib.sha256(str(number).encode()).digest() * 512
+            if write:
+                self.tools('sh', '-ec', 'cat > /work/payload', data=payload)
+                self.tools('rados', '-p', 'qualification', 'put', name, '/work/payload')
+            self.tools('rados', '-p', 'qualification', 'get', name, '/work/readback')
+            if self.tools('cat', '/work/readback') != payload:
+                raise RuntimeError('native Rook object bytes differ')
+            used.update(ceph_checks.replica_placement(self.ceph('osd', 'map', 'qualification', name),
+                                                      name, {0, 1, 2}))
+        if used != {0, 1, 2}:
+            raise RuntimeError('native Rook object placement omits an OSD')
+        self.evidence['stages'][-1].update(objects_verified=64, two_copy_placement_verified=True)
+
+    def run(self, fixture, inventory, identities):
+        """The tracked parent must destroy the entire VM on every outcome."""
+        disks.require_config(yaml.safe_load((fixture.root / 'l/colima-q/lima.yaml').read_text()),
+                             'qemu', 'storage')
+        self.create_storage_cluster(fixture, inventory)
+        requested = resources(self.args.name, fixture.names[0][:-2], inventory)
+        self.apply(requested[:2])
+        self.operator('1.20.9')
+        self.apply(requested[2:])
+        self.clients()
+        self.snapshot(fixture, identities, requested, 1, 'initial')
+        self.objects(write=True)
+        before = self.kubectl('get', 'pods', '-n', candidate.NAMESPACE,
+                               '-l', 'app=rook-ceph-operator')['items']
+        if len(before) != 1:
+            raise RuntimeError('native operator pod identity is ambiguous')
+        self.kubectl('rollout', 'restart', 'deployment/rook-ceph-operator', '-n', candidate.NAMESPACE,
+                     json_output=False)
+        self.kubectl('rollout', 'status', 'deployment/rook-ceph-operator', '-n', candidate.NAMESPACE,
+                     '--timeout=1200s', json_output=False)
+        after = self.kubectl('get', 'pods', '-n', candidate.NAMESPACE,
+                              '-l', 'app=rook-ceph-operator')['items']
+        if len(after) != 1 or after[0]['metadata']['uid'] == before[0]['metadata']['uid']:
+            raise RuntimeError('native operator restart was not observed')
+        previous_keys = self.snapshot(fixture, identities, requested, 1, 'operator-restart')
+        self.objects()
+        requested = copy.deepcopy(requested)
+        requested[2]['spec']['security']['cephx']['daemon']['keyGeneration'] = 2
+        self.apply([requested[2]])
+        for name in CORE_KEYS:
+            self.wait('cephcluster/' + candidate.NAMESPACE, '-n', candidate.NAMESPACE,
+                      '--for=jsonpath={.status.cephx.' + name + '.keyGeneration}=2')
+        self.clients(recreate=True)
+        current_keys = self.snapshot(fixture, identities, requested, 2, 'daemon-generation-two')
+        core = {name for name in previous_keys if name == 'client.admin' or
+                name == 'mon.' or name.startswith(('mgr.', 'osd.'))}
+        if len(core) < 7 or any(name not in current_keys or current_keys[name] == previous_keys[name]
+                                for name in core):
+            raise RuntimeError('native Rook core key change was not observed')
+        del previous_keys, current_keys
+        self.objects()
+        self.operator('1.21.0')
+        self.snapshot(fixture, identities, requested, 2, 'operator-1.21.0')
+        self.objects()
+        self.evidence.update(accepted=True, production_writes=0, raw_key_output_retained=False,
+                             physical_fault_domains_qualified=False, kernel_csi_qualified=False,
+                             legacy_ticket_transition_qualified=False, whole_vm_cleanup_required=True)
+        self.evidence['result_sha256'] = hashlib.sha256(json.dumps(self.evidence, sort_keys=True).encode()).hexdigest()
+        return self.evidence

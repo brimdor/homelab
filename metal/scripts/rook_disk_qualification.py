@@ -46,7 +46,7 @@ class GuestDiskIdentityError(RuntimeError):
             self.observation['devices'].append(values)
 
 
-def file_identity(path):
+def backing_identity(path):
     metadata = path.lstat()
     observation = {'regular_file': stat.S_ISREG(metadata.st_mode),
                    'owned_by_current_user': metadata.st_uid == os.getuid(),
@@ -56,19 +56,28 @@ def file_identity(path):
     if (not observation['regular_file'] or not observation['owned_by_current_user'] or
             metadata.st_size != DISK_BYTES or observation['symlink'] or observation['ancestor_symlink']):
         raise DiskIdentityError(observation)
+    return {'device': metadata.st_dev, 'inode': metadata.st_ino, 'bytes': metadata.st_size}
+
+
+def file_identity(path):
+    identity = backing_identity(path)
     with path.open('rb') as source:
         first = source.read(512)
         source.seek(-512, 2)
         last = source.read(512)
     if first != bytes(512) or last != bytes(512):
         raise RuntimeError('owned blank disk has nonzero boundary sectors')
-    return {'device': metadata.st_dev, 'inode': metadata.st_ino, 'bytes': metadata.st_size}
+    return identity
 
 
-def require_config(value, vm_type='vz'):
+def require_config(value, vm_type='vz', profile='substrate'):
+    profiles = {'substrate': (2, '2048MiB'), 'storage': (8, '12288MiB')}
+    if profile not in profiles or (profile == 'storage' and vm_type != 'qemu'):
+        raise RuntimeError('unreviewed disk fixture profile')
+    cpus, memory = profiles[profile]
     if (vm_type not in ('vz', 'qemu') or value.get('vmType') != vm_type or
             value.get('mounts') or value.get('blockDevices') or
-            value.get('cpus') != 2 or value.get('memory') != '2048MiB' or
+            value.get('cpus') != cpus or value.get('memory') != memory or
             value.get('ssh', {}).get('forwardAgent') is not False):
         raise RuntimeError('owned disk fixture VM contract differs')
 
@@ -190,12 +199,13 @@ def guest_disks(value, names):
 
 
 class Fixture:
-    def __init__(self, root, run_id, vm_type='vz'):
+    def __init__(self, root, run_id, vm_type='vz', profile='substrate'):
         metadata = root.lstat()
         if (not root.is_absolute() or not re.fullmatch(r'v-[a-z0-9_]{8}', root.name) or
                 not re.fullmatch(r'rook-[a-f0-9]{8}', run_id) or not root.is_dir() or
                 stat.S_IMODE(metadata.st_mode) != 0o700 or metadata.st_uid != os.getuid() or
-                any(p.is_symlink() for p in (root, *root.parents)) or vm_type not in ('vz', 'qemu')):
+                any(p.is_symlink() for p in (root, *root.parents)) or vm_type not in ('vz', 'qemu') or
+                profile not in ('substrate', 'storage') or (profile == 'storage' and vm_type != 'qemu')):
             raise RuntimeError('owned VM root or run identity differs')
         for name in ('h', 'l', 'd'):
             path = root / name
@@ -205,6 +215,7 @@ class Fixture:
                 raise RuntimeError('owned VM environment directory differs')
         self.root = root
         self.vm_type = vm_type
+        self.profile = profile
         self.names = [run_id + '-' + str(number) for number in range(3)]
         self.env = os.environ.copy()
         self.env.pop('DOCKER_CONTEXT', None)
@@ -241,8 +252,10 @@ class Fixture:
     def colima(self, *arguments):
         return self.command([TOOLS['colima'], '-p', 'q', *arguments])
 
-    def run(self):
+    def run(self, consumer=None):
         """Caller must finally delete the entire exact owned VM and root."""
+        if (self.profile == 'storage') != callable(consumer):
+            raise RuntimeError('storage profile requires its explicit native consumer')
         versions = {'colima': self.command([TOOLS['colima'], 'version']).decode(),
                     'lima': self.command([TOOLS['lima'], '--version']).decode()}
         if (not versions['colima'].startswith('colima version 0.10.3\n') or
@@ -266,7 +279,7 @@ class Fixture:
         if self.command([TOOLS['docker'], '--host', self.env['DOCKER_HOST'], 'ps', '-aq']).strip():
             raise RuntimeError('owned disk fixture requires an empty Docker daemon')
         before = yaml.safe_load(config_path.read_text())
-        require_config(before, self.vm_type)
+        require_config(before, self.vm_type, self.profile)
         self.stage = 'stop-owned-vm-before-attachment'
         self.colima('stop')
         identities = {}
@@ -318,8 +331,16 @@ class Fixture:
                                        'printf "{\\"cpus\\":%s,\\"udev\\":%s}\\n" '
                                        '"$(getconf _NPROCESSORS_ONLN)" '
                                        '"$(pgrep -xc \'systemd-udevd|udevd\')"'))
-        if native['cpus'] != 2 or native['udev'] != 1:
+        if native['cpus'] != (8 if self.profile == 'storage' else 2) or native['udev'] != 1:
             raise RuntimeError('owned guest CPU or udev prerequisite differs')
+        storage = None
+        if consumer is not None:
+            self.stage = 'owned-native-storage-consumer'
+            storage = consumer(self, json.loads(raw), identities)
+            for identity in identities.values():
+                if backing_identity(Path(identity['path'])) != {
+                        key: identity[key] for key in ('device', 'inode', 'bytes')}:
+                    raise RuntimeError('native storage changed its declared backing file identity')
         self.stage = 'stop-owned-vm-after-observation'
         self.colima('stop')
         self.stage = 'detach-only-owned-raw-files'
@@ -338,7 +359,8 @@ class Fixture:
                 raise RuntimeError('owned raw disk remains')
         return {'accepted': True, 'guest_disks': devices, 'blank_backing_identities': identities,
                 'qemu_native_identity': monitor,
+                'storage': storage,
                 'owned_raw_files_removed': True, 'vm_left_stopped_for_parent_cleanup': True,
-                'raw_host_devices_attached': False, 'rook_or_csi_executed': False,
+                'raw_host_devices_attached': False, 'rook_or_csi_executed': consumer is not None,
                 'children_reaped': all(child.poll() is not None for child in self.children),
                 'commands': self.commands}
