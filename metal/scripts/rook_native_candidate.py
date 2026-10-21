@@ -97,6 +97,30 @@ def resources(cluster_name, disk_run_id, inventory):
     ]
 
 
+def require_admitted_profile(requested, admitted):
+    """Reject API defaulting or mutation that changes the declared safety contract."""
+    def included(expected, actual):
+        if isinstance(expected, dict):
+            return isinstance(actual, dict) and all(
+                key in actual and included(value, actual[key]) for key, value in expected.items())
+        if isinstance(expected, list):
+            return isinstance(actual, list) and len(expected) == len(actual) and all(
+                included(left, right) for left, right in zip(expected, actual))
+        return type(expected) is type(actual) and expected == actual
+
+    if len(requested) != 2 or len(admitted) != 2:
+        raise RuntimeError('native admission resource count differs')
+    for expected, actual in zip(requested, admitted):
+        identity = {key: expected[key] for key in ('apiVersion', 'kind', 'metadata', 'spec')}
+        if not included(identity, actual):
+            raise RuntimeError('native admission changed declared candidate fields')
+    spec = admitted[0]['spec']
+    daemon = spec['security']['cephx']['daemon']
+    if daemon.get('keyType', '') != '' or any(
+            spec['storage'].get(key) for key in ('deviceFilter', 'devicePathFilter', 'storageClassDeviceSets')):
+        raise RuntimeError('native admission introduced emergency key or broad device selection')
+
+
 def qualify_admission(version, operator_render, cluster_name, disk_run_id, inventory, run_id):
     """Dry-run the fresh profile in the existing disconnected, agentless API fixture."""
     require_operator_render(version, operator_render)
@@ -142,6 +166,7 @@ def qualify_admission(version, operator_render, cluster_name, disk_run_id, inven
                           *['crd/' + name for name in names])
             create(candidate[:2], 'namespace-and-public-config.json')
             accepted = create(candidate[2:], 'fresh-profile.json', dry_run=True)
+            require_admitted_profile(candidate[2:], accepted)
             observed['stage'] = 'prove-custom-resource-absence'
             for name in names:
                 if admission.command_objects(common.docker(*client, 'get', name, '-A', '-o=json').stdout):
@@ -151,6 +176,9 @@ def qualify_admission(version, operator_render, cluster_name, disk_run_id, inven
                     'fresh_specs_server_dry_run': len(accepted),
                     'operator_render_sha256': hashlib.sha256(operator_render).hexdigest(),
                     'candidate_sha256': hashlib.sha256(common.canonical(candidate)).hexdigest(),
+                    'admitted_specs_sha256': hashlib.sha256(common.canonical(
+                        [row['spec'] for row in accepted])).hexdigest(),
+                    'declared_fields_and_effective_security_preserved': True,
                     'native_controllers_executed': 0, 'production_writes': 0}
         finally:
             observed['allocated_synthetic_bytes_before_cleanup'] = sum(

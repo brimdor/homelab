@@ -73,6 +73,33 @@ class CandidateTests(unittest.TestCase):
                     subject.qualify_admission(version, raw, 'qualification-12345678',
                                               'rook-12345678', inventory(), 'synthetic')
 
+    def test_admission_cannot_default_to_emergency_cipher_or_broader_devices(self):
+        requested = subject.resources('qualification-12345678', 'rook-12345678', inventory())[2:]
+        admitted = copy.deepcopy(requested)
+        admitted[0]['metadata']['uid'] = 'synthetic-dry-run'
+        subject.require_admitted_profile(requested, admitted)
+        mutations = [
+            ('daemon', 'keyType', 'aes'), ('daemon', 'keyType', 'aes256k'),
+            ('storage', 'useAllDevices', True), ('storage', 'deviceFilter', '.*'),
+            ('storage', 'storageClassDeviceSets', [{}]), ('spec', 'skipUpgradeChecks', True),
+        ]
+        for section, key, value in mutations:
+            changed = copy.deepcopy(admitted)
+            target = changed[0]['spec']
+            if section == 'daemon':
+                target = target['security']['cephx']['daemon']
+            elif section == 'storage':
+                target = target['storage']
+            target[key] = value
+            with self.subTest(section=section, key=key), self.assertRaises(RuntimeError):
+                subject.require_admitted_profile(requested, changed)
+        changed = copy.deepcopy(admitted)
+        changed[0]['spec']['security']['cephx']['allowedCiphers'].append('aes')
+        with self.assertRaises(RuntimeError):
+            subject.require_admitted_profile(requested, changed)
+        with self.assertRaises(RuntimeError):
+            subject.require_admitted_profile(requested, admitted[:1])
+
 
 if __name__ == '__main__':
     unittest.main()
