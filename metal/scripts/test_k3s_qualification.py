@@ -555,6 +555,79 @@ class Guards(unittest.TestCase):
             self.assertEqual(primary["stderr_sha256"], q.hashlib.sha256(b"private synthetic primary failure").hexdigest())
             self.assertNotIn("private", json.dumps(primary))
 
+    def test_server_log_evidence_keeps_only_bounded_typed_events_and_hashes(self):
+        sentinel = b"private-synthetic-sentinel"
+        lines = [b"2026-10-21T07:04:51.261207337Z leaderelection lost " + sentinel,
+                 b"2026-02-30T07:04:51Z kubelet exited " + sentinel,
+                 b"2026-10-21T07:04:51.1234567890Z containerd exited " + sentinel,
+                 sentinel + b" panic: signal: killed",
+                 b"2026-10-21T07:05:00Z failed to renew lease " + sentinel]
+        raw = b"\n".join(lines)
+        result = q.server_log_evidence(raw)
+        self.assertNotIn(sentinel.decode(), json.dumps(result))
+        self.assertEqual(result["sha256"], q.hashlib.sha256(raw).hexdigest())
+        self.assertEqual(result["bytes"], len(raw))
+        self.assertEqual(result["matching_lines"], 5)
+        self.assertFalse(result["raw_retained"])
+        self.assertEqual(result["last_events"][0]["timestamp"], "2026-10-21T07:04:51.261207337Z")
+        self.assertEqual([e["timestamp"] for e in result["last_events"]][1:4], [None, None, None])
+        self.assertEqual(result["last_events"][-1]["timestamp"], "2026-10-21T07:05:00Z")
+        self.assertEqual(result["last_events"][3]["categories"], ["panic", "out-of-memory"])
+        self.assertEqual(result["last_events"][0]["line_sha256"], q.hashlib.sha256(lines[0]).hexdigest())
+        many = [b"2026-10-21T07:05:00Z LEADERELECTION LOST " + str(i).encode() for i in range(25)]
+        bounded = q.server_log_evidence(b"\n".join(many))
+        self.assertEqual(bounded["matching_lines"], 25)
+        self.assertEqual(bounded["counts"], {"leader-election-lost": 25})
+        self.assertEqual(len(bounded["last_events"]), 20)
+        self.assertEqual(bounded["last_events"][0]["line_sha256"], q.hashlib.sha256(many[5]).hexdigest())
+        self.assertEqual(q.server_log_evidence(sentinel)["last_events"], [])
+        self.assertEqual(q.server_log_evidence(b"x" * (4 * 1024 * 1024))["matching_lines"], 0)
+        for invalid in ("not bytes", None, b"x" * (4 * 1024 * 1024 + 1)):
+            with self.assertRaisesRegex(RuntimeError, "byte contract"):
+                q.server_log_evidence(invalid)
+
+    def test_server_failure_logs_require_original_owned_server_and_private_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner, nodes, _ = self.affinity_fixture(directory)
+            node = next(iter(self.versions))
+            runner.containers = {name: q.container_identity(item, name, self.name) for name, item in nodes.items()}
+            item = nodes[node]
+            expected = ["docker", "logs", "--timestamps", "--tail=1000", item["Id"]]
+
+            def command(argv, **kwargs):
+                if argv == ["docker", "inspect", node]:
+                    return json.dumps([item]).encode()
+                self.assertEqual(argv, expected)
+                self.assertEqual(kwargs, {"private": True, "merge_stderr": True})
+                return b"2026-10-21T07:04:51Z leaderelection lost private-synthetic-sentinel\n"
+
+            with patch.object(runner, "command", side_effect=command) as capture:
+                runner.server_failure_logs(node)
+                self.assertEqual(capture.call_count, 2)
+            result = json.loads((runner.work / (node + "-server-failure.json")).read_text())
+            self.assertEqual(result["container_id"], item["Id"])
+            self.assertNotIn("private-synthetic-sentinel", json.dumps(result))
+            for foreign in ("production-server-0", "k3d-" + self.name + "-agent-0"):
+                with patch.object(runner, "command") as capture, self.assertRaises(RuntimeError):
+                    runner.server_failure_logs(foreign)
+                capture.assert_not_called()
+            with patch.object(runner, "containers", {}), patch.object(runner, "command") as capture:
+                with self.assertRaises(RuntimeError):
+                    runner.server_failure_logs(node)
+            capture.assert_not_called()
+            for field in ("Id", "Config", "Mounts"):
+                bad = copy.deepcopy(nodes[node])
+                if field == "Id":
+                    bad[field] = "replaced-container"
+                elif field == "Config":
+                    bad[field]["Labels"]["k3d.cluster"] = "foreign"
+                else:
+                    bad[field][0]["Name"] = "foreign-data"
+                with patch.object(runner, "command", return_value=json.dumps([bad]).encode()) as capture:
+                    with self.assertRaises(RuntimeError):
+                        runner.server_failure_logs(node)
+                capture.assert_called_once_with(["docker", "inspect", node])
+
     def test_guest_kernel_configuration_never_reaches_wrong_or_occupied_daemon(self):
         runner = q.Qualification.__new__(q.Qualification)
         runner.args = SimpleNamespace(docker_server="colima-q")

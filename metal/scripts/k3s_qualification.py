@@ -2,6 +2,7 @@
 """Qualify K3s HA upgrades and snapshot rollback in a caller-owned disposable VM."""
 
 import argparse
+import datetime
 import gzip
 import hashlib
 import ipaddress
@@ -78,6 +79,43 @@ def read_transport_pending(stderr):
     classes = set(failure_classes(stderr))
     allowed = {"connection-refused", "connection-reset", "connection-eof", "connection-goaway", "transport-timeout", "api-unavailable"}
     return bool(classes) and classes <= allowed
+
+
+def server_log_evidence(raw):
+    if not isinstance(raw, bytes) or len(raw) > 4 * 1024 * 1024:
+        raise RuntimeError("owned server log diagnostic exceeded its byte contract")
+    patterns = {
+        "leader-election-lost": rb"leaderelection lost|leader election lost",
+        "lease-renewal-failed": rb"failed to renew lease|failed to update lock|error retrieving resource lock",
+        "kubelet-exited": rb"kubelet exited|failed to run kubelet",
+        "containerd-exited": rb"containerd exited",
+        "control-plane-exited": rb"kube-apiserver exited|kube-controller-manager exited|kube-scheduler exited",
+        "shutdown": rb"shutting down|shutdown requested|received signal",
+        "panic": rb"panic:|observed a panic",
+        "out-of-memory": rb"out of memory|oom-kill|oom_kill|signal: killed",
+        "etcd-timeout": rb"etcdserver: request timed out|slow fdatasync",
+    }
+    counts, events, matching_lines = {}, [], 0
+    for line in raw.splitlines():
+        categories = [key for key, pattern in patterns.items() if re.search(pattern, line, re.I)]
+        if not categories:
+            continue
+        matching_lines += 1
+        for key in categories:
+            counts[key] = counts.get(key, 0) + 1
+        timestamp = re.match(rb"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?Z) ", line)
+        timestamp = timestamp[1].decode() if timestamp else None
+        if timestamp is not None:
+            try:
+                datetime.datetime.strptime(timestamp[:19], "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                timestamp = None
+        events.append({"timestamp": timestamp,
+                       "categories": categories, "line_sha256": hashlib.sha256(line).hexdigest()})
+        if len(events) > 20:
+            events.pop(0)
+    return {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "counts": counts,
+            "matching_lines": matching_lines, "last_events": events, "raw_retained": False}
 
 
 def minor(version):
@@ -269,6 +307,8 @@ class Qualification(cq.Qualification):
                           "state": {key: item["State"][key] for key in
                                     ("Running", "Status", "OOMKilled", "ExitCode", "StartedAt", "FinishedAt")}})
             (self.work / "fixture-node-failure-status.json").write_text(json.dumps(nodes, indent=2))
+            if node.endswith(SUFFIXES[:3]):
+                self.server_failure_logs(node)
         pods = self.kubectl("get", "pods", "-A")["items"]
         statuses = []
         for pod in pods:
@@ -293,6 +333,16 @@ class Qualification(cq.Qualification):
                     (self.work / ("synthetic-" + container["name"] + "-error.log.gz")).write_bytes(gzip.compress(raw))
             statuses.append(item)
         (self.work / "fixture-failure-status.json").write_text(json.dumps(statuses, indent=2))
+
+    def server_failure_logs(self, node):
+        if node not in self.containers or not node.endswith(SUFFIXES[:3]):
+            raise RuntimeError("server diagnostic requires an owned server")
+        item = self.inspect(node)
+        # Docker timestamps and fixed categories survive; private log text never does.
+        raw = self.command(["docker", "logs", "--timestamps", "--tail=1000", item["Id"]],
+                           private=True, merge_stderr=True)
+        result = {"node": node, "container_id": item["Id"], **server_log_evidence(raw)}
+        (self.work / (node + "-server-failure.json")).write_text(json.dumps(result, indent=2))
 
     def select_client(self, version):
         self.args.kubectl = self.args.kubectl35 if minor(version) >= 35 else self.args.kubectl34
