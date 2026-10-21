@@ -81,6 +81,18 @@ class DiskGuardTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             subject.guest_disks({'blockdevices': rows + [rows[0]]}, names)
 
+        changed = copy.deepcopy(rows)
+        changed[0]['serial'] = 'different-native-serial'
+        with self.assertRaises(subject.GuestDiskIdentityError) as rejected:
+            subject.guest_disks({'blockdevices': changed}, names)
+        self.assertEqual(rejected.exception.observation['whole_device_count'], 3)
+        self.assertEqual(rejected.exception.observation['devices'][0]['serial'], 'different-native-serial')
+        self.assertEqual(rejected.exception.observation['expected_serials'][0], 'lima-' + names[0])
+        changed[0]['serial'] = 'unexpected\nfield'
+        with self.assertRaises(subject.GuestDiskIdentityError) as rejected:
+            subject.guest_disks({'blockdevices': changed}, names)
+        self.assertEqual(rejected.exception.observation['devices'][0]['serial'], 'unclassified')
+
     def test_native_import_must_preserve_raw_format_size_and_name(self):
         value = {'Name': 'rook-12345678-0', 'Format': 'raw', 'Size': subject.DISK_BYTES}
         subject.require_imported_disk(value, value['Name'])

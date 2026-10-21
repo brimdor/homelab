@@ -24,6 +24,26 @@ class DiskIdentityError(RuntimeError):
         self.observation = observation
 
 
+class GuestDiskIdentityError(RuntimeError):
+    def __init__(self, devices, names):
+        super().__init__('owned guest disk serial is missing or ambiguous')
+        self.observation = {'expected_serials': ['lima-' + name for name in names],
+                            'whole_device_count': len(devices), 'devices': []}
+        for row in devices[:32]:
+            values = {key: row.get(key) for key in ('path', 'serial', 'size', 'type', 'maj:min', 'ro')}
+            for key in ('path', 'serial', 'type', 'maj:min'):
+                value = values[key]
+                if value is not None and (not isinstance(value, str) or
+                                          not re.fullmatch(r'[a-zA-Z0-9/_.:-]{0,128}', value)):
+                    values[key] = 'unclassified'
+            for key in ('size', 'ro'):
+                if type(values[key]) not in (int, bool, type(None)):
+                    values[key] = 'unclassified'
+            values.update(has_filesystem=bool(row.get('fstype')), has_children=bool(row.get('children')),
+                          has_parent=bool(row.get('pkname')), mounted=any(row.get('mountpoints') or []))
+            self.observation['devices'].append(values)
+
+
 def file_identity(path):
     metadata = path.lstat()
     observation = {'regular_file': stat.S_ISREG(metadata.st_mode),
@@ -73,7 +93,7 @@ def guest_disks(value, names):
     for name in names:
         matches = [row for row in devices if row.get('serial') == 'lima-' + name]
         if len(matches) != 1:
-            raise RuntimeError('owned guest disk serial is missing or ambiguous')
+            raise GuestDiskIdentityError(devices, names)
         row = matches[0]
         if (not re.fullmatch(r'/dev/vd[a-z]+', row['path']) or row.get('type') != 'disk' or
                 row.get('size') != DISK_BYTES or row.get('ro') not in (False, 0) or
