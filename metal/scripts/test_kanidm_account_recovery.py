@@ -55,13 +55,14 @@ class AccountRecoveryTests(unittest.TestCase):
 
     def test_account_only_password_changes(self):
         def entry(identity, name):
-            return {'ent': {'V3': {'attrs': {'uuid': identity, 'name': {'IN': [name]},
+            return {'ent': {'V3': {'attrs': {'uuid': identity, 'name': {'N8': [name]},
                                            'primary_credential': 'old', 'membership': ['keep']}}}}
         before = {'entries': [entry('one', 'admin'), entry('two', 'another')]}
         after = deepcopy(before)
         after['entries'][0]['ent']['V3']['attrs']['primary_credential'] = 'new'
-        after['entries'][0]['ent']['V3']['attrs']['account_valid_from'] = 'native-time'
-        self.assertTrue(recovery.account_changes(before, after)['only_admin_native_recovery_fields_changed'])
+        after['entries'][0]['ent']['V3']['attrs']['account_valid_from'] = {'DT': ['2026-10-21T22:00:00Z']}
+        bounds = (1792620000 * 10**9, 1792620001 * 10**9)
+        self.assertTrue(recovery.account_changes(before, after, *bounds)['only_admin_native_recovery_fields_changed'])
         for mutate in ('membership', 'foreign', 'removed'):
             bad = deepcopy(after)
             if mutate == 'membership':
@@ -71,12 +72,14 @@ class AccountRecoveryTests(unittest.TestCase):
             else:
                 bad['entries'].pop()
             with self.assertRaises(RuntimeError):
-                recovery.account_changes(before, bad)
+                recovery.account_changes(before, bad, *bounds)
         for field in ('passkeys', 'account_expire'):
             bad = deepcopy(before)
             bad['entries'][0]['ent']['V3']['attrs'][field] = ['must-preserve']
             with self.assertRaises(RuntimeError):
-                recovery.account_changes(bad, after)
+                recovery.account_changes(bad, after, *bounds)
+        with self.assertRaises(RuntimeError):
+            recovery.account_changes(before, after, 0, 1)
 
 
 if __name__ == '__main__':

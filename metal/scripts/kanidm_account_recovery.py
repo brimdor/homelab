@@ -1,6 +1,7 @@
 """Approved Issue 103 recovery; never display credentials or native output."""
 
 from copy import deepcopy
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -66,7 +67,7 @@ def verify_vault(before, after, password):
         raise RuntimeError('vault readback differs; do not repeat native recovery')
 
 
-def account_changes(before, after):
+def account_changes(before, after, started_ns, ended_ns):
     def index(value):
         result = {}
         for entry in value['entries']:
@@ -85,23 +86,33 @@ def account_changes(before, after):
         for key in original.keys() | updated.keys():
             if key == 'last_modified_cid' or original.get(key) == updated.get(key):
                 continue
-            if (original.get('name') != {'IN': ['admin']} or
+            if (original.get('name') != {'N8': ['admin']} or
                     original.get('passkeys') or original.get('account_expire') or
                     key not in {'primary_credential', 'account_valid_from'}):
                 name = original.get('name')
                 raise RuntimeError('unapproved account attribute change: ' + json.dumps({
                     'attribute': key if re.fullmatch('[a-z][a-z0-9_]*', key) else 'UNRECOGNIZED',
-                    'admin_name_match': name == {'IN': ['admin']},
+                    'admin_name_match': name == {'N8': ['admin']},
                     'admin_name_structure': sorted(name) if isinstance(name, dict) and
                     all(re.fullmatch('[A-Za-z_]+', k) for k in name) else type(name).__name__,
                     'name_contains_admin_literal': 'admin' in str(name),
                     'existing_passkeys': bool(original.get('passkeys')),
                     'existing_expiry': bool(original.get('account_expire'))}))
             changes.append(key)
+            if key == 'account_valid_from':
+                try:
+                    value = updated[key]
+                    assert set(value) == {'DT'} and len(value['DT']) == 1
+                    timestamp = datetime.fromisoformat(value['DT'][0].replace('Z', '+00:00'))
+                    assert timestamp.tzinfo is not None
+                    assert started_ns <= int(timestamp.timestamp() * 10**9) <= ended_ns
+                except (ValueError, TypeError, KeyError, AssertionError):
+                    raise RuntimeError('native account validity is outside measured recovery interval') from None
     if set(changes) != {'primary_credential', 'account_valid_from'} or len(changes) != 2:
         raise RuntimeError('expected single existing administrator credential change missing')
     return {'all_entry_identities_preserved': True, 'only_admin_native_recovery_fields_changed': True,
-            'admin_changed_fields': sorted(changes), 'no_existing_admin_passkeys_or_expiry_removed': True}
+            'admin_changed_fields': sorted(changes), 'no_existing_admin_passkeys_or_expiry_removed': True,
+            'native_validity_within_measured_interval': True}
 
 
 def server_arguments(root, run_id, operation):
@@ -185,6 +196,7 @@ def rehearse(point, checksum, run_id):
         args = server_arguments(root, run_id, 'server')
         container = common.docker(*args).stdout.decode().strip()
         require_server(common.inspect(container), root, run_id, image_id)
+        started_ns = time.time_ns()
         common.docker('start', container)
         while not (root / 'rehearsal.sock').exists():
             if not common.inspect(container)['State']['Running']:
@@ -203,7 +215,8 @@ def rehearse(point, checksum, run_id):
         native.config(root, 'kanidm.db')
         native.operation(root, run_id, ['backup', '--compression=gzip', '/data/after.json.gz'],
                          b'Backup success!', image_id)
-        result.update(account_changes(before, native.backup_value(root / 'after.json.gz')))
+        result.update(account_changes(before, native.backup_value(root / 'after.json.gz'),
+                                      started_ns, time.time_ns()))
         result.update(accepted=True, existing_admin_recovered_in_copy=True, network='none',
                       logging='none', original_not_mounted=True)
     finally:
