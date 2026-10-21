@@ -3,6 +3,7 @@
 from copy import deepcopy
 from datetime import datetime
 import json
+import http.cookiejar
 import os
 from pathlib import Path
 import re
@@ -10,6 +11,8 @@ import shutil
 import stat
 import tempfile
 import time
+import urllib.error
+import urllib.request
 
 import kanidm_recovery as native
 
@@ -17,6 +20,81 @@ import kanidm_recovery as native
 ITEM = 'uccubcgzmubsxpkcklknbd434a'
 VAULT = '4uaua4a45yuhnwhehp5bwylmti'
 LABEL = 'io.eaglepass.kanidm-account-rehearsal'
+
+
+def require_password_only_admin(backup):
+    try:
+        matches = [e['ent']['V3']['attrs'] for e in backup['entries']
+                   if e['ent']['V3']['attrs'].get('name') == {'N8': ['admin']}]
+        assert len(matches) == 1
+        account = matches[0]
+        assert not account.get('passkeys') and not account.get('account_expire')
+        credential = account['primary_credential']
+        assert set(credential) == {'CR'} and len(credential['CR']) == 1
+        credential = credential['CR'][0]
+        assert credential['t'] == 'primary'
+        assert credential['d']['type_'] in {'V2Pw', 'V2GPw'}
+    except (AssertionError, KeyError, TypeError):
+        raise RuntimeError('administrator is not the qualified password-only recovery target') from None
+
+
+def verify_https_login(password):
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *_args, **_kwargs):
+            return None
+    cookies = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(NoRedirect, urllib.request.HTTPCookieProcessor(cookies))
+    token = None
+    result = {'origin': 'https://auth.eaglepass.io', 'tls_verified': True, 'redirects_allowed': False}
+
+    def request(path, payload=None):
+        headers = {'Accept': 'application/json'}
+        if token:
+            headers['Authorization'] = 'Bearer ' + token
+        body = None
+        if payload is not None:
+            body = json.dumps(payload).encode()
+            headers['Content-Type'] = 'application/json'
+        try:
+            with opener.open(urllib.request.Request(result['origin'] + path, data=body,
+                                                   headers=headers), timeout=30) as response:
+                if response.status != 200:
+                    raise RuntimeError('normal Kanidm HTTPS status differs')
+                raw = response.read(1048577)
+        except urllib.error.HTTPError as error:
+            raise RuntimeError('normal Kanidm HTTPS refused: HTTP ' + str(error.code)) from None
+        if len(raw) > 1048576:
+            raise RuntimeError('normal Kanidm response exceeds bound')
+        try:
+            return json.loads(raw)
+        except (ValueError, UnicodeError):
+            raise RuntimeError('normal Kanidm response is not JSON') from None
+
+    try:
+        init = request('/v1/auth', {'step': {'init': 'admin'}})
+        if init.get('state') != {'choose': ['password']}:
+            raise RuntimeError('existing administrator password mechanism differs')
+        begin = request('/v1/auth', {'step': {'begin': 'password'}})
+        if begin.get('state') != {'continue': ['password']}:
+            raise RuntimeError('existing administrator continuation differs')
+        auth = request('/v1/auth', {'step': {'cred': {'password': password}}})
+        state = auth.get('state', {})
+        if set(state) != {'success'} or not isinstance(state['success'], str) or not state['success']:
+            raise RuntimeError('normal administrator authentication did not succeed')
+        token = state['success']
+        who = request('/v1/self')
+        if who.get('you', {}).get('attrs', {}).get('name') != ['admin']:
+            raise RuntimeError('normal authenticated account identity differs')
+        result.update(password_login=True, authenticated_self_is_existing_admin=True)
+    finally:
+        try:
+            if token:
+                request('/v1/logout')
+                result['session_logout'] = True
+        finally:
+            token = None
+            cookies.clear()
+    return result
 
 
 def decode_password(raw):
@@ -166,6 +244,7 @@ def rehearse(point, checksum, run_id):
         native.operation(root, run_id, ['backup', '--compression=gzip', '/data/before.json.gz'],
                          b'Backup success!', image_id)
         before = native.backup_value(root / 'before.json.gz')
+        require_password_only_admin(before)
         tls = root / 'synthetic-tls'
         tls.mkdir(mode=0o700)
         os.chown(tls, 1000, 1000)
@@ -218,7 +297,7 @@ def rehearse(point, checksum, run_id):
         result.update(account_changes(before, native.backup_value(root / 'after.json.gz'),
                                       started_ns, time.time_ns()))
         result.update(accepted=True, existing_admin_recovered_in_copy=True, network='none',
-                      logging='none', original_not_mounted=True)
+                      logging='none', original_not_mounted=True, original_admin_password_only=True)
     finally:
         if container:
             require_server(common.inspect(container), root, run_id, image_id)
@@ -257,6 +336,7 @@ def recover(point, checksum, rehearsal_id, restore_id):
     proof = json.loads((point / ('account-rehearsal-' + rehearsal_id + '.json')).read_bytes())
     if (not proof.get('accepted') or proof.get('manifest_sha256') != checksum or
             not proof.get('only_admin_native_recovery_fields_changed') or
+            not proof.get('original_admin_password_only') or
             not proof.get('cleanup', {}).get('scratch_absent')):
         raise RuntimeError('approved account rehearsal proof missing')
     retained.source_identity('kanidm')

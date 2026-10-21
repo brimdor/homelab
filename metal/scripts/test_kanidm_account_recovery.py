@@ -9,6 +9,15 @@ import kanidm_account_recovery as recovery
 
 
 class AccountRecoveryTests(unittest.TestCase):
+    def test_existing_multifactor_credential_is_not_discarded(self):
+        account = {'name': {'N8': ['admin']}, 'primary_credential': {
+            'CR': [{'t': 'primary', 'd': {'type_': 'V2GPw'}}]}}
+        backup = {'entries': [{'ent': {'V3': {'attrs': account}}}]}
+        recovery.require_password_only_admin(backup)
+        account['primary_credential']['CR'][0]['d']['type_'] = 'V3PwMfa'
+        with self.assertRaises(RuntimeError):
+            recovery.require_password_only_admin(backup)
+
     def test_native_container_arguments_preserve_label_value_pairs(self):
         for operation in ('server', 'cert-generate'):
             args = recovery.server_arguments(Path('/synthetic'), 'fixture', operation)
