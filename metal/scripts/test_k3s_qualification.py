@@ -29,11 +29,12 @@ class Guards(unittest.TestCase):
     def test_cli_version_must_match_before_fixture_creation(self):
         runner = q.Qualification.__new__(q.Qualification)
         runner.args = SimpleNamespace(cilium="owned-cli")
-        with patch.object(runner, "command", return_value=b"cilium-cli: v0.20.1 compiled with go1.27.1 on darwin/arm64\n") as command:
+        with patch.object(runner, "command", return_value=b"cilium-cli: v0.20.1-homelab.103 compiled with go1.27.3 on darwin/arm64\n") as command:
             runner.require_cli()
         command.assert_called_once_with(["owned-cli", "version", "--client"])
         for raw in (b"", b"cilium-cli: v0.16.24 compiled with go\n", b"cilium-cli: v0.20.10\n",
-                    b"unknown client v0.20.1\n", b"cilium-cli: v0.20.1-custom\n"):
+                    b"unknown client v0.20.1\n", b"cilium-cli: v0.20.1-custom\n", b"cilium-cli: v0.20.1 compiled with go\n",
+                    b"cilium-cli: v0.20.1-homelab.103-custom\n"):
             with patch.object(runner, "command", return_value=raw), patch.object(runner, "create") as create:
                 with self.assertRaisesRegex(RuntimeError, "pinned maintained"):
                     runner.run()

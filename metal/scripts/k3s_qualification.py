@@ -19,6 +19,7 @@ import yaml
 
 import cilium_l2_qualification as l2
 import cilium_qualification as cq
+from cilium_cli_build import CLI_VERSION
 
 
 BASELINE = "v1.33.6+k3s1"
@@ -30,7 +31,6 @@ BINARIES = {
 }
 SUFFIXES = ("-server-0", "-server-1", "-server-2", "-agent-0", "-agent-1")
 CILIUM = "1.20.3"
-CLI_VERSION = "v0.20.1"
 SERVER_FLAGS = ("--flannel-backend=none", "--disable-network-policy", "--disable-kube-proxy",
                 "--disable-helm-controller", "--disable=traefik", "--disable=servicelb",
                 "--disable=local-storage", "--disable=metrics-server", "--secrets-encryption")
