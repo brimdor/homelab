@@ -2,6 +2,7 @@
 """Reject synthetic runtime identity, mount, capability and block changes."""
 
 import copy
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -11,6 +12,28 @@ import ceph_runtime_qualification as subject
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_replicated_bootstrap_refuses_single_copy_internal_pool_and_warning(self):
+        runtime = object.__new__(subject.Runtime)
+        runtime.expected_osds = 3
+        value = {'mgrmap': {'available': True}, 'osdmap': {'num_up_osds': 3, 'num_in_osds': 3},
+                 'pgmap': {'pgs_by_state': [{'state_name': 'active+clean'}]},
+                 'health': {'status': 'HEALTH_OK', 'checks': {}}}
+        runtime.status = Mock(return_value=value)
+        pools = [{'pool_name': name, 'pool_id': number, 'size': 2, 'min_size': 2}
+                 for number, name in enumerate(('qualification', '.mgr'), 1)]
+        runtime.ceph = Mock(return_value=json.dumps(pools).encode())
+        self.assertEqual(runtime.steady(), {'status': 'HEALTH_OK', 'checks': []})
+        pools[1].update(size=1, min_size=1)
+        runtime.ceph.return_value = json.dumps(pools).encode()
+        with self.assertRaisesRegex(RuntimeError, 'bootstrap pool policy differs'):
+            runtime.steady()
+        value['health'] = {'status': 'HEALTH_WARN', 'checks': {'POOL_NO_REDUNDANCY': {}}}
+        with self.assertRaisesRegex(RuntimeError, 'unexpected synthetic health checks'):
+            runtime.steady()
+        runtime.expected_osds = 1
+        value['osdmap'] = {'num_up_osds': 1, 'num_in_osds': 1}
+        self.assertEqual(runtime.steady(), {'status': 'HEALTH_WARN', 'checks': ['POOL_NO_REDUNDANCY']})
+
     def test_health_diagnostic_keeps_only_codes_and_numeric_pool_policy(self):
         value = {'health': {'status': 'HEALTH_WARN', 'checks': {'POOL_NO_REDUNDANCY': {
             'summary': {'message': 'PRIVATE_SENTINEL'}}}}}

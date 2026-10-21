@@ -167,12 +167,19 @@ class Runtime:
             value = self.status()
             osds = value.get('osdmap', {})
             pgs = value.get('pgmap', {}).get('pgs_by_state', [])
-            if (value.get('mgrmap', {}).get('available') and osds.get('num_up_osds') == 1 and
-                    osds.get('num_in_osds') == 1 and pgs and
+            if (value.get('mgrmap', {}).get('available') and osds.get('num_up_osds') == self.expected_osds and
+                    osds.get('num_in_osds') == self.expected_osds and pgs and
                     all(p['state_name'] == 'active+clean' for p in pgs)):
                 checks = value['health'].get('checks', {})
-                if set(checks) - {'POOL_NO_REDUNDANCY'}:
+                allowed = {'POOL_NO_REDUNDANCY'} if self.expected_osds == 1 else set()
+                if set(checks) - allowed or (self.expected_osds == 3 and value['health']['status'] != 'HEALTH_OK'):
                     raise RuntimeError('unexpected synthetic health checks: ' + ','.join(sorted(checks)))
+                if self.expected_osds == 3:
+                    self.replica_diagnostic = replica_health_diagnostic(
+                        value, json.loads(self.ceph('osd', 'pool', 'ls', 'detail', '-f', 'json')))
+                    if any((pool['size'], pool['min_size']) != (2, 2)
+                           for pool in self.replica_diagnostic['pool_policies']):
+                        raise RuntimeError('replicated bootstrap pool policy differs')
                 return {'status': value['health']['status'], 'checks': sorted(checks)}
             time.sleep(2)
 
@@ -232,8 +239,8 @@ class Runtime:
                                             (b'permission denied', b'operation not permitted')):
             raise RuntimeError('retired synthetic admin key lacks explicit authentication refusal')
 
-    def replicated(self, fsid, original_uuid, original_block):
-        """Exercise synthetic replica-two evacuation/rejoin, never host failure."""
+    def bootstrap_replicas(self, original_uuid, original_block):
+        """Create extra owned OSDs before any qualification I/O."""
         self.stage = 'three synthetic OSD bootstrap'
         identities = {0: (self.root, self.root / 'osd', original_uuid, original_block)}
         for number in (1, 2):
@@ -268,8 +275,11 @@ class Runtime:
             self.ceph('osd', 'crush', 'add', entity, '1.0', 'root=default', 'host=qualification')
             self.start('osd', str(number))
             identities[number] = (block_root, root, osd_uuid, before)
-        self.ceph('osd', 'pool', 'set', 'qualification', 'size', '2')
-        self.ceph('osd', 'pool', 'set', 'qualification', 'min_size', '2')
+        return identities
+
+    def replicated(self, fsid, identities):
+        """Exercise synthetic replica-two evacuation/rejoin, never host failure."""
+        self.stage = 'replicated initial convergence'
         payloads = {f'replica-{number:03d}': hashlib.sha256(str(number).encode()).digest() * 512
                     for number in range(64)}
 
@@ -333,6 +343,8 @@ class Runtime:
         if not self.command(['ceph', '--version']).stdout.startswith(b'ceph version 20.2.4 '):
             raise RuntimeError('candidate native version differs')
         self.stage = 'synthetic bootstrap'
+        self.expected_osds = 3 if replicated else 1
+        copies = 2 if replicated else 1
         fsid = str(uuid.uuid4())
         conf = f'''[global]
 fsid = {fsid}
@@ -347,9 +359,9 @@ admin socket = /work/$name.asok
 log file = /work/$name.native.log
 log to stderr = true
 crushtool = /usr/bin/crushtool
-osd pool default size = 1
-osd pool default min size = 1
-mon allow pool size one = true
+osd pool default size = {copies}
+osd pool default min size = {copies}
+mon allow pool size one = {'false' if replicated else 'true'}
 osd crush chooseleaf type = 0
 [mon.a]
 mon data = /work/mon
@@ -409,6 +421,7 @@ osd op num threads per shard = 1
                       '--setuser=root', '--setgroup=root'])
         self.ceph('osd', 'crush', 'add', 'osd.0', '1.0', 'root=default', 'host=qualification')
         self.start('osd', '0')
+        identities = self.bootstrap_replicas(osd_uuid, before) if replicated else None
         self.ceph('osd', 'pool', 'create', 'qualification', '8')
         self.ceph('osd', 'pool', 'application', 'enable', 'qualification', 'rados')
         self.stage = 'ordinary client I/O'
@@ -453,7 +466,7 @@ osd op num threads per shard = 1
         read('ordinary')
         read('modern')
         final_health = self.steady()
-        replication = self.replicated(fsid, osd_uuid, before) if replicated else None
+        replication = self.replicated(fsid, identities) if replicated else None
         return {'accepted': True, 'version': '20.2.4', 'synthetic_fsid': fsid,
                 'synthetic_osd_uuid': osd_uuid, 'block_identity_preserved': True,
                 'payload_sha256': hashlib.sha256(payload).hexdigest(), 'payload_bytes': len(payload),
@@ -463,7 +476,8 @@ osd op num threads per shard = 1
                 'native_aes256k_core_and_admin_rotation_io': True,
                 'retired_admin_key_fresh_authentication_refused': True,
                 'legacy_service_ticket_transition_unqualified': True,
-                'initial_health': health, 'single_osd_final_health': final_health,
+                'initial_health': health, 'single_osd_final_health': None if replicated else final_health,
+                'bootstrap_osds': self.expected_osds, 'bootstrap_pool_size': copies,
                 'final_health': {'status': 'HEALTH_OK', 'checks': []} if replication else final_health,
                 'production_data_or_credentials': False, 'rook_csi_core_rotation_unqualified': True,
                 'replica_two_evacuation_rejoin': replication}
