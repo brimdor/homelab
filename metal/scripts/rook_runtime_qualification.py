@@ -106,12 +106,20 @@ def require_mon_security(value):
 
 def require_osd_device(value, osd, fsid, device):
     matches = [row for row in value.values() if row.get('osd_id') == osd]
-    if (len(matches) != 1 or matches[0].get('device') != device or
+    if (len(value) != 1 or len(matches) != 1 or matches[0].get('device') != device or
             matches[0].get('ceph_fsid') != fsid or
             not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}',
                              matches[0].get('osd_uuid', ''))):
         raise RuntimeError('native Rook OSD device or data identity differs')
     return matches[0]['osd_uuid']
+
+
+def node_layout(inventory, names):
+    selected = disks.guest_disks(inventory, names)
+    return [{'suffix': suffix, 'filter': selector, 'device': device,
+             'masked': [row['path'] for row in selected if row['path'] != device['path']]}
+            for suffix, selector, device in zip(
+                ('-server-0', '-agent-0', '-agent-1'), ('server:0', 'agent:0', 'agent:1'), selected)]
 
 
 def require_node_device(raw, device):
@@ -250,6 +258,7 @@ class Qualification(images.Qualification):
 
     def create_storage_cluster(self, fixture, inventory):
         self.stage = 'private-three-node-cluster'
+        layout = node_layout(inventory, fixture.names)
         if not self.command([self.args.k3d, 'version']).startswith(b'k3d version v5.9.0\n'):
             raise RuntimeError('reviewed k3d version differs')
         info = json.loads(self.command(['docker', 'info', '--format={{json .}}']))
@@ -258,6 +267,8 @@ class Qualification(images.Qualification):
             raise RuntimeError('storage consumer requires the exact empty private daemon')
         fixture.colima('ssh', '--', 'sudo', 'ip', 'route', 'add', 'blackhole', '10.0.0.0/16')
         self.route(fixture)
+        if fixture.colima('ssh', '--', 'sh', '-ec', 'test -c /dev/null; stat -c %t:%T /dev/null').strip() != b'1:3':
+            raise RuntimeError('owned VM null-device contract differs')
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
             listener.bind(('127.0.0.1', 0))
             port = listener.getsockname()[1]
@@ -271,6 +282,9 @@ class Qualification(images.Qualification):
                      '--k3s-arg=--service-cidr=172.21.0.0/16@server:*']
         arguments.extend('--k3s-arg=--disable=' + name + '@server:*'
                          for name in ('traefik', 'servicelb', 'local-storage', 'metrics-server'))
+        # Privileged k3d nodes share guest devices; hide the other two raw paths per node.
+        arguments.extend('--volume=/dev/null:' + path + ':ro@' + row['filter']
+                         for row in layout for path in row['masked'])
         self.command(arguments)
         raw = self.command([self.args.k3d, 'kubeconfig', 'get', self.args.name])
         with Path(self.env['KUBECONFIG']).open('xb') as output:
@@ -280,10 +294,10 @@ class Qualification(images.Qualification):
         self.wait('node', '--all', '--for=condition=Ready')
         self.node_uids = {row['metadata']['name']: row['metadata']['uid']
                           for row in self.kubectl('get', 'nodes')['items']}
-        selected = disks.guest_disks(inventory, fixture.names)
         bindings = {}
-        for suffix, device in zip(('-server-0', '-agent-0', '-agent-1'), selected):
-            node = 'k3d-' + self.args.name + suffix
+        for entry in layout:
+            device = entry['device']
+            node = 'k3d-' + self.args.name + entry['suffix']
             block = Path(device['path']).name
             raw = self.command(['docker', 'exec', node, 'sh', '-ec',
                                 f'test -b /dev/{block}; printf \'%s\\n\' '
@@ -292,6 +306,17 @@ class Qualification(images.Qualification):
                                 f'"$(cat /sys/class/block/{block}/size)" '
                                 f'"$(stat -c %t:%T /dev/{block})"'])
             bindings[node] = require_node_device(raw, device)
+            script = '; '.join('test -c ' + path + '; test ! -b ' + path for path in entry['masked'])
+            masked = self.command(['docker', 'exec', node, 'sh', '-ec',
+                                   script + '; stat -c %t:%T ' + ' '.join(entry['masked'])])
+            if masked.splitlines() != [b'1:3', b'1:3']:
+                raise RuntimeError('unassigned raw device is not masked in its owned node')
+            mounts = json.loads(self.command(['docker', 'inspect', node]))[0]['Mounts']
+            observed = {row['Destination']: (row['Type'], row['Source'], row['RW'])
+                        for row in mounts if row['Destination'] in entry['masked'] + [device['path']]}
+            if observed != {path: ('bind', '/dev/null', False) for path in entry['masked']}:
+                raise RuntimeError('owned node device-mask mount identity differs')
+            bindings[node]['other_raw_paths_masked'] = entry['masked']
             self.command(['docker', 'exec', node, 'test', '-d', '/run/udev'])
         server = 'k3d-' + self.args.name + '-server-0'
         resolver = common.inherited_resolver(self.command(['docker', 'exec', server, 'cat',
@@ -411,8 +436,8 @@ class Qualification(images.Qualification):
         selected = requested[2]['spec']['storage']['nodes']
         device_by_node = {row['name']: row['devices'][0]['name'] for row in selected}
         observed_osds = {}
-        if len(osd_pods) != 3:
-            raise RuntimeError('native Rook OSD pod count differs')
+        if len(osd_pods) != 3 or {row['spec']['nodeName'] for row in osd_pods} != set(device_by_node):
+            raise RuntimeError('native Rook OSD pod count or assigned nodes differ')
         for pod in osd_pods:
             number = int(pod['metadata']['labels']['ceph-osd-id'])
             raw = self.kubectl('exec', '-n', candidate.NAMESPACE, pod['metadata']['name'],

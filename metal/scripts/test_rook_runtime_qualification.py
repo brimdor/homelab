@@ -11,6 +11,18 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_node_visibility_assigns_one_exact_device_and_masks_only_other_owned_raw_paths(self):
+        names = ['rook-12345678-' + str(n) for n in range(3)]
+        rows = subject.node_layout(inventory(), names)
+        self.assertEqual([row['filter'] for row in rows], ['server:0', 'agent:0', 'agent:1'])
+        self.assertEqual([row['device']['path'] for row in rows], ['/dev/vdc', '/dev/vdd', '/dev/vde'])
+        for row in rows:
+            self.assertEqual(set(row['masked']), {'/dev/vdc', '/dev/vdd', '/dev/vde'} - {row['device']['path']})
+        changed = inventory()
+        changed['blockdevices'][0]['path'] = '/dev/sda'
+        with self.assertRaises(RuntimeError):
+            subject.node_layout(changed, names)
+
     def test_apply_handles_consecutive_native_objects_and_refuses_response_identity_drift(self):
         runner = object.__new__(subject.Qualification)
         runner.identity = Mock()
@@ -112,6 +124,8 @@ class RuntimeGuardTests(unittest.TestCase):
                 subject.require_osd_device({'a': row | {key: data}}, 0, 'owned', '/dev/vdc')
         with self.assertRaises(RuntimeError):
             subject.require_osd_device({'a': row, 'b': row}, 0, 'owned', '/dev/vdc')
+        with self.assertRaises(RuntimeError):
+            subject.require_osd_device({'a': row, 'b': row | {'osd_id': 1}}, 0, 'owned', '/dev/vdc')
 
     def test_completed_pod_needs_exact_successful_job_and_all_container_evidence(self):
         value = {'metadata': {'ownerReferences': [{'kind': 'Job', 'uid': 'owned'}]},
