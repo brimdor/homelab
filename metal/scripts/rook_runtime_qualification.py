@@ -370,7 +370,7 @@ class Qualification(images.Qualification):
                      '--volume=/run/udev:/run/udev:ro@server:*;agent:*',
                      '--k3s-arg=--cluster-cidr=172.20.0.0/16@server:*',
                      '--k3s-arg=--service-cidr=172.21.0.0/16@server:*',
-                     '--k3s-arg=--kubelet-arg=v=1@server:*;agent:*']
+                     '--k3s-arg=--v=1@server:*;agent:*']
         arguments.extend('--k3s-arg=--disable=' + name + '@server:*'
                          for name in ('traefik', 'servicelb', 'local-storage', 'metrics-server'))
         # Privileged k3d nodes share guest devices; hide the other two raw paths per node.
