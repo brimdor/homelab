@@ -200,22 +200,39 @@ def storage_observation(status, osds, pools):
 
 def require_toolbox(value):
     expected = toolbox()['spec']
+    mismatch = []
 
-    def included(left, right):
+    def included(left, right, path='spec'):
         if isinstance(left, dict):
-            return isinstance(right, dict) and all(
-                key in right and included(item, right[key]) for key, item in left.items())
-        if isinstance(left, list):
-            return isinstance(right, list) and len(left) == len(right) and all(
-                included(a, b) for a, b in zip(left, right))
-        return type(left) is type(right) and left == right
+            if isinstance(right, dict):
+                for key, item in left.items():
+                    if key not in right:
+                        mismatch.append(path + '.' + key)
+                        return False
+                    if not included(item, right[key], path + '.' + key):
+                        return False
+                return True
+        elif isinstance(left, list):
+            if isinstance(right, list) and len(left) == len(right):
+                return all(included(a, b, path + '.' + str(number))
+                           for number, (a, b) in enumerate(zip(left, right)))
+        elif type(left) is type(right) and left == right:
+            return True
+        mismatch.append(path)
+        return False
 
-    spec = value.get('spec', {})
+    spec = copy.deepcopy(value.get('spec', {}))
+    # VolumeMount.readOnly is a nonpointer false-default field omitted by the API.
+    for container in spec.get('containers', []):
+        for mount in container.get('volumeMounts', []):
+            mount.setdefault('readOnly', False)
     if (not included(expected, spec) or spec.get('hostNetwork') or spec.get('hostPID') or
             spec.get('hostIPC') or spec.get('initContainers') or
             spec['containers'][0]['securityContext'].get('privileged') or
             spec['containers'][0]['securityContext'].get('capabilities', {}).get('add')):
-        raise RuntimeError('native toolbox isolation differs')
+        error = RuntimeError('native toolbox isolation differs')
+        error.observation = {'required_field_mismatch': mismatch[0] if mismatch else None}
+        raise error
 
 
 def require_pod_completion(pod, job_uids):

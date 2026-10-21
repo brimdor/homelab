@@ -167,6 +167,27 @@ class RuntimeGuardTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(RuntimeError):
                 subject.require_toolbox(changed)
 
+    def test_toolbox_accepts_only_api_false_mount_default_and_reports_field_without_values(self):
+        value = subject.toolbox()
+        for mount in value['spec']['containers'][0]['volumeMounts']:
+            if not mount['readOnly']:
+                del mount['readOnly']
+        before = copy.deepcopy(value)
+        subject.require_toolbox(value)
+        self.assertEqual(value, before)
+        for number, mount in enumerate(subject.toolbox()['spec']['containers'][0]['volumeMounts']):
+            changed = copy.deepcopy(value)
+            changed['spec']['containers'][0]['volumeMounts'][number]['readOnly'] = not mount['readOnly']
+            with self.subTest(mount=number), self.assertRaises(RuntimeError) as context:
+                subject.require_toolbox(changed)
+            self.assertEqual(context.exception.observation,
+                             {'required_field_mismatch': f'spec.containers.0.volumeMounts.{number}.readOnly'})
+        changed = copy.deepcopy(value)
+        changed['spec']['containers'][0]['env'][0]['valueFrom']['secretKeyRef']['name'] = 'private-value'
+        with self.assertRaises(RuntimeError) as context:
+            subject.require_toolbox(changed)
+        self.assertNotIn('private-value', str(context.exception.observation))
+
     def test_all_six_daemon_statuses_must_prove_generation_and_modern_version(self):
         value = {'status': {'cephx': {name: {'keyGeneration': 2, 'keyCephVersion': '20.2.4-0'}
                                      for name in subject.CORE_KEYS}}}
