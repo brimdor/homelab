@@ -11,6 +11,19 @@ from test_rook_native_candidate import inventory
 
 
 class RuntimeGuardTests(unittest.TestCase):
+    def test_messenger_inspection_requires_every_running_daemon_and_valid_exact_names(self):
+        mons = {'mons': [{'name': name} for name in ('a', 'b', 'c')]}
+        manager = {'active_name': 'a', 'standbys': [{'name': 'b'}]}
+        self.assertEqual(subject.messenger_entities(mons, manager),
+                         ['mon.a', 'mon.b', 'mon.c', 'mgr.a', 'mgr.b', 'osd.0', 'osd.1', 'osd.2'])
+        for changed_mons, changed_manager in (({'mons': mons['mons'][:2]}, manager),
+                                              ({'mons': [{'name': 'a'}] * 3}, manager),
+                                              (mons, {'active_name': 'a', 'standbys': []}),
+                                              (mons, manager | {'active_name': 'b'}),
+                                              (mons, manager | {'active_name': '--foreign'})):
+            with self.assertRaises(RuntimeError):
+                subject.messenger_entities(changed_mons, changed_manager)
+
     def test_storage_waits_for_native_convergence_without_weakening_identity_or_health(self):
         healthy = {'fsid': 'owned', 'health': {'status': 'HEALTH_OK', 'checks': {}},
                    'mgrmap': {'available': True},
@@ -97,6 +110,8 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertEqual(set(value), {'executable', 'exit', 'markers', 'raw_output_retained'})
         self.assertNotIn(secret.decode(), str(value))
         self.assertFalse(value['raw_output_retained'])
+        self.assertEqual(subject.command_failure(['ceph'], 22, b"Error EINVAL: unrecognized entity 'global'")
+                         ['markers'], ['einval', 'unrecognized entity'])
 
     def test_runtime_requires_every_secure_mode_in_both_configuration_paths(self):
         rows = subject.resources('qualification-12345678', 'rook-12345678', inventory())

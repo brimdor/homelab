@@ -142,10 +142,23 @@ def command_failure(arguments, code, raw):
     markers = [word for word in ('forbidden', 'unauthorized', 'permission denied', 'x509',
                                 'certificate', 'unknown flag', 'not found', 'no such file',
                                 'strict decoding', 'timed out', 'connection refused', 'invalid',
-                                'denied', 'conflict', 'already exists', 'field is immutable')
+                                'denied', 'conflict', 'already exists', 'field is immutable',
+                                'einval', 'unrecognized entity', 'unrecognized key')
                if word.encode() in raw.lower()]
     return {'executable': Path(arguments[0]).name, 'exit': code, 'markers': markers,
             'raw_output_retained': False}
+
+
+def messenger_entities(monitors, manager):
+    mons = [row.get('name', '') for row in monitors.get('mons', [])]
+    mgrs = [manager.get('active_name', ''),
+            *[row.get('name', '') for row in manager.get('standbys', [])]]
+    if (len(mons) != 3 or len(set(mons)) != 3 or len(mgrs) != 2 or len(set(mgrs)) != 2 or
+            any(not isinstance(name, str) or not re.fullmatch(r'[a-z][a-z0-9-]{0,127}', name)
+                for name in mons + mgrs)):
+        raise RuntimeError('native messenger daemon inventory differs')
+    return (['mon.' + name for name in sorted(mons)] +
+            ['mgr.' + name for name in sorted(mgrs)] + ['osd.0', 'osd.1', 'osd.2'])
 
 
 def storage_observation(status, osds, pools):
@@ -434,14 +447,19 @@ class Qualification(images.Qualification):
         status, pools = self.storage_ready()
         if len(status.get('quorum_names', [])) != 3:
             raise RuntimeError('native Rook monitor quorum differs')
-        if len(self.ceph('mgr', 'dump').get('standbys', [])) != 1:
+        manager = self.ceph('mgr', 'dump')
+        if len(manager.get('standbys', [])) != 1:
             raise RuntimeError('native Rook manager redundancy differs')
         if not pools or any(row.get('size') != 2 or row.get('min_size') != 2 for row in pools):
             raise RuntimeError('native Rook pool redundancy differs')
-        require_mon_security(self.ceph('mon', 'dump'))
-        for key in MODES:
-            if self.tools('ceph', 'config', 'get', 'global', key).strip() != b'secure':
-                raise RuntimeError('native Rook messenger encryption differs')
+        monitors = self.ceph('mon', 'dump')
+        require_mon_security(monitors)
+        entities = messenger_entities(monitors, manager)
+        for entity in entities:
+            for key in MODES:
+                if self.tools('ceph', 'config', 'show', entity, key).strip() != b'secure':
+                    raise RuntimeError('native Rook messenger encryption differs')
+        self.evidence['messenger_entities_verified'] = entities
         if 'rook' not in self.ceph('mgr', 'module', 'ls').get('enabled_modules', []):
             raise RuntimeError('native Rook manager module is disabled')
         keys = self.ceph('auth', 'ls').get('auth_dump', [])
