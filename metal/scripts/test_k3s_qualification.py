@@ -349,11 +349,11 @@ class Guards(unittest.TestCase):
         node = next(iter(self.versions))
         item = {"State": {"Running": True}, "NetworkSettings": {"Networks": {
             "k3d-" + self.name: {"NetworkID": runner.l2_network_id, "EndpointID": "b" * 64,
-                                 "IPAddress": "172.31.240.3"}}}}
+                                 "IPAddress": "172.31.240.3", "IPAMConfig": {"IPv4Address": "172.31.240.3"}}}}}
         with patch.object(runner, "inspect", return_value=item) as inspect:
             self.assertEqual(runner.node_ip(node), "172.31.240.3")
         inspect.assert_called_once_with(node)
-        for fault in ("network", "endpoint", "extra-network", "stopped", "missing", "invalid", "outside", "ipv6",
+        for fault in ("network", "endpoint", "extra-network", "stopped", "dynamic", "static-mismatch", "missing", "invalid", "outside", "ipv6",
                       "network-address", "gateway", "broadcast", "client", "vip"):
             bad = copy.deepcopy(item)
             network = bad["NetworkSettings"]["Networks"]["k3d-" + self.name]
@@ -365,6 +365,8 @@ class Guards(unittest.TestCase):
                 bad["NetworkSettings"]["Networks"]["other"] = {}
             elif fault == "stopped":
                 bad["State"]["Running"] = False
+            elif fault in ("dynamic", "static-mismatch"):
+                network["IPAMConfig"] = None if fault == "dynamic" else {"IPv4Address": "172.31.240.20"}
             else:
                 network["IPAddress"] = {"missing": "", "invalid": "unexpected private text", "outside": "10.0.20.10",
                     "ipv6": "fd00::3", "network-address": "172.31.240.0", "gateway": "172.31.240.1",
@@ -372,6 +374,61 @@ class Guards(unittest.TestCase):
             with self.subTest(fault=fault), patch.object(runner, "inspect", return_value=bad):
                 with self.assertRaises(RuntimeError):
                     runner.node_ip(node)
+
+    def test_agent_static_setup_preserves_full_configuration_and_exact_addresses(self):
+        for fault in (None, "alias", "existing-static", "configuration", "wrong-subnet"):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
+                runner, nodes, _ = self.affinity_fixture(directory)
+                runner.containers = {n: q.container_identity(item, n, self.name) for n, item in nodes.items()}
+                network_id = "a" * 64
+                for i, (name, item) in enumerate(nodes.items()):
+                    address = "172.31.240." + str(i + 3)
+                    item["State"] = {"Running": True, "Status": "running"}
+                    item["NetworkSettings"] = {"Networks": {"k3d-" + self.name: {
+                        "NetworkID": network_id, "EndpointID": "b" * 64, "IPAddress": address,
+                        "Aliases": [name], "IPAMConfig": {"IPv4Address": address} if "-server-" in name else None}}}
+                agent = "k3d-" + self.name + "-agent-0"
+                endpoint = nodes[agent]["NetworkSettings"]["Networks"]["k3d-" + self.name]
+                if fault == "alias":
+                    endpoint["Aliases"] = ["unexpected-private-alias"]
+                elif fault == "existing-static":
+                    endpoint["IPAMConfig"] = {"IPv4Address": endpoint["IPAddress"]}
+                calls = []
+
+                def command(argv):
+                    calls.append(argv)
+                    if argv[:3] == ["docker", "network", "inspect"]:
+                        return json.dumps([{"Id": network_id, "IPAM": {"Config": [{"Subnet": "10.0.20.0/24" if fault == "wrong-subnet" else q.l2.NETWORK}]}}]).encode()
+                    if argv[:2] == ["docker", "inspect"]:
+                        return json.dumps([nodes[argv[2]]]).encode()
+                    item = next(n for n in nodes.values() if n["Id"] == argv[-1])
+                    if argv[1] in ("stop", "start"):
+                        item["State"] = {"Running": argv[1] == "start", "Status": "running" if argv[1] == "start" else "exited"}
+                    elif argv[:3] == ["docker", "network", "disconnect"]:
+                        item["NetworkSettings"]["Networks"] = {}
+                    else:
+                        self.assertEqual(argv[:3], ["docker", "network", "connect"])
+                        address = argv[3].split("=", 1)[1]
+                        item["NetworkSettings"]["Networks"] = {"k3d-" + self.name: {
+                            "NetworkID": network_id, "EndpointID": "c" * 64, "IPAddress": address,
+                            "IPAMConfig": {"IPv4Address": address}}}
+                        if fault == "configuration":
+                            item["HostConfig"]["Memory"] = 1
+                    return b""
+
+                runner.command = command
+                if fault:
+                    with self.assertRaises(RuntimeError):
+                        runner.pin_agent_ips()
+                    self.assertFalse((runner.work / "guest-static-node-ips.json").exists())
+                    self.assertEqual(sum(c[:2] == ["docker", "stop"] for c in calls), 1 if fault == "configuration" else 0)
+                else:
+                    runner.pin_agent_ips()
+                    evidence = json.loads((runner.work / "guest-static-node-ips.json").read_text())
+                    self.assertEqual(len(evidence["node_ips"]), 5)
+                    self.assertTrue(evidence["same_container_configuration"])
+                    self.assertEqual(sum(c[:3] == ["docker", "network", "connect"] for c in calls), 2)
+                    self.assertEqual({n: q.container_identity(item, n, self.name) for n, item in nodes.items()}, runner.containers)
 
     def test_restore_advertises_original_node_ip_and_refuses_changed_identity(self):
         for fault in (None, "kubernetes-address", "duplicate-address", "extra-node", "restart-address"):

@@ -299,7 +299,7 @@ class Qualification(cq.Qualification):
             raise RuntimeError("synthetic node must be fully stopped before datastore mutation")
         return item
 
-    def node_ip(self, node):
+    def node_ip(self, node, *, static=True):
         item = self.inspect(node)
         networks = item["NetworkSettings"]["Networks"]
         network = networks.get("k3d-" + self.args.name, {})
@@ -312,9 +312,46 @@ class Qualification(cq.Qualification):
                 network.get("NetworkID") != self.l2_network_id or
                 not re.fullmatch(r"[a-f0-9]{64}", network.get("EndpointID", "")) or
                 address not in subnet or address in (subnet.network_address, subnet.broadcast_address, subnet.network_address + 1) or
-                address == ipaddress.ip_address("172.31.240.10") or address in ipaddress.ip_network(l2.CIDR)):
+                address == ipaddress.ip_address("172.31.240.10") or address in ipaddress.ip_network(l2.CIDR) or
+                (static and (network.get("IPAMConfig") or {}).get("IPv4Address") != str(address))):
             raise RuntimeError("owned node bridge identity or address changed")
         return str(address)
+
+    def pin_agent_ips(self):
+        network = json.loads(self.command(["docker", "network", "inspect", "k3d-" + self.args.name]))[0]
+        if ([c["Subnet"] for c in network["IPAM"]["Config"]] != [l2.NETWORK] or
+                not re.fullmatch(r"[a-f0-9]{64}", network.get("Id", ""))):
+            raise RuntimeError("owned node subnet identity is invalid")
+        self.l2_network_id = network["Id"]
+        addresses = {node: self.node_ip(node, static=False) for node in self.versions}
+        if len(set(addresses.values())) != 5:
+            raise RuntimeError("owned node addresses must be distinct before pinning")
+        # k3d --subnet pins servers only; agents otherwise swap addresses after an all-node stop.
+        for node in self.versions:
+            item = self.inspect(node)
+            endpoint = item["NetworkSettings"]["Networks"]["k3d-" + self.args.name]
+            if "-server-" in node:
+                self.node_ip(node)
+                continue
+            aliases = endpoint.get("Aliases", [])
+            if (endpoint.get("IPAMConfig") not in (None, {}) or not isinstance(aliases, list) or
+                    any(alias not in (node, item["Id"][:12]) for alias in aliases)):
+                raise RuntimeError("fresh agent endpoint has unexpected static configuration or aliases")
+            self.command(["docker", "stop", "--time=30", item["Id"]])
+            self.inspect(node, stopped=True)
+            self.command(["docker", "network", "disconnect", self.l2_network_id, item["Id"]])
+            self.inspect(node, stopped=True)
+            self.command(["docker", "network", "connect", "--ip=" + addresses[node],
+                          *[arg for alias in aliases for arg in ("--alias", alias)], self.l2_network_id, item["Id"]])
+            self.inspect(node, stopped=True)
+            self.command(["docker", "start", item["Id"]])
+            if self.node_ip(node) != addresses[node]:
+                raise RuntimeError("agent address changed while establishing its static endpoint")
+        if {node: self.node_ip(node) for node in self.versions} != addresses:
+            raise RuntimeError("owned static node addresses differ from their initial values")
+        (self.work / "guest-static-node-ips.json").write_text(json.dumps({
+            "network_id": self.l2_network_id, "node_ips": addresses,
+            "same_container_configuration": True, "production_change": False}, indent=2))
 
     def identity(self):
         config = yaml.safe_load(Path(self.env["KUBECONFIG"]).read_text())
@@ -391,6 +428,7 @@ class Qualification(cq.Qualification):
         self.containers = {node: container_identity(json.loads(self.command(["docker", "inspect", node]))[0], node, self.args.name)
                            for node in self.versions}
         require_separate_datastores(self.containers)
+        self.pin_agent_ips()
         for node in self.versions:
             item = self.inspect(node)
             concurrency = "2" if "-server-" in node else "1"
@@ -424,7 +462,8 @@ class Qualification(cq.Qualification):
         allocated = {str(ipaddress.ip_interface(c["IPv4Address"]).ip) for c in network["Containers"].values()}
         if [c["Subnet"] for c in network["IPAM"]["Config"]] != [l2.NETWORK] or "172.31.240.10" in allocated or any(ipaddress.ip_address(x) in ipaddress.ip_network(l2.CIDR) for x in allocated):
             raise RuntimeError("synthetic caller/VIP collides with bridge allocation")
-        self.l2_network_id = network["Id"]
+        if network["Id"] != self.l2_network_id:
+            raise RuntimeError("owned bridge identity changed after static node setup")
         for node in self.versions:
             item = self.inspect(node)
             self.l2.nodes[node] = item["NetworkSettings"]["Networks"]["k3d-" + self.args.name]["MacAddress"].lower()
@@ -680,10 +719,14 @@ class Qualification(cq.Qualification):
             self.helper(peer, ["-ec", "test -d " + DATA + "/server/db; rm -rf " + DATA + "/server/db; test ! -e " + DATA + "/server/db"])
         self.versions = dict.fromkeys(self.versions, previous)
         self.select_client(previous)
+        restarted = {}
         for node in self.versions:
             item = self.inspect(node, stopped=True)
             self.command(["docker", "start", item["Id"]])
-            if self.node_ip(node) != addresses[node]:
+            actual = self.node_ip(node)
+            restarted[node] = {"expected": addresses[node], "actual": actual}
+            (self.work / (snapshot["prefix"] + "-restarted-network.json")).write_text(json.dumps(restarted, indent=2))
+            if actual != addresses[node]:
                 raise RuntimeError("restored node bridge address changed before API acceptance")
             if "-server-" in node:
                 self.wait_api(node)
