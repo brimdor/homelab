@@ -6,8 +6,8 @@ app-template:
         main:
           image:
             repository: 10.0.20.11:32309/strata
-            tag: b68c9b8
-            digest: sha256:36995dd084c38e32d5f7e7f9ca3bf7e2e51a41bd75508202df5dd02d24f8449b
+            tag: d19f1f9
+            digest: sha256:5b6b5fb9291f2a31eb98070de83bf4d972bdb219fdff49a37470dd98760d65c3
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
