@@ -37,6 +37,7 @@ MARKER = "qualification-k3s-snapshot"
 DATA = "/var/lib/rancher/k3s"
 ECHO_IMAGE = "quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603"
 ECHO_ENV = [{"name": "PORT", "value": "8080"}, {"name": "NAMED_PORT", "value": "http-8080"}]
+CONNECTION_REFUSED = rb"connection refused|The connection to the server 127\.0\.0\.1:6443 was refused - did you specify the right host or port\?"
 
 
 class CommandFailure(RuntimeError):
@@ -48,7 +49,8 @@ class CommandFailure(RuntimeError):
 def startup_pending(stderr):
     if re.search(rb"(?i)forbidden|unauthorized|permission denied|access.?denied|x509|certificate|\b40[13]\b", stderr):
         return False
-    return bool(re.search(rb"connection refused|ServiceUnavailable|server is currently unable to handle|TLS handshake timeout|net/http: request canceled", stderr) or
+    return bool(re.search(CONNECTION_REFUSED, stderr) or
+                re.search(rb"ServiceUnavailable|server is currently unable to handle|TLS handshake timeout|net/http: request canceled", stderr) or
                 (b"Error from server (InternalError)" in stderr and b"readyz check failed" in stderr))
 
 
@@ -56,7 +58,7 @@ def failure_classes(stderr):
     patterns = {
         "access-refused": rb"(?i)forbidden|unauthorized|permission denied|access.?denied|\b40[13]\b",
         "trust-refused": rb"(?i)x509|certificate|private key|client-key|error loading config|invalid configuration",
-        "connection-refused": rb"connection refused",
+        "connection-refused": CONNECTION_REFUSED,
         "connection-reset": rb"connection reset by peer",
         "connection-eof": rb"Unable to connect to the server: EOF|unexpected EOF",
         "connection-goaway": rb"server sent GOAWAY.*ErrCode=NO_ERROR",

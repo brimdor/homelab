@@ -92,13 +92,18 @@ class Guards(unittest.TestCase):
                 q.container_identity(bad, name, self.name)
 
     def test_readiness_retry_never_masks_access_identity_or_unknown_failures(self):
-        for expected in (b"connect: connection refused", b"Error from server (ServiceUnavailable): server is currently unable to handle the request", b"net/http: TLS handshake timeout",
+        local_refusal = b"The connection to the server 127.0.0.1:6443 was refused - did you specify the right host or port?\n"
+        self.assertEqual(q.failure_classes(local_refusal), ["connection-refused"])
+        self.assertTrue(q.read_transport_pending(local_refusal))
+        for expected in (local_refusal, b"connect: connection refused", b"Error from server (ServiceUnavailable): server is currently unable to handle the request", b"net/http: TLS handshake timeout",
                          b"Error from server (InternalError): [-]etcd failed: reason withheld; readyz check failed"):
             self.assertTrue(q.startup_pending(expected))
             for denial in (b"Forbidden", b"Unauthorized", b"permission denied", b"x509: certificate failed", b"HTTP 403"):
                 self.assertFalse(q.startup_pending(expected + b"\n" + denial))
+                self.assertFalse(q.read_transport_pending(local_refusal + b"\n" + denial))
         for other in (b"", b"executable not found", b"unknown error"):
             self.assertFalse(q.startup_pending(other))
+        self.assertFalse(q.startup_pending(local_refusal.replace(b"127.0.0.1", b"10.0.20.50")))
 
     def test_mount_enumeration_order_is_irrelevant_but_identity_is_not(self):
         name = next(iter(self.versions))
