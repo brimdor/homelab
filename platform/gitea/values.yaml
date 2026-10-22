@@ -1,12 +1,9 @@
 configJob:
   enabled: false
-
 maintenance103Recovery:
   enabled: false
-
 maintenance103PostgresMaintained:
-  enabled: false
-
+  enabled: true
 gitea:
   strategy:
     type: Recreate
@@ -18,14 +15,14 @@ gitea:
       hajimari.io/appName: Gitea
       hajimari.io/icon: git
     hosts:
-      - host: &host git.eaglepass.io
+      - host: git.eaglepass.io
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: gitea-tls-certificate
         hosts:
-          - *host
+          - git.eaglepass.io
   gitea:
     admin:
       existingSecret: gitea-admin-secret
@@ -42,7 +39,11 @@ gitea:
   postgresql:
     enabled: true
     image:
-      tag: "16.6.0-debian-12-r2"
+      tag: 16.15-bookworm
+      registry: docker.io
+      repository: library/postgres
+      digest: sha256:d81f7b51697014367236d07ec58b54153fc28f828b72bf247fe5c7487520bcb0
+      pullPolicy: IfNotPresent
     persistence:
       storageClass: standard-rwo
     primary:
@@ -55,6 +56,96 @@ gitea:
           cpu: 500m
           ephemeral-storage: 2Gi
           memory: 192Mi
+      command:
+        - /bin/bash
+        - /configuration/postgres-startup.sh
+      args: []
+      customStartupProbe:
+        exec:
+          command:
+            - /usr/lib/postgresql/16/bin/pg_isready
+            - -h
+            - 127.0.0.1
+            - -p
+            - '5432'
+            - -U
+            - gitea
+            - -d
+            - gitea
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 60
+      customLivenessProbe:
+        exec:
+          command:
+            - /usr/lib/postgresql/16/bin/pg_isready
+            - -h
+            - 127.0.0.1
+            - -p
+            - '5432'
+            - -U
+            - gitea
+            - -d
+            - gitea
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 12
+      customReadinessProbe:
+        exec:
+          command:
+            - /usr/lib/postgresql/16/bin/pg_isready
+            - -h
+            - 127.0.0.1
+            - -p
+            - '5432'
+            - -U
+            - gitea
+            - -d
+            - gitea
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 12
+      extraVolumes:
+        - name: maintained-postgresql-103
+          configMap:
+            name: gitea-maintained-postgresql-103
+            defaultMode: 292
+      extraVolumeMounts:
+        - name: maintained-postgresql-103
+          mountPath: /configuration/postgres-startup.sh
+          subPath: postgres-startup.sh
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /configuration/postgresql.conf
+          subPath: postgresql.conf
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /configuration/pg_hba.conf
+          subPath: pg_hba.conf
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/lib/postgresql/16/lib/pgaudit.so
+          subPath: pgaudit.so
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/share/postgresql/16/extension/pgaudit.control
+          subPath: pgaudit.control
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/share/postgresql/16/extension/pgaudit--16.1.sql
+          subPath: pgaudit--16.1.sql
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/share/postgresql/16/extension/pgaudit--16.0--16.1.sql
+          subPath: pgaudit--16.0--16.1.sql
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /configuration/pgaudit-copyright
+          subPath: pgaudit-copyright
+          readOnly: true
+    global:
+      security:
+        allowInsecureImages: true
   postgresql-ha:
     enabled: false
   valkey-cluster:
