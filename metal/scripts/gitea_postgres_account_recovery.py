@@ -1,6 +1,7 @@
 """Rehearse the approved role-only recovery on protected copies, never production."""
 
 import hashlib
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -307,13 +308,17 @@ def require_cold_copy(work, state, tree):
         raise RuntimeError('clean stopped scratch-copy capture contract differs')
 
 
-def cold_capture_restore(work, container, volumes, run_id, image_id, credentials, hba, expected_dump, expected_catalog):
+def cold_capture_restore(work, container, volumes, run_id, image_id, credentials, hba, expected_dump, expected_catalog,
+                         before_recovery=False):
     """Capture only stopped owned scratch; prove two independent complete restores."""
     execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
     state = control.parse_control(execute(container, BIN + 'pg_controldata', DATA).stdout)
     tree, payloads = retained.snapshot(work / 'copy')
     require_cold_copy(work, state, tree)
-    point = work / 'cold-point'
+    if before_recovery and next(r for r in expected_catalog['roles'] if r['rolname'] == 'postgres')['rolpassword'] == (
+            'md5' + hashlib.md5((credentials['admin'] + 'postgres').encode()).hexdigest()):
+        raise RuntimeError('pre-recovery point must retain the original mismatched administrator credential')
+    point = work / ('pre-recovery-cold-point' if before_recovery else 'cold-point')
     point.mkdir(mode=0o700)
     (point / 'data').mkdir(mode=0o700)
     for number, (name, record) in enumerate(sorted(tree.items())):
@@ -360,12 +365,13 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
             execute(restored, '/bin/sh', '-c', 'umask 077; cat > /tmp/source-hba.conf; : > /tmp/fixture.conf', input=hba)
             normal_start(restored, credentials, hba)
             if (dumps(restored, credentials['app'], 'gitea') != expected_dump or
-                    dumps(restored, credentials['admin'], 'postgres') != expected_dump):
+                    (not before_recovery and dumps(restored, credentials['admin'], 'postgres') != expected_dump)):
                 raise RuntimeError('cold-copy restore changed complete logical data')
             clean = stop(restored)
             if parse_catalog(single(restored, catalog_sql().encode()).stdout) != expected_catalog:
                 raise RuntimeError('cold-copy restore changed authorization or database metadata')
             copies.append({'normal_start_and_tcp_auth': True, 'full_logical_data_equal': True,
+                           'administrator_authentication': not before_recovery,
                            'catalog_equal': True, 'clean_shutdown': clean['cluster_state'] == 'shut down'})
         finally:
             if restored:
@@ -376,11 +382,16 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
     if retained.snapshot(work / 'copy')[0] != tree:
         raise RuntimeError('stopped source changed during cold capture/restore')
     return {'source_kind': 'isolated_historical_copy', 'source_stopped': True,
+            'before_role_recovery': before_recovery,
             'manifest_sha256': hashlib.sha256(common.canonical(manifest)).hexdigest(),
             'independent_restores': copies, 'source_unchanged': True, 'production_capture_unqualified': True}
 
 
-def operation(work, volumes, run_id, image_id, credentials, hba):
+@contextmanager
+def prepared_copy(work, volumes, run_id, image_id, hba):
+    if (work.parent.parent != common.ROOT or not work.parent.name.startswith('gitea-postgres-account-copy-') or
+            work.name not in {'0', '1'} or any(p.is_symlink() for p in (work, *work.parents))):
+        raise RuntimeError('native controller requires an exact owned historical copy')
     container = None
     try:
         container = common.docker(*arguments(work, volumes, run_id)).stdout.decode().strip()
@@ -407,6 +418,17 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         if not pid.is_file() or pid.is_symlink():
             raise RuntimeError('reviewed historical copied lock missing')
         pid.unlink()
+        yield container
+    finally:
+        if container:
+            require_container(common.inspect(container), work, volumes, run_id, image_id)
+            common.docker('rm', '-f', container)
+            if common.docker('inspect', container, check=False).returncode == 0:
+                raise RuntimeError('owned copied PostgreSQL container remains')
+
+
+def operation(work, volumes, run_id, image_id, credentials, hba):
+    with prepared_copy(work, volumes, run_id, image_id, hba) as container:
         normal_start(container, credentials, hba)
         before_dump = dumps(container, credentials['app'], 'gitea')
         stop(container)
@@ -457,19 +479,14 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 'invalid_port_startup_refusal_and_ordinary_fallback': True,
                 'clean_copy_capture_restore': cold,
                 'native_crash_recovery_and_clean_shutdown': True, 'control': state}
-    finally:
-        if container:
-            require_container(common.inspect(container), work, volumes, run_id, image_id)
-            common.docker('rm', '-f', container)
-            if common.docker('inspect', container, check=False).returncode == 0:
-                raise RuntimeError('owned copied PostgreSQL container remains')
 
 
-def qualify(run_id, credentials, hba):
+def qualify(run_id, credentials, hba, lifecycle=False):
     common.run_identifier(run_id)
     common.require_host('pikachu')
     common.private_root()
-    if set(credentials) != {'admin', 'app'} or hashlib.sha256(hba).hexdigest() != '625018986f8ca9e5f4bff3b1e4ffcdc29d4d96d3cd55ed07f02aa514a30f7e05':
+    if (type(lifecycle) is not bool or set(credentials) != {'admin', 'app'} or
+            hashlib.sha256(hba).hexdigest() != '625018986f8ca9e5f4bff3b1e4ffcdc29d4d96d3cd55ed07f02aa514a30f7e05'):
         raise RuntimeError('existing credential fields or reviewed md5 HBA changed')
     value = retained.verify(control.POINT, control.CHECKSUM, 'gitea')
     if any(r['kind'] == 'symlink' for r in value['tree'].values()):
@@ -498,10 +515,16 @@ def qualify(run_id, credentials, hba):
             for source in mounts(work, volumes).values():
                 if source != str(work / 'copy'):
                     Path(source).mkdir(mode=0o755)
-            result['copies'].append(operation(work, volumes, run_id, image_id, credentials, hba))
+            if lifecycle:
+                import gitea_postgres_lifecycle
+                copied_operation = gitea_postgres_lifecycle.operation
+            else:
+                copied_operation = operation
+            result['copies'].append(copied_operation(work, volumes, run_id, image_id, credentials, hba))
         if result['copies'][0]['full_dump_sha256'] != result['copies'][1]['full_dump_sha256']:
             raise RuntimeError('independent copied database fingerprints differ')
         result.update(accepted=True, independent_copies=2, image=control.IMAGE,
+                      lifecycle_qualification=lifecycle,
                       production_cold_capture_and_startup_unqualified=True)
     finally:
         if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
