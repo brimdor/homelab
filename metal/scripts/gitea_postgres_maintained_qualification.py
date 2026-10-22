@@ -29,6 +29,21 @@ TMPFS = {'/tmp': 'rw,nosuid,nodev,uid=1001,gid=1001,mode=1777',
          '/opt/bitnami/postgresql/tmp': 'rw,nosuid,nodev,uid=1001,gid=1001,mode=0700'}
 
 
+def require_image(value, image):
+    if image not in (cold.control.IMAGE, IMAGE):
+        raise RuntimeError('unreviewed compatibility image')
+    required = {'/var/lib/postgresql/data'} if image == IMAGE else {
+        '/bitnami/postgresql', '/docker-entrypoint-initdb.d', '/docker-entrypoint-preinitdb.d'}
+    references = {image, image.removeprefix('docker.io/')}
+    if image == IMAGE:
+        # Docker canonicalizes its official library name to postgres@<same digest>.
+        references.add(image.removeprefix('docker.io/library/'))
+    if (value['Architecture'] != 'amd64' or value['Os'] != 'linux' or
+            set((value['Config'].get('Volumes') or {}).keys()) != required or
+            not references.intersection(value.get('RepoDigests', []))):
+        raise RuntimeError('exact compatibility image architecture/digest/volumes differ')
+
+
 def validate_payload(value):
     try:
         if set(value) != set(FILES):
@@ -251,13 +266,8 @@ def run(point, checksum, credentials, hba, run_id, payload):
         for image in (cold.control.IMAGE, IMAGE):
             common.docker('pull', image)
             value = json.loads(common.docker('image', 'inspect', image).stdout)[0]
-            volumes = set((value['Config'].get('Volumes') or {}).keys())
-            required = {'/var/lib/postgresql/data'} if image == IMAGE else {
-                '/bitnami/postgresql', '/docker-entrypoint-initdb.d', '/docker-entrypoint-preinitdb.d'}
             images[image] = value
-            if (value['Architecture'] != 'amd64' or value['Os'] != 'linux' or volumes != required or
-                    not {image, image.removeprefix('docker.io/')}.intersection(value.get('RepoDigests', []))):
-                raise RuntimeError('exact compatibility image architecture/digest/volumes differ')
+            require_image(value, image)
         for number in range(2):
             if cold.verify(point, checksum) != manifest:
                 raise RuntimeError('protected actual PostgreSQL point changed')

@@ -8,6 +8,19 @@ import gitea_postgres_maintained_qualification as candidate
 
 
 class MaintainedQualificationTests(unittest.TestCase):
+    def test_official_native_digest_alias_preserves_exact_image_contract(self):
+        value = {'Architecture': 'amd64', 'Os': 'linux',
+                 'Config': {'Volumes': {'/var/lib/postgresql/data': {}}},
+                 'RepoDigests': [candidate.IMAGE.removeprefix('docker.io/library/')]}
+        candidate.require_image(value, candidate.IMAGE)
+        for mutate in (lambda v: v.update(Architecture='arm64'),
+                       lambda v: v.update(RepoDigests=['postgres@sha256:' + '0' * 64]),
+                       lambda v: v['Config']['Volumes'].update({'/foreign': {}})):
+            changed = copy.deepcopy(value)
+            mutate(changed)
+            with self.assertRaises(RuntimeError):
+                candidate.require_image(changed, candidate.IMAGE)
+
     def test_payload_requires_exact_files_and_published_checksums(self):
         for value in ({}, {'extra': 'YQ=='}, {name: 'YQ==' for name in candidate.FILES},
                       {name: 'not base64' for name in candidate.FILES}):
