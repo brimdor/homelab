@@ -1,4 +1,4 @@
 image: docker.io/valkey/valkey@sha256:0f62bfecc0b713dc2111af3ee307d5cd53c6877b7a112c6143c4de20f1325e4c
-partition: 5
+partition: 4
 generation: initial
 node: pikachu
