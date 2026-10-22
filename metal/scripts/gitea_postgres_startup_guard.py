@@ -15,13 +15,25 @@ STATE = '/opt/bitnami/postgresql/tmp/maintenance-103'
 # A normal-start marker permanently refuses later recovery in this Pod lifetime.
 STARTUP = '''umask 077
 state=/opt/bitnami/postgresql/tmp/maintenance-103
-mkdir -- "$state"
+fresh=false
+if mkdir -- "$state" 2>/dev/null; then
+    fresh=true
+else
+    [[ ! -L "$state" && $(stat -c '%u:%a' "$state") == 1001:700 ]]
+    [[ -f "$state/lock" && ! -L "$state/lock" && $(stat -c '%u:%a:%h' "$state/lock") == 1001:600:1 ]]
+    [[ -f "$state/phase" && ! -L "$state/phase" && $(stat -c '%u:%a:%h' "$state/phase") == 1001:600:1 ]]
+    case "$(cat "$state/phase")" in waiting|normal|closing) ;; *) exit 1;; esac
+    # A container restart closes the old claim window before ordinary startup.
+    printf '%s\\n' closing > "$state/phase"
+fi
 exec 9>"$state/lock"
-printf '%s\\n' waiting > "$state/phase"
-for ((n=0; n<300; n++)); do
-    [[ ! -e "$state/claimed" ]] || break
-    sleep 0.1
-done
+if "$fresh"; then
+    printf '%s\\n' waiting > "$state/phase"
+    for ((n=0; n<300; n++)); do
+        [[ ! -e "$state/claimed" ]] || break
+        sleep 0.1
+    done
+fi
 flock --exclusive 9
 printf '%s\\n' normal > "$state/phase"
 exec "$@"
@@ -169,6 +181,28 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                                  'complete_logical_data_equal': True, 'late_claim_refused': True,
                                  'native_child_lock_retained_after_sigkill': mode == 'controller-killed-during-sql',
                                  'transaction_replayed': False})
+                if mode == 'controller-absent':
+                    # Reenter with the same retained emptyDir after clean native shutdown.
+                    # This measures retained-state behavior, not a Kubernetes restart.
+                    restarted = ordinary(container, credentials, hba)
+                    restarted_reaped = False
+                    try:
+                        restart_pid, restart_status = os.waitpid(restarted, 0)
+                        restarted_reaped = True
+                        if (restart_pid != restarted or not os.WIFEXITED(restart_status) or
+                                os.WEXITSTATUS(restart_status) or phase(container) != b'normal' or
+                                recovery.dumps(container, credentials['app'], 'gitea') != original):
+                            raise RuntimeError('retained copied guardian state prevented ordinary startup')
+                        recovery.stop(container)
+                        if recovery.parse_catalog(recovery.single(container, recovery.catalog_sql().encode()).stdout) != before:
+                            raise RuntimeError('retained copied guardian state changed authorization')
+                        receipts.append({'mode': 'retained-emptydir-reentry', 'automatic_original_startup': True,
+                                         'complete_logical_data_equal': True, 'claim_window_reopened': False,
+                                         'actual_kubernetes_restart_qualified': False})
+                    finally:
+                        if not restarted_reaped:
+                            os.kill(restarted, signal.SIGKILL)
+                            os.waitpid(restarted, 0)
             finally:
                 if controller and controller.poll() is None:
                     controller.communicate()
@@ -176,6 +210,23 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                     os.kill(starter, signal.SIGKILL)
                     os.waitpid(starter, 0)
             recovery.execute(container, '/bin/rm', '-rf', '--', STATE)
+        refusals = []
+        for fault, prepare in (
+                ('linked-directory', 'ln -s /tmp "$state"'),
+                ('wrong-mode', 'mkdir -m 0755 "$state"'),
+                ('linked-lock', 'mkdir -m 0700 "$state"; : > "$state/lock"; '
+                 'ln "$state/lock" /tmp/maintenance-103-lock-alias; printf "waiting\\n" > "$state/phase"'),
+                ('unknown-phase', 'mkdir -m 0700 "$state"; : > "$state/lock"; printf "foreign\\n" > "$state/phase"')):
+            try:
+                recovery.execute(container, '/bin/sh', '-ceu', 'umask 077; state=' + STATE + '; ' + prepare)
+                rejected = recovery.execute(container, '/bin/bash', '-ceu', STARTUP, 'refused-state',
+                                            '/bin/true', allow_error=True)
+                if rejected.returncode != 1:
+                    raise RuntimeError('unowned copied guardian state was not refused')
+                refusals.append(fault)
+            finally:
+                recovery.execute(container, '/bin/rm', '-rf', '--', STATE, '/tmp/maintenance-103-lock-alias')
         return {'full_dump_sha256': {name: hashlib.sha256(raw).hexdigest() for name, raw in original.items()},
-                'startup_guard_attempts': receipts, 'production_mutated': False,
+                'startup_guard_attempts': receipts, 'unsafe_retained_state_refusals': refusals,
+                'production_mutated': False,
                 'production_cold_capture_and_chart_wiring_unqualified': True}
