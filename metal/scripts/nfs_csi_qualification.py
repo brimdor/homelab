@@ -312,6 +312,20 @@ class Qualification(isolated.Qualification):
                 'production_nas_and_amd64_fedora_kernel_unqualified': True,
                 'synthetic_dynamic_mountPermissions': '0777', 'consumer_fsGroup_not_set': True}
 
+    def diagnostics(self):
+        evidence = {'command_number': self.count, 'stages': self.stages}
+        if self.cluster_uid:
+            self.identity()
+            pods = self.kubectl('get', 'pods', '-A')['items']
+            evidence['pods'] = [{'name': p['metadata']['name'], 'namespace': p['metadata']['namespace'],
+                                 'phase': p.get('status', {}).get('phase'),
+                                 'containers': p.get('status', {}).get('containerStatuses', []),
+                                 'conditions': p.get('status', {}).get('conditions', [])} for p in pods]
+            events = self.kubectl('get', 'events', '-A')['items']
+            evidence['warnings'] = [{'reason': e.get('reason'), 'message': e.get('message', '')[:1500]}
+                                    for e in events if e.get('type') == 'Warning']
+        (self.work / 'failure-diagnostics.json').write_text(json.dumps(evidence, indent=2))
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -326,6 +340,9 @@ def main():
         result = q.run()
         (q.work / 'result.json').write_text(json.dumps(result, indent=2))
         print(json.dumps(result), flush=True)
+    except BaseException:
+        q.diagnostics()
+        raise
     finally:
         if q.creation_started:
             q.command([args.k3d, 'cluster', 'delete', args.name])
