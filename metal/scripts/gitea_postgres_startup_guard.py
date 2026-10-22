@@ -19,6 +19,7 @@ fresh=false
 if mkdir -- "$state" 2>/dev/null; then
     # fsGroup volumes can give a newly created directory an inherited setgid bit.
     chmod 0700 -- "$state"
+    chmod g-s -- "$state"
     [[ ! -L "$state" && $(stat -c '%u:%a' "$state") == 1001:700 ]]
     fresh=true
 else
@@ -107,9 +108,11 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         before = recovery.parse_catalog(recovery.single(container, recovery.catalog_sql().encode()).stdout)
         recovery.execute(container, '/bin/chmod', '2700', '/opt/bitnami/postgresql/tmp')
         inherited = recovery.execute(container, '/bin/sh', '-ceu',
-                                     'umask 077; mkdir "$1"; stat -c "%u:%a" "$1"; rmdir "$1"',
+                                     'umask 077; mkdir "$1"; stat -c "%u:%a" "$1"; '
+                                     'chmod 0700 "$1"; stat -c "%u:%a" "$1"; '
+                                     'chmod g-s "$1"; stat -c "%u:%a" "$1"; rmdir "$1"',
                                      'synthetic-setgid-parent', STATE + '-setgid-witness').stdout
-        if inherited != b'1001:2700\n':
+        if inherited != b'1001:2700\n1001:2700\n1001:700\n':
             raise RuntimeError('native PostgreSQL setgid inheritance witness differs')
         receipts = []
         last = 'success' if work.name == '0' else 'controller-killed-during-sql'
@@ -118,7 +121,13 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
             controller = None
             reaped = False
             try:
-                wait_for(lambda: phase(container) == b'waiting', 'copied startup claim window missing')
+                try:
+                    wait_for(lambda: phase(container) == b'waiting', 'copied startup claim window missing')
+                except RuntimeError:
+                    metadata = recovery.execute(container, '/bin/stat', '-c', '%u:%a:%h', STATE,
+                                                STATE + '/phase', allow_error=True)
+                    raise RuntimeError('copied startup claim window missing; state_properties=' +
+                                       repr(metadata.stdout.decode().splitlines())) from None
                 if mode != 'controller-absent':
                     controller, native_pid = claim(container, failed=mode == 'failed-sql')
                     # An unrelated contender must not acquire a claimed recovery window.
@@ -223,9 +232,10 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         for fault, prepare in (
                 ('linked-directory', 'ln -s /tmp "$state"'),
                 ('wrong-mode', 'mkdir -m 0755 "$state"'),
-                ('linked-lock', 'mkdir -m 0700 "$state"; chmod 0700 "$state"; : > "$state/lock"; '
+                ('linked-lock', 'mkdir -m 0700 "$state"; chmod 0700 "$state"; chmod g-s "$state"; : > "$state/lock"; '
                  'ln "$state/lock" "$state-lock-alias"; printf "waiting\\n" > "$state/phase"'),
-                ('unknown-phase', 'mkdir -m 0700 "$state"; chmod 0700 "$state"; : > "$state/lock"; printf "foreign\\n" > "$state/phase"')):
+                ('unknown-phase', 'mkdir -m 0700 "$state"; chmod 0700 "$state"; chmod g-s "$state"; '
+                 ': > "$state/lock"; printf "foreign\\n" > "$state/phase"')):
             try:
                 recovery.execute(container, '/bin/sh', '-ceu', 'umask 077; state=' + STATE + '; ' + prepare)
                 rejected = recovery.execute(container, '/bin/bash', '-ceu', STARTUP, 'refused-state',

@@ -5,6 +5,7 @@ fresh=false
 if mkdir -- "$state" 2>/dev/null; then
     # fsGroup volumes can give a newly created directory an inherited setgid bit.
     chmod 0700 -- "$state"
+    chmod g-s -- "$state"
     [[ ! -L "$state" && $(stat -c '%u:%a' "$state") == 1000:700 ]]
     fresh=true
 else
