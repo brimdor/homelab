@@ -93,8 +93,9 @@ class Bundle:
     def request(self, task, args):
         if task not in {'observe', 'capture', 'send', 'receive', 'restore', 'intent'}:
             raise RuntimeError('unreviewed native recovery task')
-        return common.canonical({'sources': self.sources, 'profiles': self.profiles,
-                                 'task': task, 'args': args}) + b'\n'
+        # Preserve dependency order: the remote host has no repository imports.
+        return json.dumps({'sources': self.sources, 'profiles': self.profiles,
+                           'task': task, 'args': args}, separators=(',', ':')).encode() + b'\n'
 
     def command(self, node):
         if node not in self.nodes:

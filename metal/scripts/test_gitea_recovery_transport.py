@@ -11,6 +11,21 @@ import gitea_recovery_transport as transport
 
 
 class TransportTests(unittest.TestCase):
+    def test_complete_prefetched_bundle_loads_before_runtime_refusal(self):
+        root = Path(__file__).resolve().parents[2]
+        bundle = object.__new__(transport.Bundle)
+        bundle.sources = {name: (root / 'metal/scripts' / (name + '.py')).read_text()
+                          for name in transport.MODULES}
+        bundle.profiles = json.loads((root / 'metal/maintenance/gitea-postgres-files-103.json').read_text())
+        child = subprocess.run([sys.executable, '-I', '-B', '-c', transport.BOOT],
+                               input=bundle.request('observe', {'core': {}, 'namespace_pid': 2}),
+                               capture_output=True)
+        self.assertEqual(child.returncode, 70)
+        self.assertEqual(json.loads(child.stderr), {
+            'accepted': False, 'error_type': 'RuntimeError',
+            'error': 'unreviewed held PostgreSQL runtime request'})
+        self.assertEqual(child.stdout, b'')
+
     def test_successful_binary_sender_exit_is_not_caught_as_failure(self):
         sources = {'etcd_recovery': '', 'gitea_postgres_cold_point': '',
                    'gitea_postgres_guarded_source': 'def send(point,checksum,expected,output):\n output.write(b"synthetic-frame");output.flush()\n',
