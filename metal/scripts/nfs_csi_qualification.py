@@ -17,6 +17,7 @@ import yaml
 
 import cilium_qualification as isolated
 from cilium_l2_qualification import IMAGE as CLIENT
+import k3s_qualification as native
 
 
 CHART_URL = 'https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts/v4.13.5/csi-driver-nfs-4.13.5.tgz'
@@ -85,7 +86,20 @@ class Qualification(isolated.Qualification):
         self.image_pins = {}
 
     def command(self, command, *, data=None, private=True):
-        return super().command(command, data=data, private=True)
+        try:
+            return native.Qualification.command(self, command, data=data, private=True)
+        except native.CommandFailure as error:
+            # All arguments belong to this synthetic fixture; stdin/config output is excluded.
+            evidence = {'number': error.number, 'argv': command, 'exit': error.code,
+                        'classes': native.failure_classes(error.stderr),
+                        'stderr_sha256': hashlib.sha256(error.stderr).hexdigest(),
+                        'nfs_setup_classes': [name for name, pattern in {
+                            'exports_directory_missing': rb'/etc/exports.d/qualification.exports: (?:Directory nonexistent|No such file or directory)',
+                            'nfsd_not_supported': rb'(?:Unable to access /proc/fs/nfsd|unknown filesystem type|No such device|Module nfsd not found)',
+                            'systemd_nfs_failure': rb'Job for nfs.*failed',
+                        }.items() if re.search(pattern, error.stderr)]}
+            (self.work / 'command-failure.json').write_text(json.dumps(evidence, indent=2))
+            raise
 
     def guest(self, *args):
         return self.command([self.args.colima, '-p', 'q', 'ssh', '--', *args])
@@ -135,8 +149,11 @@ class Qualification(isolated.Qualification):
         self.guest('sh', '-ec', '. /etc/os-release; test "$ID" = ubuntu')
         self.guest('sudo', 'apt-get', 'update', '-qq')
         self.guest('sudo', 'env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', '-qq', 'nfs-kernel-server')
+        if self.guest('sudo', 'exportfs', '-v').strip():
+            raise RuntimeError('owned VM unexpectedly has an existing NFS export')
+        self.guest('sudo', 'test', '!', '-e', self.export)
+        self.guest('sudo', 'mkdir', '-m', '0777', self.export)
         self.guest('sudo', 'sh', '-ec',
-                   'test ! -e "$1"; test -z "$(exportfs -v)"; mkdir -m 0777 "$1"; '
                    'printf "%s %s(rw,sync,root_squash,no_subtree_check,fsid=0)\\n" "$1" "$2" > /etc/exports.d/qualification.exports; '
                    'exportfs -ra; systemctl restart nfs-kernel-server; exportfs -v',
                    'qualification', self.export, NETWORK)
