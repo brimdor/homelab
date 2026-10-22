@@ -7,7 +7,7 @@ app-template:
         database:
           image:
             repository: mariadb
-            tag: "10.11.19"
+            tag: "13.0.2"
             digest: sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2
             pullPolicy: IfNotPresent
           env:
