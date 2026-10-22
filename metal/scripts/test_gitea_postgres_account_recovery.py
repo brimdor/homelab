@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -221,6 +222,21 @@ class RecoveryContract(unittest.TestCase):
             modified = copy.deepcopy(tree);change(modified)
             with self.assertRaises(RuntimeError):
                 recovery.require_cold_copy(work, state, modified)
+
+    def test_cold_capture_uses_real_snapshot_contract_and_refuses_foreign_source(self):
+        with tempfile.TemporaryDirectory(prefix='cold-copy-contract-') as directory:
+            work = Path(directory) / '0'
+            (work / 'copy').mkdir(parents=True)
+            fixture = work / 'copy' / 'fixture'
+            fixture.write_bytes(b'unchanged synthetic fixture')
+            with patch.object(recovery, 'execute', return_value=SimpleNamespace(stdout=b'')), \
+                    patch.object(recovery.control, 'parse_control', return_value={'cluster_state': 'shut down'}), \
+                    patch.object(recovery.retained.os, 'listxattr', return_value=[], create=True), \
+                    patch.object(recovery.retained, 'available_memory', return_value=1073741824):
+                with self.assertRaisesRegex(RuntimeError, 'clean stopped scratch-copy capture contract differs'):
+                    recovery.cold_capture_restore(work, 'owned', [], 'fixture', 'sha256:fixture', {}, b'', {}, {})
+            self.assertEqual(fixture.read_bytes(), b'unchanged synthetic fixture')
+            self.assertFalse((work / 'cold-point').exists())
 
 
 if __name__ == '__main__':

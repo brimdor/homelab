@@ -311,7 +311,7 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
     """Capture only stopped owned scratch; prove two independent complete restores."""
     execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
     state = control.parse_control(execute(container, BIN + 'pg_controldata', DATA).stdout)
-    tree, payloads, _ = retained.snapshot(work / 'copy')
+    tree, payloads = retained.snapshot(work / 'copy')
     require_cold_copy(work, state, tree)
     point = work / 'cold-point'
     point.mkdir(mode=0o700)
