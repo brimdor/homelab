@@ -1,0 +1,28 @@
+when:
+  - branch: master
+    event: [push, pull_request, manual]
+    path:
+      include:
+        - .woodpecker/recovery-checks.yaml
+        - metal/scripts/**
+        - metal/maintenance/**
+        - platform/gitea/**
+
+steps:
+  recovery-contracts:
+    image: docker.io/library/python:3.11.14-slim-bookworm@sha256:83f339c1be6340ae1096010fdccf6552ac932d8f410d45d206014916bdf37e48
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    commands:
+      - cd metal/scripts
+      # Synthetic regressions only; no cluster credentials or native recovery commands.
+      - >-
+        python -B -m unittest -v
+        test_gitea_maintained_cohort
+        test_gitea_postgres_maintained_qualification
+        test_gitea_valkey_rollout
+        test_gitea_cohort_recovery
+        test_gitea_cohort_point
+        test_gitea_recovery_transport
+        test_gitea_postgres_startup_guard
+        test_gitea_init_guard

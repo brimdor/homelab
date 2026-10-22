@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Issue 103: canonical recovery CI acceptance</title>
+<style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1100px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#f9fafb}li{margin:.6rem 0}</style>
+<h1>Issue 103: recovery CI acceptance</h1>
+<p>Owner approved access actions 1–2 on October 22, 2026 and deferred end-user SSO, independent device trust and independent caller origins. General maintenance implementation and canonical publication remain authorized. NAS/NFS writes, export changes, restores and NAS-backed registry operations remain prohibited.</p>
+<h2>Observed integration and least privilege</h2>
+<p>Canonical Tea readback found Gitea ops/homelab public, not private. That corrects the earlier description in the remaining-actions document; no forge visibility change was made. The approved Woodpecker integration is project 3. Its initial public default was changed to Private before any pipeline was started, then verified after reload. Network, Volumes and Security trust remain disabled; no custom trusted clone plugin or approval-exempt user was added. Forked pull requests retain their approval requirement; deployments remain disabled.</p>
+<p>Tea readback found exactly one active Gitea webhook, ID 5, with the canonical HTTPS ci.eaglepass.io destination. Its complete URL and any credential-bearing fields are withheld. Existing provider and unrelated repository settings remain unchanged. The fresh CORE baseline passed at 2026-10-22T16:21:54Z; that scoped result does not prove all six maintenance layers complete.</p>
+<h2>Desired workflow and acceptance</h2>
+<p><code>.woodpecker/recovery-checks.yaml</code> runs the eight existing recovery regression modules for relevant master pushes, pull requests and manual runs. Official Python 3.11.14 slim Bookworm is pinned to its independently retrieved Linux AMD64 manifest digest. The workflow uses ordinary clone/workspace behavior and synthetic local subprocesses. It has no secrets, privileged settings, host mounts, cluster credentials, package installation, production recovery commands or deployment action.</p>
+<p>The regressions cover exact maintained payloads and production resource limits; capture-only refusal; private catalog framing; complete joint proof binding; six-node identity, replication and failover checks; actual interrupted synthetic subprocess cleanup; and equality of the native-qualified startup payloads with the deployable chart files. Local tests are preparation. Acceptance requires an actual successful Woodpecker pipeline bound to the published commit, successful clone and regression steps, sanitized result evidence, and cleanup of its exact synthetic Kubernetes workspace/PVC and unused downloaded test images after the batch. Native restore receipts remain separately required; this workflow does not replace them.</p>
+<p>A failed or skipped workflow, a missing webhook delivery, or a pending approval is not a passing CI gate. Inspect the actual result and fix software failures through the repository. Before production data-store promotion, require successful CI plus the existing exact identities, protected joint recovery, backup/rollback, render review and GitOps gates. After promotion, prove actual authenticated Gitea/Git/CI behavior and maintained-source recovery.</p>
+<h2>Sources</h2>
+<p><a href="https://woodpecker-ci.org/docs/usage/workflow-syntax">Woodpecker 3.19 workflow contract</a>; <a href="https://woodpecker-ci.org/docs/usage/project-settings">project visibility, approvals and clone privileges</a>; <a href="gitea-maintained-rollout-103.html">native data-store qualification and rollout contract</a>; <a href="maintenance-103-unblock-actions.html">dated remaining task map</a>.</p>
+</html>
