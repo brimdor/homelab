@@ -84,6 +84,7 @@ class Qualification(isolated.Qualification):
         self.export = '/srv/' + args.name
         self.claims = {}
         self.image_pins = {}
+        self.monitors = {}
 
     def command(self, command, *, data=None, private=True):
         try:
@@ -222,6 +223,62 @@ class Qualification(isolated.Qualification):
         self.claims[name] = (claim, pv)
         return name
 
+    def owned_node(self, name):
+        self.identity()
+        value = json.loads(self.command(['docker', 'inspect', name]))[0]
+        if (value['Name'] != '/' + name or not value.get('Id') or
+                value['Config'].get('Labels', {}).get('k3d.cluster') != self.args.name or
+                set(value['NetworkSettings']['Networks']) != {'k3d-' + self.args.name}):
+            raise RuntimeError('owned node container identity changed')
+        return value
+
+    def status_monitors(self):
+        image = self.image_pins['registry.k8s.io/sig-storage/nfsplugin:v4.13.5']
+        self.command(['docker', 'pull', image])
+        for suffix in ('server-0', 'agent-0', 'agent-1'):
+            node = 'k3d-' + self.args.name + '-' + suffix
+            value = self.owned_node(node)
+            monitor = self.args.name + '-statd-' + suffix
+            identifier = self.command(['docker', 'create', '--name=' + monitor, '--network=container:' + value['Id'],
+                                       '--log-driver=none', '--restart=no', '--label=qualification=' + self.args.name,
+                                       '--entrypoint=/bin/sh', image, '-ec',
+                                       'mkdir -p /run/rpcbind /var/lib/nfs/sm /var/lib/nfs/sm.bak; '
+                                       'rpcbind; exec rpc.statd -F -d']).decode().strip()
+            if not re.fullmatch('[a-f0-9]{64}', identifier):
+                raise RuntimeError('owned status monitor container identity missing')
+            self.monitors[node] = identifier
+            self.command(['docker', 'start', identifier])
+            self.require_monitor(node)
+        self.persist('nfs3-status-monitors', count=len(self.monitors), image=image, fixture_only=True)
+
+    def require_monitor(self, node, *, running=True):
+        node_value = self.owned_node(node)
+        value = json.loads(self.command(['docker', 'inspect', self.monitors[node]]))[0]
+        if (value['Id'] != self.monitors[node] or (running and not value['State']['Running']) or
+                value['HostConfig']['NetworkMode'] != 'container:' + node_value['Id'] or
+                value['Config'].get('Labels', {}).get('qualification') != self.args.name or
+                value['HostConfig']['LogConfig']['Type'] != 'none'):
+            raise RuntimeError('owned status monitor isolation differs')
+        if not running:
+            return
+        self.command(['docker', 'exec', self.monitors[node], '/bin/sh', '-ec',
+                      'for n in 1 2 3 4 5 6 7 8 9 10; do '
+                      'rpcinfo -p 127.0.0.1 | grep -q "100024" && exit 0; sleep 1; done; exit 1'])
+
+    def lock_exclusion(self, pods):
+        holder = "import fcntl,os,time,json\nwith open('/data/lock-probe','a') as f:\n fcntl.flock(f,fcntl.LOCK_EX);open('/data/lock-ready','w').close();deadline=time.monotonic()+60\n while not os.path.exists('/data/lock-release'):\n  if time.monotonic()>deadline:raise RuntimeError('lock probe release absent')\n  time.sleep(.05)\nprint(json.dumps(True))"
+        contender = "import fcntl,json\nf=open('/data/lock-probe','a')\ntry:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)\nexcept BlockingIOError:print(json.dumps(True))\nelse:raise RuntimeError('cross-node lock exclusion failed')"
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(self.execute, pods[0], holder)
+            try:
+                ready = self.execute(pods[1], "import os,time,json\ndeadline=time.monotonic()+30\nwhile not os.path.exists('/data/lock-ready'):\n if time.monotonic()>deadline:raise RuntimeError('lock holder readiness absent')\n time.sleep(.05)\nprint(json.dumps(True))")
+                if ready is not True or self.execute(pods[1], contender) is not True:
+                    raise RuntimeError('cross-node lock exclusion was not observed')
+            finally:
+                self.execute(pods[1], "import json;open('/data/lock-release','w').close();print(json.dumps(True))")
+            if future.result() is not True:
+                raise RuntimeError('owned lock holder did not exit')
+
     def pod(self, claim, name, node, uid):
         self.apply({'apiVersion': 'v1', 'kind': 'Pod', 'metadata': {'name': name, 'namespace': NAMESPACE},
                     'spec': {'nodeName': 'k3d-' + self.args.name + '-agent-' + str(node), 'restartPolicy': 'Never',
@@ -253,6 +310,7 @@ class Qualification(isolated.Qualification):
         pods = [self.pod(claim, 'writer-' + str(n), n, 1000) for n in (0, 1)]
         mount = self.execute(pods[0], "import json;out=[]\nfor l in open('/proc/self/mountinfo'):\n a,b=l.split(' - ');x=a.split();y=b.split()\n if x[4]=='/data':out.append({'filesystem':y[0],'source':y[1],'options':y[2]})\nprint(json.dumps(out))")
         require_mount(mount, version)
+        self.lock_exclusion(pods)
         def write(pod):
             return self.execute(pod, "import fcntl,os,json,time\np='/data/shared'\nwith open(p,'a') as f:\n for n in range(100):\n  fcntl.flock(f,fcntl.LOCK_EX);f.write(" + repr(pod) + "+':'+str(n)+'\\n');f.flush();os.fsync(f.fileno());fcntl.flock(f,fcntl.LOCK_UN);time.sleep(.005)\nprint(json.dumps({'written':100,'uid':os.getuid()}))")
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -265,15 +323,13 @@ class Qualification(isolated.Qualification):
             raise RuntimeError('RWX clients disagree on the complete corpus')
         self.remove_pods(*pods)
         node = 'k3d-' + self.args.name + '-agent-0'
-        self.identity()
-        container = json.loads(self.command(['docker', 'inspect', node]))[0]
-        if (container['Name'] != '/' + node or not container.get('Id') or
-                container['Config'].get('Labels', {}).get('k3d.cluster') != self.args.name or
-                set(container['NetworkSettings']['Networks']) != {'k3d-' + self.args.name}):
-            raise RuntimeError('owned node container changed before restart')
+        container = self.owned_node(node)
         self.command(['docker', 'restart', node])
         if json.loads(self.command(['docker', 'inspect', node]))[0]['Id'] != container['Id']:
             raise RuntimeError('owned node container was replaced during restart')
+        if node in self.monitors:
+            self.command(['docker', 'restart', self.monitors[node]])
+            self.require_monitor(node)
         self.kubectl('wait', '--for=condition=Ready', 'node/' + node, '--timeout=300s', json_output=False)
         restored = self.pod(claim, 'restarted-client', 0, 1000)
         if self.execute(restored, verify) != before:
@@ -303,7 +359,8 @@ class Qualification(isolated.Qualification):
             raise RuntimeError('recovery must not falsely claim original API UID preservation')
         self.remove_pods(restored)
         self.persist('protocol-' + version, mount=mount, root_squash_owner=owner,
-                     concurrent_rwx=before, restart_persistence=True, retained_data=True, recovery_rebind=True,
+                     concurrent_rwx=before, cross_node_lock_exclusion=True,
+                     restart_persistence=True, retained_data=True, recovery_rebind=True,
                      original_claim_uid=original_claim['metadata']['uid'], rebound_claim_uid=rebound['metadata']['uid'])
 
     def lifecycle(self, policy):
@@ -322,8 +379,9 @@ class Qualification(isolated.Qualification):
         self.create()
         self.server()
         self.install()
-        for version in ('3', '4.1'):
-            self.protocol(version)
+        self.protocol('4.1')
+        self.status_monitors()
+        self.protocol('3')
         for policy in ('archive', 'delete'):
             self.lifecycle(policy)
         return {'accepted': True, 'stages': self.stages, 'production_change': False,
@@ -362,6 +420,9 @@ def main():
         q.diagnostics()
         raise
     finally:
+        for node, identifier in q.monitors.items():
+            q.require_monitor(node, running=False)
+            q.command(['docker', 'rm', '-f', identifier])
         if q.creation_started:
             q.command([args.k3d, 'cluster', 'delete', args.name])
             if q.command(['docker', 'ps', '-aq']).strip():
