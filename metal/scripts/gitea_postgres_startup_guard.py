@@ -215,7 +215,7 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 ('linked-directory', 'ln -s /tmp "$state"'),
                 ('wrong-mode', 'mkdir -m 0755 "$state"'),
                 ('linked-lock', 'mkdir -m 0700 "$state"; : > "$state/lock"; '
-                 'ln "$state/lock" /tmp/maintenance-103-lock-alias; printf "waiting\\n" > "$state/phase"'),
+                 'ln "$state/lock" "$state-lock-alias"; printf "waiting\\n" > "$state/phase"'),
                 ('unknown-phase', 'mkdir -m 0700 "$state"; : > "$state/lock"; printf "foreign\\n" > "$state/phase"')):
             try:
                 recovery.execute(container, '/bin/sh', '-ceu', 'umask 077; state=' + STATE + '; ' + prepare)
@@ -225,7 +225,7 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                     raise RuntimeError('unowned copied guardian state was not refused')
                 refusals.append(fault)
             finally:
-                recovery.execute(container, '/bin/rm', '-rf', '--', STATE, '/tmp/maintenance-103-lock-alias')
+                recovery.execute(container, '/bin/rm', '-rf', '--', STATE, STATE + '-lock-alias')
         return {'full_dump_sha256': {name: hashlib.sha256(raw).hexdigest() for name, raw in original.items()},
                 'startup_guard_attempts': receipts, 'unsafe_retained_state_refusals': refusals,
                 'production_mutated': False,
