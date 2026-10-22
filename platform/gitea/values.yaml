@@ -1,6 +1,9 @@
 configJob:
   enabled: false
 
+maintenance103Recovery:
+  enabled: false
+
 gitea:
   strategy:
     type: Recreate

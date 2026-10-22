@@ -1,0 +1,28 @@
+# Qualification profile only. Do not enable before the production controller gates pass.
+maintenance103Recovery:
+  enabled: true
+
+gitea:
+  gitea:
+    podAnnotations:
+      maintenance103.eaglepass.io/recovery: postgres-role-only-v1
+  postgresql:
+    primary:
+      command:
+        - /bin/bash
+        - /maintenance-103/startup.sh
+      args:
+        - /opt/bitnami/scripts/postgresql/entrypoint.sh
+        - /opt/bitnami/scripts/postgresql/run.sh
+      # Offline copy qualification can outlast the ordinary liveness window.
+      livenessProbe:
+        enabled: false
+      extraVolumes:
+        - name: maintenance-103-startup
+          configMap:
+            name: gitea-maintenance-103-startup
+            defaultMode: 0444
+      extraVolumeMounts:
+        - name: maintenance-103-startup
+          mountPath: /maintenance-103
+          readOnly: true
