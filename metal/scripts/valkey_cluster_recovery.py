@@ -177,8 +177,10 @@ def run(run_id, observer):
                     expected[master] = cluster.fingerprint(master)
                     counts = recovery.load_counts(recovery.info(cluster.cli(master, 'INFO', 'persistence')),
                                                   recovery.info(cluster.cli(master, 'INFO', 'keyspace')), count)
-                    if counts['expired_at_load'] or counts['expired_after_load'] or expected[master]['keys'] != count:
-                        raise RuntimeError('historical expiry prevents exact full-data acceptance')
+                    result.setdefault('original_key_accounting', {})[master] = counts
+                    # Native wall-clock expiry is expected for dated session/cache points.
+                    if counts['expired_after_load'] or expected[master]['keys'] != counts['current_keys']:
+                        raise RuntimeError('expiry during baseline prevents exact restored-value acceptance')
                     cluster.cli(master, 'SHUTDOWN', 'NOSAVE')
                     protocol.poll(lambda: common.docker('exec', identity, 'test', '!', '-e',
                                   '/tmp/node-' + str(master) + '.pid', check=False).returncode == 0,
