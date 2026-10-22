@@ -8,8 +8,10 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import signal
 import socket
+import subprocess
 import time
 import urllib.request
 
@@ -266,18 +268,34 @@ class Qualification(isolated.Qualification):
                       'rpcinfo -p 127.0.0.1 | grep -q "100024" && exit 0; sleep 1; done; exit 1'])
 
     def lock_exclusion(self, pods):
-        holder = "import fcntl,os,time,json\nwith open('/data/lock-probe','a') as f:\n fcntl.flock(f,fcntl.LOCK_EX);open('/data/lock-ready','w').close();deadline=time.monotonic()+60\n while not os.path.exists('/data/lock-release'):\n  if time.monotonic()>deadline:raise RuntimeError('lock probe release absent')\n  time.sleep(.05)\nprint(json.dumps(True))"
+        # Coordinate through the attached stream, not NFS directory attribute caches.
+        holder = "import fcntl,sys,json\nwith open('/data/lock-probe','a') as f:\n fcntl.flock(f,fcntl.LOCK_EX);print(json.dumps(True),flush=True);sys.stdin.buffer.read(1)"
         contender = "import fcntl,json\nf=open('/data/lock-probe','a')\ntry:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)\nexcept BlockingIOError:print(json.dumps(True))\nelse:raise RuntimeError('cross-node lock exclusion failed')"
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(self.execute, pods[0], holder)
-            try:
-                ready = self.execute(pods[1], "import os,time,json\ndeadline=time.monotonic()+30\nwhile not os.path.exists('/data/lock-ready'):\n if time.monotonic()>deadline:raise RuntimeError('lock holder readiness absent')\n time.sleep(.05)\nprint(json.dumps(True))")
-                if ready is not True or self.execute(pods[1], contender) is not True:
-                    raise RuntimeError('cross-node lock exclusion was not observed')
-            finally:
-                self.execute(pods[1], "import json;open('/data/lock-release','w').close();print(json.dumps(True))")
-            if future.result() is not True:
-                raise RuntimeError('owned lock holder did not exit')
+        child = subprocess.Popen([self.args.kubectl, '--cache-dir', str(self.work / 'cache/kubectl'),
+                                  '--kubeconfig', self.env['KUBECONFIG'], '--context', self.context,
+                                  '--request-timeout=30s', 'exec', '-i', '-n', NAMESPACE, pods[0], '--',
+                                  'python3', '-c', holder], env=self.env, stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            with selectors.DefaultSelector() as selector:
+                selector.register(child.stdout, selectors.EVENT_READ)
+                if not selector.select(30) or child.stdout.readline() != b'true\n':
+                    raise RuntimeError('attached lock holder did not acknowledge acquisition')
+            if self.execute(pods[1], contender) is not True:
+                raise RuntimeError('cross-node lock exclusion was not observed')
+            _, stderr = child.communicate(b'\n', timeout=15)
+            if child.returncode:
+                raise RuntimeError('attached lock holder failed; stderr_sha256=' + hashlib.sha256(stderr).hexdigest())
+        finally:
+            if child.poll() is None:
+                os.killpg(child.pid, signal.SIGTERM)
+                try:
+                    child.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    os.killpg(child.pid, signal.SIGKILL)
+                    child.wait()
+            for stream in (child.stdin, child.stdout, child.stderr):
+                stream.close()
 
     def pod(self, claim, name, node, uid):
         self.apply({'apiVersion': 'v1', 'kind': 'Pod', 'metadata': {'name': name, 'namespace': NAMESPACE},
