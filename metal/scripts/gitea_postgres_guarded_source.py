@@ -24,6 +24,7 @@ CONTROLLER = ['/bin/bash', '-ceu', startup.CLAIM, 'maintenance-103-controller',
               '/bin/bash', '-ceu', recovery.SINGLE_WRAPPER, 'maintenance-103-single',
               recovery.BIN + 'postgres', '--single', '-D', recovery.DATA,
               *recovery.OPTIONS, 'postgres']
+CAPTURE_CONTROLLER = ['/bin/bash', '-ceu', startup.CAPTURE_CLAIM]
 STARTUP = ['/bin/bash', '-eu', '/maintenance-103/startup.sh',
            '/opt/bitnami/scripts/postgresql/entrypoint.sh', '/opt/bitnami/scripts/postgresql/run.sh']
 READINESS = ['pg_isready', '-U', 'gitea', '-d', 'dbname=gitea', '-h', '127.0.0.1', '-p', '5432']
@@ -38,16 +39,17 @@ def guard_tasks(tasks, main_pid, namespace_pid):
             if item[2] not in (READINESS, [recovery.BIN + 'pg_isready', *READINESS[1:]], READINESS_SHELL)}
     if len(idle) != 3 or main_pid not in idle or idle[main_pid][1:] != (1, STARTUP):
         raise RuntimeError('held PostgreSQL startup task set differs')
-    holders = [(pid, item) for pid, item in idle.items() if item[1] == namespace_pid and item[2] == CONTROLLER]
+    holders = [(pid, item) for pid, item in idle.items()
+               if item[1] == namespace_pid and item[2] in (CONTROLLER, CAPTURE_CONTROLLER)]
     waiters = [item for item in idle.values() if item[2] == ['flock', '--exclusive', '9']]
     if len(holders) != 1 or len(waiters) != 1:
         raise RuntimeError('held PostgreSQL controller or blocked ordinary startup missing')
     return holders[0]
 
 
-def private(path, directory=False):
+def private(path, directory=False, uid=1001):
     value = path.lstat()
-    if (any(p.is_symlink() for p in (path, *path.parents)) or value.st_uid != 1001 or
+    if (any(p.is_symlink() for p in (path, *path.parents)) or value.st_uid != uid or
             stat.S_IMODE(value.st_mode) != (0o700 if directory else 0o600) or
             not (stat.S_ISDIR(value.st_mode) if directory else stat.S_ISREG(value.st_mode)) or
             (not directory and value.st_nlink != 1)):
@@ -55,13 +57,13 @@ def private(path, directory=False):
     return value
 
 
-def process(pid):
+def process(pid, uid=1001):
     root = Path('/proc') / str(pid)
     identity = cold.retained.process.process_identity(pid)
     status = dict(line.split(':', 1) for line in (root / 'status').read_text().splitlines() if ':' in line)
     namespace = [int(v) for v in status['NSpid'].split()]
-    if (root.stat().st_uid != 1001 or not namespace or namespace[0] != pid or
-            set(int(v) for v in status['Uid'].split()) != {1001}):
+    if (root.stat().st_uid != uid or not namespace or namespace[0] != pid or
+            set(int(v) for v in status['Uid'].split()) != {uid}):
         raise RuntimeError('held PostgreSQL process identity differs')
     command = (root / 'cmdline').read_bytes().rstrip(b'\0').split(b'\0')
     return identity, namespace[-1], [v.decode() for v in command]

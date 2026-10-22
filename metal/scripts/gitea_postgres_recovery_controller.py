@@ -20,6 +20,7 @@ import time
 import gitea_init_guard as application
 import gitea_postgres_guarded_source as source
 import gitea_recovery_transport as transport
+import gitea_shared_guarded_source as shared
 
 
 recovery = source.recovery
@@ -31,7 +32,7 @@ STATEFULSET_UID = '80aac4a0-46ec-4564-84db-d99c440780e9'
 
 
 class Controller:
-    def __init__(self, kubectl, bundle):
+    def __init__(self, kubectl, bundle, *, capture_only=False):
         self.kubectl = list(kubectl)
         self.bundle = bundle
         self.namespace_uid = None
@@ -41,6 +42,7 @@ class Controller:
         self.revision = None
         self.credentials = None
         self.hba = None
+        self.capture_only = capture_only
 
     def call(self, *args, data=None, check=True):
         result = subprocess.run([*self.kubectl, *args], input=data, capture_output=True)
@@ -183,7 +185,8 @@ class Controller:
                         continue
                     if phase.stdout != b'waiting\n':
                         raise RuntimeError('production recovery claim window closed; no SQL allowed')
-                    command = source.CONTROLLER if is_pg else ['/bin/bash', '-ceu', application.CLAIM]
+                    command = ((source.CAPTURE_CONTROLLER if self.capture_only else source.CONTROLLER)
+                               if is_pg else ['/bin/bash', '-ceu', application.CLAIM])
                     item = self.attach(pod, container, command)
                     children.append(item['child'])
                     with selectors.DefaultSelector() as selector:
@@ -256,6 +259,39 @@ class Controller:
                 'pv_uid': '5cadac3d-dd99-4e3e-8551-4d165826cf44', 'revision': self.revision,
                 'hba_sha256': hashlib.sha256(self.hba).hexdigest()}
 
+    def shared_core(self, held):
+        self.identity()
+        self.assert_held(held)
+        item = held['application']
+        pod = self.get('pod', item['pod'])
+        claim = self.get('persistentvolumeclaim', 'gitea-shared-storage')
+        volume = self.get('persistentvolume', 'pvc-' + shared.CLAIM_UID, namespace=None)
+        consumers = [p['metadata']['uid'] for p in self.get('pods')['items'] if any(
+            v.get('persistentVolumeClaim', {}).get('claimName') == 'gitea-shared-storage'
+            for v in p['spec']['volumes'])]
+        if (claim['metadata']['uid'] != shared.CLAIM_UID or claim['status']['phase'] != 'Bound' or
+                claim['spec']['volumeName'] != volume['metadata']['name'] or
+                volume['metadata']['uid'] != shared.PV_UID or
+                volume['spec']['claimRef']['uid'] != shared.CLAIM_UID or
+                volume['spec']['claimRef']['namespace'] != NAMESPACE or
+                volume['spec']['csi']['driver'] != 'rook-ceph.rbd.csi.ceph.com' or
+                claim['spec']['accessModes'] != ['ReadWriteOnce'] or
+                claim['spec']['storageClassName'] != 'standard-rwo' or consumers != [item['uid']]):
+            raise RuntimeError('production shared-file claim has a changed binding or unexpected consumer')
+        status = next(s for s in pod['status']['initContainerStatuses'] if s['name'] == item['container'])
+        match = re.fullmatch('containerd://([a-f0-9]{64})', status['containerID'])
+        node = self.get('node', pod['spec']['nodeName'], namespace=None)
+        conditions = {c['type']: c['status'] for c in node['status']['conditions']}
+        if (not match or status['imageID'] != application.IMAGE or node['metadata']['name'] not in self.bundle.nodes or
+                conditions.get('Ready') != 'True' or any(conditions.get(c) != 'False' for c in
+                ('MemoryPressure', 'DiskPressure', 'PIDPressure'))):
+            raise RuntimeError('production shared-file native image or active source node differs')
+        return shared.validate_core({'cluster_uid': common.CLUSTER_UID, 'namespace': NAMESPACE,
+            'pod': item['pod'], 'pod_uid': item['uid'], 'controller_uid': DEPLOYMENT_UID,
+            'node': node['metadata']['name'], 'container_id': match[1], 'image': application.IMAGE,
+            'claim': 'gitea-shared-storage', 'claim_uid': shared.CLAIM_UID, 'pv': 'pvc-' + shared.CLAIM_UID,
+            'pv_uid': shared.PV_UID, 'revision': self.revision})
+
     @staticmethod
     def read_catalog(child):
         raw = bytearray()
@@ -284,6 +320,8 @@ class Controller:
 
     def recover(self, run_id, persist):
         """Run after the caller publishes/refreshes the exact reviewed profile."""
+        if self.capture_only:
+            raise RuntimeError('capture-only controller cannot run role recovery')
         common.run_identifier(run_id)
         if self.credentials is None or not self.old_uids or not self.revision:
             raise RuntimeError('prefetched baseline or deployed profile binding missing')

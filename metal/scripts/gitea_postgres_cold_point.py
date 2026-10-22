@@ -108,7 +108,7 @@ def require_directory(path):
         raise RuntimeError('clean PostgreSQL copy-point directory differs')
 
 
-def verify(point, checksum):
+def verify(point, checksum, *, validator=validate):
     require_directory(point)
     require_directory(point / 'data')
     path = point / 'verified.json'
@@ -119,7 +119,7 @@ def verify(point, checksum):
     if (record['sha256'] != checksum or hashlib.sha256(raw).hexdigest() != checksum or
             common.source_record('verified.json', path) != (record, identity)):
         raise RuntimeError('clean PostgreSQL copy-point manifest checksum differs')
-    value = validate(json.loads(raw))
+    value = validator(json.loads(raw))
     expected = {}
     for number, (_, metadata) in enumerate(sorted(value['tree'].items())):
         if metadata['kind'] == 'file':
@@ -136,7 +136,7 @@ def verify(point, checksum):
     return value
 
 
-def capture(source, point, state, *, source_binding=None):
+def capture(source, point, state, *, source_binding=None, validator=validate, source_format=GUARDED_FORMAT):
     """Caller proves an owned stopped copy or the exact held production runtime.
 
     Recording a binding alone does not establish quiescence or authorize SQL.
@@ -147,8 +147,8 @@ def capture(source, point, state, *, source_binding=None):
         raise RuntimeError('clean PostgreSQL copy-point source or destination differs')
     tree, payloads = retained.snapshot(source)
     provenance = ({'format': FORMAT, 'original_manifest_sha256': control.CHECKSUM}
-                  if source_binding is None else {'format': GUARDED_FORMAT, 'source': source_binding})
-    value = validate({**provenance, 'control': state, 'tree': tree})
+                  if source_binding is None else {'format': source_format, 'source': source_binding})
+    value = validator({**provenance, 'control': state, 'tree': tree})
     retained.require_capacity(point.parent, tree, 3)
     point.mkdir(mode=0o700)
     (point / 'data').mkdir(mode=0o700)
@@ -169,14 +169,14 @@ def capture(source, point, state, *, source_binding=None):
         finally:
             os.close(descriptor)
     checksum = hashlib.sha256(common.canonical(value)).hexdigest()
-    if verify(point, checksum) != value or retained.snapshot(source)[0] != tree:
+    if verify(point, checksum, validator=validator) != value or retained.snapshot(source)[0] != tree:
         raise RuntimeError('clean PostgreSQL copy-point source changed during capture')
     return value, checksum
 
 
-def send(point, checksum, output, *, confirm_source=None):
+def send(point, checksum, output, *, confirm_source=None, validator=validate):
     """Stream an already verified protected point; commit only unchanged bytes."""
-    value = verify(point, checksum)
+    value = verify(point, checksum, validator=validator)
     encoded = common.canonical(value)
     output.write(common.canonical({'manifest_bytes': len(encoded), 'sha256': checksum}) + b'\n')
     output.write(encoded)
@@ -185,7 +185,7 @@ def send(point, checksum, output, *, confirm_source=None):
             with (point / 'data' / str(number)).open('rb') as source:
                 for chunk in iter(lambda: source.read(1048576), b''):
                     output.write(chunk)
-    if verify(point, checksum) != value:
+    if verify(point, checksum, validator=validator) != value:
         raise RuntimeError('protected PostgreSQL point changed during transfer')
     if confirm_source is not None and confirm_source() is not True:
         raise RuntimeError('guarded PostgreSQL source changed before transfer commit')
@@ -193,7 +193,7 @@ def send(point, checksum, output, *, confirm_source=None):
     output.flush()
 
 
-def receive(source, point):
+def receive(source, point, *, validator=validate):
     """Reject partial streams and retain real recovery material on failure."""
     header = common.read_frame(source)
     if (set(header) != {'manifest_bytes', 'sha256'} or type(header['manifest_bytes']) is not int or
@@ -203,7 +203,7 @@ def receive(source, point):
     encoded = source.read(header['manifest_bytes'])
     if len(encoded) != header['manifest_bytes'] or hashlib.sha256(encoded).hexdigest() != header['sha256']:
         raise RuntimeError('PostgreSQL point transfer manifest changed or truncated')
-    value = validate(json.loads(encoded))
+    value = validator(json.loads(encoded))
     require_directory(point.parent)
     retained.require_capacity(point.parent, value['tree'], 3)
     point.mkdir(mode=0o700)
@@ -234,6 +234,6 @@ def receive(source, point):
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-    if verify(point, header['sha256']) != value:
+    if verify(point, header['sha256'], validator=validator) != value:
         raise RuntimeError('received PostgreSQL point differs')
     return value, header['sha256']

@@ -60,6 +60,14 @@ printf '%s\\n' "$child" > "$state/native-child"
 wait "$child"
 '''
 
+# Capture cannot dispatch a native SQL child, even if its stdin is misused.
+_capture_prefix, _capture_boundary, _ = CLAIM.partition('IFS= read -r request || exit 0\n')
+if not _capture_boundary:
+    raise RuntimeError('capture-only claim boundary missing')
+CAPTURE_CLAIM = _capture_prefix + '''IFS= read -r _ || exit 0
+exit 64
+'''
+
 
 def wait_for(check, message):
     deadline = time.monotonic() + 65

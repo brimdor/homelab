@@ -162,11 +162,22 @@ def operation(scratch, volumes, run_id, args, image_id):
                 raise RuntimeError('owned Git recovery container remains')
 
 
-def restore(run_id):
+def restore(run_id, *, guarded_point=None, checksum=None):
     common.run_identifier(run_id)
     common.require_host('pikachu')
     common.private_root()
-    value = retained.verify(POINT, CHECKSUM, 'gitea')
+    if guarded_point is None:
+        if checksum is not None:
+            raise RuntimeError('historical Git point checksum cannot be overridden')
+        point, checksum = POINT, CHECKSUM
+        verify = lambda: retained.verify(point, checksum, 'gitea')
+    else:
+        import gitea_shared_guarded_source as guarded
+        point = Path(guarded_point)
+        if point.parent != common.ROOT or not point.name.startswith('gitea-shared-guarded-'):
+            raise RuntimeError('guarded Git point location differs')
+        verify = lambda: guarded.cold.verify(point, checksum, validator=guarded.validate)
+    value = verify()
     roots = discover(value['tree'])
     retained.require_capacity(common.ROOT, value['tree'], 2)
     if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
@@ -175,7 +186,7 @@ def restore(run_id):
     scratch = Path(tempfile.mkdtemp(prefix='gitea-git-', dir=common.ROOT))
     scratch.chmod(0o700)
     image_id = None
-    result = {'accepted': False, 'manifest_sha256': CHECKSUM, 'image': IMAGE, 'copies': []}
+    result = {'accepted': False, 'manifest_sha256': checksum, 'image': IMAGE, 'copies': []}
     try:
         common.docker('pull', IMAGE)
         image = json.loads(common.docker('image', 'inspect', IMAGE).stdout)[0]
@@ -189,7 +200,7 @@ def restore(run_id):
         for number in range(2):
             work = scratch / str(number)
             work.mkdir(mode=0o700)
-            retained.materialize(POINT, work / 'copy', value)
+            retained.materialize(point, work / 'copy', value)
             for source in mounts(work, volumes).values():
                 if source != str(work / 'copy'):
                     Path(source).mkdir(mode=0o755)
@@ -222,8 +233,10 @@ def restore(run_id):
             common.docker('image', 'rm', IMAGE)
             if common.docker('image', 'inspect', image_id, check=False).returncode == 0:
                 raise RuntimeError('new unused Git recovery image remains')
-        retained.verify(POINT, CHECKSUM, 'gitea')
+        if verify() != value:
+            raise RuntimeError('protected Git source changed during recovery')
         result['cleanup'] = {'scratch_absent': not scratch.exists(), 'containers_absent': True,
                              'protected_original_unchanged': True, 'allocated_bytes_removed': allocated}
-        retained.files.write_json(POINT / ('git-native-restore-' + run_id + '.json'), result)
+        retained.files.write_json((point if guarded_point is None else common.ROOT) /
+                                  ('git-native-restore-' + run_id + '.json'), result)
     return result

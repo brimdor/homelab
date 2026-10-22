@@ -43,6 +43,13 @@ class ControllerTests(unittest.TestCase):
                 instance.recover('fixture-103', lambda *_a, **_k: None)
             call.assert_not_called()
 
+    def test_capture_only_controller_cannot_enter_role_recovery(self):
+        instance = controller.Controller(['kubectl'], None, capture_only=True)
+        with patch.object(instance, 'call') as call:
+            with self.assertRaisesRegex(RuntimeError, 'capture-only'):
+                instance.recover('fixture-103', lambda *_a, **_k: None)
+            call.assert_not_called()
+
     def test_foreign_cluster_refused_before_any_secret_read(self):
         instance = controller.Controller(['kubectl'], None)
         with patch.object(instance, 'get', return_value={'metadata': {'uid': 'foreign'}}) as get:

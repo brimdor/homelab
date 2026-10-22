@@ -38,6 +38,8 @@ class GuardedSourceTests(unittest.TestCase):
         tasks = {100: ({}, 1, source.STARTUP), 101: ({}, 10, source.CONTROLLER),
                  102: ({}, 11, ['flock', '--exclusive', '9'])}
         self.assertEqual(source.guard_tasks(tasks, 100, 10)[0], 101)
+        tasks[101] = ({}, 10, source.CAPTURE_CONTROLLER)
+        self.assertEqual(source.guard_tasks(tasks, 100, 10)[0], 101)
         tasks[103] = ({}, 12, source.READINESS)
         self.assertEqual(source.guard_tasks(tasks, 100, 10)[0], 101)
         tasks[103] = ({}, 12, ['postgres', '--single'])

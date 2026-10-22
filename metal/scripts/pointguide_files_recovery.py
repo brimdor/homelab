@@ -200,6 +200,14 @@ def validate(value, namespace):
     tree = value['tree']
     if set(PROFILES[namespace].get('runtime_sockets', {})) & set(tree):
         raise RuntimeError('runtime socket included in retained file tree')
+    validate_tree(tree)
+    return value
+
+
+def validate_tree(tree):
+    """Validate complete file metadata independently of capture provenance."""
+    if not isinstance(tree, dict):
+        raise RuntimeError('retained file tree is not an object')
     if '' not in tree or tree['']['kind'] != 'directory':
         raise RuntimeError('Codex root directory missing')
     for name, record in tree.items():
@@ -227,7 +235,7 @@ def validate(value, namespace):
             raise RuntimeError('invalid Codex file checksum')
         if record['kind'] == 'symlink' and (not isinstance(record['target'], str) or not record['target'] or '\0' in record['target']):
             raise RuntimeError('invalid Codex link target')
-    return value
+    return tree
 
 
 def send(namespace, output):

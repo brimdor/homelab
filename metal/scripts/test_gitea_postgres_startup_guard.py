@@ -13,6 +13,11 @@ class StartupGuardPayloadTests(unittest.TestCase):
         self.assertEqual(header, '#!/bin/bash')
         self.assertEqual(body, guard.STARTUP)
 
+    def test_capture_claim_cannot_dispatch_a_native_child(self):
+        self.assertTrue(guard.CAPTURE_CLAIM.endswith('IFS= read -r _ || exit 0\nexit 64\n'))
+        for forbidden in ('"$@"', 'native-child', '--single', 'request', 'wait "$child"'):
+            self.assertNotIn(forbidden, guard.CAPTURE_CLAIM)
+
 
 if __name__ == '__main__':
     unittest.main()

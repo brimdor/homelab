@@ -19,7 +19,9 @@ MODULES = ['etcd_recovery', 'prometheus_recovery', 'grafana_recovery', 'sporecas
            'arr_database_recovery', 'pointguide_files_recovery', 'mariadb_recovery',
            'point_postgres_recovery', 'gitea_postgres_control', 'gitea_postgres_account_recovery',
            'maintenance_actor_hold', 'gitea_postgres_lifecycle', 'gitea_postgres_startup_guard',
-           'gitea_postgres_cold_point', 'gitea_postgres_fresh_restore', 'gitea_postgres_guarded_source']
+           'gitea_postgres_cold_point', 'gitea_postgres_fresh_restore', 'gitea_postgres_guarded_source',
+           'gitea_git_recovery', 'gitea_init_guard', 'gitea_shared_guarded_source',
+           'gitea_capture_only_qualification']
 BOOT = '''import base64,json,sys,types
 from pathlib import Path
 stream=sys.stdin.buffer
@@ -34,7 +36,9 @@ common=sys.modules['etcd_recovery'];cold=sys.modules['gitea_postgres_cold_point'
 guard=sys.modules['gitea_postgres_guarded_source'];restore=sys.modules['gitea_postgres_fresh_restore']
 task,args=request['task'],request['args']
 try:
- if task=='observe':
+ if task=='capture_qualify':
+  result=sys.modules['gitea_capture_only_qualification'].qualify(args['run_id'])
+ elif task=='observe':
   binding,control=guard.observe(args['core'],args['namespace_pid']);result={'binding':binding,'control':control}
  elif task=='capture':
   result=guard.capture(args['core'],args['namespace_pid'],args['run_id'])
@@ -54,6 +58,22 @@ try:
  elif task=='intent':
   result=guard.intent(Path(args['point']),args['checksum'],args['expected'],args['catalog_sha256'],
                       args['secret_uid'],args['application_uid'])
+ elif task.startswith('shared_'):
+  shared=sys.modules['gitea_shared_guarded_source']
+  if task=='shared_observe':result={'binding':shared.observe(args['core'],args['namespace_pid'])}
+  elif task=='shared_capture':result=shared.capture(args['core'],args['namespace_pid'],args['run_id'])
+  elif task=='shared_send':
+   shared.send(Path(args['point']),args['checksum'],args['expected'],sys.stdout.buffer);sys.exit(0)
+  elif task=='shared_receive':
+   common.require_host('pikachu');common.private_root();common.run_identifier(args['run_id'])
+   point=common.ROOT/('gitea-shared-guarded-'+args['run_id'])
+   manifest,checksum=cold.receive(stream,point,validator=shared.validate)
+   if manifest['source']!=args['expected']:
+    raise RuntimeError('received shared-file provenance differs; protected partial retained')
+   result={'point':str(point),'manifest_sha256':checksum,'source':manifest['source']}
+  elif task=='shared_restore':
+   result=sys.modules['gitea_git_recovery'].restore(args['run_id'],guarded_point=args['point'],checksum=args['checksum'])
+  else:raise RuntimeError('unreviewed shared-file operation')
  else:raise RuntimeError('unreviewed native recovery operation')
  print(json.dumps(result),flush=True)
 except Exception as error:
@@ -91,7 +111,8 @@ class Bundle:
         return raw
 
     def request(self, task, args):
-        if task not in {'observe', 'capture', 'send', 'receive', 'restore', 'intent'}:
+        if task not in {'observe', 'capture', 'send', 'receive', 'restore', 'intent', 'capture_qualify',
+                        'shared_observe', 'shared_capture', 'shared_send', 'shared_receive', 'shared_restore'}:
             raise RuntimeError('unreviewed native recovery task')
         # Preserve dependency order: the remote host has no repository imports.
         return json.dumps({'sources': self.sources, 'profiles': self.profiles,
@@ -120,16 +141,17 @@ class Bundle:
     def run(self, node, task, **args):
         return self.response(subprocess.run(self.command(node), input=self.request(task, args), capture_output=True))
 
-    def transfer(self, node, point, checksum, expected, run_id):
+    def transfer(self, node, point, checksum, expected, run_id, *, shared=False):
         receiver_id = common.run_identifier('received-' + run_id)
+        prefix = 'shared_' if shared else ''
         source = sink = None
         try:
             source = subprocess.Popen(self.command(node), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            source.stdin.write(self.request('send', {'point': point, 'checksum': checksum, 'expected': expected}))
+            source.stdin.write(self.request(prefix + 'send', {'point': point, 'checksum': checksum, 'expected': expected}))
             source.stdin.close()
             source.stdin = None
             sink = subprocess.Popen(self.command('pikachu'), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            sink.stdin.write(self.request('receive', {'expected': expected, 'run_id': receiver_id}))
+            sink.stdin.write(self.request(prefix + 'receive', {'expected': expected, 'run_id': receiver_id}))
             sink.stdin.flush()
             for chunk in iter(lambda: source.stdout.read(1048576), b''):
                 sink.stdin.write(chunk)
