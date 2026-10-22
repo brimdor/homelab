@@ -83,18 +83,21 @@ FINISH = r'''
     elapsed=time.monotonic()-started
     assert 0.2<elapsed<5
     for port in range(17000,17006):assert call(port,'PING')==b'PONG'
-    print(json.dumps({'accepted':True,'nodes':6,'write_flagged_noop_blocked':True,
+    result={'accepted':True,'nodes':6,'write_flagged_noop_blocked':True,
         'reads_and_native_save_during_pause':True,'expiry_excluded_until_unpause':True,
         'explicit_unpause':True,'actual_owner_sigkill':True,'finite_lease_resumed':True,
-        'resumption_seconds':elapsed}))
+        'resumption_seconds':elapsed}
 finally:
+    cleanup_errors=[]
     for port in range(17000,17006):
         try:call(port,'CLIENT','UNPAUSE')
-        except Exception:pass
+        except Exception:cleanup_errors.append(port)
     for client in clients:client.close()
     if owner:
         if owner.poll() is None:owner.kill()
         owner.communicate(timeout=5)
+    if cleanup_errors:raise RuntimeError('synthetic pause cleanup did not reach every owned node')
+print(json.dumps(result))
 '''
 
 
