@@ -421,13 +421,13 @@ class Qualification(isolated.Qualification):
         (self.work / 'failure-diagnostics.json').write_text(json.dumps(evidence, indent=2))
 
 
-def main():
+def main(qualification=Qualification):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('name', 'docker-host', 'docker-server', 'k3d', 'kubectl', 'colima'):
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--work-dir', required=True, type=Path)
     args = parser.parse_args()
-    q = Qualification(args)
+    q = qualification(args)
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, isolated.interrupted)
     try:
