@@ -1,6 +1,7 @@
 """Capture-only refusal and actual blocked-probe cleanup contracts."""
 
 from pathlib import Path
+import json
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,15 @@ from test_valkey_cohort_point import core
 
 
 class CohortControllerTests(unittest.TestCase):
+    def test_finite_pause_integer_crosses_actual_subprocess_argv_as_text(self):
+        instance = cohort.Controller(['kubectl'], None)
+        def execute(_item, *args):
+            return subprocess.run([sys.executable, '-B', '-c',
+                'import json,sys;print(json.dumps(sys.argv[1:]))', *args], capture_output=True, check=True)
+        with patch.object(instance, 'execute', side_effect=execute):
+            raw = instance.valkey_cli(core(), 'CLIENT', 'PAUSE', 60000, 'WRITE')
+        self.assertEqual(json.loads(raw), ['valkey-cli', '--raw', 'CLIENT', 'PAUSE', '60000', 'WRITE'])
+
     def test_unbound_capture_never_contacts_cluster_or_enters_role_recovery(self):
         instance = cohort.Controller(['kubectl'], None)
         self.assertTrue(instance.capture_only)

@@ -14,6 +14,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 
 import gitea_postgres_recovery_controller as postgres
 import valkey_cohort_point as valkey
@@ -73,7 +74,7 @@ class Controller(postgres.Controller):
 
     def valkey_cli(self, core, *args):
         return self.execute({'pod': core['pod'], 'uid': core['pod_uid'], 'container': 'gitea-valkey-cluster'},
-                            'valkey-cli', '--raw', *args).stdout.rstrip(b'\r\n')
+                            'valkey-cli', '--raw', *(str(arg) for arg in args)).stdout.rstrip(b'\r\n')
 
     def topology(self, cores, *, full=False):
         ids, rows = {}, {}
@@ -300,5 +301,7 @@ if __name__ == '__main__':
         main()
     except Exception as error:
         print(json.dumps({'stage': 'failed', 'error_type': type(error).__name__,
-                          'error': str(error) if isinstance(error, RuntimeError) else 'cohort failed; raw details withheld'}), flush=True)
+                          'error': str(error) if isinstance(error, RuntimeError) else 'cohort failed; raw details withheld',
+                          'frames': [{'function': f.name, 'line': f.lineno}
+                                     for f in traceback.extract_tb(error.__traceback__)]}), flush=True)
         sys.exit(70)
