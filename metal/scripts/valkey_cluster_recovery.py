@@ -133,7 +133,16 @@ class Cluster(protocol.Cluster):
                 raise RuntimeError('complete restored keys/types/values/expiry differ; private output withheld')
 
 
-def require_point():
+def require_point(cohort_run_id=None, checksum=None):
+    if cohort_run_id is not None:
+        import valkey_cohort_point as cohort
+        point, original = cohort.verify(cohort_run_id, checksum)
+        manifest = {'shards': {ordinal: header['file'] for ordinal, header in original['shards'].items()},
+                    'cross_shard_atomic': original['cross_shard_atomic'],
+                    'source_quiesced': original['source_quiesced']}
+        return point, manifest
+    if checksum is not None:
+        raise RuntimeError('historical point checksum override is not allowed')
     point = recovery.point_path(POINT)
     recovery.protected.protected_file(point / 'verified.json')
     raw = (point / 'verified.json').read_bytes()
@@ -148,13 +157,13 @@ def require_point():
     return point, manifest
 
 
-def run(run_id, observer):
+def run(run_id, observer, *, cohort_run_id=None, checksum=None):
     def interrupted(_number, _frame):
         raise RuntimeError('owned Valkey cluster recovery interrupted')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, interrupted)
     common.run_identifier(run_id)
-    point, manifest = require_point()
+    point, manifest = require_point(cohort_run_id, checksum)
     if common.docker('ps', '-aq', '--filter=label=' + recovery.LABEL).stdout.strip():
         raise RuntimeError('another owned Valkey operation is active')
     before = set(common.docker('image', 'ls', '-q', '--no-trunc').stdout.decode().split())
@@ -162,8 +171,9 @@ def run(run_id, observer):
     scratch.chmod(0o700)
     identity = None
     images, removed = set(), []
-    result = {'accepted': False, 'run_id': run_id, 'manifest_sha256': MANIFEST,
-              'cross_shard_atomic': False, 'source_quiesced': False, 'stages': []}
+    result = {'accepted': False, 'run_id': run_id, 'manifest_sha256': checksum if cohort_run_id else MANIFEST,
+              'cross_shard_atomic': manifest['cross_shard_atomic'],
+              'source_quiesced': manifest['source_quiesced'], 'stages': []}
     stage = 'prepare'
     try:
         data = scratch / 'data'
@@ -312,7 +322,7 @@ def run(run_id, observer):
             recovery.require_isolation(common.inspect(identity), scratch, run_id, mount)
             common.docker('rm', '-f', identity)
             identity = None
-        require_point()
+        require_point(cohort_run_id, checksum)
         result.update(accepted=True, keys=sum(v['keys'] for v in expected.values()), protected_original_unchanged=True,
                       network_none=True, production_unroutable=True, production_mutated=False,
                       original_replica_map=protocol.REPLICAS)

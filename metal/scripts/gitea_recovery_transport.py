@@ -21,7 +21,9 @@ MODULES = ['etcd_recovery', 'prometheus_recovery', 'grafana_recovery', 'sporecas
            'maintenance_actor_hold', 'gitea_postgres_lifecycle', 'gitea_postgres_startup_guard',
            'gitea_postgres_cold_point', 'gitea_postgres_fresh_restore', 'gitea_postgres_guarded_source',
            'gitea_git_recovery', 'gitea_init_guard', 'gitea_shared_guarded_source',
-           'gitea_capture_only_qualification']
+           'gitea_capture_only_qualification', 'valkey_recovery', 'valkey_cohort_point',
+           'valkey_cluster_qualification', 'valkey_data_fingerprint',
+           'valkey_write_pause_qualification', 'valkey_cluster_recovery', 'gitea_cohort_point']
 BOOT = '''import base64,json,sys,types
 from pathlib import Path
 stream=sys.stdin.buffer
@@ -58,6 +60,19 @@ try:
  elif task=='intent':
   result=guard.intent(Path(args['point']),args['checksum'],args['expected'],args['catalog_sha256'],
                       args['secret_uid'],args['application_uid'])
+ elif task=='cohort_store':result=sys.modules['gitea_cohort_point'].store(args['run_id'],args['value'])
+ elif task.startswith('valkey_'):
+  valkey=sys.modules['valkey_cohort_point']
+  if task=='valkey_observe':result=valkey.observe(args['core'])
+  elif task=='valkey_probe':valkey.probe(args['core'],request['sources']['valkey_data_fingerprint'].encode())
+  elif task=='valkey_send':
+   valkey.send(args['core'],sys.stdout.buffer);sys.exit(0)
+  elif task=='valkey_receive':result=valkey.receive(args['run_id'],args['expected'],stream)
+  elif task=='valkey_finalize':result=valkey.finalize(args['run_id'],args['manifest'])
+  elif task=='valkey_restore':
+   result=sys.modules['valkey_cluster_recovery'].run(args['run_id'],request['sources']['valkey_data_fingerprint'].encode(),
+      cohort_run_id=args['cohort_run_id'],checksum=args['checksum'])
+  else:raise RuntimeError('unreviewed Valkey operation')
  elif task.startswith('shared_'):
   shared=sys.modules['gitea_shared_guarded_source']
   if task=='shared_observe':result={'binding':shared.observe(args['core'],args['namespace_pid'])}
@@ -112,7 +127,9 @@ class Bundle:
 
     def request(self, task, args):
         if task not in {'observe', 'capture', 'send', 'receive', 'restore', 'intent', 'capture_qualify',
-                        'shared_observe', 'shared_capture', 'shared_send', 'shared_receive', 'shared_restore'}:
+                        'shared_observe', 'shared_capture', 'shared_send', 'shared_receive', 'shared_restore',
+                        'valkey_observe', 'valkey_probe', 'valkey_send', 'valkey_receive', 'valkey_finalize', 'valkey_restore',
+                        'cohort_store'}:
             raise RuntimeError('unreviewed native recovery task')
         # Preserve dependency order: the remote host has no repository imports.
         return json.dumps({'sources': self.sources, 'profiles': self.profiles,
@@ -144,14 +161,25 @@ class Bundle:
     def transfer(self, node, point, checksum, expected, run_id, *, shared=False):
         receiver_id = common.run_identifier('received-' + run_id)
         prefix = 'shared_' if shared else ''
+        result = self.stream(node, prefix + 'send', {'point': point, 'checksum': checksum, 'expected': expected},
+                             prefix + 'receive', {'expected': expected, 'run_id': receiver_id})
+        if result['manifest_sha256'] != checksum or result['source'] != expected:
+            raise RuntimeError('guarded point receiver readback differs')
+        return result
+
+    def valkey_transfer(self, node, core, run_id):
+        return self.stream(node, 'valkey_send', {'core': core}, 'valkey_receive', {'expected': core, 'run_id': run_id})
+
+    def stream(self, node, source_task, source_args, sink_task, sink_args):
+        """Pipe native bytes directly into protected storage; retain no caller copy."""
         source = sink = None
         try:
             source = subprocess.Popen(self.command(node), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            source.stdin.write(self.request(prefix + 'send', {'point': point, 'checksum': checksum, 'expected': expected}))
+            source.stdin.write(self.request(source_task, source_args))
             source.stdin.close()
             source.stdin = None
             sink = subprocess.Popen(self.command('pikachu'), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            sink.stdin.write(self.request(prefix + 'receive', {'expected': expected, 'run_id': receiver_id}))
+            sink.stdin.write(self.request(sink_task, sink_args))
             sink.stdin.flush()
             for chunk in iter(lambda: source.stdout.read(1048576), b''):
                 sink.stdin.write(chunk)
@@ -161,10 +189,7 @@ class Bundle:
             source_output, _source_errors = source.communicate()
             if source.returncode or source_output:
                 raise RuntimeError('guarded point sender failed; raw output withheld')
-            result = self.response(subprocess.CompletedProcess([], sink.returncode, output, errors))
-            if result['manifest_sha256'] != checksum or result['source'] != expected:
-                raise RuntimeError('guarded point receiver readback differs')
-            return result
+            return self.response(subprocess.CompletedProcess([], sink.returncode, output, errors))
         finally:
             for child in (source, sink):
                 if child is None:
@@ -182,7 +207,6 @@ class Bundle:
                 for stream in (child.stdin, child.stdout, child.stderr):
                     if stream and not stream.closed:
                         stream.close()
-
 
 def restore_args(point, checksum, credentials, hba, run_id):
     return {'point': point, 'checksum': checksum, 'credentials': credentials,
