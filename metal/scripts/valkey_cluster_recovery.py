@@ -9,6 +9,7 @@ from pathlib import Path
 import shlex
 import shutil
 import signal
+import stat
 import subprocess
 import tempfile
 import time
@@ -17,11 +18,29 @@ import zlib
 
 import valkey_cluster_qualification as protocol
 import valkey_data_fingerprint as values
+import valkey_write_pause_qualification as write_pause
 
 
 recovery, common = protocol.recovery, protocol.common
 POINT = 'gitea-valkey-20261019-a'
 MANIFEST = '568346a2078080432e6ffa64ff4e04a4c8f2e2378d0f45b568d703af57918639'
+
+
+def copied_digest(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, 'rb') as stream:
+        before = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or
+                (before.st_uid, before.st_gid, stat.S_IMODE(before.st_mode)) != (1001, 1001, 0o600)):
+            raise RuntimeError('owned application copy has unexpected metadata')
+        digest = hashlib.sha256()
+        for block in iter(lambda: stream.read(1048576), b''):
+            digest.update(block)
+        after = os.fstat(stream.fileno())
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+        if identity(before) != identity(after):
+            raise RuntimeError('owned application copy changed while hashing')
+    return {'bytes': before.st_size, 'sha256': digest.hexdigest()}
 
 
 class Cluster(protocol.Cluster):
@@ -155,6 +174,9 @@ def run(run_id, observer):
                 assert cluster.cli(4, 'EVAL', "return redis.call('SET',KEYS[1],string.char(0,255)..'0\\nλ')", 1, key) == b'OK'
                 cluster.verify()
                 cluster.verify_values(full)
+                stage = 'synthetic-finite-write-exclusion'
+                result['native_write_pause'] = write_pause.qualify(ns, observer, key + ':lease-expiry')
+                cluster.verify_values(full)
                 for master in protocol.SLOTS:
                     assert cluster.cli(master, 'FLUSHALL') == b'OK'
                 zero = {master: {'keys': 0, 'types': {}, 'expiring_keys': 0,
@@ -185,7 +207,7 @@ def run(run_id, observer):
                     protocol.poll(lambda: common.docker('exec', identity, 'test', '!', '-e',
                                   '/tmp/node-' + str(master) + '.pid', check=False).returncode == 0,
                                   'original standalone shard did not stop')
-                    if recovery.protected.file_digest(target) != {k: manifest['shards'][str(master)][k] for k in ('bytes', 'sha256')}:
+                    if copied_digest(target) != {k: manifest['shards'][str(master)][k] for k in ('bytes', 'sha256')}:
                         raise RuntimeError('copied original shard changed before cluster recovery')
                 result['native_complete_verifier_rejects_corruption'] = True
                 result['original_shard_values'] = expected
@@ -242,7 +264,7 @@ def run(run_id, observer):
 def remote(run_id):
     code = 'import base64,sys,types;'
     for name in ('etcd_recovery', 'mariadb_recovery', 'valkey_recovery', 'valkey_cluster_qualification',
-                 'valkey_data_fingerprint', 'valkey_cluster_recovery'):
+                 'valkey_data_fingerprint', 'valkey_write_pause_qualification', 'valkey_cluster_recovery'):
         source = base64.b64encode(Path(__file__).with_name(name + '.py').read_bytes()).decode()
         code += 'm=types.ModuleType(' + repr(name) + ');sys.modules[' + repr(name) + ']=m;'
         code += 'exec(base64.b64decode(' + repr(source) + '),m.__dict__);'

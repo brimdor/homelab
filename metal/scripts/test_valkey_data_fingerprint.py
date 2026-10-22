@@ -1,9 +1,13 @@
 """Verify binary framing and complete semantic comparisons without private output."""
 
 import io
+import json
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import valkey_data_fingerprint as values
+import valkey_write_pause_qualification as pause
 
 
 class FingerprintTests(unittest.TestCase):
@@ -34,6 +38,17 @@ class FingerprintTests(unittest.TestCase):
 
     def test_lengths_prevent_ambiguous_value_boundaries(self):
         self.assertNotEqual(values.canonical([b'ab', b'c']), values.canonical([b'a', b'bc']))
+
+    def test_native_pause_program_compiles_and_refuses_failed_result(self):
+        def command(arguments):
+            self.assertEqual(arguments[:4], ['nsenter', '--target', '123', '--net'])
+            compile(arguments[-1], '<wrapper>', 'exec')
+            # Compile the actual embedded native body as well as its wrapper.
+            program = pause.PROGRAM + repr(pause.OWNER) + pause.FINISH
+            compile(program, '<synthetic-pause>', 'exec')
+            return SimpleNamespace(stdout=json.dumps({'accepted': False, 'failure_class': 'AssertionError'}).encode(), stderr=b'')
+        with patch.object(pause.common, 'command', side_effect=command), self.assertRaises(RuntimeError):
+            pause.qualify(['nsenter', '--target', '123', '--net', '--'], b'# synthetic observer', 'synthetic-key')
 
 
 if __name__ == '__main__':
