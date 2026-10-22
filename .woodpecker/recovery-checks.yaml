@@ -22,6 +22,7 @@ steps:
         test_gitea_postgres_maintained_qualification
         test_gitea_valkey_rollout
         test_gitea_cohort_recovery
+        test_gitea_postgres_recovery_controller
         test_gitea_cohort_point
         test_gitea_recovery_transport
         test_gitea_postgres_startup_guard

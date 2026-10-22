@@ -1,5 +1,6 @@
 """Exercise stream parsing, secret containment and refusal before transaction."""
 
+import copy
 import json
 import subprocess
 import sys
@@ -12,6 +13,71 @@ from test_gitea_postgres_account_recovery import catalog
 
 
 class ControllerTests(unittest.TestCase):
+    def released_fixture(self):
+        deployment = {'metadata': {'uid': controller.DEPLOYMENT_UID, 'generation': 7},
+                      'status': {'observedGeneration': 7, 'replicas': 1, 'updatedReplicas': 1,
+                                 'readyReplicas': 1, 'availableReplicas': 1,
+                                 'conditions': [{'type': k, 'status': 'True'} for k in ('Available', 'Progressing')]}}
+        pod = {'metadata': {'name': 'gitea-synthetic', 'uid': 'released-pod',
+                            'ownerReferences': [{'controller': True, 'kind': 'ReplicaSet', 'name': 'replica', 'uid': 'replica-uid'}]},
+               'spec': {'initContainers': [{'name': 'guard'}], 'containers': [{'name': 'gitea'}]},
+               'status': {'phase': 'Running', 'conditions': [{'type': 'Ready', 'status': 'True'}],
+                          'initContainerStatuses': [{'name': 'guard', 'state': {'terminated': {'exitCode': 0}}}],
+                          'containerStatuses': [{'name': 'gitea', 'ready': True, 'state': {'running': {'startedAt': 'synthetic'}}}]}}
+        replica = {'metadata': {'uid': 'replica-uid', 'ownerReferences': [
+            {'controller': True, 'uid': controller.DEPLOYMENT_UID}]}}
+        return deployment, pod, replica
+
+    def test_released_exact_pod_waits_through_stale_deadline(self):
+        deployment, pod, replica = self.released_fixture()
+        stale = copy.deepcopy(deployment)
+        stale['status']['conditions'][1]['status'] = 'False'
+        observations = [stale, deployment]
+        instance = controller.Controller(['kubectl'], None)
+        def get(kind, *_a, **_k):
+            return observations.pop(0) if kind == 'deployment' else ({'items': [pod]} if kind == 'pods' else replica)
+        with patch.object(instance, 'identity'), patch.object(instance, 'get', side_effect=get), \
+                patch.object(controller.time, 'sleep') as sleep:
+            instance.wait_application_ready({'pod': 'gitea-synthetic', 'uid': 'released-pod'})
+        self.assertEqual(observations, [])
+        sleep.assert_called_once_with(0.2)
+
+    def test_release_never_accepts_incomplete_startup_or_stale_generation(self):
+        for field in ('generation', 'main', 'init', 'conditions'):
+            with self.subTest(field=field):
+                deployment, pod, replica = self.released_fixture()
+                if field == 'generation':
+                    deployment['status']['observedGeneration'] = 6
+                elif field == 'main':
+                    pod['status']['containerStatuses'][0]['ready'] = False
+                elif field == 'init':
+                    pod['status']['initContainerStatuses'] = []
+                else:
+                    pod['status']['conditions'] = []
+                instance = controller.Controller(['kubectl'], None)
+                def get(kind, *_a, **_k):
+                    return deployment if kind == 'deployment' else ({'items': [pod]} if kind == 'pods' else replica)
+                with patch.object(instance, 'identity'), patch.object(instance, 'get', side_effect=get), \
+                        self.assertRaisesRegex(RuntimeError, 'did not become ready'):
+                    instance.wait_application_ready(seconds=-1)
+
+    def test_release_refuses_changed_identity_failed_init_and_api_denial(self):
+        for field, error in (('uid', 'binding changed'), ('init', 'init failed'), ('api', 'access denied')):
+            with self.subTest(field=field):
+                deployment, pod, replica = self.released_fixture()
+                if field == 'uid':
+                    pod['metadata']['uid'] = 'foreign-pod'
+                if field == 'init':
+                    pod['status']['initContainerStatuses'][0]['state']['terminated']['exitCode'] = 1
+                instance = controller.Controller(['kubectl'], None)
+                def get(kind, *_a, **_k):
+                    if field == 'api':
+                        raise RuntimeError('access denied')
+                    return deployment if kind == 'deployment' else ({'items': [pod]} if kind == 'pods' else replica)
+                with patch.object(instance, 'identity'), patch.object(instance, 'get', side_effect=get), \
+                        self.assertRaisesRegex(RuntimeError, error):
+                    instance.wait_application_ready({'pod': 'gitea-synthetic', 'uid': 'released-pod'})
+
     def test_actual_child_catalog_stream_with_prompt_and_eof_failure(self):
         raw = b'backend> HOMELAB103:' + json.dumps(catalog()).encode().hex().encode() + b'\nbackend> '
         for payload, accepted in ((raw, True), (b'backend> no catalog\n', False)):

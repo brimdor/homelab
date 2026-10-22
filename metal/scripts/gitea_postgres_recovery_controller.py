@@ -107,6 +107,54 @@ class Controller:
             raise RuntimeError('production PostgreSQL PVC/PV/CSI binding differs')
         return owner
 
+    def wait_application_ready(self, item=None, seconds=300):
+        # A deliberate startup hold can expire rollout's progress deadline before release.
+        bound_uid = item['uid'] if item else None
+
+        def ready():
+            nonlocal bound_uid
+            self.identity()
+            deployment = self.get('deployment', 'gitea')
+            if deployment['metadata'].get('deletionTimestamp'):
+                raise RuntimeError('production application controller is deleting')
+            candidates = []
+            for pod in self.get('pods')['items']:
+                owners = [o for o in pod['metadata'].get('ownerReferences', []) if o.get('controller')]
+                if len(owners) != 1 or owners[0]['kind'] != 'ReplicaSet':
+                    continue
+                replica = self.get('replicaset', owners[0]['name'])
+                if replica['metadata']['uid'] != owners[0]['uid']:
+                    raise RuntimeError('production application ReplicaSet binding changed')
+                if any(o.get('controller') and o['uid'] == DEPLOYMENT_UID
+                       for o in replica['metadata'].get('ownerReferences', [])):
+                    candidates.append(pod)
+            if len(candidates) != 1:
+                raise RuntimeError('released production application must have one owned Pod')
+            pod = candidates[0]
+            if (pod['metadata'].get('deletionTimestamp') or
+                    (bound_uid and pod['metadata']['uid'] != bound_uid) or
+                    (item and pod['metadata']['name'] != item['pod'])):
+                raise RuntimeError('released production application Pod binding changed')
+            bound_uid = pod['metadata']['uid']
+            statuses = pod['status'].get('initContainerStatuses', [])
+            if any(s.get('state', {}).get('terminated', {}).get('exitCode', 0) != 0 for s in statuses):
+                raise RuntimeError('released production application init failed')
+            init_names = {c['name'] for c in pod['spec'].get('initContainers', [])}
+            init_ready = ({s['name'] for s in statuses} == init_names and
+                          all(s.get('state', {}).get('terminated', {}).get('exitCode') == 0 for s in statuses))
+            main = pod['status'].get('containerStatuses', [])
+            conditions = {c['type']: c['status'] for c in deployment['status'].get('conditions', [])}
+            return (init_ready and pod['status'].get('phase') == 'Running' and
+                    any(c['type'] == 'Ready' and c['status'] == 'True' for c in pod['status'].get('conditions', [])) and
+                    {s['name'] for s in main} == {c['name'] for c in pod['spec']['containers']} and
+                    all(s.get('ready') and s.get('state', {}).get('running') for s in main) and
+                    deployment['status'].get('observedGeneration') == deployment['metadata']['generation'] and
+                    all(deployment['status'].get(k) == 1 for k in
+                        ('replicas', 'updatedReplicas', 'readyReplicas', 'availableReplicas')) and
+                    conditions.get('Available') == 'True' and conditions.get('Progressing') == 'True')
+
+        self.wait_for(ready, 'released production application did not become ready', seconds=seconds)
+
     def baseline(self):
         self.identity()
         pods = self.get('pods')['items']
@@ -404,7 +452,7 @@ class Controller:
             output, errors = app['child'].communicate()
             if app['child'].returncode or output or errors:
                 raise RuntimeError('production application hold release differs')
-            self.call('rollout', 'status', 'deployment/gitea', '-n', NAMESPACE, '--timeout=300s')
+            self.wait_application_ready(held['application'])
             self.preserved()
             persist('application-restarted', production_mutated=True, original_secrets_and_valkey_preserved=True)
 

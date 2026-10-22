@@ -310,7 +310,7 @@ class Controller(postgres.Controller):
             output, errors = held['application']['child'].communicate()
             if held['application']['child'].returncode or output or errors:
                 raise RuntimeError('cohort Gitea application release differs')
-            self.call('rollout', 'status', 'deployment/gitea', '-n', 'gitea', '--timeout=300s')
+            self.wait_application_ready(held['application'])
             self.preserved()
             persist('application-restarted', production_images_and_claims_unchanged=True,
                     existing_secrets_and_valkey_preserved=True)
