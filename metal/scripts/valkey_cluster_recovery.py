@@ -44,6 +44,61 @@ def copied_digest(path):
 
 
 class Cluster(protocol.Cluster):
+    def enable_aof(self):
+        for node in range(6):
+            assert self.cli(node, 'CONFIG', 'SET', 'appendonly', 'yes') == b'OK'
+        self.aof = True
+        self.wait_aof()
+
+    def wait_aof(self):
+        def ready():
+            for node in range(6):
+                item = recovery.info(self.cli(node, 'INFO', 'persistence'))
+                if (item.get('aof_enabled') != '1' or item.get('aof_rewrite_in_progress') != '0' or
+                        item.get('aof_rewrite_scheduled') != '0' or item.get('aof_last_bgrewrite_status') != 'ok' or
+                        item.get('aof_last_write_status') != 'ok' or item.get('aof_pending_bio_fsync') != '0'):
+                    return False
+            return True
+        protocol.poll(ready, 'owned AOF rewrite/write/fsync did not finish cleanly')
+
+    def check_aof(self):
+        for node in range(6):
+            path = self.mount + '/node-' + str(node) + '/appendonlydir/appendonly.aof.manifest'
+            result = common.docker('exec', self.identity, 'valkey-check-aof', path, check=False)
+            if result.returncode or result.stderr:
+                raise RuntimeError('owned complete AOF manifest check failed; private output withheld')
+
+    def synthetic_aof_precedence(self, expected):
+        self.enable_aof()
+        self.verify_values(expected)
+        for node in range(6):
+            assert self.cli(node, 'SAVE') == b'OK'
+        keys = {master: protocol.fixture_keys(master)[0] for master in protocol.SLOTS}
+        for master, key in keys.items():
+            assert self.cli(master, 'SET', key, 'synthetic-aof-tail-only-' + str(master)) == b'OK'
+        changed = {master: self.fingerprint(master) for master in protocol.SLOTS}
+        if any(changed[master] == expected[master] for master in protocol.SLOTS):
+            raise RuntimeError('synthetic AOF tail mutation was not detected on every shard')
+        self.verify_values(changed)
+        self.wait_aof()
+        for node in range(6):
+            self.cli(node, 'SHUTDOWN', 'NOSAVE')
+            protocol.poll(lambda n=node: common.docker('exec', self.identity, 'test', '!', '-e',
+                          '/tmp/node-' + str(n) + '.pid', check=False).returncode == 0,
+                          'owned AOF precedence node did not stop')
+        self.check_aof()
+        # The RDB predates the tail mutation; only AOF startup can recover it.
+        for node in range(6):
+            self.start(node)
+        self.verify_values(changed)
+        for master, key in keys.items():
+            assert self.cli(master, 'EVAL', "return redis.call('SET',KEYS[1],string.char(0,255)..'0\\nλ')", 1, key) == b'OK'
+        self.verify()
+        self.verify_values(expected)
+        for node in range(6):
+            assert self.cli(node, 'CONFIG', 'SET', 'appendonly', 'no') == b'OK'
+        self.aof = False
+
     def fingerprint(self, node, replica=False):
         state = common.inspect(self.identity)
         recovery.require_isolation(state, self.scratch, self.run_id, self.mount)
@@ -177,12 +232,21 @@ def run(run_id, observer):
                 stage = 'synthetic-finite-write-exclusion'
                 result['native_write_pause'] = write_pause.qualify(ns, observer, key + ':lease-expiry')
                 cluster.verify_values(full)
+                stage = 'synthetic-aof-precedence'
+                cluster.synthetic_aof_precedence(full)
+                result['native_synthetic_aof_precedence'] = True
                 for master in protocol.SLOTS:
                     assert cluster.cli(master, 'FLUSHALL') == b'OK'
                 zero = {master: {'keys': 0, 'types': {}, 'expiring_keys': 0,
                                 'sha256': hashlib.sha256(b'').hexdigest()} for master in protocol.SLOTS}
                 cluster.verify_values(zero)
                 cluster.save_stop()
+                # These are exclusively owned synthetic AOFs, never protected/source files.
+                for node in range(6):
+                    directory = data / ('node-' + str(node)) / 'appendonlydir'
+                    if (directory.is_symlink() or not directory.is_dir() or directory.stat().st_uid != 1001):
+                        raise RuntimeError('owned synthetic AOF directory identity differs')
+                    shutil.rmtree(directory)
                 stage = 'independent-original-shard-values'
                 for master in protocol.SLOTS:
                     target = data / ('node-' + str(master)) / 'dump.rdb'
@@ -212,29 +276,46 @@ def run(run_id, observer):
                 result['native_complete_verifier_rejects_corruption'] = True
                 result['original_shard_values'] = expected
             stage = version + ':complete-cluster'
+            cluster.aof = iteration > 0
             for n in range(6):
                 cluster.start(n)
             cluster.verify_values(expected)
+            if iteration == 0:
+                stage = 'legacy-real-data-aof-conversion'
+                cluster.enable_aof()
+                cluster.verify_values(expected)
             if iteration == 1:
                 stage = 'maintained-manual-failover-failback'
-                assert cluster.cli(1, 'CLUSTER', 'FAILOVER') == b'OK'
-                cluster.verify_values(expected, (1, 3, 5))
+                replica = next(n for n, owner in protocol.REPLICAS.items() if owner == 0)
+                assert cluster.cli(replica, 'CLUSTER', 'FAILOVER') == b'OK'
+                cluster.verify_values(expected, (replica, 3, 5))
                 assert cluster.cli(0, 'CLUSTER', 'FAILOVER') == b'OK'
+                cluster.verify_values(expected)
+                stage = 'maintained-real-data-aof-rewrite'
+                for n in range(6):
+                    response = cluster.cli(n, 'BGREWRITEAOF')
+                    if response not in (b'Background append only file rewriting started',
+                                        b'Background append only file rewriting scheduled'):
+                        raise RuntimeError('owned AOF rewrite acknowledgement differs')
+                cluster.wait_aof()
                 cluster.verify_values(expected)
                 stage = 'maintained-persistence-restart'
                 cluster.save_stop()
+                cluster.check_aof()
                 for n in range(6):
                     cluster.start(n)
                 cluster.verify_values(expected)
             cluster.save_stop()
+            cluster.check_aof()
             result['stages'].append({'version': version, 'complete_six_node_data': True,
-                                    'failover_restart': iteration == 1})
+                                    'failover_restart': iteration == 1, 'complete_aof_checked': True})
             recovery.require_isolation(common.inspect(identity), scratch, run_id, mount)
             common.docker('rm', '-f', identity)
             identity = None
         require_point()
         result.update(accepted=True, keys=sum(v['keys'] for v in expected.values()), protected_original_unchanged=True,
-                      network_none=True, production_unroutable=True, production_mutated=False)
+                      network_none=True, production_unroutable=True, production_mutated=False,
+                      original_replica_map=protocol.REPLICAS)
     except Exception as error:
         result.update(failed_stage=stage, failure_class=type(error).__name__,
                       failure_frames=[{'function': f.name, 'line': f.lineno}

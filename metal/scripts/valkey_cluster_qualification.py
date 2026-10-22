@@ -20,7 +20,7 @@ import valkey_recovery as recovery
 common = recovery.common
 protected = recovery.protected
 SLOTS = {0: (0, 5460), 3: (10923, 16383), 5: (5461, 10922)}
-REPLICAS = {1: 0, 2: 3, 4: 5}
+REPLICAS = {1: 5, 2: 3, 4: 0}
 COUNT = 30
 WRITE = r"""
 for i=1,#KEYS,5 do
@@ -86,7 +86,9 @@ class Cluster:
         common.docker('exec', self.identity, 'valkey-server', '--daemonize', 'yes', '--bind', '127.0.0.1',
                       '--port', str(17000 + node), '--cluster-enabled', 'yes', '--cluster-announce-ip', '127.0.0.1',
                       '--cluster-node-timeout', '1000', '--cluster-config-file', 'nodes.conf',
-                      '--dir', directory, '--dbfilename', 'dump.rdb', '--appendonly', 'no', '--save', '',
+                      '--dir', directory, '--dbfilename', 'dump.rdb',
+                      '--appendonly', 'yes' if getattr(self, 'aof', False) else 'no', '--save', '',
+                      '--appenddirname', 'appendonlydir', '--aof-load-truncated', 'no',
                       '--pidfile', '/tmp/node-' + str(node) + '.pid', '--logfile', '/tmp/node-' + str(node) + '.log')
         poll(lambda: self.cli(node, 'PING', check=False) == b'PONG', 'isolated node did not start')
 
@@ -111,6 +113,11 @@ class Cluster:
             elif (replication.get('role') != 'slave' or replication.get('master_link_status') != 'up' or
                   replication.get('master_sync_in_progress') != '0'):
                 return False
+            else:
+                original = node if node in SLOTS else REPLICAS[node]
+                owner = next(n for n in masters if (n if n in SLOTS else REPLICAS[n]) == original)
+                if replication.get('master_port') != str(17000 + owner):
+                    return False
             try:
                 topology.append(recovery.topology(self.cli(node, 'CLUSTER', 'NODES')))
             except RuntimeError:
@@ -122,7 +129,8 @@ class Cluster:
         for master in SLOTS:
             keys = fixture_keys(master)
             # Always enter through a non-owner; the native client must follow MOVED.
-            assert self.cli(4, 'EVAL_RO', VERIFY, len(keys), *keys) == b'fixture-verified'
+            entry = next(n for n in range(6) if n not in masters)
+            assert self.cli(entry, 'EVAL_RO', VERIFY, len(keys), *keys) == b'fixture-verified'
         for node in masters:
             assert self.cli(node, 'DBSIZE') == str(5 * COUNT).encode()
         offsets = {node: int(recovery.info(self.cli(node, 'INFO', 'replication'))['master_repl_offset'])
@@ -213,13 +221,15 @@ def run(run_id):
                 assert cluster.cli(4, 'EVAL', "return redis.call('SET',KEYS[1],string.char(0,255)..'0\\nλ')", 1, keys[0]) == b'OK'
                 cluster.verify(); result['complete_verifier_rejects_corruption'] = True
                 stage = 'manual_failover'
-                cluster.manual(1, (1, 3, 5)); cluster.manual(0, (0, 3, 5))
+                replica = next(n for n, owner in REPLICAS.items() if owner == 0)
+                promoted = (replica, 3, 5)
+                cluster.manual(replica, promoted); cluster.manual(0, (0, 3, 5))
                 result['quorum_manual_failover_failback'] = True
                 stage = 'automatic_failover'
                 cluster.cli(0, 'SHUTDOWN', 'NOSAVE')
-                poll(lambda: recovery.info(cluster.cli(1, 'INFO', 'replication')).get('role') == 'master',
+                poll(lambda: recovery.info(cluster.cli(replica, 'INFO', 'replication')).get('role') == 'master',
                      'isolated automatic failover did not promote the replica')
-                cluster.start(0); cluster.verify((1, 3, 5)); cluster.manual(0, (0, 3, 5))
+                cluster.start(0); cluster.verify(promoted); cluster.manual(0, (0, 3, 5))
                 result['automatic_failover_rejoin_failback'] = True
                 stage = 'candidate_persistence_restart'
                 cluster.save_stop()

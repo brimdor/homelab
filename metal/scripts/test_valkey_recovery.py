@@ -5,11 +5,47 @@ import copy
 from pathlib import Path
 import subprocess
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
 import valkey_recovery as recovery
+import valkey_cluster_qualification as protocol
 
 
 class ValkeyRecoveryTests(unittest.TestCase):
+    def test_aof_restart_preserves_explicit_mode_and_refuses_truncation(self):
+        for enabled in (False, True):
+            cluster = protocol.Cluster('synthetic', '/data')
+            cluster.aof = enabled
+            with patch.object(protocol.common, 'docker', return_value=SimpleNamespace(stdout=b'')) as docker, \
+                    patch.object(protocol, 'poll'):
+                cluster.start(0)
+                command = docker.call_args.args
+                self.assertEqual(command[command.index('--appendonly') + 1], 'yes' if enabled else 'no')
+                self.assertEqual(command[command.index('--aof-load-truncated') + 1], 'no')
+                self.assertEqual(command[command.index('--appenddirname') + 1], 'appendonlydir')
+
+    def test_current_replica_owners_and_failover_owner_are_required(self):
+        original = {0: 0, 3: 3, 5: 5, 1: 5, 2: 3, 4: 0}
+        ranges = {0: '0-5460', 3: '10923-16383', 5: '5461-10922'}
+        for masters in ((0, 3, 5), (4, 3, 5)):
+            owners = {original[n]: n for n in masters}
+            wrong = False
+            def cli(node, *args, **_kwargs):
+                if args == ('CLUSTER', 'INFO',):
+                    return b'cluster_state:ok\ncluster_slots_assigned:16384\ncluster_slots_ok:16384\ncluster_slots_pfail:0\ncluster_slots_fail:0\ncluster_known_nodes:6\n'
+                if args == ('INFO', 'replication'):
+                    if node in masters:
+                        return b'role:master\nconnected_slaves:1\n'
+                    port = 17000 if wrong and node == 1 else 17000 + owners[original[node]]
+                    return ('role:slave\nmaster_link_status:up\nmaster_sync_in_progress:0\nmaster_port:' + str(port) + '\n').encode()
+                return (('a' * 40) + ' address myself,master - 0 0 1 connected ' + ranges[original[node]]).encode()
+            cluster = protocol.Cluster('synthetic', '/data')
+            with patch.object(cluster, 'cli', side_effect=cli), patch.object(recovery, 'topology', return_value='same'):
+                self.assertTrue(cluster.healthy(masters))
+                wrong = True
+                self.assertFalse(cluster.healthy(masters))
+
     def manifest(self):
         return {"format": 1, "cluster_uid": recovery.common.CLUSTER_UID, "owner_uid": recovery.OWNER,
                 "image": recovery.IMAGE, "cross_shard_atomic": False, "source_quiesced": False,
