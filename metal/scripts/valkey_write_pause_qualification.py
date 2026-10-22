@@ -43,7 +43,10 @@ def probes():
 
 clients=[];owner=None
 try:
+    baseline_keys=call(17000,'DBSIZE')
+    assert call(17000,'EXISTS',expiry_key)==0
     assert call(17000,'SET',expiry_key,'synthetic-expiry','PX',400)==b'OK'
+    assert call(17000,'PTTL',expiry_key)>0
     deadline=pause(8000)
     clients=probes()
     for port in range(17000,17006):
@@ -52,11 +55,13 @@ try:
         assert call(port,'SAVE')==b'OK'
     time.sleep(0.8)
     assert time.monotonic()<deadline
-    assert call(17000,'GET',expiry_key)==b'synthetic-expiry'
+    assert call(17000,'GET',expiry_key) is None
+    assert call(17000,'DBSIZE')==baseline_keys+1
     for port in range(17000,17006):assert call(port,'CLIENT','UNPAUSE')==b'OK'
     for client in clients:assert client.read()==1;client.close()
     clients=[]
     assert call(17000,'GET',expiry_key) is None
+    assert call(17000,'DBSIZE')==baseline_keys
     owner_code=resp_boot+'''
 
 
@@ -84,7 +89,8 @@ FINISH = r'''
     assert 0.2<elapsed<5
     for port in range(17000,17006):assert call(port,'PING')==b'PONG'
     result={'accepted':True,'nodes':6,'write_flagged_noop_blocked':True,
-        'reads_and_native_save_during_pause':True,'expiry_excluded_until_unpause':True,
+        'reads_and_native_save_during_pause':True,'logical_expiry_continues':True,
+        'physical_expiry_deferred_until_unpause':True,
         'explicit_unpause':True,'actual_owner_sigkill':True,'finite_lease_resumed':True,
         'resumption_seconds':elapsed}
 finally:
