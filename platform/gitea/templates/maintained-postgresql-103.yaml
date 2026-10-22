@@ -1,0 +1,14 @@
+{{- if .Values.maintenance103PostgresMaintained.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-maintained-postgresql-103
+  namespace: {{ .Release.Namespace }}
+binaryData:
+  pgaudit.so: {{ (.Files.Get "files/maintained-postgresql-103/pgaudit-binary.json" | fromJson).base64 | quote }}
+data:
+{{- range $name := list "postgres-startup.sh" "postgresql.conf" "pg_hba.conf" "pgaudit.control" "pgaudit--16.1.sql" "pgaudit--16.0--16.1.sql" "pgaudit-copyright" }}
+  {{ $name }}: |
+{{ $.Files.Get (printf "files/maintained-postgresql-103/%s" $name) | indent 4 }}
+{{- end }}
+{{- end }}

@@ -24,7 +24,7 @@ MODULES = ['etcd_recovery', 'prometheus_recovery', 'grafana_recovery', 'sporecas
            'gitea_capture_only_qualification', 'valkey_recovery', 'valkey_cohort_point',
            'valkey_cluster_qualification', 'valkey_data_fingerprint',
            'valkey_write_pause_qualification', 'valkey_cluster_recovery', 'gitea_cohort_point',
-           'valkey_long_lease_qualification', 'valkey_source_aof']
+           'valkey_long_lease_qualification', 'valkey_source_aof', 'gitea_postgres_maintained_qualification']
 BOOT = '''import base64,json,sys,types
 from pathlib import Path
 stream=sys.stdin.buffer
@@ -51,13 +51,17 @@ try:
   common.require_host('pikachu');common.private_root();common.run_identifier(args['run_id'])
   point=common.ROOT/('gitea-postgres-guarded-'+args['run_id'])
   manifest,checksum=cold.receive(stream,point)
-  if manifest['format']!=cold.GUARDED_FORMAT or manifest['source']!=args['expected']:
+  if manifest['format'] not in (cold.GUARDED_FORMAT,cold.MAINTAINED_FORMAT) or manifest['source']!=args['expected']:
    raise RuntimeError('received guarded point provenance differs; protected partial retained')
   result={'point':str(point),'manifest_sha256':checksum,'source':manifest['source']}
  elif task=='restore':
   summary,catalog=restore.restore(Path(args['point']),args['checksum'],args['credentials'],
                                   base64.b64decode(args['hba'],validate=True),args['run_id'])
   result={'summary':summary,'catalog':catalog}
+ elif task=='postgres_image_qualify':
+  result=sys.modules['gitea_postgres_maintained_qualification'].run(
+   Path(args['point']),args['checksum'],args['credentials'],base64.b64decode(args['hba'],validate=True),
+   args['run_id'],args['payload'])
  elif task=='intent':
   result=guard.intent(Path(args['point']),args['checksum'],args['expected'],args['catalog_sha256'],
                       args['secret_uid'],args['application_uid'])
@@ -137,7 +141,8 @@ class Bundle:
         if task not in {'observe', 'capture', 'send', 'receive', 'restore', 'intent', 'capture_qualify',
                         'shared_observe', 'shared_capture', 'shared_send', 'shared_receive', 'shared_restore',
                         'valkey_observe', 'valkey_probe', 'valkey_send', 'valkey_receive', 'valkey_finalize', 'valkey_restore',
-                        'cohort_store', 'valkey_lease_qualify', 'valkey_aof_send', 'valkey_aof_receive', 'valkey_aof_finalize'}:
+                        'cohort_store', 'valkey_lease_qualify', 'valkey_aof_send', 'valkey_aof_receive', 'valkey_aof_finalize',
+                        'postgres_image_qualify'}:
             raise RuntimeError('unreviewed native recovery task')
         # Preserve dependency order: the remote host has no repository imports.
         return json.dumps({'sources': self.sources, 'profiles': self.profiles,

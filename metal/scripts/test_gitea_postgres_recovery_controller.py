@@ -57,6 +57,20 @@ class ControllerTests(unittest.TestCase):
                 instance.baseline()
             self.assertEqual(get.call_count, 1)
 
+    def test_maintained_image_refuses_role_recovery_and_selects_native_client(self):
+        image = controller.source.cold.control.MAINTAINED_IMAGE
+        with self.assertRaisesRegex(RuntimeError, 'capture only'):
+            controller.Controller(['kubectl'], None, source_image=image)
+        with self.assertRaisesRegex(RuntimeError, 'unreviewed'):
+            controller.Controller(['kubectl'], None, capture_only=True, source_image='foreign')
+        instance = controller.Controller(['kubectl'], None, capture_only=True, source_image=image)
+        instance.credentials = {'admin': 'synthetic-admin', 'app': 'synthetic-app'}
+        with patch.object(instance, 'execute', return_value=SimpleNamespace(stdout=b'ok')) as execute:
+            instance.client({}, 'postgres', 'psql')
+            self.assertIn('/usr/lib/postgresql/16/bin/psql', execute.call_args.args)
+        with self.assertRaisesRegex(RuntimeError, 'capture-only'):
+            instance.recover('synthetic', lambda *_a, **_k: None)
+
 
 if __name__ == '__main__':
     unittest.main()

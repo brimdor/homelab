@@ -12,6 +12,7 @@ import pointguide_files_recovery as retained
 
 common = retained.common
 IMAGE = 'docker.io/bitnamilegacy/postgresql@sha256:233f361c5819c180b600d110d7da953bea6f1a00764752643ffb7b78ba85c628'
+MAINTAINED_IMAGE = 'docker.io/library/postgres@sha256:d81f7b51697014367236d07ec58b54153fc28f828b72bf247fe5c7487520bcb0'
 POINT = common.ROOT / 'gitea-postgres-complete-files-20261020-183719'
 CHECKSUM = 'b38f04da4fa7e574b1d77a4f082d73edb308c559718b67caccb434d10617b46e'
 LABEL = 'io.eaglepass.gitea-postgres-control'

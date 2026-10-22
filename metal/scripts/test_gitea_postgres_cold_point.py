@@ -150,6 +150,17 @@ class ColdPointTests(unittest.TestCase):
             root = Path(temporary)
             value, checksum = cold.capture(fixture(root), root / 'point', STATE, source_binding=binding)
             self.assertEqual(value['format'], cold.GUARDED_FORMAT)
+            maintained = copy.deepcopy(value)
+            maintained['format'] = cold.MAINTAINED_FORMAT
+            maintained['source']['image'] = cold.control.MAINTAINED_IMAGE
+            self.assertEqual(cold.validate(maintained), maintained)
+            for wrong_format, wrong_image in ((cold.GUARDED_FORMAT, cold.control.MAINTAINED_IMAGE),
+                                               (cold.MAINTAINED_FORMAT, cold.control.IMAGE)):
+                changed = copy.deepcopy(maintained)
+                changed.update(format=wrong_format)
+                changed['source']['image'] = wrong_image
+                with self.assertRaises(RuntimeError):
+                    cold.validate(changed)
             self.assertNotIn('original_manifest_sha256', value)
             self.assertEqual(cold.verify(root / 'point', checksum), value)
             for field in ('namespace', 'claim_uid', 'pv_uid', 'image', 'controller_uid'):

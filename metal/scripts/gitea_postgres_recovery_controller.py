@@ -32,7 +32,12 @@ STATEFULSET_UID = '80aac4a0-46ec-4564-84db-d99c440780e9'
 
 
 class Controller:
-    def __init__(self, kubectl, bundle, *, capture_only=False):
+    def __init__(self, kubectl, bundle, *, capture_only=False, source_image=source.cold.control.IMAGE):
+        if source_image not in (source.cold.control.IMAGE, source.cold.control.MAINTAINED_IMAGE):
+            raise RuntimeError('unreviewed production PostgreSQL source image')
+        if source_image == source.cold.control.MAINTAINED_IMAGE and not capture_only:
+            raise RuntimeError('maintained PostgreSQL source permits capture only, never role recovery')
+        self.source_image = source_image
         self.kubectl = list(kubectl)
         self.bundle = bundle
         self.namespace_uid = None
@@ -121,7 +126,11 @@ class Controller:
                             'app': base64.b64decode(secret['password'], validate=True).decode()}
         pod = next(p for p in pods if p['metadata']['name'] == PG)
         item = {'pod': PG, 'uid': pod['metadata']['uid'], 'container': 'postgresql'}
-        self.hba = self.execute(item, '/bin/cat', '/opt/bitnami/postgresql/conf/pg_hba.conf').stdout
+        if next(s for s in pod['status']['containerStatuses'] if s['name'] == 'postgresql')['imageID'] != self.source_image:
+            raise RuntimeError('production PostgreSQL baseline image differs')
+        hba_path = ('/configuration/pg_hba.conf' if self.source_image == source.cold.control.MAINTAINED_IMAGE
+                    else '/opt/bitnami/postgresql/conf/pg_hba.conf')
+        self.hba = self.execute(item, '/bin/cat', hba_path).stdout
         if hashlib.sha256(self.hba).hexdigest() != '625018986f8ca9e5f4bff3b1e4ffcdc29d4d96d3cd55ed07f02aa514a30f7e05':
             raise RuntimeError('production existing HBA differs')
 
@@ -175,7 +184,7 @@ class Controller:
                     running = next((s for s in statuses if s['name'] == container and s.get('state', {}).get('running')), None)
                     if not running:
                         continue
-                    image = source.cold.control.IMAGE if is_pg else application.IMAGE
+                    image = self.source_image if is_pg else application.IMAGE
                     if running['imageID'] != image:
                         raise RuntimeError('production recovery native image differs')
                     module = source.startup if is_pg else application
@@ -253,7 +262,7 @@ class Controller:
             raise RuntimeError('production PostgreSQL source node is not ready active inventory')
         return {'cluster_uid': common.CLUSTER_UID, 'namespace': NAMESPACE, 'pod': PG,
                 'pod_uid': pg['metadata']['uid'], 'controller_uid': STATEFULSET_UID,
-                'node': node['metadata']['name'], 'container_id': match[1], 'image': source.cold.control.IMAGE,
+                'node': node['metadata']['name'], 'container_id': match[1], 'image': self.source_image,
                 'claim': 'data-gitea-postgresql-0', 'claim_uid': '4d6d356d-ec5d-4f2e-961e-090eae9e0c21',
                 'pv': 'pvc-4d6d356d-ec5d-4f2e-961e-090eae9e0c21',
                 'pv_uid': '5cadac3d-dd99-4e3e-8551-4d165826cf44', 'revision': self.revision,
@@ -314,7 +323,9 @@ class Controller:
         if any(c in password for c in '\r\n\0'):
             raise RuntimeError('production declared credential framing differs')
         script = 'IFS= read -r PGPASSWORD; export PGPASSWORD; exec "$@"'
-        return self.execute(item, '/bin/sh', '-c', script, 'credential-stdin', recovery.BIN + binary,
+        binary_dir = ('/usr/lib/postgresql/16/bin/' if self.source_image == source.cold.control.MAINTAINED_IMAGE
+                      else recovery.BIN)
+        return self.execute(item, '/bin/sh', '-c', script, 'credential-stdin', binary_dir + binary,
                             '-h', '127.0.0.1', '-U', role, *args,
                             data=(password + '\n').encode()).stdout
 

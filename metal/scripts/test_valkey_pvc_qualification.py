@@ -9,6 +9,57 @@ import valkey_pvc_qualification as fixture
 
 
 class QualificationTests(unittest.TestCase):
+    @staticmethod
+    def persistence(count=4, **extra):
+        value = {'aof_rewrites': str(count), 'aof_rewrite_in_progress': '0',
+                 'aof_rewrite_scheduled': '0', 'aof_last_bgrewrite_status': 'ok',
+                 'aof_last_write_status': 'ok', 'aof_pending_bio_fsync': '0'}
+        value.update(extra)
+        return ('\r\n'.join(k + ':' + v for k, v in value.items()) + '\r\n').encode()
+
+    def test_scheduled_rewrite_requires_new_completed_counter_and_fsync(self):
+        instance = fixture.Qualification(['kubectl'])
+        stage = [0]
+        def cli(ordinal, *args):
+            if args == ('BGREWRITEAOF',):
+                return b'Background append only file rewriting scheduled'
+            if stage[0] == 0:
+                return self.persistence()
+            if stage[0] == 1:
+                return self.persistence(aof_rewrite_scheduled='1')
+            if stage[0] == 2:
+                return self.persistence(5, aof_pending_bio_fsync='1')
+            return self.persistence(5)
+        def poll(check, message):
+            for number, expected in ((1, False), (2, False), (3, True)):
+                stage[0] = number
+                self.assertEqual(check(), expected)
+        with patch.object(instance, 'cli', side_effect=cli), patch.object(instance, 'verify') as verify, \
+                patch.object(instance, 'verify_profile') as profile, patch.object(fixture.protocol, 'poll', side_effect=poll):
+            result = instance.rewrite_aofs()
+        self.assertEqual(len(result), 6)
+        self.assertTrue(all(r['before'] == 4 and r['after'] == 5 for r in result))
+        self.assertEqual(verify.call_count, 2)
+        profile.assert_called_once()
+
+    def test_rewrite_rejects_failed_status_and_unknown_reply(self):
+        instance = fixture.Qualification(['kubectl'])
+        for failure in ('aof_last_bgrewrite_status', 'aof_last_write_status'):
+            stage = [False]
+            def cli(ordinal, *args):
+                if args == ('BGREWRITEAOF',):
+                    return b'Background append only file rewriting started'
+                return self.persistence(5, **{failure: 'err'}) if stage[0] else self.persistence()
+            def poll(check, message):
+                stage[0] = True
+                check()
+            with patch.object(instance, 'cli', side_effect=cli), patch.object(instance, 'verify'), \
+                    patch.object(fixture.protocol, 'poll', side_effect=poll), self.assertRaisesRegex(RuntimeError, 'failed'):
+                instance.rewrite_aofs()
+        with patch.object(instance, 'cli', side_effect=[self.persistence(), b'unreviewed reply']), \
+                patch.object(instance, 'verify'), self.assertRaisesRegex(RuntimeError, 'reply differs'):
+            instance.rewrite_aofs()
+
     def test_parent_profile_mismatch_refuses_acceptance(self):
         instance = fixture.Qualification(['kubectl'])
         with patch.object(instance, 'cli', return_value=b'appendonly\nno'), \

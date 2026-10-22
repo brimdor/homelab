@@ -14,18 +14,20 @@ retained = control.retained
 common = control.common
 FORMAT = 'isolated-clean-copy-103-v2'
 GUARDED_FORMAT = 'guarded-production-postgresql-103-v1'
+MAINTAINED_FORMAT = 'guarded-production-postgresql-103-v2'
 
 
-def validate_source(value):
+def validate_source(value, *, image=control.IMAGE):
     """Record the exact production binding; the caller proves its live guard."""
     required = {'cluster_uid', 'namespace', 'pod', 'pod_uid', 'controller_uid', 'node',
                 'container_id', 'image', 'claim', 'claim_uid', 'pv', 'pv_uid',
                 'revision', 'hba_sha256', 'volume', 'guard'}
     try:
-        if (set(value) != required or value['cluster_uid'] != common.CLUSTER_UID or
+        if (image not in (control.IMAGE, control.MAINTAINED_IMAGE) or
+                set(value) != required or value['cluster_uid'] != common.CLUSTER_UID or
                 value['namespace'] != 'gitea' or value['pod'] != 'gitea-postgresql-0' or
                 value['controller_uid'] != '80aac4a0-46ec-4564-84db-d99c440780e9' or
-                value['image'] != control.IMAGE or value['claim'] != 'data-gitea-postgresql-0' or
+                value['image'] != image or value['claim'] != 'data-gitea-postgresql-0' or
                 value['claim_uid'] != '4d6d356d-ec5d-4f2e-961e-090eae9e0c21' or
                 value['pv'] != 'pvc-' + value['claim_uid'] or
                 value['pv_uid'] != '5cadac3d-dd99-4e3e-8551-4d165826cf44' or
@@ -53,10 +55,11 @@ def validate(value):
             if (set(value) != {'format', 'original_manifest_sha256', 'control', 'tree'} or
                     value['original_manifest_sha256'] != control.CHECKSUM):
                 raise ValueError()
-        elif value['format'] == GUARDED_FORMAT:
+        elif value['format'] in (GUARDED_FORMAT, MAINTAINED_FORMAT):
             if set(value) != {'format', 'source', 'control', 'tree'}:
                 raise ValueError()
-            validate_source(value['source'])
+            validate_source(value['source'], image=(control.IMAGE if value['format'] == GUARDED_FORMAT
+                                                   else control.MAINTAINED_IMAGE))
         else:
             raise ValueError()
         if (value['control']['cluster_state'] != 'shut down' or

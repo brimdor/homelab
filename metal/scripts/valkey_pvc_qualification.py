@@ -287,6 +287,47 @@ class Qualification:
                     p.get('aof_last_bgrewrite_status') != 'ok' or p.get('loading') != '0'):
                 raise RuntimeError('synthetic six-PVC persistence state is not healthy')
 
+    def rewrite_aofs(self):
+        """Prove each requested native rewrite completed, including scheduled replies."""
+        self.verify()
+        before, replies = {}, {}
+        for ordinal in range(6):
+            fields = protocol.recovery.info(self.cli(ordinal, 'INFO', 'persistence'))
+            try:
+                before[ordinal] = int(fields['aof_rewrites'])
+                if before[ordinal] < 0:
+                    raise ValueError()
+            except (KeyError, ValueError, TypeError):
+                raise RuntimeError('synthetic native AOF rewrite counter missing or invalid') from None
+            reply = self.cli(ordinal, 'BGREWRITEAOF')
+            if reply not in (b'Background append only file rewriting started',
+                             b'Background append only file rewriting scheduled'):
+                raise RuntimeError('synthetic native AOF rewrite reply differs')
+            replies[ordinal] = reply.decode()
+        completed = {}
+        def rewritten():
+            for ordinal in range(6):
+                fields = protocol.recovery.info(self.cli(ordinal, 'INFO', 'persistence'))
+                try:
+                    count = int(fields['aof_rewrites'])
+                    if count < before[ordinal]:
+                        raise ValueError()
+                except (KeyError, ValueError, TypeError):
+                    raise RuntimeError('synthetic native AOF rewrite counter missing, reset or invalid') from None
+                if any(fields.get(k) == 'err' for k in ('aof_last_bgrewrite_status', 'aof_last_write_status')):
+                    raise RuntimeError('synthetic native AOF rewrite or write failed')
+                if count <= before[ordinal] or any(fields.get(k) != v for k, v in {
+                        'aof_rewrite_in_progress': '0', 'aof_rewrite_scheduled': '0',
+                        'aof_last_bgrewrite_status': 'ok', 'aof_last_write_status': 'ok',
+                        'aof_pending_bio_fsync': '0'}.items()):
+                    return False
+                completed[ordinal] = count
+            return True
+        protocol.poll(rewritten, 'synthetic native AOF rewrite/fsync did not complete')
+        self.verify()
+        self.verify_profile()
+        return [{'ordinal': n, 'before': before[n], 'after': completed[n], 'reply': replies[n]} for n in range(6)]
+
     def failover(self, replica, masters):
         assert self.cli(replica, 'CLUSTER', 'FAILOVER') == b'OK'
         self.verify(masters)

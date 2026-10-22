@@ -27,20 +27,29 @@ CONTROLLER = ['/bin/bash', '-ceu', startup.CLAIM, 'maintenance-103-controller',
 CAPTURE_CONTROLLER = ['/bin/bash', '-ceu', startup.CAPTURE_CLAIM]
 STARTUP = ['/bin/bash', '-eu', '/maintenance-103/startup.sh',
            '/opt/bitnami/scripts/postgresql/entrypoint.sh', '/opt/bitnami/scripts/postgresql/run.sh']
+MAINTAINED_STARTUP = ['/bin/bash', '-eu', '/maintenance-103/startup.sh',
+                      '/bin/bash', '/configuration/postgres-startup.sh']
+MAINTAINED_READINESS = ['/usr/lib/postgresql/16/bin/pg_isready', '-h', '127.0.0.1',
+                        '-p', '5432', '-U', 'gitea', '-d', 'gitea']
 READINESS = ['pg_isready', '-U', 'gitea', '-d', 'dbname=gitea', '-h', '127.0.0.1', '-p', '5432']
 READINESS_SHELL = ['/bin/sh', '-c', '-e',
                    'exec pg_isready -U "gitea" -d "dbname=gitea" -h 127.0.0.1 -p 5432\n'
                    '[ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]\n']
 
 
-def guard_tasks(tasks, main_pid, namespace_pid):
+def guard_tasks(tasks, main_pid, namespace_pid, *, image=cold.control.IMAGE):
     # Readiness remains enabled: admit only its exact existing read-only command.
-    idle = {pid: item for pid, item in tasks.items()
-            if item[2] not in (READINESS, [recovery.BIN + 'pg_isready', *READINESS[1:]], READINESS_SHELL)}
-    if len(idle) != 3 or main_pid not in idle or idle[main_pid][1:] != (1, STARTUP):
+    if image not in (cold.control.IMAGE, cold.control.MAINTAINED_IMAGE):
+        raise RuntimeError('unreviewed held PostgreSQL image')
+    maintained = image == cold.control.MAINTAINED_IMAGE
+    probes = (MAINTAINED_READINESS,) if maintained else (
+        READINESS, [recovery.BIN + 'pg_isready', *READINESS[1:]], READINESS_SHELL)
+    idle = {pid: item for pid, item in tasks.items() if item[2] not in probes}
+    if len(idle) != 3 or main_pid not in idle or idle[main_pid][1:] != (1, MAINTAINED_STARTUP if maintained else STARTUP):
         raise RuntimeError('held PostgreSQL startup task set differs')
     holders = [(pid, item) for pid, item in idle.items()
-               if item[1] == namespace_pid and item[2] in (CONTROLLER, CAPTURE_CONTROLLER)]
+               if item[1] == namespace_pid and item[2] in
+               ((CAPTURE_CONTROLLER,) if maintained else (CONTROLLER, CAPTURE_CONTROLLER))]
     waiters = [item for item in idle.values() if item[2] == ['flock', '--exclusive', '9']]
     if len(holders) != 1 or len(waiters) != 1:
         raise RuntimeError('held PostgreSQL controller or blocked ordinary startup missing')
@@ -79,19 +88,22 @@ def parse_sync_control(raw):
 def observe(core, namespace_pid):
     """Return a binding only when all native tasks are the reviewed idle guard."""
     if (not isinstance(core, dict) or core.get('namespace') != 'gitea' or
-            core.get('pod') != 'gitea-postgresql-0' or core.get('image') != cold.control.IMAGE or
+            core.get('pod') != 'gitea-postgresql-0' or
+            core.get('image') not in (cold.control.IMAGE, cold.control.MAINTAINED_IMAGE) or
             core.get('pv') != 'pvc-4d6d356d-ec5d-4f2e-961e-090eae9e0c21' or
             not re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}', core.get('pod_uid', '')) or
             not re.fullmatch('[a-f0-9]{64}', core.get('container_id', '')) or
             type(namespace_pid) is not int or namespace_pid <= 1):
         raise RuntimeError('unreviewed held PostgreSQL runtime request')
     common.require_host(core['node'])
+    maintained = core['image'] == cold.control.MAINTAINED_IMAGE
+    expected_startup = MAINTAINED_STARTUP if maintained else STARTUP
     cid = core['container_id']
     value = json.loads(common.command([*CRI, 'inspect', cid]).stdout)
     status, info = value['status'], value['info']
     if (status['id'] != cid or status['state'] != 'CONTAINER_RUNNING' or
-            status['imageRef'] != cold.control.IMAGE or status['metadata']['name'] != 'postgresql' or
-            info['runtimeSpec']['process']['args'] != STARTUP or
+            status['imageRef'] != core['image'] or status['metadata']['name'] != 'postgresql' or
+            info['runtimeSpec']['process']['args'] != expected_startup or
             info['runtimeSpec']['process']['user'] != {'uid': 1001, 'gid': 1001, 'additionalGids': [1001]}):
         raise RuntimeError('held PostgreSQL immutable runtime differs')
     labels = status['labels']
@@ -110,6 +122,14 @@ def observe(core, namespace_pid):
     if any(p.is_symlink() for p in (root, *root.parents)):
         raise RuntimeError('held PostgreSQL CSI ancestry differs')
     mounted = Path('/proc') / str(info['pid']) / 'root/bitnami/postgresql'
+    if maintained:
+        # Verify the deployed public overlay, not merely its image or mount names.
+        import gitea_postgres_maintained_qualification as candidate
+        native_root = Path('/proc') / str(info['pid']) / 'root'
+        for name, target in candidate.TARGETS.items():
+            runtime_file = native_root / target.lstrip('/')
+            if runtime_file.is_symlink() or hashlib.sha256(runtime_file.read_bytes()).hexdigest() != candidate.FILES[name]:
+                raise RuntimeError('held maintained PostgreSQL runtime overlay differs')
     a, b = root.stat(), mounted.stat()
     if (a.st_dev, a.st_ino) != (b.st_dev, b.st_ino) or (root / 'data/postmaster.pid').exists():
         raise RuntimeError('held PostgreSQL volume differs or postmaster exists')
@@ -126,7 +146,7 @@ def observe(core, namespace_pid):
     if any(core['pod_uid'].replace('-', '_') not in item[0]['cgroup'] or cid not in item[0]['cgroup']
            for item in tasks.values()):
         raise RuntimeError('held PostgreSQL task escaped the exact Pod/runtime cgroup')
-    host_pid, holder = guard_tasks(tasks, info['pid'], namespace_pid)
+    host_pid, holder = guard_tasks(tasks, info['pid'], namespace_pid, image=core['image'])
     lock = (guard / 'lock').stat()
     descriptor = (Path('/proc') / str(host_pid) / 'fd/9').stat()
     if (lock.st_dev, lock.st_ino) != (descriptor.st_dev, descriptor.st_ino):
@@ -143,9 +163,10 @@ def observe(core, namespace_pid):
         'volume': {'source': str(root), 'device': a.st_dev, 'inode': a.st_ino},
         'guard': {'namespace_pid': namespace_pid, 'host_pid': host_pid,
                   'start_ticks': int(holder[0]['start_ticks']),
-                  'lock_device': lock.st_dev, 'lock_inode': lock.st_ino}})
+                  'lock_device': lock.st_dev, 'lock_inode': lock.st_ino}}, image=core['image'])
+    entry = '/usr/lib/postgresql/16/bin/pg_controldata' if maintained else cold.control.ENTRY
     state = parse_sync_control(common.command(
-        [*CRI, 'exec', '--sync', cid, '/usr/bin/env', 'LC_ALL=C', cold.control.ENTRY, recovery.DATA]).stdout)
+        [*CRI, 'exec', '--sync', cid, '/usr/bin/env', 'LC_ALL=C', entry, recovery.DATA]).stdout)
     if state['cluster_state'] != 'shut down':
         raise RuntimeError('held PostgreSQL data is not cleanly shut down')
     return binding, state
@@ -156,7 +177,10 @@ def capture(core, namespace_pid, run_id):
     before, state = observe(core, namespace_pid)
     common.private_root()
     point = common.ROOT / ('gitea-postgres-guarded-' + run_id)
-    value, checksum = cold.capture(Path(before['volume']['source']), point, state, source_binding=before)
+    source_format = (cold.MAINTAINED_FORMAT if before['image'] == cold.control.MAINTAINED_IMAGE
+                     else cold.GUARDED_FORMAT)
+    value, checksum = cold.capture(Path(before['volume']['source']), point, state, source_binding=before,
+                                   source_format=source_format)
     if observe(core, namespace_pid) != (before, state):
         raise RuntimeError('held PostgreSQL source changed; protected point retained, not accepted')
     return {'point': str(point), 'manifest_sha256': checksum, 'source': value['source'], 'control': state}
@@ -164,7 +188,7 @@ def capture(core, namespace_pid, run_id):
 
 def send(point, checksum, expected, output):
     value = cold.verify(point, checksum)
-    if value['format'] != cold.GUARDED_FORMAT or value['source'] != expected:
+    if value['format'] not in (cold.GUARDED_FORMAT, cold.MAINTAINED_FORMAT) or value['source'] != expected:
         raise RuntimeError('guarded PostgreSQL transfer point binding differs')
     core = {k: v for k, v in expected.items() if k not in {'volume', 'guard'}}
     check = lambda: observe(core, expected['guard']['namespace_pid']) == (expected, value['control'])

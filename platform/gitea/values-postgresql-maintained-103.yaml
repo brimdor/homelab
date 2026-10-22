@@ -1,0 +1,78 @@
+# Dormant profile: qualify protected copies and fresh recovery before activation.
+maintenance103PostgresMaintained:
+  enabled: true
+gitea:
+  postgresql:
+    global:
+      security:
+        allowInsecureImages: true
+    image:
+      registry: docker.io
+      repository: library/postgres
+      tag: 16.15-bookworm
+      digest: sha256:d81f7b51697014367236d07ec58b54153fc28f828b72bf247fe5c7487520bcb0
+      pullPolicy: IfNotPresent
+    primary:
+      command:
+        - /bin/bash
+        - /configuration/postgres-startup.sh
+      args: []
+      customStartupProbe:
+        exec: &id001
+          command:
+            - /usr/lib/postgresql/16/bin/pg_isready
+            - -h
+            - 127.0.0.1
+            - -p
+            - '5432'
+            - -U
+            - gitea
+            - -d
+            - gitea
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 60
+      customLivenessProbe: &id002
+        exec: *id001
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 12
+      customReadinessProbe: *id002
+      extraVolumes:
+        - name: maintained-postgresql-103
+          configMap:
+            name: gitea-maintained-postgresql-103
+            defaultMode: 292
+      extraVolumeMounts:
+        - name: maintained-postgresql-103
+          mountPath: /configuration/postgres-startup.sh
+          subPath: postgres-startup.sh
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /configuration/postgresql.conf
+          subPath: postgresql.conf
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /configuration/pg_hba.conf
+          subPath: pg_hba.conf
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/lib/postgresql/16/lib/pgaudit.so
+          subPath: pgaudit.so
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/share/postgresql/16/extension/pgaudit.control
+          subPath: pgaudit.control
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/share/postgresql/16/extension/pgaudit--16.1.sql
+          subPath: pgaudit--16.1.sql
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /usr/share/postgresql/16/extension/pgaudit--16.0--16.1.sql
+          subPath: pgaudit--16.0--16.1.sql
+          readOnly: true
+        - name: maintained-postgresql-103
+          mountPath: /configuration/pgaudit-copyright
+          subPath: pgaudit-copyright
+          readOnly: true

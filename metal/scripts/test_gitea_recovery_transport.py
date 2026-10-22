@@ -11,6 +11,24 @@ import gitea_recovery_transport as transport
 
 
 class TransportTests(unittest.TestCase):
+    def test_maintained_postgres_dispatch_uses_exact_complete_native_frame(self):
+        root = Path(__file__).resolve().parents[2]
+        bundle = object.__new__(transport.Bundle)
+        bundle.sources = {name: (root / 'metal/scripts' / (name + '.py')).read_text()
+                          for name in transport.MODULES}
+        bundle.profiles = json.loads((root / 'metal/maintenance/gitea-postgres-files-103.json').read_text())
+        bundle.sources['gitea_postgres_maintained_qualification'] = (
+            "def run(point,checksum,credentials,hba,run_id,payload):\n"
+            " assert str(point)=='/synthetic' and checksum=='synthetic-checksum'\n"
+            " assert credentials=={} and hba==b'synthetic-hba' and run_id=='synthetic-copy' and payload=={}\n"
+            " return {'synthetic_maintained_dispatch':True}\n")
+        args = {'point': '/synthetic', 'checksum': 'synthetic-checksum', 'credentials': {},
+                'hba': 'c3ludGhldGljLWhiYQ==', 'run_id': 'synthetic-copy', 'payload': {}}
+        child = subprocess.run([sys.executable, '-I', '-B', '-c', transport.BOOT],
+                               input=bundle.request('postgres_image_qualify', args), capture_output=True)
+        self.assertEqual((child.returncode, child.stderr), (0, b''))
+        self.assertEqual(json.loads(child.stdout), {'synthetic_maintained_dispatch': True})
+
     def test_source_aof_tasks_cross_actual_frame_with_synthetic_implementations(self):
         root=Path(__file__).resolve().parents[2]
         bundle=object.__new__(transport.Bundle)

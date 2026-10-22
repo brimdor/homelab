@@ -80,7 +80,8 @@ def store(run_id, value):
                 value['proofs']['valkey'].get('actual_source_aofs_complete_before_replication') is not True or
                 value['proofs']['valkey'].get('source_aof_manifest_sha256') != source_aof['manifest_sha256']):
             raise RuntimeError('joint actual source AOF provenance or independent recovery differs')
-    if (pg['format'] != cold.GUARDED_FORMAT or not Path(refs['postgres']['point']).name.startswith('gitea-postgres-guarded-') or
+    if (pg['format'] not in (cold.GUARDED_FORMAT, cold.MAINTAINED_FORMAT) or
+            not Path(refs['postgres']['point']).name.startswith('gitea-postgres-guarded-') or
             not Path(refs['shared']['point']).name.startswith('gitea-shared-guarded-') or str(path) != refs['valkey']['point'] or
             {pg['source']['revision'], files['source']['revision']} |
             {s['revision'] for s in cache['sources'].values()} != {value['profile_revision']}):

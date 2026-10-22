@@ -4,6 +4,9 @@ configJob:
 maintenance103Recovery:
   enabled: false
 
+maintenance103PostgresMaintained:
+  enabled: false
+
 gitea:
   strategy:
     type: Recreate

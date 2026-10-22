@@ -58,6 +58,19 @@ class GuardedSourceTests(unittest.TestCase):
             host.assert_not_called()
             command.assert_not_called()
 
+    def test_maintained_guard_requires_exact_capture_only_tasks_and_probe(self):
+        image = source.cold.control.MAINTAINED_IMAGE
+        tasks = {100: ({}, 1, source.MAINTAINED_STARTUP),
+                 101: ({}, 10, source.CAPTURE_CONTROLLER),
+                 102: ({}, 11, ['flock', '--exclusive', '9']),
+                 103: ({}, 12, source.MAINTAINED_READINESS)}
+        self.assertEqual(source.guard_tasks(tasks, 100, 10, image=image)[0], 101)
+        for pid, command in ((100, source.STARTUP), (101, source.CONTROLLER), (103, source.READINESS)):
+            changed = copy.deepcopy(tasks)
+            changed[pid] = (*changed[pid][:2], command)
+            with self.assertRaises(RuntimeError):
+                source.guard_tasks(changed, 100, 10, image=image)
+
     def test_running_original_postmaster_cannot_be_captured(self):
         core = {'namespace': 'gitea', 'pod': 'gitea-postgresql-0', 'image': source.cold.control.IMAGE,
                 'pv': 'pvc-4d6d356d-ec5d-4f2e-961e-090eae9e0c21',
@@ -74,7 +87,7 @@ class GuardedSourceTests(unittest.TestCase):
             self.assertEqual(command.call_count, 1)
 
     def test_capture_requires_same_guard_and_control_after_copy(self):
-        binding = {'volume': {'source': '/exact/verified/source'}}
+        binding = {'volume': {'source': '/exact/verified/source'}, 'image': source.cold.control.IMAGE}
         state = {'cluster_state': 'shut down'}
         changed = copy.deepcopy(binding)
         changed['volume']['source'] = '/changed/source'
