@@ -243,10 +243,11 @@ def run(run_id, observer):
             # Helpers raise fixed messages; private protocol errors never embed replies.
             result['failure_reason'] = str(error)
     finally:
-        allocated = sum(p.stat().st_blocks * 512 for p in scratch.rglob('*') if p.is_file())
         if identity:
             recovery.require_isolation(common.inspect(identity), scratch, run_id, mount)
             common.docker('rm', '-f', identity)
+        # Stop native writers before walking files that they can rename.
+        allocated = sum(p.stat().st_blocks * 512 for p in scratch.rglob('*') if p.is_file())
         shutil.rmtree(scratch)
         for image in images - before:
             if not common.docker('ps', '-aq', '--filter=ancestor=' + image).stdout.strip():
