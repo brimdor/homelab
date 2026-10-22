@@ -191,6 +191,15 @@ class RecoveryContract(unittest.TestCase):
         self.assertEqual(execute.call_count, 2)
         self.assertTrue(all('input' not in c.kwargs for c in execute.call_args_list))
 
+    def test_native_negative_fixture_requires_postgres_port_error(self):
+        diagnostic = b'FATAL: invalid value for parameter "port": "invalid-port-fixture"\n'
+        def execute(_container, *args, **_kwargs):
+            return SimpleNamespace(returncode=int(args[0] == '/usr/bin/env'),
+                                   stdout=b'', stderr=diagnostic if args[0] == '/usr/bin/env' else b'')
+        with patch.dict(recovery.VENDOR_HASHES, {}, clear=True), \
+                patch.object(recovery, 'execute', side_effect=execute):
+            recovery.normal_start('owned', {'app': 'fixture', 'admin': 'fixture'}, b'hba', True)
+
 
 if __name__ == '__main__':
     unittest.main()

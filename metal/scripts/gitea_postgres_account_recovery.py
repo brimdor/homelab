@@ -230,8 +230,11 @@ printf '%s' "$admin_password" > /opt/bitnami/postgresql/secrets/postgres-passwor
     if expected_failure:
         response = execute(container, *native, allow_error=True)
         diagnostics = response.stdout + response.stderr
-        if response.returncode != 1 or b'POSTGRESQL_PORT_NUMBER' not in diagnostics:
-            raise RuntimeError('copied vendor invalid-port refusal differs; raw output discarded')
+        if (response.returncode != 1 or
+                b'invalid value for parameter "port": "invalid-port-fixture"' not in diagnostics or
+                re.search(rb'Permission denied|permission denied|PANIC:', diagnostics)):
+            raise RuntimeError('copied vendor invalid-port refusal differs; exit=' + str(response.returncode) +
+                               '; classes=' + ','.join(error_classes(diagnostics)) + '; raw output discarded')
         execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
         return
     # All child output stays in container tmpfs; Docker/CRI/journald logging remains disabled.
