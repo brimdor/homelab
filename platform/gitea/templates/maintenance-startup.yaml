@@ -7,4 +7,6 @@ metadata:
 data:
   startup.sh: |
 {{ .Files.Get "files/maintenance-startup.sh" | indent 4 }}
+  gitea-init.sh: |
+{{ .Files.Get "files/maintenance-gitea-init.sh" | indent 4 }}
 {{- end }}
