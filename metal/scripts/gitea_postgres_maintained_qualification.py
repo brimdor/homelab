@@ -147,7 +147,9 @@ def candidate_start(container):
     legacy.execute(container, '/bin/sh', '-ceu',
         '"$@" > /tmp/maintained-start.log 2>&1 &', 'maintained-start', '/bin/bash', '/configuration/postgres-startup.sh')
     end = time.monotonic() + 60
-    while legacy.execute(container, BIN + 'pg_isready', '-h', '127.0.0.1', '-p', '5432', allow_error=True).returncode:
+    # The existing UID 1001 is absent from the official image's static passwd file.
+    while legacy.execute(container, BIN + 'pg_isready', '-h', '127.0.0.1', '-p', '5432',
+                         '-U', 'gitea', '-d', 'gitea', allow_error=True).returncode:
         if time.monotonic() > end:
             raw = legacy.execute(container, '/bin/cat', '/tmp/maintained-start.log').stdout
             phases = sorted(set(re.findall(rb'HOMELAB103:STARTUP-FAILED:([a-z-]+)', raw)))
