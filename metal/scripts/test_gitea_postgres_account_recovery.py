@@ -146,6 +146,43 @@ class RecoveryContract(unittest.TestCase):
             with patch.object(recovery, 'execute', return_value=response), self.assertRaises(RuntimeError):
                 recovery.single('owned', b'fixture', expected_failure=True)
 
+    def test_native_entrypoint_uses_original_environment_and_tmpfs_credentials(self):
+        hba = b'reviewed md5 fixture'
+        def execute(_container, *args, **_kwargs):
+            output = b''
+            if args == ('/bin/cat', '/opt/bitnami/postgresql/conf/pg_hba.conf'):
+                output = hba
+            return SimpleNamespace(returncode=0, stdout=output, stderr=b'')
+        with patch.dict(recovery.VENDOR_HASHES, {}, clear=True), \
+                patch.object(recovery, 'execute', side_effect=execute) as native, \
+                patch.object(recovery, 'client', return_value=b'gitea|gitea|pgaudit|/opt/bitnami/postgresql/conf/pg_hba.conf|f\n'):
+            recovery.normal_start('owned', {'app': 'private-app', 'admin': 'private-admin'}, hba)
+        self.assertNotIn('private-app', str([c.args for c in native.call_args_list]))
+        self.assertNotIn('private-admin', str([c.args for c in native.call_args_list]))
+        self.assertEqual(native.call_args_list[1].kwargs['input'], b'private-app\nprivate-admin\n')
+        startup = native.call_args_list[2].args
+        self.assertIn('/opt/bitnami/scripts/postgresql/entrypoint.sh', startup)
+        self.assertIn('/opt/bitnami/scripts/postgresql/run.sh', startup)
+        self.assertIn('POSTGRESQL_SHARED_PRELOAD_LIBRARIES=pgaudit', startup)
+        for name in ('conf', 'tmp', 'secrets'):
+            self.assertIn('/opt/bitnami/postgresql/' + name, recovery.TMPFS)
+
+    def test_native_startup_refuses_hba_drift_and_unproven_negative_fixture(self):
+        def execute(_container, *args, **_kwargs):
+            return SimpleNamespace(returncode=0, stdout=b'changed', stderr=b'')
+        with patch.dict(recovery.VENDOR_HASHES, {}, clear=True), \
+                patch.object(recovery, 'execute', side_effect=execute):
+            for failed in (False, True):
+                with self.assertRaises(RuntimeError):
+                    recovery.normal_start('owned', {'app': 'fixture', 'admin': 'fixture'}, b'original', failed)
+
+    def test_native_startup_refuses_changed_vendor_code_before_credentials(self):
+        with patch.object(recovery, 'execute', return_value=SimpleNamespace(stdout=b'changed')) as execute:
+            with self.assertRaises(RuntimeError):
+                recovery.normal_start('owned', {'app': 'private', 'admin': 'private'}, b'hba')
+        self.assertEqual(execute.call_count, 2)
+        self.assertTrue(all('input' not in c.kwargs for c in execute.call_args_list))
+
 
 if __name__ == '__main__':
     unittest.main()

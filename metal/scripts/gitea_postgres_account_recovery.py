@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 
 import gitea_postgres_control as control
 import point_postgres_recovery as logical
@@ -18,6 +19,22 @@ BIN = '/opt/bitnami/postgresql/bin/'
 DATA = '/bitnami/postgresql/data'
 ENV = {'LC_ALL': 'C', 'LANG': 'C', 'PG_COLOR': 'never'}
 TMPFS = {'/tmp': 'rw,nosuid,nodev,uid=1001,gid=1001,mode=1777'}
+for directory in ('conf', 'tmp', 'secrets'):
+    TMPFS['/opt/bitnami/postgresql/' + directory] = 'rw,nosuid,nodev,uid=1001,gid=1001,mode=0700'
+NATIVE_ENV = {'BITNAMI_DEBUG': 'false', 'POSTGRESQL_PORT_NUMBER': '5432',
+              'POSTGRESQL_VOLUME_DIR': '/bitnami/postgresql', 'PGDATA': DATA,
+              'POSTGRES_USER': 'gitea', 'POSTGRES_DATABASE': 'gitea',
+              'POSTGRES_PASSWORD_FILE': '/opt/bitnami/postgresql/secrets/password',
+              'POSTGRES_POSTGRES_PASSWORD_FILE': '/opt/bitnami/postgresql/secrets/postgres-password',
+              'POSTGRESQL_ENABLE_LDAP': 'no', 'POSTGRESQL_ENABLE_TLS': 'no',
+              'POSTGRESQL_LOG_HOSTNAME': 'false', 'POSTGRESQL_LOG_CONNECTIONS': 'false',
+              'POSTGRESQL_LOG_DISCONNECTIONS': 'false', 'POSTGRESQL_PGAUDIT_LOG_CATALOG': 'off',
+              'POSTGRESQL_CLIENT_MIN_MESSAGES': 'error', 'POSTGRESQL_SHARED_PRELOAD_LIBRARIES': 'pgaudit'}
+VENDOR_HASHES = {'postgresql/entrypoint.sh': '5fc7a4ba859787e049e36cb56a1c7feae00e7d1c5b360980855b3153ca730868',
+                 'postgresql/setup.sh': '84c037ec77279c74b9dde81a685aae6dc4cc8a844a56a04af8f301b992db2d45',
+                 'postgresql/run.sh': 'f5c6976e50ce3999ad0dab79c16e995e37ddf6eb070e5573d1e19db478cd8f3f',
+                 'postgresql-env.sh': '9ffffeccb6bc0daff1440524e1940ca15eef5dfa4212dfcd40c34614c091d28c',
+                 'libpostgresql.sh': '025de015e66349725729e498fe71e6d5a8adb0b10271965e5f39809157869820'}
 NSS_LIBRARY = '/opt/bitnami/common/lib/libnss_wrapper.so.0.3.5'
 NSS_SHA256 = 'aee52fd8be9d5786b51449cd4e6ba1d6dce94ddfe34cd793bd31b4ea080f36d1'
 MISSING_USER = b'postgres: could not look up effective user ID 1001: user does not exist\n'
@@ -106,7 +123,9 @@ def arguments(work, volumes, run_id):
     args = ['create', '--network=none', '--read-only', '--log-driver=none', '--no-healthcheck',
             '--cap-drop=ALL', '--security-opt=no-new-privileges:true', '--user=1001:1001',
             '--workdir=/tmp', '--pids-limit=128', '--memory=1g', '--cpus=1',
-            '--label=' + LABEL + '=' + run_id, '--tmpfs=/tmp:' + TMPFS['/tmp']]
+            '--label=' + LABEL + '=' + run_id]
+    for target, options in TMPFS.items():
+        args.append('--tmpfs=' + target + ':' + options)
     for key, value in ENV.items():
         args.extend(['--env', key + '=' + value])
     for target, source in mounts(work, volumes).items():
@@ -177,13 +196,60 @@ def single(container, sql, expected_failure=False):
     return response
 
 
-def client(container, password, role, binary, *args):
+def client(container, password, role, binary, *args, host='/tmp'):
     # The password travels only on attached stdin into the child environment.
     if '\n' in password or '\r' in password:
         raise RuntimeError('newline in declared credential refused')
     script = 'IFS= read -r PGPASSWORD; export PGPASSWORD; exec "$@"'
     return execute(container, '/bin/sh', '-c', script, 'credential-stdin', BIN + binary,
-                   '-h', '/tmp', '-U', role, *args, input=(password + '\n').encode()).stdout
+                   '-h', host, '-U', role, *args, input=(password + '\n').encode()).stdout
+
+
+def normal_start(container, credentials, hba, expected_failure=False):
+    """Exercise the original image entrypoint on copies with native tmpfs mounts."""
+    execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
+    for path, checksum in VENDOR_HASHES.items():
+        if hashlib.sha256(execute(container, '/bin/cat', '/opt/bitnami/scripts/' + path).stdout).hexdigest() != checksum:
+            raise RuntimeError('reviewed vendor startup source changed')
+    if any(not isinstance(p, str) or not p or any(c in p for c in '\n\r\0') for p in credentials.values()):
+        raise RuntimeError('existing copied startup credential format differs')
+    script = '''umask 077
+IFS= read -r app_password
+IFS= read -r admin_password
+printf '%s' "$app_password" > /opt/bitnami/postgresql/secrets/password
+printf '%s' "$admin_password" > /opt/bitnami/postgresql/secrets/postgres-password
+'''
+    execute(container, '/bin/sh', '-ceu', script,
+            input=(credentials['app'] + '\n' + credentials['admin'] + '\n').encode())
+    environment = dict(NATIVE_ENV)
+    if expected_failure:
+        environment['POSTGRESQL_PORT_NUMBER'] = 'invalid-port-fixture'
+    native = ['/usr/bin/env', *[k + '=' + v for k, v in environment.items()],
+              '/opt/bitnami/scripts/postgresql/entrypoint.sh', '/opt/bitnami/scripts/postgresql/run.sh']
+    if expected_failure:
+        response = execute(container, *native, allow_error=True)
+        diagnostics = response.stdout + response.stderr
+        if response.returncode != 1 or b'POSTGRESQL_PORT_NUMBER' not in diagnostics:
+            raise RuntimeError('copied vendor invalid-port refusal differs; raw output discarded')
+        execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
+        return
+    # All child output stays in container tmpfs; Docker/CRI/journald logging remains disabled.
+    execute(container, '/bin/sh', '-ceu', '"$@" > /tmp/vendor-start.log 2>&1 &', 'native-start', *native)
+    deadline = time.monotonic() + 60
+    while execute(container, BIN + 'pg_isready', '-h', '127.0.0.1', '-p', '5432',
+                  '-U', 'gitea', '-d', 'gitea', allow_error=True).returncode:
+        if time.monotonic() >= deadline:
+            raw = execute(container, '/bin/cat', '/tmp/vendor-start.log').stdout
+            raise RuntimeError('copied vendor startup not ready; classes=' + ','.join(error_classes(raw)) +
+                               '; raw output discarded')
+        time.sleep(0.1)
+    if execute(container, '/bin/cat', '/opt/bitnami/postgresql/conf/pg_hba.conf').stdout != hba:
+        raise RuntimeError('ordinary copied startup changed source HBA')
+    result = client(container, credentials['app'], 'gitea', 'psql', '-XAtq', '-d', 'gitea', '-c',
+                    "SELECT current_user,current_database(),current_setting('shared_preload_libraries'),"
+                    "current_setting('hba_file'),pg_is_in_recovery()", host='127.0.0.1')
+    if result != b'gitea|gitea|pgaudit|/opt/bitnami/postgresql/conf/pg_hba.conf|f\n':
+        raise RuntimeError('ordinary copied TCP application authentication or native configuration differs')
 
 
 def start(container):
@@ -241,7 +307,7 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         if not pid.is_file() or pid.is_symlink():
             raise RuntimeError('reviewed historical copied lock missing')
         pid.unlink()
-        start(container)
+        normal_start(container, credentials, hba)
         before_dump = dumps(container, credentials['app'], 'gitea')
         stop(container)
         failed_uid = execute(container, BIN + 'postgres', '--single', '-D', DATA, *OPTIONS, 'postgres',
@@ -249,25 +315,31 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         if failed_uid.returncode != 1 or failed_uid.stdout or failed_uid.stderr != MISSING_USER:
             raise RuntimeError('unwrapped standalone UID failure differs from exact upstream source')
         baseline = parse_catalog(single(container, catalog_sql().encode()).stdout)
+        normal_start(container, credentials, hba, expected_failure=True)
+        if parse_catalog(single(container, catalog_sql().encode()).stdout) != baseline:
+            raise RuntimeError('copied vendor startup refusal changed authorization')
         for mode in ('rollback', 'failed', 'interrupted'):
             single(container, role_transaction(credentials['admin'], mode), expected_failure=mode == 'failed')
             if parse_catalog(single(container, catalog_sql().encode()).stdout) != baseline:
                 raise RuntimeError('copied aborted transaction changed authorization')
-            start(container)
+            normal_start(container, credentials, hba)
             if dumps(container, credentials['app'], 'gitea') != before_dump:
                 raise RuntimeError('copied aborted recovery changed logical data')
             stop(container)
+            if parse_catalog(single(container, catalog_sql().encode()).stdout) != baseline:
+                raise RuntimeError('ordinary copied startup changed authorization')
         single(container, role_transaction(credentials['admin'], 'commit'))
         after = parse_catalog(single(container, catalog_sql().encode()).stdout)
         require_role_only(baseline, after, credentials['admin'])
-        start(container)
+        normal_start(container, credentials, hba)
         if client(container, credentials['admin'], 'postgres', 'psql', '-XAtq', '-d', 'postgres', '-c',
-                  'SELECT current_user') != b'postgres\n':
+                  'SELECT current_user', host='127.0.0.1') != b'postgres\n':
             raise RuntimeError('normal copied administrator authentication differs')
         after_dump = dumps(container, credentials['admin'], 'postgres')
         if after_dump != before_dump or dumps(container, credentials['app'], 'gitea') != before_dump:
             raise RuntimeError('copied recovery changed full logical schema/records/sequences')
         state = stop(container)
+        require_role_only(baseline, parse_catalog(single(container, catalog_sql().encode()).stdout), credentials['admin'])
         if execute(container, '/bin/cat', '/tmp/source-hba.conf').stdout != hba:
             raise RuntimeError('copied HBA changed')
         require_container(common.inspect(container), work, volumes, run_id, image_id)
@@ -278,6 +350,9 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 'interrupted_transaction_unchanged': True,
                 'admin_and_application_normal_md5_auth': True, 'source_hba_unchanged': True,
                 'native_vendor_nss_wrapper_same_uid_gid': True,
+                'original_vendor_entrypoint_setup_run': True, 'native_pgaudit_loaded': True,
+                'ordinary_tcp_application_authentication': True,
+                'invalid_port_startup_refusal_and_ordinary_fallback': True,
                 'native_crash_recovery_and_clean_shutdown': True, 'control': state}
     finally:
         if container:
