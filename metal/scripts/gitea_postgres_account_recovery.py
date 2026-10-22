@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -245,10 +246,22 @@ printf '%s' "$admin_password" > /opt/bitnami/postgresql/secrets/postgres-passwor
         time.sleep(0.1)
     if execute(container, '/bin/cat', '/opt/bitnami/postgresql/conf/pg_hba.conf').stdout != hba:
         raise RuntimeError('ordinary copied startup changed source HBA')
+    options = shlex.split(execute(container, '/bin/cat', DATA + '/postmaster.opts').stdout.decode())
+    if options != [BIN + 'postgres', '-D', DATA,
+                   '--config-file=/opt/bitnami/postgresql/conf/postgresql.conf',
+                   '--external_pid_file=/opt/bitnami/postgresql/tmp/postgresql.pid',
+                   '--hba_file=/opt/bitnami/postgresql/conf/pg_hba.conf']:
+        raise RuntimeError('ordinary copied postmaster arguments differ')
+    maps = execute(container, '/bin/sh', '-ceu', '''IFS= read -r server_pid < /bitnami/postgresql/data/postmaster.pid
+case "$server_pid" in ''|*[!0-9]*) exit 1;; esac
+cat "/proc/$server_pid/maps"
+''').stdout
+    if b'/opt/bitnami/postgresql/lib/pgaudit.so' not in maps:
+        raise RuntimeError('ordinary copied postmaster did not load pgaudit')
+    # Application authentication must succeed without granting protected-settings privileges.
     result = client(container, credentials['app'], 'gitea', 'psql', '-XAtq', '-d', 'gitea', '-c',
-                    "SELECT current_user,current_database(),current_setting('shared_preload_libraries'),"
-                    "current_setting('hba_file'),pg_is_in_recovery()", host='127.0.0.1')
-    if result != b'gitea|gitea|pgaudit|/opt/bitnami/postgresql/conf/pg_hba.conf|f\n':
+                    'SELECT current_user,current_database(),pg_is_in_recovery()', host='127.0.0.1')
+    if result != b'gitea|gitea|f\n':
         raise RuntimeError('ordinary copied TCP application authentication or native configuration differs')
 
 

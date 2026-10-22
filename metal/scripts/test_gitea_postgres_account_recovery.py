@@ -152,10 +152,17 @@ class RecoveryContract(unittest.TestCase):
             output = b''
             if args == ('/bin/cat', '/opt/bitnami/postgresql/conf/pg_hba.conf'):
                 output = hba
+            elif args == ('/bin/cat', recovery.DATA + '/postmaster.opts'):
+                output = (recovery.BIN + 'postgres -D ' + recovery.DATA +
+                          ' --config-file=/opt/bitnami/postgresql/conf/postgresql.conf'
+                          ' --external_pid_file=/opt/bitnami/postgresql/tmp/postgresql.pid'
+                          ' --hba_file=/opt/bitnami/postgresql/conf/pg_hba.conf').encode()
+            elif args[0] == '/bin/sh' and '/proc/' in args[-1]:
+                output = b'/opt/bitnami/postgresql/lib/pgaudit.so'
             return SimpleNamespace(returncode=0, stdout=output, stderr=b'')
         with patch.dict(recovery.VENDOR_HASHES, {}, clear=True), \
                 patch.object(recovery, 'execute', side_effect=execute) as native, \
-                patch.object(recovery, 'client', return_value=b'gitea|gitea|pgaudit|/opt/bitnami/postgresql/conf/pg_hba.conf|f\n'):
+                patch.object(recovery, 'client', return_value=b'gitea|gitea|f\n') as client:
             recovery.normal_start('owned', {'app': 'private-app', 'admin': 'private-admin'}, hba)
         self.assertNotIn('private-app', str([c.args for c in native.call_args_list]))
         self.assertNotIn('private-admin', str([c.args for c in native.call_args_list]))
@@ -164,6 +171,7 @@ class RecoveryContract(unittest.TestCase):
         self.assertIn('/opt/bitnami/scripts/postgresql/entrypoint.sh', startup)
         self.assertIn('/opt/bitnami/scripts/postgresql/run.sh', startup)
         self.assertIn('POSTGRESQL_SHARED_PRELOAD_LIBRARIES=pgaudit', startup)
+        self.assertEqual(client.call_args.args[-1], 'SELECT current_user,current_database(),pg_is_in_recovery()')
         for name in ('conf', 'tmp', 'secrets'):
             self.assertIn('/opt/bitnami/postgresql/' + name, recovery.TMPFS)
 
