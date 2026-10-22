@@ -153,6 +153,7 @@ class Qualification(isolated.Qualification):
             raise RuntimeError('owned VM unexpectedly has an existing NFS export')
         self.guest('sudo', 'test', '!', '-e', self.export)
         self.guest('sudo', 'mkdir', '-m', '0777', self.export)
+        self.guest('sudo', 'mkdir', '-p', '/etc/exports.d')
         self.guest('sudo', 'sh', '-ec',
                    'printf "%s %s(rw,sync,root_squash,no_subtree_check,fsid=0)\\n" "$1" "$2" > /etc/exports.d/qualification.exports; '
                    'exportfs -ra; systemctl restart nfs-kernel-server; exportfs -v',
