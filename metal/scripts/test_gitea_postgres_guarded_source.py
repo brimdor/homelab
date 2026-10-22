@@ -2,6 +2,8 @@
 
 import copy
 import json
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -9,6 +11,20 @@ import gitea_postgres_guarded_source as source
 
 
 class GuardedSourceTests(unittest.TestCase):
+    def test_durable_intent_is_exclusive_and_contains_no_credential(self):
+        uid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(source.common, 'ROOT', Path(temporary)), \
+                patch.object(source.common, 'require_host'), patch.object(source.common, 'private_root'), \
+                patch.object(source.cold, 'verify', return_value={'format': source.cold.GUARDED_FORMAT, 'source': {}}):
+            result = source.intent(Path(temporary) / 'point', 'a' * 64, {}, 'b' * 64, uid, uid)
+            self.assertTrue(result['exclusive_creation'])
+            path = Path(temporary) / 'gitea-postgres-role-103-intent.json'
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertNotIn('password', path.read_text())
+            with self.assertRaises(FileExistsError):
+                source.intent(Path(temporary) / 'point', 'a' * 64, {}, 'b' * 64, uid, uid)
+
     def test_exact_idle_tasks_and_readiness_only(self):
         tasks = {100: ({}, 1, source.STARTUP), 101: ({}, 10, source.CONTROLLER),
                  102: ({}, 11, ['flock', '--exclusive', '9'])}

@@ -144,7 +144,31 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                                                                 'failed' if mode == 'failed-sql' else 'commit')
                         if mode == 'controller-killed-during-sql':
                             transaction = b"COPY (SELECT 'HOMELAB103:SQL-RUNNING') TO STDOUT;\nSELECT pg_sleep(3);\n" + transaction
-                        controller.stdin.write(b'run\n' + transaction)
+                        if mode == last:
+                            # Qualify the actual interactive controller protocol before production.
+                            import gitea_postgres_recovery_controller as supervisor
+                            import gitea_postgres_lifecycle as lifecycle
+                            controller.stdin.write(b'run\n' + recovery.catalog_sql().encode())
+                            controller.stdin.flush()
+                            if supervisor.Controller.read_catalog(controller) != before:
+                                raise RuntimeError('actual guarded source catalog differs before intent; no role SQL sent')
+                            directory = work / 'interactive-intent'
+                            directory.mkdir(mode=0o700)
+                            lifecycle.fsync_directory(work)
+                            binding = {'image': recovery.control.IMAGE,
+                                       'source_manifest_sha256': recovery.control.CHECKSUM,
+                                       'hba_sha256': hashlib.sha256(hba).hexdigest(),
+                                       'catalog_sha256': hashlib.sha256(recovery.common.canonical(before)).hexdigest()}
+                            lifecycle.begin(directory, 'success', binding)
+                            try:
+                                lifecycle.begin(directory, 'success', binding)
+                            except FileExistsError:
+                                pass
+                            else:
+                                raise RuntimeError('interactive native intent permitted replay')
+                            controller.stdin.write(transaction)
+                        else:
+                            controller.stdin.write(b'run\n' + transaction)
                         controller.stdin.flush()
                         if mode == 'controller-killed-during-sql':
                             # Observe execution inside PostgreSQL before killing its controller.
@@ -198,6 +222,7 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 receipts.append({'mode': mode, 'automatic_original_startup': True,
                                  'complete_logical_data_equal': True, 'late_claim_refused': True,
                                  'native_child_lock_retained_after_sigkill': mode == 'controller-killed-during-sql',
+                                 'interactive_catalog_checked_before_durable_intent': mode == last,
                                  'transaction_replayed': False})
                 if mode == 'controller-absent':
                     # Reenter with the same retained emptyDir after clean native shutdown.

@@ -44,6 +44,9 @@ gitea:
       maintenance103.eaglepass.io/recovery: postgres-role-only-v1
   postgresql:
     primary:
+      # Capture on the existing source host; keep the protected receiver independent.
+      nodeSelector:
+        kubernetes.io/hostname: totodile
       command:
         - /bin/bash
         - -eu

@@ -5,6 +5,7 @@ writers stopped, and the applied canonical revision. This module never runs SQL.
 """
 
 import fcntl
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -12,6 +13,7 @@ import stat
 
 import gitea_postgres_cold_point as cold
 import gitea_postgres_startup_guard as startup
+from maintenance_actor_hold import exclusive_file
 
 
 common = cold.common
@@ -160,3 +162,21 @@ def send(point, checksum, expected, output):
     if not check():
         raise RuntimeError('guarded PostgreSQL source changed before transfer')
     cold.send(point, checksum, output, confirm_source=check)
+
+
+def intent(point, checksum, expected, catalog_sha256, secret_uid, application_uid):
+    """Exclusive durable task intent: an uncertain native child is never replayed."""
+    common.require_host('pikachu')
+    common.private_root()
+    value = cold.verify(point, checksum)
+    if (value['format'] != cold.GUARDED_FORMAT or value['source'] != expected or
+            not re.fullmatch('[a-f0-9]{64}', catalog_sha256) or
+            any(not re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}', uid)
+                for uid in (secret_uid, application_uid))):
+        raise RuntimeError('production role intent binding differs')
+    record = {'version': 1, 'task': 'maintenance-103-existing-postgres-role-only',
+              'source': expected, 'point_sha256': checksum, 'catalog_sha256': catalog_sha256,
+              'credential_secret_uid': secret_uid, 'held_application_pod_uid': application_uid}
+    raw = common.canonical(record)
+    exclusive_file(common.ROOT / 'gitea-postgres-role-103-intent.json', raw, 0o600)
+    return {'intent_sha256': hashlib.sha256(raw).hexdigest(), 'exclusive_creation': True}
