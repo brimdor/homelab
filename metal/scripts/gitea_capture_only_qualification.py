@@ -36,7 +36,8 @@ def lease(container, mode):
                                  guard.STATE + '/lock', '/bin/true', allow_error=True).returncode != 1):
             raise RuntimeError('capture-only native lease does not exclude ordinary startup')
         if mode == 'controller-killed':
-            recovery.execute(container, '/bin/kill', '-KILL', match[1].decode())
+            recovery.execute(container, '/bin/bash', '-ceu', 'kill -KILL "$1"',
+                             'capture-only-controller-kill', match[1].decode())
         elif mode == 'unexpected-input':
             controller.stdin.write(b'run\nSELECT 1;\n')
             controller.stdin.flush()
