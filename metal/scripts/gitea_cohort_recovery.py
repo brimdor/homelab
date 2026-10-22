@@ -22,8 +22,9 @@ import gitea_cohort_point as joint
 
 
 class Controller(postgres.Controller):
-    def __init__(self, kubectl, bundle):
+    def __init__(self, kubectl, bundle, *, source_aof=False):
         super().__init__(kubectl, bundle, capture_only=True)
+        self.source_aof = source_aof
 
     def valkey_core(self):
         self.identity()
@@ -149,6 +150,21 @@ class Controller(postgres.Controller):
                 if self.valkey_cli(cores[ordinal], 'SAVE') != b'OK':
                     raise RuntimeError('native Valkey SAVE did not finish')
                 shards[ordinal] = self.bundle.valkey_transfer(cores[ordinal]['node'], cores[ordinal], run_id)
+            aof_nodes = {}
+            if self.source_aof:
+                def flushed():
+                    for core in cores.values():
+                        info = valkey.recovery.info(self.valkey_cli(core, 'INFO', 'persistence'))
+                        if any(info.get(k) != v for k, v in {'aof_buffer_length': '0', 'aof_pending_bio_fsync': '0',
+                            'aof_rewrite_in_progress': '0', 'aof_rewrite_scheduled': '0',
+                            'aof_last_write_status': 'ok', 'aof_last_bgrewrite_status': 'ok'}.items()):
+                            return False
+                    return True
+                self.wait_for(flushed, 'source AOF buffers/rewrite/fsync did not settle', seconds=10)
+                for ordinal in sorted(cores):
+                    core = cores[ordinal]
+                    aof_nodes[ordinal] = self.bundle.stream(core['node'], 'valkey_aof_send', {'core': core},
+                        'valkey_aof_receive', {'expected': core, 'run_id': run_id})
             if self.native_bindings(cores) != bindings or self.topology(cores) != topology:
                 raise RuntimeError('native Valkey source binding changed during finite capture')
             self.assert_held(held)
@@ -168,6 +184,13 @@ class Controller(postgres.Controller):
             if time.monotonic() - started >= valkey.LEASE_MS / 1000 or any(c.poll() is not None for c in probes):
                 raise RuntimeError('native Valkey lease ended before durable point acceptance; point retained')
             persist('valkey-write-excluded-point', **result, elapsed_ms=elapsed, topology_sha256=topology)
+            if self.source_aof:
+                aof = self.bundle.run('pikachu', 'valkey_aof_finalize', run_id=run_id,
+                    rdb_manifest_sha256=result['manifest_sha256'], nodes=aof_nodes)
+                if time.monotonic() - started >= valkey.LEASE_MS / 1000 or any(c.poll() is not None for c in probes):
+                    raise RuntimeError('native Valkey lease ended before source AOF acceptance; protected point retained')
+                result['source_aof'] = aof
+                persist('valkey-actual-source-aof-point', **aof)
             return result
         finally:
             errors = []
@@ -226,7 +249,8 @@ class Controller(postgres.Controller):
                 raise RuntimeError('cohort independent native Git recovery did not pass')
             persist('shared-independent-restores', **git_restore)
             cache_restore = self.bundle.run('pikachu', 'valkey_restore', run_id=run_id,
-                                            cohort_run_id=run_id, checksum=cache['manifest_sha256'])
+                cohort_run_id=run_id, checksum=cache['manifest_sha256'],
+                source_aof_checksum=cache.get('source_aof', {}).get('manifest_sha256'))
             if not cache_restore['accepted']:
                 raise RuntimeError('cohort six-node native Valkey recovery did not pass')
             persist('valkey-independent-restore', **cache_restore)
@@ -276,7 +300,8 @@ class Controller(postgres.Controller):
 def main():
     request = json.load(sys.stdin)
     root = Path(__file__).resolve().parents[2]
-    if (set(request) != {'code_revision', 'profile_revision', 'ordinary_revision', 'nodes', 'kubectl', 'run_id'} or
+    required = {'code_revision', 'profile_revision', 'ordinary_revision', 'nodes', 'kubectl', 'run_id'}
+    if (set(request) not in (required, required | {'source_aof'}) or type(request.get('source_aof', False)) is not bool or
             not re.fullmatch('[a-f0-9]{40}', request['profile_revision']) or
             not re.fullmatch('[a-f0-9]{40}', request['ordinary_revision']) or
             subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD']).decode().strip() != request['profile_revision'] or
@@ -286,7 +311,7 @@ def main():
     for name in ('gitea_cohort_recovery', 'gitea_postgres_recovery_controller'):
         postgres.transport.Bundle.exact(root, request['code_revision'], 'metal/scripts/' + name + '.py')
     bundle = postgres.transport.Bundle(root, request['code_revision'], request['nodes'])
-    instance = Controller(request['kubectl'], bundle)
+    instance = Controller(request['kubectl'], bundle, source_aof=request.get('source_aof', False))
     def interrupted(_number, _frame):
         raise RuntimeError('owned capture coordinator interrupted; release holds and observe ordinary startup')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):

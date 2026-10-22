@@ -89,7 +89,8 @@ class Cluster:
                       '--dir', directory, '--dbfilename', 'dump.rdb',
                       '--appendonly', 'yes' if getattr(self, 'aof', False) else 'no', '--save', '',
                       '--appenddirname', 'appendonlydir', '--aof-load-truncated', 'no',
-                      '--pidfile', '/tmp/node-' + str(node) + '.pid', '--logfile', '/tmp/node-' + str(node) + '.log')
+                      '--pidfile', '/tmp/node-' + str(node) + '.pid', '--logfile', '/tmp/node-' + str(node) + '.log',
+                      *getattr(self, 'native_args', []))
         poll(lambda: self.cli(node, 'PING', check=False) == b'PONG', 'isolated node did not start')
 
     def healthy(self, masters=(0, 3, 5)):

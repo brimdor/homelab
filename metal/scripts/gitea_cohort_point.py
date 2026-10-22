@@ -72,6 +72,14 @@ def store(run_id, value):
     pg = cold.verify(Path(refs['postgres']['point']), refs['postgres']['manifest_sha256'])
     files = cold.verify(Path(refs['shared']['point']), refs['shared']['manifest_sha256'], validator=shared.validate)
     path, cache = valkey.verify(refs['valkey']['run_id'], refs['valkey']['manifest_sha256'])
+    if 'source_aof' in refs['valkey']:
+        import valkey_source_aof as aof
+        source_aof = refs['valkey']['source_aof']
+        aof_path, aof_manifest = aof.verify(refs['valkey']['run_id'], source_aof['manifest_sha256'])
+        if (str(aof_path) != source_aof['point'] or aof_manifest['rdb_manifest_sha256'] != refs['valkey']['manifest_sha256'] or
+                value['proofs']['valkey'].get('actual_source_aofs_complete_before_replication') is not True or
+                value['proofs']['valkey'].get('source_aof_manifest_sha256') != source_aof['manifest_sha256']):
+            raise RuntimeError('joint actual source AOF provenance or independent recovery differs')
     if (pg['format'] != cold.GUARDED_FORMAT or not Path(refs['postgres']['point']).name.startswith('gitea-postgres-guarded-') or
             not Path(refs['shared']['point']).name.startswith('gitea-shared-guarded-') or str(path) != refs['valkey']['point'] or
             {pg['source']['revision'], files['source']['revision']} |

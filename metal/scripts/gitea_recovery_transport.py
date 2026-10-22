@@ -24,7 +24,7 @@ MODULES = ['etcd_recovery', 'prometheus_recovery', 'grafana_recovery', 'sporecas
            'gitea_capture_only_qualification', 'valkey_recovery', 'valkey_cohort_point',
            'valkey_cluster_qualification', 'valkey_data_fingerprint',
            'valkey_write_pause_qualification', 'valkey_cluster_recovery', 'gitea_cohort_point',
-           'valkey_long_lease_qualification']
+           'valkey_long_lease_qualification', 'valkey_source_aof']
 BOOT = '''import base64,json,sys,types
 from pathlib import Path
 stream=sys.stdin.buffer
@@ -70,11 +70,16 @@ try:
    valkey.send(args['core'],sys.stdout.buffer);sys.exit(0)
   elif task=='valkey_receive':result=valkey.receive(args['run_id'],args['expected'],stream)
   elif task=='valkey_finalize':result=valkey.finalize(args['run_id'],args['manifest'])
+  elif task=='valkey_aof_send':
+   sys.modules['valkey_source_aof'].send(args['core'],sys.stdout.buffer);sys.exit(0)
+  elif task=='valkey_aof_receive':result=sys.modules['valkey_source_aof'].receive(args['run_id'],args['expected'],stream)
+  elif task=='valkey_aof_finalize':
+   result=sys.modules['valkey_source_aof'].finalize(args['run_id'],args['rdb_manifest_sha256'],args['nodes'])
   elif task=='valkey_lease_qualify':
    result=sys.modules['valkey_long_lease_qualification'].run(args['run_id'],request['sources']['valkey_data_fingerprint'].encode())
   elif task=='valkey_restore':
    result=sys.modules['valkey_cluster_recovery'].run(args['run_id'],request['sources']['valkey_data_fingerprint'].encode(),
-      cohort_run_id=args['cohort_run_id'],checksum=args['checksum'])
+      cohort_run_id=args['cohort_run_id'],checksum=args['checksum'],source_aof_checksum=args.get('source_aof_checksum'))
   else:raise RuntimeError('unreviewed Valkey operation')
  elif task.startswith('shared_'):
   shared=sys.modules['gitea_shared_guarded_source']
@@ -132,7 +137,7 @@ class Bundle:
         if task not in {'observe', 'capture', 'send', 'receive', 'restore', 'intent', 'capture_qualify',
                         'shared_observe', 'shared_capture', 'shared_send', 'shared_receive', 'shared_restore',
                         'valkey_observe', 'valkey_probe', 'valkey_send', 'valkey_receive', 'valkey_finalize', 'valkey_restore',
-                        'cohort_store', 'valkey_lease_qualify'}:
+                        'cohort_store', 'valkey_lease_qualify', 'valkey_aof_send', 'valkey_aof_receive', 'valkey_aof_finalize'}:
             raise RuntimeError('unreviewed native recovery task')
         # Preserve dependency order: the remote host has no repository imports.
         return json.dumps({'sources': self.sources, 'profiles': self.profiles,

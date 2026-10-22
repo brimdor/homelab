@@ -131,7 +131,7 @@ class Qualification:
                 raise RuntimeError('owned fixture runtime is not safely exited')
             remote(*cri, 'rm', container['id'])
             removed_containers += 1
-        current = self.get('pods', namespace=None)['items']
+        current = json.loads(self.call('get', 'pods', '--all-namespaces', '-o', 'json').stdout)['items'] if selected else []
         removed = []
         for image in selected:
             refs = set(image.get('repoDigests', [])) | {image['id']}

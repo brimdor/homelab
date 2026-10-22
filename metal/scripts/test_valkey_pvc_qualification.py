@@ -9,6 +9,20 @@ import valkey_pvc_qualification as fixture
 
 
 class QualificationTests(unittest.TestCase):
+    def test_new_image_with_any_namespace_consumer_is_preserved(self):
+        instance=fixture.Qualification(['kubectl'])
+        image={'id':'new-fixture-image','repoDigests':[fixture.protocol.recovery.CANDIDATE]}
+        replies=[b'pikachu\n',fixture.json.dumps({'images':[image]}).encode(),b'{"containers":[]}']
+        foreign={'spec':{'nodeName':'pikachu','containers':[{'image':fixture.protocol.recovery.CANDIDATE}]}}
+        calls=[subprocess.CompletedProcess([],0,b'',b''),subprocess.CompletedProcess([],0,
+            fixture.json.dumps({'items':[foreign]}).encode(),b'')]
+        with patch.object(instance,'call',side_effect=calls) as api, \
+                patch.object(fixture.subprocess,'run',side_effect=[subprocess.CompletedProcess([],0,v,b'') for v in replies]) as remote, \
+                self.assertRaisesRegex(RuntimeError,'another active consumer'):
+            instance.cleanup_images('pikachu','10.0.20.14',set())
+        self.assertIn('--all-namespaces',api.call_args.args)
+        self.assertFalse(any(' rmi ' in call.args[0][-1] for call in remote.call_args_list))
+
     def test_image_cleanup_requires_disposed_namespace_before_ssh(self):
         instance = fixture.Qualification(['kubectl'])
         with patch.object(instance, 'call', return_value=subprocess.CompletedProcess([], 0, b'{"kind":"Namespace"}', b'')), \

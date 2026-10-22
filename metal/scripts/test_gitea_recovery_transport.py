@@ -11,6 +11,22 @@ import gitea_recovery_transport as transport
 
 
 class TransportTests(unittest.TestCase):
+    def test_source_aof_tasks_cross_actual_frame_with_synthetic_implementations(self):
+        root=Path(__file__).resolve().parents[2]
+        bundle=object.__new__(transport.Bundle)
+        bundle.sources={name:(root/'metal/scripts'/(name+'.py')).read_text() for name in transport.MODULES}
+        bundle.profiles=json.loads((root/'metal/maintenance/gitea-postgres-files-103.json').read_text())
+        bundle.sources['valkey_source_aof']=(
+            "def send(core,output):\n output.write(b'synthetic-aof-frame')\n"
+            "def receive(run_id,expected,stream):\n return {'synthetic_receive':run_id}\n"
+            "def finalize(run_id,checksum,nodes):\n return {'synthetic_finalize':run_id}\n")
+        for task,args,expected in (
+                ('valkey_aof_send',{'core':{}},b'synthetic-aof-frame'),
+                ('valkey_aof_receive',{'run_id':'synthetic','expected':{}},b'{"synthetic_receive": "synthetic"}\n'),
+                ('valkey_aof_finalize',{'run_id':'synthetic','rdb_manifest_sha256':'a'*64,'nodes':{}},b'{"synthetic_finalize": "synthetic"}\n')):
+            child=subprocess.run([sys.executable,'-I','-B','-c',transport.BOOT],input=bundle.request(task,args),capture_output=True)
+            self.assertEqual((child.returncode,child.stdout,child.stderr),(0,expected,b''))
+
     def test_complete_prefetched_bundle_loads_before_runtime_refusal(self):
         root = Path(__file__).resolve().parents[2]
         bundle = object.__new__(transport.Bundle)

@@ -157,13 +157,19 @@ def require_point(cohort_run_id=None, checksum=None):
     return point, manifest
 
 
-def run(run_id, observer, *, cohort_run_id=None, checksum=None):
+def run(run_id, observer, *, cohort_run_id=None, checksum=None, source_aof_checksum=None):
     def interrupted(_number, _frame):
         raise RuntimeError('owned Valkey cluster recovery interrupted')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, interrupted)
     common.run_identifier(run_id)
     point, manifest = require_point(cohort_run_id, checksum)
+    source_aof_point = None
+    if source_aof_checksum is not None:
+        import valkey_source_aof as source_aof
+        source_aof_point, source_aof_manifest = source_aof.verify(cohort_run_id, source_aof_checksum)
+        if source_aof_manifest['rdb_manifest_sha256'] != checksum:
+            raise RuntimeError('actual source AOFs and recovery RDBs are not the same interval')
     if common.docker('ps', '-aq', '--filter=label=' + recovery.LABEL).stdout.strip():
         raise RuntimeError('another owned Valkey operation is active')
     before = set(common.docker('image', 'ls', '-q', '--no-trunc').stdout.decode().split())
@@ -212,6 +218,9 @@ def run(run_id, observer, *, cohort_run_id=None, checksum=None):
                 raise RuntimeError('native recovery version differs')
             cluster = Cluster(identity, mount)
             cluster.scratch, cluster.run_id, cluster.observer = scratch, run_id, observer
+            if source_aof_point is not None:
+                # Match the observed production replication mode and timeout in the owned restore.
+                cluster.native_args = ['--cluster-node-timeout', '15000', '--databases', '1', '--repl-diskless-sync', 'no']
             if iteration == 0:
                 stage = 'empty-cluster-and-verifier'
                 for n in range(6):
@@ -285,8 +294,42 @@ def run(run_id, observer, *, cohort_run_id=None, checksum=None):
                         raise RuntimeError('copied original shard changed before cluster recovery')
                 result['native_complete_verifier_rejects_corruption'] = True
                 result['original_shard_values'] = expected
+                if source_aof_point is not None:
+                    stage = 'independent-six-actual-source-aof-values'
+                    for node in range(6):
+                        directory = data / ('node-' + str(node)) / 'appendonlydir'
+                        directory.mkdir(mode=0o700)
+                        os.chown(directory, 1001, 1001)
+                        for name, record in source_aof_manifest['nodes'][str(node)]['files'].items():
+                            target = directory / name
+                            shutil.copyfile(source_aof_point / ('node-' + str(node)) / name, target)
+                            target.chmod(0o600)
+                            os.chown(target, 1001, 1001)
+                            if copied_digest(target) != {k: record[k] for k in ('bytes', 'sha256')}:
+                                raise RuntimeError('actual source AOF owned copy differs')
+                    cluster.check_aof()
+                    for node in range(6):
+                        common.docker('exec', identity, 'valkey-server', '--daemonize', 'yes', '--bind', '127.0.0.1',
+                            '--port', str(17000 + node), '--cluster-enabled', 'no', '--dir', mount + '/node-' + str(node),
+                            '--dbfilename', 'dump.rdb', '--appendonly', 'yes', '--appenddirname', 'appendonlydir',
+                            '--aof-load-truncated', 'no', '--save', '', '--pidfile', '/tmp/node-' + str(node) + '.pid',
+                            '--logfile', '/tmp/node-' + str(node) + '.log', *cluster.native_args)
+                        protocol.poll(lambda n=node: cluster.cli(n, 'PING', check=False) == b'PONG',
+                            'independent actual source AOF did not start')
+                        original = node if node in protocol.SLOTS else protocol.REPLICAS[node]
+                        if cluster.fingerprint(node) != expected[original]:
+                            raise RuntimeError('actual source AOF complete values differ before replication can repair them')
+                        persistence = recovery.info(cluster.cli(node, 'INFO', 'persistence'))
+                        if persistence.get('aof_enabled') != '1' or persistence.get('loading') != '0':
+                            raise RuntimeError('actual source AOF was not the native startup source')
+                        cluster.cli(node, 'SHUTDOWN', 'NOSAVE')
+                        protocol.poll(lambda n=node: common.docker('exec', identity, 'test', '!', '-e',
+                            '/tmp/node-' + str(n) + '.pid', check=False).returncode == 0,
+                            'independent actual source AOF did not stop')
+                    result['actual_source_aofs_complete_before_replication'] = True
+                    result['source_aof_manifest_sha256'] = source_aof_checksum
             stage = version + ':complete-cluster'
-            cluster.aof = iteration > 0
+            cluster.aof = iteration > 0 or source_aof_point is not None
             for n in range(6):
                 cluster.start(n)
             cluster.verify_values(expected)
@@ -323,6 +366,8 @@ def run(run_id, observer, *, cohort_run_id=None, checksum=None):
             common.docker('rm', '-f', identity)
             identity = None
         require_point(cohort_run_id, checksum)
+        if source_aof_point is not None:
+            source_aof.verify(cohort_run_id, source_aof_checksum)
         result.update(accepted=True, keys=sum(v['keys'] for v in expected.values()), protected_original_unchanged=True,
                       network_none=True, production_unroutable=True, production_mutated=False,
                       original_replica_map=protocol.REPLICAS)
