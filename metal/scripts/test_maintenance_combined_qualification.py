@@ -58,7 +58,7 @@ class CombinedQualificationInputs(unittest.TestCase):
         bodies = [node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and
                   isinstance(node.func, ast.Attribute) and node.func.attr == 'guest' and node.args and
                   isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)]
-        self.assertEqual(len(bodies), 2)
+        self.assertEqual(len(bodies), 3)
         for body in bodies:
             compile(body, '<actual-guest-body>', 'exec')
 

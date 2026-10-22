@@ -18,6 +18,8 @@ import fedora_target_qualification as fedora
 K3S = '86945269160fdd1bbd06283ea5b3bafd6c0ec0d1df3ac68ad3686656632081a5'
 AIRGAP = '1a852774a4cf27b24b1c60fc8fdc88e1f31841955dad99dfedd492a4ccfb6c08'
 KURED = '76567a71427b074bfc51df6797c8c30ba44c9678ace7cd61a186ddb662ce97b1'
+SELINUX_RPM = '1115a1223b0db998c7977c879f2a3a6f07a0c63240f68f6e3b665a7ae27c38f7'
+SELINUX_KEY = 'b2ebdeb8d9b1bb66696622da6d086c2376de772af3dd96cc3a6cb4ca5568d171'
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal')
 
 
@@ -57,7 +59,8 @@ class Qualification(fedora.Qualification):
     def __init__(self, args):
         if not re.fullmatch('[0-9a-f]{40}', args.revision):
             raise RuntimeError('missing exact published revision')
-        for name, checksum in (('k3s_binary', K3S), ('airgap_images', AIRGAP)):
+        for name, checksum in (('k3s_binary', K3S), ('airgap_images', AIRGAP),
+                               ('selinux_rpm', SELINUX_RPM), ('selinux_key', SELINUX_KEY)):
             fedora.require_media(args.work_dir, getattr(args, name), checksum)
         if (not args.kured_archive.is_absolute() or not args.kured_archive.is_relative_to(args.work_dir) or
                 any(p.is_symlink() for p in (args.kured_archive, *args.kured_archive.parents)) or
@@ -155,11 +158,40 @@ def ready():
             (self.args.k3s_binary, '/run/qualification-assets/k3s', K3S),
             (self.args.airgap_images, '/run/qualification-assets/airgap.tar.zst', AIRGAP),
             (self.args.kured_archive, '/run/qualification-assets/kured.tar', self.kured_checksum),
+            (self.args.selinux_rpm, '/run/qualification-assets/policy.rpm', SELINUX_RPM),
+            (self.args.selinux_key, '/run/qualification-assets/rancher-public.key', SELINUX_KEY),
         ):
             self.upload(path, destination, checksum)
+        policy = self.guest('''
+state=pathlib.Path('/sys/fs/selinux/enforce');assert state.read_text().strip()=='1'
+assets=pathlib.Path('/run/qualification-assets')
+assert hashlib.sha256((assets/'policy.rpm').read_bytes()).hexdigest()=='1115a1223b0db998c7977c879f2a3a6f07a0c63240f68f6e3b665a7ae27c38f7'
+assert hashlib.sha256((assets/'rancher-public.key').read_bytes()).hexdigest()=='b2ebdeb8d9b1bb66696622da6d086c2376de772af3dd96cc3a6cb4ca5568d171'
+native('rpmkeys','--import',str(assets/'rancher-public.key'))
+signature=native('rpmkeys','--checksig','--verbose',str(assets/'policy.rpm')).decode()
+assert 'e257814a' in signature.lower() and 'NOKEY' not in signature and 'NOT OK' not in signature
+assert not pathlib.Path('/usr/share/selinux/packages/k3s.pp').exists()
+mount=pathlib.Path('/mnt/qualification-repo');assert mount.is_dir()
+native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-repo',str(mount))
+native('/usr/bin/dnf5','--disable-repo=*','--enable-repo=qualification','--setopt=gpgcheck=True',
+       '--setopt=localpkg_gpgcheck=True','--assumeyes','install','container-selinux',str(assets/'policy.rpm'))
+assert native('rpm','-q','k3s-selinux','--qf','%{VERSION}-%{RELEASE}.%{ARCH}').decode()=='1.6-1.el9.noarch'
+modules=native('semodule','--list=full').decode().splitlines()
+assert any(line.split()[:2]==['200','k3s'] for line in modules)
+assert state.read_text().strip()=='1'
+print(json.dumps({'signed_vendor_policy_installed':True,'version':'1.6-1.el9.noarch',
+                  'policy_priority':200,'enforcing_before_and_after':True,
+                  'offline_signed_dependencies_only':True,'no_custom_label_or_allow_rule':True}))
+''')
         setup = self.guest('''
 state=pathlib.Path('/sys/fs/selinux/enforce');enforcement=state.read_text().strip()if state.exists()else None
-assert not pathlib.Path('/usr/local/bin/k3s').exists() and not pathlib.Path('/var/lib/rancher/k3s').exists()
+assert not pathlib.Path('/usr/local/bin/k3s').exists()
+# The reviewed vendor policy scriptlet creates exactly these empty runtime directories.
+runtime=pathlib.Path('/var/lib/rancher/k3s')
+expected={'data','agent','agent/containerd','agent/containerd/io.containerd.snapshotter.v1.overlayfs',
+          'agent/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots'}
+assert runtime.is_dir() and {str(p.relative_to(runtime)) for p in runtime.rglob('*')}==expected
+assert all(p.is_dir() and not p.is_symlink() for p in runtime.rglob('*'))
 assets=pathlib.Path('/run/qualification-assets')
 shutil.move(str(assets/'k3s'),'/usr/local/bin/k3s');pathlib.Path('/usr/local/bin/k3s').chmod(0o755)
 assert b'v1.33.6+k3s1' in native('/usr/local/bin/k3s','--version')
@@ -245,7 +277,7 @@ state=pathlib.Path('/sys/fs/selinux/enforce');assert value['enforcement']==(stat
 print(json.dumps({'fresh_real_owner_host_hold_journal_resume':True,'pending_intent_exact':True,'replay_and_refused_completion_rejected':True,'all_native_service_starts_excluded':True,'no_automatic_release_or_uncordon':True,'same_node_and_daemonset_uids':True,'selinux_state_unchanged':True,'records':hop.inspect()['records']}))
 ''')
         return {'combined_qualification': True, 'primitive': primitive, 'before': before, 'after': after,
-                'setup': setup, 'resumed': resumed, 'real_api_systemd_and_hop_journal': True,
+                'policy': policy, 'setup': setup, 'resumed': resumed, 'real_api_systemd_and_hop_journal': True,
                 'dnf4_service_payloads_synthetic': True, 'production_changes': False,
                 'os_release_drain_availability_gpu_csi_and_safe_release_unqualified': True}
 
@@ -253,7 +285,7 @@ print(json.dumps({'fresh_real_owner_host_hold_journal_resume':True,'pending_inte
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('work-dir', 'cloud-image', 'server-image', 'ansible-playbook', 'collection-dir',
-                 'automatic-rpm', 'k3s-binary', 'airgap-images', 'kured-archive'):
+                 'automatic-rpm', 'k3s-binary', 'airgap-images', 'kured-archive', 'selinux-rpm', 'selinux-key'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--revision', required=True)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
