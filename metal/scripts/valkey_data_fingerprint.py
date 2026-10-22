@@ -4,6 +4,7 @@ import hashlib
 import json
 import socket
 import sys
+import traceback
 
 
 READ = """
@@ -124,4 +125,9 @@ def fingerprint(port, replica=False):
 
 
 if __name__ == '__main__':
-    print(json.dumps(fingerprint(int(sys.argv[1]), len(sys.argv) == 3 and sys.argv[2] == 'replica')))
+    try:
+        print(json.dumps(fingerprint(int(sys.argv[1]), len(sys.argv) == 3 and sys.argv[2] == 'replica')))
+    except Exception as error:
+        print(json.dumps({'observer_failed': type(error).__name__,
+                          'frames': [{'function': f.name, 'line': f.lineno}
+                                     for f in traceback.extract_tb(error.__traceback__)]}))

@@ -12,6 +12,7 @@ import signal
 import subprocess
 import tempfile
 import time
+import traceback
 import zlib
 
 import valkey_cluster_qualification as protocol
@@ -35,6 +36,8 @@ class Cluster(protocol.Cluster):
         if replica:
             command.append('replica')
         result = json.loads(common.command(command).stdout)
+        if 'observer_failed' in result:
+            raise RuntimeError('private observer failed: ' + json.dumps(result))
         if set(result) != {'keys', 'types', 'expiring_keys', 'sha256'}:
             raise RuntimeError('complete private fingerprint contract differs')
         return result
@@ -209,7 +212,12 @@ def run(run_id, observer):
         result.update(accepted=True, keys=sum(v['keys'] for v in expected.values()), protected_original_unchanged=True,
                       network_none=True, production_unroutable=True, production_mutated=False)
     except Exception as error:
-        result.update(failed_stage=stage, failure_class=type(error).__name__)
+        result.update(failed_stage=stage, failure_class=type(error).__name__,
+                      failure_frames=[{'function': f.name, 'line': f.lineno}
+                                      for f in traceback.extract_tb(error.__traceback__)])
+        if isinstance(error, RuntimeError):
+            # Helpers raise fixed messages; private protocol errors never embed replies.
+            result['failure_reason'] = str(error)
     finally:
         allocated = sum(p.stat().st_blocks * 512 for p in scratch.rglob('*') if p.is_file())
         if identity:
