@@ -17,7 +17,7 @@ retained = legacy.retained
 IMAGE = cold.control.MAINTAINED_IMAGE
 LABEL = 'io.eaglepass.gitea-postgres-maintained-copy-103'
 BIN = '/usr/lib/postgresql/16/bin/'
-FILES = {'pgaudit.so': '332e2bcb4844cdab7c9fe93478c07c47c49dda118c4c81202ca995e97824baa8', 'pgaudit.control': 'ecf9b47d762337da85607cd4fd315f29135e04773795df8fabc8d4146206c69c', 'pgaudit--16.1.sql': '9d4d2d3358c308e1ae704bb6f59c410be36f6eab6f9a9ff0c459b8406d6f06f3', 'pgaudit--16.0--16.1.sql': '9181507e2853956a8dc502501780fa772ec162daa72f83ef0615d46232461cdc', 'pgaudit-copyright': '58ee977a7f19c3b8cd14fae42c59fa2153beb32bff0e1d2fb68c968377fdd5eb', 'postgresql.conf': '3cc4dfef0ab7dd37a0055bd450a9027080e0082b622bfcd7771d43fddd426ce7', 'pg_hba.conf': '625018986f8ca9e5f4bff3b1e4ffcdc29d4d96d3cd55ed07f02aa514a30f7e05', 'postgres-startup.sh': '2f51a58b32939053ce72ec91c25df30ddc4e74a24ad6629a6e33f8828e3fd7f1'}
+FILES = {'pgaudit.so': '332e2bcb4844cdab7c9fe93478c07c47c49dda118c4c81202ca995e97824baa8', 'pgaudit.control': 'ecf9b47d762337da85607cd4fd315f29135e04773795df8fabc8d4146206c69c', 'pgaudit--16.1.sql': '9d4d2d3358c308e1ae704bb6f59c410be36f6eab6f9a9ff0c459b8406d6f06f3', 'pgaudit--16.0--16.1.sql': '9181507e2853956a8dc502501780fa772ec162daa72f83ef0615d46232461cdc', 'pgaudit-copyright': '58ee977a7f19c3b8cd14fae42c59fa2153beb32bff0e1d2fb68c968377fdd5eb', 'postgresql.conf': '3cc4dfef0ab7dd37a0055bd450a9027080e0082b622bfcd7771d43fddd426ce7', 'pg_hba.conf': '625018986f8ca9e5f4bff3b1e4ffcdc29d4d96d3cd55ed07f02aa514a30f7e05', 'postgres-startup.sh': '72f605d88259f3a49906e6826a04e2c613024e8aa85b6322de290abecf72ace9'}
 TARGETS = {'postgres-startup.sh': '/configuration/postgres-startup.sh',
            'postgresql.conf': '/configuration/postgresql.conf', 'pg_hba.conf': '/configuration/pg_hba.conf',
            'pgaudit.so': '/usr/lib/postgresql/16/lib/pgaudit.so',
@@ -150,7 +150,9 @@ def candidate_start(container):
     while legacy.execute(container, BIN + 'pg_isready', '-h', '127.0.0.1', '-p', '5432', allow_error=True).returncode:
         if time.monotonic() > end:
             raw = legacy.execute(container, '/bin/cat', '/tmp/maintained-start.log').stdout
-            raise RuntimeError('maintained copied startup failed; classes=' + ','.join(legacy.error_classes(raw)))
+            phases = sorted(set(re.findall(rb'HOMELAB103:STARTUP-FAILED:([a-z-]+)', raw)))
+            raise RuntimeError('maintained copied startup failed; phase=' + ','.join(v.decode() for v in phases) +
+                               '; classes=' + ','.join(legacy.error_classes(raw)) + '; bytes=' + str(len(raw)))
         time.sleep(.1)
     version = legacy.execute(container, BIN + 'postgres', '--version').stdout
     if not re.fullmatch(rb'postgres \(PostgreSQL\) 16\.15[^\n]*\n', version):
@@ -277,9 +279,18 @@ def run(point, checksum, credentials, hba, run_id, payload):
             legacy.prepare_standalone_directory(lambda *args: legacy.execute(server, *args))
             legacy.normal_start(server, credentials, hba)
             baseline, catalog, metadata = evaluate(server, child / 'baseline-client', 160006)
-            legacy.stop(server); remove(server)
+            legacy.stop(server)
+            expected_tree = retained.snapshot(child / 'copy')[0]
+            legacy.execute(server, '/bin/chmod', '2770', legacy.DATA)
+            expected_tree['data']['mode'] = 0o2770
+            if retained.snapshot(child / 'copy')[0] != expected_tree:
+                raise RuntimeError('copied fsGroup mode preparation changed more than PGDATA root mode')
+            remove(server)
             server = new_candidate(child)
             candidate_start(server)
+            actual_mode = legacy.execute(server, '/usr/bin/stat', '-c', '%u:%g:%a', legacy.DATA).stdout
+            if actual_mode != b'1001:1001:2700\n':
+                raise RuntimeError('maintained copied startup did not restore exact native PGDATA root permissions')
             actual, new_catalog, new_metadata = evaluate(server, child / 'candidate-client', 160015)
             audit_work = child / 'audit-client'; audit_work.mkdir(mode=0o700)
             audit_client = new_candidate(audit_work, server=server)
