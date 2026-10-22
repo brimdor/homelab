@@ -208,7 +208,7 @@ def client(container, password, role, binary, *args, host='/tmp'):
                    '-h', host, '-U', role, *args, input=(password + '\n').encode()).stdout
 
 
-def normal_start(container, credentials, hba, expected_failure=False):
+def normal_start(container, credentials, hba, expected_failure=False, startup_guard=False):
     """Exercise the original image entrypoint on copies with native tmpfs mounts."""
     execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
     for path, checksum in VENDOR_HASHES.items():
@@ -229,6 +229,9 @@ printf '%s' "$admin_password" > /opt/bitnami/postgresql/secrets/postgres-passwor
         environment['POSTGRESQL_PORT_NUMBER'] = 'invalid-port-fixture'
     native = ['/usr/bin/env', *[k + '=' + v for k, v in environment.items()],
               '/opt/bitnami/scripts/postgresql/entrypoint.sh', '/opt/bitnami/scripts/postgresql/run.sh']
+    if startup_guard:
+        import gitea_postgres_startup_guard as guard
+        native = ['/bin/bash', '-ceu', guard.STARTUP, 'maintenance-103-startup', *native]
     if expected_failure:
         response = execute(container, *native, allow_error=True)
         diagnostics = response.stdout + response.stderr
@@ -481,11 +484,12 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 'native_crash_recovery_and_clean_shutdown': True, 'control': state}
 
 
-def qualify(run_id, credentials, hba, lifecycle=False):
+def qualify(run_id, credentials, hba, lifecycle=False, startup_guard=False):
     common.run_identifier(run_id)
     common.require_host('pikachu')
     common.private_root()
-    if (type(lifecycle) is not bool or set(credentials) != {'admin', 'app'} or
+    if (type(lifecycle) is not bool or type(startup_guard) is not bool or (lifecycle and startup_guard) or
+            set(credentials) != {'admin', 'app'} or
             hashlib.sha256(hba).hexdigest() != '625018986f8ca9e5f4bff3b1e4ffcdc29d4d96d3cd55ed07f02aa514a30f7e05'):
         raise RuntimeError('existing credential fields or reviewed md5 HBA changed')
     value = retained.verify(control.POINT, control.CHECKSUM, 'gitea')
@@ -515,7 +519,10 @@ def qualify(run_id, credentials, hba, lifecycle=False):
             for source in mounts(work, volumes).values():
                 if source != str(work / 'copy'):
                     Path(source).mkdir(mode=0o755)
-            if lifecycle:
+            if startup_guard:
+                import gitea_postgres_startup_guard
+                copied_operation = gitea_postgres_startup_guard.operation
+            elif lifecycle:
                 import gitea_postgres_lifecycle
                 copied_operation = gitea_postgres_lifecycle.operation
             else:
@@ -525,6 +532,7 @@ def qualify(run_id, credentials, hba, lifecycle=False):
             raise RuntimeError('independent copied database fingerprints differ')
         result.update(accepted=True, independent_copies=2, image=control.IMAGE,
                       lifecycle_qualification=lifecycle,
+                      startup_guard_qualification=startup_guard,
                       production_cold_capture_and_startup_unqualified=True)
     finally:
         if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
