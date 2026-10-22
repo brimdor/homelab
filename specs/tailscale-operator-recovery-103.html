@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Issue 103: Tailscale operator recovery</title>
+<style>body{background:#10151d;color:#e1e8f1;font:17px/1.6 system-ui;max-width:950px;margin:3rem auto;padding:1rem}a{color:#93c5fd}code{color:#a7f3d0}pre{background:#192331;padding:1rem;overflow:auto}h1,h2{color:#f8fafc}</style>
+<h1>Issue 103: Tailscale operator recovery</h1>
+<p>Owner approved actions 1–2 on 22 October 2026: recover the Tailscale operator credential with the three specified write grants, and activate ordinary Woodpecker CI. End-user SSO, independent device trust and independent caller origins remain deferred. NAS restrictions remain in force.</p>
+<h2>Current evidence</h2>
+<p>The authenticated console identifies tailnet TcMWzefjNG11CNTRL / tail18136a.ts.net. Its Definitions/Tags page reported no defined tags at 16:48 UTC. The new OAuth form therefore could not select tag:k8s-operator and Generate remained disabled. Credential generation has not been performed by the agent.</p>
+<p>Read-only consumer inventory tailscale-current-consumer-inventory-zztzpsej passed at 17:21:55 UTC: no active Tailscale Services, Ingresses, ProxyGroups, Connectors, DNSConfigs or Recorders. Wolf exists only under archived/apps/wolf. Historical Wolf policy examples in the old README are not current exposure requirements.</p>
+<p>The existing authorized 1Password service account can read vault server, ID 4uaua4a45yuhnwhehp5bwylmti. The sole matching existing item is the 2024 Tailscale Auth Key; its field-shape read at 18:12 UTC found a password field and no OAuth client-id/client-secret pair. Its value was neither retained nor used against the provider. Existing Kubernetes OAuth sources have no 1Password owner, and the operator remains deliberately at replicas zero after the observed provider rejection.</p>
+<h2>Exact tag definition and approved credential scope</h2>
+<p>Target only tailnet TcMWzefjNG11CNTRL. Define tag:k8s-operator with existing administrator ownership; the policy representation is an empty owner array. Preserve the rest of the actual policy. This definition adds no proxy delegation, ingress rule, port, route, user or group grant. The old tag:k8s and tag:k8s-homelab examples are not required by any current consumer.</p>
+<pre><code>"tag:k8s-operator": []</code></pre>
+<p>The replacement OAuth client uses Write for General/Services, Devices/Core, and Keys/Auth Keys, restricted to tag:k8s-operator. Verify the actual console controls and target account before submission. The computer-use credential rule requires the human to perform the final new-credential action and any credential entry, confirmation and submission.</p>
+<h2>Human credential handoff</h2>
+<p>Use the existing authenticated Tailscale console. Generate the approved OAuth credential, then save its client ID and client secret directly into a new 1Password item in the authorized vault. Do not send either value through chat, source files, screenshots or logs. Each nonsecret value below is a separate field.</p>
+<p>OAuth description and 1Password item title:</p><pre><code>homelab-k8s-operator-103</code></pre>
+<p>1Password vault:</p><pre><code>server</code></pre>
+<p>First concealed field name, containing the generated client ID:</p><pre><code>client-id</code></pre>
+<p>Second concealed field name, containing the generated client secret:</p><pre><code>client-secret</code></pre>
+<h2>Agent continuation after the item exists</h2>
+<p>Resolve its unique public item ID through the existing service account. Declare repository-owned 1Password delivery and update the existing ExternalSecret mapping without duplicate Secret ownership. Render, validate, publish to canonical Gitea master and reconcile the owning Applications. Compare delivered values only in RAM; prove provider acceptance before restoring operator replicas to one through GitOps. Verify startup, actual device/tag identity and expected CRD/controller behavior. Current absence of exposure consumers does not prove independent tailnet reachability.</p>
+<p>No placeholder item ID, live Secret patch, broad proxy grant or unverified provider credential is a valid substitute. Keep NETWORK_PATHS and the deferred origin/SSO/trust gates open until their own acceptance evidence exists.</p>
+<p><a href="https://tailscale.com/docs/reference/syntax/policy-file#tag-owners">Official tag ownership semantics</a>; <a href="maintenance-103-unblock-actions.html">current task map</a>; <a href="maintenance-103-ci-acceptance.html">CI evidence</a>.</p></html>

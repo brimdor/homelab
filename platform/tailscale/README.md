@@ -1,5 +1,10 @@
 # Tailscale (platform/tailscale)
 
+Current recovery and consumer state: [Issue 103 operator recovery](../../specs/tailscale-operator-recovery-103.html).
+Wolf is archived. The Wolf integration and policy examples below are historical and must not be applied as current tailnet intent.
+
+## Historical Wolf integration
+
 The Tailscale Kubernetes Operator exposes cluster workloads to the homelab's
 Tailscale tailnet (`tail18136a.ts.net`). It is deployed here so the Wolf
 game-streaming app can serve UDP video/audio to clients that are not on the

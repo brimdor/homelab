@@ -339,7 +339,7 @@ def main():
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, interrupted)
     def persist(stage, **summary):
-        print(json.dumps({'stage': stage, **summary}), flush=True)
+        print(json.dumps({'stage': stage, 'read_retries': list(instance.read_retries), **summary}), flush=True)
     instance.baseline()
     instance.revision = request['profile_revision']
     persist('prefetched-ready', code_revision=request['code_revision'], profile_revision=instance.revision)
