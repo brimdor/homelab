@@ -58,6 +58,11 @@ try:
   summary,catalog=restore.restore(Path(args['point']),args['checksum'],args['credentials'],
                                   base64.b64decode(args['hba'],validate=True),args['run_id'])
   result={'summary':summary,'catalog':catalog}
+ elif task=='postgres_maintained_restore':
+  summary,catalog=sys.modules['gitea_postgres_maintained_qualification'].run(
+   Path(args['point']),args['checksum'],args['credentials'],base64.b64decode(args['hba'],validate=True),
+   args['run_id'],args['payload'],return_catalog=True)
+  result={'summary':summary,'catalog':catalog}
  elif task=='postgres_image_qualify':
   result=sys.modules['gitea_postgres_maintained_qualification'].run(
    Path(args['point']),args['checksum'],args['credentials'],base64.b64decode(args['hba'],validate=True),
@@ -142,7 +147,7 @@ class Bundle:
                         'shared_observe', 'shared_capture', 'shared_send', 'shared_receive', 'shared_restore',
                         'valkey_observe', 'valkey_probe', 'valkey_send', 'valkey_receive', 'valkey_finalize', 'valkey_restore',
                         'cohort_store', 'valkey_lease_qualify', 'valkey_aof_send', 'valkey_aof_receive', 'valkey_aof_finalize',
-                        'postgres_image_qualify'}:
+                        'postgres_image_qualify', 'postgres_maintained_restore'}:
             raise RuntimeError('unreviewed native recovery task')
         # Preserve dependency order: the remote host has no repository imports.
         return json.dumps({'sources': self.sources, 'profiles': self.profiles,

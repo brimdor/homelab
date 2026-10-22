@@ -19,12 +19,26 @@ import traceback
 import gitea_postgres_recovery_controller as postgres
 import valkey_cohort_point as valkey
 import gitea_cohort_point as joint
+import gitea_postgres_maintained_qualification as maintained
 
 
 class Controller(postgres.Controller):
-    def __init__(self, kubectl, bundle, *, source_aof=False):
-        super().__init__(kubectl, bundle, capture_only=True)
+    def __init__(self, kubectl, bundle, *, source_aof=False,
+                 source_image=postgres.source.cold.control.IMAGE, postgres_payload=None):
+        super().__init__(kubectl, bundle, capture_only=True, source_image=source_image)
         self.source_aof = source_aof
+        if source_image == maintained.IMAGE:
+            maintained.validate_payload(postgres_payload)
+        elif postgres_payload is not None:
+            raise RuntimeError('legacy PostgreSQL source cannot accept a maintained runtime payload')
+        self.postgres_payload = postgres_payload
+
+    def restore_postgres(self, received, run_id):
+        args = postgres.transport.restore_args(received['point'], received['manifest_sha256'],
+                                               self.credentials, self.hba, run_id)
+        if self.source_image == maintained.IMAGE:
+            return self.bundle.run('pikachu', 'postgres_maintained_restore', **args, payload=self.postgres_payload)
+        return self.bundle.run('pikachu', 'restore', **args)
 
     def valkey_core(self):
         self.identity()
@@ -241,8 +255,7 @@ class Controller(postgres.Controller):
                                                   files['source'], run_id, shared=True)
             persist('separate-host-points', postgres=received_pg, shared=received_files)
             cache = self.capture_valkey(held, run_id, persist)
-            pg_restore = self.bundle.run('pikachu', 'restore', **postgres.transport.restore_args(
-                received_pg['point'], received_pg['manifest_sha256'], self.credentials, self.hba, run_id))
+            pg_restore = self.restore_postgres(received_pg, run_id)
             summary, catalog = pg_restore['summary'], pg_restore['catalog']
             if not summary['accepted'] or summary['independent_copies'] != 2:
                 raise RuntimeError('cohort PostgreSQL independent restores did not pass')
@@ -278,7 +291,9 @@ class Controller(postgres.Controller):
                     raw = self.client(item, role, 'pg_dump', '--no-comments', '--dbname=' + database)
                     if hashlib.sha256(postgres.recovery.logical.normalized_dump(raw)).hexdigest() != expected[database]:
                         raise RuntimeError('cohort ordinary PostgreSQL startup changed complete logical data')
-            if self.execute(item, '/bin/cat', '/opt/bitnami/postgresql/conf/pg_hba.conf').stdout != self.hba:
+            hba_path = ('/configuration/pg_hba.conf' if self.source_image == maintained.IMAGE
+                        else '/opt/bitnami/postgresql/conf/pg_hba.conf')
+            if self.execute(item, '/bin/cat', hba_path).stdout != self.hba:
                 raise RuntimeError('cohort ordinary PostgreSQL startup changed HBA')
             self.assert_held({'application': held['application']})
             self.preserved()
@@ -305,7 +320,8 @@ def main():
     request = json.load(sys.stdin)
     root = Path(__file__).resolve().parents[2]
     required = {'code_revision', 'profile_revision', 'ordinary_revision', 'nodes', 'kubectl', 'run_id'}
-    if (set(request) not in (required, required | {'source_aof'}) or type(request.get('source_aof', False)) is not bool or
+    if (not required <= set(request) or set(request) - required - {'source_aof', 'source_image', 'postgres_payload'} or
+            type(request.get('source_aof', False)) is not bool or
             not re.fullmatch('[a-f0-9]{40}', request['profile_revision']) or
             not re.fullmatch('[a-f0-9]{40}', request['ordinary_revision']) or
             subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD']).decode().strip() != request['profile_revision'] or
@@ -315,7 +331,9 @@ def main():
     for name in ('gitea_cohort_recovery', 'gitea_postgres_recovery_controller'):
         postgres.transport.Bundle.exact(root, request['code_revision'], 'metal/scripts/' + name + '.py')
     bundle = postgres.transport.Bundle(root, request['code_revision'], request['nodes'])
-    instance = Controller(request['kubectl'], bundle, source_aof=request.get('source_aof', False))
+    instance = Controller(request['kubectl'], bundle, source_aof=request.get('source_aof', False),
+        source_image=request.get('source_image', postgres.source.cold.control.IMAGE),
+        postgres_payload=request.get('postgres_payload'))
     def interrupted(_number, _frame):
         raise RuntimeError('owned capture coordinator interrupted; release holds and observe ordinary startup')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):

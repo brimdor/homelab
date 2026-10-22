@@ -15,22 +15,12 @@ import gitea_postgres_startup_guard as guard
 recovery, common = guard.recovery, guard.recovery.common
 
 
-def operation(work, volumes, run_id, image_id, mode):
-    container = starter = controller = None
+def lease(container, mode):
+    if mode not in ('controller-eof', 'unexpected-input', 'controller-killed'):
+        raise RuntimeError('unreviewed capture-only native lease mode')
+    common.require_no_logging(container)
+    starter = controller = None
     try:
-        container = common.docker(*recovery.arguments(work, volumes, run_id)).stdout.decode().strip()
-        if not re.fullmatch('[a-f0-9]{64}', container):
-            raise RuntimeError('capture-only synthetic container identity differs')
-        recovery.require_container(common.inspect(container), work, volumes, run_id, image_id)
-        common.docker('start', container)
-        value = common.inspect(container)
-        recovery.require_container(value, work, volumes, run_id, image_id)
-        net = ['nsenter', '--target', str(value['State']['Pid']), '--net', '--']
-        common.require_network(json.loads(common.command([*net, 'ip', '-j', 'address']).stdout),
-            sum((json.loads(common.command([*net, 'ip', family, '-j', 'route', 'show', 'table', 'all']).stdout)
-                 for family in ('-4', '-6')), []))
-        if common.command([*net, 'ip', 'route', 'get', '10.0.20.50'], check=False).returncode == 0:
-            raise RuntimeError('capture-only synthetic container can route to production')
         recovery.execute(container, '/bin/chmod', '2700', '/opt/bitnami/postgresql/tmp')
         starter = subprocess.Popen(['docker', 'exec', container, '/bin/bash', '-ceu', guard.STARTUP,
                                     'capture-only-synthetic-startup', '/bin/true'],
@@ -58,10 +48,8 @@ def operation(work, volumes, run_id, image_id, mode):
         if starter.returncode or output or errors or guard.phase(container) != b'normal':
             raise RuntimeError('capture-only native lease failed automatic startup release')
         recovery.execute(container, '/usr/bin/test', '!', '-e', guard.STATE + '/native-child')
-        if sorted(p.name for p in (work / 'copy').iterdir()) != ['sentinel'] or (work / 'copy/sentinel').read_bytes() != b'unchanged\n':
-            raise RuntimeError('capture-only synthetic data changed')
         return {'mode': mode, 'automatic_release': True, 'concurrent_startup_excluded': True,
-                'sql_dispatch_absent': True, 'synthetic_data_unchanged': True}
+                'sql_dispatch_absent': True}
     finally:
         for child in (controller, starter):
             if child:
@@ -74,6 +62,29 @@ def operation(work, volumes, run_id, image_id, mode):
                 for stream in (child.stdin, child.stdout, child.stderr):
                     if stream and not stream.closed:
                         stream.close()
+
+
+def operation(work, volumes, run_id, image_id, mode):
+    container = None
+    try:
+        container = common.docker(*recovery.arguments(work, volumes, run_id)).stdout.decode().strip()
+        if not re.fullmatch('[a-f0-9]{64}', container):
+            raise RuntimeError('capture-only synthetic container identity differs')
+        recovery.require_container(common.inspect(container), work, volumes, run_id, image_id)
+        common.docker('start', container)
+        value = common.inspect(container)
+        recovery.require_container(value, work, volumes, run_id, image_id)
+        net = ['nsenter', '--target', str(value['State']['Pid']), '--net', '--']
+        common.require_network(json.loads(common.command([*net, 'ip', '-j', 'address']).stdout),
+            sum((json.loads(common.command([*net, 'ip', family, '-j', 'route', 'show', 'table', 'all']).stdout)
+                 for family in ('-4', '-6')), []))
+        if common.command([*net, 'ip', 'route', 'get', '10.0.20.50'], check=False).returncode == 0:
+            raise RuntimeError('capture-only synthetic container can route to production')
+        result = lease(container, mode)
+        if sorted(p.name for p in (work / 'copy').iterdir()) != ['sentinel'] or (work / 'copy/sentinel').read_bytes() != b'unchanged\n':
+            raise RuntimeError('capture-only synthetic data changed')
+        return {**result, 'synthetic_data_unchanged': True}
+    finally:
         if container:
             recovery.require_container(common.inspect(container), work, volumes, run_id, image_id)
             common.docker('rm', '-f', container)

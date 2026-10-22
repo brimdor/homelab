@@ -11,6 +11,7 @@ import time
 
 import gitea_postgres_account_recovery as legacy
 import gitea_postgres_cold_point as cold
+import gitea_capture_only_qualification as capture_only
 
 common = legacy.common
 retained = legacy.retained
@@ -67,11 +68,11 @@ def candidate_mounts(work, volumes, artifacts, *, client=False):
 def create_candidate(work, volumes, artifacts, run_id, image_id, *, server=None):
     mounted = candidate_mounts(work, volumes, artifacts, client=server is not None)
     for name in volumes:
-        path = Path(mounted[name][0]); path.mkdir(mode=0o755)
+        path = Path(mounted[name][0]); path.mkdir(mode=0o755, exist_ok=True)
     network = 'container:' + server if server else 'none'
     args = ['create', '--network=' + network, '--read-only', '--log-driver=none', '--no-healthcheck',
             '--cap-drop=ALL', '--security-opt=no-new-privileges:true', '--user=1001:1001',
-            '--workdir=/tmp', '--pids-limit=128', '--memory=1g', '--cpus=1', '--label=' + LABEL + '=' + run_id]
+            '--workdir=/tmp', '--pids-limit=128', '--memory=192m', '--cpus=0.5', '--label=' + LABEL + '=' + run_id]
     for target, options in TMPFS.items():
         args.append('--tmpfs=' + target + ':' + options)
     for key, value in legacy.ENV.items():
@@ -102,8 +103,8 @@ def require_candidate(container, mounted, network, run_id, image_id):
     value = common.inspect(container); config, host = value['Config'], value['HostConfig']
     expected = {'NetworkMode': network, 'ReadonlyRootfs': True, 'Privileged': False,
                 'CapDrop': ['ALL'], 'SecurityOpt': ['no-new-privileges:true'], 'PidMode': '', 'IpcMode': 'private',
-                'UTSMode': '', 'UsernsMode': '', 'PidsLimit': 128, 'Memory': 1073741824,
-                'NanoCpus': 1000000000, 'Tmpfs': TMPFS, 'LogConfig': {'Type': 'none', 'Config': {}}}
+                'UTSMode': '', 'UsernsMode': '', 'PidsLimit': 128, 'Memory': 201326592,
+                'NanoCpus': 500000000, 'Tmpfs': TMPFS, 'LogConfig': {'Type': 'none', 'Config': {}}}
     actual = value['Mounts']
     environment = dict(item.split('=', 1) for item in config.get('Env', []))
     if (config['Image'] != IMAGE or value['Image'] != image_id or config['User'] != '1001:1001' or
@@ -205,7 +206,7 @@ def inspect_metadata(client_id, credentials, version):
     return values
 
 
-def run(point, checksum, credentials, hba, run_id, payload):
+def run(point, checksum, credentials, hba, run_id, payload, *, return_catalog=False):
     common.run_identifier(run_id); common.require_host('pikachu'); common.private_root()
     if (point.parent != common.ROOT or not point.name.startswith('gitea-postgres-guarded-') or
             set(credentials) != {'admin', 'app'} or hashlib.sha256(hba).hexdigest() != FILES['pg_hba.conf']):
@@ -288,6 +289,15 @@ def run(point, checksum, credentials, hba, run_id, payload):
             if retained.snapshot(child / 'copy')[0] != expected_tree:
                 raise RuntimeError('copied fsGroup mode preparation changed more than PGDATA root mode')
             remove(server)
+            leases = []
+            for mode in ('controller-eof', 'unexpected-input', 'controller-killed'):
+                server = new_candidate(child)
+                try:
+                    leases.append(capture_only.lease(server, mode))
+                    if retained.snapshot(child / 'copy')[0] != expected_tree:
+                        raise RuntimeError('maintained capture-only lease changed copied PGDATA')
+                finally:
+                    remove(server)
             server = new_candidate(child)
             candidate_start(server)
             actual_mode = legacy.execute(server, '/usr/bin/stat', '-c', '%u:%g:%a', legacy.DATA).stdout
@@ -318,11 +328,11 @@ def run(point, checksum, credentials, hba, run_id, payload):
             if (rollback, rollback_catalog) != (baseline, catalog):
                 raise RuntimeError('legacy rollback on the same copied PGDATA differs')
             legacy.stop(server); remove(server)
-            summaries.append({'normal_authentication_six_paths': True, 'full_dump_sha256': baseline,
+            summaries.append({'native_capture_only_leases': leases, 'normal_authentication_six_paths': True, 'full_dump_sha256': baseline,
                 'administrator_authentication': True, 'full_logical_data_equal': True,
                 'unchanged_hba': True, 'clean_shutdown': True,
                 'catalog_sha256': hashlib.sha256(common.canonical(catalog)).hexdigest(),
-                'maintained_version': '16.15', 'legacy_version': '16.6', 'collation_2_36_equal': True,
+                'maintained_version': '16.15', 'native_memory_limit_bytes': 201326592, 'native_cpu_limit_nanocpus': 500000000, 'legacy_version': '16.6', 'collation_2_36_equal': True,
                 'maintained_restart_equal': True, 'same_copy_legacy_rollback_equal': True,
                 'pgdata_and_hba_preserved': True, 'native_pgaudit_loaded': True, 'native_audit_behavior_passed': True})
         if summaries[0]['full_dump_sha256'] != summaries[1]['full_dump_sha256'] or summaries[0]['catalog_sha256'] != summaries[1]['catalog_sha256']:
@@ -353,4 +363,4 @@ def run(point, checksum, credentials, hba, run_id, payload):
             raise RuntimeError('protected original changed during qualification')
         result['cleanup'] = {'scratch_absent': not work.exists(), 'containers_absent': True,
             'allocated_bytes_removed': allocated, 'new_unused_images_removed': removed, 'protected_original_unchanged': True}
-    return result
+    return (result, catalog) if return_catalog else result

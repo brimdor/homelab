@@ -38,8 +38,8 @@ class MaintainedQualificationTests(unittest.TestCase):
         mounted = {'/var/lib/postgresql/data': ('/owned/empty', True)}
         host = {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False,
                 'CapDrop': ['ALL'], 'SecurityOpt': ['no-new-privileges:true'], 'PidMode': '', 'IpcMode': 'private',
-                'UTSMode': '', 'UsernsMode': '', 'PidsLimit': 128, 'Memory': 1073741824,
-                'NanoCpus': 1000000000, 'Tmpfs': candidate.TMPFS, 'LogConfig': {'Type': 'none', 'Config': {}},
+                'UTSMode': '', 'UsernsMode': '', 'PidsLimit': 128, 'Memory': 201326592,
+                'NanoCpus': 500000000, 'Tmpfs': candidate.TMPFS, 'LogConfig': {'Type': 'none', 'Config': {}},
                 'RestartPolicy': {'Name': 'no'}}
         config = {'Image': candidate.IMAGE, 'User': '1001:1001', 'Entrypoint': ['/bin/sh'],
                   'Cmd': ['-c', 'exec sleep 2147483647'], 'WorkingDir': '/tmp',
@@ -50,7 +50,9 @@ class MaintainedQualificationTests(unittest.TestCase):
                              'Source': '/owned/empty', 'RW': True}]}
         with patch.object(candidate.common, 'inspect', return_value=value):
             candidate.require_candidate('container', mounted, 'none', 'test', 'image-id')
-        mutations = (lambda v: v['HostConfig'].update(NetworkMode='host'),
+        mutations = (lambda v: v['HostConfig'].update(Memory=1073741824),
+                     lambda v: v['HostConfig'].update(NanoCpus=1000000000),
+                     lambda v: v['HostConfig'].update(NetworkMode='host'),
                      lambda v: v['HostConfig'].update(Privileged=True),
                      lambda v: v['HostConfig'].update(CapAdd=['SYS_ADMIN']),
                      lambda v: v['Config']['Env'].append('PGPASSWORD=forbidden-fixture'),
