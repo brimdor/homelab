@@ -3,6 +3,9 @@ umask 077
 state=/opt/bitnami/postgresql/tmp/maintenance-103
 fresh=false
 if mkdir -- "$state" 2>/dev/null; then
+    # fsGroup volumes can give a newly created directory an inherited setgid bit.
+    chmod 0700 -- "$state"
+    [[ ! -L "$state" && $(stat -c '%u:%a' "$state") == 1001:700 ]]
     fresh=true
 else
     [[ ! -L "$state" && $(stat -c '%u:%a' "$state") == 1001:700 ]]

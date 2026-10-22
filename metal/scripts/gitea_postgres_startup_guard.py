@@ -17,6 +17,9 @@ STARTUP = '''umask 077
 state=/opt/bitnami/postgresql/tmp/maintenance-103
 fresh=false
 if mkdir -- "$state" 2>/dev/null; then
+    # fsGroup volumes can give a newly created directory an inherited setgid bit.
+    chmod 0700 -- "$state"
+    [[ ! -L "$state" && $(stat -c '%u:%a' "$state") == 1001:700 ]]
     fresh=true
 else
     [[ ! -L "$state" && $(stat -c '%u:%a' "$state") == 1001:700 ]]
@@ -102,6 +105,12 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         original = recovery.dumps(container, credentials['app'], 'gitea')
         recovery.stop(container)
         before = recovery.parse_catalog(recovery.single(container, recovery.catalog_sql().encode()).stdout)
+        recovery.execute(container, '/bin/chmod', '2700', '/opt/bitnami/postgresql/tmp')
+        inherited = recovery.execute(container, '/bin/sh', '-ceu',
+                                     'umask 077; mkdir "$1"; stat -c "%u:%a" "$1"; rmdir "$1"',
+                                     'synthetic-setgid-parent', STATE + '-setgid-witness').stdout
+        if inherited != b'1001:2700\n':
+            raise RuntimeError('native PostgreSQL setgid inheritance witness differs')
         receipts = []
         last = 'success' if work.name == '0' else 'controller-killed-during-sql'
         for mode in ('controller-absent', 'controller-eof', 'failed-sql', last):
@@ -214,9 +223,9 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         for fault, prepare in (
                 ('linked-directory', 'ln -s /tmp "$state"'),
                 ('wrong-mode', 'mkdir -m 0755 "$state"'),
-                ('linked-lock', 'mkdir -m 0700 "$state"; : > "$state/lock"; '
+                ('linked-lock', 'mkdir -m 0700 "$state"; chmod 0700 "$state"; : > "$state/lock"; '
                  'ln "$state/lock" "$state-lock-alias"; printf "waiting\\n" > "$state/phase"'),
-                ('unknown-phase', 'mkdir -m 0700 "$state"; : > "$state/lock"; printf "foreign\\n" > "$state/phase"')):
+                ('unknown-phase', 'mkdir -m 0700 "$state"; chmod 0700 "$state"; : > "$state/lock"; printf "foreign\\n" > "$state/phase"')):
             try:
                 recovery.execute(container, '/bin/sh', '-ceu', 'umask 077; state=' + STATE + '; ' + prepare)
                 rejected = recovery.execute(container, '/bin/bash', '-ceu', STARTUP, 'refused-state',
@@ -228,5 +237,6 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 recovery.execute(container, '/bin/rm', '-rf', '--', STATE, STATE + '-lock-alias')
         return {'full_dump_sha256': {name: hashlib.sha256(raw).hexdigest() for name, raw in original.items()},
                 'startup_guard_attempts': receipts, 'unsafe_retained_state_refusals': refusals,
+                'native_parent_setgid_inheritance_witness': inherited.decode().strip(),
                 'production_mutated': False,
                 'production_cold_capture_and_chart_wiring_unqualified': True}

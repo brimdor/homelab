@@ -92,6 +92,11 @@ def operation(scratch, volumes, run_id, image_id, mode):
         common.docker('start', container)
         phase = lambda: execute(container, '/bin/cat', STATE + '/phase', check=False).stdout.strip()
         wait_for(lambda: phase() == b'waiting', 'native Gitea initialization claim window missing')
+        inherited = execute(container, '/bin/sh', '-ceu',
+                            'umask 077; mkdir "$1"; stat -c "%u:%a" "$1"; rmdir "$1"',
+                            'synthetic-setgid-parent', STATE + '-setgid-witness').stdout
+        if inherited != b'1000:2700\n':
+            raise RuntimeError('native Gitea setgid inheritance witness differs')
         if mode != 'controller-absent':
             controller = subprocess.Popen(['docker', 'exec', '-i', container, '/bin/bash', '-ceu', CLAIM],
                                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -121,6 +126,7 @@ def operation(scratch, volumes, run_id, image_id, mode):
         if value['State']['ExitCode'] or value['State'].get('OOMKilled'):
             raise RuntimeError('retained native Gitea initialization restart failed')
         return {'mode': mode, 'automatic_init_completion': True, 'actual_container_restart': True,
+                'native_parent_setgid_inheritance_witness': inherited.decode().strip(),
                 'retained_emptydir_binding': True, 'actual_kubernetes_restart_qualified': False}
     finally:
         if controller and controller.poll() is None:
@@ -156,6 +162,7 @@ def qualify(run_id):
             work.mkdir(mode=0o700)
             (work / 'temp').mkdir(mode=0o700)
             os.chown(work / 'temp', 1000, 1000)
+            os.chmod(work / 'temp', 0o2700)
             for n in range(len(volumes)):
                 (work / ('volume-' + str(n))).mkdir(mode=0o755)
             result['attempts'].append(operation(work, volumes, run_id, image_id, mode))

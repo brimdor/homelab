@@ -169,7 +169,14 @@ class Qualification:
                             raise RuntimeError('synthetic attached controller handshake missing')
                         match = re.fullmatch(rb'HOMELAB103:CLAIMED:([0-9]+)\n', child.stdout.readline())
                     if not match:
-                        raise RuntimeError('synthetic attached controller did not acquire lock')
+                        output, errors = child.communicate(timeout=20)
+                        metadata = self.execute(name, container, '/bin/stat', '-c', '%u:%a:%h',
+                                                module.STATE, module.STATE + '/lock', module.STATE + '/phase',
+                                                check=False)
+                        raise RuntimeError('synthetic attached controller did not acquire lock; kind=' + kind +
+                                           '; exit=' + str(child.returncode) +
+                                           '; state_properties=' + repr(metadata.stdout.decode().splitlines()) +
+                                           '; diagnostics_sha256=' + hashlib.sha256(output + errors).hexdigest())
                     held[kind] = {'pod': name, 'uid': uid, 'container': container,
                                   'child': child, 'pid': match[1].decode()}
                 return len(held) == 2
