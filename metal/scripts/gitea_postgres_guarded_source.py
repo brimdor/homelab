@@ -67,6 +67,13 @@ def process(pid):
     return identity, namespace[-1], [v.decode() for v in command]
 
 
+def parse_sync_control(raw):
+    # The installed crictl ExecSync printer adds two newlines to native stdout.
+    if not raw.endswith(b'\n\n\n'):
+        raise RuntimeError('native CRI synchronous output framing differs')
+    return cold.control.parse_control(raw[:-2])
+
+
 def observe(core, namespace_pid):
     """Return a binding only when all native tasks are the reviewed idle guard."""
     if (not isinstance(core, dict) or core.get('namespace') != 'gitea' or
@@ -135,7 +142,7 @@ def observe(core, namespace_pid):
         'guard': {'namespace_pid': namespace_pid, 'host_pid': host_pid,
                   'start_ticks': int(holder[0]['start_ticks']),
                   'lock_device': lock.st_dev, 'lock_inode': lock.st_ino}})
-    state = cold.control.parse_control(common.command(
+    state = parse_sync_control(common.command(
         [*CRI, 'exec', '--sync', cid, '/usr/bin/env', 'LC_ALL=C', cold.control.ENTRY, recovery.DATA]).stdout)
     if state['cluster_state'] != 'shut down':
         raise RuntimeError('held PostgreSQL data is not cleanly shut down')

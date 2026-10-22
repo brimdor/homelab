@@ -8,9 +8,18 @@ import unittest
 from unittest.mock import patch
 
 import gitea_postgres_guarded_source as source
+from test_gitea_postgres_control import SYNTHETIC
 
 
 class GuardedSourceTests(unittest.TestCase):
+    def test_sync_framing_preserves_exact_native_control_bytes(self):
+        self.assertEqual(source.parse_sync_control(SYNTHETIC + b'\n\n'),
+                         source.cold.control.parse_control(SYNTHETIC))
+        for raw in (SYNTHETIC, SYNTHETIC + b'\n', SYNTHETIC + b'\n\n\n',
+                    SYNTHETIC + b'WARNING: checksum differs\n\n\n'):
+            with self.subTest(raw=raw), self.assertRaises(RuntimeError):
+                source.parse_sync_control(raw)
+
     def test_durable_intent_is_exclusive_and_contains_no_credential(self):
         uid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
         with tempfile.TemporaryDirectory() as temporary, \
