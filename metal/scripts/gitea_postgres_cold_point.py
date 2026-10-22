@@ -174,7 +174,7 @@ def capture(source, point, state, *, source_binding=None):
     return value, checksum
 
 
-def send(point, checksum, output):
+def send(point, checksum, output, *, confirm_source=None):
     """Stream an already verified protected point; commit only unchanged bytes."""
     value = verify(point, checksum)
     encoded = common.canonical(value)
@@ -187,6 +187,8 @@ def send(point, checksum, output):
                     output.write(chunk)
     if verify(point, checksum) != value:
         raise RuntimeError('protected PostgreSQL point changed during transfer')
+    if confirm_source is not None and confirm_source() is not True:
+        raise RuntimeError('guarded PostgreSQL source changed before transfer commit')
     output.write(common.canonical({'commit': checksum}) + b'\n')
     output.flush()
 

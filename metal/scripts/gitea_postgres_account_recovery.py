@@ -349,48 +349,14 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
     if gitea_postgres_cold_point.verify(transferred, checksum) != manifest:
         raise RuntimeError('native transferred cold point differs')
     point = transferred
-    copies = []
-    for number in range(2):
-        if gitea_postgres_cold_point.verify(point, checksum) != manifest:
-            raise RuntimeError('clean copy-point changed before independent restore')
-        child = work / ('cold-copy-' + str(number))
-        child.mkdir(mode=0o700)
-        retained.materialize(point, child / 'copy', manifest)
-        for source in mounts(child, volumes).values():
-            if source != str(child / 'copy'):
-                Path(source).mkdir(mode=0o755)
-        restored = None
-        try:
-            restored = common.docker(*arguments(child, volumes, run_id)).stdout.decode().strip()
-            if not re.fullmatch('[a-f0-9]{64}', restored):
-                raise RuntimeError('cold-copy container identity missing')
-            require_container(common.inspect(restored), child, volumes, run_id, image_id)
-            common.docker('start', restored)
-            value = common.inspect(restored)
-            require_container(value, child, volumes, run_id, image_id)
-            net = ['nsenter', '-t', str(value['State']['Pid']), '-n', '--']
-            common.require_network(json.loads(common.command([*net, 'ip', '-j', 'address']).stdout),
-                                   sum((json.loads(common.command([*net, 'ip', f, '-j', 'route', 'show', 'table', 'all']).stdout)
-                                        for f in ('-4', '-6')), []))
-            if common.command([*net, 'ip', 'route', 'get', '10.0.20.50'], check=False).returncode == 0:
-                raise RuntimeError('cold-copy restore can route to production')
-            execute(restored, '/bin/sh', '-c', 'umask 077; cat > /tmp/source-hba.conf; : > /tmp/fixture.conf', input=hba)
-            normal_start(restored, credentials, hba)
-            if (dumps(restored, credentials['app'], 'gitea') != expected_dump or
-                    (not before_recovery and dumps(restored, credentials['admin'], 'postgres') != expected_dump)):
-                raise RuntimeError('cold-copy restore changed complete logical data')
-            clean = stop(restored)
-            if parse_catalog(single(restored, catalog_sql().encode()).stdout) != expected_catalog:
-                raise RuntimeError('cold-copy restore changed authorization or database metadata')
-            copies.append({'normal_start_and_tcp_auth': True, 'full_logical_data_equal': True,
-                           'administrator_authentication': not before_recovery,
-                           'catalog_equal': True, 'clean_shutdown': clean['cluster_state'] == 'shut down'})
-        finally:
-            if restored:
-                require_container(common.inspect(restored), child, volumes, run_id, image_id)
-                common.docker('rm', '-f', restored)
-                if common.docker('inspect', restored, check=False).returncode == 0:
-                    raise RuntimeError('owned cold-copy container remains')
+    import gitea_postgres_fresh_restore
+    copies, restored_catalog = gitea_postgres_fresh_restore.restore_copies(
+        point, checksum, work, volumes, run_id, image_id, credentials, hba)
+    fingerprints = {k: hashlib.sha256(v).hexdigest() for k, v in expected_dump.items()}
+    if (restored_catalog != expected_catalog or
+            any(c['full_dump_sha256'] != fingerprints or
+                c['administrator_authentication'] != (not before_recovery) for c in copies)):
+        raise RuntimeError('transferred clean-point restores changed full data, catalog or authentication')
     if retained.snapshot(work / 'copy')[0] != tree:
         raise RuntimeError('stopped source changed during cold capture/restore')
     return {'source_kind': 'isolated_historical_copy', 'source_stopped': True,

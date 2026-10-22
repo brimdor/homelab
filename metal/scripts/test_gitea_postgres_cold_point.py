@@ -120,6 +120,11 @@ class ColdPointTests(unittest.TestCase):
             cold.send(root / 'point', checksum, stream)
             raw = stream.getvalue()
             self.assertEqual(cold.receive(io.BytesIO(raw), root / 'received'), (value, checksum))
+            refused = io.BytesIO()
+            with self.assertRaises(RuntimeError):
+                cold.send(root / 'point', checksum, refused, confirm_source=lambda: False)
+            with self.assertRaises(RuntimeError):
+                cold.receive(io.BytesIO(refused.getvalue()), root / 'source-lost')
             for number, damaged in enumerate((raw[:-1], raw + b'foreign', raw[:80],
                                               raw.replace(b'16\n', b'17\n'))):
                 with self.subTest(number=number), self.assertRaises((RuntimeError, ValueError)):
