@@ -1,4 +1,4 @@
 image: docker.io/bitnamilegacy/valkey-cluster@sha256:32869e769b7e554219f2ae527b85f4a4739574750beac63b895f5d09fc38f53b
-partition: 2
+partition: 1
 generation: cross-node-restart
 node: totodile
