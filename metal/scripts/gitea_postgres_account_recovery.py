@@ -322,28 +322,15 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
             'md5' + hashlib.md5((credentials['admin'] + 'postgres').encode()).hexdigest()):
         raise RuntimeError('pre-recovery point must retain the original mismatched administrator credential')
     point = work / ('pre-recovery-cold-point' if before_recovery else 'cold-point')
-    point.mkdir(mode=0o700)
-    (point / 'data').mkdir(mode=0o700)
-    for number, (name, record) in enumerate(sorted(tree.items())):
-        if record['kind'] != 'file':
-            continue
-        with (point / 'data' / str(number)).open('xb') as target:
-            os.fchmod(target.fileno(), 0o600)
-            target.write(payloads[name])
-            target.flush()
-            os.fsync(target.fileno())
     del payloads
-    manifest = {'format': 'isolated-clean-copy-103', 'original_manifest_sha256': control.CHECKSUM,
-                'control': state, 'tree': tree}
-    retained.files.write_json(point / 'verified.json', manifest)
-    for directory in (point / 'data', point, work):
-        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+    import gitea_postgres_cold_point
+    manifest, checksum = gitea_postgres_cold_point.capture(work / 'copy', point, state)
+    if manifest['tree'] != tree:
+        raise RuntimeError('clean stopped source changed before protected-point capture')
     copies = []
     for number in range(2):
+        if gitea_postgres_cold_point.verify(point, checksum) != manifest:
+            raise RuntimeError('clean copy-point changed before independent restore')
         child = work / ('cold-copy-' + str(number))
         child.mkdir(mode=0o700)
         retained.materialize(point, child / 'copy', manifest)
@@ -386,7 +373,7 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
         raise RuntimeError('stopped source changed during cold capture/restore')
     return {'source_kind': 'isolated_historical_copy', 'source_stopped': True,
             'before_role_recovery': before_recovery,
-            'manifest_sha256': hashlib.sha256(common.canonical(manifest)).hexdigest(),
+            'manifest_sha256': checksum,
             'independent_restores': copies, 'source_unchanged': True, 'production_capture_unqualified': True}
 
 
