@@ -26,7 +26,7 @@ CLAIMS = {**recovery.CLAIMS,
           '4': ('256eb525-52a4-4124-acf4-52c180a75483', '7bf3bcd9-c070-454e-bda8-8e9bfe80c232')}
 REPLICAS = {'1': '5', '2': '3', '4': '0'}
 SLOTS = {'0': [0, 5460], '3': [10923, 16383], '5': [5461, 10922]}
-LEASE_MS = 60000
+LEASE_MS = 180000
 CORE_KEYS = {'ordinal', 'cluster_uid', 'namespace', 'pod', 'pod_uid', 'controller_uid', 'node',
              'container_id', 'image', 'claim', 'claim_uid', 'pv', 'pv_uid', 'revision'}
 
@@ -101,7 +101,7 @@ def probe(core, observer):
     binding = observe(core)
     program = '''import base64,select,socket,types
 v=types.ModuleType('private_resp');exec(base64.b64decode(OBSERVER),v.__dict__)
-with socket.create_connection(('127.0.0.1',6379),timeout=75) as connection:
+with socket.create_connection(('127.0.0.1',6379),timeout=PROBE_TIMEOUT) as connection:
  with connection.makefile('rb') as stream:
   connection.sendall(v.request('PING'))
   if v.response(stream)!=b'PONG':raise RuntimeError('native probe read acknowledgement differs')
@@ -110,7 +110,7 @@ with socket.create_connection(('127.0.0.1',6379),timeout=75) as connection:
   print('HOMELAB103:WRITE-BLOCKED',flush=True)
   if v.response(stream)!=1:raise RuntimeError('native probe release differs')
   print('HOMELAB103:WRITE-RELEASED',flush=True)
-'''.replace('OBSERVER', repr(base64.b64encode(observer).decode()))
+'''.replace('OBSERVER', repr(base64.b64encode(observer).decode())).replace('PROBE_TIMEOUT', str(LEASE_MS / 1000 + 15))
     os.execvp('nsenter', ['nsenter', '--target', str(binding['process']['host_pid']), '--net', '--',
                          'python3', '-I', '-B', '-c', program])
 

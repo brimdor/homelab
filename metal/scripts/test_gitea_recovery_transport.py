@@ -26,6 +26,20 @@ class TransportTests(unittest.TestCase):
             'error': 'unreviewed held PostgreSQL runtime request'})
         self.assertEqual(child.stdout, b'')
 
+    def test_long_lease_task_crosses_actual_native_frame_before_any_host_contact(self):
+        root = Path(__file__).resolve().parents[2]
+        bundle = object.__new__(transport.Bundle)
+        bundle.sources = {name: (root / 'metal/scripts' / (name + '.py')).read_text()
+                          for name in transport.MODULES}
+        bundle.profiles = json.loads((root / 'metal/maintenance/gitea-postgres-files-103.json').read_text())
+        bundle.sources['valkey_long_lease_qualification'] = (
+            "def run(run_id,observer):\n assert run_id=='synthetic-lease'\n"
+            " assert observer.startswith(b'\"\"\"')\n return {'synthetic_dispatch':True}\n")
+        child = subprocess.run([sys.executable, '-I', '-B', '-c', transport.BOOT],
+            input=bundle.request('valkey_lease_qualify', {'run_id': 'synthetic-lease'}), capture_output=True)
+        self.assertEqual((child.returncode, child.stderr), (0, b''))
+        self.assertEqual(json.loads(child.stdout), {'synthetic_dispatch': True})
+
     def test_successful_binary_sender_exit_is_not_caught_as_failure(self):
         sources = {'etcd_recovery': '', 'gitea_postgres_cold_point': '',
                    'gitea_postgres_guarded_source': 'def send(point,checksum,expected,output):\n output.write(b"synthetic-frame");output.flush()\n',

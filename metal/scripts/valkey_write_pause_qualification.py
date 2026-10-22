@@ -2,6 +2,9 @@
 
 import base64
 import json
+import os
+import signal
+import subprocess
 
 import etcd_recovery as common
 
@@ -11,7 +14,7 @@ import json,select,socket,subprocess,sys,time
 
 class Client:
     def __init__(self, port):
-        self.socket=socket.create_connection(('127.0.0.1',port),timeout=5)
+        self.socket=socket.create_connection(('127.0.0.1',port),timeout=max(5,owner_lease_ms/1000+15))
         self.socket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
         self.stream=self.socket.makefile('rb')
     def send(self,*args): self.socket.sendall(values.request(*args))
@@ -69,7 +72,7 @@ OWNER = r'''
 import socket,time
 for port in range(17000,17006):
     with socket.create_connection(('127.0.0.1',port),timeout=5) as connection:
-        connection.sendall(values.request('CLIENT','PAUSE',2500,'WRITE'))
+        connection.sendall(values.request('CLIENT','PAUSE',owner_lease_ms,'WRITE'))
         with connection.makefile('rb') as stream:assert values.response(stream)==b'OK'
 print('FINITE-LEASE-READY',flush=True)
 time.sleep(3600)
@@ -86,13 +89,13 @@ FINISH = r'''
     for client in clients:assert client.read()==1;client.close()
     clients=[]
     elapsed=time.monotonic()-started
-    assert 0.2<elapsed<5
+    assert max(0.2,owner_lease_ms/1000-1)<elapsed<owner_lease_ms/1000+5
     for port in range(17000,17006):assert call(port,'PING')==b'PONG'
     result={'accepted':True,'nodes':6,'write_flagged_noop_blocked':True,
         'reads_and_native_save_during_pause':True,'logical_expiry_continues':True,
         'physical_expiry_deferred_until_unpause':True,
         'explicit_unpause':True,'actual_owner_sigkill':True,'finite_lease_resumed':True,
-        'resumption_seconds':elapsed}
+        'resumption_seconds':elapsed,'owner_lease_ms':owner_lease_ms}
 finally:
     cleanup_errors=[]
     for port in range(17000,17006):
@@ -107,17 +110,32 @@ print(json.dumps(result))
 '''
 
 
-def qualify(namespace, observer, expiry_key):
+def qualify(namespace, observer, expiry_key, *, owner_lease_ms=2500):
+    if type(owner_lease_ms) is not int or owner_lease_ms not in (2500, 180000):
+        raise RuntimeError('unreviewed synthetic lease duration')
     encoded = base64.b64encode(observer).decode()
-    boot = ('import base64,sys,types;values=types.ModuleType("valkey_data_fingerprint");'
+    boot = ('owner_lease_ms=' + str(owner_lease_ms) + ';import base64,sys,types;values=types.ModuleType("valkey_data_fingerprint");'
             'exec(base64.b64decode(' + repr(encoded) + '),values.__dict__);')
     program = (boot + '\nresp_boot=' + repr(boot) + '\nexpiry_key=' + repr(expiry_key) + '\n' +
                PROGRAM + repr(OWNER) + FINISH)
     wrapper = ('import json,traceback\ntry:\n exec(compile(' + repr(program) + ',"<synthetic-pause>","exec"))\n'
                'except Exception as error:\n print(json.dumps({"accepted":False,"failure_class":type(error).__name__,\n'
                ' "frames":[{"function":f.name,"line":f.lineno} for f in traceback.extract_tb(error.__traceback__)]}))\n')
-    result = common.command([*namespace, 'python3', '-I', '-B', '-c', wrapper])
-    value = json.loads(result.stdout)
-    if result.stderr or value.get('accepted') is not True:
+    child = subprocess.Popen([*namespace, 'python3', '-I', '-B', '-c', wrapper],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    try:
+        output, errors = child.communicate()
+    finally:
+        if child.poll() is None:
+            os.killpg(child.pid, signal.SIGTERM)
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(child.pid, signal.SIGKILL)
+                child.wait()
+        for stream in (child.stdout, child.stderr):
+            stream.close()
+    value = json.loads(output)
+    if child.returncode or errors or value.get('accepted') is not True:
         raise RuntimeError('native synthetic write-pause qualification failed: ' + json.dumps(value))
     return value

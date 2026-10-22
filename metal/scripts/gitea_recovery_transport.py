@@ -23,7 +23,8 @@ MODULES = ['etcd_recovery', 'prometheus_recovery', 'grafana_recovery', 'sporecas
            'gitea_git_recovery', 'gitea_init_guard', 'gitea_shared_guarded_source',
            'gitea_capture_only_qualification', 'valkey_recovery', 'valkey_cohort_point',
            'valkey_cluster_qualification', 'valkey_data_fingerprint',
-           'valkey_write_pause_qualification', 'valkey_cluster_recovery', 'gitea_cohort_point']
+           'valkey_write_pause_qualification', 'valkey_cluster_recovery', 'gitea_cohort_point',
+           'valkey_long_lease_qualification']
 BOOT = '''import base64,json,sys,types
 from pathlib import Path
 stream=sys.stdin.buffer
@@ -69,6 +70,8 @@ try:
    valkey.send(args['core'],sys.stdout.buffer);sys.exit(0)
   elif task=='valkey_receive':result=valkey.receive(args['run_id'],args['expected'],stream)
   elif task=='valkey_finalize':result=valkey.finalize(args['run_id'],args['manifest'])
+  elif task=='valkey_lease_qualify':
+   result=sys.modules['valkey_long_lease_qualification'].run(args['run_id'],request['sources']['valkey_data_fingerprint'].encode())
   elif task=='valkey_restore':
    result=sys.modules['valkey_cluster_recovery'].run(args['run_id'],request['sources']['valkey_data_fingerprint'].encode(),
       cohort_run_id=args['cohort_run_id'],checksum=args['checksum'])
@@ -129,7 +132,7 @@ class Bundle:
         if task not in {'observe', 'capture', 'send', 'receive', 'restore', 'intent', 'capture_qualify',
                         'shared_observe', 'shared_capture', 'shared_send', 'shared_receive', 'shared_restore',
                         'valkey_observe', 'valkey_probe', 'valkey_send', 'valkey_receive', 'valkey_finalize', 'valkey_restore',
-                        'cohort_store'}:
+                        'cohort_store', 'valkey_lease_qualify'}:
             raise RuntimeError('unreviewed native recovery task')
         # Preserve dependency order: the remote host has no repository imports.
         return json.dumps({'sources': self.sources, 'profiles': self.profiles,

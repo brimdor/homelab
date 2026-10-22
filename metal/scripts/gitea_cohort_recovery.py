@@ -138,6 +138,7 @@ class Controller(postgres.Controller):
                 child.stdin.write(self.bundle.request('valkey_probe', {'core': core}))
                 child.stdin.close()
                 child.stdin = None
+            for child in probes:
                 with selectors.DefaultSelector() as selector:
                     selector.register(child.stdout, selectors.EVENT_READ)
                     if not selector.select(10) or child.stdout.readline() != b'HOMELAB103:WRITE-BLOCKED\n':
@@ -153,7 +154,9 @@ class Controller(postgres.Controller):
             self.assert_held(held)
             elapsed = int((time.monotonic() - started) * 1000)
             if not 0 < elapsed < valkey.LEASE_MS or any(c.poll() is not None for c in probes):
-                raise RuntimeError('native Valkey common WRITE exclusion interval was lost')
+                raise RuntimeError('native Valkey common WRITE exclusion interval was lost: elapsed_ms=' +
+                                   str(elapsed) + ', lease_ms=' + str(valkey.LEASE_MS) +
+                                   ', probe_exits=' + repr([c.poll() for c in probes]))
             manifest = {'format': valkey.FORMAT, 'cluster_uid': postgres.common.CLUSTER_UID,
                         'owner_uid': valkey.recovery.OWNER, 'image': valkey.recovery.IMAGE,
                         'sources': bindings, 'shards': shards, 'replicas': valkey.REPLICAS,

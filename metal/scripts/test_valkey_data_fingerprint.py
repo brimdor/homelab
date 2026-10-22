@@ -1,8 +1,8 @@
 """Verify binary framing and complete semantic comparisons without private output."""
 
 import io
+from unittest.mock import Mock
 import json
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -40,15 +40,27 @@ class FingerprintTests(unittest.TestCase):
         self.assertNotEqual(values.canonical([b'ab', b'c']), values.canonical([b'a', b'bc']))
 
     def test_native_pause_program_compiles_and_refuses_failed_result(self):
-        def command(arguments):
+        def spawn(arguments, **kwargs):
             self.assertEqual(arguments[:4], ['nsenter', '--target', '123', '--net'])
             compile(arguments[-1], '<wrapper>', 'exec')
             # Compile the actual embedded native body as well as its wrapper.
             program = pause.PROGRAM + repr(pause.OWNER) + pause.FINISH
             compile(program, '<synthetic-pause>', 'exec')
-            return SimpleNamespace(stdout=json.dumps({'accepted': False, 'failure_class': 'AssertionError'}).encode(), stderr=b'')
-        with patch.object(pause.common, 'command', side_effect=command), self.assertRaises(RuntimeError):
-            pause.qualify(['nsenter', '--target', '123', '--net', '--'], b'# synthetic observer', 'synthetic-key')
+            self.assertTrue(kwargs['start_new_session'])
+            self.assertIn('owner_lease_ms=180000', arguments[-1])
+            child = Mock(returncode=0)
+            child.communicate.return_value = (json.dumps({'accepted': False, 'failure_class': 'AssertionError'}).encode(), b'')
+            child.poll.return_value = 0
+            return child
+        with patch.object(pause.subprocess, 'Popen', side_effect=spawn), self.assertRaises(RuntimeError):
+            pause.qualify(['nsenter', '--target', '123', '--net', '--'], b'# synthetic observer', 'synthetic-key', owner_lease_ms=180000)
+
+    def test_unreviewed_lease_refused_before_native_contact(self):
+        with patch.object(pause.subprocess, 'Popen') as spawn:
+            for duration in (True, 0, 60000, 180001, '180000'):
+                with self.subTest(duration=duration), self.assertRaises(RuntimeError):
+                    pause.qualify([], b'', 'unused', owner_lease_ms=duration)
+            spawn.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -72,7 +72,7 @@ class CohortControllerTests(unittest.TestCase):
                         patch.object(instance, 'native_bindings', return_value={}), \
                         patch.object(instance, 'valkey_cli', side_effect=cli), \
                         patch.object(cohort.subprocess, 'Popen', side_effect=spawn), \
-                        patch.object(cohort.time, 'monotonic', side_effect=[0, 61]):
+                        patch.object(cohort.time, 'monotonic', side_effect=[0, cohort.valkey.LEASE_MS / 1000 + 1]):
                     with self.assertRaisesRegex(RuntimeError, 'common WRITE exclusion interval was lost'):
                         instance.capture_valkey({}, 'expired-103', lambda *_a, **_k: None)
                 bundle.run.assert_not_called()
