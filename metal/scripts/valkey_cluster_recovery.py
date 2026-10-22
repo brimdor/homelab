@@ -152,8 +152,8 @@ def run(run_id, observer):
                 assert cluster.cli(4, 'SET', key, 'synthetic-corruption') == b'OK'
                 if cluster.fingerprint(0) == full[0]:
                     raise RuntimeError('complete fingerprint accepted changed value')
-                keys = protocol.fixture_keys(0)
-                assert cluster.cli(4, 'EVAL', protocol.WRITE, len(keys), *keys) == b'fixture-created'
+                assert cluster.cli(4, 'EVAL', "return redis.call('SET',KEYS[1],string.char(0,255)..'0\\nλ')", 1, key) == b'OK'
+                cluster.verify()
                 cluster.verify_values(full)
                 for master in protocol.SLOTS:
                     assert cluster.cli(master, 'FLUSHALL') == b'OK'
