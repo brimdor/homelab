@@ -1,12 +1,9 @@
 configJob:
   enabled: false
-
 maintenance103Recovery:
-  enabled: false
-
+  enabled: true
 maintenance103PostgresMaintained:
   enabled: false
-
 gitea:
   strategy:
     type: Recreate
@@ -18,14 +15,14 @@ gitea:
       hajimari.io/appName: Gitea
       hajimari.io/icon: git
     hosts:
-      - host: &host git.eaglepass.io
+      - host: git.eaglepass.io
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: gitea-tls-certificate
         hosts:
-          - *host
+          - git.eaglepass.io
   gitea:
     admin:
       existingSecret: gitea-admin-secret
@@ -37,12 +34,14 @@ gitea:
         ALLOWED_HOST_LIST: private
       actions:
         ENABLED: true
+    podAnnotations:
+      maintenance103.eaglepass.io/recovery: three-store-capture-only-v1
   persistence:
     storageClass: standard-rwo
   postgresql:
     enabled: true
     image:
-      tag: "16.6.0-debian-12-r2"
+      tag: 16.6.0-debian-12-r2
     persistence:
       storageClass: standard-rwo
     primary:
@@ -55,6 +54,26 @@ gitea:
           cpu: 500m
           ephemeral-storage: 2Gi
           memory: 192Mi
+      nodeSelector:
+        kubernetes.io/hostname: totodile
+      command:
+        - /bin/bash
+        - -eu
+        - /maintenance-103/startup.sh
+      args:
+        - /opt/bitnami/scripts/postgresql/entrypoint.sh
+        - /opt/bitnami/scripts/postgresql/run.sh
+      livenessProbe:
+        enabled: false
+      extraVolumes:
+        - name: maintenance-103-startup
+          configMap:
+            name: gitea-maintenance-103-startup
+            defaultMode: 292
+      extraVolumeMounts:
+        - name: maintenance-103-startup
+          mountPath: /maintenance-103
+          readOnly: true
   postgresql-ha:
     enabled: false
   valkey-cluster:
@@ -70,3 +89,43 @@ gitea:
           cpu: 500m
           ephemeral-storage: 2Gi
           memory: 192Mi
+  preExtraInitContainers:
+    - name: maintenance-103-init
+      image: docker.gitea.com/gitea@sha256:4c4256497e2e237ddebdd30986c7ce52cb6f936b3e90c34bb9f4665714599f62
+      imagePullPolicy: IfNotPresent
+      command:
+        - /bin/bash
+        - -eu
+        - /maintenance-103/gitea-init.sh
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
+      volumeMounts:
+        - name: temp
+          mountPath: /tmp
+        - name: maintenance-103-startup
+          mountPath: /maintenance-103
+          readOnly: true
+        - name: data
+          mountPath: /data
+          readOnly: true
+  extraVolumes:
+    - name: maintenance-103-startup
+      configMap:
+        name: gitea-maintenance-103-startup
+        defaultMode: 292
