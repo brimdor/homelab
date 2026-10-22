@@ -1,4 +1,0 @@
-apiVersion: v2
-name: maintenance-recovery-103
-version: 0.0.0
-description: Temporary synthetic qualification of Issue 103 startup guards
