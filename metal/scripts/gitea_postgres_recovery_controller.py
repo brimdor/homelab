@@ -111,7 +111,7 @@ class Controller:
                 raise RuntimeError(message)
             time.sleep(0.2)
 
-    def identity(self):
+    def identity(self, *, allow_unknown_comparison=False):
         if self.get('namespace', 'kube-system', namespace=None)['metadata']['uid'] != common.CLUSTER_UID:
             raise RuntimeError('production recovery cluster differs')
         namespace = self.get('namespace', NAMESPACE, namespace=None)['metadata']
@@ -124,9 +124,18 @@ class Controller:
                 owner['spec']['source']['targetRevision'] != 'master' or
                 owner['spec']['destination']['namespace'] != NAMESPACE):
             raise RuntimeError('production Gitea owning source differs')
-        if self.revision and (owner['status']['sync']['revision'] != self.revision or
+        if self.revision and (owner['status']['sync'].get('revision') != self.revision or
                               owner['status']['sync']['status'] != 'Synced'):
-            raise RuntimeError('production recovery profile has not reached its exact revision')
+            status = owner['status']
+            operation = status.get('operationState', {})
+            history = status.get('history', [])
+            # A held Git server can make comparison Unknown after this exact profile was applied.
+            applied_profile = (allow_unknown_comparison and status['sync']['status'] == 'Unknown' and
+                               not owner.get('operation') and operation.get('phase') == 'Succeeded' and
+                               operation.get('syncResult', {}).get('revision') == self.revision and
+                               bool(history) and history[-1].get('revision') == self.revision)
+            if not applied_profile:
+                raise RuntimeError('production recovery profile has not reached its exact revision')
         deployment = self.get('deployment', 'gitea')
         stateful = self.get('statefulset', 'gitea-postgresql')
         if (deployment['metadata']['uid'] != DEPLOYMENT_UID or deployment['spec']['replicas'] != 1 or
@@ -150,7 +159,7 @@ class Controller:
 
         def ready():
             nonlocal bound_uid
-            self.identity()
+            owner = self.identity(allow_unknown_comparison=True)
             deployment = self.get('deployment', 'gitea')
             if deployment['metadata'].get('deletionTimestamp'):
                 raise RuntimeError('production application controller is deleting')
@@ -188,7 +197,9 @@ class Controller:
                     deployment['status'].get('observedGeneration') == deployment['metadata']['generation'] and
                     all(deployment['status'].get(k) == 1 for k in
                         ('replicas', 'updatedReplicas', 'readyReplicas', 'availableReplicas')) and
-                    conditions.get('Available') == 'True' and conditions.get('Progressing') == 'True')
+                    conditions.get('Available') == 'True' and conditions.get('Progressing') == 'True' and
+                    (not self.revision or (owner['status']['sync']['status'] == 'Synced' and
+                                           owner['status']['sync'].get('revision') == self.revision)))
 
         self.wait_for(ready, 'released production application did not become ready', seconds=seconds)
 

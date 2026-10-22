@@ -128,6 +128,65 @@ class ControllerTests(unittest.TestCase):
                         self.assertRaisesRegex(RuntimeError, error):
                     instance.wait_application_ready({'pod': 'gitea-synthetic', 'uid': 'released-pod'})
 
+    def test_unknown_comparison_only_observes_the_exact_successfully_applied_profile(self):
+        instance = controller.Controller(['kubectl'], None)
+        instance.revision = 'a' * 40
+        owner = {'spec': {'source': {'path': 'platform/gitea',
+                                    'repoURL': 'http://gitea-http.gitea:3000/ops/homelab',
+                                    'targetRevision': 'master'},
+                          'destination': {'namespace': 'gitea'}},
+                 'status': {'sync': {'status': 'Unknown'},
+                            'operationState': {'phase': 'Succeeded', 'syncResult': {'revision': instance.revision}},
+                            'history': [{'revision': instance.revision}]}}
+        deployment = {'metadata': {'uid': controller.DEPLOYMENT_UID},
+                      'spec': {'replicas': 1, 'strategy': {'type': 'Recreate'}}}
+        stateful = {'metadata': {'uid': controller.STATEFULSET_UID}, 'spec': {'replicas': 1}}
+        claim = {'metadata': {'uid': '4d6d356d-ec5d-4f2e-961e-090eae9e0c21'},
+                 'status': {'phase': 'Bound'}, 'spec': {'volumeName': 'volume'}}
+        volume = {'metadata': {'name': 'volume', 'uid': '5cadac3d-dd99-4e3e-8551-4d165826cf44'},
+                  'spec': {'claimRef': {'uid': claim['metadata']['uid'], 'namespace': 'gitea'},
+                           'csi': {'driver': 'rook-ceph.rbd.csi.ceph.com'}}}
+        def get(kind, name=None, **_kw):
+            if kind == 'namespace':
+                return {'metadata': {'uid': controller.common.CLUSTER_UID if name == 'kube-system' else 'namespace'}}
+            return {'application': owner, 'deployment': deployment, 'statefulset': stateful,
+                    'persistentvolumeclaim': claim, 'persistentvolume': volume}[kind]
+        with patch.object(instance, 'get', side_effect=get):
+            with self.assertRaisesRegex(RuntimeError, 'exact revision'):
+                instance.identity()
+            self.assertIs(instance.identity(allow_unknown_comparison=True), owner)
+            for field in ('outofsync', 'operation', 'history', 'pending', 'source'):
+                original = copy.deepcopy(owner)
+                if field == 'outofsync':
+                    owner['status']['sync']['status'] = 'OutOfSync'
+                elif field == 'operation':
+                    owner['status']['operationState']['syncResult']['revision'] = 'b' * 40
+                elif field == 'history':
+                    owner['status']['history'] = []
+                elif field == 'pending':
+                    owner['operation'] = {'sync': {}}
+                else:
+                    owner['spec']['source']['path'] = 'foreign'
+                with self.subTest(field=field), self.assertRaises(RuntimeError):
+                    instance.identity(allow_unknown_comparison=True)
+                owner.clear()
+                owner.update(original)
+
+    def test_release_waits_for_exact_synced_comparison_after_pod_is_ready(self):
+        deployment, pod, replica = self.released_fixture()
+        instance = controller.Controller(['kubectl'], None)
+        instance.revision = 'a' * 40
+        unknown = {'status': {'sync': {'status': 'Unknown'}}}
+        synced = {'status': {'sync': {'status': 'Synced', 'revision': instance.revision}}}
+        def get(kind, *_a, **_kw):
+            return deployment if kind == 'deployment' else ({'items': [pod]} if kind == 'pods' else replica)
+        with patch.object(instance, 'identity', side_effect=[unknown, synced]) as identity, \
+                patch.object(instance, 'get', side_effect=get), patch.object(controller.time, 'sleep') as sleep:
+            instance.wait_application_ready({'pod': 'gitea-synthetic', 'uid': 'released-pod'})
+        self.assertEqual(identity.call_count, 2)
+        identity.assert_called_with(allow_unknown_comparison=True)
+        sleep.assert_called_once_with(0.2)
+
     def test_actual_child_catalog_stream_with_prompt_and_eof_failure(self):
         raw = b'backend> HOMELAB103:' + json.dumps(catalog()).encode().hex().encode() + b'\nbackend> '
         for payload, accepted in ((raw, True), (b'backend> no catalog\n', False)):
