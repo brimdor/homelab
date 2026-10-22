@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -296,6 +297,89 @@ def dumps(container, password, role):
     return result
 
 
+def require_cold_copy(work, state, tree):
+    if (work.parent.parent != common.ROOT or not work.parent.name.startswith('gitea-postgres-account-copy-') or
+            work.name not in {'0', '1'} or state.get('cluster_state') != 'shut down' or
+            'data/postmaster.pid' in tree or tree.get('data/PG_VERSION', {}).get('sha256') !=
+            'e6c21e8d260fe71882debdb339d2402a2ca7648529bc2303f48649bce0380017' or
+            tree.get('data/global/pg_control', {}).get('bytes') != 8192 or
+            any(r['kind'] == 'symlink' for r in tree.values())):
+        raise RuntimeError('clean stopped scratch-copy capture contract differs')
+
+
+def cold_capture_restore(work, container, volumes, run_id, image_id, credentials, hba, expected_dump, expected_catalog):
+    """Capture only stopped owned scratch; prove two independent complete restores."""
+    execute(container, '/usr/bin/test', '!', '-e', DATA + '/postmaster.pid')
+    state = control.parse_control(execute(container, BIN + 'pg_controldata', DATA).stdout)
+    tree, payloads, _ = retained.snapshot(work / 'copy')
+    require_cold_copy(work, state, tree)
+    point = work / 'cold-point'
+    point.mkdir(mode=0o700)
+    (point / 'data').mkdir(mode=0o700)
+    for number, (name, record) in enumerate(sorted(tree.items())):
+        if record['kind'] != 'file':
+            continue
+        with (point / 'data' / str(number)).open('xb') as target:
+            os.fchmod(target.fileno(), 0o600)
+            target.write(payloads[name])
+            target.flush()
+            os.fsync(target.fileno())
+    del payloads
+    manifest = {'format': 'isolated-clean-copy-103', 'original_manifest_sha256': control.CHECKSUM,
+                'control': state, 'tree': tree}
+    retained.files.write_json(point / 'verified.json', manifest)
+    for directory in (point / 'data', point, work):
+        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    copies = []
+    for number in range(2):
+        child = work / ('cold-copy-' + str(number))
+        child.mkdir(mode=0o700)
+        retained.materialize(point, child / 'copy', manifest)
+        for source in mounts(child, volumes).values():
+            if source != str(child / 'copy'):
+                Path(source).mkdir(mode=0o755)
+        restored = None
+        try:
+            restored = common.docker(*arguments(child, volumes, run_id)).stdout.decode().strip()
+            if not re.fullmatch('[a-f0-9]{64}', restored):
+                raise RuntimeError('cold-copy container identity missing')
+            require_container(common.inspect(restored), child, volumes, run_id, image_id)
+            common.docker('start', restored)
+            value = common.inspect(restored)
+            require_container(value, child, volumes, run_id, image_id)
+            net = ['nsenter', '-t', str(value['State']['Pid']), '-n', '--']
+            common.require_network(json.loads(common.command([*net, 'ip', '-j', 'address']).stdout),
+                                   sum((json.loads(common.command([*net, 'ip', f, '-j', 'route', 'show', 'table', 'all']).stdout)
+                                        for f in ('-4', '-6')), []))
+            if common.command([*net, 'ip', 'route', 'get', '10.0.20.50'], check=False).returncode == 0:
+                raise RuntimeError('cold-copy restore can route to production')
+            execute(restored, '/bin/sh', '-c', 'umask 077; cat > /tmp/source-hba.conf; : > /tmp/fixture.conf', input=hba)
+            normal_start(restored, credentials, hba)
+            if (dumps(restored, credentials['app'], 'gitea') != expected_dump or
+                    dumps(restored, credentials['admin'], 'postgres') != expected_dump):
+                raise RuntimeError('cold-copy restore changed complete logical data')
+            clean = stop(restored)
+            if parse_catalog(single(restored, catalog_sql().encode()).stdout) != expected_catalog:
+                raise RuntimeError('cold-copy restore changed authorization or database metadata')
+            copies.append({'normal_start_and_tcp_auth': True, 'full_logical_data_equal': True,
+                           'catalog_equal': True, 'clean_shutdown': clean['cluster_state'] == 'shut down'})
+        finally:
+            if restored:
+                require_container(common.inspect(restored), child, volumes, run_id, image_id)
+                common.docker('rm', '-f', restored)
+                if common.docker('inspect', restored, check=False).returncode == 0:
+                    raise RuntimeError('owned cold-copy container remains')
+    if retained.snapshot(work / 'copy')[0] != tree:
+        raise RuntimeError('stopped source changed during cold capture/restore')
+    return {'source_kind': 'isolated_historical_copy', 'source_stopped': True,
+            'manifest_sha256': hashlib.sha256(common.canonical(manifest)).hexdigest(),
+            'independent_restores': copies, 'source_unchanged': True, 'production_capture_unqualified': True}
+
+
 def operation(work, volumes, run_id, image_id, credentials, hba):
     container = None
     try:
@@ -359,6 +443,8 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
         if execute(container, '/bin/cat', '/tmp/source-hba.conf').stdout != hba:
             raise RuntimeError('copied HBA changed')
         require_container(common.inspect(container), work, volumes, run_id, image_id)
+        cold = cold_capture_restore(work, container, volumes, run_id, image_id, credentials, hba,
+                                    before_dump, after)
         return {'full_dump_sha256': {k: hashlib.sha256(v).hexdigest() for k, v in before_dump.items()},
                 'catalog_without_postgres_password_sha256': hashlib.sha256(common.canonical(
                     {**baseline, 'roles': [{k: v for k, v in r.items() if k != 'rolpassword'} for r in baseline['roles']]})).hexdigest(),
@@ -369,6 +455,7 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                 'original_vendor_entrypoint_setup_run': True, 'native_pgaudit_loaded': True,
                 'ordinary_tcp_application_authentication': True,
                 'invalid_port_startup_refusal_and_ordinary_fallback': True,
+                'clean_copy_capture_restore': cold,
                 'native_crash_recovery_and_clean_shutdown': True, 'control': state}
     finally:
         if container:
@@ -387,7 +474,7 @@ def qualify(run_id, credentials, hba):
     value = retained.verify(control.POINT, control.CHECKSUM, 'gitea')
     if any(r['kind'] == 'symlink' for r in value['tree'].values()):
         raise RuntimeError('unreviewed copied PostgreSQL symlink')
-    retained.require_capacity(common.ROOT, value['tree'], 2)
+    retained.require_capacity(common.ROOT, value['tree'], 8)
     if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
         raise RuntimeError('owned copied recovery already active')
     images = set(common.docker('image', 'ls', '-q', '--no-trunc').stdout.decode().split())

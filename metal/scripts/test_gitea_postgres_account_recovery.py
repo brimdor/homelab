@@ -200,6 +200,28 @@ class RecoveryContract(unittest.TestCase):
                 patch.object(recovery, 'execute', side_effect=execute):
             recovery.normal_start('owned', {'app': 'fixture', 'admin': 'fixture'}, b'hba', True)
 
+    def test_cold_capture_refuses_live_paths_running_state_pid_and_unknown_layout(self):
+        work = recovery.common.ROOT / 'gitea-postgres-account-copy-fixture' / '0'
+        state = {'cluster_state': 'shut down'}
+        tree = {'data/PG_VERSION': {'kind': 'file', 'sha256':
+                'e6c21e8d260fe71882debdb339d2402a2ca7648529bc2303f48649bce0380017'},
+                'data/global/pg_control': {'kind': 'file', 'bytes': 8192}}
+        recovery.require_cold_copy(work, state, tree)
+        for path in (Path('/var/lib/kubelet/live'), recovery.common.ROOT / 'original-point' / '0',
+                     work.parent / 'unreviewed'):
+            with self.assertRaises(RuntimeError):
+                recovery.require_cold_copy(path, state, tree)
+        for phase in ('in production', 'in crash recovery', 'shut down in recovery', None):
+            with self.assertRaises(RuntimeError):
+                recovery.require_cold_copy(work, {'cluster_state': phase}, tree)
+        for change in (lambda t: t.update({'data/postmaster.pid': {'kind': 'file'}}),
+                       lambda t: t['data/PG_VERSION'].update(sha256='changed'),
+                       lambda t: t['data/global/pg_control'].update(bytes=0),
+                       lambda t: t.update({'foreign': {'kind': 'symlink'}})):
+            modified = copy.deepcopy(tree);change(modified)
+            with self.assertRaises(RuntimeError):
+                recovery.require_cold_copy(work, state, modified)
+
 
 if __name__ == '__main__':
     unittest.main()
