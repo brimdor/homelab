@@ -1,5 +1,6 @@
 when:
   branch: ${CI_REPO_DEFAULT_BRANCH}
+  event: pull_request
 
 steps:
   # TODO DRY with nix develop and custom entrypoint https://github.com/woodpecker-ci/woodpecker/pull/2985,

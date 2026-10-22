@@ -4,6 +4,7 @@ book/
 .github/prompts
 .opencode
 .hermes
+.claude/worktrees/
 *.iso
 *.log
 *.png
