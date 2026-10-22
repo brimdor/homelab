@@ -2,7 +2,7 @@ configJob:
   enabled: false
 
 maintenance103Recovery:
-  enabled: false
+  enabled: true
 
 gitea:
   strategy:
@@ -26,6 +26,8 @@ gitea:
   gitea:
     admin:
       existingSecret: gitea-admin-secret
+    podAnnotations:
+      maintenance103.eaglepass.io/recovery: postgres-role-only-v1
     config:
       server:
         LANDING_PAGE: explore
@@ -43,6 +45,28 @@ gitea:
     persistence:
       storageClass: standard-rwo
     primary:
+      # Capture on the existing source host; keep the protected receiver independent.
+      nodeSelector:
+        kubernetes.io/hostname: totodile
+      command:
+        - /bin/bash
+        - -eu
+        - /maintenance-103/startup.sh
+      args:
+        - /opt/bitnami/scripts/postgresql/entrypoint.sh
+        - /opt/bitnami/scripts/postgresql/run.sh
+      # Offline copy qualification can outlast the ordinary liveness window.
+      livenessProbe:
+        enabled: false
+      extraVolumes:
+        - name: maintenance-103-startup
+          configMap:
+            name: gitea-maintenance-103-startup
+            defaultMode: 0444
+      extraVolumeMounts:
+        - name: maintenance-103-startup
+          mountPath: /maintenance-103
+          readOnly: true
       resources:
         requests:
           cpu: 100m
@@ -67,3 +91,39 @@ gitea:
           cpu: 500m
           ephemeral-storage: 2Gi
           memory: 192Mi
+  preExtraInitContainers:
+    - name: maintenance-103-init
+      image: docker.gitea.com/gitea@sha256:4c4256497e2e237ddebdd30986c7ce52cb6f936b3e90c34bb9f4665714599f62
+      imagePullPolicy: IfNotPresent
+      command:
+        - /bin/bash
+        - -eu
+        - /maintenance-103/gitea-init.sh
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
+      volumeMounts:
+        - name: temp
+          mountPath: /tmp
+        - name: maintenance-103-startup
+          mountPath: /maintenance-103
+          readOnly: true
+  extraVolumes:
+    - name: maintenance-103-startup
+      configMap:
+        name: gitea-maintenance-103-startup
+        defaultMode: 0444
