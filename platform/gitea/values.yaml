@@ -185,7 +185,7 @@ gitea:
       updateStrategy:
         type: RollingUpdate
         rollingUpdate:
-          partition: 2
+          partition: 1
       customStartupProbe:
         exec:
           command:
