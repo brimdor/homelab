@@ -116,6 +116,14 @@ argocd-apps:
             path: '{{path}}'
             targetRevision: *revision
           ignoreDifferences:
+            # The pinned Gitea PostgreSQL chart otherwise regenerates this on render.
+            # Preserve the mounted credential; native authentication is checked separately.
+            - group: ""
+              kind: Secret
+              name: gitea-postgresql
+              namespace: gitea
+              jsonPointers:
+                - /data/postgres-password
             - group: external-secrets.io
               kind: ExternalSecret
               jsonPointers:
