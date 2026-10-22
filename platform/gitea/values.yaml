@@ -1,7 +1,7 @@
 configJob:
   enabled: false
 maintenance103Recovery:
-  enabled: true
+  enabled: false
 maintenance103PostgresMaintained:
   enabled: true
 gitea:
@@ -34,8 +34,6 @@ gitea:
         ALLOWED_HOST_LIST: private
       actions:
         ENABLED: true
-    podAnnotations:
-      maintenance103.eaglepass.io/recovery: maintained-postgresql-capture-only-v2
   persistence:
     storageClass: standard-rwo
   postgresql:
@@ -60,13 +58,38 @@ gitea:
           memory: 192Mi
       command:
         - /bin/bash
-        - -eu
-        - /maintenance-103/startup.sh
-      args:
-        - /bin/bash
         - /configuration/postgres-startup.sh
-      customStartupProbe: null
-      customLivenessProbe: null
+      args: []
+      customStartupProbe:
+        exec:
+          command:
+            - /usr/lib/postgresql/16/bin/pg_isready
+            - -h
+            - 127.0.0.1
+            - -p
+            - '5432'
+            - -U
+            - gitea
+            - -d
+            - gitea
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 60
+      customLivenessProbe:
+        exec:
+          command:
+            - /usr/lib/postgresql/16/bin/pg_isready
+            - -h
+            - 127.0.0.1
+            - -p
+            - '5432'
+            - -U
+            - gitea
+            - -d
+            - gitea
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 12
       customReadinessProbe:
         exec:
           command:
@@ -83,18 +106,11 @@ gitea:
         timeoutSeconds: 3
         failureThreshold: 12
       extraVolumes:
-        - name: maintenance-103-startup
-          configMap:
-            name: gitea-maintenance-103-startup
-            defaultMode: 292
         - name: maintained-postgresql-103
           configMap:
             name: gitea-maintained-postgresql-103
             defaultMode: 292
       extraVolumeMounts:
-        - name: maintenance-103-startup
-          mountPath: /maintenance-103
-          readOnly: true
         - name: maintained-postgresql-103
           mountPath: /configuration/postgres-startup.sh
           subPath: postgres-startup.sh
@@ -127,12 +143,6 @@ gitea:
           mountPath: /configuration/pgaudit-copyright
           subPath: pgaudit-copyright
           readOnly: true
-      nodeSelector:
-        kubernetes.io/hostname: totodile
-      livenessProbe:
-        enabled: false
-      startupProbe:
-        enabled: false
     global:
       security:
         allowInsecureImages: true
@@ -151,43 +161,3 @@ gitea:
           cpu: 500m
           ephemeral-storage: 2Gi
           memory: 192Mi
-  preExtraInitContainers:
-    - name: maintenance-103-init
-      image: docker.gitea.com/gitea@sha256:4c4256497e2e237ddebdd30986c7ce52cb6f936b3e90c34bb9f4665714599f62
-      imagePullPolicy: IfNotPresent
-      command:
-        - /bin/bash
-        - -eu
-        - /maintenance-103/gitea-init.sh
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        allowPrivilegeEscalation: false
-        readOnlyRootFilesystem: true
-        capabilities:
-          drop:
-            - ALL
-        seccompProfile:
-          type: RuntimeDefault
-      resources:
-        requests:
-          cpu: 10m
-          memory: 16Mi
-        limits:
-          cpu: 100m
-          memory: 64Mi
-      volumeMounts:
-        - name: temp
-          mountPath: /tmp
-        - name: maintenance-103-startup
-          mountPath: /maintenance-103
-          readOnly: true
-        - name: data
-          mountPath: /data
-          readOnly: true
-  extraVolumes:
-    - name: maintenance-103-startup
-      configMap:
-        name: gitea-maintenance-103-startup
-        defaultMode: 292
