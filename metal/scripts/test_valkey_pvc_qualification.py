@@ -9,6 +9,25 @@ import valkey_pvc_qualification as fixture
 
 
 class QualificationTests(unittest.TestCase):
+    def test_image_cleanup_requires_disposed_namespace_before_ssh(self):
+        instance = fixture.Qualification(['kubectl'])
+        with patch.object(instance, 'call', return_value=subprocess.CompletedProcess([], 0, b'{"kind":"Namespace"}', b'')), \
+                patch.object(fixture.subprocess, 'run') as remote, self.assertRaises(RuntimeError):
+            instance.cleanup_images('pikachu', '10.0.20.14', set())
+        remote.assert_not_called()
+
+    def test_preexisting_image_never_removed(self):
+        instance = fixture.Qualification(['kubectl'])
+        image = {'id':'preexisting', 'repoDigests':[fixture.protocol.recovery.CANDIDATE]}
+        replies = [b'pikachu\n', fixture.json.dumps({'images':[image]}).encode(), b'{"containers":[]}',
+                   fixture.json.dumps({'images':[image]}).encode()]
+        with patch.object(instance, 'call', return_value=subprocess.CompletedProcess([], 0, b'', b'')), \
+                patch.object(instance, 'get', return_value={'items':[]}), \
+                patch.object(fixture.subprocess, 'run', side_effect=[subprocess.CompletedProcess([], 0, value, b'') for value in replies]) as remote:
+            result = instance.cleanup_images('pikachu', '10.0.20.14', {'preexisting'})
+        self.assertEqual(result['new_images_removed'], 0)
+        self.assertFalse(any(' rmi ' in call.args[0][-1] for call in remote.call_args_list))
+
     def test_denial_never_becomes_a_retryable_transition(self):
         instance = fixture.Qualification(['kubectl'])
         for text in (b'Forbidden', b'Unauthorized', b'permission denied'):

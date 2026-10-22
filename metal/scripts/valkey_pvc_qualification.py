@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import shlex
 
 import valkey_cluster_qualification as protocol
 
@@ -18,6 +19,7 @@ class Qualification:
         self.kubectl = list(kubectl)
         self.namespace_uid = self.controller_uid = None
         self.claims = {}
+        self.pod_uids = set()
         self.records = {n: {} for n in protocol.SLOTS}
 
     def call(self, *args, check=True):
@@ -95,7 +97,56 @@ class Qualification:
                 if 'persistentVolumeClaim' in volume and volume['persistentVolumeClaim']['claimName'] != 'data-' + name:
                     raise RuntimeError('synthetic six-PVC mounted a foreign claim')
             result[ordinal] = pod
+            self.pod_uids.add(pod['metadata']['uid'])
         return result
+
+    def cleanup_images(self, node, address, original_ids):
+        """Remove only newly pulled fixture images after UID-scoped disposal."""
+        if (node, address) not in {('pikachu', '10.0.20.14'), ('totodile', '10.0.20.17')}:
+            raise RuntimeError('synthetic image cleanup host differs')
+        if self.call('get', 'namespace', NAMESPACE, '--ignore-not-found', '-o', 'json').stdout.strip():
+            raise RuntimeError('synthetic image cleanup requires namespace disposal')
+        for claim in self.claims.values():
+            if self.call('get', 'persistentvolume', claim['pv'], '--ignore-not-found', '-o', 'json').stdout.strip():
+                raise RuntimeError('synthetic image cleanup requires exact volume disposal')
+        def remote(*args):
+            result = subprocess.run([*protocol.common.SSH[:-1], 'root@' + address,
+                shlex.join(args)], capture_output=True)
+            if result.returncode:
+                raise RuntimeError('owned image cleanup failed; no alternate access permitted')
+            return result.stdout
+        if remote('hostname', '-s').decode().strip() != node:
+            raise RuntimeError('synthetic image cleanup native host differs')
+        cri = ['/usr/local/bin/k3s', 'crictl']
+        images = json.loads(remote(*cri, 'images', '-o', 'json'))['images']
+        selected = [image for image in images if image['id'] not in original_ids and
+            set(image.get('repoDigests', [])) & IMAGES]
+        removed_containers = 0
+        for container in json.loads(remote(*cri, 'ps', '-a', '-o', 'json'))['containers']:
+            labels = container.get('labels', {})
+            if labels.get('io.kubernetes.pod.uid') not in self.pod_uids:
+                continue
+            if (labels.get('io.kubernetes.pod.namespace') != NAMESPACE or
+                    container['state'] != 'CONTAINER_EXITED'):
+                raise RuntimeError('owned fixture runtime is not safely exited')
+            remote(*cri, 'rm', container['id'])
+            removed_containers += 1
+        current = self.get('pods', namespace=None)['items']
+        removed = []
+        for image in selected:
+            refs = set(image.get('repoDigests', [])) | {image['id']}
+            consumers = [c for pod in current if pod['spec'].get('nodeName') == node
+                for section, fields in (('spec', ('containers', 'initContainers', 'ephemeralContainers')),
+                    ('status', ('containerStatuses', 'initContainerStatuses', 'ephemeralContainerStatuses')))
+                for field in fields for c in pod.get(section, {}).get(field, [])]
+            if any(c.get('image') in refs or c.get('imageID', '').removeprefix('docker-pullable://') in refs for c in consumers):
+                raise RuntimeError('new fixture image has another active consumer')
+            remote(*cri, 'rmi', image['id'])
+            removed.append(image['id'])
+        after = json.loads(remote(*cri, 'images', '-o', 'json'))['images']
+        if set(removed) & {image['id'] for image in after}:
+            raise RuntimeError('new fixture image remains after cleanup')
+        return {'node': node, 'new_images_removed': len(removed), 'exited_owned_containers_removed': removed_containers}
 
     def cli(self, ordinal, *args, check=True):
         pod = self.pods().get(ordinal)
