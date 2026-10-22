@@ -203,7 +203,8 @@ class Qualification:
             if phase != b'waiting\n':
                 raise RuntimeError('synthetic ordinary startup escaped the hold')
             path = '/bitnami/postgresql/data/postmaster.pid' if kind == 'postgresql' else '/tmp/initialization-completed'
-            self.execute(item['pod'], item['container'], '/bin/test', '!', '-e', path)
+            self.execute(item['pod'], item['container'], '/bin/bash', '-ceu',
+                         '[[ ! -e "$1" ]]', 'synthetic-no-writer', path)
 
     def release(self, item, killed=False):
         output, errors = item['child'].communicate()
@@ -279,3 +280,64 @@ print(json.dumps({'stopped_exact_synthetic_container':True}))
         refused = self.execute(PG, 'postgresql', '/bin/bash', '-ceu', postgres.CLAIM, check=False)
         if refused.returncode != 1:
             raise RuntimeError('normal synthetic postmaster allowed a late controller')
+
+    def exercise(self, next_generation, await_health, persist):
+        """Caller prefetches this flow and guarantees canonical cleanup in finally."""
+        self.identity()
+        self.ready()
+        await_health()
+        persist('baseline', namespace_uid=self.namespace_uid, pod_uids=self.current_uids())
+        for mode in ('eof', 'controller-killed', 'init-container-restarted'):
+            old = self.current_uids()
+            next_generation(mode)
+            with self.held_generation(old) as held:
+                end = time.monotonic() + 31
+                while time.monotonic() < end:
+                    self.assert_held(held)
+                    time.sleep(0.5)
+                persist('both-guards-held-' + mode, old_pods_gone=True,
+                        ordinary_start_excluded_beyond_claim_window=True)
+                if mode == 'controller-killed':
+                    self.kill_controller(held['postgresql'])
+                else:
+                    self.release(held['postgresql'])
+                self.pg_ready()
+                corpus = self.corpus(create=True)
+                self.assert_held({'application': held['application']})
+                if mode == 'eof':
+                    before = self.restart_container(PG, 'postgresql')
+                    self.verify_pg_restart(before, corpus)
+                    self.assert_held({'application': held['application']})
+                    self.release(held['application'])
+                    persist('same-pod-postgresql-restarted', corpus_sha256=corpus,
+                            pod_uid=before['pod_uid'], retained_window_closed=True)
+                elif mode == 'controller-killed':
+                    self.kill_controller(held['application'])
+                else:
+                    item = held['application']
+                    before = self.restart_container(item['pod'], item['container'])
+                    self.ready()
+                    pod = self.pod(item['pod'])
+                    status = next(s for s in pod['status']['initContainerStatuses'] if s['name'] == item['container'])
+                    if (pod['metadata']['uid'] != before['pod_uid'] or
+                            status['restartCount'] <= before['old_restart_count'] or
+                            status['state']['terminated']['exitCode'] != 0):
+                        raise RuntimeError('same-Pod initialization container restart failed')
+                    item['child'].communicate(timeout=20)
+                    persist('same-pod-init-container-restarted', pod_uid=before['pod_uid'],
+                            init_restart_count=status['restartCount'],
+                            old_attached_controller_exit=item['child'].returncode,
+                            retained_window_closed=True)
+                self.ready()
+                if self.corpus() != corpus:
+                    raise RuntimeError('synthetic fallback changed complete corpus')
+            await_health()
+            persist('generation-' + mode, complete_synthetic_corpus_unchanged=True, automatic_fallback=True)
+        old = self.current_uids()
+        next_generation('controller-absent')
+        self.ready()
+        if set(self.current_uids().values()) & set(old.values()):
+            raise RuntimeError('absent-controller generation retained an old Pod')
+        self.corpus(create=True)
+        await_health()
+        persist('generation-controller-absent', automatic_fallback=True)
