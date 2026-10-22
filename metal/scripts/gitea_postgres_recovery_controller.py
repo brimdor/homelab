@@ -48,23 +48,60 @@ class Controller:
         self.credentials = None
         self.hba = None
         self.capture_only = capture_only
+        self.read_retries = []
+
+    @staticmethod
+    def failure_class(stderr):
+        text = stderr.decode(errors='replace').lower()
+        if any(word in text for word in ('forbidden', 'unauthorized', 'permission denied')):
+            return 'access-denied'
+        if any(word in text for word in ('x509', 'certificate signed by unknown', 'certificate has expired')):
+            return 'trust-failed'
+        if any(word in text for word in ('notfound', 'not found')):
+            return 'not-found'
+        if any(word in text for word in ('connection reset by peer', 'connection refused', 'i/o timeout',
+                                        'context deadline exceeded', 'tls handshake timeout', 'unexpected eof')):
+            return 'transport'
+        return 'unclassified'
+
+    @classmethod
+    def command_error(cls, result, operation):
+        return RuntimeError('production recovery Kubernetes ' + operation + ' failed; classification=' +
+                            cls.failure_class(result.stderr) + '; raw output withheld; exit=' + str(result.returncode))
 
     def call(self, *args, data=None, check=True):
-        result = subprocess.run([*self.kubectl, *args], input=data, capture_output=True)
-        if check and result.returncode:
-            raise RuntimeError('production recovery Kubernetes command failed; raw output withheld; exit=' + str(result.returncode))
-        return result
+        attempts = 3 if check and args[0] == 'get' else 1
+        for attempt in range(attempts):
+            result = subprocess.run([*self.kubectl, *args], input=data, capture_output=True)
+            if not check or not result.returncode:
+                return result
+            if self.failure_class(result.stderr) != 'transport' or attempt == attempts - 1:
+                raise self.command_error(result, args[0])
+            self.read_retries.append({'operation': 'get', 'classification': 'transport', 'attempt': attempt + 1})
+            time.sleep(0.2)
 
     def get(self, kind, name=None, namespace=NAMESPACE):
         return json.loads(self.call('get', kind, *([name] if name else []),
                                     *(['-n', namespace] if namespace else []), '-o', 'json').stdout)
 
     def execute(self, item, *args, data=None, check=True):
-        pod = self.get('pod', item['pod'])
-        if pod['metadata']['uid'] != item['uid'] or pod['metadata'].get('deletionTimestamp'):
-            raise RuntimeError('production recovery Pod binding changed')
-        return self.call('exec', '-i', '-n', NAMESPACE, item['pod'], '-c', item['container'],
-                         '--', *args, data=data, check=check)
+        public_read = (data is None and len(args) >= 4 and args[:2] == ('valkey-cli', '--raw') and
+                       args[2:] in (('CLUSTER', 'MYID'), ('CLUSTER', 'INFO'), ('CLUSTER', 'NODES'),
+                                    ('INFO', 'replication'), ('INFO', 'persistence'), ('INFO', 'server'),
+                                    ('MODULE', 'LIST'), ('CONFIG', 'GET', 'dir'), ('CONFIG', 'GET', 'dbfilename')))
+        attempts = 3 if check and public_read else 1
+        for attempt in range(attempts):
+            pod = self.get('pod', item['pod'])
+            if pod['metadata']['uid'] != item['uid'] or pod['metadata'].get('deletionTimestamp'):
+                raise RuntimeError('production recovery Pod binding changed')
+            result = self.call('exec', '-i', '-n', NAMESPACE, item['pod'], '-c', item['container'],
+                               '--', *args, data=data, check=check and not public_read)
+            if not check or not public_read or not result.returncode:
+                return result
+            if self.failure_class(result.stderr) != 'transport' or attempt == attempts - 1:
+                raise self.command_error(result, 'exec-public-read')
+            self.read_retries.append({'operation': 'exec-public-read', 'classification': 'transport', 'attempt': attempt + 1})
+            time.sleep(0.2)
 
     @staticmethod
     def wait_for(check, message, seconds=300):

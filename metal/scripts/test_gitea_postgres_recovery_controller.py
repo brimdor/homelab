@@ -13,6 +13,56 @@ from test_gitea_postgres_account_recovery import catalog
 
 
 class ControllerTests(unittest.TestCase):
+    def test_only_recognized_transport_get_failures_retry_without_private_output(self):
+        instance = controller.Controller(['kubectl'], None)
+        failed = SimpleNamespace(returncode=1, stdout=b'', stderr=b'connection reset by peer synthetic-private')
+        success = SimpleNamespace(returncode=0, stdout=b'{}', stderr=b'')
+        with patch.object(controller.subprocess, 'run', side_effect=[failed, success]) as run, \
+                patch.object(controller.time, 'sleep'):
+            self.assertIs(instance.call('get', 'secret'), success)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(instance.read_retries, [{'operation': 'get', 'classification': 'transport', 'attempt': 1}])
+        for error in (b'Forbidden connection reset by peer', b'x509 unknown authority', b'NotFound', b'unknown private detail'):
+            with self.subTest(error=error):
+                failed.stderr = error
+                with patch.object(controller.subprocess, 'run', return_value=failed) as run, \
+                        self.assertRaisesRegex(RuntimeError, 'classification=') as raised:
+                    instance.call('get', 'secret')
+                self.assertEqual(run.call_count, 1)
+                self.assertNotIn(error.decode(), str(raised.exception))
+        failed.stderr = b'connection reset by peer'
+        with patch.object(controller.subprocess, 'run', return_value=failed) as run, \
+                patch.object(controller.time, 'sleep'), self.assertRaisesRegex(RuntimeError, 'classification=transport'):
+            instance.call('get', 'secret')
+        self.assertEqual(run.call_count, 3)
+
+    def test_public_exec_rebinds_uid_before_retry_and_never_replays_failover(self):
+        instance = controller.Controller(['kubectl'], None)
+        item = {'pod': 'synthetic', 'uid': 'original', 'container': 'valkey'}
+        failed = SimpleNamespace(returncode=1, stdout=b'', stderr=b'connection reset by peer')
+        original = {'metadata': {'uid': 'original'}}
+        foreign = {'metadata': {'uid': 'replacement'}}
+        with patch.object(instance, 'get', side_effect=[original, foreign]), \
+                patch.object(controller.subprocess, 'run', return_value=failed) as run, \
+                patch.object(controller.time, 'sleep'), self.assertRaisesRegex(RuntimeError, 'binding changed'):
+            instance.execute(item, 'valkey-cli', '--raw', 'CLUSTER', 'MYID')
+        self.assertEqual(run.call_count, 1)
+        with patch.object(instance, 'get', return_value=original), \
+                patch.object(controller.subprocess, 'run', return_value=failed) as run, \
+                self.assertRaisesRegex(RuntimeError, 'classification=transport'):
+            instance.execute(item, 'valkey-cli', '--raw', 'CLUSTER', 'FAILOVER')
+        self.assertEqual(run.call_count, 1)
+        success = SimpleNamespace(returncode=0, stdout=b'public-id', stderr=b'')
+        with patch.object(instance, 'get', return_value=original) as get, \
+                patch.object(controller.subprocess, 'run', side_effect=[failed, success]) as run, \
+                patch.object(controller.time, 'sleep'):
+            self.assertEqual(instance.execute(item, 'valkey-cli', '--raw', 'CLUSTER', 'MYID').stdout, b'public-id')
+        self.assertEqual(get.call_count, 2)
+        self.assertEqual(run.call_count, 2)
+        with patch.object(controller.subprocess, 'run', return_value=failed) as run:
+            self.assertIs(instance.call('get', 'secret', check=False), failed)
+        self.assertEqual(run.call_count, 1)
+
     def released_fixture(self):
         deployment = {'metadata': {'uid': controller.DEPLOYMENT_UID, 'generation': 7},
                       'status': {'observedGeneration': 7, 'replicas': 1, 'updatedReplicas': 1,
