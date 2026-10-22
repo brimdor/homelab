@@ -148,6 +148,12 @@ def operation(work, volumes, run_id, image_id, credentials, hba):
                             # Qualify the actual interactive controller protocol before production.
                             import gitea_postgres_recovery_controller as supervisor
                             import gitea_postgres_lifecycle as lifecycle
+                            # Emulate the new Pod's fsGroup mode before vendor initialization.
+                            recovery.execute(container, '/bin/chmod', '2770', recovery.DATA)
+                            preparation = recovery.prepare_standalone_directory(
+                                lambda *args: recovery.execute(container, *args))
+                            if preparation['mode_before'] != '2770' or preparation['mode_after'] != '2700':
+                                raise RuntimeError('native fsGroup PGDATA preparation differs')
                             controller.stdin.write(b'run\n' + recovery.catalog_sql().encode())
                             controller.stdin.flush()
                             if supervisor.Controller.read_catalog(controller) != before:

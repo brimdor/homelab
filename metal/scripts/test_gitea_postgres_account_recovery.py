@@ -21,6 +21,16 @@ def catalog():
 
 
 class RecoveryContract(unittest.TestCase):
+    def test_native_directory_preparation_refuses_broader_or_unproven_changes(self):
+        for before, after in ((700, 700), (2700, 2700), (770, 700), (2770, 2700)):
+            run = lambda *_args: SimpleNamespace(stdout=f'HOMELAB103:DATA-DIRECTORY:{before}:{after}\n'.encode())
+            self.assertEqual(recovery.prepare_standalone_directory(run)['mode_after'], str(after))
+        for raw in (b'', b'HOMELAB103:DATA-DIRECTORY:2770:700\n',
+                    b'HOMELAB103:DATA-DIRECTORY:777:700\n',
+                    b'HOMELAB103:DATA-DIRECTORY:700:700\nextra\n'):
+            with self.subTest(raw=raw), self.assertRaises(RuntimeError):
+                recovery.prepare_standalone_directory(lambda *_args: SimpleNamespace(stdout=raw))
+
     def test_only_existing_postgres_password_can_change(self):
         before = catalog()
         after = copy.deepcopy(before)

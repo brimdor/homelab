@@ -41,6 +41,21 @@ VENDOR_HASHES = {'postgresql/entrypoint.sh': '5fc7a4ba859787e049e36cb56a1c7feae0
 NSS_LIBRARY = '/opt/bitnami/common/lib/libnss_wrapper.so.0.3.5'
 NSS_SHA256 = 'aee52fd8be9d5786b51449cd4e6ba1d6dce94ddfe34cd793bd31b4ea080f36d1'
 MISSING_USER = b'postgres: could not look up effective user ID 1001: user does not exist\n'
+STANDALONE_DIRECTORY = '''data=/bitnami/postgresql/data
+[[ $(id -u) == 1001 && -d "$data" && ! -L "$data" ]]
+[[ ! -L /bitnami && ! -L /bitnami/postgresql && ! -e "$data/postmaster.pid" ]]
+[[ $(stat -c '%u:%g' "$data") == 1001:1001 ]]
+before=$(stat -c '%a' "$data")
+case "$before" in 700|2700|770|2770) ;; *) exit 1;; esac
+identity=$(stat -c '%d:%i:%u:%g' "$data")
+# Match the exact vendor initialization permissions; never recurse into data.
+chmod u+rwx "$data"
+chmod go-rwx "$data"
+[[ $(stat -c '%d:%i:%u:%g' "$data") == "$identity" ]]
+after=$(stat -c '%a' "$data")
+[[ "$after" == 700 || "$after" == 2700 ]]
+printf 'HOMELAB103:DATA-DIRECTORY:%s:%s\\n' "$before" "$after"
+'''
 SINGLE_WRAPPER = '''source /opt/bitnami/scripts/libpostgresql.sh
 source /opt/bitnami/scripts/postgresql-env.sh
 export TMPDIR=/tmp
@@ -197,6 +212,16 @@ def single(container, sql, expected_failure=False):
                              re.search(rb'\b(?:FATAL|PANIC):', diagnostics)):
         raise RuntimeError('copied harmless-failure rehearsal differs; raw output discarded')
     return response
+
+
+def prepare_standalone_directory(execute_native):
+    """Apply only the reviewed vendor PGDATA-root mode before offline startup."""
+    response = execute_native('/bin/bash', '-ceu', STANDALONE_DIRECTORY)
+    match = re.fullmatch(rb'HOMELAB103:DATA-DIRECTORY:(700|2700|770|2770):(700|2700)\n', response.stdout)
+    if not match or int(match[2], 8) != (int(match[1], 8) & ~0o077):
+        raise RuntimeError('native vendor PGDATA permission preparation differs')
+    return {'mode_before': match[1].decode(), 'mode_after': match[2].decode(),
+            'only_pgdata_root_mode_prepared': True}
 
 
 def client(container, password, role, binary, *args, host='/tmp'):

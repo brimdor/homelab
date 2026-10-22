@@ -54,6 +54,11 @@ def restore_copies(point, checksum, work, volumes, run_id, image_id, credentials
                              'umask 077; cat > /tmp/source-hba.conf; : > /tmp/fixture.conf', input=hba)
             if hashlib.sha256(recovery.execute(container, '/bin/cat', recovery.NSS_LIBRARY).stdout).hexdigest() != recovery.NSS_SHA256:
                 raise RuntimeError('fresh-copy native NSS library differs')
+            expected_tree = retained.snapshot(child / 'copy')[0]
+            preparation = recovery.prepare_standalone_directory(lambda *args: recovery.execute(container, *args))
+            expected_tree['data']['mode'] = int(preparation['mode_after'], 8)
+            if retained.snapshot(child / 'copy')[0] != expected_tree:
+                raise RuntimeError('vendor directory preparation changed more than the copied PGDATA root mode')
             before = recovery.parse_catalog(recovery.single(container, recovery.catalog_sql().encode()).stdout)
             declared_verifier = 'md5' + hashlib.md5((credentials['admin'] + 'postgres').encode()).hexdigest()
             administrator_matches = next(r for r in before['roles'] if r['rolname'] == 'postgres')['rolpassword'] == declared_verifier
@@ -71,6 +76,7 @@ def restore_copies(point, checksum, work, volumes, run_id, image_id, credentials
             copies.append({'normal_start_and_tcp_auth': True, 'full_dump_sha256': hashes,
                            'catalog_sha256': hashlib.sha256(common.canonical(catalog)).hexdigest(),
                            'administrator_authentication': administrator_matches,
+                           'native_directory_preparation': preparation,
                            'full_logical_data_equal': True,
                            'clean_shutdown': state['cluster_state'] == 'shut down', 'unchanged_hba': True})
         finally:

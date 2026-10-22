@@ -306,6 +306,8 @@ class Controller:
             self.assert_held(held)
             self.bundle.run(core['node'], 'observe', core=core, namespace_pid=held['postgresql']['namespace_pid'])
             item = held['postgresql']
+            preparation = recovery.prepare_standalone_directory(lambda *args: self.execute(item, *args))
+            persist('native-data-directory-prepared', **preparation)
             prepare = ('umask 077; set -C; cat > /tmp/source-hba.conf; : > /tmp/fixture.conf; '
                        '[[ $(stat -c "%u:%a:%h" /tmp/source-hba.conf) == 1001:600:1 ]]; '
                        '[[ $(stat -c "%u:%a:%h" /tmp/fixture.conf) == 1001:600:1 ]]')
