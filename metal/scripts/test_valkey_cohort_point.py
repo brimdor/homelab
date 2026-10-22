@@ -39,6 +39,27 @@ def stream(ordinal='0'):
 
 
 class CohortPointTests(unittest.TestCase):
+    def test_maintained_source_requires_distinct_format_and_uniform_bound_images(self):
+        sources = {n: binding(n) for n in point.CLAIMS}
+        for value in sources.values():
+            value['image'] = point.recovery.CANDIDATE
+        shards = {n: {'format': point.MAINTAINED_FORMAT, 'source': sources[n],
+            'file': {'bytes': 100, 'sha256': 'a' * 64}} for n in point.SLOTS}
+        value = {'format': point.MAINTAINED_FORMAT, 'cluster_uid': point.common.CLUSTER_UID,
+            'owner_uid': point.recovery.OWNER, 'image': point.recovery.CANDIDATE, 'sources': sources,
+            'shards': shards, 'replicas': point.REPLICAS, 'slots': point.SLOTS, 'source_quiesced': True,
+            'cross_shard_atomic': False, 'topology_sha256': 'd' * 64,
+            'write_exclusion': {'lease_ms': point.LEASE_MS, 'elapsed_ms': 1234, 'all_six_probes_blocked': True}}
+        self.assertEqual(point.validate(value), value)
+        for change in (lambda v: v.update(format=point.FORMAT),
+                lambda v: v['shards']['0'].update(format=point.FORMAT),
+                lambda v: v['sources']['4'].update(image=point.recovery.IMAGE),
+                lambda v: v.update(image='unreviewed')):
+            altered = copy.deepcopy(value)
+            change(altered)
+            with self.assertRaises(RuntimeError):
+                point.validate(altered)
+
     def test_distinct_provenance_requires_all_six_bindings_and_finite_exclusion(self):
         shards = {n: point.validate_header(point.common.read_frame(io.BytesIO(stream(n)))) for n in point.SLOTS}
         value = {'format': point.FORMAT, 'cluster_uid': point.common.CLUSTER_UID,

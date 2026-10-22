@@ -27,32 +27,8 @@ metadata:
   labels:
     maintenance103.eaglepass.io/purpose: synthetic-valkey-six-pvc
 data:
-  valkey.conf: |
-    bind 0.0.0.0 ::
-    protected-mode no
-    port 6379
-    daemonize no
-    logfile /runtime/valkey.log
-    dir /bitnami/valkey/data
-    dbfilename dump.rdb
-    databases 1
-    cluster-enabled yes
-    cluster-config-file /bitnami/valkey/data/nodes.conf
-    cluster-node-timeout 15000
-    cluster-require-full-coverage yes
-    cluster-replica-validity-factor 10
-    appendonly yes
-    appendfilename appendonly.aof
-    appenddirname appendonlydir
-    appendfsync everysec
-    no-appendfsync-on-rewrite no
-    auto-aof-rewrite-percentage 100
-    auto-aof-rewrite-min-size 67108864
-    aof-load-truncated no
-    aof-use-rdb-preamble yes
-    save 900 1 300 10 60 10000
-    maxmemory 0
-    maxmemory-policy noeviction
+  valkey-default.conf: |
+    {{- .Files.Get "configuration/valkey-default.conf" | nindent 4 }}
   ready.sh: |
     #!/bin/sh
     set -eu
@@ -149,8 +125,8 @@ spec:
         - name: valkey
           image: {{ .Values.image }}
           imagePullPolicy: IfNotPresent
-          command: [valkey-server, /configuration/valkey.conf]
-          args: [--cluster-announce-ip, "$(POD_IP)"]
+          command: [valkey-server, /opt/bitnami/valkey/etc/valkey-default.conf]
+          args: [--bind, "0.0.0.0 ::", --protected-mode, "no", --databases, "1", --appendonly, "yes", --cluster-announce-ip, "$(POD_IP)", --aof-load-truncated, "no"]
           env:
             - name: POD_IP
               valueFrom:
@@ -196,8 +172,12 @@ spec:
             - name: configuration
               mountPath: /configuration
               readOnly: true
+            - name: configuration
+              mountPath: /opt/bitnami/valkey/etc/valkey-default.conf
+              subPath: valkey-default.conf
+              readOnly: true
             - name: runtime
-              mountPath: /runtime
+              mountPath: /opt/bitnami/valkey/tmp
             - name: temporary
               mountPath: /tmp
       volumes:

@@ -20,6 +20,8 @@ import valkey_recovery as recovery
 
 common = recovery.common
 FORMAT = 'gitea-valkey-write-excluded-103-v1'
+MAINTAINED_FORMAT = 'gitea-valkey-write-excluded-103-v2'
+SOURCE_VERSIONS = {recovery.IMAGE: '8.1.3', recovery.CANDIDATE: '8.1.10'}
 CLAIMS = {**recovery.CLAIMS,
           '1': ('ff537397-6401-45d3-9804-f4137b4ccb6f', '760fad77-cc28-4c0e-b18e-d2c2647af752'),
           '2': ('a12c9162-cd13-4d13-8c7a-cda2061a8d4b', 'ce5bca1f-9975-45c1-acc3-a693069db6bf'),
@@ -31,13 +33,19 @@ CORE_KEYS = {'ordinal', 'cluster_uid', 'namespace', 'pod', 'pod_uid', 'controlle
              'container_id', 'image', 'claim', 'claim_uid', 'pv', 'pv_uid', 'revision'}
 
 
+def source_format(image):
+    if image not in SOURCE_VERSIONS:
+        raise RuntimeError('unreviewed native Valkey source image')
+    return FORMAT if image == recovery.IMAGE else MAINTAINED_FORMAT
+
+
 def validate_core(value):
     try:
         ordinal = value['ordinal']
         claim, pv = CLAIMS[ordinal]
         if (set(value) != CORE_KEYS or value['cluster_uid'] != common.CLUSTER_UID or
                 value['namespace'] != 'gitea' or value['controller_uid'] != recovery.OWNER or
-                value['image'] != recovery.IMAGE or value['pod'] != 'gitea-valkey-cluster-' + ordinal or
+                value['image'] not in SOURCE_VERSIONS or value['pod'] != 'gitea-valkey-cluster-' + ordinal or
                 value['claim'] != 'valkey-data-' + value['pod'] or value['claim_uid'] != claim or
                 value['pv'] != 'pvc-' + claim or value['pv_uid'] != pv or
                 not re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}', value['pod_uid']) or
@@ -73,7 +81,7 @@ def observe(core):
     runtime = json.loads(common.command([*native.CRI, 'inspect', cid]).stdout)
     status, info = runtime['status'], runtime['info']
     if (status['id'] != cid or status['state'] != 'CONTAINER_RUNNING' or
-            status['imageRef'] != recovery.IMAGE or status['metadata']['name'] != 'gitea-valkey-cluster' or
+            status['imageRef'] != core['image'] or status['metadata']['name'] != 'gitea-valkey-cluster' or
             info['runtimeSpec']['process']['user'] != {'uid': 1001, 'gid': 1001, 'additionalGids': [1001]}):
         raise RuntimeError('native Valkey cohort immutable runtime differs')
     for name, expected in [('namespace', 'gitea'), ('name', core['pod']), ('uid', core['pod_uid'])]:
@@ -141,7 +149,7 @@ def send(core, output):
         raise RuntimeError('only reviewed primary RDBs may be streamed')
     path = Path(binding['volume']['source']) / 'dump.rdb'
     record = source_file(path)
-    header = {'format': FORMAT, 'source': binding, 'file': record[0]}
+    header = {'format': source_format(core['image']), 'source': binding, 'file': record[0]}
     encoded = common.canonical(header)
     output.write(encoded + b'\n')
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
@@ -177,7 +185,7 @@ def validate_header(header):
     try:
         validate_binding(header['source'])
         record = header['file']
-        if (set(header) != {'format', 'source', 'file'} or header['format'] != FORMAT or
+        if (set(header) != {'format', 'source', 'file'} or header['format'] != source_format(header['source']['image']) or
                 header['source']['ordinal'] not in SLOTS or set(record) != {'bytes', 'sha256'} or
                 type(record['bytes']) is not int or record['bytes'] <= 9 or
                 not re.fullmatch('[a-f0-9]{64}', record['sha256'])):
@@ -224,8 +232,8 @@ def validate(manifest):
     try:
         if (set(manifest) != {'format', 'cluster_uid', 'owner_uid', 'image', 'sources', 'shards', 'replicas',
                              'slots', 'write_exclusion', 'source_quiesced', 'cross_shard_atomic', 'topology_sha256'} or
-                manifest['format'] != FORMAT or manifest['cluster_uid'] != common.CLUSTER_UID or
-                manifest['owner_uid'] != recovery.OWNER or manifest['image'] != recovery.IMAGE or
+                manifest['format'] != source_format(manifest['image']) or manifest['cluster_uid'] != common.CLUSTER_UID or
+                manifest['owner_uid'] != recovery.OWNER or
                 manifest['replicas'] != REPLICAS or manifest['slots'] != SLOTS or
                 manifest['source_quiesced'] is not True or manifest['cross_shard_atomic'] is not False or
                 not re.fullmatch('[a-f0-9]{64}', manifest['topology_sha256']) or
@@ -239,7 +247,7 @@ def validate(manifest):
             raise ValueError()
         for ordinal, binding in manifest['sources'].items():
             validate_binding(binding)
-            if binding['ordinal'] != ordinal:
+            if binding['ordinal'] != ordinal or binding['image'] != manifest['image']:
                 raise ValueError()
         if (len({v['revision'] for v in manifest['sources'].values()}) != 1 or
                 len({v['pod_uid'] for v in manifest['sources'].values()}) != 6 or

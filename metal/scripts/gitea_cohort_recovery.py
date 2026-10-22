@@ -36,7 +36,7 @@ class Controller(postgres.Controller):
             pod = self.get('pod', name)
             statuses = pod['status'].get('containerStatuses', [])
             if (pod['metadata'].get('deletionTimestamp') or len(statuses) != 1 or
-                    not statuses[0]['ready'] or statuses[0]['imageID'] != valkey.recovery.IMAGE or
+                    not statuses[0]['ready'] or statuses[0]['imageID'] not in valkey.SOURCE_VERSIONS or
                     not any(o.get('controller') and o['kind'] == 'StatefulSet' and o['uid'] == valkey.recovery.OWNER
                             for o in pod['metadata'].get('ownerReferences', []))):
                 raise RuntimeError('native Valkey source workload changed')
@@ -95,7 +95,7 @@ class Controller(postgres.Controller):
                         persistence.get('aof_rewrite_scheduled') != '0' or
                         persistence.get('aof_last_bgrewrite_status') != 'ok' or
                         persistence.get('aof_last_write_status') != 'ok' or
-                        server.get('valkey_version') != '8.1.3' or server.get('tcp_port') != '6379' or
+                        server.get('valkey_version') != valkey.SOURCE_VERSIONS[core['image']] or server.get('tcp_port') != '6379' or
                         self.valkey_cli(core, 'MODULE', 'LIST') or
                         self.valkey_cli(core, 'CONFIG', 'GET', 'dir') != b'dir\n/bitnami/valkey/data' or
                         self.valkey_cli(core, 'CONFIG', 'GET', 'dbfilename') != b'dbfilename\ndump.rdb'):
@@ -122,6 +122,10 @@ class Controller(postgres.Controller):
     def capture_valkey(self, held, run_id, persist):
         self.assert_held(held)
         cores = self.valkey_core()
+        images = {core['image'] for core in cores.values()}
+        if len(images) != 1:
+            raise RuntimeError('cohort capture requires one reviewed source image on all six nodes')
+        source_image = images.pop()
         topology = self.topology(cores, full=True)
         bindings = self.native_bindings(cores)
         probes, paused = [], []
@@ -173,8 +177,8 @@ class Controller(postgres.Controller):
                 raise RuntimeError('native Valkey common WRITE exclusion interval was lost: elapsed_ms=' +
                                    str(elapsed) + ', lease_ms=' + str(valkey.LEASE_MS) +
                                    ', probe_exits=' + repr([c.poll() for c in probes]))
-            manifest = {'format': valkey.FORMAT, 'cluster_uid': postgres.common.CLUSTER_UID,
-                        'owner_uid': valkey.recovery.OWNER, 'image': valkey.recovery.IMAGE,
+            manifest = {'format': valkey.source_format(source_image), 'cluster_uid': postgres.common.CLUSTER_UID,
+                        'owner_uid': valkey.recovery.OWNER, 'image': source_image,
                         'sources': bindings, 'shards': shards, 'replicas': valkey.REPLICAS,
                         'slots': valkey.SLOTS, 'write_exclusion': {'lease_ms': valkey.LEASE_MS,
                             'elapsed_ms': elapsed, 'all_six_probes_blocked': True},

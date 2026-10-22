@@ -1,0 +1,74 @@
+# Dormant qualification profile; merge only after the six-PVC and recovery gates.
+gitea:
+  valkey-cluster:
+    cluster:
+      nodes: 6
+    valkey:
+      command:
+        - valkey-server
+        - /opt/bitnami/valkey/etc/valkey-default.conf
+      args:
+        - --bind
+        - '0.0.0.0 ::'
+        - --protected-mode
+        - 'no'
+        - --databases
+        - '1'
+        - --appendonly
+        - 'yes'
+        - --cluster-announce-ip
+        - $(POD_IP)
+        - --aof-load-truncated
+        - 'no'
+      extraEnvVars:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+      updateStrategy:
+        type: RollingUpdate
+        rollingUpdate:
+          partition: 6
+      customStartupProbe:
+        exec:
+          command:
+            - /bin/sh
+            - -ec
+            - '[ "$(valkey-cli --raw -h 127.0.0.1 PING)" = PONG ]'
+        periodSeconds: 2
+        timeoutSeconds: 3
+        failureThreshold: 60
+      customLivenessProbe:
+        exec:
+          command:
+            - /bin/sh
+            - -ec
+            - '[ "$(valkey-cli --raw -h 127.0.0.1 PING)" = PONG ]'
+        periodSeconds: 10
+        timeoutSeconds: 3
+      customReadinessProbe:
+        exec:
+          command:
+            - /bin/sh
+            - -ec
+            - '[ "$(valkey-cli --raw -h 127.0.0.1 PING)" = PONG ]
+
+              state=$(valkey-cli --raw -h 127.0.0.1 CLUSTER INFO)
+
+              for field in cluster_state:ok cluster_slots_assigned:16384 cluster_slots_ok:16384
+              cluster_slots_pfail:0 cluster_slots_fail:0 cluster_known_nodes:6; do
+
+              case "$state" in *"$field"*) ;; *) exit 1 ;; esac
+
+              done'
+        periodSeconds: 2
+        timeoutSeconds: 3
+    global:
+      security:
+        allowInsecureImages: true
+    image:
+      registry: docker.io
+      repository: valkey/valkey
+      tag: 8.1.10
+      digest: sha256:0f62bfecc0b713dc2111af3ee307d5cd53c6877b7a112c6143c4de20f1325e4c
+      pullPolicy: IfNotPresent

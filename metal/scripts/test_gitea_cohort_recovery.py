@@ -34,7 +34,7 @@ class CohortControllerTests(unittest.TestCase):
 
     def test_uncertain_pause_acknowledgement_always_unpauses(self):
         instance = cohort.Controller(['kubectl'], None)
-        cores = {'0': {'ordinal': '0'}}
+        cores = {'0': core()}
         with patch.object(instance, 'assert_held'), patch.object(instance, 'valkey_core', return_value=cores), \
                 patch.object(instance, 'topology', return_value='a' * 64), \
                 patch.object(instance, 'native_bindings', return_value={}), \
@@ -43,6 +43,15 @@ class CohortControllerTests(unittest.TestCase):
                 instance.capture_valkey({}, 'uncertain-103', lambda *_a, **_k: None)
             self.assertEqual(cli.call_count, 2)
             self.assertEqual(cli.call_args.args, (cores['0'], 'CLIENT', 'UNPAUSE'))
+
+    def test_mixed_reviewed_images_refuse_capture_before_pausing(self):
+        instance = cohort.Controller(['kubectl'], None)
+        cores = {n: core(n) for n in cohort.valkey.CLAIMS}
+        cores['4']['image'] = cohort.valkey.recovery.CANDIDATE
+        with patch.object(instance, 'assert_held'), patch.object(instance, 'valkey_core', return_value=cores), \
+                patch.object(instance, 'valkey_cli') as cli, self.assertRaisesRegex(RuntimeError, 'one reviewed source image'):
+            instance.capture_valkey({}, 'mixed-103', lambda *_a, **_k: None)
+        cli.assert_not_called()
 
     def test_expired_common_lease_refuses_commit_and_reaps_actual_probes(self):
         with tempfile.TemporaryDirectory() as temporary:

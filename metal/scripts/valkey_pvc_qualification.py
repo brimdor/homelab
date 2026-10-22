@@ -224,6 +224,16 @@ class Qualification:
     def wait_healthy(self, masters=(0, 3, 5)):
         protocol.poll(lambda: self.healthy(masters), 'synthetic six-PVC cluster did not converge')
 
+    def verify_profile(self):
+        expected = {'bind': '0.0.0.0 ::', 'protected-mode': 'no', 'port': '6379', 'databases': '1',
+            'dir': '/bitnami/valkey/data', 'cluster-enabled': 'yes', 'cluster-node-timeout': '15000',
+            'repl-diskless-sync': 'no', 'appendonly': 'yes', 'appendfsync': 'everysec',
+            'aof-load-truncated': 'no', 'pidfile': '/opt/bitnami/valkey/tmp/valkey_6379.pid'}
+        for ordinal in range(6):
+            fields = self.cli(ordinal, 'CONFIG', 'GET', *expected).decode().splitlines()
+            if len(fields) != 2 * len(expected) or dict(zip(fields[::2], fields[1::2])) != expected:
+                raise RuntimeError('synthetic native parent configuration differs')
+
     def bootstrap(self):
         self.identity()
         protocol.poll(lambda: len(self.pods()) == 6 and all(self.cli(n, 'PING', check=False) == b'PONG'
@@ -246,6 +256,7 @@ class Qualification:
             keys = protocol.fixture_keys(master)
             assert self.cli(4, 'EVAL', protocol.WRITE, len(keys), *keys) == b'fixture-created'
         self.verify()
+        self.verify_profile()
 
     def verify(self, masters=(0, 3, 5)):
         self.wait_healthy(masters)

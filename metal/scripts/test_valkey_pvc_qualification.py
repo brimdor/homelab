@@ -9,6 +9,12 @@ import valkey_pvc_qualification as fixture
 
 
 class QualificationTests(unittest.TestCase):
+    def test_parent_profile_mismatch_refuses_acceptance(self):
+        instance = fixture.Qualification(['kubectl'])
+        with patch.object(instance, 'cli', return_value=b'appendonly\nno'), \
+                self.assertRaisesRegex(RuntimeError, 'parent configuration differs'):
+            instance.verify_profile()
+
     def test_new_image_with_any_namespace_consumer_is_preserved(self):
         instance=fixture.Qualification(['kubectl'])
         image={'id':'new-fixture-image','repoDigests':[fixture.protocol.recovery.CANDIDATE]}
