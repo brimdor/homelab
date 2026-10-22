@@ -1,6 +1,7 @@
 """Reject damaged or unowned complete-file copy points before native restoration."""
 
 import copy
+import io
 from pathlib import Path
 import tempfile
 import unittest
@@ -110,6 +111,51 @@ class ColdPointTests(unittest.TestCase):
             (root / 'point/data').chmod(0o755)
             with self.assertRaises(RuntimeError):
                 cold.verify(root / 'point', checksum)
+
+    def test_stream_roundtrip_and_incomplete_or_changed_stream_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            value, checksum = cold.capture(fixture(root), root / 'point', STATE)
+            stream = io.BytesIO()
+            cold.send(root / 'point', checksum, stream)
+            raw = stream.getvalue()
+            self.assertEqual(cold.receive(io.BytesIO(raw), root / 'received'), (value, checksum))
+            for number, damaged in enumerate((raw[:-1], raw + b'foreign', raw[:80],
+                                              raw.replace(b'16\n', b'17\n'))):
+                with self.subTest(number=number), self.assertRaises((RuntimeError, ValueError)):
+                    cold.receive(io.BytesIO(damaged), root / ('damaged-' + str(number)))
+                self.assertFalse((root / ('damaged-' + str(number)) / 'verified.json').exists())
+
+    def test_production_provenance_is_separate_from_historical_copy(self):
+        # Synthetic parser metadata is not evidence of an actual held production runtime.
+        binding = {'cluster_uid': cold.common.CLUSTER_UID, 'namespace': 'gitea',
+                   'pod': 'gitea-postgresql-0', 'pod_uid': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+                   'controller_uid': '80aac4a0-46ec-4564-84db-d99c440780e9', 'node': 'totodile',
+                   'container_id': 'a' * 64, 'image': cold.control.IMAGE,
+                   'claim': 'data-gitea-postgresql-0', 'claim_uid': '4d6d356d-ec5d-4f2e-961e-090eae9e0c21',
+                   'pv': 'pvc-4d6d356d-ec5d-4f2e-961e-090eae9e0c21',
+                   'pv_uid': '5cadac3d-dd99-4e3e-8551-4d165826cf44', 'revision': 'b' * 40,
+                   'hba_sha256': '625018986f8ca9e5f4bff3b1e4ffcdc29d4d96d3cd55ed07f02aa514a30f7e05',
+                   'volume': {'source': '', 'device': 1, 'inode': 2},
+                   'guard': {'namespace_pid': 3, 'host_pid': 4, 'start_ticks': 5,
+                             'lock_device': 6, 'lock_inode': 7}}
+        binding['volume']['source'] = ('/var/lib/kubelet/pods/' + binding['pod_uid'] +
+                                      '/volumes/kubernetes.io~csi/' + binding['pv'] + '/mount')
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            value, checksum = cold.capture(fixture(root), root / 'point', STATE, source_binding=binding)
+            self.assertEqual(value['format'], cold.GUARDED_FORMAT)
+            self.assertNotIn('original_manifest_sha256', value)
+            self.assertEqual(cold.verify(root / 'point', checksum), value)
+            for field in ('namespace', 'claim_uid', 'pv_uid', 'image', 'controller_uid'):
+                altered = copy.deepcopy(value)
+                altered['source'][field] = 'foreign'
+                with self.subTest(field=field), self.assertRaises(RuntimeError):
+                    cold.validate(altered)
+            altered = copy.deepcopy(value)
+            altered['source']['guard']['host_pid'] = True
+            with self.assertRaises(RuntimeError):
+                cold.validate(altered)
 
 
 if __name__ == '__main__':

@@ -327,6 +327,28 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
     manifest, checksum = gitea_postgres_cold_point.capture(work / 'copy', point, state)
     if manifest['tree'] != tree:
         raise RuntimeError('clean stopped source changed before protected-point capture')
+    transferred = work / ('pre-recovery-transferred-point' if before_recovery else 'transferred-point')
+    reader, writer = os.pipe()
+    child = os.fork()
+    if child == 0:
+        os.close(writer)
+        try:
+            with os.fdopen(reader, 'rb') as stream:
+                gitea_postgres_cold_point.receive(stream, transferred)
+            os._exit(0)
+        except BaseException:
+            os._exit(70)
+    os.close(reader)
+    try:
+        with os.fdopen(writer, 'wb') as stream:
+            gitea_postgres_cold_point.send(point, checksum, stream)
+    finally:
+        waited, status = os.waitpid(child, 0)
+    if waited != child or not os.WIFEXITED(status) or os.WEXITSTATUS(status):
+        raise RuntimeError('native copied cold-point transfer failed; raw output discarded')
+    if gitea_postgres_cold_point.verify(transferred, checksum) != manifest:
+        raise RuntimeError('native transferred cold point differs')
+    point = transferred
     copies = []
     for number in range(2):
         if gitea_postgres_cold_point.verify(point, checksum) != manifest:
@@ -374,7 +396,9 @@ def cold_capture_restore(work, container, volumes, run_id, image_id, credentials
     return {'source_kind': 'isolated_historical_copy', 'source_stopped': True,
             'before_role_recovery': before_recovery,
             'manifest_sha256': checksum,
-            'independent_restores': copies, 'source_unchanged': True, 'production_capture_unqualified': True}
+            'independent_restores': copies, 'source_unchanged': True,
+            'separate_process_stream_transfer_verified': True,
+            'production_capture_unqualified': True}
 
 
 @contextmanager
@@ -482,7 +506,7 @@ def qualify(run_id, credentials, hba, lifecycle=False, startup_guard=False):
     value = retained.verify(control.POINT, control.CHECKSUM, 'gitea')
     if any(r['kind'] == 'symlink' for r in value['tree'].values()):
         raise RuntimeError('unreviewed copied PostgreSQL symlink')
-    retained.require_capacity(common.ROOT, value['tree'], 8)
+    retained.require_capacity(common.ROOT, value['tree'], 8 if startup_guard else 10)
     if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip():
         raise RuntimeError('owned copied recovery already active')
     images = set(common.docker('image', 'ls', '-q', '--no-trunc').stdout.decode().split())
