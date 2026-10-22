@@ -1,3 +1,0 @@
-# Temporary synthetic fixture; caller removes it after this batch.
-guarded: true
-generation: controller-absent
