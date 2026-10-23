@@ -54,6 +54,18 @@ class NvidiaBuildTests(unittest.TestCase):
         self.assertFalse(config.plugins or config.install_weak_deps or config.skip_broken or config.skip_unavailable)
         self.assertTrue(config.gpgcheck)
         self.assertEqual(set(configured), {'ceph-base', 'ceph-updates'})
+        vendor = item('nvidia-open', repository='nvidia-vendor', location='nvidia-open-615.71.10-1.fc44.noarch.rpm',
+                      architecture='noarch')
+        items.append(vendor)
+        with self.assertRaisesRegex(RuntimeError, 'foreign'):
+            driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT)
+        self.assertEqual(len(driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT, include_vendor=True)['urls']), 4)
+        items.pop()
+        for location in ('Packages/nvidia.rpm', '../nvidia.rpm', '/nvidia.rpm', 'nvidia.repo'):
+            items.append(item('unsafe-vendor', repository='nvidia-vendor', location=location))
+            with self.subTest(location=location), self.assertRaises(RuntimeError):
+                driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT, include_vendor=True)
+            items.pop()
         for change in ({'action': 3}, {'action': 5}, {'architecture': 'i686'},
                        {'repository': 'foreign'}, {'location': 'Packages/../foreign.rpm'},
                        {'location': '/Packages/foreign.rpm'}, {'location': 'Packages//foreign.rpm'}):

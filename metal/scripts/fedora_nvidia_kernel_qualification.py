@@ -18,7 +18,7 @@ GUEST_ROOT = '/run/qualification-nvidia-repos'
 TARGETS = ['kernel-devel-' + VERSION, 'gcc', 'gcc-c++', 'make', 'binutils', 'elfutils-libelf-devel']
 
 
-def package_plan(libdnf5, targets, guest_root):
+def package_plan(libdnf5, targets, guest_root, include_vendor=False):
     """Resolve the full installation, including installed reverse dependents."""
     from pathlib import PurePosixPath
     import re
@@ -33,7 +33,8 @@ def package_plan(libdnf5, targets, guest_root):
     config.skip_unavailable = False
     base.setup()
     sack = base.get_repo_sack()
-    for name in ('ceph-base', 'ceph-updates'):
+    repositories = ('ceph-base', 'ceph-updates', 'nvidia-vendor') if include_vendor else ('ceph-base', 'ceph-updates')
+    for name in repositories:
         repo_config = sack.create_repo(name).get_config()
         repo_config.baseurl = ['file://' + guest_root + '/' + name]
         repo_config.enabled = True
@@ -57,9 +58,11 @@ def package_plan(libdnf5, targets, guest_root):
         if action in incoming:
             name, location = package.get_repo_id(), package.get_location()
             path = PurePosixPath(location)
-            if (name not in ('ceph-base', 'ceph-updates') or path.is_absolute() or
-                    '..' in path.parts or str(path) != location or len(path.parts) < 2 or
-                    path.parts[0] != 'Packages' or not re.fullmatch(r'[A-Za-z0-9._/+~^:-]+', location)):
+            shape = (len(path.parts) == 1 and location.endswith('.rpm') if name == 'nvidia-vendor' else
+                     len(path.parts) >= 2 and path.parts[0] == 'Packages')
+            if (name not in repositories or path.is_absolute() or
+                    '..' in path.parts or str(path) != location or not shape or
+                    not re.fullmatch(r'[A-Za-z0-9._/+~^:-]+', location)):
                 raise RuntimeError('foreign or unsafe native NVIDIA package location')
             row['url'] = 'file://' + guest_root + '/' + name + '/' + location
             expected_replaced.update(old.get_nevra() for old in item.get_replaces())
