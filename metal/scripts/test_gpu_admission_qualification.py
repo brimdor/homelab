@@ -33,8 +33,10 @@ class GPUAdmissionInput(unittest.TestCase):
 
     def test_reviewed_input_still_requires_safe_shapes(self):
         bundle = self.bundle()
-        with patch.object(subject, "BUNDLE_SHA256", hashlib.sha256(subject.common.canonical(bundle)).hexdigest()):
-            subject.validate_bundle(bundle)
+        digest = hashlib.sha256(subject.common.canonical(bundle)).hexdigest()
+        for constant in ("BUNDLE_SHA256", "CANDIDATE_BUNDLE_SHA256"):
+            with patch.object(subject, constant, digest):
+                self.assertEqual(subject.validate_bundle(bundle), digest)
         for mutate in (lambda b: b["stages"].reverse(),
                        lambda b: b["stages"][0]["crds"][0]["metadata"].update(uid="production"),
                        lambda b: b["stages"][0]["crds"][0]["spec"].update(conversion={"strategy": "Webhook"}),
@@ -85,11 +87,14 @@ class GPUAdmissionInput(unittest.TestCase):
                 def runtime(run_id, synthetic_check):
                     return synthetic_check("owned", scratch, [], run_id)
 
-                with patch.object(subject, "BUNDLE_SHA256", hashlib.sha256(subject.common.canonical(bundle)).hexdigest()), \
+                digest = hashlib.sha256(subject.common.canonical(bundle)).hexdigest()
+                constant = "BUNDLE_SHA256" if foreign_uid else "CANDIDATE_BUNDLE_SHA256"
+                with patch.object(subject, constant, digest), \
                         patch.object(subject.common, "qualify", side_effect=runtime), \
                         patch.object(subject.common, "docker", side_effect=docker):
                     result = subject.qualify(bundle, "gpu-12345678")
                 self.assertEqual(result["accepted"], not foreign_uid)
+                self.assertEqual(result["bundle_sha256"], digest)
                 self.assertEqual(len(policy_dry_runs), 1 if foreign_uid else 5)
                 if foreign_uid:
                     self.assertEqual(result["error"], "owned GPU schema identity changed")

@@ -8,6 +8,7 @@ import etcd_recovery as common
 
 
 BUNDLE_SHA256 = "45f36ea81302f5ff66b4b1738f3eb6141a728110be921a6e3adcba823369678c"
+CANDIDATE_BUNDLE_SHA256 = "849baea132da32f5c52cb76c91440234d49ccc5d0b0023c0772e0291012ebe3f"
 VERSIONS = ("24.9.2", "25.3.4", "25.10.1", "26.3.3", "26.7.2")
 BASE = {"clusterpolicies.nvidia.com", "nvidiadrivers.nvidia.com"}
 ADDED = {"gpuclusters.nvidia.com", "computedomains.resource.nvidia.com",
@@ -15,7 +16,8 @@ ADDED = {"gpuclusters.nvidia.com", "computedomains.resource.nvidia.com",
 
 
 def validate_bundle(bundle):
-    if hashlib.sha256(common.canonical(bundle)).hexdigest() != BUNDLE_SHA256:
+    digest = hashlib.sha256(common.canonical(bundle)).hexdigest()
+    if digest not in {BUNDLE_SHA256, CANDIDATE_BUNDLE_SHA256}:
         raise RuntimeError("reviewed GPU admission bundle changed")
     if (set(bundle) != {"values_sha256", "stages"} or
             tuple(stage["version"] for stage in bundle["stages"]) != VERSIONS):
@@ -39,15 +41,16 @@ def validate_bundle(bundle):
                 policy["apiVersion"] != "nvidia.com/v1" or policy["kind"] != "ClusterPolicy" or
                 policy["metadata"] != {"name": "cluster-policy"} or not isinstance(policy["spec"], dict)):
             raise RuntimeError("GPU policy or schema inventory changed")
+    return digest
 
 
 def qualify(bundle, run_id):
-    validate_bundle(bundle)
+    digest = validate_bundle(bundle)
 
     def admission(_container, scratch, client, _run_id):
         evidence = {"accepted": False, "stages": [], "production_writes": 0,
                     "controllers_executed": 0, "gpu_devices_used": 0,
-                    "bundle_sha256": BUNDLE_SHA256}
+                    "bundle_sha256": digest}
         identities = {}
 
         def api(*args):
