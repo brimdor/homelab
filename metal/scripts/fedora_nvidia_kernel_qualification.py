@@ -40,7 +40,8 @@ class Qualification(Kernel):
 for name in ('ceph-base','ceph-updates'):
  pathlib.Path('/etc/yum.repos.d/'+name+'.repo').write_text('['+name+']\\nname='+name+'\\nbaseurl=file://''' + GUEST_ROOT + '''/'+name+'\\nenabled=0\\ngpgcheck=1\\n')
 urls=native('dnf5','--quiet','--disable-repo=*','--enable-repo=ceph-base','--enable-repo=ceph-updates',
-            '--setopt=install_weak_deps=False','download','--resolve','--alldeps','--url',*targets).splitlines()
+            '--setopt=install_weak_deps=False','download','--arch=x86_64','--arch=noarch',
+            '--resolve','--alldeps','--url',*targets).splitlines()
 assert urls and all(url.startswith('file:///')for url in urls)
 print(json.dumps({'urls':urls}))
 ''')
