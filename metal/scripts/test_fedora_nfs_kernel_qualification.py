@@ -36,10 +36,12 @@ class NativeNFSTests(unittest.TestCase):
             calls.append(arguments)
             self.assertEqual(arguments[0], 'nsenter')
             client = next(c for c in runtime.CLIENTS if arguments[1] == '--net=/run/netns/' + c[0])
-            if arguments[2] == runtime.sys.executable:
+            if arguments[2] == 'unshare':
+                self.assertEqual(arguments[2:8], ('unshare', '--mount', '--propagation', 'private', runtime.sys.executable, '-B'))
                 self.assertEqual(arguments[-1], 'qualification-nfs103-' + client[0][-1])
                 compile(arguments[-2], '<actual-network-identity-program>', 'exec')
-                return json.dumps({'identifier': arguments[-1], 'namespace': 'net:[' + client[4] + ']'})
+                return json.dumps({'identifier': arguments[-1], 'namespace': 'net:[' + client[4] + ']',
+                                   'mount_namespace': 'mnt:[private-' + client[4] + ']'})
             if arguments[4:] == ('route',):
                 return json.dumps([{'dev': client[2], 'prefsrc': client[4],
                                     'dst': '198.18.103.0/30' if client[0].endswith('a') else '198.18.103.4/30'}])
@@ -47,12 +49,17 @@ class NativeNFSTests(unittest.TestCase):
                 return json.dumps([{'ifname': 'lo'}, {'ifname': client[2]}])
             return ''
         def all_commands(*arguments):
-            return command(*arguments) if arguments[0] == 'nsenter' else ''
+            if arguments[0] == 'nsenter':
+                return command(*arguments)
+            calls.append(arguments)
+            return ''
         with patch.object(runtime.Path, 'exists', return_value=False), \
+                patch.object(runtime.Path, 'readlink', return_value=Path('mnt:[host]')), \
                 patch.object(runtime, 'command', side_effect=all_commands):
             records = runtime.prepare_clients()
         self.assertEqual(len({row['identifier'] for row in records}), 2)
         self.assertEqual(len({row['namespace'] for row in records}), 2)
+        self.assertEqual(calls[0], ('modprobe', 'nfs'))
         self.assertFalse(any('default' in row['routes'] for row in records))
         self.assertIn('127.0.0.1' + runtime.EXPORT_OPTIONS, runtime.export_configuration())
         self.assertNotIn('*', runtime.export_configuration())
@@ -61,6 +68,28 @@ class NativeNFSTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'preexisting'):
                 runtime.prepare_clients()
             native.assert_not_called()
+
+        program = next(call[-2] for call in calls if call[0] == 'nsenter' and call[2] == 'unshare')
+        for initial in ('', '(null)', 'foreign-client'):
+            with self.subTest(initial=initial), tempfile.TemporaryDirectory() as directory:
+                identifier = Path(directory) / 'identifier'
+                identifier.write_text(initial)
+                def owned_path(path):
+                    return identifier if path == '/sys/fs/nfs/net/nfs_client/identifier' else SimpleNamespace(
+                        readlink=lambda: Path('owned-namespace'))
+                with patch.object(runtime.sys, 'argv', ['identity', 'qualification-nfs103-a']), \
+                        patch('pathlib.Path', side_effect=owned_path), \
+                        patch('subprocess.run') as native:
+                    if initial == 'foreign-client':
+                        with self.assertRaises(AssertionError):
+                            exec(compile(program, '<actual-network-identity-program>', 'exec'), {})
+                        self.assertEqual(identifier.read_text(), initial)
+                    else:
+                        exec(compile(program, '<actual-network-identity-program>', 'exec'), {})
+                        self.assertEqual(identifier.read_text(), 'qualification-nfs103-a')
+                    self.assertEqual(native.call_args_list[0].args[0],
+                                     ['mount', '-t', 'sysfs', '-o', 'nosuid,nodev,noexec', 'sysfs', '/sys'])
+                    self.assertEqual(native.call_args_list[-1].args[0], ['umount', '/sys'])
 
     def test_full_corpus_refuses_duplicate_missing_changed_or_unterminated_records(self):
         lines = sorted(runtime.corpus('4.1'))

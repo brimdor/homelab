@@ -38,6 +38,9 @@ def prepare_clients():
     for name, host, peer, server, address in CLIENTS:
         if Path('/run/netns', name).exists() or Path('/sys/class/net', host).exists():
             raise RuntimeError('preexisting synthetic NFS network client')
+    command('modprobe', 'nfs')
+    host_mount_namespace = Path('/proc/self/ns/mnt').readlink().as_posix()
+    for name, host, peer, server, address in CLIENTS:
         command('ip', 'netns', 'add', name)
         command('ip', 'link', 'add', host, 'type', 'veth', 'peer', 'name', peer)
         command('ip', 'link', 'set', peer, 'netns', name)
@@ -48,14 +51,22 @@ def prepare_clients():
         network_client(client, 'ip', 'address', 'add', address + '/30', 'dev', peer)
         network_client(client, 'ip', 'link', 'set', peer, 'up')
         identifier = 'qualification-nfs103-' + name[-1]
-        observed = json.loads(network_client(client, sys.executable, '-B', '-c',
-            "import json,pathlib,sys; p=pathlib.Path('/sys/fs/nfs/net/nfs_client/identifier');"
-            "assert not p.read_text().strip();p.write_text(sys.argv[1]);"
-            "print(json.dumps({'identifier':p.read_text().strip(),'namespace':pathlib.Path('/proc/self/ns/net').readlink().as_posix()}))",
+        observed = json.loads(network_client(client, 'unshare', '--mount', '--propagation', 'private',
+            sys.executable, '-B', '-c',
+            "import json,pathlib,subprocess,sys\n"
+            "subprocess.run(['mount','-t','sysfs','-o','nosuid,nodev,noexec','sysfs','/sys'],check=True)\n"
+            "try:\n"
+            " p=pathlib.Path('/sys/fs/nfs/net/nfs_client/identifier')\n"
+            " assert p.read_text().strip() in ('','(null)')\n"
+            " p.write_text(sys.argv[1])\n"
+            " print(json.dumps({'identifier':p.read_text().strip(),'namespace':pathlib.Path('/proc/self/ns/net').readlink().as_posix(),"
+            "'mount_namespace':pathlib.Path('/proc/self/ns/mnt').readlink().as_posix()}))\n"
+            "finally:subprocess.run(['umount','/sys'],check=True)\n",
             identifier))
         routes = json.loads(network_client(client, 'ip', '-j', 'route'))
         links = json.loads(network_client(client, 'ip', '-j', 'link'))
-        if (observed['identifier'] != identifier or len(routes) != 1 or
+        if (observed['identifier'] != identifier or observed['mount_namespace'] == host_mount_namespace or
+                len(routes) != 1 or
                 routes[0].get('dev') != peer or routes[0].get('prefsrc') != address or
                 routes[0].get('dst') != ('198.18.103.0/30' if name.endswith('a') else '198.18.103.4/30') or
                 {row['ifname'] for row in links} != {'lo', peer}):
