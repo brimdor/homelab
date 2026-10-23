@@ -339,6 +339,9 @@ class Runtime:
                 'stages': stages, 'same_block_identities': True,
                 'host_failure_or_continuous_degraded_io_qualified': False}
 
+    def class_configuration(self):
+        return ''
+
     def run(self, replicated=False):
         if not self.command(['ceph', '--version']).stdout.startswith(b'ceph version 20.2.4 '):
             raise RuntimeError('candidate native version differs')
@@ -347,7 +350,7 @@ class Runtime:
         copies = 2 if replicated else 1
         fsid = str(uuid.uuid4())
         conf = f'''[global]
-fsid = {fsid}
+{self.class_configuration()}fsid = {fsid}
 mon host = [v2:127.0.0.1:13300,v1:127.0.0.1:13301]
 auth cluster required = cephx
 auth service required = cephx

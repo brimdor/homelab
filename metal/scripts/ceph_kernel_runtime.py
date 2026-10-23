@@ -15,6 +15,7 @@ from ceph_runtime_qualification import Runtime as ModernRuntime, sanitized
 
 
 VERSION = '7.2.11-200.fc44.x86_64'
+CLASS_DIRECTORY = Path('/usr/lib64/rados-classes')
 
 
 def owned_mapping(device, mappings):
@@ -54,6 +55,25 @@ class Runtime(ModernRuntime):
 
     def mappings(self):
         return json.loads(self.command(['rbd', 'device', 'list', '--format=json']).stdout)
+
+    def class_configuration(self):
+        directory = CLASS_DIRECTORY
+        if directory.is_symlink() or not directory.is_dir():
+            raise RuntimeError('native vendor class directory is absent or redirected')
+        evidence = []
+        for name in ('lock', 'rbd', 'cephfs'):
+            library = directory / ('libcls_' + name + '.so')
+            target = library.resolve(strict=True)
+            if target.parent != directory or not target.is_file():
+                raise RuntimeError('native vendor class escaped its directory or is not a file')
+            owner = self.command(['rpm', '-qf', '--qf', '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}',
+                                  str(target)]).stdout.decode().strip()
+            if owner != 'ceph-base 20.2.4-1.fc44.x86_64':
+                raise RuntimeError('native vendor class RPM identity differs')
+            evidence.append({'class': name, 'path': str(library), 'resolved_path': str(target),
+                             'sha256': hashlib.sha256(target.read_bytes()).hexdigest(), 'rpm': owner})
+        self.class_directory_evidence = {'directory': str(directory), 'libraries': evidence}
+        return 'osd class dir = ' + str(directory) + '\n'
 
     def start(self, kind, identity):
         environment = None
@@ -127,6 +147,7 @@ class Runtime(ModernRuntime):
             if Path('/sys/fs/selinux/enforce').read_text().strip() != '1':
                 raise RuntimeError('native enforcement changed')
             return {'accepted': True, 'kernel': VERSION, 'image_id': image['id'], 'stages': stages,
+                    'osd_class_directory': self.class_directory_evidence,
                     'payload_bytes': len(payload), 'payload_sha256': hashlib.sha256(payload).hexdigest(),
                     'modern_auth_only': True, 'native_krbd': True, 'mapping_absent': True,
                     'retired_key_fresh_kernel_auth_refused': True,
@@ -169,6 +190,8 @@ def class_messages(data):
 def manager_native_diagnostic(runtime, result=None):
     if result is None:
         result = {}
+    if hasattr(runtime, 'class_directory_evidence'):
+        result['validated_class_directory'] = runtime.class_directory_evidence
     logs = []
     result['logs'] = logs
     for name in ('mgr.log', 'mgr.a.native.log'):

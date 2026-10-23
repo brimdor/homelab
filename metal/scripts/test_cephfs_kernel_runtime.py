@@ -81,6 +81,83 @@ class CephFSTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'foreign synthetic manager'):
                     fixture.start('mgr', 'foreign')
 
+    def vendor_classes(self, root):
+        directory = root / 'classes'
+        directory.mkdir()
+        for name in ('lock', 'rbd', 'cephfs'):
+            target = directory / ('libcls_' + name + '.so.1.0.0')
+            target.write_bytes(('synthetic-' + name).encode())
+            (directory / ('libcls_' + name + '.so')).symlink_to(target.name)
+        return directory
+
+    def test_native_class_configuration_requires_vendor_files_and_exact_rpm_owner(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            directory = self.vendor_classes(root)
+            fixture = object.__new__(kernel.Runtime)
+            calls = []
+            def command(arguments):
+                calls.append(arguments)
+                return SimpleNamespace(stdout=b'ceph-base 20.2.4-1.fc44.x86_64')
+            fixture.command = command
+            with patch.object(kernel, 'CLASS_DIRECTORY', directory):
+                self.assertEqual(fixture.class_configuration(), 'osd class dir = ' + str(directory) + '\n')
+                evidence = fixture.class_directory_evidence
+                self.assertEqual([item['class'] for item in evidence['libraries']], ['lock', 'rbd', 'cephfs'])
+                self.assertEqual(len(calls), 3)
+                for item, call in zip(evidence['libraries'], calls):
+                    self.assertEqual(call, ['rpm', '-qf', '--qf', '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}',
+                                            item['resolved_path']])
+                    self.assertEqual(item['sha256'], hashlib.sha256(Path(item['resolved_path']).read_bytes()).hexdigest())
+                fixture.command = lambda args: SimpleNamespace(stdout=b'foreign 1-1.x86_64')
+                with self.assertRaisesRegex(RuntimeError, 'RPM identity'):
+                    fixture.class_configuration()
+                fixture.command = command
+                link = directory / 'libcls_lock.so'
+                link.unlink()
+                with self.assertRaises(FileNotFoundError):
+                    fixture.class_configuration()
+                foreign = root / 'foreign.so'
+                foreign.write_bytes(b'foreign')
+                link.symlink_to(foreign)
+                with self.assertRaisesRegex(RuntimeError, 'escaped'):
+                    fixture.class_configuration()
+                link.unlink()
+                link.mkdir()
+                with self.assertRaisesRegex(RuntimeError, 'not a file'):
+                    fixture.class_configuration()
+            redirected = root / 'redirected'
+            redirected.symlink_to(directory, target_is_directory=True)
+            for path in (root / 'absent', redirected):
+                with patch.object(kernel, 'CLASS_DIRECTORY', path), self.assertRaisesRegex(RuntimeError, 'absent or redirected'):
+                    fixture.class_configuration()
+
+    def test_actual_shared_bootstrap_config_only_changes_native_class_path(self):
+        class BootstrapReached(Exception):
+            pass
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            directory = self.vendor_classes(root)
+            for native in (False, True):
+                fixture = object.__new__(kernel.Runtime if native else kernel.ModernRuntime)
+                fixture.root = root / ('native' if native else 'container')
+                fixture.root.mkdir()
+                def command(arguments):
+                    if arguments == ['ceph', '--version']:
+                        return SimpleNamespace(stdout=b'ceph version 20.2.4 synthetic')
+                    if arguments[0] == 'rpm':
+                        return SimpleNamespace(stdout=b'ceph-base 20.2.4-1.fc44.x86_64')
+                    raise BootstrapReached()
+                fixture.command = command
+                with patch.object(kernel, 'CLASS_DIRECTORY', directory), self.assertRaises(BootstrapReached):
+                    fixture.run()
+                config = (fixture.root / 'ceph.conf').read_text()
+                self.assertEqual('osd class dir = ' + str(directory) + '\n' in config, native)
+                self.assertEqual(config.count('osd class dir'), int(native))
+                self.assertNotIn('osd class load list', config)
+                self.assertNotIn('osd class default list', config)
+                self.assertIn('auth allow insecure global id reclaim = false', config)
+
     def test_sqlite_diagnostics_exclude_credentials_and_unrelated_log_lines(self):
         raw = (b'cephsqlite: Open: cannot open striper: (13) Permission denied\n'
                b'cephsqlite: read: read failed: (5) Input/output error\n'
