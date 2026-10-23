@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import socket
 import struct
 import unittest
@@ -164,6 +164,41 @@ class L2Guards(unittest.TestCase):
         second["metadata"]["uid"] = "replacement-lease"
         with self.assertRaises(RuntimeError):
             l2.validate_lease(second, {"node-a", "node-b"}, previous=first)
+
+    def test_recreated_lease_requires_observed_gap_exact_identity_and_new_renewal(self):
+        first = self.lease()
+        second = self.lease("node-b", 0)
+        second["metadata"].update(uid="replacement-lease", namespace="kube-system",
+                                  name="cilium-l2announce-" + l2.NAMESPACE + "-" + l2.NAME,
+                                  creationTimestamp="2026-10-20T12:00:00Z")
+        second["spec"]["renewTime"] = "2026-10-20T12:00:00.500Z"
+        l2.validate_lease(second, {"node-a", "node-b"}, previous=first, observed_absence=True)
+        for field, value in (("namespace", "other"), ("name", "other"), ("deletionTimestamp", "now"),
+                             ("creationTimestamp", "2026-10-20T11:59:59Z"),
+                             ("creationTimestamp", "2026-10-20T12:00:01Z"),
+                             ("creationTimestamp", "invalid")):
+            bad = copy.deepcopy(second)
+            bad["metadata"][field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(RuntimeError):
+                l2.validate_lease(bad, {"node-a", "node-b"}, previous=first, observed_absence=True)
+        second["spec"]["renewTime"] = first["spec"]["renewTime"]
+        with self.assertRaises(RuntimeError):
+            l2.validate_lease(second, {"node-a", "node-b"}, previous=first, observed_absence=True)
+
+    def test_transfer_observes_absence_but_never_suppresses_access_failures(self):
+        q = SimpleNamespace(args=SimpleNamespace(name="qualification-test"),
+                            kubectl=Mock(side_effect=[b"", json.dumps(self.lease("node-b", 3)).encode()]))
+        runner = l2.L2Qualification(q)
+        runner.nodes = {"node-a": "unused", "node-b": "unused"}
+        with patch.object(l2.time, "sleep"):
+            self.assertEqual(runner.wait_transfer(self.lease())["spec"]["holderIdentity"], "node-b")
+        self.assertTrue(all(call.kwargs == {"json_output": False} and
+                            "--ignore-not-found" in call.args for call in q.kubectl.call_args_list))
+        denial = RuntimeError("Forbidden")
+        q.kubectl.side_effect = denial
+        with self.assertRaises(RuntimeError) as caught:
+            runner.wait_transfer(self.lease())
+        self.assertIs(caught.exception, denial)
 
     def test_manifest_is_synthetic_nonroot_and_has_no_credentials_or_host_mounts(self):
         objects = l2.manifest()["items"]

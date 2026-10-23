@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Qualify Cilium LB-IPAM and L2 ownership only in an owned synthetic cluster."""
 
+import datetime
 import ipaddress
 import inspect
 import hashlib
@@ -117,15 +118,34 @@ def validate_service(service, uid):
         raise RuntimeError("synthetic Service identity, traffic policy or VIP changed")
 
 
-def validate_lease(lease, nodes, *, previous=None):
+def validate_lease(lease, nodes, *, previous=None, observed_absence=False):
     meta, spec = lease.get("metadata", {}), lease.get("spec", {})
     if (not meta.get("uid") or spec.get("holderIdentity") not in nodes or
             type(spec.get("leaseTransitions")) is not int or not spec.get("renewTime")):
         raise RuntimeError("synthetic lease evidence is incomplete")
-    if previous and (meta["uid"] != previous["metadata"]["uid"] or
-                     spec["holderIdentity"] == previous["spec"]["holderIdentity"] or
-                     spec["leaseTransitions"] <= previous["spec"]["leaseTransitions"]):
-        raise RuntimeError("same synthetic lease did not transfer to another node")
+    if previous:
+        replaced = meta["uid"] != previous["metadata"]["uid"]
+        if spec["holderIdentity"] == previous["spec"]["holderIdentity"]:
+            raise RuntimeError("synthetic lease did not transfer to another node")
+        if not replaced:
+            if spec["leaseTransitions"] <= previous["spec"]["leaseTransitions"]:
+                raise RuntimeError("same synthetic lease did not transfer to another node")
+        else:
+            # Cilium releases on cancellation and garbage-collects empty leases.
+            if (not observed_absence or meta.get("name") != "cilium-l2announce-" + NAMESPACE + "-" + NAME or
+                    meta.get("namespace") != "kube-system" or meta.get("deletionTimestamp")):
+                raise RuntimeError("synthetic lease replacement lacks observed lifecycle evidence")
+            try:
+                created, renewed, prior = [datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+                                           for value in (meta["creationTimestamp"], spec["renewTime"],
+                                                         previous["spec"]["renewTime"])]
+                if not all(value.utcoffset() == datetime.timedelta(0) for value in (created, renewed, prior)):
+                    raise ValueError("timestamps must be UTC")
+                if (created < prior.replace(microsecond=0) or renewed < created or
+                        renewed <= prior or spec["leaseTransitions"] < 0):
+                    raise ValueError("replacement timestamp or transition counter differs")
+            except (KeyError, TypeError, ValueError) as error:
+                raise RuntimeError("synthetic replacement lease chronology is invalid") from error
 
 
 def migration_patch(pool):
@@ -193,8 +213,31 @@ class L2Qualification:
     def get_service(self):
         return self.q.kubectl("get", "service", NAME, "-n", NAMESPACE)
 
-    def get_lease(self):
+    def get_lease(self, *, optional=False):
+        if optional:
+            raw = self.q.kubectl("get", "lease", "cilium-l2announce-" + NAMESPACE + "-" + NAME,
+                                 "-n", "kube-system", "--ignore-not-found", json_output=False)
+            return json.loads(raw) if raw.strip() else None
         return self.q.kubectl("get", "lease", "cilium-l2announce-" + NAMESPACE + "-" + NAME, "-n", "kube-system")
+
+    def wait_transfer(self, first):
+        absent = False
+
+        def read():
+            nonlocal absent
+            lease = self.get_lease(optional=True)
+            absent = absent or lease is None
+            return lease
+
+        def moved(lease):
+            if lease is None or lease.get("spec", {}).get("holderIdentity") not in self.nodes:
+                return False
+            if lease["spec"]["holderIdentity"] == first["spec"]["holderIdentity"]:
+                return False
+            validate_lease(lease, self.nodes, previous=first, observed_absence=absent)
+            return True
+
+        return await_value(read, moved, "synthetic L2 lease transfer")
 
     def external(self, lease):
         self.q.identity()
@@ -244,12 +287,7 @@ class L2Qualification:
         holder = first["spec"]["holderIdentity"]
         q.kubectl("label", "node", holder, LABEL + "=false", "--overwrite", json_output=False)
         try:
-            def moved(lease):
-                return (lease["spec"].get("holderIdentity") in self.nodes and
-                        lease["spec"]["holderIdentity"] != holder and
-                        lease["spec"].get("leaseTransitions", 0) > first["spec"]["leaseTransitions"])
-            second = await_value(self.get_lease, moved, "synthetic L2 lease transfer")
-            validate_lease(second, self.nodes, previous=first)
+            second = self.wait_transfer(first)
             after = self.external(second)
         finally:
             q.kubectl("label", "node", holder, LABEL + "=true", "--overwrite", json_output=False)
@@ -257,7 +295,8 @@ class L2Qualification:
         validate_service(self.get_service(), self.service_uid)
         self.stages.append({"phase": phase, "version": version, "cluster_uid": q.cluster_uid,
                             "pool_uid": self.pool_uid, "service_uid": self.service_uid,
-                            "lease_uid": first["metadata"]["uid"], "before": before, "after": after,
+                            "lease_uid": second["metadata"]["uid"], "previous_lease_uid": first["metadata"]["uid"],
+                            "before": before, "after": after,
                             "old_holder": holder, "new_holder": second["spec"]["holderIdentity"],
                             "lease_transitions": second["spec"]["leaseTransitions"]})
         (q.work / "l2-progress.json").write_text(json.dumps(self.stages, indent=2))

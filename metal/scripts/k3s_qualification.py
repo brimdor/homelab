@@ -618,8 +618,7 @@ class Qualification(cq.Qualification):
         holder = first["spec"]["holderIdentity"]
         self.kubectl("label", "node", holder, l2.LABEL + "=false", "--overwrite", json_output=False)
         try:
-            second = l2.await_value(self.l2.get_lease, lambda item: item["spec"].get("holderIdentity") in self.l2.nodes and item["spec"]["holderIdentity"] != holder and item["spec"].get("leaseTransitions", 0) > first["spec"]["leaseTransitions"], "synthetic L2 lease transfer")
-            l2.validate_lease(second, self.l2.nodes, previous=first)
+            second = self.l2.wait_transfer(first)
             after = self.l2_probe(second)
         finally:
             self.kubectl("label", "node", holder, l2.LABEL + "=true", "--overwrite", json_output=False)
@@ -628,7 +627,8 @@ class Qualification(cq.Qualification):
                             "node_runtime": {n["metadata"]["name"]: {key: n["status"]["nodeInfo"][key] for key in
                                 ("containerRuntimeVersion", "kernelVersion", "osImage", "architecture", "kubeletVersion")}
                                 for n in self.kubectl("get", "nodes")["items"]},
-                            "lease_uid": second["metadata"]["uid"], "before": before, "after": after, **result})
+                            "lease_uid": second["metadata"]["uid"], "previous_lease_uid": first["metadata"]["uid"],
+                            "before": before, "after": after, **result})
         self.persist()
         print(json.dumps({"accepted_phase": phase, "executed_cases": result["executed_cases"]}), flush=True)
 
