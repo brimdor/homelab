@@ -45,6 +45,7 @@ class CephKernelTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             fixture = object.__new__(driver.Qualification)
             fixture.args = SimpleNamespace(work_dir=Path(directory))
+            fixture.root = Path(directory)
             fixture.ssh = []
             fixture.upload = lambda *args: None
             fixture.identity = lambda: {}
@@ -61,6 +62,8 @@ class CephKernelTests(unittest.TestCase):
             self.assertGreaterEqual(len(programs), 5)
             for program in programs:
                 compile(program, '<actual-complete-Ceph-guest-program>', 'exec')
+            self.assertEqual((fixture.root / 'kernel-result.json').read_text(), '{}')
+            self.assertEqual((fixture.root / 'ceph-package-selection.json').read_text(), '{\n  "urls": []\n}')
 
 
 if __name__ == '__main__':

@@ -22,6 +22,7 @@ class Qualification(Kernel):
         metadata_root.mkdir(mode=0o700)
         repositories = {name: repository.mirror(metadata_root, name) for name in repository.BASES}
         kernel = super().run()
+        (self.root / 'kernel-result.json').write_text(json.dumps(kernel, indent=2))
         for name, value in repositories.items():
             directories = sorted({str(Path(relative).parent) for relative in value['files']})
             self.guest('directories=' + repr(directories) + '\nname=' + repr(name) + '\n' + '''
@@ -37,11 +38,12 @@ for name in ('ceph-base','ceph-updates'):
  pathlib.Path('/etc/yum.repos.d/'+name+'.repo').write_text('['+name+']\\nname='+name+'\\nbaseurl=file://''' + GUEST_ROOT + '''/'+name+'\\nenabled=0\\ngpgcheck=1\\n')
 result=native('dnf5','--quiet','--disable-repo=*','--enable-repo=qualification',
               '--enable-repo=ceph-base','--enable-repo=ceph-updates','--setopt=install_weak_deps=False',
-              'download','--resolve','--url',*targets)
+              'download','--resolve','--alldeps','--url',*targets)
 urls=result.splitlines()
 assert urls and all(url.startswith('file:///')for url in urls)
 print(json.dumps({'urls':urls,'native_solver':True}))
 ''')
+        (self.root / 'ceph-package-selection.json').write_text(json.dumps(selected, indent=2))
         transferred = []
         dvd_prefix = 'file:///mnt/qualification-repo/'
         for url in sorted(set(selected['urls'])):
