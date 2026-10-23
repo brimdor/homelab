@@ -16,11 +16,12 @@ import nfs_kernel_runtime as runtime
 class NativeNFSTests(unittest.TestCase):
     def test_mount_requires_exact_source_protocol_and_remote_lock_cache_contract(self):
         for version in ('3', '4.1'):
-            row = {'source': '127.0.0.1:' + ('/' if version == '4.1' else str(runtime.EXPORT)),
+            row = {'target': str(runtime.MOUNTS[0]),
+                   'source': runtime.CLIENTS[0][3] + ':/' if version == '4.1' else '127.0.0.1:' + str(runtime.EXPORT),
                    'fstype': 'nfs4' if version == '4.1' else 'nfs', 'maj:min': '0:101',
                    'options': 'rw,vers=' + version + ',' + runtime.OPTIONS}
             self.assertEqual(runtime.require_mount(row, version), '0:101')
-            for key, value in (('source', '10.0.40.3:/forbidden'), ('fstype', 'ext4'),
+            for key, value in (('target', '/production'), ('source', '10.0.40.3:/forbidden'), ('fstype', 'ext4'),
                                ('maj:min', ''), ('options', row['options'].replace('hard', 'soft')),
                                ('options', row['options'].replace('nosharecache', 'sharecache')),
                                ('options', row['options'].replace('local_lock=none', 'local_lock=all')),
@@ -28,6 +29,38 @@ class NativeNFSTests(unittest.TestCase):
                                ('options', row['options'].replace('vers=' + version, 'vers=4.2'))):
                 with self.subTest(version=version, key=key, value=value), self.assertRaises(RuntimeError):
                     runtime.require_mount({**row, key: value}, version)
+
+    def test_network_clients_have_unique_identifiers_and_no_external_routes(self):
+        calls = []
+        def command(*arguments):
+            calls.append(arguments)
+            self.assertEqual(arguments[0], 'nsenter')
+            client = next(c for c in runtime.CLIENTS if arguments[1] == '--net=/run/netns/' + c[0])
+            if arguments[2] == runtime.sys.executable:
+                self.assertEqual(arguments[-1], 'qualification-nfs103-' + client[0][-1])
+                compile(arguments[-2], '<actual-network-identity-program>', 'exec')
+                return json.dumps({'identifier': arguments[-1], 'namespace': 'net:[' + client[4] + ']'})
+            if arguments[4:] == ('route',):
+                return json.dumps([{'dev': client[2], 'prefsrc': client[4],
+                                    'dst': '198.18.103.0/30' if client[0].endswith('a') else '198.18.103.4/30'}])
+            if arguments[4:] == ('link',):
+                return json.dumps([{'ifname': 'lo'}, {'ifname': client[2]}])
+            return ''
+        def all_commands(*arguments):
+            return command(*arguments) if arguments[0] == 'nsenter' else ''
+        with patch.object(runtime.Path, 'exists', return_value=False), \
+                patch.object(runtime, 'command', side_effect=all_commands):
+            records = runtime.prepare_clients()
+        self.assertEqual(len({row['identifier'] for row in records}), 2)
+        self.assertEqual(len({row['namespace'] for row in records}), 2)
+        self.assertFalse(any('default' in row['routes'] for row in records))
+        self.assertIn('127.0.0.1' + runtime.EXPORT_OPTIONS, runtime.export_configuration())
+        self.assertNotIn('*', runtime.export_configuration())
+        with patch.object(runtime.Path, 'exists', return_value=True), \
+                patch.object(runtime, 'command') as native:
+            with self.assertRaisesRegex(RuntimeError, 'preexisting'):
+                runtime.prepare_clients()
+            native.assert_not_called()
 
     def test_full_corpus_refuses_duplicate_missing_changed_or_unterminated_records(self):
         lines = sorted(runtime.corpus('4.1'))

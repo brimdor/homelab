@@ -19,6 +19,68 @@ MOUNTS = (Path('/mnt/qualification-nfs-a'), Path('/mnt/qualification-nfs-b'))
 CONFIG = Path('/etc/exports.d/qualification-nfs103.exports')
 VERSION = '7.2.11-200.fc44.x86_64'
 OPTIONS = 'hard,nosharecache,local_lock=none,proto=tcp'
+CLIENTS = (('qualification-nfs-a', 'q103ha', 'q103ca', '198.18.103.1', '198.18.103.2'),
+           ('qualification-nfs-b', 'q103hb', 'q103cb', '198.18.103.5', '198.18.103.6'))
+EXPORT_OPTIONS = '(rw,sync,root_squash,no_subtree_check,fsid=0,anonuid=65534,anongid=65534)'
+
+
+def export_configuration():
+    return str(EXPORT) + ' ' + ' '.join(address + EXPORT_OPTIONS for address in
+                                       ('127.0.0.1', *(client[4] for client in CLIENTS))) + '\n'
+
+
+def network_client(client, *args):
+    return command('nsenter', '--net=/run/netns/' + client[0], *args)
+
+
+def prepare_clients():
+    records = []
+    for name, host, peer, server, address in CLIENTS:
+        if Path('/run/netns', name).exists() or Path('/sys/class/net', host).exists():
+            raise RuntimeError('preexisting synthetic NFS network client')
+        command('ip', 'netns', 'add', name)
+        command('ip', 'link', 'add', host, 'type', 'veth', 'peer', 'name', peer)
+        command('ip', 'link', 'set', peer, 'netns', name)
+        command('ip', 'address', 'add', server + '/30', 'dev', host)
+        command('ip', 'link', 'set', host, 'up')
+        client = (name, host, peer, server, address)
+        network_client(client, 'ip', 'link', 'set', 'lo', 'up')
+        network_client(client, 'ip', 'address', 'add', address + '/30', 'dev', peer)
+        network_client(client, 'ip', 'link', 'set', peer, 'up')
+        identifier = 'qualification-nfs103-' + name[-1]
+        observed = json.loads(network_client(client, sys.executable, '-B', '-c',
+            "import json,pathlib,sys; p=pathlib.Path('/sys/fs/nfs/net/nfs_client/identifier');"
+            "assert not p.read_text().strip();p.write_text(sys.argv[1]);"
+            "print(json.dumps({'identifier':p.read_text().strip(),'namespace':pathlib.Path('/proc/self/ns/net').readlink().as_posix()}))",
+            identifier))
+        routes = json.loads(network_client(client, 'ip', '-j', 'route'))
+        links = json.loads(network_client(client, 'ip', '-j', 'link'))
+        if (observed['identifier'] != identifier or len(routes) != 1 or
+                routes[0].get('dev') != peer or routes[0].get('prefsrc') != address or
+                routes[0].get('dst') != ('198.18.103.0/30' if name.endswith('a') else '198.18.103.4/30') or
+                {row['ifname'] for row in links} != {'lo', peer}):
+            raise RuntimeError('synthetic NFS network client identity or routes differ')
+        records.append({**observed, 'server': server, 'address': address, 'routes': routes})
+    if len({row['namespace'] for row in records}) != 2:
+        raise RuntimeError('synthetic NFS clients share a network namespace')
+    return records
+
+
+def cleanup_clients():
+    if mounted():
+        raise RuntimeError('refuse network cleanup while NFS mounts remain')
+    for client in reversed(CLIENTS):
+        name, host, peer, server, address = client
+        if command('ip', 'netns', 'pids', name):
+            raise RuntimeError('synthetic NFS network client has active processes')
+        rows = json.loads(command('ip', '-j', 'address', 'show', 'dev', host))
+        if (len(rows) != 1 or rows[0]['ifname'] != host or
+                {row['local'] for row in rows[0]['addr_info'] if row['family'] == 'inet'} != {server}):
+            raise RuntimeError('owned NFS veth identity changed')
+        command('ip', 'link', 'delete', host)
+        command('ip', 'netns', 'delete', name)
+        if Path('/run/netns', name).exists() or Path('/sys/class/net', host).exists():
+            raise RuntimeError('owned NFS network client remains')
 
 
 def command(*args):
@@ -49,7 +111,10 @@ def verify_corpus(data, version):
 
 
 def require_mount(row, version):
-    source = '127.0.0.1:' + ('/' if version == '4.1' else str(EXPORT))
+    target = row.get('target')
+    if target not in tuple(map(str, MOUNTS)):
+        raise RuntimeError('foreign NFS mount target')
+    source = CLIENTS[tuple(map(str, MOUNTS)).index(target)][3] + ':/' if version == '4.1' else '127.0.0.1:' + str(EXPORT)
     options = set(row.get('options', '').split(','))
     if (row.get('source') != source or row.get('fstype') not in {'nfs', 'nfs4'} or
             not {'vers=' + version, 'hard', 'nosharecache', 'local_lock=none', 'proto=tcp'} <= options or
@@ -118,7 +183,7 @@ def prepare():
     before = snapshot()
     (ROOT / 'metadata.json').write_text(json.dumps(before))
     CONFIG.parent.mkdir(exist_ok=True)
-    CONFIG.write_text(str(EXPORT) + ' 127.0.0.1(rw,sync,root_squash,no_subtree_check,fsid=0,anonuid=65534,anongid=65534)\n')
+    CONFIG.write_text(export_configuration())
     command('systemctl', 'enable', '--now', 'rpcbind.service', 'nfs-server.service')
     command('exportfs', '-ra')
     return {'prepared': True, 'export': command('exportfs', '-s'), 'metadata': before,
@@ -192,14 +257,26 @@ with open(path,'a') as output:
 
 
 def exercise(verify_only=False):
-    records = []
     if snapshot() != json.loads((ROOT / 'metadata.json').read_text()):
         raise RuntimeError('prepared NFS metadata changed')
+    clients = prepare_clients()
+    try:
+        return exercise_protocols(verify_only, clients)
+    finally:
+        cleanup_clients()
+
+
+def exercise_protocols(verify_only, clients):
+    records = []
     for version in ('4.1', '3'):
         source = '127.0.0.1:' + ('/' if version == '4.1' else str(EXPORT))
         try:
-            for path in MOUNTS:
-                command('mount', '-t', 'nfs', '-o', 'vers=' + version + ',' + OPTIONS, source, str(path))
+            for client, path in zip(CLIENTS, MOUNTS):
+                if version == '4.1':
+                    network_client(client, 'mount', '-t', 'nfs', '-o', 'vers=' + version + ',' + OPTIONS,
+                                   client[3] + ':/', str(path))
+                else:
+                    command('mount', '-t', 'nfs', '-o', 'vers=' + version + ',' + OPTIONS, source, str(path))
             rows = mounted()
             if set(rows) != set(map(str, MOUNTS)):
                 raise RuntimeError('owned NFS alias inventory differs')
@@ -239,17 +316,18 @@ def exercise(verify_only=False):
             unmount_owned(version)
     if snapshot() != json.loads((ROOT / 'metadata.json').read_text()):
         raise RuntimeError('prepared NFS metadata changed')
-    return {'accepted': True, 'protocols': records, 'mounts_absent': not mounted(),
+    return {'accepted': True, 'protocols': records, 'network_clients': clients, 'mounts_absent': not mounted(),
             'selinux_enforcing': Path('/sys/fs/selinux/enforce').read_text().strip() == '1'}
 
 
 def cleanup():
     if mounted():
         raise RuntimeError('refuse export cleanup while owned mounts remain')
-    expected = str(EXPORT) + ' 127.0.0.1(rw,sync,root_squash,no_subtree_check,fsid=0,anonuid=65534,anongid=65534)\n'
+    expected = export_configuration()
     if CONFIG.read_text() != expected:
         raise RuntimeError('owned export configuration changed')
-    command('exportfs', '-u', '127.0.0.1:' + str(EXPORT))
+    for address in ('127.0.0.1', *(client[4] for client in CLIENTS)):
+        command('exportfs', '-u', address + ':' + str(EXPORT))
     CONFIG.unlink()
     command('systemctl', 'disable', '--now', 'nfs-server.service', 'rpcbind.service', 'rpcbind.socket')
     if command('exportfs', '-s'):
