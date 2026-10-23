@@ -100,7 +100,7 @@ class CephFSTests(unittest.TestCase):
             root = Path(directory)
             (root / 'mgr.log').write_text('cephsqlite: Open: cannot create ioctx: (2) No such file or directory\n')
             calls = []
-            pool = {'pool_name': '.mgr', 'pool': 1, 'size': 1, 'min_size': 1, 'pg_num': 1,
+            pool = {'pool_name': '.mgr', 'pool_id': 1, 'size': 1, 'min_size': 1, 'pg_num': 1,
                     'foreign': 'PRIVATE_SENTINEL'}
             def command(arguments, **kwargs):
                 calls.append((arguments, kwargs))
@@ -112,11 +112,21 @@ class CephFSTests(unittest.TestCase):
                                       ceph=lambda *args: json.dumps([pool]).encode())
             value = kernel.manager_native_diagnostic(fixture)
             self.assertEqual(value['pool_policies'][0]['name'], '.mgr')
+            self.assertEqual(value['pool_policies'][0]['pool_id'], 1)
             self.assertEqual(value['kernel_avc_denials'][0]['permissions'], ['read', 'open'])
             self.assertEqual(value['kernel_avc_denials'][0]['comm'], 'ceph-mgr')
             self.assertIn('(2) No such file', value['logs'][0]['sqlite_messages'][0])
             self.assertNotIn('PRIVATE_SENTINEL', str(value))
             self.assertIn('--grep=avc:.*denied', calls[0][0])
+            for bad in ({key: value for key, value in pool.items() if key != 'pool_id'},
+                        {**pool, 'pool_id': 'PRIVATE_SENTINEL'}):
+                fixture.ceph = lambda *args: json.dumps({'status': 'HEALTH_ERR', 'checks': {}} if args[0] == 'health' else [bad]).encode()
+                partial = kernel.manager_diagnostic(fixture)
+                self.assertIn(partial['native_diagnostic_error'], ('KeyError', 'RuntimeError'))
+                self.assertIn('(2) No such file', partial['native']['logs'][0]['sqlite_messages'][0])
+                self.assertEqual(partial['native']['kernel_avc_denials'][0]['permissions'], ['read', 'open'])
+                self.assertNotIn('PRIVATE_SENTINEL', json.dumps(partial))
+            fixture.ceph = lambda *args: json.dumps([pool]).encode()
             pool['pool_name'] = 'production'
             with self.assertRaisesRegex(RuntimeError, 'foreign native diagnostic pool'):
                 kernel.manager_native_diagnostic(fixture)

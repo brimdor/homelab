@@ -149,8 +149,11 @@ def sqlite_messages(data):
     return selected[-48:]
 
 
-def manager_native_diagnostic(runtime):
+def manager_native_diagnostic(runtime, result=None):
+    if result is None:
+        result = {}
     logs = []
+    result['logs'] = logs
     for name in ('mgr.log', 'mgr.a.native.log'):
         path = runtime.root / name
         if path.is_symlink():
@@ -164,6 +167,7 @@ def manager_native_diagnostic(runtime):
     journal = runtime.command(['journalctl', '-k', '-b', '--no-pager', '--output=json',
                                '--grep=avc:.*denied', '--lines=64'], check=False)
     denials = []
+    result.update(kernel_avc_query_exit=journal.returncode, kernel_avc_denials=denials)
     for line in journal.stdout.splitlines():
         text = json.loads(line).get('MESSAGE', '')
         if not isinstance(text, str) or 'avc:' not in text or 'denied' not in text:
@@ -179,18 +183,18 @@ def manager_native_diagnostic(runtime):
         denials.append(fields)
     pools = json.loads(runtime.ceph('osd', 'pool', 'ls', 'detail', '--format=json'))
     policies = []
+    result['pool_policies'] = policies
     for pool in pools:
         if pool.get('pool_name') not in ('qualification', '.mgr'):
             raise RuntimeError('foreign native diagnostic pool')
         policy = {'name': pool['pool_name']}
-        for key in ('pool', 'size', 'min_size', 'pg_num'):
+        for key in ('pool_id', 'size', 'min_size', 'pg_num'):
             value = pool[key]
             if type(value) is not int:
                 raise RuntimeError('native diagnostic pool shape changed')
             policy[key] = value
         policies.append(policy)
-    return {'logs': logs, 'kernel_avc_query_exit': journal.returncode,
-            'kernel_avc_denials': denials, 'pool_policies': policies}
+    return result
 
 
 def manager_diagnostic(runtime):
@@ -206,8 +210,9 @@ def manager_diagnostic(runtime):
             'manager_module_error': {'severity': finding.get('severity'),
                 'summary': message(finding.get('summary', {})),
                 'details': [message(row) for row in finding.get('detail', [])]}}
+    result['native'] = {}
     try:
-        result['native'] = manager_native_diagnostic(runtime)
+        manager_native_diagnostic(runtime, result['native'])
     except Exception as error:
         result['native_diagnostic_error'] = type(error).__name__
     return result
