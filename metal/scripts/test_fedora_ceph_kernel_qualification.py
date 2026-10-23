@@ -37,14 +37,48 @@ class CephKernelTests(unittest.TestCase):
                 repository.selection(url, values, driver.GUEST_ROOT)
 
     def test_owned_block_mapping_refuses_foreign_or_ambiguous_identity(self):
-        good = {'pool': 'qualification', 'name': 'kernel', 'device': '/dev/rbd0'}
+        good = {'pool': 'qualification-rbd', 'name': 'kernel', 'device': '/dev/rbd0'}
         self.assertEqual(runtime.owned_mapping('/dev/rbd0', [good]), '/dev/rbd0')
         for device, rows in (('/dev/sda', [good]), ('/dev/rbd0', []), ('/dev/rbd0', [good, good]),
                              ('/dev/rbd0', [dict(good, pool='production')]),
+                             ('/dev/rbd0', [dict(good, pool='qualification')]),
                              ('/dev/rbd0', [dict(good, name='foreign')]),
                              ('/dev/rbd0', [dict(good, device='/dev/rbd1')])):
             with self.subTest(device=device, rows=rows), self.assertRaisesRegex(RuntimeError, 'owned synthetic'):
                 runtime.owned_mapping(device, rows)
+
+    def test_rbd_pool_is_fresh_and_initialized_without_reusing_rados(self):
+        fixture = object.__new__(runtime.Runtime)
+        fixture.root = Path('/work')
+        fixture.conf = ['-c', '/work/ceph.conf']
+        admin = ['rbd', '-c', '/work/ceph.conf', '-n', 'client.admin', '-k', '/work/admin.keyring']
+        for pools, application in ((['qualification', '.mgr'], {'rbd': {}}),
+                                   (['qualification', '.mgr', 'qualification-rbd'], {'rbd': {}}),
+                                   (['qualification', '.mgr', 'production'], {'rbd': {}}),
+                                   (['qualification', 'qualification'], {'rbd': {}}),
+                                   (['qualification', None], {'rbd': {}}),
+                                   ({'qualification': {}, '.mgr': {}}, {'rbd': {}}),
+                                   (['qualification', '.mgr'], {'rados': {}}),
+                                   (['qualification', '.mgr'], {'rbd': {}, 'rados': {}})):
+            with self.subTest(pools=pools, application=application):
+                calls = []
+                def ceph(*arguments):
+                    calls.append(list(arguments))
+                    return json.dumps(pools if arguments[2] == 'ls' else application).encode()
+                fixture.ceph = ceph
+                fixture.command = lambda arguments: calls.append(arguments)
+                valid_inventory = pools == ['qualification', '.mgr']
+                if valid_inventory and application == {'rbd': {}}:
+                    self.assertEqual(fixture.initialize_rbd_pool(), admin)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'inventory' if not valid_inventory else 'metadata'):
+                        fixture.initialize_rbd_pool()
+                expected = [['osd', 'pool', 'ls', '--format=json']]
+                if valid_inventory:
+                    expected += [['osd', 'pool', 'create', 'qualification-rbd', '8'],
+                                 [*admin, 'pool', 'init', 'qualification-rbd'],
+                                 ['osd', 'pool', 'application', 'get', 'qualification-rbd', '--format=json']]
+                self.assertEqual(calls, expected)
 
     def test_actual_complete_guest_programs_compile(self):
         with tempfile.TemporaryDirectory() as directory:

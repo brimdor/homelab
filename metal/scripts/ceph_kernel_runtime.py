@@ -16,11 +16,13 @@ from ceph_runtime_qualification import Runtime as ModernRuntime, sanitized
 
 VERSION = '7.2.11-200.fc44.x86_64'
 CLASS_DIRECTORY = Path('/usr/lib64/rados-classes')
+RBD_POOL = 'qualification-rbd'
+RBD_IMAGE = RBD_POOL + '/kernel'
 
 
 def owned_mapping(device, mappings):
     if (not re.fullmatch(r'/dev/rbd[0-9]+', device) or not isinstance(mappings, list) or len(mappings) != 1 or
-            mappings[0].get('pool') != 'qualification' or mappings[0].get('name') != 'kernel' or
+            mappings[0].get('pool') != RBD_POOL or mappings[0].get('name') != 'kernel' or
             mappings[0].get('device') != device):
         raise RuntimeError('kernel mapping does not identify the owned synthetic RBD')
     return device
@@ -86,6 +88,18 @@ class Runtime(ModernRuntime):
                                         'CEPH_ARGS': '--name=mgr.a --debug-cephsqlite=10/10'}
         super().start(kind, identity, env=environment)
 
+    def initialize_rbd_pool(self):
+        pools = json.loads(self.ceph('osd', 'pool', 'ls', '--format=json'))
+        if (not isinstance(pools, list) or not all(isinstance(pool, str) for pool in pools) or
+                len(pools) != 2 or set(pools) != {'qualification', '.mgr'}):
+            raise RuntimeError('preexisting or foreign native RBD pool inventory')
+        self.ceph('osd', 'pool', 'create', RBD_POOL, '8')
+        admin = ['rbd', *self.conf, '-n', 'client.admin', '-k', str(self.root / 'admin.keyring')]
+        self.command([*admin, 'pool', 'init', RBD_POOL])
+        if json.loads(self.ceph('osd', 'pool', 'application', 'get', RBD_POOL, '--format=json')) != {'rbd': {}}:
+            raise RuntimeError('synthetic RBD application metadata differs')
+        return admin
+
     def kernel_io(self):
         self.stage = 'native manager database check'
         self.ceph('device', 'check-health')
@@ -93,16 +107,14 @@ class Runtime(ModernRuntime):
         self.stage = 'native AES256K kernel RBD I/O'
         if self.mappings():
             raise RuntimeError('preexisting native RBD mapping')
-        self.ceph('osd', 'pool', 'application', 'enable', 'qualification', 'rbd')
-        admin = ['rbd', *self.conf, '-n', 'client.admin', '-k', str(self.root / 'admin.keyring')]
-        self.command([*admin, 'pool', 'init', 'qualification'])
-        self.command([*admin, 'create', 'qualification/kernel', '--size=32M', '--image-feature=layering'])
-        image = json.loads(self.command([*admin, 'info', 'qualification/kernel', '--format=json']).stdout)
+        admin = self.initialize_rbd_pool()
+        self.command([*admin, 'create', RBD_IMAGE, '--size=32M', '--image-feature=layering'])
+        image = json.loads(self.command([*admin, 'info', RBD_IMAGE, '--format=json']).stdout)
         if not image.get('id') or image['size'] != 32 * 1024**2:
             raise RuntimeError('synthetic RBD image identity differs')
         keyring = self.root / 'kernel.keyring'
         keyring.write_bytes(self.ceph('auth', 'get-or-create', 'client.kernel', 'mon', 'profile rbd',
-                                     'osd', 'profile rbd pool=qualification', '--key-type=aes256k'))
+                                     'osd', 'profile rbd pool=' + RBD_POOL, '--key-type=aes256k'))
         keyring.chmod(0o600)
         payload = hashlib.sha256(b'Issue103 owned native kernel block').digest() * 32768
         device = None
@@ -115,19 +127,19 @@ class Runtime(ModernRuntime):
                     retired.chmod(0o600)
                     self.rotate_keyring('client.kernel', keyring, keyring)
                     denied = self.command(['rbd', *self.conf, '--id=kernel', '--keyring=' + str(retired),
-                                           'device', 'map', 'qualification/kernel', '--device-type=krbd',
+                                           'device', 'map', RBD_IMAGE, '--device-type=krbd',
                                            '--options=noshare,mount_timeout=10'], check=False)
                     if (denied.returncode == 0 or self.mappings() or
                             not any(message in denied.stderr.lower() for message in
                                     (b'permission denied', b'operation not permitted'))):
                         raise RuntimeError('retired kernel key lacks explicit fresh-authentication refusal')
                 candidate = self.command(['rbd', *self.conf, '--id=kernel', '--keyring=' + str(keyring),
-                                          'device', 'map', 'qualification/kernel', '--device-type=krbd',
+                                          'device', 'map', RBD_IMAGE, '--device-type=krbd',
                                           '--options=noshare']).stdout.decode().strip()
                 device = owned_mapping(candidate, self.mappings())
                 if not stat.S_ISBLK(Path(device).stat().st_mode):
                     raise RuntimeError('owned RBD mapping is not a block device')
-                current = json.loads(self.command([*admin, 'info', 'qualification/kernel', '--format=json']).stdout)
+                current = json.loads(self.command([*admin, 'info', RBD_IMAGE, '--format=json']).stdout)
                 if current['id'] != image['id'] or current['size'] != image['size']:
                     raise RuntimeError('synthetic RBD identity changed')
                 with open(device, 'r+b', buffering=0) as block:
@@ -146,7 +158,7 @@ class Runtime(ModernRuntime):
             self.steady()
             if Path('/sys/fs/selinux/enforce').read_text().strip() != '1':
                 raise RuntimeError('native enforcement changed')
-            return {'accepted': True, 'kernel': VERSION, 'image_id': image['id'], 'stages': stages,
+            return {'accepted': True, 'kernel': VERSION, 'pool': RBD_POOL, 'image_id': image['id'], 'stages': stages,
                     'osd_class_directory': self.class_directory_evidence,
                     'payload_bytes': len(payload), 'payload_sha256': hashlib.sha256(payload).hexdigest(),
                     'modern_auth_only': True, 'native_krbd': True, 'mapping_absent': True,
@@ -255,7 +267,8 @@ def manager_native_diagnostic(runtime, result=None):
     policies = []
     result['pool_policies'] = policies
     for pool in pools:
-        if pool.get('pool_name') not in ('qualification', '.mgr'):
+        if pool.get('pool_name') not in ('qualification', '.mgr', RBD_POOL,
+                                         'qualificationfs_metadata', 'qualificationfs_data'):
             raise RuntimeError('foreign native diagnostic pool')
         policy = {'name': pool['pool_name']}
         for key in ('pool_id', 'size', 'min_size', 'pg_num'):
