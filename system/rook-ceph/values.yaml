@@ -158,7 +158,7 @@ snapshot-controller:
 pvcHygiene:
   enabled: true
   schedule: "0 3 * * *"
-  image: bitnami/kubectl:latest@sha256:dbe04f493d362c47db291edb3382aeb56cf430a6271daa56311f5b8e82fecf2a
+  image: bitnami/kubectl:latest@sha256:6d9e8ad566a6d2dcb4a7a6120d030bd65bddbcc952246f4b31022834d9be7e02
   mode: report
   minAgeHours: 168
   approvedDeleteAnnotation: homelab.eaglepass.io/pvc-prune
