@@ -32,6 +32,13 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+def rollout_ready(meta, status, expected):
+    return (status.get('observedGeneration') == meta['generation'] and
+            all(status.get(k) == expected for k in (
+                'desiredNumberScheduled', 'currentNumberScheduled', 'updatedNumberScheduled',
+                'numberReady', 'numberAvailable')) and status.get('numberMisscheduled', 0) == 0)
+
+
 
 def encoded(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'))
@@ -94,11 +101,8 @@ class Ownership:
                 'Kured reboot is in progress')
         expected = len(self.nodes)
         status = ds['status']
-        require(status.get('observedGeneration') == meta['generation'] and
-                all(status.get(k) == expected for k in (
-                    'desiredNumberScheduled', 'currentNumberScheduled', 'updatedNumberScheduled',
-                    'numberReady', 'numberAvailable')) and status.get('numberMisscheduled', 0) == 0,
-                'Kured rollout is incomplete')
+        require(rollout_ready(meta, status, expected), 'Kured rollout is incomplete ' + encoded({
+            'expected': expected, 'generation': meta['generation'], 'status': status}))
         self.runtime(ds['spec']['template']['spec'])
         owned = [p for p in pods if any(o.get('uid') == self.uid and
                  o.get('controller') is True for o in p['metadata'].get('ownerReferences', []))]

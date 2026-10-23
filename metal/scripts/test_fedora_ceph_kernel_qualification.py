@@ -14,9 +14,13 @@ import fedora_ceph_repository as repository
 class CephKernelTests(unittest.TestCase):
     def test_foreign_paths_and_native_solver_urls_are_refused(self):
         for value in ('../Packages/a.rpm', '/Packages/a.rpm', 'Packages/../a.rpm',
-                      'Packages//a.rpm', 'Packages/a;true.rpm', 'Packages/a%2fb.rpm', None):
+                      'Packages//a.rpm', 'Packages/a;true.rpm', 'Packages/a%2fb.rpm',
+                      'Packages/a?foreign.rpm', 'Packages/a#foreign.rpm', None):
             with self.subTest(value=value), self.assertRaises(RuntimeError):
                 repository.safe_path(value, 'Packages')
+        for value in ('Packages/s/SDL3_sound-3.0.0~20260117gitb00e4a3-1.fc44.x86_64.rpm',
+                      'Packages/d/DNS-Compliance-Testing-0^20230708git4aea40b-10.fc44.x86_64.rpm'):
+            self.assertEqual(repository.safe_path(value, 'Packages'), value)
         relative = 'Packages/c/ceph-common-20.2.4-1.fc44.x86_64.rpm'
         values = {'ceph-updates': {'packages': {relative: 'verified-hash'}}}
         good = 'file://' + driver.GUEST_ROOT + '/ceph-updates/' + relative

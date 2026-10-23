@@ -120,10 +120,12 @@ def ready():
   result=subprocess.run(['/usr/local/bin/qualification-kubectl','get','daemonset','kured','-n','kured','-o','json'],capture_output=True)
   if result.returncode==0:
    ds=json.loads(result.stdout);status=ds.get('status',{})
-   if status.get('numberReady')==status.get('desiredNumberScheduled')==1 and status.get('observedGeneration')==ds['metadata']['generation']:return
+   if global_owner.rollout_ready(ds['metadata'],status,1):return
   elif any(word in result.stderr.lower() for word in (b'unauthorized',b'forbidden',b'x509',b'certificate')):
    raise RuntimeError('synthetic API security refusal; do not bypass')
-  if time.monotonic()>end:raise RuntimeError('synthetic Kured did not become ready')
+  if time.monotonic()>end:
+   if result.returncode==0:raise RuntimeError('synthetic Kured did not become ready '+json.dumps({'generation':ds['metadata']['generation'],'status':status}))
+   raise RuntimeError('synthetic Kured API remained unavailable')
   time.sleep(2)
 '''
         return json.loads(self.command(self.ssh + ['sudo python3 -B -'], data=(header + body).encode(), expected=expected))

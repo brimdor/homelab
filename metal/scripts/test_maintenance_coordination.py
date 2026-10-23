@@ -69,6 +69,18 @@ class API:
 
 
 class CoordinationTests(unittest.TestCase):
+    def test_every_rollout_field_is_required_before_ownership_transition(self):
+        for field in ('observedGeneration', 'desiredNumberScheduled', 'currentNumberScheduled',
+                      'updatedNumberScheduled', 'numberReady', 'numberAvailable', 'numberMisscheduled'):
+            for value in (None, -1, 3):
+                with self.subTest(field=field, value=value):
+                    api = API()
+                    api.ds['status'][field] = value
+                    self.assertFalse(owner.rollout_ready(api.ds['metadata'], api.ds['status'], 2))
+                    with self.assertRaisesRegex(RuntimeError, 'Kured rollout is incomplete'):
+                        self.acquire(api)
+                    self.assertEqual(api.writes, 0)
+
     def acquire(self, api):
         return api.controller().acquire('fixture-a', 39, 41, 'a' * 40)
 

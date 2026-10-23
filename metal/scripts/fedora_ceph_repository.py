@@ -21,7 +21,7 @@ def safe_path(value, prefix):
     if not isinstance(value, str):
         raise RuntimeError('foreign or unsafe Fedora repository path')
     path = PurePosixPath(value)
-    if (not re.fullmatch(r'[A-Za-z0-9._/+:-]+', value) or
+    if (not re.fullmatch(r'[A-Za-z0-9._/+~^:-]+', value) or
             path.is_absolute() or '..' in path.parts or str(path) != value or
             len(path.parts) < 2 or path.parts[0] != prefix):
         raise RuntimeError('foreign or unsafe Fedora repository path')

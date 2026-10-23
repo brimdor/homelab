@@ -84,7 +84,8 @@ native('/usr/bin/dnf5','--disable-repo=*','--enable-repo=qualification','--setop
        '--setopt=localpkg_gpgcheck=True','--setopt=install_weak_deps=False','--assumeyes','install',
        *(str(assets/name)for name in sorted(packages)))
 initial_default=native('grubby','--default-kernel').strip()
-assert initial_default in ('/boot/vmlinuz-'+old,'/boot/vmlinuz-'+version)
+if initial_default not in ('/boot/vmlinuz-'+old,'/boot/vmlinuz-'+version):
+ raise RuntimeError('unrecognized native kernel default '+json.dumps({'initial_default':initial_default,'old':old,'candidate':version,'kernel_files':sorted(p.name for p in pathlib.Path('/boot').glob('vmlinuz-*')),'candidate_initramfs_present':pathlib.Path('/boot/initramfs-'+version+'.img').is_file()}))
 assert pathlib.Path('/boot/vmlinuz-'+version).is_file()
 assert pathlib.Path('/boot/vmlinuz-'+old).is_file()
 assert pathlib.Path('/boot/initramfs-'+version+'.img').is_file()

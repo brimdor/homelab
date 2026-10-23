@@ -81,10 +81,12 @@ class KernelQualificationTests(unittest.TestCase):
                 calls.append(args)
                 return default if len(calls) == 1 else candidate
             namespace = {'version': subject.VERSION, 'old': 'old', 'native': native,
-                         'pathlib': SimpleNamespace(Path=lambda _: SimpleNamespace(is_file=lambda: files))}
+                         'json': __import__('json'),
+                         'pathlib': SimpleNamespace(Path=lambda _: SimpleNamespace(
+                             is_file=lambda: files, glob=lambda _: []))}
             with self.subTest(default=default, files=files):
                 if fails:
-                    with self.assertRaises(AssertionError):
+                    with self.assertRaises((AssertionError, RuntimeError)):
                         exec(program, namespace)
                     self.assertEqual(len(calls), 1)
                 else:
