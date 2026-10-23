@@ -19,6 +19,12 @@ def validate_bundle(bundle):
     digest = hashlib.sha256(common.canonical(bundle)).hexdigest()
     if digest not in {BUNDLE_SHA256, CANDIDATE_BUNDLE_SHA256}:
         raise RuntimeError("reviewed GPU admission bundle changed")
+    validate_resources(bundle)
+    return digest
+
+
+def validate_resources(bundle):
+    """Check resource boundaries after the caller verifies its exact public bundle hash."""
     if (set(bundle) != {"values_sha256", "stages"} or
             tuple(stage["version"] for stage in bundle["stages"]) != VERSIONS):
         raise RuntimeError("GPU family sequence changed")
@@ -41,7 +47,6 @@ def validate_bundle(bundle):
                 policy["apiVersion"] != "nvidia.com/v1" or policy["kind"] != "ClusterPolicy" or
                 policy["metadata"] != {"name": "cluster-policy"} or not isinstance(policy["spec"], dict)):
             raise RuntimeError("GPU policy or schema inventory changed")
-    return digest
 
 
 def qualify(bundle, run_id):
