@@ -194,6 +194,12 @@ assert runtime.is_dir() and {str(p.relative_to(runtime)) for p in runtime.rglob(
 assert all(p.is_dir() and not p.is_symlink() for p in runtime.rglob('*'))
 assets=pathlib.Path('/run/qualification-assets')
 shutil.move(str(assets/'k3s'),'/usr/local/bin/k3s');pathlib.Path('/usr/local/bin/k3s').chmod(0o755)
+# Match setup_selinux in the exact pinned official installer after installing its signed policy.
+assert enforcement=='1' and pathlib.Path('/usr/share/selinux/packages/k3s.pp').is_file()
+native('chcon','-u','system_u','-r','object_r','-t','container_runtime_exec_t','/usr/local/bin/k3s')
+binary_context=os.getxattr('/usr/local/bin/k3s','security.selinux').decode().rstrip(chr(0))
+assert binary_context.split(':')[:3]==['system_u','object_r','container_runtime_exec_t']
+assert state.read_text().strip()=='1'
 assert b'v1.33.6+k3s1' in native('/usr/local/bin/k3s','--version')
 images=pathlib.Path('/var/lib/rancher/k3s/agent/images');images.mkdir(parents=True)
 shutil.move(str(assets/'airgap.tar.zst'),str(images/'airgap.tar.zst'));shutil.move(str(assets/'kured.tar'),str(images/'kured.tar'))
@@ -202,6 +208,9 @@ wrapper.write_text('#!/bin/sh\\nset -eu\\nexport KUBECONFIG=/etc/rancher/k3s/k3s
 unit=pathlib.Path('/etc/systemd/system/qualification-k3s.service');assert not unit.exists()
 unit.write_text('[Unit]\\nAfter=network-online.target\\nWants=network-online.target\\n[Service]\\nType=notify\\nKillMode=process\\nDelegate=yes\\nLimitNOFILE=1048576\\nTasksMax=infinity\\nTimeoutStartSec=0\\nExecStart=/usr/local/bin/k3s server --cluster-init --write-kubeconfig-mode=600 --disable=traefik,servicelb,local-storage,metrics-server,coredns --disable-network-policy --prefer-bundled-bin\\n[Install]\\nWantedBy=multi-user.target\\n')
 native('systemctl','daemon-reload');native('systemctl','enable','--now','qualification-k3s.service')
+pid=int(native('systemctl','show','qualification-k3s.service','--property=MainPID','--value'))
+process_context=pathlib.Path('/proc/'+str(pid)+'/attr/current').read_text().rstrip(chr(0)).strip()
+assert pid>1 and process_context.split(':')[2]=='container_runtime_t'
 assert enforcement==(state.read_text().strip()if state.exists()else None)
 # No host channel or sentinel exists in this restricted, unprivileged Kured fixture.
 for name in actors.SERVICES[:-1]:
@@ -239,7 +248,7 @@ cordoned=api.call('patch','node',name,'--type=json','--patch',global_owner.encod
 receipt=hashed({'node_uid':cordoned['metadata']['uid'],'spec':cordoned['spec']})
 hop.accept(intent['pending']['sha256'],receipt,lambda step,h:step=='cordon'and h==receipt and api.call('get','node',name,'-o','json')['spec']['unschedulable']is True)
 pending=hop.begin('drain',hashed({'node_uid':node['metadata']['uid'],'operation':'drain-not-executed'}),receipt,lambda step,h:step=='drain'and h==receipt and api.call('get','node',name,'-o','json')['spec']['unschedulable']is True)
-value.update(pending=pending,host_marker=hold.marker.read_text(),runtime_annotations={k:api.snapshot()[0]['metadata']['annotations'][k]for k in(global_owner.LOCK,global_owner.JOURNAL)},enforcement=enforcement)
+value.update(pending=pending,host_marker=hold.marker.read_text(),runtime_annotations={k:api.snapshot()[0]['metadata']['annotations'][k]for k in(global_owner.LOCK,global_owner.JOURNAL)},enforcement=enforcement,binary_context=binary_context,process_context=process_context)
 actors.exclusive_file(actors.STATE/'combined-context.json',json.dumps(value,sort_keys=True).encode(),0o600)
 print(json.dumps({'actual_global_owner_and_native_hold':True,'cordon_intent_action_and_acceptance':True,'pending_drain_not_executed':True,'records':pending['records'],'head_sha256':pending['head_sha256'],'selinux_enforcement':enforcement}),flush=True)
 os._exit(73)
@@ -274,7 +283,10 @@ assert not(actors.STATE/'combined-executed').exists();hold.systemd.idle(hold.mar
 ds,pods,nodes=api.snapshot();assert len(nodes)==1 and nodes[0]['spec']['unschedulable']is True
 assert{k:ds['metadata']['annotations'][k]for k in(global_owner.LOCK,global_owner.JOURNAL)}==value['runtime_annotations']
 state=pathlib.Path('/sys/fs/selinux/enforce');assert value['enforcement']==(state.read_text().strip()if state.exists()else None)
-print(json.dumps({'fresh_real_owner_host_hold_journal_resume':True,'pending_intent_exact':True,'replay_and_refused_completion_rejected':True,'all_native_service_starts_excluded':True,'no_automatic_release_or_uncordon':True,'same_node_and_daemonset_uids':True,'selinux_state_unchanged':True,'records':hop.inspect()['records']}))
+assert os.getxattr('/usr/local/bin/k3s','security.selinux').decode().rstrip(chr(0))==value['binary_context']
+pid=int(native('systemctl','show','qualification-k3s.service','--property=MainPID','--value'))
+assert pid>1 and pathlib.Path('/proc/'+str(pid)+'/attr/current').read_text().rstrip(chr(0)).strip()==value['process_context']
+print(json.dumps({'fresh_real_owner_host_hold_journal_resume':True,'pending_intent_exact':True,'replay_and_refused_completion_rejected':True,'all_native_service_starts_excluded':True,'no_automatic_release_or_uncordon':True,'same_node_and_daemonset_uids':True,'selinux_state_unchanged':True,'vendor_executable_context':value['binary_context'],'vendor_process_context':value['process_context'],'records':hop.inspect()['records']}))
 ''')
         return {'combined_qualification': True, 'primitive': primitive, 'before': before, 'after': after,
                 'policy': policy, 'setup': setup, 'resumed': resumed, 'real_api_systemd_and_hop_journal': True,

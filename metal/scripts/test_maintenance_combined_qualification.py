@@ -71,6 +71,35 @@ class CombinedQualificationInputs(unittest.TestCase):
         self.assertEqual(qualification.guest('print(json.dumps({}))'), {})
         compile(captured[0], '<actual-complete-guest-program>', 'exec')
 
+    def test_actual_vendor_install_step_refuses_wrong_context_or_enforcement(self):
+        tree = ast.parse(Path(fixture.__file__).read_text())
+        body = next(node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and
+                    isinstance(node.func, ast.Attribute) and node.func.attr == 'guest' and node.args and
+                    isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str) and
+                    'binary_context=' in node.args[0].value)
+        # Execute the actual installation security boundary, before any service can start.
+        program = compile(body[body.index("assert enforcement=='1'"):body.index("assert b'v1.33.6+k3s1'")],
+                          '<actual-vendor-install-step>', 'exec')
+        for enforcing, policy, context, fails in (
+                ('1', True, b'system_u:object_r:container_runtime_exec_t:s0\0', False),
+                ('0', True, b'system_u:object_r:container_runtime_exec_t:s0\0', True),
+                ('1', False, b'system_u:object_r:container_runtime_exec_t:s0\0', True),
+                ('1', True, b'system_u:object_r:init_var_lib_t:s0\0', True)):
+            calls = []
+            namespace = {'enforcement': enforcing, 'state': SimpleNamespace(read_text=lambda: enforcing),
+                         'pathlib': SimpleNamespace(Path=lambda _: SimpleNamespace(is_file=lambda: policy)),
+                         'os': SimpleNamespace(getxattr=lambda *args: context),
+                         'native': lambda *args: calls.append(args)}
+            with self.subTest(enforcing=enforcing, policy=policy, context=context):
+                if fails:
+                    with self.assertRaises(AssertionError):
+                        exec(program, namespace)
+                else:
+                    exec(program, namespace)
+                self.assertEqual(calls, [] if enforcing != '1' or not policy else [
+                    ('chcon', '-u', 'system_u', '-r', 'object_r', '-t',
+                     'container_runtime_exec_t', '/usr/local/bin/k3s')])
+
 
 if __name__ == '__main__':
     unittest.main()
