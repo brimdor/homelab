@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import ceph_legacy_transition as subject
 import test_ceph_runtime_qualification as runtime_tests
@@ -29,6 +29,10 @@ class LegacyTransitionTests(unittest.TestCase):
         self.assertEqual(parsed['rotating'], {'osd.*': ['aes', 'aes256k']})
         self.assertEqual(parsed['entities']['client.ordinary'], 'aes')
         self.assertNotIn('PRIVATE_SENTINEL', json.dumps(parsed))
+        without_monitor = copy.deepcopy(value)
+        without_monitor['data']['secrets'] = [row for row in without_monitor['data']['secrets']
+                                              if row['entity']['type_str'] != 'mon']
+        self.assertNotIn('mon.', subject.key_types(without_monitor)['entities'])
         incomplete = copy.deepcopy(value)
         incomplete['data']['rotating_secrets'] = []
         with self.assertRaises(RuntimeError) as error:
@@ -112,6 +116,21 @@ class LegacyTransitionTests(unittest.TestCase):
             value['health']['checks']['OSD_DOWN'] = {}
             with self.assertRaisesRegex(RuntimeError, 'unexpected transition health findings'):
                 runtime.steady()
+
+    def test_monitor_rotation_updates_actual_restart_keyring_and_refuses_path_changes(self):
+        runtime = object.__new__(subject.Runtime)
+        runtime.root = Path('/work')
+        with patch.object(subject.modern.Runtime, 'rotate_keyring') as rotate:
+            runtime.rotate_keyring('mon.', Path('/work/mon.keyring'), Path('/work/rotated-mon.keyring'))
+            rotate.assert_called_once_with('mon.', Path('/work/mon.keyring'), Path('/work/mon.keyring'))
+            with self.assertRaises(RuntimeError):
+                runtime.rotate_keyring('mon.', Path('/foreign'), Path('/work/rotated-mon.keyring'))
+        runtime.command = Mock(return_value=Mock(stdout=b'synthetic-mon-key\n'))
+        runtime.ceph = Mock(return_value=b'synthetic-mon-key\n')
+        self.assertEqual(runtime.monitor_key_hash(), hashlib.sha256(b'synthetic-mon-key').hexdigest())
+        runtime.ceph.return_value = b'foreign\n'
+        with self.assertRaisesRegex(RuntimeError, 'authentication differ'):
+            runtime.monitor_key_hash()
 
 
 if __name__ == '__main__':

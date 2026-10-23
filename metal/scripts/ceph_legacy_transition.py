@@ -47,7 +47,8 @@ def key_types(value):
                 any(kind not in {'aes', 'aes256k'} for kind in types)):
             raise RuntimeError('ambiguous or unsupported synthetic service metadata')
         rotating[entity] = types
-    if not CORE | {'client.ordinary'} <= entities.keys() or not rotating:
+    # Native mon. initially lives in the keyring, outside the ordinary auth database.
+    if not (CORE - {'mon.'}) | {'client.ordinary'} <= entities.keys() or not rotating:
         raise RuntimeError('synthetic authentication metadata is incomplete ' +
                            json.dumps({'entities': entities, 'rotating': rotating}, sort_keys=True))
     return {'entities': entities, 'rotating': rotating}
@@ -88,6 +89,20 @@ class Runtime(modern.Runtime):
                 'osd_uuid': (self.root / 'osd/fsid').read_text().strip(),
                 'fsid': self.status()['fsid'],
                 'client_sha256': hashlib.sha256((self.root / 'ordinary.keyring').read_bytes()).hexdigest()}
+
+    def monitor_key_hash(self):
+        key = self.command(['ceph-authtool', str(self.root / 'mon.keyring'), '-n', 'mon.', '-p']).stdout.strip()
+        if not key or self.ceph('auth', 'get-key', 'mon.').strip() != key:
+            raise RuntimeError('native monitor keyring and active authentication differ')
+        return hashlib.sha256(key).hexdigest()
+
+    def rotate_keyring(self, entity, original, destination):
+        if entity == 'mon.':
+            if original != self.root / 'mon.keyring' or destination != self.root / 'rotated-mon.keyring':
+                raise RuntimeError('unexpected monitor rotation paths')
+            # Restart must read the returned key, including when the original was an extra secret.
+            destination = original
+        super().rotate_keyring(entity, original, destination)
 
     def verify(self):
         expected = json.loads((self.root / 'baseline.json').read_bytes())
@@ -188,7 +203,8 @@ osd op num threads per shard = 1
         (self.root / 'payload').write_bytes(payload)
         self.client('ordinary', 'put', 'fixture', '/work/payload')
         result = {'identity': self.identity(), 'payload_bytes': len(payload),
-                  'payload_sha256': hashlib.sha256(payload).hexdigest()}
+                  'payload_sha256': hashlib.sha256(payload).hexdigest(),
+                  'monitor_key_sha256': self.monitor_key_hash()}
         (self.root / 'baseline.json').write_text(json.dumps(result))
         self.verify()
         return {'baseline_native_io': True, **result}
@@ -202,11 +218,16 @@ osd op num threads per shard = 1
         initial_health = self.steady()
         self.verify()
         before = key_types(json.loads(self.ceph('auth', 'dump-keys', '--format=json')))
-        if any(before['entities'][entity] != 'aes' for entity in CORE | {'client.ordinary'}):
+        if any(before['entities'][entity] != 'aes' for entity in (CORE - {'mon.'}) | {'client.ordinary'}):
             raise RuntimeError('baseline credentials were not naturally legacy AES')
+        original = json.loads((self.root / 'baseline.json').read_bytes())
+        if self.monitor_key_hash() != original['monitor_key_sha256']:
+            raise RuntimeError('original20.2.1 native monitor key changed before rotation')
         if not any('aes' in kinds for kinds in before['rotating'].values()):
             raise RuntimeError('initial legacy rotating service keys were not observed')
         self.rotate_core()
+        if self.monitor_key_hash() == original['monitor_key_sha256']:
+            raise RuntimeError('native monitor authentication key did not change')
         self.verify()
         self.ceph('mon', 'set', 'auth_service_cipher', 'aes256k')
         monmap = json.loads(self.ceph('mon', 'dump', '--format=json'))
@@ -214,6 +235,8 @@ osd op num threads per shard = 1
             raise RuntimeError('native service cipher differs')
         started = time.time()
         observations = []
+        self.transition_progress = {'initial_health': initial_health, 'initial_types': before,
+                                    'observations': observations}
         while True:
             health = self.steady()
             self.verify()
@@ -224,6 +247,7 @@ osd op num threads per shard = 1
                 raise RuntimeError('core migration incomplete or retained client type changed')
             observations.append({'elapsed_seconds': round(time.time() - started),
                                  'health': health, 'key_types': current})
+            (self.root / 'transition-progress.json').write_text(json.dumps(self.transition_progress))
             if all(kind == 'aes256k' for kinds in current['rotating'].values() for kind in kinds):
                 if 'AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE' in health['checks']:
                     raise RuntimeError('native rotating-key warning contradicts metadata')
@@ -338,6 +362,8 @@ def main():
         result = {'accepted': True, **value}
     except Exception as error:
         result = {'accepted': False, 'stage': runtime.stage, 'error': str(error)}
+        if hasattr(runtime, 'transition_progress'):
+            result['transition_progress'] = runtime.transition_progress
     finally:
         for name in list(reversed(runtime.children)):
             runtime.stop(name)
