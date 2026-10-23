@@ -149,6 +149,23 @@ def sqlite_messages(data):
     return selected[-48:]
 
 
+def class_messages(data):
+    """Select only public lock/RBD class-loading evidence from owned OSD logs."""
+    selected = []
+    pattern = (r'(_load_class (?:lock|rbd)(?:\s|$)|'
+               r'_load_class could (?:not stat|not open) class [A-Za-z0-9_./-]*libcls_(?:lock|rbd)\.so|'
+               r'class (?:lock|rbd) (?:open|method))')
+    for line in data.decode(errors='replace').splitlines():
+        match = re.search(pattern, line)
+        if not match:
+            continue
+        message = line[match.start():]
+        if any(term in message.lower() for term in ('keyring', 'secret', 'password', 'token', 'private key')):
+            continue
+        selected.append(sanitized(message[:1024].encode()))
+    return selected[-32:]
+
+
 def manager_native_diagnostic(runtime, result=None):
     if result is None:
         result = {}
@@ -164,6 +181,18 @@ def manager_native_diagnostic(runtime, result=None):
                 raw = source.read(131072)
             logs.append({'name': name, 'sample_sha256': hashlib.sha256(raw).hexdigest(),
                          'sample_bytes': len(raw), 'sqlite_messages': sqlite_messages(raw)})
+    class_logs = []
+    result['osd_class_logs'] = class_logs
+    for name in ('osd.log', 'osd.0.native.log'):
+        path = runtime.root / name
+        if path.is_symlink():
+            raise RuntimeError('foreign synthetic OSD log')
+        if path.is_file():
+            with path.open('rb') as source:
+                source.seek(max(0, path.stat().st_size - 131072))
+                raw = source.read(131072)
+            class_logs.append({'name': name, 'sample_sha256': hashlib.sha256(raw).hexdigest(),
+                               'sample_bytes': len(raw), 'class_messages': class_messages(raw)})
     journal = runtime.command(['journalctl', '-k', '-b', '--no-pager', '--output=json',
                                '--grep=avc:.*denied', '--lines=64'], check=False)
     denials = []
@@ -181,6 +210,24 @@ def manager_native_diagnostic(runtime, result=None):
         if permissions:
             fields['permissions'] = permissions.group(1).split()
         denials.append(fields)
+    config = []
+    result['osd_class_config'] = config
+    socket_path = runtime.root / 'osd.0.asok'
+    if socket_path.is_symlink():
+        raise RuntimeError('foreign synthetic OSD admin socket')
+    for name in ('osd_class_dir', 'osd_class_load_list', 'osd_class_default_list'):
+        row = {'name': name}
+        config.append(row)
+        response = runtime.command(['ceph', '--admin-daemon', str(socket_path),
+                                    'config', 'get', name], check=False)
+        row['exit_code'] = response.returncode
+        if response.returncode == 0:
+            value = json.loads(response.stdout)
+            pattern = r'[A-Za-z0-9_./-]{1,512}' if name == 'osd_class_dir' else r'[a-z0-9_ *]{1,1024}'
+            if (not isinstance(value, dict) or set(value) != {name} or
+                    not isinstance(value[name], str) or not re.fullmatch(pattern, value[name])):
+                raise RuntimeError('native OSD class configuration shape changed')
+            row['value'] = value[name]
     pools = json.loads(runtime.ceph('osd', 'pool', 'ls', 'detail', '--format=json'))
     policies = []
     result['pool_policies'] = policies

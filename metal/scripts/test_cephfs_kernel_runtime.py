@@ -99,11 +99,17 @@ class CephFSTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'mgr.log').write_text('cephsqlite: Open: cannot create ioctx: (2) No such file or directory\n')
+            (root / 'osd.log').write_text('prefix _load_class could not stat class /usr/lib64/rados-classes/libcls_lock.so: (2) No such file\n')
             calls = []
             pool = {'pool_name': '.mgr', 'pool_id': 1, 'size': 1, 'min_size': 1, 'pg_num': 1,
                     'foreign': 'PRIVATE_SENTINEL'}
             def command(arguments, **kwargs):
                 calls.append((arguments, kwargs))
+                if arguments[0] == 'ceph':
+                    self.assertEqual(arguments[:5], ['ceph', '--admin-daemon', str(root / 'osd.0.asok'), 'config', 'get'])
+                    name = arguments[-1]
+                    value = '/usr/lib64/rados-classes' if name == 'osd_class_dir' else 'lock rbd'
+                    return SimpleNamespace(returncode=0, stdout=json.dumps({name: value}).encode())
                 row = {'MESSAGE': 'avc: denied { read open } for pid=42 comm="ceph-mgr" '
                        'scontext=system_u:system_r:unconfined_t:s0 '
                        'tcontext=system_u:object_r:var_t:s0 tclass=file permissive=0 name="PRIVATE_SENTINEL"'}
@@ -116,6 +122,10 @@ class CephFSTests(unittest.TestCase):
             self.assertEqual(value['kernel_avc_denials'][0]['permissions'], ['read', 'open'])
             self.assertEqual(value['kernel_avc_denials'][0]['comm'], 'ceph-mgr')
             self.assertIn('(2) No such file', value['logs'][0]['sqlite_messages'][0])
+            self.assertIn('libcls_lock.so', value['osd_class_logs'][0]['class_messages'][0])
+            self.assertEqual(value['osd_class_config'], [
+                {'name': name, 'exit_code': 0, 'value': '/usr/lib64/rados-classes' if name == 'osd_class_dir' else 'lock rbd'}
+                for name in ('osd_class_dir', 'osd_class_load_list', 'osd_class_default_list')])
             self.assertNotIn('PRIVATE_SENTINEL', str(value))
             self.assertIn('--grep=avc:.*denied', calls[0][0])
             for bad in ({key: value for key, value in pool.items() if key != 'pool_id'},
@@ -133,6 +143,36 @@ class CephFSTests(unittest.TestCase):
             (root / 'mgr.log').unlink()
             (root / 'mgr.log').symlink_to(root / 'foreign')
             with self.assertRaisesRegex(RuntimeError, 'foreign synthetic manager log'):
+                kernel.manager_native_diagnostic(fixture)
+
+    def test_class_diagnostics_preserve_native_loader_errors_and_refuse_foreign_evidence(self):
+        raw = (b'prefix _load_class lock from /usr/lib64/rados-classes/libcls_lock.so\n'
+               b'prefix _load_class could not open class /usr/lib64/rados-classes/libcls_lock.so (dlopen failed): missing dependency\n'
+               b'class rbd open got (2) No such file\n'
+               b'class lock method missing token=PRIVATE_SENTINEL\n'
+               b'unrelated PRIVATE_SENTINEL\n'
+               b'class lock open AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n')
+        messages = kernel.class_messages(raw)
+        self.assertEqual(len(messages), 4)
+        self.assertIn('missing dependency', messages[1])
+        self.assertNotIn('PRIVATE_SENTINEL', str(messages))
+        self.assertNotIn('AAAAAAAA', str(messages))
+        self.assertEqual(len(kernel.class_messages(b'class lock open error\n' * 100)), 32)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'osd.0.native.log').write_bytes(raw)
+            def command(arguments, **kwargs):
+                if arguments[0] == 'journalctl':
+                    return SimpleNamespace(returncode=1, stdout=b'')
+                return SimpleNamespace(returncode=0, stdout=b'{"foreign":"PRIVATE_SENTINEL"}')
+            fixture = SimpleNamespace(root=root, command=command, ceph=lambda *args:
+                                      b'{"status":"HEALTH_ERR","checks":{}}')
+            value = kernel.manager_diagnostic(fixture)
+            self.assertEqual(value['native_diagnostic_error'], 'RuntimeError')
+            self.assertIn('missing dependency', value['native']['osd_class_logs'][0]['class_messages'][1])
+            self.assertNotIn('PRIVATE_SENTINEL', json.dumps(value))
+            (root / 'osd.log').symlink_to(root / 'foreign')
+            with self.assertRaisesRegex(RuntimeError, 'foreign synthetic OSD log'):
                 kernel.manager_native_diagnostic(fixture)
 
     def test_pending_manager_failure_retains_only_sanitized_public_health(self):
