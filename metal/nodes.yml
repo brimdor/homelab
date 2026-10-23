@@ -4,6 +4,9 @@
     - name: Respect persistent maintenance ownership
       ansible.builtin.import_tasks: tasks/maintenance-guard.yml
       tags: always
+    - name: Add supplemental SSH access
+      ansible.builtin.import_tasks: tasks/ssh-authorized-keys.yml
+      tags: ssh_authorized_keys
   roles:
     - system_settings
     - nfs_utils

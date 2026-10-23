@@ -34,6 +34,9 @@ timezone {{ timezone }} --utc
 user --groups=wheel --name=admin
 # Add SSH key
 sshkey --username=root "{{ ssh_public_key }}"
+{% for key in ssh_additional_public_keys | default([]) %}
+sshkey --username=root "{{ key }}"
+{% endfor %}
 # Disable root password login
 rootpw --lock
 

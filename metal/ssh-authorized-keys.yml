@@ -1,0 +1,8 @@
+---
+- name: Add supplemental SSH access to active inventory nodes
+  hosts: metal
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Apply the repository supplemental keys
+      ansible.builtin.import_tasks: tasks/ssh-authorized-keys.yml

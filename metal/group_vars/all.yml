@@ -1,4 +1,6 @@
 ansible_user: root
 ansible_ssh_private_key_file: ~/.ssh/homelab
 ssh_public_key: "{{ lookup('file', '~/.ssh/homelab.pub') }}"
+ssh_additional_public_keys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG8VfbH1Oawbqn1bg2QhmBI8z0Ql9q0qFZGieJfR1ABC buster@yoshi-to-cc"
 dns_server: "8.8.8.8"

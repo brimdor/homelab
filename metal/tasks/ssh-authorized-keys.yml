@@ -1,0 +1,8 @@
+---
+- name: Add supplemental root SSH keys without removing existing access
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ ssh_additional_public_keys | default([]) | join('\n') }}"
+    state: present
+    exclusive: false
+  when: ssh_additional_public_keys | default([]) | length > 0
