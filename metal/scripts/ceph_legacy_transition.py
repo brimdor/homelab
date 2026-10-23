@@ -279,11 +279,13 @@ osd op num threads per shard = 1
                 'warnings_preserved': True, 'production_ha_rook_csi_cephfs_unqualified': True}
 
 
-def qualify(run_id, sources):
+def qualify(run_id, sources, *, host='totodile'):
     names = {'ceph_legacy_transition.py', 'ceph_runtime_qualification.py', 'etcd_recovery.py'}
     if set(sources) != names or any(not isinstance(value, str) or not value for value in sources.values()):
         raise RuntimeError('transition source bundle differs')
-    common.require_host('totodile')
+    if host not in ('totodile', 'cyndaquil'):
+        raise RuntimeError('unsupported synthetic transition host')
+    common.require_host(host)
     common.private_root()
     if common.docker('ps', '--all', '--quiet', '--filter=label=io.eaglepass.maintenance=103').stdout.strip():
         raise RuntimeError('another owned fixture is active; leave it alone')
@@ -367,6 +369,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-id', type=common.run_identifier, required=True)
     parser.add_argument('--internal-runtime', choices=('baseline', 'transition'))
+    parser.add_argument('--host', choices=('totodile', 'cyndaquil'), default='totodile')
     args = parser.parse_args()
     def cancel(_number, _frame):
         raise InterruptedError('owned legacy transition cancelled')
@@ -374,7 +377,7 @@ def main():
         signal.signal(number, cancel)
     if args.internal_runtime is None:
         qualify(args.run_id, {name: Path(__file__).with_name(name).read_text() for name in
-                             ('ceph_legacy_transition.py', 'ceph_runtime_qualification.py', 'etcd_recovery.py')})
+                             ('ceph_legacy_transition.py', 'ceph_runtime_qualification.py', 'etcd_recovery.py')}, host=args.host)
         return
     runtime = Runtime(Path('/work'), args.run_id)
     try:

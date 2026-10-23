@@ -23,6 +23,20 @@ class LegacyTransitionTests(unittest.TestCase):
                 {'id': 1, 'expiring_key': {'key': {'type_str': 'aes', 'key': 'PRIVATE_SENTINEL'}}},
                 {'id': 2, 'expiring_key': {'key': {'type_str': 'aes256k'}}}]}}]}}
 
+    def test_selected_host_identity_precedes_all_fixture_operations(self):
+        sources = {name: 'source' for name in ('ceph_legacy_transition.py',
+                   'ceph_runtime_qualification.py', 'etcd_recovery.py')}
+        for host in ('totodile', 'cyndaquil'):
+            with patch.object(subject.common, 'require_host') as identity, \
+                    patch.object(subject.common, 'private_root', side_effect=RuntimeError('end-of-host-check')):
+                with self.assertRaisesRegex(RuntimeError, 'end-of-host-check'):
+                    subject.qualify('legacy103-owned', sources, host=host)
+                identity.assert_called_once_with(host)
+        with patch.object(subject.common, 'require_host') as identity:
+            with self.assertRaisesRegex(RuntimeError, 'unsupported synthetic transition host'):
+                subject.qualify('legacy103-owned', sources, host='production-or-unknown')
+            identity.assert_not_called()
+
     def test_native_types_require_complete_unambiguous_metadata_and_drop_values(self):
         value = self.metadata()
         parsed = subject.key_types(value)
