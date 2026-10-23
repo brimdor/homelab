@@ -125,7 +125,7 @@ class Runtime:
     def ceph(self, *args):
         return self.command([*self.admin, *args]).stdout
 
-    def start(self, kind, identity):
+    def start(self, kind, identity, *, env=None):
         name = kind if kind != 'osd' or identity == '0' else 'osd.' + identity
         if name in self.children:
             raise RuntimeError('owned native child already exists')
@@ -133,7 +133,7 @@ class Runtime:
         try:
             child = subprocess.Popen(['ceph-' + kind, *self.conf, '-i', identity, '-f',
                                       '--setuser=root', '--setgroup=root'], stdout=log,
-                                     stderr=subprocess.STDOUT, start_new_session=True)
+                                     stderr=subprocess.STDOUT, start_new_session=True, env=env)
         finally:
             log.close()
         self.children[name] = child

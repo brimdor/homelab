@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 import ceph_kernel_runtime as kernel
 import cephfs_kernel_runtime as runtime
@@ -62,6 +63,21 @@ class CephFSTests(unittest.TestCase):
         compile(runtime.CORPUS, '<actual-native-complete-corpus-program>', 'exec')
         self.assertIn('os.fsync', runtime.CORPUS)
         self.assertIn('path.read_bytes()==expected', runtime.CORPUS)
+
+    def test_only_owned_manager_receives_independent_sqlite_configuration(self):
+        fixture = object.__new__(kernel.Runtime)
+        with patch.dict(kernel.os.environ, {'CEPH_ARGS': 'parent-value'}):
+            with patch.object(kernel.ModernRuntime, 'start') as start:
+                fixture.start('mgr', 'a')
+                start.assert_called_once_with('mgr', 'a', env=kernel.os.environ | {
+                    'CEPH_CONF': '/work/ceph.conf', 'CEPH_KEYRING': '/work/mgr/keyring',
+                    'CEPH_ARGS': '--name=mgr.a'})
+                self.assertEqual(kernel.os.environ['CEPH_ARGS'], 'parent-value')
+                start.reset_mock()
+                fixture.start('osd', '0')
+                start.assert_called_once_with('osd', '0', env=None)
+                with self.assertRaisesRegex(RuntimeError, 'foreign synthetic manager'):
+                    fixture.start('mgr', 'foreign')
 
     def test_pending_manager_failure_retains_only_sanitized_public_health(self):
         secret = 'A' * 64

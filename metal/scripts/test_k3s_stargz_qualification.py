@@ -39,6 +39,17 @@ class StargzTests(unittest.TestCase):
             with self.subTest(fault=fault), self.assertRaises(RuntimeError):
                 subject.require_runtime(config, plugins, containers)
 
+    def test_only_native_arm64_v8_alias_is_equivalent(self):
+        config, plugins, containers = self.fixture()
+        self.assertEqual(subject.require_runtime(config, plugins.replace('linux/arm64', 'linux/arm64/v8'),
+                                                 containers)['plugin_status'], 'ok')
+        for platform in ('-', 'linux/arm64/v9', 'linux/amd64', 'windows/arm64', 'linux/arm64,linux/amd64'):
+            with self.subTest(platform=platform), self.assertRaises(RuntimeError):
+                subject.require_runtime(config, plugins.replace('linux/arm64', platform), containers)
+        for rows in ('', plugins + plugins, plugins.replace(' ok', ' skip')):
+            with self.assertRaises(RuntimeError):
+                subject.require_runtime(config, rows, containers)
+
     def test_creation_adds_only_exact_upstream_flag_without_mutating_caller(self):
         fixture = object.__new__(subject.Qualification)
         fixture.args = SimpleNamespace(k3d='owned-k3d', name='qualification-1234abcd')

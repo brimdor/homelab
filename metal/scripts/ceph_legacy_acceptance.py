@@ -10,25 +10,10 @@ import signal
 import ceph_legacy_transition as legacy
 
 
-SERVICES = {'mon.*', 'mds.*', 'osd.*', 'mgr.*'}
-WARNING = 'AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE'
-ERRORS = {'AUTH_INSECURE_SERVICE_KEY_TYPE', 'AUTH_INSECURE_SERVICE_TICKETS'}
-
-
-def service_keys_ready(types, checks):
-    rotating = types['rotating']
-    if (set(rotating) != SERVICES | {'auth.*'} or
-            any(not isinstance(kinds, list) or len(kinds) != 3 or
-                any(kind not in {'aes', 'aes256k'} for kind in kinds) for kinds in rotating.values())):
-        raise RuntimeError('native rotating family inventory differs')
-    if (any(types['entities'].get(entity) != 'aes256k' for entity in legacy.CORE) or
-            types['entities'].get('client.ordinary') != 'aes' or set(checks) & ERRORS or
-            set(checks) - legacy.AUTH_FINDINGS - {'POOL_NO_REDUNDANCY'}):
-        raise RuntimeError('core/client authentication or native health differs')
-    ready = all(kind == 'aes256k' for entity in SERVICES for kind in rotating[entity])
-    if ready == (WARNING in checks):
-        raise RuntimeError('native service-key metadata contradicts warning state')
-    return ready
+SERVICES = legacy.SERVICES
+WARNING = legacy.WARNING
+ERRORS = legacy.ERRORS
+service_keys_ready = legacy.service_keys_ready
 
 
 def transition_arguments(run_id):

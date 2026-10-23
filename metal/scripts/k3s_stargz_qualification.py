@@ -18,7 +18,8 @@ def require_runtime(config, plugins, containers):
         raise RuntimeError('native CRI stargz configuration differs')
     matches = [line.split() for line in plugins.splitlines()
                if line.split()[:2] == ['io.containerd.snapshotter.v1', 'stargz']]
-    if len(matches) != 1 or len(matches[0]) != 4 or matches[0][2:] != ['linux/arm64', 'ok']:
+    if (len(matches) != 1 or len(matches[0]) != 4 or
+            matches[0][2] not in {'linux/arm64', 'linux/arm64/v8'} or matches[0][3] != 'ok'):
         raise RuntimeError('native stargz snapshotter is not healthy for the fixture platform')
     if not containers or any(not re.fullmatch('[a-f0-9]{64}', identifier) or
                              item.get('ID') != identifier or item.get('Snapshotter') != 'stargz' or
@@ -53,6 +54,11 @@ class Qualification(ha.Qualification):
             config = tomllib.loads(self.command(['docker', 'exec', node, 'cat',
                                                 '/var/lib/rancher/k3s/agent/etc/containerd/config.toml']).decode())
             plugins = self.command([*prefix, 'plugins', 'list']).decode()
+            self.stages[-1].setdefault('stargz_runtime_observed', {})[node] = {
+                'ctr_client_version': client_version,
+                'plugin_rows': [line for line in plugins.splitlines()
+                                if line.split()[:2] == ['io.containerd.snapshotter.v1', 'stargz']]}
+            self.persist()
             identifiers = set()
             for pod in pods:
                 if pod['spec'].get('nodeName') != node or pod['metadata'].get('deletionTimestamp'):

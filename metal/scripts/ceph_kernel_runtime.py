@@ -55,7 +55,20 @@ class Runtime(ModernRuntime):
     def mappings(self):
         return json.loads(self.command(['rbd', 'device', 'list', '--format=json']).stdout)
 
+    def start(self, kind, identity):
+        environment = None
+        if kind == 'mgr':
+            if identity != 'a':
+                raise RuntimeError('foreign synthetic manager identity')
+            # libcephsqlite opens an independent RADOS connection, outside daemon CLI parsing.
+            environment = os.environ | {'CEPH_CONF': '/work/ceph.conf',
+                                        'CEPH_KEYRING': '/work/mgr/keyring', 'CEPH_ARGS': '--name=mgr.a'}
+        super().start(kind, identity, env=environment)
+
     def kernel_io(self):
+        self.stage = 'native manager database check'
+        self.ceph('device', 'check-health')
+        self.steady()
         self.stage = 'native AES256K kernel RBD I/O'
         if self.mappings():
             raise RuntimeError('preexisting native RBD mapping')
