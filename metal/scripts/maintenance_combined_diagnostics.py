@@ -64,7 +64,7 @@ class Qualification(combined.Qualification):
             raise
 
 
-def main():
+def main(qualification_class=Qualification):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('work-dir', 'cloud-image', 'server-image', 'ansible-playbook', 'collection-dir',
                  'automatic-rpm', 'k3s-binary', 'airgap-images', 'kured-archive', 'selinux-rpm', 'selinux-key'):
@@ -72,7 +72,7 @@ def main():
     parser.add_argument('--revision', required=True)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--qemu-img', default='qemu-img')
-    qualification = Qualification(parser.parse_args())
+    qualification = qualification_class(parser.parse_args())
     def cancel(_number, _frame):
         raise RuntimeError('owned diagnostic qualification cancelled')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
