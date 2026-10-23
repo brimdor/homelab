@@ -83,10 +83,14 @@ native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-re
 native('/usr/bin/dnf5','--disable-repo=*','--enable-repo=qualification','--setopt=gpgcheck=True',
        '--setopt=localpkg_gpgcheck=True','--setopt=install_weak_deps=False','--assumeyes','install',
        *(str(assets/name)for name in sorted(packages)))
-assert native('grubby','--default-kernel').strip()=='/boot/vmlinuz-'+version
+initial_default=native('grubby','--default-kernel').strip()
+assert initial_default in ('/boot/vmlinuz-'+old,'/boot/vmlinuz-'+version)
+assert pathlib.Path('/boot/vmlinuz-'+version).is_file()
 assert pathlib.Path('/boot/vmlinuz-'+old).is_file()
 assert pathlib.Path('/boot/initramfs-'+version+'.img').is_file()
-print(json.dumps({'native_signatures_verified':len(packages),'signed_offline_install':True,'old_kernel_retained':old,'default_kernel':version}))
+native('grubby','--set-default','/boot/vmlinuz-'+version)
+assert native('grubby','--default-kernel').strip()=='/boot/vmlinuz-'+version
+print(json.dumps({'native_signatures_verified':len(packages),'signed_offline_install':True,'old_kernel_retained':old,'initial_default':initial_default,'default_kernel':version}))
 ''')
         updated = self.reboot(VERSION, before)
         modules = self.guest('''

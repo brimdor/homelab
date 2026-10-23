@@ -67,6 +67,30 @@ class KernelQualificationTests(unittest.TestCase):
                         with self.assertRaisesRegex(RuntimeError, 'boot or preserved identity'):
                             fixture.reboot(subject.VERSION, before)
 
+    def test_actual_boot_selection_refuses_foreign_default_or_missing_files(self):
+        tree = ast.parse(Path(subject.__file__).read_text())
+        body = next(node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and
+                    isinstance(node.value, str) and 'initial_default=' in node.value)
+        program = compile(body[body.index('initial_default='):body.index('print(json.dumps(')],
+                          '<actual-native-boot-selection>', 'exec')
+        candidate = '/boot/vmlinuz-' + subject.VERSION
+        for default, files, fails in (('/boot/vmlinuz-old', True, False), (candidate, True, False),
+                                      ('/boot/vmlinuz-foreign', True, True), (candidate, False, True)):
+            calls = []
+            def native(*args):
+                calls.append(args)
+                return default if len(calls) == 1 else candidate
+            namespace = {'version': subject.VERSION, 'old': 'old', 'native': native,
+                         'pathlib': SimpleNamespace(Path=lambda _: SimpleNamespace(is_file=lambda: files))}
+            with self.subTest(default=default, files=files):
+                if fails:
+                    with self.assertRaises(AssertionError):
+                        exec(program, namespace)
+                    self.assertEqual(len(calls), 1)
+                else:
+                    exec(program, namespace)
+                    self.assertIn(('grubby', '--set-default', candidate), calls)
+
 
 if __name__ == '__main__':
     unittest.main()

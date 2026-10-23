@@ -218,6 +218,12 @@ pid=int(native('systemctl','show','qualification-k3s.service','--property=MainPI
 process_context=pathlib.Path('/proc/'+str(pid)+'/attr/current').read_text().rstrip(chr(0)).strip()
 assert pid>1 and process_context.split(':')[2]=='container_runtime_t'
 assert enforcement==(state.read_text().strip()if state.exists()else None)
+# OCI preload retained only a tag; explicitly register its verified digest for CRI.
+native('/usr/local/bin/k3s','ctr','images','import','--local','--digests','--all-platforms','--no-unpack',
+       '--base-name','ghcr.io/kubereboot/kured',str(images/'kured.tar'))
+digest_ref=global_owner.IMAGE.replace(':1.21.0','')
+image=json.loads(native('/usr/local/bin/k3s','crictl','inspecti',digest_ref))
+assert digest_ref in image['status']['repoDigests']
 # No host channel or sentinel exists in this restricted, unprivileged Kured fixture.
 for name in actors.SERVICES[:-1]:
  p=actors.UNITS/name;assert not p.exists()

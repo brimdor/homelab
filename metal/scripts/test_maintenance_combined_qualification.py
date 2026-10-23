@@ -100,6 +100,32 @@ class CombinedQualificationInputs(unittest.TestCase):
                     ('chcon', '-u', 'system_u', '-r', 'object_r', '-t',
                      'container_runtime_exec_t', '/usr/local/bin/k3s')])
 
+    def test_actual_digest_import_requires_exact_native_cri_reference(self):
+        tree = ast.parse(Path(fixture.__file__).read_text())
+        body = next(node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and
+                    isinstance(node.func, ast.Attribute) and node.func.attr == 'guest' and node.args and
+                    isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str) and
+                    'digest_ref=' in node.args[0].value)
+        program = compile(body[body.index("native('/usr/local/bin/k3s','ctr'"):body.index('# No host channel')],
+                          '<actual-offline-digest-import>', 'exec')
+        reference = 'ghcr.io/kubereboot/kured@sha256:' + fixture.KURED
+        for digests, fails in (([reference], False), ([], True), ([reference[:-1] + '0'], True)):
+            calls = []
+            def native(*args):
+                calls.append(args)
+                return json.dumps({'status': {'repoDigests': digests}}).encode()
+            namespace = {'native': native, 'images': Path('/owned'), 'json': json,
+                         'global_owner': SimpleNamespace(IMAGE=reference.replace('@', ':1.21.0@'))}
+            with self.subTest(digests=digests):
+                if fails:
+                    with self.assertRaises(AssertionError):
+                        exec(program, namespace)
+                else:
+                    exec(program, namespace)
+                self.assertEqual(calls[0], ('/usr/local/bin/k3s', 'ctr', 'images', 'import', '--local',
+                                           '--digests', '--all-platforms', '--no-unpack', '--base-name',
+                                           'ghcr.io/kubereboot/kured', '/owned/kured.tar'))
+
 
 if __name__ == '__main__':
     unittest.main()
