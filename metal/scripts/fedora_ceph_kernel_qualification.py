@@ -36,7 +36,7 @@ mount=pathlib.Path('/mnt/qualification-repo')
 native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-repo',str(mount))
 for name in ('ceph-base','ceph-updates'):
  pathlib.Path('/etc/yum.repos.d/'+name+'.repo').write_text('['+name+']\\nname='+name+'\\nbaseurl=file://''' + GUEST_ROOT + '''/'+name+'\\nenabled=0\\ngpgcheck=1\\n')
-result=native('dnf5','--quiet','--disable-repo=*','--enable-repo=qualification',
+result=native('dnf5','--quiet','--disable-repo=*',
               '--enable-repo=ceph-base','--enable-repo=ceph-updates','--setopt=install_weak_deps=False',
               'download','--resolve','--alldeps','--url',*targets)
 urls=result.splitlines()
@@ -45,11 +45,7 @@ print(json.dumps({'urls':urls,'native_solver':True}))
 ''')
         (self.root / 'ceph-package-selection.json').write_text(json.dumps(selected, indent=2))
         transferred = []
-        dvd_prefix = 'file:///mnt/qualification-repo/'
         for url in sorted(set(selected['urls'])):
-            if url.startswith(dvd_prefix):
-                repository.safe_path(url[len(dvd_prefix):], 'Packages')
-                continue
             name, relative, digest = repository.selection(url, repositories, GUEST_ROOT)
             source = metadata_root / name / relative
             repository.fetch(repositories[name]['base'], relative, source, digest)
@@ -65,14 +61,24 @@ for item in packages:
  path=pathlib.Path(item['path']);assert hashlib.sha256(path.read_bytes()).hexdigest()==item['sha256']
  signature=native('rpmkeys','--checksig','--verbose',str(path))
  assert 'NOKEY' not in signature and 'NOT OK' not in signature and 'OK' in signature
-native('dnf5','--disable-repo=*','--enable-repo=qualification','--enable-repo=ceph-base',
+installation=subprocess.run(['dnf5','--disable-repo=*','--enable-repo=ceph-base',
        '--enable-repo=ceph-updates','--setopt=gpgcheck=True','--setopt=install_weak_deps=False',
-       '--assumeyes','install',*targets)
-assert native('ceph','--version').startswith('ceph version 20.2.4 ')
-assert all(native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}',name)=='20.2.4-1.fc44.x86_64'
-           for name in ('ceph-common','ceph-mon','ceph-mgr','ceph-osd'))
-print(json.dumps({'native_signature_checked_inputs':len(packages),'native_signed_install':True,'version':'20.2.4-1.fc44.x86_64'}))
+       '--assumeyes','install',*targets],capture_output=True)
+if installation.returncode:
+ diagnostics={}
+ for name,raw in (('stdout',installation.stdout),('stderr',installation.stderr)):
+  diagnostics[name]={'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),
+                     'head':raw[:16384].decode(errors='replace'),'tail':raw[-16384:].decode(errors='replace')}
+ print(json.dumps({'native_signed_install':False,'exit':installation.returncode,'diagnostics':diagnostics}))
+else:
+ assert native('ceph','--version').startswith('ceph version 20.2.4 ')
+ assert all(native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}',name)=='20.2.4-1.fc44.x86_64'
+            for name in ('ceph-common','ceph-mon','ceph-mgr','ceph-osd'))
+ print(json.dumps({'native_signature_checked_inputs':len(packages),'native_signed_install':True,'version':'20.2.4-1.fc44.x86_64'}))
 ''')
+        (self.root / 'ceph-install-result.json').write_text(json.dumps(installed, indent=2))
+        if installed.get('native_signed_install') is not True:
+            raise RuntimeError('offline Ceph installation failed; public-package diagnostics retained')
         self.guest('''
 root=pathlib.Path('/work');assert not root.exists();root.mkdir(mode=0o700)
 print(json.dumps({'fresh_runtime_directory':True}))
