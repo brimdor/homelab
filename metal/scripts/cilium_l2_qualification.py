@@ -216,7 +216,7 @@ class L2Qualification:
     def get_lease(self, *, optional=False):
         if optional:
             raw = self.q.kubectl("get", "lease", "cilium-l2announce-" + NAMESPACE + "-" + NAME,
-                                 "-n", "kube-system", "--ignore-not-found", json_output=False)
+                                 "-n", "kube-system", "--ignore-not-found", "-o", "json", json_output=False)
             return json.loads(raw) if raw.strip() else None
         return self.q.kubectl("get", "lease", "cilium-l2announce-" + NAMESPACE + "-" + NAME, "-n", "kube-system")
 

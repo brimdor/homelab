@@ -12,6 +12,7 @@ import struct
 import unittest
 
 import cilium_l2_qualification as l2
+import cilium_qualification as cq
 
 
 class L2Guards(unittest.TestCase):
@@ -199,6 +200,18 @@ class L2Guards(unittest.TestCase):
         with self.assertRaises(RuntimeError) as caught:
             runner.wait_transfer(self.lease())
         self.assertIs(caught.exception, denial)
+
+    def test_optional_lease_uses_actual_cli_json_output_without_parsing_empty_result(self):
+        q = cq.Qualification.__new__(cq.Qualification)
+        q.args = SimpleNamespace(name="qualification-test", kubectl="owned-kubectl")
+        q.work, q.env, q.context = Path("/owned"), {"KUBECONFIG": "/owned/kubeconfig"}, "owned-context"
+        q.command = Mock(side_effect=[b"", json.dumps(self.lease("node-b", 3)).encode()])
+        runner = l2.L2Qualification(q)
+        self.assertIsNone(runner.get_lease(optional=True))
+        self.assertEqual(runner.get_lease(optional=True), self.lease("node-b", 3))
+        for call in q.command.call_args_list:
+            self.assertEqual(call.args[0][-3:], ["--ignore-not-found", "-o", "json"])
+            self.assertEqual(call.args[0].count("-o"), 1)
 
     def test_manifest_is_synthetic_nonroot_and_has_no_credentials_or_host_mounts(self):
         objects = l2.manifest()["items"]
