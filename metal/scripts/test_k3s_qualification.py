@@ -248,9 +248,38 @@ class Guards(unittest.TestCase):
         bad_sets[2][0]["status"]["containerStatuses"][0]["ready"] = False
         bad_sets[3][0]["status"]["containerStatuses"] = []
         for bad in bad_sets:
-            with patch.object(runner, "command"), patch.object(runner, "kubectl", return_value={"items": bad}):
+            with patch.object(runner, "command"), patch.object(runner, "kubectl", return_value={"items": bad}), \
+                    patch.object(q.l2.time, "monotonic", side_effect=[0, 601]):
                 with self.assertRaisesRegex(RuntimeError, "five ready"):
                     runner.cilium_ready()
+
+    def test_cilium_wait_observes_direct_pod_recovery_without_retrying_failures(self):
+        runner = q.Qualification.__new__(q.Qualification)
+        runner.args = SimpleNamespace(cilium="owned-cli", name=self.name)
+        runner.env = {"KUBECONFIG": "owned-private-config"}
+        runner.context = "k3d-" + self.name
+        ready = [{"status": {"containerStatuses": [{"ready": True}]}} for _ in range(5)]
+        pending = copy.deepcopy(ready)
+        pending[0]["status"]["containerStatuses"][0]["ready"] = False
+        with patch.object(runner, "command") as status, \
+                patch.object(runner, "kubectl", side_effect=[{"items": pending}, {"items": ready}]) as read, \
+                patch.object(q.l2.time, "sleep") as pause:
+            self.assertEqual(runner.cilium_ready(), ready)
+        self.assertEqual(status.call_count, 1)
+        self.assertEqual(read.call_count, 2)
+        pause.assert_called_once_with(1)
+        for message in (b"Forbidden", b"Unauthorized", b"x509: certificate failed", b"unknown failure"):
+            failure = q.CommandFailure(1, 1, message)
+            for failed_call in ("command", "kubectl"):
+                with self.subTest(message=message, failed_call=failed_call), \
+                        patch.object(runner, "command", side_effect=failure if failed_call == "command" else None), \
+                        patch.object(runner, "kubectl", side_effect=failure if failed_call == "kubectl" else None) as read, \
+                        patch.object(q.l2.time, "sleep") as pause:
+                    with self.assertRaises(q.CommandFailure) as caught:
+                        runner.cilium_ready()
+                self.assertIs(caught.exception, failure)
+                pause.assert_not_called()
+                self.assertEqual(read.call_count, 0 if failed_call == "command" else 1)
 
     def test_app_probe_waits_for_cilium_before_lease_or_traffic_and_stops_on_failure(self):
         runner = q.Qualification.__new__(q.Qualification)

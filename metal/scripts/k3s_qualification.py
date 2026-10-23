@@ -552,10 +552,12 @@ class Qualification(cq.Qualification):
     def cilium_ready(self):
         self.command([self.args.cilium, "--kubeconfig", self.env["KUBECONFIG"], "--context", self.context,
                       "status", "--wait", "--wait-duration=10m", "--interactive=false"])
-        pods = self.kubectl("get", "pods", "-n", "kube-system", "-l", "k8s-app=cilium")["items"]
-        if len(pods) != 5 or any(not p["status"].get("containerStatuses") or not all(c["ready"] for c in p["status"]["containerStatuses"]) for p in pods):
-            raise RuntimeError("five ready native Cilium agents required")
-        return pods
+        # DaemonSet aggregate readiness and the later Pod read are not atomic.
+        return l2.await_value(
+            lambda: self.kubectl("get", "pods", "-n", "kube-system", "-l", "k8s-app=cilium")["items"],
+            lambda pods: len(pods) == 5 and all(p["status"].get("containerStatuses") and
+                all(c["ready"] for c in p["status"]["containerStatuses"]) for p in pods),
+            "five ready native Cilium agents", seconds=600)
 
     def app_probe(self):
         try:
