@@ -20,6 +20,16 @@ TARGETS = [*BUILD_TARGETS, 'nvidia-open-3:' + build.VERSION + '-1.fc44.noarch',
            'kmod-nvidia-open-dkms-3:' + build.VERSION + '-1.fc44.noarch']
 
 
+def verify_key_listing(text, expected):
+    import re
+
+    rows = [line.split() for line in text.splitlines()]
+    if (not re.fullmatch(r'[0-9a-f]{40}', expected, re.I) or len(rows) != 1 or
+            len(rows[0]) < 2 or rows[0][0].lower() != expected.lower()):
+        found = [row[0].lower() for row in rows if row and re.fullmatch(r'[0-9a-f]{40}', row[0], re.I)]
+        raise RuntimeError('native NVIDIA imported-key inventory differs: ' + str(found))
+
+
 def verify_signature_output(text, vendor=False):
     import re
 
@@ -50,12 +60,13 @@ print(json.dumps({'signed_dvd_binding':native('rpm','-q','python3-libdnf5').stri
                 self.transfer(metadata_root / name / relative, GUEST_ROOT + '/' + name + '/' + relative, digest)
         self.transfer(metadata_root / vendor.KEY, GUEST_ROOT + '/' + vendor.KEY, vendor.KEY_SHA256)
         planner = ('import libdnf5\n' + inspect.getsource(package_plan) + '\n' +
-                   inspect.getsource(verify_signature_output) + '\n')
+                   inspect.getsource(verify_signature_output) + '\n' + inspect.getsource(verify_key_listing) + '\n')
         selected = self.guest(planner + 'targets=' + repr(TARGETS) + '\n' +
-                              'guest_root=' + repr(GUEST_ROOT) + '\nkey_sha=' + repr(vendor.KEY_SHA256) + '\n' + '''
+                              'guest_root=' + repr(GUEST_ROOT) + '\nkey_sha=' + repr(vendor.KEY_SHA256) + '\n' +
+                              'key_fingerprint=' + repr(vendor.KEY_FINGERPRINT) + '\n' + '''
 key=pathlib.Path(guest_root)/'73CD9B30.pub';assert hashlib.sha256(key.read_bytes()).hexdigest()==key_sha
 native('rpmkeys','--import',str(key))
-keys=native('rpm','-qa','gpg-pubkey-73cd9b30*').splitlines();assert len(keys)==1
+verify_key_listing(native('rpmkeys','--list',key_fingerprint),key_fingerprint)
 for name in ('ceph-base','ceph-updates','nvidia-vendor'):
  pathlib.Path('/etc/yum.repos.d/'+name+'.repo').write_text('['+name+']\\nname='+name+'\\nbaseurl=file://'+guest_root+'/'+name+'\\nenabled=0\\ngpgcheck=1\\n')
 print(json.dumps(package_plan(libdnf5,targets,guest_root,include_vendor=True)))
@@ -114,6 +125,7 @@ print(json.dumps({'native_signed_install':process.returncode==0,'exit':process.r
         return {'accepted': True, 'kernel': kernel, 'installed': installed, 'before': before, 'after': after,
                 'before_boot': previous, 'after_boot': after_boot, 'transferred_packages': transferred,
                 'vendor_key_sha256': vendor.KEY_SHA256,
+                'vendor_key_fingerprint': vendor.KEY_FINGERPRINT,
                 'metadata': {name: {'base': value['base'], 'files': value['files']} for name, value in repositories.items()},
                 'gpu_operation_and_production_unqualified': True}
 

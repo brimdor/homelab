@@ -14,6 +14,7 @@ from fedora_ceph_repository import NS
 BASE = 'https://developer.download.nvidia.com/compute/cuda/repos/fedora44/x86_64/'
 KEY = '73CD9B30.pub'
 KEY_SHA256 = '9221458f62030a18d5a28eecf44496016ff9c11548492ac2ce428f75c7513cab'
+KEY_FINGERPRINT = '129994480ec63d2789bc98e490dfed2f73cd9b30'
 
 
 def safe_path(value, metadata=False):

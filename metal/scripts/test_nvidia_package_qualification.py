@@ -14,6 +14,18 @@ import nvidia_package_repository as vendor
 
 
 class NvidiaPackageTests(unittest.TestCase):
+    def test_imported_key_requires_exact_single_full_native_fingerprint(self):
+        fingerprint = vendor.KEY_FINGERPRINT
+        for value in (fingerprint + ' NVIDIA public key\n', fingerprint.upper() + ' NVIDIA public key\n'):
+            driver.verify_key_listing(value, fingerprint)
+        for value in ('', '\n', fingerprint, fingerprint[-8:] + ' NVIDIA public key',
+                      '0' * 40 + ' foreign key', 'prefix' + fingerprint + ' NVIDIA public key',
+                      (fingerprint + ' NVIDIA public key\n') * 2):
+            with self.subTest(value=value), self.assertRaises(RuntimeError):
+                driver.verify_key_listing(value, fingerprint)
+        with self.assertRaises(RuntimeError):
+            driver.verify_key_listing(fingerprint + ' NVIDIA public key', fingerprint[-8:])
+
     def test_native_rpm6_and_legacy_signature_formats_keep_verification_and_signer_guards(self):
         current = 'Header OpenPGP V4 RSA/SHA512 signature, key ID 2b6cf03373cd9b30: OK\nHeader SHA256 digest: OK'
         legacy = 'Header V4 RSA/SHA256 Signature, key ID 73cd9b30: OK'
