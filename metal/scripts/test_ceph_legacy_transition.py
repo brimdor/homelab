@@ -29,6 +29,12 @@ class LegacyTransitionTests(unittest.TestCase):
         self.assertEqual(parsed['rotating'], {'osd.*': ['aes', 'aes256k']})
         self.assertEqual(parsed['entities']['client.ordinary'], 'aes')
         self.assertNotIn('PRIVATE_SENTINEL', json.dumps(parsed))
+        incomplete = copy.deepcopy(value)
+        incomplete['data']['rotating_secrets'] = []
+        with self.assertRaises(RuntimeError) as error:
+            subject.key_types(incomplete)
+        self.assertIn('"rotating": {}', str(error.exception))
+        self.assertNotIn('PRIVATE_SENTINEL', str(error.exception))
         changes = []
         changed = copy.deepcopy(value)
         changed['data']['secrets'].append(changed['data']['secrets'][0])

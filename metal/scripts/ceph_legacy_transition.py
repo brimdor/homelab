@@ -48,7 +48,8 @@ def key_types(value):
             raise RuntimeError('ambiguous or unsupported synthetic service metadata')
         rotating[entity] = types
     if not CORE | {'client.ordinary'} <= entities.keys() or not rotating:
-        raise RuntimeError('synthetic authentication metadata is incomplete')
+        raise RuntimeError('synthetic authentication metadata is incomplete ' +
+                           json.dumps({'entities': entities, 'rotating': rotating}, sort_keys=True))
     return {'entities': entities, 'rotating': rotating}
 
 
