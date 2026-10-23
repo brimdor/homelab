@@ -2,6 +2,7 @@
 """Require real runtime evidence and confine the snapshotter creation flag."""
 
 import copy
+import json
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -52,6 +53,36 @@ class StargzTests(unittest.TestCase):
         with patch.object(subject.ha.Qualification, 'command', return_value=b'read') as parent:
             fixture.command(['docker', 'inspect', 'owned'])
         parent.assert_called_once_with(['docker', 'inspect', 'owned'])
+
+    def test_checkpoint_uses_packaged_ctr_and_exact_native_socket(self):
+        fixture = object.__new__(subject.Qualification)
+        fixture.versions = {'owned-node': 'baseline'}
+        fixture.stages = [{}]
+        fixture.inspect = lambda _node: None
+        fixture.persist = lambda: None
+        identifier = 'a' * 64
+        fixture.kubectl = lambda *_args: {'items': [{'metadata': {}, 'spec': {'nodeName': 'owned-node'},
+            'status': {'containerStatuses': [{'ready': True, 'state': {'running': {}},
+                                              'containerID': 'containerd://' + identifier}]}}]}
+        calls = []
+        def command(arguments):
+            calls.append(arguments)
+            if arguments[3] == 'cat':
+                return b'version=3\n[plugins."io.containerd.cri.v1.images"]\nsnapshotter="stargz"\ndisable_snapshot_annotations=false\n'
+            self.assertEqual(arguments[:4], ['docker', 'exec', 'owned-node', '/bin/ctr'])
+            if arguments[4:] == ['--version']:
+                return b'ctr containerd v2.1.5-k3s1.33\n'
+            self.assertEqual(arguments[4:6], ['--address=/run/k3s/containerd/containerd.sock', '--namespace=k8s.io'])
+            if arguments[6:] == ['plugins', 'list']:
+                return self.fixture()[1].encode()
+            self.assertEqual(arguments[6:], ['containers', 'info', identifier])
+            return json.dumps(self.fixture()[2][identifier]).encode()
+        fixture.command = command
+        with patch.object(subject.ha.Qualification, 'checkpoint'):
+            fixture.checkpoint('baseline', 'baseline')
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(fixture.stages[0]['stargz_runtime']['owned-node']['ctr_client_version'],
+                         'ctr containerd v2.1.5-k3s1.33')
 
 
 if __name__ == '__main__':

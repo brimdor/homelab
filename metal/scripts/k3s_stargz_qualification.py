@@ -44,7 +44,12 @@ class Qualification(ha.Qualification):
         evidence = {}
         for node in self.versions:
             self.inspect(node)
-            prefix = ['docker', 'exec', node, '/bin/k3s', 'ctr', '--namespace=k8s.io']
+            # The baseline container ships the standalone ctr entry point.
+            prefix = ['docker', 'exec', node, '/bin/ctr',
+                      '--address=/run/k3s/containerd/containerd.sock', '--namespace=k8s.io']
+            client_version = self.command(['docker', 'exec', node, '/bin/ctr', '--version']).decode().strip()
+            if not client_version.startswith('ctr '):
+                raise RuntimeError('native ctr client identity differs')
             config = tomllib.loads(self.command(['docker', 'exec', node, 'cat',
                                                 '/var/lib/rancher/k3s/agent/etc/containerd/config.toml']).decode())
             plugins = self.command([*prefix, 'plugins', 'list']).decode()
@@ -62,6 +67,7 @@ class Qualification(ha.Qualification):
             containers = {identifier: json.loads(self.command([*prefix, 'containers', 'info', identifier]))
                           for identifier in sorted(identifiers)}
             evidence[node] = require_runtime(config, plugins, containers)
+            evidence[node]['ctr_client_version'] = client_version
         self.stages[-1]['stargz_runtime'] = evidence
         self.persist()
 
