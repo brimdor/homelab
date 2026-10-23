@@ -132,6 +132,31 @@ class LegacyTransitionTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'authentication differ'):
             runtime.monitor_key_hash()
 
+    def test_transition_retains_type_only_snapshot_before_native_health_refusal(self):
+        runtime = object.__new__(subject.Runtime)
+        before = self.metadata()
+        after = copy.deepcopy(before)
+        for row in after['data']['secrets']:
+            if row['entity']['type_str'] + '.' + row['entity']['id'] in subject.CORE:
+                row['auth']['key']['type_str'] = 'aes256k'
+        runtime.command = Mock(return_value=Mock(stdout=b'ceph version 20.2.4 native'))
+        runtime.start = runtime.verify = runtime.rotate_core = Mock()
+        runtime.monitor_key_hash = Mock(side_effect=['old-hash', 'new-hash'])
+        runtime.steady = Mock(side_effect=[{'status': 'HEALTH_ERR', 'checks': []},
+                                          {'status': 'HEALTH_ERR', 'checks': ['AUTH_INSECURE_SERVICE_TICKETS']}])
+        runtime.ceph = Mock(side_effect=[json.dumps(before).encode(), b'',
+                                        b'{"auth_service_cipher":{"name":"aes256k"}}', json.dumps(after).encode()])
+        with tempfile.TemporaryDirectory() as directory:
+            runtime.root = Path(directory)
+            (runtime.root / 'baseline.json').write_text('{"monitor_key_sha256":"old-hash"}')
+            with self.assertRaisesRegex(RuntimeError, 'core migration incomplete'):
+                runtime.transition()
+            saved = json.loads((runtime.root / 'transition-progress.json').read_text())
+        self.assertEqual(saved, runtime.transition_progress)
+        self.assertEqual(saved['observations'][0]['health']['checks'], ['AUTH_INSECURE_SERVICE_TICKETS'])
+        self.assertEqual(saved['observations'][0]['key_types']['entities']['mon.'], 'aes256k')
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(saved))
+
 
 if __name__ == '__main__':
     unittest.main()

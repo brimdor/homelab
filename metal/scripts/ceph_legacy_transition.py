@@ -241,13 +241,13 @@ osd op num threads per shard = 1
             health = self.steady()
             self.verify()
             current = key_types(json.loads(self.ceph('auth', 'dump-keys', '--format=json')))
+            observations.append({'elapsed_seconds': round(time.time() - started),
+                                 'health': health, 'key_types': current})
+            (self.root / 'transition-progress.json').write_text(json.dumps(self.transition_progress))
             if (any(current['entities'][entity] != 'aes256k' for entity in CORE) or
                     current['entities']['client.ordinary'] != 'aes' or
                     {'AUTH_INSECURE_SERVICE_KEY_TYPE', 'AUTH_INSECURE_SERVICE_TICKETS'} & set(health['checks'])):
                 raise RuntimeError('core migration incomplete or retained client type changed')
-            observations.append({'elapsed_seconds': round(time.time() - started),
-                                 'health': health, 'key_types': current})
-            (self.root / 'transition-progress.json').write_text(json.dumps(self.transition_progress))
             if all(kind == 'aes256k' for kinds in current['rotating'].values() for kind in kinds):
                 if 'AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE' in health['checks']:
                     raise RuntimeError('native rotating-key warning contradicts metadata')
