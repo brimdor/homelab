@@ -11,7 +11,7 @@ import socket
 import stat
 import subprocess
 
-from ceph_runtime_qualification import Runtime as ModernRuntime
+from ceph_runtime_qualification import Runtime as ModernRuntime, sanitized
 
 
 VERSION = '7.2.11-200.fc44.x86_64'
@@ -122,6 +122,21 @@ class Runtime(ModernRuntime):
                 self.command(['rbd', 'device', 'unmap', device])
 
 
+def manager_diagnostic(runtime):
+    """Retain only public module health, never auth metadata or arbitrary daemon logs."""
+    value = json.loads(runtime.ceph('health', 'detail', '--format=json'))
+    finding = value.get('checks', {}).get('MGR_MODULE_ERROR', {})
+    def message(row):
+        text = row.get('message', '')
+        if not isinstance(text, str):
+            raise RuntimeError('manager diagnostic message shape changed')
+        return sanitized(text.encode())
+    return {'health_status': value['status'], 'checks': sorted(value.get('checks', {})),
+            'manager_module_error': {'severity': finding.get('severity'),
+                'summary': message(finding.get('summary', {})),
+                'details': [message(row) for row in finding.get('detail', [])]}}
+
+
 def main():
     runtime = Runtime()
     def cancel(_number, _frame):
@@ -131,6 +146,14 @@ def main():
     try:
         result = {'modern_rados': runtime.run(), 'kernel_rbd': runtime.kernel_io()}
         print(json.dumps(result), flush=True)
+    except Exception as error:
+        failure = {'accepted': False, 'stage': runtime.stage, 'error': sanitized(str(error).encode())}
+        try:
+            failure['manager_diagnostic'] = manager_diagnostic(runtime)
+        except Exception as diagnostic_error:
+            failure['diagnostic_error'] = type(diagnostic_error).__name__
+        print(json.dumps(failure), flush=True)
+        raise
     finally:
         for name in list(reversed(runtime.children)):
             runtime.stop(name)

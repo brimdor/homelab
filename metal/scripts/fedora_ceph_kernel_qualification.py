@@ -17,6 +17,18 @@ TARGETS = [name + '-2:20.2.4-1.fc44.x86_64' for name in
 
 
 class Qualification(Kernel):
+    targets = TARGETS
+
+    def native_runtime(self):
+        source_files = {}
+        for name in ('ceph_kernel_runtime.py', 'ceph_runtime_qualification.py', 'etcd_recovery.py'):
+            source = Path(__file__).with_name(name).resolve()
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            self.upload(source, '/work/' + name, digest)
+            source_files[name] = digest
+        native = json.loads(self.command(self.ssh + ['sudo python3 -B /work/ceph_kernel_runtime.py']))
+        return native, source_files
+
     def run(self):
         metadata_root = self.args.work_dir / 'ceph-repositories'
         metadata_root.mkdir(mode=0o700)
@@ -31,7 +43,7 @@ print(json.dumps({'metadata_directories_ready':True}))
 ''')
             for relative, digest in value['files'].items():
                 self.upload(metadata_root / name / relative, GUEST_ROOT + '/' + name + '/' + relative, digest)
-        selected = self.guest('targets=' + repr(TARGETS) + '\n' + '''
+        selected = self.guest('targets=' + repr(self.targets) + '\n' + '''
 mount=pathlib.Path('/mnt/qualification-repo')
 native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-repo',str(mount))
 for name in ('ceph-base','ceph-updates'):
@@ -56,7 +68,7 @@ print(json.dumps({'package_directory_ready':True}))
 ''')
             self.upload(source, destination, digest)
             transferred.append({'path': destination, 'sha256': digest})
-        installed = self.guest('packages=' + repr(transferred) + '\ntargets=' + repr(TARGETS) + '\n' + '''
+        installed = self.guest('packages=' + repr(transferred) + '\ntargets=' + repr(self.targets) + '\n' + '''
 for item in packages:
  path=pathlib.Path(item['path']);assert hashlib.sha256(path.read_bytes()).hexdigest()==item['sha256']
  signature=native('rpmkeys','--checksig','--verbose',str(path))
@@ -73,7 +85,7 @@ if installation.returncode:
 else:
  assert native('ceph','--version').startswith('ceph version 20.2.4 ')
  assert all(native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}',name)=='20.2.4-1.fc44.x86_64'
-            for name in ('ceph-common','ceph-mon','ceph-mgr','ceph-osd'))
+            for name in [target.partition('-2:')[0]for target in targets])
  print(json.dumps({'native_signature_checked_inputs':len(packages),'native_signed_install':True,'version':'20.2.4-1.fc44.x86_64'}))
 ''')
         (self.root / 'ceph-install-result.json').write_text(json.dumps(installed, indent=2))
@@ -83,13 +95,7 @@ else:
 root=pathlib.Path('/work');assert not root.exists();root.mkdir(mode=0o700)
 print(json.dumps({'fresh_runtime_directory':True}))
 ''')
-        source_files = {}
-        for name in ('ceph_kernel_runtime.py', 'ceph_runtime_qualification.py', 'etcd_recovery.py'):
-            source = Path(__file__).with_name(name).resolve()
-            digest = hashlib.sha256(source.read_bytes()).hexdigest()
-            self.upload(source, '/work/' + name, digest)
-            source_files[name] = digest
-        native = json.loads(self.command(self.ssh + ['sudo python3 -B /work/ceph_kernel_runtime.py']))
+        native, source_files = self.native_runtime()
         self.identity()
         return {'accepted': True, 'kernel': kernel, 'installed': installed, 'native': native,
                 'runtime_sources': source_files, 'metadata': {
