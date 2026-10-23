@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 import socket
 import struct
 import unittest
+from urllib.parse import parse_qs, urlsplit
 
 import cilium_l2_qualification as l2
 import cilium_qualification as cq
@@ -212,6 +213,100 @@ class L2Guards(unittest.TestCase):
         for call in q.command.call_args_list:
             self.assertEqual(call.args[0][-3:], ["--ignore-not-found", "-o", "json"])
             self.assertEqual(call.args[0].count("-o"), 1)
+
+    def watched_leases(self):
+        first, second = self.lease(), self.lease("node-b", 0)
+        for value, uid, version in ((first, "lease-uid", "opaque-a"),
+                                    (second, "replacement-lease", "opaque-d")):
+            value.update(apiVersion="coordination.k8s.io/v1", kind="Lease")
+            value["metadata"].update(uid=uid, resourceVersion=version, namespace="kube-system",
+                name="cilium-l2announce-" + l2.NAMESPACE + "-" + l2.NAME,
+                creationTimestamp="2026-10-20T12:00:00Z")
+        second["spec"]["renewTime"] = "2026-10-20T12:00:00.500Z"
+        deleted, added = copy.deepcopy(first), copy.deepcopy(second)
+        deleted["metadata"]["resourceVersion"] = "opaque-c"
+        return first, second, [{"type": "DELETED", "object": deleted}, {"type": "ADDED", "object": added}]
+
+    def test_watch_proves_ordered_lifecycle_with_opaque_versions_and_json_stream(self):
+        first, second, events = self.watched_leases()
+        before, after = copy.deepcopy(first), copy.deepcopy(second)
+        before["metadata"]["resourceVersion"] = "opaque-b"
+        after["metadata"]["resourceVersion"] = "opaque-e"
+        events = [{"type": "MODIFIED", "object": before}] + events + [{"type": "MODIFIED", "object": after}]
+        raw = "\n".join(json.dumps(event, indent=2) for event in events).encode()
+        proof = l2.replacement_events(raw, first, second)
+        self.assertEqual([event["type"] for event in proof], ["MODIFIED", "DELETED", "ADDED", "MODIFIED"])
+        self.assertEqual(set(proof[0]), {"type", "uid", "resourceVersion"})
+
+    def test_watch_refuses_missing_reordered_foreign_or_malformed_history(self):
+        first, second, events = self.watched_leases()
+        streams = [[], events[:1], events[1:], events[::-1], events + events,
+                   [{"type": "ERROR", "object": {"kind": "Status", "code": 410}}],
+                   [{"type": "BOOKMARK", "object": {}}]]
+        for field, value in (("namespace", "other"), ("name", "other"), ("uid", "intermediate"),
+                             ("resourceVersion", "0"), ("resourceVersion", "opaque-a"),
+                             ("resourceVersion", ""), ("resourceVersion", "x" * 129),
+                             ("creationTimestamp", "2026-10-20T12:01:00Z"), ("creationTimestamp", None)):
+            bad = copy.deepcopy(events)
+            bad[1]["object"]["metadata"][field] = value
+            streams.append(bad)
+        for field, value in (("kind", "Pod"), ("apiVersion", "v1"), ("metadata", [])):
+            bad = copy.deepcopy(events)
+            bad[1]["object"][field] = value
+            streams.append(bad)
+        for stream in streams:
+            with self.subTest(stream=stream), self.assertRaises((RuntimeError, ValueError)):
+                l2.replacement_events(json.dumps(stream[0]).encode() if len(stream) == 1 else
+                    b"\n".join(json.dumps(event).encode() for event in stream), first, second)
+        for raw in (b"not json", b"\xff", b" " * 262145):
+            with self.assertRaises((RuntimeError, ValueError)):
+                l2.replacement_events(raw, first, second)
+        many = [copy.deepcopy(events[0]) for _ in range(129)]
+        for index, event in enumerate(many):
+            event["type"] = "MODIFIED"
+            event["object"]["metadata"]["resourceVersion"] = "version-" + str(index)
+        with self.assertRaisesRegex(RuntimeError, "too many"):
+            l2.replacement_events(b"\n".join(json.dumps(event).encode() for event in many + events), first, second)
+        for value in (first, second):
+            bad = copy.deepcopy(value)
+            bad["metadata"]["namespace"] = "other"
+            with self.assertRaises(RuntimeError):
+                l2.replacement_events(b"", bad if value is first else first, bad if value is second else second)
+
+    def test_transfer_uses_actual_cli_watch_and_retains_refusal_before_acceptance(self):
+        first, second, events = self.watched_leases()
+        with tempfile.TemporaryDirectory() as directory:
+            q = cq.Qualification.__new__(cq.Qualification)
+            q.args = SimpleNamespace(name="qualification-test", kubectl="owned-kubectl")
+            q.work, q.env, q.context, q.count = Path(directory), {"KUBECONFIG": "/owned/kubeconfig"}, "owned-context", 7
+            runner = l2.L2Qualification(q)
+            runner.nodes = {"node-a": "unused", "node-b": "unused"}
+            for stream, renewed, accepted in ((events, second["spec"]["renewTime"], True),
+                                             (events[1:], second["spec"]["renewTime"], False),
+                                             (events, first["spec"]["renewTime"], False)):
+                target = copy.deepcopy(second)
+                target["spec"]["renewTime"] = renewed
+                q.command = Mock(side_effect=[json.dumps(target).encode(),
+                    b"\n".join(json.dumps(event).encode() for event in stream)])
+                if accepted:
+                    self.assertEqual(runner.wait_transfer(first), target)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        runner.wait_transfer(first)
+                evidence = json.loads((q.work / "l2-lease-lifecycle-7.json").read_text())
+                self.assertEqual(evidence["accepted"], accepted)
+                args = q.command.call_args_list[1].args[0]
+                self.assertNotIn("-o", args)
+                raw_url = next(arg.removeprefix("--raw=") for arg in args if arg.startswith("--raw="))
+                url = urlsplit(raw_url)
+                self.assertEqual(url.path, "/apis/coordination.k8s.io/v1/namespaces/kube-system/leases")
+                self.assertEqual(parse_qs(url.query), {"watch": ["true"], "resourceVersion": ["opaque-a"],
+                    "timeoutSeconds": ["5"], "fieldSelector": ["metadata.name=" + first["metadata"]["name"]]})
+            denial = RuntimeError("Forbidden or expired resource version")
+            q.command = Mock(side_effect=[json.dumps(second).encode(), denial])
+            with self.assertRaises(RuntimeError) as caught:
+                runner.wait_transfer(first)
+            self.assertIs(caught.exception, denial)
 
     def test_manifest_is_synthetic_nonroot_and_has_no_credentials_or_host_mounts(self):
         objects = l2.manifest()["items"]

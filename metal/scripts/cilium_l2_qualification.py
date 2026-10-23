@@ -10,6 +10,7 @@ import re
 import socket
 import struct
 import time
+from urllib.parse import urlencode
 
 from cilium_qualification import CHARTS
 
@@ -199,6 +200,60 @@ def await_value(read, accept, description, seconds=180):
         time.sleep(1)
 
 
+def replacement_events(raw, first, second):
+    """Prove exact Lease deletion/recreation from a bounded native watch stream."""
+    if len(raw) > 262144:
+        raise RuntimeError("synthetic lease watch exceeded its evidence bound")
+    text, decoder, events = raw.decode(), json.JSONDecoder(), []
+    original, replacement = first["metadata"]["uid"], second["metadata"]["uid"]
+    for lease in (first, second):
+        meta = lease["metadata"]
+        if (meta.get("namespace") != "kube-system" or
+                meta.get("name") != "cilium-l2announce-" + NAMESPACE + "-" + NAME or
+                not isinstance(meta.get("resourceVersion"), str) or
+                not meta["resourceVersion"] or meta["resourceVersion"] == "0" or
+                len(meta["resourceVersion"]) > 128):
+            raise RuntimeError("synthetic lease watch starting or target identity is invalid")
+    if original == replacement:
+        raise RuntimeError("synthetic lease watch requires distinct identities")
+    state = original
+    versions = {first["metadata"]["resourceVersion"]}
+    while text.strip():
+        event, end = decoder.raw_decode(text.lstrip())
+        text = text.lstrip()[end:]
+        if not isinstance(event, dict) or event.get("type") not in ("ADDED", "MODIFIED", "DELETED"):
+            raise RuntimeError("synthetic lease watch returned an unknown event or API error")
+        value = event.get("object", {})
+        if not isinstance(value, dict):
+            raise RuntimeError("synthetic lease watch object is invalid")
+        meta = value.get("metadata", {})
+        if (value.get("apiVersion") != "coordination.k8s.io/v1" or value.get("kind") != "Lease" or
+                not isinstance(meta, dict) or meta.get("namespace") != "kube-system" or
+                meta.get("name") != "cilium-l2announce-" + NAMESPACE + "-" + NAME or
+                meta.get("uid") not in (original, replacement) or
+                not isinstance(meta.get("resourceVersion"), str) or
+                not meta["resourceVersion"] or meta["resourceVersion"] == "0" or len(meta["resourceVersion"]) > 128 or
+                meta["resourceVersion"] in versions):
+            raise RuntimeError("synthetic lease watch identity or version changed")
+        kind, uid = event["type"], meta["uid"]
+        if kind == "DELETED" and state == original and uid == original:
+            state = None
+        elif kind == "ADDED" and state is None and uid == replacement:
+            if (not meta.get("creationTimestamp") or
+                    meta["creationTimestamp"] != second["metadata"].get("creationTimestamp")):
+                raise RuntimeError("synthetic lease watch replacement creation differs")
+            state = replacement
+        elif kind != "MODIFIED" or uid != state:
+            raise RuntimeError("synthetic lease watch lifecycle order differs")
+        versions.add(meta["resourceVersion"])
+        events.append({"type": kind, "uid": uid, "resourceVersion": meta["resourceVersion"]})
+        if len(events) > 128:
+            raise RuntimeError("synthetic lease watch returned too many events")
+    if state != replacement:
+        raise RuntimeError("synthetic lease watch lacks exact delete/add evidence")
+    return events
+
+
 class L2Qualification:
     def __init__(self, qualification):
         self.q = qualification
@@ -234,7 +289,27 @@ class L2Qualification:
                 return False
             if lease["spec"]["holderIdentity"] == first["spec"]["holderIdentity"]:
                 return False
-            validate_lease(lease, self.nodes, previous=first, observed_absence=absent)
+            observed = absent
+            if lease.get("metadata", {}).get("uid") != first["metadata"]["uid"] and not observed:
+                version = first["metadata"].get("resourceVersion")
+                if not isinstance(version, str) or not version or version == "0" or len(version) > 128:
+                    raise RuntimeError("synthetic lease watch requires the exact original resourceVersion")
+                query = urlencode({"watch": "true", "resourceVersion": version, "timeoutSeconds": 5,
+                                   "fieldSelector": "metadata.name=cilium-l2announce-" + NAMESPACE + "-" + NAME})
+                raw = self.q.kubectl("get", "--raw=/apis/coordination.k8s.io/v1/namespaces/kube-system/leases?" + query,
+                                     json_output=False)
+                evidence = {"original_uid": first["metadata"]["uid"], "replacement_uid": lease["metadata"]["uid"],
+                            "starting_resource_version": version, "stream_bytes": len(raw),
+                            "stream_sha256": hashlib.sha256(raw).hexdigest(), "accepted": False}
+                path = self.q.work / ("l2-lease-lifecycle-" + str(self.q.count) + ".json")
+                path.write_text(json.dumps(evidence, indent=2))
+                evidence["events"] = replacement_events(raw, first, lease)
+                path.write_text(json.dumps(evidence, indent=2))
+                observed = True
+            validate_lease(lease, self.nodes, previous=first, observed_absence=observed)
+            if observed and not absent:
+                evidence["accepted"] = True
+                path.write_text(json.dumps(evidence, indent=2))
             return True
 
         return await_value(read, moved, "synthetic L2 lease transfer")
