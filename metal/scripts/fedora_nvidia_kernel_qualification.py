@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import inspect
 import json
 from pathlib import Path
 import signal
@@ -15,6 +16,62 @@ import nvidia_kernel_build as build
 
 GUEST_ROOT = '/run/qualification-nvidia-repos'
 TARGETS = ['kernel-devel-' + VERSION, 'gcc', 'gcc-c++', 'make', 'binutils', 'elfutils-libelf-devel']
+
+
+def package_plan(libdnf5, targets, guest_root):
+    """Resolve the full installation, including installed reverse dependents."""
+    from pathlib import PurePosixPath
+    import re
+
+    base = libdnf5.base.Base()
+    base.load_config()
+    config = base.get_config()
+    config.plugins = False
+    config.install_weak_deps = False
+    config.gpgcheck = True
+    config.skip_broken = False
+    config.skip_unavailable = False
+    base.setup()
+    sack = base.get_repo_sack()
+    for name in ('ceph-base', 'ceph-updates'):
+        repo_config = sack.create_repo(name).get_config()
+        repo_config.baseurl = ['file://' + guest_root + '/' + name]
+        repo_config.enabled = True
+        repo_config.gpgcheck = True
+    sack.load_repos()
+    goal = libdnf5.base.Goal(base)
+    for target in targets:
+        goal.add_rpm_install(target)
+    transaction = goal.resolve()
+    if transaction.get_problems() != libdnf5.base.GoalProblem_NO_PROBLEM:
+        raise RuntimeError('native NVIDIA install solver reported problems')
+    actions = libdnf5.transaction
+    incoming = (actions.TransactionItemAction_INSTALL, actions.TransactionItemAction_UPGRADE)
+    allowed = (*incoming, actions.TransactionItemAction_REPLACED, actions.TransactionItemAction_REASON_CHANGE)
+    rows, replaced, expected_replaced = [], set(), set()
+    for item in transaction.get_transaction_packages():
+        action, package = item.get_action(), item.get_package()
+        if action not in allowed or package.get_arch() not in ('x86_64', 'noarch'):
+            raise RuntimeError('unsafe native NVIDIA package action or architecture')
+        row = {'nevra': package.get_nevra(), 'action': actions.transaction_item_action_to_string(action)}
+        if action in incoming:
+            name, location = package.get_repo_id(), package.get_location()
+            path = PurePosixPath(location)
+            if (name not in ('ceph-base', 'ceph-updates') or path.is_absolute() or
+                    '..' in path.parts or str(path) != location or len(path.parts) < 2 or
+                    path.parts[0] != 'Packages' or not re.fullmatch(r'[A-Za-z0-9._/+~^:-]+', location)):
+                raise RuntimeError('foreign or unsafe native NVIDIA package location')
+            row['url'] = 'file://' + guest_root + '/' + name + '/' + location
+            expected_replaced.update(old.get_nevra() for old in item.get_replaces())
+        elif action == actions.TransactionItemAction_REPLACED:
+            replaced.add(package.get_nevra())
+        rows.append(row)
+    if not rows or replaced != expected_replaced or not any('url' in row for row in rows):
+        raise RuntimeError('empty or unexplained native NVIDIA replacement transaction')
+    rows.sort(key=lambda row: (row['nevra'], row['action']))
+    if len({(row['nevra'], row['action']) for row in rows}) != len(rows):
+        raise RuntimeError('duplicate native NVIDIA transaction item')
+    return {'transaction': rows, 'urls': sorted(row['url'] for row in rows if 'url' in row)}
 
 
 class Qualification(Kernel):
@@ -30,20 +87,23 @@ class Qualification(Kernel):
         repositories = {name: repository.mirror(metadata_root, name) for name in repository.BASES}
         kernel = super().run()
         (self.root / 'kernel-result.json').write_text(json.dumps(kernel, indent=2))
+        self.guest('''
+native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-repo','/mnt/qualification-repo')
+native('dnf5','--disable-repo=*','--enable-repo=qualification','--setopt=gpgcheck=True',
+       '--setopt=install_weak_deps=False','--assumeyes','install','python3-libdnf5')
+print(json.dumps({'signed_dvd_python_binding':native('rpm','-q','python3-libdnf5').strip()}))
+''')
         for name, value in repositories.items():
             for relative, digest in value['files'].items():
                 destination = GUEST_ROOT + '/' + name + '/' + relative
                 self.guest('directory=' + repr(str(Path(destination).parent)) + '\n'
                            "pathlib.Path(directory).mkdir(parents=True,exist_ok=True)\nprint('{}')\n")
                 self.upload(metadata_root / name / relative, destination, digest)
-        selected = self.guest('targets=' + repr(TARGETS) + '\n' + '''
+        planner = 'import libdnf5\n' + inspect.getsource(package_plan) + '\n'
+        selected = self.guest(planner + 'targets=' + repr(TARGETS) + '\n' + '''
 for name in ('ceph-base','ceph-updates'):
  pathlib.Path('/etc/yum.repos.d/'+name+'.repo').write_text('['+name+']\\nname='+name+'\\nbaseurl=file://''' + GUEST_ROOT + '''/'+name+'\\nenabled=0\\ngpgcheck=1\\n')
-urls=native('dnf5','--quiet','--disable-repo=*','--enable-repo=ceph-base','--enable-repo=ceph-updates',
-            '--setopt=install_weak_deps=False','download','--arch=x86_64','--arch=noarch',
-            '--resolve','--alldeps','--url',*targets).splitlines()
-assert urls and all(url.startswith('file:///')for url in urls)
-print(json.dumps({'urls':urls}))
+print(json.dumps(package_plan(libdnf5,targets,''' + repr(GUEST_ROOT) + ''')))
 ''')
         (self.root / 'nvidia-package-selection.json').write_text(json.dumps(selected, indent=2))
         transferred = []
@@ -56,13 +116,16 @@ print(json.dumps({'urls':urls}))
                        "pathlib.Path(directory).mkdir(parents=True,exist_ok=True)\nprint('{}')\n")
             self.upload(package, destination, digest)
             transferred.append({'path': destination, 'sha256': digest})
-        installed = self.guest('packages=' + repr(transferred) + '\ntargets=' + repr(TARGETS) + '\n' + '''
+        installed = self.guest(planner + 'packages=' + repr(transferred) + '\ntargets=' + repr(TARGETS) +
+                               '\nexpected_plan=' + repr(selected) + '\n' + '''
 for item in packages:
  path=pathlib.Path(item['path']);assert hashlib.sha256(path.read_bytes()).hexdigest()==item['sha256']
  signature=native('rpmkeys','--checksig','--verbose',str(path))
  assert 'NOKEY' not in signature and 'NOT OK' not in signature and 'OK' in signature
+assert package_plan(libdnf5,targets,''' + repr(GUEST_ROOT) + ''')==expected_plan
 native('dnf5','--disable-repo=*','--enable-repo=ceph-base','--enable-repo=ceph-updates',
-       '--setopt=gpgcheck=True','--setopt=install_weak_deps=False','--assumeyes','install',*targets)
+       '--setopt=plugins=False','--setopt=gpgcheck=True','--setopt=install_weak_deps=False',
+       '--setopt=skip_broken=False','--setopt=skip_unavailable=False','--assumeyes','install',*targets)
 assert native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}','kernel-devel')==version
 print(json.dumps({'native_signed_install':True,'packages':len(packages),'kernel_devel':version}))
 ''')

@@ -14,6 +14,64 @@ import nvidia_kernel_build as build
 
 
 class NvidiaBuildTests(unittest.TestCase):
+    def test_full_install_plan_includes_reverse_dependents_and_refuses_unsafe_items(self):
+        actions = SimpleNamespace(TransactionItemAction_INSTALL=1, TransactionItemAction_UPGRADE=2,
+                                  TransactionItemAction_REPLACED=6, TransactionItemAction_REASON_CHANGE=7,
+                                  transaction_item_action_to_string=str)
+        configured = {}
+        requested = []
+
+        def package(name, architecture='x86_64', repository='ceph-updates', location=None):
+            return SimpleNamespace(get_nevra=lambda: name, get_arch=lambda: architecture,
+                                   get_repo_id=lambda: repository,
+                                   get_location=lambda: location or 'Packages/p/' + name + '.rpm')
+
+        old = package('openssl-old')
+
+        def item(name, action=1, replacements=(), **kwargs):
+            return SimpleNamespace(get_action=lambda: action, get_package=lambda: package(name, **kwargs),
+                                   get_replaces=lambda: replacements)
+
+        items = [item('gcc'), item('openssl', 2, (old,)), item('glibc-langpack-en'),
+                 SimpleNamespace(get_action=lambda: 6, get_package=lambda: old)]
+        transaction = SimpleNamespace(get_problems=lambda: problem,
+                                      get_transaction_packages=lambda: items)
+        sack = SimpleNamespace(create_repo=lambda name: SimpleNamespace(
+            get_config=lambda: configured.setdefault(name, SimpleNamespace())), load_repos=lambda: None)
+        config = SimpleNamespace()
+        base = SimpleNamespace(load_config=lambda: None, get_config=lambda: config, setup=lambda: None,
+                               get_repo_sack=lambda: sack)
+        bindings = SimpleNamespace(transaction=actions, base=SimpleNamespace(
+            Base=lambda: base, GoalProblem_NO_PROBLEM=0,
+            Goal=lambda _base: SimpleNamespace(add_rpm_install=requested.append, resolve=lambda: transaction)))
+        problem = 0
+        plan = driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT)
+        self.assertEqual(requested, ['gcc'])
+        self.assertEqual(len(plan['transaction']), 4)
+        self.assertEqual(len(plan['urls']), 3)
+        self.assertTrue(any('/openssl.rpm' in url for url in plan['urls']))
+        self.assertTrue(any('/glibc-langpack-en.rpm' in url for url in plan['urls']))
+        self.assertFalse(config.plugins or config.install_weak_deps or config.skip_broken or config.skip_unavailable)
+        self.assertTrue(config.gpgcheck)
+        self.assertEqual(set(configured), {'ceph-base', 'ceph-updates'})
+        for change in ({'action': 3}, {'action': 5}, {'architecture': 'i686'},
+                       {'repository': 'foreign'}, {'location': 'Packages/../foreign.rpm'},
+                       {'location': '/Packages/foreign.rpm'}, {'location': 'Packages//foreign.rpm'}):
+            items.append(item('unsafe', **change))
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT)
+            items.pop()
+        items.pop()
+        with self.assertRaisesRegex(RuntimeError, 'unexplained'):
+            driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT)
+        problem = 1
+        with self.assertRaisesRegex(RuntimeError, 'solver'):
+            driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT)
+        problem = 0
+        items.clear()
+        with self.assertRaisesRegex(RuntimeError, 'empty'):
+            driver.package_plan(bindings, ['gcc'], driver.GUEST_ROOT)
+
     def test_source_inventory_refuses_links_traversal_duplicates_and_missing_entries(self):
         members = [tarfile.TarInfo(build.SOURCE_ROOT + '/Makefile')]
         members += [tarfile.TarInfo(build.SOURCE_ROOT + '/file' + str(i)) for i in range(4641)]
