@@ -21,10 +21,9 @@ class LegacyAcceptance(unittest.TestCase):
             pending = copy.deepcopy(value)
             pending['rotating'][entity][0] = 'aes'
             self.assertFalse(subject.service_keys_ready(pending, [subject.WARNING]))
-            with self.assertRaisesRegex(RuntimeError, 'contradicts'):
-                subject.service_keys_ready(pending, [])
-        with self.assertRaisesRegex(RuntimeError, 'contradicts'):
-            subject.service_keys_ready(value, [subject.WARNING])
+            self.assertFalse(subject.service_keys_ready(pending, []))
+        for check in subject.ERRORS | {subject.WARNING}:
+            self.assertFalse(subject.service_keys_ready(value, [check]))
 
     def test_missing_foreign_or_changed_core_client_health_never_passes(self):
         for mutate in (lambda v: v['rotating'].pop('mds.*'),
@@ -36,7 +35,7 @@ class LegacyAcceptance(unittest.TestCase):
             mutate(value)
             with self.assertRaises(RuntimeError):
                 subject.service_keys_ready(value, [])
-        for check in subject.ERRORS | {'MON_DOWN', 'OSD_DOWN'}:
+        for check in {'MON_DOWN', 'OSD_DOWN'}:
             with self.assertRaises(RuntimeError):
                 subject.service_keys_ready(self.types(), [check])
 

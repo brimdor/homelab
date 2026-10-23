@@ -37,13 +37,12 @@ def service_keys_ready(types, checks):
                 any(kind not in {'aes', 'aes256k'} for kind in kinds) for kinds in rotating.values())):
         raise RuntimeError('native rotating family inventory differs')
     if (any(types['entities'].get(entity) != 'aes256k' for entity in CORE) or
-            types['entities'].get('client.ordinary') != 'aes' or set(checks) & ERRORS or
+            types['entities'].get('client.ordinary') != 'aes' or
             set(checks) - AUTH_FINDINGS - {'POOL_NO_REDUNDANCY'}):
         raise RuntimeError('core/client authentication or native health differs')
     ready = all(kind == 'aes256k' for entity in SERVICES for kind in rotating[entity])
-    if ready == (WARNING in checks):
-        raise RuntimeError('native service-key metadata contradicts warning state')
-    return ready
+    # Separate native metadata and tick-published health reads are not atomic.
+    return ready and not (set(checks) & (ERRORS | {WARNING}))
 
 
 def key_types(value):
@@ -258,16 +257,15 @@ osd op num threads per shard = 1
         self.transition_progress = {'initial_health': initial_health, 'initial_types': before,
                                     'observations': observations}
         while True:
+            monmap = json.loads(self.ceph('mon', 'dump', '--format=json'))
+            if monmap['auth_service_cipher']['name'] != 'aes256k':
+                raise RuntimeError('native service cipher changed during transition')
             health = self.steady()
             self.verify()
             current = key_types(json.loads(self.ceph('auth', 'dump-keys', '--format=json')))
             observations.append({'elapsed_seconds': round(time.time() - started),
                                  'health': health, 'key_types': current})
             (self.root / 'transition-progress.json').write_text(json.dumps(self.transition_progress))
-            if (any(current['entities'][entity] != 'aes256k' for entity in CORE) or
-                    current['entities']['client.ordinary'] != 'aes' or
-                    {'AUTH_INSECURE_SERVICE_KEY_TYPE', 'AUTH_INSECURE_SERVICE_TICKETS'} & set(health['checks'])):
-                raise RuntimeError('core migration incomplete or retained client type changed')
             if service_keys_ready(current, health['checks']):
                 if 'AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE' in health['checks']:
                     raise RuntimeError('native rotating-key warning contradicts metadata')

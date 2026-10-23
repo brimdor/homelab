@@ -146,30 +146,60 @@ class LegacyTransitionTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'authentication differ'):
             runtime.monitor_key_hash()
 
-    def test_transition_retains_type_only_snapshot_before_native_health_refusal(self):
+    def test_transition_retains_pending_health_and_accepts_only_native_convergence(self):
         runtime = object.__new__(subject.Runtime)
         before = self.metadata()
+        before['data']['rotating_secrets'] = [
+            {'entity': {'type_str': family.split('.')[0], 'id': '*'}, 'secrets': {'keys': [
+                {'id': number, 'expiring_key': {'key': {'type_str': 'aes'}}} for number in range(3)]}}
+            for family in sorted(subject.SERVICES | {'auth.*'})]
         after = copy.deepcopy(before)
         for row in after['data']['secrets']:
             if row['entity']['type_str'] + '.' + row['entity']['id'] in subject.CORE:
                 row['auth']['key']['type_str'] = 'aes256k'
+        for row in after['data']['rotating_secrets']:
+            if row['entity']['type_str'] != 'auth':
+                for key in row['secrets']['keys']:
+                    key['expiring_key']['key']['type_str'] = 'aes256k'
         runtime.command = Mock(return_value=Mock(stdout=b'ceph version 20.2.4 native'))
         runtime.start = runtime.verify = runtime.rotate_core = Mock()
         runtime.monitor_key_hash = Mock(side_effect=['old-hash', 'new-hash'])
-        runtime.steady = Mock(side_effect=[{'status': 'HEALTH_ERR', 'checks': []},
-                                          {'status': 'HEALTH_ERR', 'checks': ['AUTH_INSECURE_SERVICE_TICKETS']}])
-        runtime.ceph = Mock(side_effect=[json.dumps(before).encode(), b'',
-                                        b'{"auth_service_cipher":{"name":"aes256k"}}', json.dumps(after).encode()])
+        pending = {'status': 'HEALTH_ERR', 'checks': ['AUTH_INSECURE_SERVICE_TICKETS']}
+        clear = {'status': 'HEALTH_WARN', 'checks': ['AUTH_INSECURE_CLIENT_KEY_TYPE']}
+        runtime.steady = Mock(side_effect=[pending, pending, clear])
+        dumps = iter([before, after, after])
+        cipher = b'{"auth_service_cipher":{"name":"aes256k"}}'
+        def ceph(*args):
+            if args == ('auth', 'dump-keys', '--format=json'):
+                return json.dumps(next(dumps)).encode()
+            if args == ('mon', 'dump', '--format=json'):
+                return cipher
+            self.assertEqual(args, ('mon', 'set', 'auth_service_cipher', 'aes256k'))
+            return b''
+        runtime.ceph = Mock(side_effect=ceph)
+        with tempfile.TemporaryDirectory() as directory, patch.object(subject.time, 'sleep') as sleep:
+            runtime.root = Path(directory)
+            (runtime.root / 'baseline.json').write_text('{"monitor_key_sha256":"old-hash"}')
+            result = runtime.transition()
+            saved = json.loads((runtime.root / 'transition-progress.json').read_text())
+        self.assertTrue(result['natural_legacy_transition'])
+        self.assertEqual(saved, runtime.transition_progress)
+        self.assertEqual(saved['observations'][0]['health'], pending)
+        self.assertEqual(saved['observations'][1]['health'], clear)
+        self.assertEqual(saved['observations'][0]['key_types']['entities']['mon.'], 'aes256k')
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(saved))
+        sleep.assert_called_once_with(60)
+        self.assertEqual(runtime.ceph.call_args_list.count(
+            unittest.mock.call('mon', 'dump', '--format=json')), 3)
+        runtime.monitor_key_hash = Mock(side_effect=['old-hash', 'new-hash'])
+        runtime.steady = Mock(return_value=pending)
+        runtime.ceph = Mock(side_effect=[json.dumps(before).encode(), b'', cipher,
+                                       b'{"auth_service_cipher":{"name":"aes"}}'])
         with tempfile.TemporaryDirectory() as directory:
             runtime.root = Path(directory)
             (runtime.root / 'baseline.json').write_text('{"monitor_key_sha256":"old-hash"}')
-            with self.assertRaisesRegex(RuntimeError, 'core migration incomplete'):
+            with self.assertRaisesRegex(RuntimeError, 'service cipher changed'):
                 runtime.transition()
-            saved = json.loads((runtime.root / 'transition-progress.json').read_text())
-        self.assertEqual(saved, runtime.transition_progress)
-        self.assertEqual(saved['observations'][0]['health']['checks'], ['AUTH_INSECURE_SERVICE_TICKETS'])
-        self.assertEqual(saved['observations'][0]['key_types']['entities']['mon.'], 'aes256k')
-        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(saved))
 
 
 if __name__ == '__main__':
