@@ -3,7 +3,9 @@
 import argparse
 import ast
 import hashlib
+import json
 from pathlib import Path
+import re
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -67,31 +69,79 @@ class KernelQualificationTests(unittest.TestCase):
                         with self.assertRaisesRegex(RuntimeError, 'boot or preserved identity'):
                             fixture.reboot(subject.VERSION, before)
 
-    def test_actual_boot_selection_refuses_foreign_default_or_missing_files(self):
-        tree = ast.parse(Path(subject.__file__).read_text())
-        body = next(node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and
-                    isinstance(node.value, str) and 'initial_default=' in node.value)
-        program = compile(body[body.index('initial_default='):body.index('print(json.dumps(')],
-                          '<actual-native-boot-selection>', 'exec')
-        candidate = '/boot/vmlinuz-' + subject.VERSION
-        for default, files, fails in (('/boot/vmlinuz-old', True, False), (candidate, True, False),
-                                      ('/boot/vmlinuz-foreign', True, True), (candidate, False, True)):
-            calls = []
-            def native(*args):
-                calls.append(args)
-                return default if len(calls) == 1 else candidate
-            namespace = {'version': subject.VERSION, 'old': 'old', 'native': native,
-                         'json': __import__('json'),
-                         'pathlib': SimpleNamespace(Path=lambda _: SimpleNamespace(
-                             is_file=lambda: files, glob=lambda _: []))}
-            with self.subTest(default=default, files=files):
-                if fails:
-                    with self.assertRaises((AssertionError, RuntimeError)):
-                        exec(program, namespace)
-                    self.assertEqual(len(calls), 1)
+    def test_actual_default_helper_checks_bls_files_layout_vendor_and_saved_entry(self):
+        fixture = object.__new__(subject.Qualification)
+        fixture.ssh = []
+        captured = []
+        fixture.command = lambda _args, **kwargs: captured.append(kwargs['data']) or b'{}'
+        fixture.guest('print(json.dumps({}))')
+        function = next(node for node in ast.parse(captured[0]).body
+                        if isinstance(node, ast.FunctionDef) and node.name == 'default_kernel')
+        program = compile(ast.Module(body=[function], type_ignores=[]), '<actual-default-helper>', 'exec')
+        cases = ('normal', 'btrfs-prefix', 'foreign-display', 'wrong-layout', 'changed-vendor',
+                 'modified-rpm', 'duplicate-id', 'unsafe-id', 'wrong-version', 'duplicate-version',
+                 'wrong-linux', 'wrong-initrd', 'missing-initrd', 'symlink-kernel', 'wrong-saved')
+        for case in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                kernel = '/boot/vmlinuz-' + subject.VERSION
+                initrd = '/boot/initramfs-' + subject.VERSION + '.img'
+                entry_id = 'a' * 32 + '-' + subject.VERSION
+                entry = root / 'boot/loader/entries' / (entry_id + '.conf')
+                entry.parent.mkdir(parents=True)
+                text = 'version ' + subject.VERSION + '\nlinux ' + kernel + '\ninitrd ' + initrd + '\n'
+                if case == 'duplicate-version':
+                    text += 'version ' + subject.VERSION + '\n'
+                elif case == 'wrong-linux':
+                    text = text.replace('linux ' + kernel, 'linux /boot/foreign')
+                elif case == 'wrong-initrd':
+                    text = text.replace('initrd ' + initrd, 'initrd /boot/foreign.img')
+                elif case == 'wrong-version':
+                    text = text.replace('version ' + subject.VERSION, 'version foreign')
+                entry.write_text(text)
+                for name in (kernel, initrd, '/usr/bin/grubby'):
+                    path = root / name.lstrip('/')
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b'synthetic signed fixture file')
+                if case == 'missing-initrd':
+                    (root / initrd.lstrip('/')).unlink()
+                if case == 'symlink-kernel':
+                    path = root / kernel.lstrip('/')
+                    path.unlink()
+                    path.symlink_to(root / initrd.lstrip('/'))
+                prefix = '' if case == 'normal' else '/boot'
+                reported = '/boot/foreign' if case == 'foreign-display' else prefix + kernel
+                info = ('index=0\nkernel=' + json.dumps(reported) + '\ninitrd=' +
+                        json.dumps(prefix + initrd) + '\nid=' + json.dumps(
+                            '../foreign' if case == 'unsafe-id' else entry_id) + '\n')
+                if case == 'duplicate-id':
+                    info += 'id=' + json.dumps(entry_id) + '\n'
+                def native(*args):
+                    if args == ('grubby', '--info=DEFAULT'):
+                        return info
+                    if args == ('grubby', '--default-kernel'):
+                        return reported
+                    if args == ('findmnt', '-n', '-o', 'TARGET,FSTYPE,FSROOT', '-T', '/boot'):
+                        return '/boot ext4 /' if case == 'wrong-layout' else '/boot btrfs /boot'
+                    if args == ('rpm', '-V', 'grubby'):
+                        if case == 'modified-rpm':
+                            raise RuntimeError('native vendor verification refused')
+                        return ''
+                    if args == ('grub2-editenv', '/boot/grub2/grubenv', 'list'):
+                        return 'saved_entry=' + ('foreign' if case == 'wrong-saved' else entry_id)
+                    raise AssertionError('unexpected native command')
+                digest = ('0' * 64 if case == 'changed-vendor' else
+                          '8090dcec49248f2cc92d72581d093171f1dbab3b3d0c8d9467364f92a6ac2855')
+                namespace = {'pathlib': SimpleNamespace(Path=lambda value: root / value.lstrip('/')),
+                             'json': json, 're': re, 'native': native,
+                             'hashlib': SimpleNamespace(sha256=lambda _: SimpleNamespace(hexdigest=lambda: digest))}
+                exec(program, namespace)
+                if case in ('normal', 'btrfs-prefix'):
+                    self.assertEqual(namespace['default_kernel']((subject.VERSION,), True), {
+                        'version': subject.VERSION, 'reported_kernel': reported, 'entry_id': entry_id})
                 else:
-                    exec(program, namespace)
-                    self.assertIn(('grubby', '--set-default', candidate), calls)
+                    with self.assertRaises((AssertionError, RuntimeError)):
+                        namespace['default_kernel']((subject.VERSION,), True)
 
 
 if __name__ == '__main__':

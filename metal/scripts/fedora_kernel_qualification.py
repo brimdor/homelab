@@ -25,7 +25,7 @@ class Qualification(fedora.Qualification):
         super().__init__(args)
 
     def guest(self, body):
-        header = 'version=' + repr(VERSION) + '\npackages=' + repr(PACKAGES) + '\n' + '''import pathlib,subprocess,json,hashlib
+        header = 'version=' + repr(VERSION) + '\npackages=' + repr(PACKAGES) + '\n' + '''import pathlib,subprocess,json,hashlib,re
 assert subprocess.check_output(['hostname']).strip()==b'qualification-fedora44'
 assert 'VERSION_ID=44' in pathlib.Path('/etc/os-release').read_text()
 assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
@@ -33,6 +33,39 @@ def native(*args):
  result=subprocess.run(args,capture_output=True)
  if result.returncode:raise RuntimeError('offline kernel command failed '+json.dumps({'command':list(args),'exit':result.returncode,'stderr':result.stderr.decode(errors='replace')[-1500:]}))
  return result.stdout.decode()
+def default_kernel(allowed,require_saved=False):
+ fields={}
+ for line in native('grubby','--info=DEFAULT').splitlines():
+  key,separator,value=line.partition('=')
+  if key not in ('index','kernel','initrd','id'):continue
+  assert separator and key not in fields
+  fields[key]=value if key=='index'else json.loads(value)
+ assert set(fields)=={'index','kernel','initrd','id'} and fields['index'].isdigit()
+ matches=[value for value in allowed if re.fullmatch('[0-9a-f]{32}-'+re.escape(value),fields['id'])]
+ assert len(matches)==1
+ selected=matches[0];entry=pathlib.Path('/boot/loader/entries')/(fields['id']+'.conf')
+ assert entry.is_file() and not entry.is_symlink()
+ values={}
+ for line in entry.read_text().splitlines():
+  pair=line.split(None,1)
+  if not pair or pair[0]not in ('version','linux','initrd'):continue
+  assert len(pair)==2 and pair[0]not in values
+  values[pair[0]]=pair[1]
+ expected={'version':selected,'linux':'/boot/vmlinuz-'+selected,'initrd':'/boot/initramfs-'+selected+'.img'}
+ assert values==expected
+ for key in ('linux','initrd'):
+  path=pathlib.Path(expected[key]);assert path.is_file() and not path.is_symlink()
+ reported=native('grubby','--default-kernel').strip();prefix=''
+ if reported!=expected['linux']:
+  assert reported=='/boot'+expected['linux']
+  assert native('findmnt','-n','-o','TARGET,FSTYPE,FSROOT','-T','/boot').split()==['/boot','btrfs','/boot']
+  assert hashlib.sha256(pathlib.Path('/usr/bin/grubby').read_bytes()).hexdigest()=='8090dcec49248f2cc92d72581d093171f1dbab3b3d0c8d9467364f92a6ac2855'
+  assert not native('rpm','-V','grubby');prefix='/boot'
+ assert fields['kernel']==reported and fields['initrd']==prefix+expected['initrd']
+ if require_saved:
+  saved=[line.partition('=')[2]for line in native('grub2-editenv','/boot/grub2/grubenv','list').splitlines()if line.startswith('saved_entry=')]
+  assert saved==[fields['id']]
+ return {'version':selected,'reported_kernel':reported,'entry_id':fields['id']}
 '''
         return json.loads(self.command(self.ssh + ['sudo python3 -B -'], data=(header + body).encode()))
 
@@ -52,7 +85,7 @@ def native(*args):
                 any(current[key] != previous[key] for key in ('machine', 'root_uuid', 'architecture'))):
             raise RuntimeError('native kernel boot or preserved identity differs')
         self.guest('''
-assert native('grubby','--default-kernel').strip()=='/boot/vmlinuz-'+native('uname','-r').strip()
+default_kernel((native('uname','-r').strip(),),require_saved=True)
 result=subprocess.run(['systemctl','is-enabled','dnf5-automatic.timer'],capture_output=True)
 assert result.returncode==1 and result.stdout.strip()==b'masked'
 assert native('sysctl','-n','vm.swappiness').strip()=='61'
@@ -83,14 +116,12 @@ native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-re
 native('/usr/bin/dnf5','--disable-repo=*','--enable-repo=qualification','--setopt=gpgcheck=True',
        '--setopt=localpkg_gpgcheck=True','--setopt=install_weak_deps=False','--assumeyes','install',
        *(str(assets/name)for name in sorted(packages)))
-initial_default=native('grubby','--default-kernel').strip()
-if initial_default not in ('/boot/vmlinuz-'+old,'/boot/vmlinuz-'+version):
- raise RuntimeError('unrecognized native kernel default '+json.dumps({'initial_default':initial_default,'old':old,'candidate':version,'kernel_files':sorted(p.name for p in pathlib.Path('/boot').glob('vmlinuz-*')),'candidate_initramfs_present':pathlib.Path('/boot/initramfs-'+version+'.img').is_file()}))
+initial_default=default_kernel((old,version))
 assert pathlib.Path('/boot/vmlinuz-'+version).is_file()
 assert pathlib.Path('/boot/vmlinuz-'+old).is_file()
 assert pathlib.Path('/boot/initramfs-'+version+'.img').is_file()
 native('grubby','--set-default','/boot/vmlinuz-'+version)
-assert native('grubby','--default-kernel').strip()=='/boot/vmlinuz-'+version
+default_kernel((version,),require_saved=True)
 print(json.dumps({'native_signatures_verified':len(packages),'signed_offline_install':True,'old_kernel_retained':old,'initial_default':initial_default,'default_kernel':version}))
 ''')
         updated = self.reboot(VERSION, before)
@@ -102,13 +133,13 @@ print(json.dumps({'native_modules_loaded':modules,'kernel_client_io_unqualified'
 ''')
         self.guest('old=' + repr(before['kernel']) + '\n' + '''
 native('grubby','--set-default','/boot/vmlinuz-'+old)
-assert native('grubby','--default-kernel').strip()=='/boot/vmlinuz-'+old
+default_kernel((old,),require_saved=True)
 print(json.dumps({'rollback_selected':old}))
 ''')
         rollback = self.reboot(before['kernel'], updated)
         self.guest('''
 native('grubby','--set-default','/boot/vmlinuz-'+version)
-assert native('grubby','--default-kernel').strip()=='/boot/vmlinuz-'+version
+default_kernel((version,),require_saved=True)
 print(json.dumps({'candidate_reselected':version}))
 ''')
         final = self.reboot(VERSION, rollback)
