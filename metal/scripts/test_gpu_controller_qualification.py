@@ -100,6 +100,17 @@ class ControllerQualificationTests(unittest.TestCase):
             command.return_value = Mock(returncode=0, stdout=b'unready')
             self.assertFalse(subject.ready_endpoint('a' * 64))
 
+    def test_startup_diagnostic_keeps_errors_without_opaque_or_credential_material(self):
+        raw = (b'ordinary unselected output\nunknown flag: --example\n'
+               b'{"msg":"startup failed","error":"token=PRIVATE_SENTINEL password=PRIVATE_PASSWORD"}\n'
+               b'{"msg":"PRIVATE KEY must not be retained"}\n'
+               b'Error: opaque AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n')
+        value = subject.startup_diagnostic(raw)
+        self.assertIn('unknown flag: --example', value)
+        self.assertIn('[opaque]', value[-1])
+        self.assertNotIn('PRIVATE', str(value))
+        self.assertNotIn('unselected', str(value))
+
 
 if __name__ == '__main__':
     unittest.main()

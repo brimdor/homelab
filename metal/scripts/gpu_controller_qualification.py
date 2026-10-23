@@ -118,6 +118,29 @@ def workload_inventory(workloads, policy_uid):
     return inventory
 
 
+def startup_diagnostic(raw):
+    """Keep public startup errors, excluding credentials and long opaque values."""
+    messages = []
+    for line in raw.decode(errors='replace').splitlines():
+        try:
+            row = json.loads(line)
+        except ValueError:
+            row = None
+        if isinstance(row, dict):
+            text = ' '.join(row[key] for key in ('msg', 'error') if isinstance(row.get(key), str))
+        elif line.startswith(('Error', 'error', 'unknown', 'flag ', 'panic:', 'FATAL', 'Usage:')):
+            text = line
+        else:
+            continue
+        if any(term in text for term in ('PRIVATE KEY', 'BEGIN CERTIFICATE')):
+            continue
+        text = re.sub(r'(?i)(token|password|secret|client-key-data|client-certificate-data|certificate-authority-data)'
+                      r'(["\s:=]+)\S+', r'\1\2[redacted]', text)
+        text = re.sub(r'[A-Za-z0-9_+/=-]{40,}', '[opaque]', text)
+        messages.append(text[:1024])
+    return messages[-8:]
+
+
 def qualify(bundle, run_id):
     digest = validate_bundle(bundle)
 
@@ -261,7 +284,10 @@ def qualify(bundle, run_id):
                                   controller_only_no_device_acceptance=True, workloads=inventory)
                 finally:
                     if operator_id:
-                        require_operator(common.inspect(operator_id), api_id, scratch, identity, stage)
+                        current_state = common.inspect(operator_id)
+                        require_operator(current_state, api_id, scratch, identity, stage)
+                        record['process_state'] = {key: current_state['State'].get(key)
+                                                   for key in ('Running', 'ExitCode', 'OOMKilled')}
                         common.docker('rm', '--force', '--volumes', operator_id)
                         if common.docker('inspect', operator_id, check=False).returncode == 0:
                             raise RuntimeError('owned GPU operator container remains')
@@ -278,6 +304,7 @@ def qualify(bundle, run_id):
                     with output_lock:
                         record['attached_output_sha256'] = hashlib.sha256(output).hexdigest()
                         record['attached_output_retained_bytes'] = len(output)
+                        record['public_startup_diagnostic'] = startup_diagnostic(output)
                         record['public_error_categories'] = [term.decode() for term in (
                             b'permission denied', b'no such file', b'connection refused', b'failed to')
                             if term in output.lower()]
