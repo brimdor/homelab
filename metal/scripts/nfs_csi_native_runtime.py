@@ -49,6 +49,16 @@ def persist(stage, **value):
     Path('/work/native-csi-evidence.json').write_text(json.dumps(EVIDENCE, indent=2))
 
 
+def k3s_failure_messages(raw):
+    selected = []
+    for line in raw.decode(errors='replace').splitlines():
+        if (not re.search(r'error|fail|fatal|register.*node', line, re.I) or
+                re.search(r'token|password|secret|credential|authorization|private.key', line, re.I)):
+            continue
+        selected.append(re.sub(r'[A-Za-z0-9+/=_-]{40,}', '[redacted]', line)[:500])
+    return selected[-12:]
+
+
 def pod_manifest(name, claim, image, uid=1000, group=1000, fs_group=1000):
     namespace = BACKUP_NS if uid == 0 else CLIENT_NS
     security = {'runAsUser': uid, 'runAsGroup': group, 'runAsNonRoot': uid != 0,
@@ -183,6 +193,7 @@ def setup(inputs):
                '--base-name', repository, str(images / ('image-' + str(number) + '.tar')))
         image = json.loads(native(K3S, 'crictl', 'inspecti', repository + '@' + record['digest']))
         assert repository + '@' + record['digest'] in image['status']['repoDigests']
+    kubectl('wait', '--for=create', 'node/' + NODE, '--timeout=900s')
     kubectl('wait', '--for=condition=Ready', 'nodes', '--all', '--timeout=900s')
     nodes = get('nodes')['items']
     assert len(nodes) == 1 and nodes[0]['metadata']['name'] == NODE
@@ -423,6 +434,9 @@ def main():
         EVIDENCE['accepted'] = True
     except Exception as error:
         EVIDENCE['error'] = type(error).__name__ + ': ' + str(error)
+        service_logs = subprocess.run(['journalctl', '-u', 'qualification-k3s.service', '--no-pager',
+                                       '--output=cat', '--lines=200'], capture_output=True)
+        EVIDENCE['k3s_service_errors'] = k3s_failure_messages(service_logs.stdout)
         logs = subprocess.run(['journalctl', '--no-pager', '--output=cat', '-n', '1000'], capture_output=True)
         EVIDENCE['safe_avcs'] = [line[:1500] for line in logs.stdout.decode(errors='replace').splitlines()
                                  if re.search(r'avc:.*denied', line, re.I) and not re.search(

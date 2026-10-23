@@ -16,6 +16,19 @@ import nfs_csi_native_runtime as runtime
 
 
 class NativeCSI(unittest.TestCase):
+    def test_k3s_failure_evidence_excludes_credentials_and_bounds_selected_messages(self):
+        raw = (b'normal service start\n'
+               b'failed to register node: connection refused\n'
+               b'error token=PRIVATE_SENTINEL\n'
+               b'failed private key PRIVATE_SENTINEL\n'
+               b'error opaque AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n')
+        messages = runtime.k3s_failure_messages(raw)
+        self.assertEqual(messages, ['failed to register node: connection refused', 'error opaque [redacted]'])
+        self.assertNotIn('PRIVATE_SENTINEL', str(messages))
+        bounded = runtime.k3s_failure_messages((b'error ' + b'x' * 600 + b'\n') * 30)
+        self.assertEqual(len(bounded), 12)
+        self.assertTrue(all(len(line) <= 500 for line in bounded))
+
     def archive(self, root, *, architecture='amd64', extra=False, symlink=False, corrupt=False):
         blobs = {}
 
