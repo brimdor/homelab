@@ -62,7 +62,8 @@ class Runtime(ModernRuntime):
                 raise RuntimeError('foreign synthetic manager identity')
             # libcephsqlite opens an independent RADOS connection, outside daemon CLI parsing.
             environment = os.environ | {'CEPH_CONF': '/work/ceph.conf',
-                                        'CEPH_KEYRING': '/work/mgr/keyring', 'CEPH_ARGS': '--name=mgr.a'}
+                                        'CEPH_KEYRING': '/work/mgr/keyring',
+                                        'CEPH_ARGS': '--name=mgr.a --debug-cephsqlite=10/10'}
         super().start(kind, identity, env=environment)
 
     def kernel_io(self):
@@ -135,8 +136,65 @@ class Runtime(ModernRuntime):
                 self.command(['rbd', 'device', 'unmap', device])
 
 
+def sqlite_messages(data):
+    """Select bounded public SQLite errors from this synthetic manager only."""
+    selected = []
+    for line in data.decode(errors='replace').splitlines():
+        if 'cephsqlite:' not in line:
+            continue
+        message = line[line.index('cephsqlite:'):]
+        if any(term in message.lower() for term in ('keyring', 'secret', 'password', 'token', 'private key')):
+            continue
+        selected.append(sanitized(message[:1024].encode()))
+    return selected[-48:]
+
+
+def manager_native_diagnostic(runtime):
+    logs = []
+    for name in ('mgr.log', 'mgr.a.native.log'):
+        path = runtime.root / name
+        if path.is_symlink():
+            raise RuntimeError('foreign synthetic manager log')
+        if path.is_file():
+            with path.open('rb') as source:
+                source.seek(max(0, path.stat().st_size - 131072))
+                raw = source.read(131072)
+            logs.append({'name': name, 'sample_sha256': hashlib.sha256(raw).hexdigest(),
+                         'sample_bytes': len(raw), 'sqlite_messages': sqlite_messages(raw)})
+    journal = runtime.command(['journalctl', '-k', '-b', '--no-pager', '--output=json',
+                               '--grep=avc:.*denied', '--lines=64'], check=False)
+    denials = []
+    for line in journal.stdout.splitlines():
+        text = json.loads(line).get('MESSAGE', '')
+        if not isinstance(text, str) or 'avc:' not in text or 'denied' not in text:
+            continue
+        fields = {}
+        for key in ('pid', 'comm', 'scontext', 'tcontext', 'tclass', 'permissive'):
+            found = re.search(r'\b' + key + r'=("[A-Za-z0-9_.:+-]+"|[A-Za-z0-9_.:+-]+)', text)
+            if found:
+                fields[key] = found.group(1).strip('"')
+        permissions = re.search(r'denied\s+\{([a-z_ ]+)\}', text)
+        if permissions:
+            fields['permissions'] = permissions.group(1).split()
+        denials.append(fields)
+    pools = json.loads(runtime.ceph('osd', 'pool', 'ls', 'detail', '--format=json'))
+    policies = []
+    for pool in pools:
+        if pool.get('pool_name') not in ('qualification', '.mgr'):
+            raise RuntimeError('foreign native diagnostic pool')
+        policy = {'name': pool['pool_name']}
+        for key in ('pool', 'size', 'min_size', 'pg_num'):
+            value = pool[key]
+            if type(value) is not int:
+                raise RuntimeError('native diagnostic pool shape changed')
+            policy[key] = value
+        policies.append(policy)
+    return {'logs': logs, 'kernel_avc_query_exit': journal.returncode,
+            'kernel_avc_denials': denials, 'pool_policies': policies}
+
+
 def manager_diagnostic(runtime):
-    """Retain only public module health, never auth metadata or arbitrary daemon logs."""
+    """Retain public module health and bounded native SQLite/AVC diagnostics."""
     value = json.loads(runtime.ceph('health', 'detail', '--format=json'))
     finding = value.get('checks', {}).get('MGR_MODULE_ERROR', {})
     def message(row):
@@ -144,10 +202,15 @@ def manager_diagnostic(runtime):
         if not isinstance(text, str):
             raise RuntimeError('manager diagnostic message shape changed')
         return sanitized(text.encode())
-    return {'health_status': value['status'], 'checks': sorted(value.get('checks', {})),
+    result = {'health_status': value['status'], 'checks': sorted(value.get('checks', {})),
             'manager_module_error': {'severity': finding.get('severity'),
                 'summary': message(finding.get('summary', {})),
                 'details': [message(row) for row in finding.get('detail', [])]}}
+    try:
+        result['native'] = manager_native_diagnostic(runtime)
+    except Exception as error:
+        result['native_diagnostic_error'] = type(error).__name__
+    return result
 
 
 def main():

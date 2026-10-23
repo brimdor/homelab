@@ -5,6 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
+import tempfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import ceph_kernel_runtime as kernel
@@ -71,13 +73,57 @@ class CephFSTests(unittest.TestCase):
                 fixture.start('mgr', 'a')
                 start.assert_called_once_with('mgr', 'a', env=kernel.os.environ | {
                     'CEPH_CONF': '/work/ceph.conf', 'CEPH_KEYRING': '/work/mgr/keyring',
-                    'CEPH_ARGS': '--name=mgr.a'})
+                    'CEPH_ARGS': '--name=mgr.a --debug-cephsqlite=10/10'})
                 self.assertEqual(kernel.os.environ['CEPH_ARGS'], 'parent-value')
                 start.reset_mock()
                 fixture.start('osd', '0')
                 start.assert_called_once_with('osd', '0', env=None)
                 with self.assertRaisesRegex(RuntimeError, 'foreign synthetic manager'):
                     fixture.start('mgr', 'foreign')
+
+    def test_sqlite_diagnostics_exclude_credentials_and_unrelated_log_lines(self):
+        raw = (b'cephsqlite: Open: cannot open striper: (13) Permission denied\n'
+               b'cephsqlite: read: read failed: (5) Input/output error\n'
+               b'cephsqlite: secret=PRIVATE_SENTINEL\n'
+               b'arbitrary unrelated PRIVATE_SENTINEL\n'
+               b'cephsqlite: opaque AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n')
+        messages = kernel.sqlite_messages(raw)
+        self.assertEqual(len(messages), 3)
+        self.assertIn('(13) Permission denied', messages[0])
+        self.assertIn('(5) Input/output error', messages[1])
+        self.assertNotIn('PRIVATE_SENTINEL', str(messages))
+        self.assertNotIn('AAAAAAAA', str(messages))
+        self.assertEqual(len(kernel.sqlite_messages(b'cephsqlite: error\n' * 100)), 48)
+
+    def test_native_manager_diagnostic_scopes_logs_pools_and_avc_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'mgr.log').write_text('cephsqlite: Open: cannot create ioctx: (2) No such file or directory\n')
+            calls = []
+            pool = {'pool_name': '.mgr', 'pool': 1, 'size': 1, 'min_size': 1, 'pg_num': 1,
+                    'foreign': 'PRIVATE_SENTINEL'}
+            def command(arguments, **kwargs):
+                calls.append((arguments, kwargs))
+                row = {'MESSAGE': 'avc: denied { read open } for pid=42 comm="ceph-mgr" '
+                       'scontext=system_u:system_r:unconfined_t:s0 '
+                       'tcontext=system_u:object_r:var_t:s0 tclass=file permissive=0 name="PRIVATE_SENTINEL"'}
+                return SimpleNamespace(returncode=0, stdout=json.dumps(row).encode())
+            fixture = SimpleNamespace(root=root, command=command,
+                                      ceph=lambda *args: json.dumps([pool]).encode())
+            value = kernel.manager_native_diagnostic(fixture)
+            self.assertEqual(value['pool_policies'][0]['name'], '.mgr')
+            self.assertEqual(value['kernel_avc_denials'][0]['permissions'], ['read', 'open'])
+            self.assertEqual(value['kernel_avc_denials'][0]['comm'], 'ceph-mgr')
+            self.assertIn('(2) No such file', value['logs'][0]['sqlite_messages'][0])
+            self.assertNotIn('PRIVATE_SENTINEL', str(value))
+            self.assertIn('--grep=avc:.*denied', calls[0][0])
+            pool['pool_name'] = 'production'
+            with self.assertRaisesRegex(RuntimeError, 'foreign native diagnostic pool'):
+                kernel.manager_native_diagnostic(fixture)
+            (root / 'mgr.log').unlink()
+            (root / 'mgr.log').symlink_to(root / 'foreign')
+            with self.assertRaisesRegex(RuntimeError, 'foreign synthetic manager log'):
+                kernel.manager_native_diagnostic(fixture)
 
     def test_pending_manager_failure_retains_only_sanitized_public_health(self):
         secret = 'A' * 64
