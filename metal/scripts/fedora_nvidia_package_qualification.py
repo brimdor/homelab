@@ -20,6 +20,17 @@ TARGETS = [*BUILD_TARGETS, 'nvidia-open-3:' + build.VERSION + '-1.fc44.noarch',
            'kmod-nvidia-open-dkms-3:' + build.VERSION + '-1.fc44.noarch']
 
 
+def verify_signature_output(text, vendor=False):
+    import re
+
+    lines = [line.strip() for line in text.splitlines() if re.search(r'\bsignature(?:,|:)', line, re.I)]
+    if not lines or any(not line.endswith(': OK') for line in lines):
+        raise RuntimeError('native RPM signature verification missing or failed')
+    if vendor and not any(re.search(r'key (?:ID|fingerprint:)\s*[0-9a-f]*73cd9b30:\s*OK$', line, re.I)
+                          for line in lines):
+        raise RuntimeError('native NVIDIA signature does not identify the pinned vendor key')
+
+
 class Qualification(Kernel):
     def run(self):
         metadata_root = self.args.work_dir / 'gpu-package-repositories'
@@ -38,7 +49,8 @@ print(json.dumps({'signed_dvd_binding':native('rpm','-q','python3-libdnf5').stri
             for relative, digest in value['files'].items():
                 self.transfer(metadata_root / name / relative, GUEST_ROOT + '/' + name + '/' + relative, digest)
         self.transfer(metadata_root / vendor.KEY, GUEST_ROOT + '/' + vendor.KEY, vendor.KEY_SHA256)
-        planner = 'import libdnf5\n' + inspect.getsource(package_plan) + '\n'
+        planner = ('import libdnf5\n' + inspect.getsource(package_plan) + '\n' +
+                   inspect.getsource(verify_signature_output) + '\n')
         selected = self.guest(planner + 'targets=' + repr(TARGETS) + '\n' +
                               'guest_root=' + repr(GUEST_ROOT) + '\nkey_sha=' + repr(vendor.KEY_SHA256) + '\n' + '''
 key=pathlib.Path(guest_root)/'73CD9B30.pub';assert hashlib.sha256(key.read_bytes()).hexdigest()==key_sha
@@ -68,8 +80,7 @@ print(json.dumps(package_plan(libdnf5,targets,guest_root,include_vendor=True)))
 for item in packages_to_verify:
  path=pathlib.Path(item['path']);assert hashlib.sha256(path.read_bytes()).hexdigest()==item['sha256']
  signature=native('rpmkeys','--checksig','--verbose',str(path))
- assert 'NOKEY' not in signature and 'NOT OK' not in signature and 'OK' in signature and 'Signature' in signature
- if '/nvidia-vendor/' in str(path):assert '73cd9b30' in signature.lower()
+ verify_signature_output(signature,vendor='/nvidia-vendor/' in str(path))
 assert package_plan(libdnf5,targets,guest_root,include_vendor=True)==expected_plan
 process=subprocess.run(['dnf5','--disable-repo=*','--enable-repo=ceph-base','--enable-repo=ceph-updates',
  '--enable-repo=nvidia-vendor','--setopt=plugins=False','--setopt=gpgcheck=True',

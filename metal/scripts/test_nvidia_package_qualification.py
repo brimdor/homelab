@@ -14,6 +14,18 @@ import nvidia_package_repository as vendor
 
 
 class NvidiaPackageTests(unittest.TestCase):
+    def test_native_rpm6_and_legacy_signature_formats_keep_verification_and_signer_guards(self):
+        current = 'Header OpenPGP V4 RSA/SHA512 signature, key ID 2b6cf03373cd9b30: OK\nHeader SHA256 digest: OK'
+        legacy = 'Header V4 RSA/SHA256 Signature, key ID 73cd9b30: OK'
+        for text in (current, legacy, current.replace('key ID 2b6cf033', 'key fingerprint: 991343d72b6cf033')):
+            driver.verify_signature_output(text, vendor=True)
+        driver.verify_signature_output(current.replace('73cd9b30', '31645531'))
+        for text in ('Header SHA256 digest: OK', current.replace(': OK', ': NOKEY'),
+                     current.replace(': OK', ': BAD'), current.replace(': OK', ': NOTTRUSTED'),
+                     current.replace('73cd9b30', '31645531'), current + '\n' + legacy.replace(': OK', ': BAD')):
+            with self.subTest(text=text), self.assertRaises(RuntimeError):
+                driver.verify_signature_output(text, vendor=True)
+
     def test_only_exact_repository_paths_and_metadata_bound_solver_urls(self):
         for path in ('nvidia-open-615.71.10-1.fc44.noarch.rpm', vendor.KEY):
             self.assertEqual(vendor.safe_path(path), path)
