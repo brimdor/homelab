@@ -15,6 +15,28 @@ import fedora_cephfs_kernel_qualification as driver
 
 
 class CephFSTests(unittest.TestCase):
+    def test_retired_mount_refusal_keeps_gate_and_records_only_typed_failure(self):
+        for message in (b'mount error 13 = Permission denied\n',
+                        b'mount error 1 = Operation not permitted\n'):
+            runtime.require_retired_mount_refusal(SimpleNamespace(returncode=32, stderr=message), None)
+        for code, mount, message in (
+                (0, None, b'mount error 13 = Permission denied\n'),
+                (32, {'owned': True}, b'mount error 13 = Permission denied\n'),
+                (32, None, b'mount error 110 = Connection timed out\n'),
+                (32, None, b'mount error 129 = Key was rejected by service\n'),
+                (32, None, b'PRIVATE_SENTINEL\nsecret=' + b'A' * 64 + b'\n')):
+            with self.subTest(code=code, mount=mount, message=message):
+                with self.assertRaises(RuntimeError) as failure:
+                    runtime.require_retired_mount_refusal(SimpleNamespace(returncode=code, stderr=message), mount)
+                evidence = json.loads(str(failure.exception).partition(': ')[2])
+                self.assertEqual(evidence['exit_code'], code)
+                self.assertEqual(evidence['mount_present'], mount is not None)
+                self.assertEqual(evidence['stderr_sha256'], hashlib.sha256(message).hexdigest())
+                self.assertNotIn('PRIVATE_SENTINEL', str(failure.exception))
+                self.assertNotIn('AAAA', str(failure.exception))
+                if b'110' in message:
+                    self.assertEqual(evidence['mount_errors'], [['110', 'Connection timed out']])
+
     def test_exact_mount_identity_and_encrypted_transport_required(self):
         fsid = '00000000-1111-2222-3333-444444444444'
         target = runtime.MOUNTS[0]

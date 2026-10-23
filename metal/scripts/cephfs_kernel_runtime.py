@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import select
 import signal
 import stat
@@ -19,6 +20,20 @@ from ceph_runtime_qualification import block_identity  # noqa: E402
 
 FILESYSTEM = 'qualificationfs'
 MOUNTS = (Path('/mnt/qualification-cephfs-a'), Path('/mnt/qualification-cephfs-b'))
+
+
+def require_retired_mount_refusal(result, mount):
+    refused = any(message in result.stderr.lower() for message in
+                  (b'permission denied', b'operation not permitted'))
+    if result.returncode == 0 or mount is not None or not refused:
+        errors = re.findall(r'^mount error ([0-9]{1,4}) = ([A-Za-z ]{1,100})$',
+                            result.stderr.decode(errors='replace'), re.MULTILINE)
+        evidence = {'exit_code': result.returncode, 'mount_present': mount is not None,
+                    'authentication_refusal_text': refused, 'mount_errors': errors,
+                    'stderr_bytes': len(result.stderr),
+                    'stderr_sha256': hashlib.sha256(result.stderr).hexdigest()}
+        raise RuntimeError('retired CephFS key lacks explicit fresh-authentication refusal: ' +
+                           json.dumps(evidence))
 
 
 def owned_mount(value, target, fsid):
@@ -222,10 +237,7 @@ with open(sys.argv[1],'r+b')as source:
             denied = self.command(['mount', '-t', 'ceph', 'filesystem@' + self.fsid + '.' + FILESYSTEM + '=/',
                     str(MOUNTS[0]), '-o', 'mon_addr=127.0.0.1:13300,secretfile=' + str(retired) +
                     ',noshare,ms_mode=secure,mount_timeout=10'], check=False)
-            if (denied.returncode == 0 or self.mount_state(MOUNTS[0]) is not None or
-                    not any(message in denied.stderr.lower() for message in
-                            (b'permission denied', b'operation not permitted'))):
-                raise RuntimeError('retired CephFS key lacks explicit fresh-authentication refusal')
+            require_retired_mount_refusal(denied, self.mount_state(MOUNTS[0]))
             secret.write_bytes(self.command(['ceph-authtool', str(keyring), '-n', 'client.filesystem', '-p']).stdout)
             self.mount_pair(secret)
             key_types = filesystem_key_types(json.loads(self.ceph('auth', 'dump-keys', '--format=json')))
