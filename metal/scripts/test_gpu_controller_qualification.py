@@ -24,7 +24,8 @@ class ControllerQualificationTests(unittest.TestCase):
             'User': '0', 'Entrypoint': ['gpu-operator'], 'Cmd': ['--leader-elect']},
             'Mounts': [{'Type': 'bind', 'Source': '/owned/' + source, 'Destination': destination, 'RW': False}
                        for source, destination in (('kubeconfig', '/qualification/kubeconfig'),
-                                                   ('gpu-os-release', '/host-etc/os-release'))]}
+                                                   ('gpu-os-release', '/host-etc/os-release'),
+                                                   ('gpu-namespace', '/var/run/secrets/kubernetes.io/serviceaccount/namespace'))]}
 
     def test_only_exact_owned_loopback_peer_readonly_inputs_and_process_are_allowed(self):
         stage, value = self.fixture()
@@ -40,6 +41,9 @@ class ControllerQualificationTests(unittest.TestCase):
                 subject.require_operator(changed, 'a' * 64, Path('/owned'), 'gpu103-owned', stage)
         for mutate in (lambda v: v['Mounts'][0].update(Source='/production/kubeconfig'),
                        lambda v: v['Mounts'][0].update(RW=True),
+                       lambda v: v['Mounts'].pop(),
+                       lambda v: v['Mounts'][-1].update(Source='/production/namespace'),
+                       lambda v: v['Mounts'][-1].update(Destination='/var/run/secrets/kubernetes.io/serviceaccount/token'),
                        lambda v: v['Config'].update(Image='nvcr.io/nvidia/gpu-operator:latest'),
                        lambda v: v['Config'].update(Cmd=['--foreign']),
                        lambda v: v['Config']['Labels'].update({'io.eaglepass.recovery-run': 'other'})):

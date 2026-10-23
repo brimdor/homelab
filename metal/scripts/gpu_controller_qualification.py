@@ -58,7 +58,8 @@ def require_operator(value, api_id, scratch, run_id, stage):
             value['Config'].get('Entrypoint') != ['gpu-operator'] or
             value['Config'].get('Cmd') != stage['operator']['args']):
         raise RuntimeError('GPU controller isolation or process identity changed')
-    mounts = {(str(scratch / 'kubeconfig'), '/qualification/kubeconfig', False)}
+    mounts = {(str(scratch / 'kubeconfig'), '/qualification/kubeconfig', False),
+              (str(scratch / 'gpu-namespace'), '/var/run/secrets/kubernetes.io/serviceaccount/namespace', False)}
     if stage['version'] in admission.VERSIONS[:3]:
         mounts.add((str(scratch / 'gpu-os-release'), '/host-etc/os-release', False))
     actual = value.get('Mounts', [])
@@ -177,6 +178,7 @@ def qualify(bundle, run_id):
         try:
             no_nodes()
             submit({'apiVersion': 'v1', 'kind': 'Namespace', 'metadata': {'name': 'gpu-operator'}}, 'create')
+            (scratch / 'gpu-namespace').write_text('gpu-operator')
             (scratch / 'gpu-os-release').write_text('NAME=Fedora\nID=fedora\nVERSION_ID=44\n')
             for stage in bundle['stages']:
                 record = {'version': stage['version'], 'accepted': False}
@@ -228,6 +230,8 @@ def qualify(bundle, run_id):
                             '--label=io.eaglepass.maintenance=103', '--label=io.eaglepass.recovery-run=' + identity,
                             '--label=io.eaglepass.gpu-version=' + stage['version'],
                             '--mount=type=bind,source=' + str(scratch / 'kubeconfig') + ',target=/qualification/kubeconfig,readonly',
+                            '--mount=type=bind,source=' + str(scratch / 'gpu-namespace') +
+                            ',target=/var/run/secrets/kubernetes.io/serviceaccount/namespace,readonly',
                             '--env=KUBECONFIG=/qualification/kubeconfig', '--entrypoint=gpu-operator']
                     for env in stage['operator']['env']:
                         value = env.get('value')
