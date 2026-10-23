@@ -205,9 +205,15 @@ images=pathlib.Path('/var/lib/rancher/k3s/agent/images');images.mkdir(parents=Tr
 shutil.move(str(assets/'airgap.tar.zst'),str(images/'airgap.tar.zst'));shutil.move(str(assets/'kured.tar'),str(images/'kured.tar'))
 wrapper=pathlib.Path('/usr/local/bin/qualification-kubectl');assert not wrapper.exists()
 wrapper.write_text('#!/bin/sh\\nset -eu\\nexport KUBECONFIG=/etc/rancher/k3s/k3s.yaml\\nexec /usr/local/bin/k3s kubectl "$@"\\n');wrapper.chmod(0o755)
+# Official airgap prerequisite: an inert dummy gateway, never a real egress route.
+network=pathlib.Path('/etc/systemd/system/qualification-airgap-route.service');assert not network.exists()
+assert json.loads(native('ip','-j','route','show','default'))==[]
+network.write_text('[Unit]\\nBefore=qualification-k3s.service\\n[Service]\\nType=oneshot\\nRemainAfterExit=yes\\nExecStart=/usr/sbin/ip link add dummy0 type dummy\\nExecStart=/usr/sbin/ip link set dummy0 up\\nExecStart=/usr/sbin/ip addr add 203.0.113.254/31 dev dummy0\\nExecStart=/usr/sbin/ip route add default via 203.0.113.255 dev dummy0 metric 1000\\n')
 unit=pathlib.Path('/etc/systemd/system/qualification-k3s.service');assert not unit.exists()
-unit.write_text('[Unit]\\nAfter=network-online.target\\nWants=network-online.target\\n[Service]\\nType=notify\\nKillMode=process\\nDelegate=yes\\nLimitNOFILE=1048576\\nTasksMax=infinity\\nTimeoutStartSec=0\\nExecStart=/usr/local/bin/k3s server --cluster-init --write-kubeconfig-mode=600 --disable=traefik,servicelb,local-storage,metrics-server,coredns --disable-network-policy --prefer-bundled-bin\\n[Install]\\nWantedBy=multi-user.target\\n')
+unit.write_text('[Unit]\\nAfter=network-online.target qualification-airgap-route.service\\nWants=network-online.target\\nRequires=qualification-airgap-route.service\\n[Service]\\nType=notify\\nKillMode=process\\nDelegate=yes\\nLimitNOFILE=1048576\\nTasksMax=infinity\\nTimeoutStartSec=0\\nExecStart=/usr/local/bin/k3s server --cluster-init --write-kubeconfig-mode=600 --disable=traefik,servicelb,local-storage,metrics-server,coredns --disable-network-policy --prefer-bundled-bin\\n[Install]\\nWantedBy=multi-user.target\\n')
 native('systemctl','daemon-reload');native('systemctl','enable','--now','qualification-k3s.service')
+routes=json.loads(native('ip','-j','route','show','default'))
+assert len(routes)==1 and routes[0]['dev']=='dummy0' and routes[0]['gateway']=='203.0.113.255' and routes[0]['metric']==1000
 pid=int(native('systemctl','show','qualification-k3s.service','--property=MainPID','--value'))
 process_context=pathlib.Path('/proc/'+str(pid)+'/attr/current').read_text().rstrip(chr(0)).strip()
 assert pid>1 and process_context.split(':')[2]=='container_runtime_t'
@@ -286,6 +292,8 @@ state=pathlib.Path('/sys/fs/selinux/enforce');assert value['enforcement']==(stat
 assert os.getxattr('/usr/local/bin/k3s','security.selinux').decode().rstrip(chr(0))==value['binary_context']
 pid=int(native('systemctl','show','qualification-k3s.service','--property=MainPID','--value'))
 assert pid>1 and pathlib.Path('/proc/'+str(pid)+'/attr/current').read_text().rstrip(chr(0)).strip()==value['process_context']
+routes=json.loads(native('ip','-j','route','show','default'))
+assert len(routes)==1 and routes[0]['dev']=='dummy0' and routes[0]['gateway']=='203.0.113.255' and routes[0]['metric']==1000
 print(json.dumps({'fresh_real_owner_host_hold_journal_resume':True,'pending_intent_exact':True,'replay_and_refused_completion_rejected':True,'all_native_service_starts_excluded':True,'no_automatic_release_or_uncordon':True,'same_node_and_daemonset_uids':True,'selinux_state_unchanged':True,'vendor_executable_context':value['binary_context'],'vendor_process_context':value['process_context'],'records':hop.inspect()['records']}))
 ''')
         return {'combined_qualification': True, 'primitive': primitive, 'before': before, 'after': after,
