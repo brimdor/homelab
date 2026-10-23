@@ -1,0 +1,32 @@
+[
+  {
+    "image": "registry.k8s.io/sig-storage/nfsplugin:v4.13.5",
+    "index_digest": "sha256:19162ec4fb3f56a7e53f578721b0d5b8e9c691c27d2789aecb17e9de60a94595",
+    "digest": "sha256:0d14d7e5f26cc31bcf27185f9a4995f435d56dd3414cc89f3313f4568af92ee1"
+  },
+  {
+    "image": "registry.k8s.io/sig-storage/csi-provisioner:v6.3.0",
+    "index_digest": "sha256:a4b0b1a37605b7b04a293e136edf7006ec1786a8eb3f4e5a945f81d667dcc371",
+    "digest": "sha256:54de28a6565647405647b34d092eefb4a51c7be14f29bdafc721773a5ec0600c"
+  },
+  {
+    "image": "registry.k8s.io/sig-storage/csi-resizer:v2.2.1",
+    "index_digest": "sha256:ea1d25e23479000c7e8eeb92d827df66258df4e482ca054c5e7ce3fc0f5c41a5",
+    "digest": "sha256:da560f720351d2c5ed1d3f85ad5a03d3935967a0586810eb2c1ea4d3109493fa"
+  },
+  {
+    "image": "registry.k8s.io/sig-storage/livenessprobe:v2.19.0",
+    "index_digest": "sha256:06da0d5b8908072f2e4522692aee8dc119fba7247a9658497e1153992cd777e9",
+    "digest": "sha256:c966d36f5353f71033c1a7b0321a9a670f8929af8740f714e455902b312a82a6"
+  },
+  {
+    "image": "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0",
+    "index_digest": "sha256:f9de845b170155199f2a2a3f9531cf13d78e31235e9db6b6582a8b0db0a50dad",
+    "digest": "sha256:0fc05c749072bea889beffc97499f6836f74aebe351c78ff8d90d671c35f04da"
+  },
+  {
+    "image": "docker.io/library/python:3.13-alpine",
+    "index_digest": "sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a",
+    "digest": "sha256:ba27df8b6499cc3756cff167690f3fcb5321faa1703b3a914df5f4fdadb32f05"
+  }
+]
