@@ -8,6 +8,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 import cilium_native_runtime as runtime
@@ -19,12 +20,13 @@ class NativeCiliumEvidence(unittest.TestCase):
         from unittest.mock import patch
 
         def failure(message):
-            return RuntimeError(json.dumps({'argv': ['k3s', 'kubectl'], 'exit': 1, 'stderr': [message]}))
+            return SimpleNamespace(returncode=1, stderr=message.encode(), stdout=b'')
 
         messages = ['Error from server (ServiceUnavailable): apiserver not ready',
                     'The connection to the server 127.0.0.1:6443 was refused - did you specify the right host or port?']
         with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
-                patch.object(runtime, 'kubectl', side_effect=[*[failure(value) for value in messages], b'ok']), \
+                patch.object(runtime.subprocess, 'run', side_effect=[*[failure(value) for value in messages],
+                                                                   SimpleNamespace(returncode=0, stdout=b'ok', stderr=b'')]), \
                 patch.object(runtime.time, 'sleep') as sleep:
             runtime.wait_api_ready()
             self.assertEqual(sleep.call_count, 2)
@@ -33,16 +35,35 @@ class NativeCiliumEvidence(unittest.TestCase):
         for message in ('Error from server (Forbidden): forbidden', 'x509: certificate unknown',
                         'Error from server (ServiceUnavailable): unrelated failure'):
             with self.subTest(message=message), patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
-                    patch.object(runtime, 'kubectl', side_effect=failure(message)), \
+                    patch.object(runtime.subprocess, 'run', return_value=failure(message)), \
                     patch.object(runtime.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
                 runtime.wait_api_ready()
             sleep.assert_not_called()
         with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
-                patch.object(runtime, 'kubectl', side_effect=failure(messages[0])), \
+                patch.object(runtime.subprocess, 'run', return_value=failure(messages[0])), \
                 patch.object(runtime.time, 'monotonic', side_effect=[0, 901, 901]), \
                 patch.object(runtime.time, 'sleep') as sleep, self.assertRaisesRegex(RuntimeError, '900 seconds'):
             runtime.wait_api_ready()
         sleep.assert_not_called()
+
+    def test_complete_readyz_startup_report_and_unknown_truncated_or_mixed_refusals(self):
+        checks = '[+]ping ok\n[+]etcd ok\n' + ''.join(
+            '[-]poststarthook/fixture-' + str(index) + ' failed: reason withheld\n' for index in range(20))
+        report = checks + 'readyz check failed'
+        prefix = 'Error from server (InternalError): an error on the server ('
+        suffix = ') has prevented the request from succeeding'
+        message = (prefix + json.dumps(report) + suffix).encode()
+        self.assertGreater(len(message), 500)
+        actual = runtime.api_readiness_failure(message)
+        self.assertEqual(actual['state'], 'readyz-startup-checks')
+        self.assertEqual(len(actual['checks']), 22)
+        for bad in (message[:500], message + b' PRIVATE_SENTINEL',
+                    (prefix + json.dumps(report.replace('reason withheld', 'PRIVATE_SENTINEL')) + suffix).encode(),
+                    (prefix + json.dumps(report.replace('[-]', '[+]')) + suffix).encode(),
+                    (prefix + json.dumps(checks) + suffix).encode(),
+                    b'Error from server (InternalError): unrelated failure', b'\xff'):
+            with self.subTest(bad=bad[:40]):
+                self.assertIsNone(runtime.api_readiness_failure(bad))
 
     def cri_info(self, configuration, binaries):
         return {'config': {'cni': {'binDir': '', 'binDirs': [str(binaries)],
