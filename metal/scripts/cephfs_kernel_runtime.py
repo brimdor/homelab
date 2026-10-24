@@ -20,20 +20,29 @@ from ceph_runtime_qualification import block_identity  # noqa: E402
 
 FILESYSTEM = 'qualificationfs'
 MOUNTS = (Path('/mnt/qualification-cephfs-a'), Path('/mnt/qualification-cephfs-b'))
+MDS_UNREACHABLE = (b'mount error: no mds (Metadata Server) is up. '
+                   b'The cluster might be laggy, or you may not be authorized\n')
 
 
-def require_retired_mount_refusal(result, mount):
+def require_retired_mount_refusal(result, mount, monitor_refusals=0):
     refused = any(message in result.stderr.lower() for message in
                   (b'permission denied', b'operation not permitted'))
-    if result.returncode == 0 or mount is not None or not refused:
+    ambiguous = result.stderr == MDS_UNREACHABLE
+    server_refused = (ambiguous and result.returncode == 32 and
+                      type(monitor_refusals) is int and monitor_refusals > 0)
+    if result.returncode == 0 or mount is not None or not (refused or server_refused):
         errors = re.findall(r'^mount error ([0-9]{1,4}) = ([A-Za-z ]{1,100})$',
                             result.stderr.decode(errors='replace'), re.MULTILINE)
         evidence = {'exit_code': result.returncode, 'mount_present': mount is not None,
                     'authentication_refusal_text': refused, 'mount_errors': errors,
+                    'ambiguous_mds_message': ambiguous,
+                    'fresh_monitor_key_refusals': monitor_refusals if type(monitor_refusals) is int else None,
                     'stderr_bytes': len(result.stderr),
                     'stderr_sha256': hashlib.sha256(result.stderr).hexdigest()}
         raise RuntimeError('retired CephFS key lacks explicit fresh-authentication refusal: ' +
                            json.dumps(evidence))
+    return {'helper_exit': result.returncode, 'direct_permission_refusal': refused,
+            'ambiguous_mds_message': ambiguous, 'fresh_monitor_key_refusals': monitor_refusals}
 
 
 def owned_mount(value, target, fsid):
@@ -95,6 +104,23 @@ print(json.dumps({'files':result,'payload_bytes':32*8192,'rename_hardlink_symlin
 
 
 class Runtime(KernelRuntime):
+    def auth_log_position(self):
+        info = (self.root / 'mon.log').lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid():
+            raise RuntimeError('foreign synthetic authentication log')
+        return info.st_dev, info.st_ino, info.st_size
+
+    def fresh_auth_refusals(self, before):
+        descriptor = os.open(self.root / 'mon.log', os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, 'rb') as source:
+            info = os.fstat(source.fileno())
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or
+                    (info.st_dev, info.st_ino) != before[:2] or info.st_size < before[2]):
+                raise RuntimeError('synthetic authentication log replaced or truncated')
+            source.seek(before[2])
+            return sum(bool(re.search(rb'cephx server client\.filesystem:\s+unexpected key:', line))
+                       for line in source)
+
     def mount_state(self, target):
         result = self.command(['findmnt', '--json', '--mountpoint', str(target),
                                '--output=TARGET,SOURCE,FSTYPE,OPTIONS,MAJ:MIN'], check=False)
@@ -234,10 +260,14 @@ with open(sys.argv[1],'r+b')as source:
             retired.write_bytes(secret.read_bytes())
             retired.chmod(0o600)
             self.rotate_keyring('client.filesystem', keyring, keyring)
+            self.mds_ready()
+            auth_before = self.auth_log_position()
             denied = self.command(['mount', '-t', 'ceph', 'filesystem@' + self.fsid + '.' + FILESYSTEM + '=/',
                     str(MOUNTS[0]), '-o', 'mon_addr=127.0.0.1:13300,secretfile=' + str(retired) +
                     ',noshare,ms_mode=secure,mount_timeout=10'], check=False)
-            require_retired_mount_refusal(denied, self.mount_state(MOUNTS[0]))
+            refusal = require_retired_mount_refusal(denied, self.mount_state(MOUNTS[0]),
+                                                    self.fresh_auth_refusals(auth_before))
+            self.mds_ready()
             secret.write_bytes(self.command(['ceph-authtool', str(keyring), '-n', 'client.filesystem', '-p']).stdout)
             self.mount_pair(secret)
             key_types = filesystem_key_types(json.loads(self.ceph('auth', 'dump-keys', '--format=json')))
@@ -246,7 +276,8 @@ with open(sys.argv[1],'r+b')as source:
                 raise RuntimeError('native data, filesystem identity or enforcement changed')
             self.unmounts()
             return {'accepted': True, 'filesystem': before, 'initial_mounts': mounts, 'complete_corpus': original,
-                    'mds_restart': True, 'retired_key_fresh_mount_refused': True, 'client_rotation': True, 'key_types': key_types,
+                    'mds_restart': True, 'retired_key_fresh_mount_refused': True, 'retired_key_refusal': refusal,
+                    'client_rotation': True, 'key_types': key_types,
                     'separate_client_lock_exclusion': True, 'selinux_enforcing': True, 'mounts_absent': True,
                     'single_osd_and_mds_only': True, 'csi_ha_production_nas_unqualified': True}
         finally:
@@ -257,15 +288,19 @@ with open(sys.argv[1],'r+b')as source:
 
 def main():
     runtime = Runtime()
+    completed = {}
     def cancel(_number, _frame):
         raise InterruptedError('owned CephFS kernel fixture cancelled')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, cancel)
     try:
-        print(json.dumps({'modern_rados': runtime.run(), 'kernel_rbd': runtime.kernel_io(),
-                          'kernel_cephfs': runtime.cephfs_io()}), flush=True)
+        completed['modern_rados'] = runtime.run()
+        completed['kernel_rbd'] = runtime.kernel_io()
+        completed['kernel_cephfs'] = runtime.cephfs_io()
+        print(json.dumps(completed), flush=True)
     except Exception as error:
-        failure = {'accepted': False, 'stage': runtime.stage, 'error_type': type(error).__name__}
+        failure = {'accepted': False, 'stage': runtime.stage, 'error_type': type(error).__name__,
+                   'completed_profiles': completed}
         try:
             failure['manager_diagnostic'] = manager_diagnostic(runtime)
         except Exception as diagnostic_error:

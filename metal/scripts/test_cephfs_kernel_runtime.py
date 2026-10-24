@@ -2,7 +2,9 @@
 """Refuse foreign mounts and preserve exact signed native entrypoints."""
 
 import hashlib
+import io
 import json
+import os
 from pathlib import Path
 import unittest
 import tempfile
@@ -15,6 +17,85 @@ import fedora_cephfs_kernel_qualification as driver
 
 
 class CephFSTests(unittest.TestCase):
+    def test_ambiguous_helper_requires_fresh_exact_monitor_rejection(self):
+        result = SimpleNamespace(returncode=32, stderr=runtime.MDS_UNREACHABLE)
+        evidence = runtime.require_retired_mount_refusal(result, None, 1)
+        self.assertEqual(evidence, {'helper_exit': 32, 'direct_permission_refusal': False,
+                                   'ambiguous_mds_message': True, 'fresh_monitor_key_refusals': 1})
+        for count in (0, -1, True, 1.0, None):
+            with self.subTest(count=count), self.assertRaises(RuntimeError):
+                runtime.require_retired_mount_refusal(result, None, count)
+        for code, mount, message in (
+                (0, None, runtime.MDS_UNREACHABLE),
+                (32, {'owned': True}, runtime.MDS_UNREACHABLE),
+                (110, None, runtime.MDS_UNREACHABLE),
+                (32, None, b'mount error 110 = Connection timed out\n'),
+                (32, None, runtime.MDS_UNREACHABLE + b'foreign\n')):
+            with self.subTest(code=code, mount=mount), self.assertRaises(RuntimeError):
+                runtime.require_retired_mount_refusal(SimpleNamespace(returncode=code, stderr=message), mount, 1)
+
+    def test_authentication_evidence_requires_fresh_owned_unchanged_regular_log(self):
+        rejection = b'prefix cephx server client.filesystem:  unexpected key: PRIVATE_SENTINEL\n'
+        foreign = b'prefix cephx server client.foreign:  unexpected key: PRIVATE_SENTINEL\n'
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = object.__new__(runtime.Runtime)
+            fixture.root = Path(directory)
+            log = fixture.root / 'mon.log'
+            log.write_bytes(rejection + foreign)
+            before = fixture.auth_log_position()
+            self.assertEqual(fixture.fresh_auth_refusals(before), 0)
+            with log.open('ab') as output:
+                output.write(foreign + rejection + b'client.filesystem: challenge_error PRIVATE_SENTINEL\n')
+            self.assertEqual(fixture.fresh_auth_refusals(before), 1)
+            self.assertEqual(fixture.fresh_auth_refusals(fixture.auth_log_position()), 0)
+            with patch.object(runtime.os, 'geteuid', return_value=os.geteuid() + 1):
+                with self.assertRaisesRegex(RuntimeError, 'foreign'):
+                    fixture.auth_log_position()
+                with self.assertRaisesRegex(RuntimeError, 'replaced or truncated'):
+                    fixture.fresh_auth_refusals(before)
+            after = fixture.auth_log_position()
+            log.write_bytes(b'')
+            with self.assertRaisesRegex(RuntimeError, 'truncated'):
+                fixture.fresh_auth_refusals(after)
+            log.rename(fixture.root / 'old.log')
+            log.write_bytes(rejection * 10)
+            with self.assertRaisesRegex(RuntimeError, 'replaced'):
+                fixture.fresh_auth_refusals(before)
+            log.unlink()
+            log.symlink_to(fixture.root / 'old.log')
+            with self.assertRaisesRegex(RuntimeError, 'foreign'):
+                fixture.auth_log_position()
+            with self.assertRaises(OSError):
+                fixture.fresh_auth_refusals(before)
+            log.unlink()
+            log.mkdir()
+            with self.assertRaisesRegex(RuntimeError, 'foreign'):
+                fixture.auth_log_position()
+
+    def test_later_failure_preserves_completed_public_profiles_and_reaps_children(self):
+        completed = {'modern_rados': {'accepted': True, 'payload_sha256': 'public-hash'},
+                     'kernel_rbd': {'accepted': True, 'client_rotation': True}}
+        fixture = SimpleNamespace(stage='cephfs', children={'mon': object()},
+                                  run=lambda: completed['modern_rados'],
+                                  kernel_io=lambda: completed['kernel_rbd'])
+        stopped = []
+        fixture.stop = stopped.append
+        def fail():
+            raise RuntimeError('PRIVATE_SENTINEL')
+        fixture.cephfs_io = fail
+        output = io.StringIO()
+        with patch.object(runtime, 'Runtime', return_value=fixture), \
+                patch.object(runtime.signal, 'signal'), \
+                patch.object(runtime, 'manager_diagnostic', return_value={'checks': []}), \
+                patch('sys.stdout', output), self.assertRaises(RuntimeError):
+            runtime.main()
+        failure = json.loads(output.getvalue())
+        self.assertFalse(failure['accepted'])
+        self.assertEqual(failure['completed_profiles'], completed)
+        self.assertEqual(failure['error_type'], 'RuntimeError')
+        self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())
+        self.assertEqual(stopped, ['mon'])
+
     def test_retired_mount_refusal_keeps_gate_and_records_only_typed_failure(self):
         for message in (b'mount error 13 = Permission denied\n',
                         b'mount error 1 = Operation not permitted\n'):
