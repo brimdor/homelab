@@ -71,6 +71,16 @@ def require_hop(source, target):
     return '/usr/bin/dnf' if source == 39 else '/usr/bin/dnf5'
 
 
+def reboot_probe_disconnect(error, number, output):
+    warnings = {b'', b'status: done',
+                b'** WARNING: connection is not using a post-quantum key exchange algorithm.',
+                b'** This session may be vulnerable to "store now, decrypt later" attacks.',
+                b'** The server may need to be upgraded. See https://openssh.com/pq.html'}
+    return (str(error) == 'qualification command ' + str(number) + ' exit 255' and
+            [line for line in output.splitlines() if line not in warnings] ==
+            [b'Connection to 127.0.0.1 closed by remote host.'])
+
+
 def require_checkpoint_state(current, expected):
     if (current['native'] != expected['native'] or current['corpus'] != expected['corpus'] or
             any(current['identity'][key] != expected['identity'][key]
@@ -319,12 +329,23 @@ print(json.dumps(rows))
         self.command(self.ssh + ['sudo systemd-run --on-active=2s --unit=qualification-upgrade-' + str(source) +
                                  '-' + str(target) + ' ' + dnf + ' -y ' + verb + ' reboot'])
         while True:
-            self.wait_ready()
-            current = self.guest('''
+            try:
+                self.wait_ready()
+                current = self.guest('''
 print(json.dumps({'release':int(native('rpm','-E','%fedora').strip()),
  'boot':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
  'offline_pending':pathlib.Path('/system-update').is_symlink()}))
 ''')
+            except RuntimeError as error:
+                log = self.root / (str(self.number) + '.log')
+                output = log.read_bytes() if log.is_file() and not log.is_symlink() else b''
+                if not reboot_probe_disconnect(error, self.number, output):
+                    raise
+                self.persist('offline-reboot-probe-disconnected', source=source, target=target,
+                             command=self.number, exit=255, output=output.decode(),
+                             output_bytes=len(output), output_sha256=hashlib.sha256(output).hexdigest())
+                time.sleep(5)
+                continue
             if current['release'] == target and current['boot'] != before['boot'] and not current['offline_pending']:
                 break
             if current['boot'] != before['boot'] and not current['offline_pending']:

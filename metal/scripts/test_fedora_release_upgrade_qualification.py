@@ -21,22 +21,76 @@ from fedora_upgrade_bridge import bridge
 
 
 class UpgradeRefusals(unittest.TestCase):
+    @staticmethod
+    def offline_fixture(source, target):
+        fixture = object.__new__(upgrade.Qualification)
+        fixture.ssh = ['ssh', 'owned-synthetic-guest']
+        fixture.reference_corpus = {'unchanged': True}
+        fixture.checkpoint_states = {}
+        fixture.server = SimpleNamespace(errors=[])
+        before = {'machine': 'same', 'root_uuid': 'same',
+                  'architecture': 'x86_64', 'boot': 'before'}
+        fixture.identity = unittest.mock.Mock(side_effect=[before, {**before, 'boot': 'after'}])
+        fixture.guest = unittest.mock.Mock(return_value={
+            'release': target, 'boot': 'after', 'offline_pending': False})
+        for name in ('repositories', 'filesystems', 'command', 'signatures',
+                     'persist', 'checkpoint', 'state', 'wait_ready'):
+            setattr(fixture, name, unittest.mock.Mock())
+        return fixture
+
+    def test_reboot_probe_disconnect_retries_only_reads_and_preserves_refusals(self):
+        closed = b'Connection to 127.0.0.1 closed by remote host.\n'
+        for phase in ('readiness', 'state', 'authentication'):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as temporary:
+                fixture = self.offline_fixture(41, 43)
+                fixture.root = Path(temporary)
+                fixture.number = 46
+                (fixture.root / '46.log').write_bytes(closed)
+                failure = RuntimeError('qualification command 46 exit 255')
+                if phase == 'readiness':
+                    fixture.wait_ready.side_effect = [failure, None]
+                elif phase == 'state':
+                    fixture.guest.side_effect = [failure, fixture.guest.return_value]
+                else:
+                    fixture.guest.side_effect = RuntimeError('fixture SSH authentication refused')
+                with patch.object(upgrade.time, 'sleep') as sleep:
+                    if phase == 'authentication':
+                        with self.assertRaisesRegex(RuntimeError, 'authentication refused'):
+                            fixture.offline(41, 43)
+                        sleep.assert_not_called()
+                    else:
+                        fixture.offline(41, 43)
+                        sleep.assert_called_once_with(5)
+                        fixture.persist.assert_any_call(
+                            'offline-reboot-probe-disconnected', source=41, target=43,
+                            command=46, exit=255, output=closed.decode(), output_bytes=len(closed),
+                            output_sha256=hashlib.sha256(closed).hexdigest())
+                        self.assertEqual(fixture.wait_ready.call_count, 2)
+                self.assertEqual(fixture.command.call_count, 3)
+
+    def test_reboot_disconnect_refuses_every_other_failure(self):
+        error = RuntimeError('qualification command 46 exit 255')
+        closed = b'Connection to 127.0.0.1 closed by remote host.\n'
+        warning = (b'** WARNING: connection is not using a post-quantum key exchange algorithm.\n'
+                   b'** This session may be vulnerable to "store now, decrypt later" attacks.\n'
+                   b'** The server may need to be upgraded. See https://openssh.com/pq.html\n')
+        for output in (closed, warning + closed, b'\nstatus: done\n' + warning + closed):
+            self.assertTrue(upgrade.reboot_probe_disconnect(error, 46, output))
+        for output in (b'', warning, closed + closed, b'Permission denied\n' + closed,
+                       b'Host key verification failed\n' + closed,
+                       b'REMOTE HOST IDENTIFICATION HAS CHANGED\n' + closed,
+                       closed.replace(b'127.0.0.1', b'other-host'),
+                       b'{"release": 41}\n' + closed, b'unknown warning\n' + closed):
+            with self.subTest(output=output):
+                self.assertFalse(upgrade.reboot_probe_disconnect(error, 46, output))
+        for failure, number in ((RuntimeError('qualification command 46 exit 1'), 46),
+                                (RuntimeError('fixture SSH authentication refused'), 46), (error, 45)):
+            self.assertFalse(upgrade.reboot_probe_disconnect(failure, number, closed))
+
     def test_each_native_offline_reboot_is_noninteractive(self):
         for source, target in ((39, 41), (41, 43), (43, 44)):
             with self.subTest(source=source, target=target):
-                fixture = object.__new__(upgrade.Qualification)
-                fixture.ssh = ['ssh', 'owned-synthetic-guest']
-                fixture.reference_corpus = {'unchanged': True}
-                fixture.checkpoint_states = {}
-                fixture.server = SimpleNamespace(errors=[])
-                before = {'machine': 'same', 'root_uuid': 'same',
-                          'architecture': 'x86_64', 'boot': 'before'}
-                fixture.identity = unittest.mock.Mock(side_effect=[before, {**before, 'boot': 'after'}])
-                fixture.guest = unittest.mock.Mock(return_value={
-                    'release': target, 'boot': 'after', 'offline_pending': False})
-                for name in ('repositories', 'filesystems', 'command', 'signatures',
-                             'persist', 'checkpoint', 'state', 'wait_ready'):
-                    setattr(fixture, name, unittest.mock.Mock())
+                fixture = self.offline_fixture(source, target)
                 fixture.offline(source, target)
                 dnf = '/usr/bin/dnf' if source == 39 else '/usr/bin/dnf5'
                 verb = 'system-upgrade' if source == 39 else 'offline'
