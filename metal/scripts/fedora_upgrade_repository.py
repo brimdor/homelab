@@ -3,12 +3,15 @@
 
 import gzip
 import hashlib
+import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import threading
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -24,37 +27,59 @@ BASES = {str(release) + '-' + kind: origin + path for release, origin in (
     ('updates', 'updates/' + str(release) + '/Everything/x86_64/'))}
 
 
-def fetch(base, relative, destination, expected=None):
+def retryable_fetch_error(error):
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in (500, 502, 503, 504)
+    reason = error.reason if isinstance(error, urllib.error.URLError) else error
+    return isinstance(reason, (TimeoutError, ConnectionResetError, ConnectionAbortedError,
+                               http.client.IncompleteRead))
+
+
+def fetch(base, relative, destination, expected=None, attempts=None):
     if base not in BASES.values():
         raise RuntimeError('foreign Fedora upgrade repository')
     safe_path(relative, 'repodata' if relative.startswith('repodata/') else 'Packages')
     if destination.exists() or any(path.is_symlink() for path in (destination, *destination.parents)):
         raise RuntimeError('upgrade repository output already exists or is redirected')
     destination.parent.mkdir(parents=True, exist_ok=True)
-    digest = hashlib.sha256()
-    try:
-        with urllib.request.urlopen(base + relative, timeout=90) as response, destination.open('xb') as output:
-            if response.status != 200 or response.url != base + relative:
-                raise RuntimeError('Fedora upgrade response changed origin or path')
-            while block := response.read(4 * 1024 * 1024):
-                output.write(block)
-                digest.update(block)
-        if expected is not None and digest.hexdigest() != expected:
-            raise RuntimeError('Fedora upgrade artifact checksum differs')
-    except BaseException:
-        destination.unlink(missing_ok=True)
-        raise
-    return digest.hexdigest()
+    for attempt in range(1, 4):
+        digest = hashlib.sha256()
+        try:
+            with urllib.request.urlopen(base + relative, timeout=90) as response, destination.open('xb') as output:
+                if response.status != 200 or response.url != base + relative:
+                    raise RuntimeError('Fedora upgrade response changed origin or path')
+                while block := response.read(4 * 1024 * 1024):
+                    output.write(block)
+                    digest.update(block)
+            if expected is not None and digest.hexdigest() != expected:
+                raise RuntimeError('Fedora upgrade artifact checksum differs')
+            return digest.hexdigest()
+        except BaseException as error:
+            destination.unlink(missing_ok=True)
+            retry = attempt < 3 and retryable_fetch_error(error)
+            if attempts is not None:
+                reason = error.reason if isinstance(error, urllib.error.URLError) else error
+                attempts.append({'base': base, 'path': relative, 'attempt': attempt,
+                                 'error_type': type(error).__name__, 'reason_type': type(reason).__name__,
+                                 'http_status': error.code if isinstance(error, urllib.error.HTTPError) else None,
+                                 'retrying': retry})
+            if isinstance(error, urllib.error.HTTPError):
+                error.close()
+            if not retry:
+                raise
+            time.sleep(2)
 
 
-def mirror(root, name):
+def mirror(root, name, attempts=None):
     if name not in BASES:
         raise RuntimeError('foreign Fedora upgrade release')
     base = BASES[name]
     directory = root / name
     directory.mkdir(mode=0o700)
+    attempts = [] if attempts is None else attempts
+    first_attempt = len(attempts)
     repomd = directory / 'repodata/repomd.xml'
-    files = {'repodata/repomd.xml': fetch(base, 'repodata/repomd.xml', repomd)}
+    files = {'repodata/repomd.xml': fetch(base, 'repodata/repomd.xml', repomd, attempts=attempts)}
     primary = None
     for record in ET.parse(repomd).getroot().findall('r:data', NS):
         relative = safe_path(record.find('r:location', NS).attrib['href'], 'repodata')
@@ -62,7 +87,7 @@ def mirror(root, name):
         if checksum.attrib['type'] != 'sha256' or not re.fullmatch('[0-9a-f]{64}', checksum.text or ''):
             raise RuntimeError('unsupported upgrade metadata checksum')
         if relative not in files:
-            files[relative] = fetch(base, relative, directory / relative, checksum.text)
+            files[relative] = fetch(base, relative, directory / relative, checksum.text, attempts)
         elif files[relative] != checksum.text:
             raise RuntimeError('ambiguous upgrade metadata identity')
         if record.attrib['type'] == 'primary':
@@ -95,7 +120,7 @@ def mirror(root, name):
             package.clear()
     finally:
         raw.unlink(missing_ok=True)
-    return {'base': base, 'files': files, 'packages': packages}
+    return {'base': base, 'files': files, 'packages': packages, 'transport_attempts': attempts[first_attempt:]}
 
 
 def requested_path(raw, repositories):
@@ -131,6 +156,7 @@ class RepositoryServer(ThreadingHTTPServer):
         self.repositories = {}
         self.requests = []
         self.errors = []
+        self.transport_attempts = []
         self.lock = threading.Lock()
         super().__init__(('127.0.0.1', 0), Handler)
 
@@ -155,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
             with self.server.lock:
                 path = self.server.root / name / relative
                 if not path.exists():
-                    fetch(BASES[name], relative, path, expected)
+                    fetch(BASES[name], relative, path, expected, self.server.transport_attempts)
                 if path.is_symlink() or not path.is_file():
                     raise RuntimeError('upgrade cache identity changed')
                 digest = hashlib.sha256()

@@ -6,9 +6,12 @@ import base64
 import io
 import json
 import copy
+import http.client
 from pathlib import Path
 import tempfile
+import ssl
 import unittest
+import urllib.error
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -18,6 +21,75 @@ from fedora_upgrade_bridge import bridge
 
 
 class UpgradeRefusals(unittest.TestCase):
+    def test_partial_transport_failure_retries_identical_url_and_verified_bytes(self):
+        base = repository.BASES['41-updates']
+        relative = 'Packages/f/fwupd-plugin-modem-manager-2.0.16-1.fc41.x86_64.rpm'
+        payload = b'complete synthetic public package'
+
+        class Response(io.BytesIO):
+            status = 200
+            url = base + relative
+
+        class Partial(Response):
+            def read(self, size=-1):
+                if self.tell():
+                    raise urllib.error.URLError(TimeoutError('synthetic TLS handshake timeout'))
+                return super().read(4)
+
+        partial, complete = Partial(payload), Response(payload)
+        attempts = []
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch('urllib.request.urlopen', side_effect=[partial, complete]) as request, \
+                patch.object(repository.time, 'sleep') as sleep:
+            path = Path(temporary) / 'package.rpm'
+            expected = hashlib.sha256(payload).hexdigest()
+            self.assertEqual(repository.fetch(base, relative, path, expected, attempts), expected)
+            self.assertEqual(path.read_bytes(), payload)
+            self.assertEqual(request.call_args_list, [unittest.mock.call(base + relative, timeout=90)] * 2)
+            sleep.assert_called_once_with(2)
+        self.assertTrue(partial.closed and complete.closed)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0]['reason_type'], 'TimeoutError')
+        self.assertTrue(attempts[0]['retrying'])
+
+    def test_transport_exhaustion_remains_fatal_and_removes_partial_input(self):
+        errors = [urllib.error.URLError(TimeoutError('synthetic timeout')) for _ in range(3)]
+        attempts = []
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch('urllib.request.urlopen', side_effect=errors) as request, \
+                patch.object(repository.time, 'sleep') as sleep:
+            path = Path(temporary) / '41-updates/repodata/repomd.xml'
+            with self.assertRaises(urllib.error.URLError):
+                repository.mirror(Path(temporary), '41-updates', attempts)
+            self.assertFalse(path.exists())
+            self.assertEqual(request.call_count, 3)
+            self.assertEqual(sleep.call_count, 2)
+        self.assertEqual([row['retrying'] for row in attempts], [True, True, False])
+
+    def test_trust_access_and_unknown_failures_are_never_retried(self):
+        base = repository.BASES['41-updates']
+        for error in (urllib.error.URLError(ssl.SSLCertVerificationError('synthetic trust failure')),
+                      urllib.error.URLError('unclassified failure'),
+                      *(urllib.error.HTTPError(base, code, 'synthetic refusal', {}, io.BytesIO())
+                        for code in (401, 403, 429))):
+            body = error.fp if isinstance(error, urllib.error.HTTPError) else None
+            with self.subTest(error=type(error).__name__, code=getattr(error, 'code', None)), \
+                    tempfile.TemporaryDirectory() as temporary, \
+                    patch('urllib.request.urlopen', side_effect=error) as request, \
+                    patch.object(repository.time, 'sleep') as sleep:
+                path = Path(temporary) / 'package.rpm'
+                with self.assertRaises(type(error)):
+                    repository.fetch(base, 'Packages/k/kernel.rpm', path)
+                self.assertFalse(path.exists())
+                self.assertEqual(request.call_count, 1)
+                sleep.assert_not_called()
+                if body is not None:
+                    self.assertTrue(body.closed)
+        for error in (TimeoutError(), ConnectionResetError(), ConnectionAbortedError(),
+                      http.client.IncompleteRead(b'synthetic'),
+                      *(urllib.error.HTTPError(base, code, '', {}, None) for code in (500, 502, 503, 504))):
+            self.assertTrue(repository.retryable_fetch_error(error))
+
     def test_failed_package_verification_retains_diagnostics_without_accepting_drift(self):
         import ast
         import subprocess
@@ -87,15 +159,21 @@ class UpgradeRefusals(unittest.TestCase):
                 digest = repository.fetch(base, relative, path, hashlib.sha256(b'owned public bytes').hexdigest())
             self.assertEqual(digest, hashlib.sha256(path.read_bytes()).hexdigest())
             path.unlink()
-            with patch('urllib.request.urlopen', return_value=Response(b'corrupted')):
+            with patch('urllib.request.urlopen', return_value=Response(b'corrupted')) as request, \
+                    patch.object(repository.time, 'sleep') as sleep:
                 with self.assertRaisesRegex(RuntimeError, 'checksum'):
                     repository.fetch(base, relative, path, '0' * 64)
+                self.assertEqual(request.call_count, 1)
+                sleep.assert_not_called()
             self.assertFalse(path.exists())
             redirected = Response(b'owned public bytes')
             redirected.url = 'https://foreign.example/package.rpm'
-            with patch('urllib.request.urlopen', return_value=redirected):
+            with patch('urllib.request.urlopen', return_value=redirected) as request, \
+                    patch.object(repository.time, 'sleep') as sleep:
                 with self.assertRaisesRegex(RuntimeError, 'origin'):
                     repository.fetch(base, relative, path)
+                self.assertEqual(request.call_count, 1)
+                sleep.assert_not_called()
             self.assertFalse(path.exists())
 
     def test_actual_generated_guest_programs_compile(self):

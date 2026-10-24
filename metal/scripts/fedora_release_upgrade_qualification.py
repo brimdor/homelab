@@ -188,10 +188,10 @@ class Qualification(Target):
         for kind in ('base', 'updates'):
             name = str(release) + '-' + kind
             if name not in self.server.repositories:
-                value = mirror(self.server.root, name)
+                value = mirror(self.server.root, name, self.server.transport_attempts)
                 self.server.repositories[name] = value
                 self.persist('verified-repository', name=name, metadata=value['files'],
-                             package_count=len(value['packages']))
+                             package_count=len(value['packages']), transport_attempts=value['transport_attempts'])
 
     def configure(self):
         keys = {release: {**record, 'armored_sha256': hashlib.sha256(armor_public_key(
@@ -352,7 +352,8 @@ print(json.dumps({'release':int(native('rpm','-E','%fedora').strip()),
                     if self.server_thread.is_alive():
                         raise RuntimeError('owned upgrade repository thread remains')
                 (self.root / 'repository-requests.json').write_text(json.dumps(
-                    {'requests': self.server.requests, 'errors': self.server.errors}, indent=2))
+                    {'requests': self.server.requests, 'errors': self.server.errors,
+                     'transport_attempts': self.server.transport_attempts}, indent=2))
 
 
 def main():
