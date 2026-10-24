@@ -15,7 +15,7 @@ import nvidia_package_repository as vendor
 import nvidia_kernel_build as build
 
 
-GUEST_ROOT = '/run/qualification-gpu-repos'
+GUEST_ROOT = '/var/tmp/qualification-gpu-repos'
 TARGETS = [*BUILD_TARGETS, 'nvidia-open-3:' + build.VERSION + '-1.fc44.noarch',
            'kmod-nvidia-open-dkms-3:' + build.VERSION + '-1.fc44.noarch']
 
@@ -49,12 +49,22 @@ class Qualification(Kernel):
         repositories['nvidia-vendor'] = vendor.mirror(metadata_root)
         kernel = super().run()
         (self.root / 'kernel-result.json').write_text(json.dumps(kernel, indent=2))
-        self.guest('''
+        storage = self.guest('repository_path=' + repr(GUEST_ROOT) + '\n' + '''
+repository=pathlib.Path(repository_path)
+assert not any(p.is_symlink() for p in (repository,*repository.parents))
+repository.mkdir(mode=0o700)
+info=repository.stat();assert info.st_uid==0 and info.st_mode&0o777==0o700
+assert info.st_dev==pathlib.Path('/').stat().st_dev
+mount=json.loads(native('findmnt','--json','--target',str(repository),'--output=TARGET,FSTYPE,MAJ:MIN'))['filesystems']
+assert len(mount)==1 and mount[0]['fstype'] in ('btrfs','ext4','xfs')
+space=os.statvfs(repository);assert space.f_bavail>0
 native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-repo','/mnt/qualification-repo')
 native('dnf5','--disable-repo=*','--enable-repo=qualification','--setopt=gpgcheck=True',
        '--setopt=install_weak_deps=False','--assumeyes','install','python3-libdnf5')
-print(json.dumps({'signed_dvd_binding':native('rpm','-q','python3-libdnf5').strip()}))
+print(json.dumps({'signed_dvd_binding':native('rpm','-q','python3-libdnf5').strip(),
+ 'repository_path':str(repository),'mount':mount,'available_bytes':space.f_bavail*space.f_frsize}))
 ''')
+        (self.root / 'gpu-repository-storage.json').write_text(json.dumps(storage, indent=2))
         for name, value in repositories.items():
             for relative, digest in value['files'].items():
                 self.transfer(metadata_root / name / relative, GUEST_ROOT + '/' + name + '/' + relative, digest)
@@ -132,7 +142,20 @@ print(json.dumps({'native_signed_install':process.returncode==0,'exit':process.r
     def transfer(self, source, destination, digest):
         self.guest('directory=' + repr(str(Path(destination).parent)) + '\n'
                    "pathlib.Path(directory).mkdir(parents=True,exist_ok=True)\nprint('{}')\n")
-        self.upload(source, destination, digest)
+        try:
+            self.upload(source, destination, digest)
+        except RuntimeError:
+            evidence = {'destination': destination, 'source_bytes': source.stat().st_size}
+            try:
+                evidence['filesystem'] = self.guest('directory=' + repr(str(Path(destination).parent)) + '\n' + '''
+space=os.statvfs(directory)
+print(json.dumps({'available_bytes':space.f_bavail*space.f_frsize,'total_bytes':space.f_blocks*space.f_frsize,
+ 'mount':json.loads(native('findmnt','--json','--target',directory,'--output=TARGET,FSTYPE,MAJ:MIN'))['filesystems']}))
+''')
+            except Exception as diagnostic_error:
+                evidence['diagnostic_error_type'] = type(diagnostic_error).__name__
+            (self.root / 'gpu-package-upload-failure.json').write_text(json.dumps(evidence, indent=2))
+            raise
 
     def inspect_runtime(self):
         return json.loads(self.command(self.ssh + ['sudo python3 -B /run/nvidia_package_runtime.py']))

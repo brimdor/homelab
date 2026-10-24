@@ -14,6 +14,26 @@ import nvidia_package_repository as vendor
 
 
 class NvidiaPackageTests(unittest.TestCase):
+    def test_failed_upload_retains_public_storage_evidence_without_masking_failure(self):
+        for diagnostic in ({'available_bytes': 0, 'mount': [{'fstype': 'ext4'}]}, RuntimeError('query failed')):
+            with self.subTest(diagnostic=diagnostic), tempfile.TemporaryDirectory() as directory:
+                fixture = object.__new__(driver.Qualification)
+                fixture.root = Path(directory)
+                source = fixture.root / 'public.rpm'
+                source.write_bytes(b'public-package')
+                fixture.guest = unittest.mock.Mock(side_effect=[{}, diagnostic])
+                fixture.upload = unittest.mock.Mock(side_effect=RuntimeError('owned upload failed'))
+                destination = driver.GUEST_ROOT + '/nvidia-vendor/public.rpm'
+                with self.assertRaisesRegex(RuntimeError, '^owned upload failed$'):
+                    fixture.transfer(source, destination, 'a' * 64)
+                evidence = json.loads((fixture.root / 'gpu-package-upload-failure.json').read_text())
+                self.assertEqual(evidence['destination'], destination)
+                self.assertEqual(evidence['source_bytes'], len(b'public-package'))
+                if isinstance(diagnostic, Exception):
+                    self.assertEqual(evidence['diagnostic_error_type'], 'RuntimeError')
+                else:
+                    self.assertEqual(evidence['filesystem'], diagnostic)
+
     def test_imported_key_requires_exact_single_full_native_fingerprint(self):
         fingerprint = vendor.KEY_FINGERPRINT
         for value in (fingerprint + ' NVIDIA public key\n', fingerprint.upper() + ' NVIDIA public key\n'):
