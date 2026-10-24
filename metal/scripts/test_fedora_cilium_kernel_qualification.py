@@ -15,6 +15,35 @@ import fedora_cilium_kernel_qualification as subject
 
 
 class NativeCiliumEvidence(unittest.TestCase):
+    def test_api_readiness_waits_only_for_observed_startup_states(self):
+        from unittest.mock import patch
+
+        def failure(message):
+            return RuntimeError(json.dumps({'argv': ['k3s', 'kubectl'], 'exit': 1, 'stderr': [message]}))
+
+        messages = ['Error from server (ServiceUnavailable): apiserver not ready',
+                    'The connection to the server 127.0.0.1:6443 was refused - did you specify the right host or port?']
+        with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
+                patch.object(runtime, 'kubectl', side_effect=[*[failure(value) for value in messages], b'ok']), \
+                patch.object(runtime.time, 'sleep') as sleep:
+            runtime.wait_api_ready()
+            self.assertEqual(sleep.call_count, 2)
+            self.assertEqual(len(runtime.EVIDENCE['api_readiness'][0]), 3)
+            self.assertTrue(runtime.EVIDENCE['api_readiness'][0][-1]['ready'])
+        for message in ('Error from server (Forbidden): forbidden', 'x509: certificate unknown',
+                        'Error from server (ServiceUnavailable): unrelated failure'):
+            with self.subTest(message=message), patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
+                    patch.object(runtime, 'kubectl', side_effect=failure(message)), \
+                    patch.object(runtime.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+                runtime.wait_api_ready()
+            sleep.assert_not_called()
+        with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
+                patch.object(runtime, 'kubectl', side_effect=failure(messages[0])), \
+                patch.object(runtime.time, 'monotonic', side_effect=[0, 901, 901]), \
+                patch.object(runtime.time, 'sleep') as sleep, self.assertRaisesRegex(RuntimeError, '900 seconds'):
+            runtime.wait_api_ready()
+        sleep.assert_not_called()
+
     def cri_info(self, configuration, binaries):
         return {'config': {'cni': {'binDir': '', 'binDirs': [str(binaries)],
                                   'confDir': str(configuration), 'maxConfNum': 1}},

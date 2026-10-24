@@ -109,8 +109,34 @@ def cni_identity(configuration, info):
             'binary': str(binaries[0]), 'binary_sha256': sha_file(binaries[0])}
 
 
+def wait_api_ready():
+    started = time.monotonic()
+    attempts = []
+    EVIDENCE.setdefault('api_readiness', []).append(attempts)
+    while True:
+        try:
+            response = kubectl('get', '--raw=/readyz', '--request-timeout=10s')
+        except RuntimeError as error:
+            failure = json.loads(str(error))
+            attempts.append({'elapsed_seconds': time.monotonic() - started, **failure})
+            expected = failure['exit'] == 1 and len(failure['stderr']) == 1 and re.fullmatch(
+                r'Error from server \(ServiceUnavailable\): apiserver not ready|'
+                r'The connection to the server (?:127\.0\.0\.1|localhost):6443 was refused '
+                r'- did you specify the right host or port\?', failure['stderr'][0])
+            if not expected:
+                raise
+            if time.monotonic() - started >= 900:
+                raise RuntimeError('native API did not become ready within 900 seconds') from error
+            time.sleep(1)
+        else:
+            assert response.strip() == b'ok'
+            attempts.append({'elapsed_seconds': time.monotonic() - started, 'ready': True})
+            return
+
+
 def components():
     assert Path('/sys/fs/selinux/enforce').read_text().strip() == '1'
+    wait_api_ready()
     for kind, name in (('daemonset', 'cilium'), ('daemonset', 'cilium-envoy'),
                        ('deployment', 'cilium-operator'), ('deployment', 'hubble-relay'),
                        ('deployment', 'coredns')):
