@@ -1,0 +1,3 @@
+# Official community distribution for isolated qualification during Galaxy outages.
+# Matches all five collections.lock.json versions; use --no-deps --only-binary=:all:.
+ansible==14.5.0 --hash=sha256:245623ccc2d31d0f6f4bdb63168d550cad305fb032cc43d96e8f61ce8ab0ba84
