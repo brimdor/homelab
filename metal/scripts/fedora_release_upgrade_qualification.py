@@ -31,7 +31,12 @@ assert os.geteuid()==0 and socket.gethostname()=='qualification-fedora-upgrade'
 assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
 def native(*args):
  result=subprocess.run(args,capture_output=True)
- if result.returncode:raise RuntimeError(json.dumps({'command':list(args),'exit':result.returncode,'stderr':result.stderr.decode(errors='replace')[-16000:]}))
+ if result.returncode:
+  failure={'command':list(args),'exit':result.returncode,'stderr':result.stderr.decode(errors='replace')[-16000:]}
+  if args==('rpm','-V','fedora-release-common','selinux-policy-targeted'):
+   failure.update(verification_stdout=result.stdout.decode(errors='replace')[-16000:],
+    verification_stdout_bytes=len(result.stdout),verification_stdout_sha256=hashlib.sha256(result.stdout).hexdigest())
+  raise RuntimeError(json.dumps(failure))
  return result.stdout.decode()
 '''
 
