@@ -59,10 +59,11 @@ class Samples:
             started, expected, store = previous
             if call != expected or timestamp < started:
                 raise RuntimeError('native syscall pair or monotonic clock differs')
-            self.completed.append({'call': call, 'store': store, 'duration_ns': timestamp - started,
+            self.completed.append({'call': call, 'store': store, 'started_ns': started,
+                                   'finished_ns': timestamp, 'duration_ns': timestamp - started,
                                    'successful': int(value[1], 16) == 0})
 
-    def result(self):
+    def result(self, include_intervals=False):
         groups = {}
         for value in self.completed:
             key = value['store'] + '/' + value['call']
@@ -75,14 +76,22 @@ class Samples:
                            'p50_ns': durations[(len(durations) - 1) // 2],
                            'at_least_500ms': sum(v >= 500000000 for v in durations),
                            'at_least_5s': sum(v >= 5000000000 for v in durations)}
-        return {'completed': len(self.completed), 'groups': result,
-                'window_edge_exits': self.edge_exits, 'window_edge_pending': len(self.pending)}
+        summary = {'completed': len(self.completed), 'groups': result,
+                   'window_edge_exits': self.edge_exits, 'window_edge_pending': len(self.pending)}
+        if include_intervals:
+            summary['slow_intervals'] = [v for v in self.completed if v['duration_ns'] >= 500000000]
+        return summary
 
 
 def identity():
     value = source.source_identity('builder-canary')
     if value['process']['start_ticks'] != '98642':
         raise RuntimeError('original Builder process start changed')
+    return descriptor_identity(value)
+
+
+def descriptor_identity(value):
+    """Bind descriptors only after the caller proves its exact source identity."""
     pid = value['process']['pid']
     process = Path('/proc') / str(pid)
     tids = {int(path.name) for path in (process / 'task').iterdir()}
@@ -112,10 +121,10 @@ def global_controls():
         name: (ROOT / 'events/syscalls' / name / 'enable').read_text() for name in EVENTS}
 
 
-def observe(seconds=180):
+def observe(seconds=180, *, identity_provider=identity, include_intervals=False):
     if type(seconds) is not int or seconds <= 0:
         raise RuntimeError('positive explicit observation window required')
-    before, tids, descriptors = identity()
+    before, tids, descriptors = identity_provider()
     controls = global_controls()
     if not any(line.split(' - ', 1)[-1].startswith('tracefs ') and line.split()[4] == str(ROOT)
                for line in Path('/proc/self/mountinfo').read_text().splitlines()):
@@ -142,6 +151,7 @@ def observe(seconds=180):
             write('events/syscalls/' + name + '/enable', '1')
         reader = os.open(instance / 'trace_pipe', os.O_RDONLY | os.O_NONBLOCK)
         started = time.monotonic()
+        clock_anchor = {'monotonic_ns': time.monotonic_ns(), 'unix_ns': time.time_ns()}
         write('tracing_on', '1')
         buffered = b''
         def drain():
@@ -171,10 +181,11 @@ def observe(seconds=180):
                                        ('overrun', 'commit overrun', 'dropped events')}
         if not losses or any(v for row in losses.values() for v in row.values()):
             raise RuntimeError('owned trace buffer lost native events')
-        if identity() != (before, tids, descriptors):
+        if identity_provider() != (before, tids, descriptors):
             raise RuntimeError('Builder source, threads or attributed descriptors changed')
         result.update(accepted=True, seconds=time.monotonic() - started, thread_count=len(tids),
-                      source_unchanged=True, buffer_losses=losses, **samples.result())
+                      source_unchanged=True, buffer_losses=losses, clock_anchor=clock_anchor,
+                      **samples.result(include_intervals))
     finally:
         cleanup_errors = []
         for name in ('tracing_on', *('events/syscalls/' + event + '/enable' for event in EVENTS)):
