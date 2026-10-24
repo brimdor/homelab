@@ -104,6 +104,13 @@ def replica_health_diagnostic(value, pools):
 
 
 class Runtime:
+    public_address = '127.0.0.1'
+
+    def monitor_endpoint(self):
+        if self.public_address not in ('127.0.0.1', '203.0.113.254'):
+            raise RuntimeError('foreign synthetic Ceph endpoint')
+        return f'[v2:{self.public_address}:13300,v1:{self.public_address}:13301]'
+
     def __init__(self, root, run_id):
         if (root != Path('/work') or os.geteuid() != 0 or socket.gethostname() != 'ceph103-' + run_id or
                 root.is_symlink() or stat.S_IMODE(root.stat().st_mode) != 0o700 or
@@ -349,15 +356,16 @@ class Runtime:
         self.expected_osds = 3 if replicated else 1
         copies = 2 if replicated else 1
         fsid = str(uuid.uuid4())
+        endpoint = self.monitor_endpoint()
         conf = f'''[global]
 {self.class_configuration()}fsid = {fsid}
-mon host = [v2:127.0.0.1:13300,v1:127.0.0.1:13301]
+mon host = {endpoint}
 auth cluster required = cephx
 auth service required = cephx
 auth client required = cephx
 auth allow insecure global id reclaim = false
-public addr = 127.0.0.1
-cluster addr = 127.0.0.1
+public addr = {self.public_address}
+cluster addr = {self.public_address}
 admin socket = /work/$name.asok
 log file = /work/$name.native.log
 log to stderr = true
@@ -397,7 +405,7 @@ osd op num threads per shard = 1
         self.command(['ceph-authtool', str(self.root / 'mon.keyring'), '--import-keyring',
                       str(self.root / 'admin.keyring')])
         self.command(['monmaptool', '--create', '--fsid', fsid, '--addv', 'a',
-                      '[v2:127.0.0.1:13300,v1:127.0.0.1:13301]', str(self.root / 'monmap')])
+                      endpoint, str(self.root / 'monmap')])
         self.command(['ceph-mon', *self.conf, '-i', 'a', '--mkfs', '--monmap', str(self.root / 'monmap'),
                       '--keyring', str(self.root / 'mon.keyring'), '--setuser=root', '--setgroup=root'])
         self.start('mon', 'a')

@@ -1,0 +1,22 @@
+[
+  {
+    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+    "index_digest": "sha256:0b62db8afc9b174619186c87084a8952157daa719415c598603be22b63cc1293",
+    "digest": "sha256:e1122fc768ddb7bd5c5cdca9feab0a9eafd1d994d0edf9c204c89ef2707e2aa9"
+  },
+  {
+    "image": "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.16.0",
+    "index_digest": "sha256:ab482308a4921e28a6df09a16ab99a457e9af9641ff44fb1be1a690d07ce8b70",
+    "digest": "sha256:aeecba5b171b50558bab359fdb8e28b9da185f666cef35cd87ac9784e51956c5"
+  },
+  {
+    "image": "registry.k8s.io/sig-storage/csi-attacher:v4.11.0",
+    "index_digest": "sha256:b74b05b39501565022883fc128002b4cb857a7bb6c858606bcb3fdedba0b0b80",
+    "digest": "sha256:4f6b1289ffe62dbe3d2317dd938cd9dd3fb0a7c0088d505cde4effa1e0771dc2"
+  },
+  {
+    "image": "docker.io/library/python:3.13-alpine",
+    "index_digest": "sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a",
+    "digest": "sha256:ba27df8b6499cc3756cff167690f3fcb5321faa1703b3a914df5f4fdadb32f05"
+  }
+]

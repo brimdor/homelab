@@ -1,0 +1,2716 @@
+{
+  "version": "3.17.1",
+  "sources": {
+    "rbd/csi-nodeplugin-rbac.yaml": {
+      "name": "csi-nodeplugin-rbac.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/rbd/kubernetes/csi-nodeplugin-rbac.yaml",
+      "sha256": "5be1f9901cb949e730e99d39a65c41f849a427674e7a05e44b47949ba60b4d21",
+      "objects": [
+        {
+          "apiVersion": "v1",
+          "kind": "ServiceAccount",
+          "metadata": {
+            "name": "rbd-csi-nodeplugin",
+            "namespace": "default"
+          }
+        },
+        {
+          "kind": "ClusterRole",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "rbd-csi-nodeplugin"
+          },
+          "rules": [
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "nodes"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "secrets"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "configmaps"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "persistentvolumes"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "volumeattachments"
+              ],
+              "verbs": [
+                "list",
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts/token"
+              ],
+              "verbs": [
+                "create"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClusterRoleBinding",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "rbd-csi-nodeplugin"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "rbd-csi-nodeplugin",
+              "namespace": "default"
+            }
+          ],
+          "roleRef": {
+            "kind": "ClusterRole",
+            "name": "rbd-csi-nodeplugin",
+            "apiGroup": "rbac.authorization.k8s.io"
+          }
+        }
+      ]
+    },
+    "rbd/csi-rbdplugin.yaml": {
+      "name": "csi-rbdplugin.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/rbd/kubernetes/csi-rbdplugin.yaml",
+      "sha256": "c1b1baea8836e5857c7a882e5878ca1fd1d95d39bd6049223b381aff21ba733c",
+      "objects": [
+        {
+          "kind": "DaemonSet",
+          "apiVersion": "apps/v1",
+          "metadata": {
+            "name": "csi-rbdplugin",
+            "namespace": "default"
+          },
+          "spec": {
+            "selector": {
+              "matchLabels": {
+                "app": "csi-rbdplugin"
+              }
+            },
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "csi-rbdplugin"
+                }
+              },
+              "spec": {
+                "serviceAccountName": "rbd-csi-nodeplugin",
+                "hostNetwork": true,
+                "hostPID": true,
+                "priorityClassName": "system-node-critical",
+                "dnsPolicy": "ClusterFirstWithHostNet",
+                "containers": [
+                  {
+                    "name": "csi-rbdplugin",
+                    "securityContext": {
+                      "privileged": true,
+                      "capabilities": {
+                        "add": [
+                          "SYS_ADMIN"
+                        ]
+                      },
+                      "allowPrivilegeEscalation": true
+                    },
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--nodeid=$(NODE_ID)",
+                      "--pluginpath=/var/lib/kubelet/plugins",
+                      "--stagingpath=/var/lib/kubelet/plugins/kubernetes.io/csi/",
+                      "--type=rbd",
+                      "--nodeserver=true",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--csi-addons-endpoint=$(CSI_ADDONS_ENDPOINT)",
+                      "--v=5",
+                      "--drivername=rbd.csi.ceph.com",
+                      "--enableprofiling=false"
+                    ],
+                    "env": [
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      },
+                      {
+                        "name": "NODE_ID",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "spec.nodeName"
+                          }
+                        }
+                      },
+                      {
+                        "name": "POD_NAMESPACE",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "metadata.namespace"
+                          }
+                        }
+                      },
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi.sock"
+                      },
+                      {
+                        "name": "CSI_ADDONS_ENDPOINT",
+                        "value": "unix:///csi/csi-addons.sock"
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      },
+                      {
+                        "mountPath": "/dev",
+                        "name": "host-dev"
+                      },
+                      {
+                        "mountPath": "/sys",
+                        "name": "host-sys"
+                      },
+                      {
+                        "mountPath": "/run/mount",
+                        "name": "host-mount"
+                      },
+                      {
+                        "mountPath": "/etc/selinux",
+                        "name": "etc-selinux",
+                        "readOnly": true
+                      },
+                      {
+                        "mountPath": "/lib/modules",
+                        "name": "lib-modules",
+                        "readOnly": true
+                      },
+                      {
+                        "name": "ceph-csi-config",
+                        "mountPath": "/etc/ceph-csi-config/"
+                      },
+                      {
+                        "name": "ceph-csi-encryption-kms-config",
+                        "mountPath": "/etc/ceph-csi-encryption-kms-config/"
+                      },
+                      {
+                        "name": "plugin-dir",
+                        "mountPath": "/var/lib/kubelet/plugins",
+                        "mountPropagation": "Bidirectional"
+                      },
+                      {
+                        "name": "mountpoint-dir",
+                        "mountPath": "/var/lib/kubelet/pods",
+                        "mountPropagation": "Bidirectional"
+                      },
+                      {
+                        "name": "keys-tmp-dir",
+                        "mountPath": "/tmp/csi/keys"
+                      },
+                      {
+                        "name": "ceph-logdir",
+                        "mountPath": "/var/log/ceph"
+                      },
+                      {
+                        "name": "ceph-config",
+                        "mountPath": "/etc/ceph/"
+                      },
+                      {
+                        "name": "oidc-token",
+                        "mountPath": "/run/secrets/tokens",
+                        "readOnly": true
+                      }
+                    ]
+                  },
+                  {
+                    "name": "driver-registrar",
+                    "securityContext": {
+                      "privileged": true,
+                      "allowPrivilegeEscalation": true
+                    },
+                    "image": "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.16.0",
+                    "args": [
+                      "--v=1",
+                      "--csi-address=/csi/csi.sock",
+                      "--kubelet-registration-path=/var/lib/kubelet/plugins/rbd.csi.ceph.com/csi.sock"
+                    ],
+                    "env": [
+                      {
+                        "name": "KUBE_NODE_NAME",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "spec.nodeName"
+                          }
+                        }
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      },
+                      {
+                        "name": "registration-dir",
+                        "mountPath": "/registration"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "liveness-prometheus",
+                    "securityContext": {
+                      "privileged": true,
+                      "allowPrivilegeEscalation": true
+                    },
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--type=liveness",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--metricsport=8680",
+                      "--metricspath=/metrics",
+                      "--polltime=60s",
+                      "--timeout=3s"
+                    ],
+                    "env": [
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent"
+                  }
+                ],
+                "volumes": [
+                  {
+                    "name": "socket-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/plugins/rbd.csi.ceph.com",
+                      "type": "DirectoryOrCreate"
+                    }
+                  },
+                  {
+                    "name": "plugin-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/plugins",
+                      "type": "Directory"
+                    }
+                  },
+                  {
+                    "name": "mountpoint-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/pods",
+                      "type": "DirectoryOrCreate"
+                    }
+                  },
+                  {
+                    "name": "ceph-logdir",
+                    "hostPath": {
+                      "path": "/var/log/ceph",
+                      "type": "DirectoryOrCreate"
+                    }
+                  },
+                  {
+                    "name": "registration-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/plugins_registry/",
+                      "type": "Directory"
+                    }
+                  },
+                  {
+                    "name": "host-dev",
+                    "hostPath": {
+                      "path": "/dev"
+                    }
+                  },
+                  {
+                    "name": "host-sys",
+                    "hostPath": {
+                      "path": "/sys"
+                    }
+                  },
+                  {
+                    "name": "etc-selinux",
+                    "hostPath": {
+                      "path": "/etc/selinux"
+                    }
+                  },
+                  {
+                    "name": "host-mount",
+                    "hostPath": {
+                      "path": "/run/mount"
+                    }
+                  },
+                  {
+                    "name": "lib-modules",
+                    "hostPath": {
+                      "path": "/lib/modules"
+                    }
+                  },
+                  {
+                    "name": "ceph-config",
+                    "configMap": {
+                      "name": "ceph-config"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-config",
+                    "configMap": {
+                      "name": "ceph-csi-config"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-encryption-kms-config",
+                    "configMap": {
+                      "name": "ceph-csi-encryption-kms-config"
+                    }
+                  },
+                  {
+                    "name": "keys-tmp-dir",
+                    "emptyDir": {
+                      "medium": "Memory"
+                    }
+                  },
+                  {
+                    "name": "oidc-token",
+                    "projected": {
+                      "sources": [
+                        {
+                          "serviceAccountToken": {
+                            "path": "oidc-token",
+                            "expirationSeconds": 3600,
+                            "audience": "ceph-csi-kms"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "kind": "Service",
+          "metadata": {
+            "name": "csi-metrics-rbdplugin",
+            "namespace": "default",
+            "labels": {
+              "app": "csi-metrics"
+            }
+          },
+          "spec": {
+            "ports": [
+              {
+                "name": "http-metrics",
+                "port": 8080,
+                "protocol": "TCP",
+                "targetPort": 8680
+              }
+            ],
+            "selector": {
+              "app": "csi-rbdplugin"
+            }
+          }
+        }
+      ]
+    },
+    "rbd/csidriver.yaml": {
+      "name": "csidriver.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/rbd/kubernetes/csidriver.yaml",
+      "sha256": "32d66fd180931e92b3be1cd576538c0336e92346b0a714e6f0e088d385d2aa32",
+      "objects": [
+        {
+          "apiVersion": "storage.k8s.io/v1",
+          "kind": "CSIDriver",
+          "metadata": {
+            "name": "rbd.csi.ceph.com"
+          },
+          "spec": {
+            "attachRequired": true,
+            "podInfoOnMount": true,
+            "seLinuxMount": true,
+            "fsGroupPolicy": "File"
+          }
+        }
+      ]
+    },
+    "rbd/csi-provisioner-rbac.yaml": {
+      "name": "csi-provisioner-rbac.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/rbd/kubernetes/csi-provisioner-rbac.yaml",
+      "sha256": "8eef21e0c578249d08c87218bbd80eb50eb86c55613338c34a2d277f37ed2ba4",
+      "objects": [
+        {
+          "apiVersion": "v1",
+          "kind": "ServiceAccount",
+          "metadata": {
+            "name": "rbd-csi-provisioner",
+            "namespace": "default"
+          }
+        },
+        {
+          "kind": "ClusterRole",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "rbd-external-provisioner-runner"
+          },
+          "rules": [
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "nodes"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "secrets"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "events"
+              ],
+              "verbs": [
+                "list",
+                "watch",
+                "create",
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "persistentvolumes"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "create",
+                "update",
+                "delete",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "persistentvolumeclaims"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "persistentvolumeclaims/status"
+              ],
+              "verbs": [
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "storageclasses"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshots"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update",
+                "patch",
+                "create"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshots/status"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshotcontents"
+              ],
+              "verbs": [
+                "create",
+                "get",
+                "list",
+                "watch",
+                "update",
+                "delete",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshotclasses"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "volumeattachments"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "volumeattachments/status"
+              ],
+              "verbs": [
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "csinodes"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshotcontents/status"
+              ],
+              "verbs": [
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "configmaps"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts/token"
+              ],
+              "verbs": [
+                "create"
+              ]
+            },
+            {
+              "apiGroups": [
+                "groupsnapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumegroupsnapshotclasses"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "groupsnapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumegroupsnapshotcontents"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "groupsnapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumegroupsnapshotcontents/status"
+              ],
+              "verbs": [
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "replication.storage.openshift.io"
+              ],
+              "resources": [
+                "volumegroupreplicationcontents"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "replication.storage.openshift.io"
+              ],
+              "resources": [
+                "volumegroupreplicationclasses"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "volumeattributesclasses"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClusterRoleBinding",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "rbd-csi-provisioner-role"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "rbd-csi-provisioner",
+              "namespace": "default"
+            }
+          ],
+          "roleRef": {
+            "kind": "ClusterRole",
+            "name": "rbd-external-provisioner-runner",
+            "apiGroup": "rbac.authorization.k8s.io"
+          }
+        },
+        {
+          "kind": "Role",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "namespace": "default",
+            "name": "rbd-external-provisioner-cfg"
+          },
+          "rules": [
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "configmaps"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "create",
+                "update",
+                "delete"
+              ]
+            },
+            {
+              "apiGroups": [
+                "coordination.k8s.io"
+              ],
+              "resources": [
+                "leases"
+              ],
+              "verbs": [
+                "get",
+                "watch",
+                "list",
+                "delete",
+                "update",
+                "create"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "RoleBinding",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "rbd-csi-provisioner-role-cfg",
+            "namespace": "default"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "rbd-csi-provisioner",
+              "namespace": "default"
+            }
+          ],
+          "roleRef": {
+            "kind": "Role",
+            "name": "rbd-external-provisioner-cfg",
+            "apiGroup": "rbac.authorization.k8s.io"
+          }
+        }
+      ]
+    },
+    "rbd/csi-rbdplugin-provisioner.yaml": {
+      "name": "csi-rbdplugin-provisioner.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/rbd/kubernetes/csi-rbdplugin-provisioner.yaml",
+      "sha256": "5edbe0a109e242a60b27b0df8ea1e6d64767471cf03605ea5354780146d8dbdf",
+      "objects": [
+        {
+          "kind": "Service",
+          "apiVersion": "v1",
+          "metadata": {
+            "name": "csi-rbdplugin-provisioner",
+            "namespace": "default",
+            "labels": {
+              "app": "csi-metrics"
+            }
+          },
+          "spec": {
+            "selector": {
+              "app": "csi-rbdplugin-provisioner"
+            },
+            "ports": [
+              {
+                "name": "http-metrics",
+                "port": 8080,
+                "protocol": "TCP",
+                "targetPort": 8680
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Deployment",
+          "apiVersion": "apps/v1",
+          "metadata": {
+            "name": "csi-rbdplugin-provisioner",
+            "namespace": "default"
+          },
+          "spec": {
+            "replicas": 3,
+            "selector": {
+              "matchLabels": {
+                "app": "csi-rbdplugin-provisioner"
+              }
+            },
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "csi-rbdplugin-provisioner"
+                }
+              },
+              "spec": {
+                "affinity": {
+                  "podAntiAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": [
+                      {
+                        "labelSelector": {
+                          "matchExpressions": [
+                            {
+                              "key": "app",
+                              "operator": "In",
+                              "values": [
+                                "csi-rbdplugin-provisioner"
+                              ]
+                            }
+                          ]
+                        },
+                        "topologyKey": "kubernetes.io/hostname"
+                      }
+                    ]
+                  }
+                },
+                "serviceAccountName": "rbd-csi-provisioner",
+                "priorityClassName": "system-cluster-critical",
+                "containers": [
+                  {
+                    "name": "csi-rbdplugin",
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--nodeid=$(NODE_ID)",
+                      "--type=rbd",
+                      "--controllerserver=true",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--csi-addons-endpoint=$(CSI_ADDONS_ENDPOINT)",
+                      "--v=5",
+                      "--drivername=rbd.csi.ceph.com",
+                      "--pidlimit=-1",
+                      "--rbdhardmaxclonedepth=8",
+                      "--rbdsoftmaxclonedepth=4",
+                      "--enableprofiling=false",
+                      "--setmetadata=true"
+                    ],
+                    "env": [
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      },
+                      {
+                        "name": "NODE_ID",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "spec.nodeName"
+                          }
+                        }
+                      },
+                      {
+                        "name": "POD_NAMESPACE",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "metadata.namespace"
+                          }
+                        }
+                      },
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "CSI_ADDONS_ENDPOINT",
+                        "value": "unix:///csi/csi-addons.sock"
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      },
+                      {
+                        "mountPath": "/dev",
+                        "name": "host-dev"
+                      },
+                      {
+                        "mountPath": "/sys",
+                        "name": "host-sys"
+                      },
+                      {
+                        "mountPath": "/lib/modules",
+                        "name": "lib-modules",
+                        "readOnly": true
+                      },
+                      {
+                        "name": "ceph-csi-config",
+                        "mountPath": "/etc/ceph-csi-config/"
+                      },
+                      {
+                        "name": "ceph-csi-encryption-kms-config",
+                        "mountPath": "/etc/ceph-csi-encryption-kms-config/"
+                      },
+                      {
+                        "name": "keys-tmp-dir",
+                        "mountPath": "/tmp/csi/keys"
+                      },
+                      {
+                        "name": "ceph-config",
+                        "mountPath": "/etc/ceph/"
+                      },
+                      {
+                        "name": "oidc-token",
+                        "mountPath": "/run/secrets/tokens",
+                        "readOnly": true
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-provisioner",
+                    "image": "registry.k8s.io/sig-storage/csi-provisioner:v6.2.0",
+                    "args": [
+                      "--csi-address=$(ADDRESS)",
+                      "--v=1",
+                      "--timeout=150s",
+                      "--retry-interval-start=500ms",
+                      "--leader-election=true",
+                      "--prevent-volume-mode-conversion=true",
+                      "--default-fstype=ext4",
+                      "--extra-create-metadata=true",
+                      "--immediate-topology=false",
+                      "--http-endpoint=$(POD_IP):8090"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8090,
+                        "name": "provisioner",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-snapshotter",
+                    "image": "registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0",
+                    "args": [
+                      "--csi-address=$(ADDRESS)",
+                      "--v=1",
+                      "--timeout=150s",
+                      "--leader-election=true",
+                      "--extra-create-metadata=true",
+                      "--feature-gates=CSIVolumeGroupSnapshot=true",
+                      "--http-endpoint=$(POD_IP):8092"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8092,
+                        "name": "snapshotter",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-attacher",
+                    "image": "registry.k8s.io/sig-storage/csi-attacher:v4.11.0",
+                    "args": [
+                      "--v=1",
+                      "--csi-address=$(ADDRESS)",
+                      "--leader-election=true",
+                      "--retry-interval-start=500ms",
+                      "--default-fstype=ext4",
+                      "--http-endpoint=$(POD_IP):8093"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "/csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8093,
+                        "name": "attacher",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-resizer",
+                    "image": "registry.k8s.io/sig-storage/csi-resizer:v2.1.0",
+                    "args": [
+                      "--csi-address=$(ADDRESS)",
+                      "--v=1",
+                      "--timeout=150s",
+                      "--leader-election",
+                      "--retry-interval-start=500ms",
+                      "--handle-volume-inuse-error=false",
+                      "--feature-gates=RecoverVolumeExpansionFailure=true",
+                      "--http-endpoint=$(POD_IP):8091"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8091,
+                        "name": "resizer",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-rbdplugin-controller",
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--type=controller",
+                      "--v=5",
+                      "--drivername=rbd.csi.ceph.com",
+                      "--drivernamespace=$(DRIVER_NAMESPACE)",
+                      "--setmetadata=true"
+                    ],
+                    "env": [
+                      {
+                        "name": "DRIVER_NAMESPACE",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "metadata.namespace"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "volumeMounts": [
+                      {
+                        "name": "ceph-csi-config",
+                        "mountPath": "/etc/ceph-csi-config/"
+                      },
+                      {
+                        "name": "keys-tmp-dir",
+                        "mountPath": "/tmp/csi/keys"
+                      },
+                      {
+                        "name": "ceph-config",
+                        "mountPath": "/etc/ceph/"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "liveness-prometheus",
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--type=liveness",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--metricsport=8680",
+                      "--metricspath=/metrics",
+                      "--polltime=60s",
+                      "--timeout=3s"
+                    ],
+                    "env": [
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "containerPort": 8680,
+                        "name": "http-metrics",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent"
+                  }
+                ],
+                "volumes": [
+                  {
+                    "name": "host-dev",
+                    "hostPath": {
+                      "path": "/dev"
+                    }
+                  },
+                  {
+                    "name": "host-sys",
+                    "hostPath": {
+                      "path": "/sys"
+                    }
+                  },
+                  {
+                    "name": "lib-modules",
+                    "hostPath": {
+                      "path": "/lib/modules"
+                    }
+                  },
+                  {
+                    "name": "socket-dir",
+                    "emptyDir": {
+                      "medium": "Memory"
+                    }
+                  },
+                  {
+                    "name": "ceph-config",
+                    "configMap": {
+                      "name": "ceph-config"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-config",
+                    "configMap": {
+                      "name": "ceph-csi-config"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-encryption-kms-config",
+                    "configMap": {
+                      "name": "ceph-csi-encryption-kms-config"
+                    }
+                  },
+                  {
+                    "name": "keys-tmp-dir",
+                    "emptyDir": {
+                      "medium": "Memory"
+                    }
+                  },
+                  {
+                    "name": "oidc-token",
+                    "projected": {
+                      "sources": [
+                        {
+                          "serviceAccountToken": {
+                            "path": "oidc-token",
+                            "expirationSeconds": 3600,
+                            "audience": "ceph-csi-kms"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "cephfs/csi-cephfsplugin.yaml": {
+      "name": "csi-cephfsplugin.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/cephfs/kubernetes/csi-cephfsplugin.yaml",
+      "sha256": "96a7df3e3006979a4956bf0f75fd8ef88d9710ecae4bab9ff4277e30cff6d4be",
+      "objects": [
+        {
+          "kind": "DaemonSet",
+          "apiVersion": "apps/v1",
+          "metadata": {
+            "name": "csi-cephfsplugin"
+          },
+          "spec": {
+            "selector": {
+              "matchLabels": {
+                "app": "csi-cephfsplugin"
+              }
+            },
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "csi-cephfsplugin"
+                }
+              },
+              "spec": {
+                "serviceAccountName": "cephfs-csi-nodeplugin",
+                "priorityClassName": "system-node-critical",
+                "hostNetwork": true,
+                "hostPID": true,
+                "dnsPolicy": "ClusterFirstWithHostNet",
+                "containers": [
+                  {
+                    "name": "csi-cephfsplugin",
+                    "securityContext": {
+                      "privileged": true,
+                      "capabilities": {
+                        "add": [
+                          "SYS_ADMIN"
+                        ]
+                      },
+                      "allowPrivilegeEscalation": true
+                    },
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--nodeid=$(NODE_ID)",
+                      "--type=cephfs",
+                      "--nodeserver=true",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--v=5",
+                      "--drivername=cephfs.csi.ceph.com",
+                      "--enableprofiling=false"
+                    ],
+                    "env": [
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      },
+                      {
+                        "name": "NODE_ID",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "spec.nodeName"
+                          }
+                        }
+                      },
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi.sock"
+                      },
+                      {
+                        "name": "POD_NAMESPACE",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "metadata.namespace"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      },
+                      {
+                        "name": "mountpoint-dir",
+                        "mountPath": "/var/lib/kubelet/pods",
+                        "mountPropagation": "Bidirectional"
+                      },
+                      {
+                        "name": "plugin-dir",
+                        "mountPath": "/var/lib/kubelet/plugins",
+                        "mountPropagation": "Bidirectional"
+                      },
+                      {
+                        "name": "host-sys",
+                        "mountPath": "/sys"
+                      },
+                      {
+                        "name": "etc-selinux",
+                        "mountPath": "/etc/selinux",
+                        "readOnly": true
+                      },
+                      {
+                        "name": "lib-modules",
+                        "mountPath": "/lib/modules",
+                        "readOnly": true
+                      },
+                      {
+                        "name": "host-dev",
+                        "mountPath": "/dev"
+                      },
+                      {
+                        "name": "host-mount",
+                        "mountPath": "/run/mount"
+                      },
+                      {
+                        "name": "ceph-config",
+                        "mountPath": "/etc/ceph/"
+                      },
+                      {
+                        "name": "ceph-csi-config",
+                        "mountPath": "/etc/ceph-csi-config/"
+                      },
+                      {
+                        "name": "keys-tmp-dir",
+                        "mountPath": "/tmp/csi/keys"
+                      },
+                      {
+                        "name": "ceph-csi-mountinfo",
+                        "mountPath": "/csi/mountinfo"
+                      },
+                      {
+                        "name": "ceph-csi-encryption-kms-config",
+                        "mountPath": "/etc/ceph-csi-encryption-kms-config/"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "driver-registrar",
+                    "securityContext": {
+                      "privileged": true,
+                      "allowPrivilegeEscalation": true
+                    },
+                    "image": "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.16.0",
+                    "args": [
+                      "--v=1",
+                      "--csi-address=/csi/csi.sock",
+                      "--kubelet-registration-path=/var/lib/kubelet/plugins/cephfs.csi.ceph.com/csi.sock"
+                    ],
+                    "env": [
+                      {
+                        "name": "KUBE_NODE_NAME",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "spec.nodeName"
+                          }
+                        }
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      },
+                      {
+                        "name": "registration-dir",
+                        "mountPath": "/registration"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "liveness-prometheus",
+                    "securityContext": {
+                      "privileged": true,
+                      "allowPrivilegeEscalation": true
+                    },
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--type=liveness",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--metricsport=8681",
+                      "--metricspath=/metrics",
+                      "--polltime=60s",
+                      "--timeout=3s"
+                    ],
+                    "env": [
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent"
+                  }
+                ],
+                "volumes": [
+                  {
+                    "name": "socket-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/plugins/cephfs.csi.ceph.com/",
+                      "type": "DirectoryOrCreate"
+                    }
+                  },
+                  {
+                    "name": "registration-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/plugins_registry/",
+                      "type": "Directory"
+                    }
+                  },
+                  {
+                    "name": "mountpoint-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/pods",
+                      "type": "DirectoryOrCreate"
+                    }
+                  },
+                  {
+                    "name": "plugin-dir",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/plugins",
+                      "type": "Directory"
+                    }
+                  },
+                  {
+                    "name": "host-sys",
+                    "hostPath": {
+                      "path": "/sys"
+                    }
+                  },
+                  {
+                    "name": "etc-selinux",
+                    "hostPath": {
+                      "path": "/etc/selinux"
+                    }
+                  },
+                  {
+                    "name": "lib-modules",
+                    "hostPath": {
+                      "path": "/lib/modules"
+                    }
+                  },
+                  {
+                    "name": "host-dev",
+                    "hostPath": {
+                      "path": "/dev"
+                    }
+                  },
+                  {
+                    "name": "host-mount",
+                    "hostPath": {
+                      "path": "/run/mount"
+                    }
+                  },
+                  {
+                    "name": "ceph-config",
+                    "configMap": {
+                      "name": "ceph-config"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-config",
+                    "configMap": {
+                      "name": "ceph-csi-config"
+                    }
+                  },
+                  {
+                    "name": "keys-tmp-dir",
+                    "emptyDir": {
+                      "medium": "Memory"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-mountinfo",
+                    "hostPath": {
+                      "path": "/var/lib/kubelet/plugins/cephfs.csi.ceph.com/mountinfo",
+                      "type": "DirectoryOrCreate"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-encryption-kms-config",
+                    "configMap": {
+                      "name": "ceph-csi-encryption-kms-config"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "kind": "Service",
+          "metadata": {
+            "name": "csi-metrics-cephfsplugin",
+            "labels": {
+              "app": "csi-metrics"
+            }
+          },
+          "spec": {
+            "ports": [
+              {
+                "name": "http-metrics",
+                "port": 8080,
+                "protocol": "TCP",
+                "targetPort": 8681
+              }
+            ],
+            "selector": {
+              "app": "csi-cephfsplugin"
+            }
+          }
+        }
+      ]
+    },
+    "cephfs/csi-nodeplugin-rbac.yaml": {
+      "name": "csi-nodeplugin-rbac.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/cephfs/kubernetes/csi-nodeplugin-rbac.yaml",
+      "sha256": "a9071243298193fdc4f15d0548e6be2e6a6837620ba5e6191bd1cbfecb11339a",
+      "objects": [
+        {
+          "apiVersion": "v1",
+          "kind": "ServiceAccount",
+          "metadata": {
+            "name": "cephfs-csi-nodeplugin",
+            "namespace": "default"
+          }
+        },
+        {
+          "kind": "ClusterRole",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "cephfs-csi-nodeplugin"
+          },
+          "rules": [
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "nodes"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "secrets"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "configmaps"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts/token"
+              ],
+              "verbs": [
+                "create"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClusterRoleBinding",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "cephfs-csi-nodeplugin"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "cephfs-csi-nodeplugin",
+              "namespace": "default"
+            }
+          ],
+          "roleRef": {
+            "kind": "ClusterRole",
+            "name": "cephfs-csi-nodeplugin",
+            "apiGroup": "rbac.authorization.k8s.io"
+          }
+        }
+      ]
+    },
+    "cephfs/csidriver.yaml": {
+      "name": "csidriver.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/cephfs/kubernetes/csidriver.yaml",
+      "sha256": "e6e33142759784e3f70208a1ef784cb9293a81681dbab91500c95713604224f4",
+      "objects": [
+        {
+          "apiVersion": "storage.k8s.io/v1",
+          "kind": "CSIDriver",
+          "metadata": {
+            "name": "cephfs.csi.ceph.com"
+          },
+          "spec": {
+            "attachRequired": true,
+            "podInfoOnMount": true,
+            "fsGroupPolicy": "File",
+            "seLinuxMount": true
+          }
+        }
+      ]
+    },
+    "cephfs/csi-provisioner-rbac.yaml": {
+      "name": "csi-provisioner-rbac.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/cephfs/kubernetes/csi-provisioner-rbac.yaml",
+      "sha256": "b1696bc7300c63a4b6971cb7c82c9909e43e6ce5854201a942b1ef7589c23dac",
+      "objects": [
+        {
+          "apiVersion": "v1",
+          "kind": "ServiceAccount",
+          "metadata": {
+            "name": "cephfs-csi-provisioner",
+            "namespace": "default"
+          }
+        },
+        {
+          "kind": "ClusterRole",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "cephfs-external-provisioner-runner"
+          },
+          "rules": [
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "nodes"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "secrets"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "events"
+              ],
+              "verbs": [
+                "list",
+                "watch",
+                "create",
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "persistentvolumes"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "create",
+                "update",
+                "delete",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "persistentvolumeclaims"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "persistentvolumeclaims/status"
+              ],
+              "verbs": [
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "storageclasses"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshots"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update",
+                "patch",
+                "create"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshots/status"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshotcontents"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update",
+                "patch",
+                "create"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshotclasses"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "volumeattachments"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "volumeattachments/status"
+              ],
+              "verbs": [
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "storage.k8s.io"
+              ],
+              "resources": [
+                "csinodes"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "snapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumesnapshotcontents/status"
+              ],
+              "verbs": [
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "configmaps"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts"
+              ],
+              "verbs": [
+                "get"
+              ]
+            },
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "serviceaccounts/token"
+              ],
+              "verbs": [
+                "create"
+              ]
+            },
+            {
+              "apiGroups": [
+                "groupsnapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumegroupsnapshotclasses"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "groupsnapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumegroupsnapshotcontents"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch",
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "groupsnapshot.storage.k8s.io"
+              ],
+              "resources": [
+                "volumegroupsnapshotcontents/status"
+              ],
+              "verbs": [
+                "update",
+                "patch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "replication.storage.openshift.io"
+              ],
+              "resources": [
+                "volumegroupreplicationcontents"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "replication.storage.openshift.io"
+              ],
+              "resources": [
+                "volumegroupreplicationclasses"
+              ],
+              "verbs": [
+                "get"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClusterRoleBinding",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "cephfs-csi-provisioner-role"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "cephfs-csi-provisioner",
+              "namespace": "default"
+            }
+          ],
+          "roleRef": {
+            "kind": "ClusterRole",
+            "name": "cephfs-external-provisioner-runner",
+            "apiGroup": "rbac.authorization.k8s.io"
+          }
+        },
+        {
+          "kind": "Role",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "namespace": "default",
+            "name": "cephfs-external-provisioner-cfg"
+          },
+          "rules": [
+            {
+              "apiGroups": [
+                ""
+              ],
+              "resources": [
+                "configmaps"
+              ],
+              "verbs": [
+                "get",
+                "list",
+                "watch"
+              ]
+            },
+            {
+              "apiGroups": [
+                "coordination.k8s.io"
+              ],
+              "resources": [
+                "leases"
+              ],
+              "verbs": [
+                "get",
+                "watch",
+                "list",
+                "delete",
+                "update",
+                "create"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "RoleBinding",
+          "apiVersion": "rbac.authorization.k8s.io/v1",
+          "metadata": {
+            "name": "cephfs-csi-provisioner-role-cfg",
+            "namespace": "default"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "cephfs-csi-provisioner",
+              "namespace": "default"
+            }
+          ],
+          "roleRef": {
+            "kind": "Role",
+            "name": "cephfs-external-provisioner-cfg",
+            "apiGroup": "rbac.authorization.k8s.io"
+          }
+        }
+      ]
+    },
+    "cephfs/csi-cephfsplugin-provisioner.yaml": {
+      "name": "csi-cephfsplugin-provisioner.yaml",
+      "url": "https://raw.githubusercontent.com/ceph/ceph-csi/v3.17.1/deploy/cephfs/kubernetes/csi-cephfsplugin-provisioner.yaml",
+      "sha256": "4df3723a2bf7b394eb196cc257475f4a62e171413815d5dbde22663387885cf3",
+      "objects": [
+        {
+          "kind": "Service",
+          "apiVersion": "v1",
+          "metadata": {
+            "name": "csi-cephfsplugin-provisioner",
+            "labels": {
+              "app": "csi-metrics"
+            }
+          },
+          "spec": {
+            "selector": {
+              "app": "csi-cephfsplugin-provisioner"
+            },
+            "ports": [
+              {
+                "name": "http-metrics",
+                "port": 8080,
+                "protocol": "TCP",
+                "targetPort": 8681
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Deployment",
+          "apiVersion": "apps/v1",
+          "metadata": {
+            "name": "csi-cephfsplugin-provisioner"
+          },
+          "spec": {
+            "selector": {
+              "matchLabels": {
+                "app": "csi-cephfsplugin-provisioner"
+              }
+            },
+            "replicas": 3,
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "csi-cephfsplugin-provisioner"
+                }
+              },
+              "spec": {
+                "affinity": {
+                  "podAntiAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": [
+                      {
+                        "labelSelector": {
+                          "matchExpressions": [
+                            {
+                              "key": "app",
+                              "operator": "In",
+                              "values": [
+                                "csi-cephfsplugin-provisioner"
+                              ]
+                            }
+                          ]
+                        },
+                        "topologyKey": "kubernetes.io/hostname"
+                      }
+                    ]
+                  }
+                },
+                "serviceAccountName": "cephfs-csi-provisioner",
+                "priorityClassName": "system-cluster-critical",
+                "containers": [
+                  {
+                    "name": "csi-cephfsplugin",
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--nodeid=$(NODE_ID)",
+                      "--type=cephfs",
+                      "--controllerserver=true",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--v=5",
+                      "--drivername=cephfs.csi.ceph.com",
+                      "--pidlimit=-1",
+                      "--enableprofiling=false",
+                      "--setmetadata=true"
+                    ],
+                    "env": [
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      },
+                      {
+                        "name": "NODE_ID",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "spec.nodeName"
+                          }
+                        }
+                      },
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_NAMESPACE",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "metadata.namespace"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      },
+                      {
+                        "name": "host-sys",
+                        "mountPath": "/sys"
+                      },
+                      {
+                        "name": "lib-modules",
+                        "mountPath": "/lib/modules",
+                        "readOnly": true
+                      },
+                      {
+                        "name": "host-dev",
+                        "mountPath": "/dev"
+                      },
+                      {
+                        "name": "ceph-config",
+                        "mountPath": "/etc/ceph/"
+                      },
+                      {
+                        "name": "ceph-csi-config",
+                        "mountPath": "/etc/ceph-csi-config/"
+                      },
+                      {
+                        "name": "keys-tmp-dir",
+                        "mountPath": "/tmp/csi/keys"
+                      },
+                      {
+                        "name": "ceph-csi-encryption-kms-config",
+                        "mountPath": "/etc/ceph-csi-encryption-kms-config/"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-provisioner",
+                    "image": "registry.k8s.io/sig-storage/csi-provisioner:v6.2.0",
+                    "args": [
+                      "--csi-address=$(ADDRESS)",
+                      "--v=1",
+                      "--timeout=150s",
+                      "--leader-election=true",
+                      "--retry-interval-start=500ms",
+                      "--prevent-volume-mode-conversion=true",
+                      "--extra-create-metadata=true",
+                      "--http-endpoint=$(POD_IP):8090"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8090,
+                        "name": "provisioner",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-attacher",
+                    "image": "registry.k8s.io/sig-storage/csi-attacher:v4.11.0",
+                    "args": [
+                      "--v=1",
+                      "--csi-address=$(ADDRESS)",
+                      "--leader-election=true",
+                      "--retry-interval-start=500ms",
+                      "--http-endpoint=$(POD_IP):8093"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "/csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8093,
+                        "name": "attacher",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-resizer",
+                    "image": "registry.k8s.io/sig-storage/csi-resizer:v2.1.0",
+                    "args": [
+                      "--csi-address=$(ADDRESS)",
+                      "--v=1",
+                      "--timeout=150s",
+                      "--leader-election",
+                      "--retry-interval-start=500ms",
+                      "--handle-volume-inuse-error=false",
+                      "--feature-gates=RecoverVolumeExpansionFailure=true",
+                      "--http-endpoint=$(POD_IP):8091"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8091,
+                        "name": "resizer",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-snapshotter",
+                    "image": "registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0",
+                    "args": [
+                      "--csi-address=$(ADDRESS)",
+                      "--v=1",
+                      "--timeout=150s",
+                      "--leader-election=true",
+                      "--extra-create-metadata=true",
+                      "--feature-gates=CSIVolumeGroupSnapshot=true",
+                      "--http-endpoint=$(POD_IP):8092"
+                    ],
+                    "env": [
+                      {
+                        "name": "ADDRESS",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "ports": [
+                      {
+                        "containerPort": 8092,
+                        "name": "snapshotter",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "csi-cephfsplugin-controller",
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--type=controller",
+                      "--v=5",
+                      "--drivername=cephfs.csi.ceph.com",
+                      "--drivernamespace=$(DRIVER_NAMESPACE)",
+                      "--setmetadata=true"
+                    ],
+                    "env": [
+                      {
+                        "name": "DRIVER_NAMESPACE",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "metadata.namespace"
+                          }
+                        }
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent",
+                    "volumeMounts": [
+                      {
+                        "name": "ceph-csi-config",
+                        "mountPath": "/etc/ceph-csi-config/"
+                      },
+                      {
+                        "name": "keys-tmp-dir",
+                        "mountPath": "/tmp/csi/keys"
+                      },
+                      {
+                        "name": "ceph-config",
+                        "mountPath": "/etc/ceph/"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "liveness-prometheus",
+                    "image": "quay.io/cephcsi/cephcsi:v3.17.1",
+                    "args": [
+                      "--type=liveness",
+                      "--endpoint=$(CSI_ENDPOINT)",
+                      "--metricsport=8681",
+                      "--metricspath=/metrics",
+                      "--polltime=60s",
+                      "--timeout=3s"
+                    ],
+                    "env": [
+                      {
+                        "name": "CSI_ENDPOINT",
+                        "value": "unix:///csi/csi-provisioner.sock"
+                      },
+                      {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                          "fieldRef": {
+                            "fieldPath": "status.podIP"
+                          }
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "containerPort": 8681,
+                        "name": "http-metrics",
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "socket-dir",
+                        "mountPath": "/csi"
+                      }
+                    ],
+                    "imagePullPolicy": "IfNotPresent"
+                  }
+                ],
+                "volumes": [
+                  {
+                    "name": "socket-dir",
+                    "emptyDir": {
+                      "medium": "Memory"
+                    }
+                  },
+                  {
+                    "name": "host-sys",
+                    "hostPath": {
+                      "path": "/sys"
+                    }
+                  },
+                  {
+                    "name": "lib-modules",
+                    "hostPath": {
+                      "path": "/lib/modules"
+                    }
+                  },
+                  {
+                    "name": "host-dev",
+                    "hostPath": {
+                      "path": "/dev"
+                    }
+                  },
+                  {
+                    "name": "ceph-config",
+                    "configMap": {
+                      "name": "ceph-config"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-config",
+                    "configMap": {
+                      "name": "ceph-csi-config"
+                    }
+                  },
+                  {
+                    "name": "keys-tmp-dir",
+                    "emptyDir": {
+                      "medium": "Memory"
+                    }
+                  },
+                  {
+                    "name": "ceph-csi-encryption-kms-config",
+                    "configMap": {
+                      "name": "ceph-csi-encryption-kms-config"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
