@@ -21,6 +21,82 @@ from fedora_upgrade_bridge import bridge
 
 
 class UpgradeRefusals(unittest.TestCase):
+    def test_only_exact_timestamp_drift_can_restore_native_package_metadata(self):
+        import ast
+
+        functions = [node for node in ast.parse(upgrade.GUEST).body
+                     if isinstance(node, ast.FunctionDef) and node.name == 'verify_packages']
+        self.assertEqual(len(functions), 1)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'customizable_types'
+            path.write_bytes(b'unchanged synthetic policy')
+            enforcement = Path(temporary) / 'enforce'; enforcement.write_text('1\n')
+            guest_os = SimpleNamespace(listxattr=lambda value: [], getxattr=lambda *args: b'')
+            namespace = {'hashlib': hashlib, 'json': json, 'os': guest_os,
+                         'pathlib': SimpleNamespace(Path=lambda value: enforcement
+                                                   if value == '/sys/fs/selinux/enforce' else path)}
+            exec(compile(ast.Module(body=functions, type_ignores=[]), '<actual-guest-verify>', 'exec'), namespace)
+            exact = '.......T.  c /etc/selinux/targeted/contexts/customizable_types\n'
+            failure = {'command': ['rpm', '-V', 'fedora-release-common', 'selinux-policy-targeted'],
+                       'exit': 1, 'stderr': '', 'verification_stdout': exact,
+                       'verification_stdout_bytes': len(exact.encode()),
+                       'verification_stdout_sha256': hashlib.sha256(exact.encode()).hexdigest()}
+            verify = namespace['verify_packages']
+            with patch.dict(namespace, native=unittest.mock.Mock(return_value='')):
+                self.assertIsNone(verify())
+                namespace['native'].assert_called_once_with(*failure['command'])
+            for change in ({'verification_stdout': exact.replace('.......T.', 'S.5....T.')},
+                           {'verification_stdout': exact.replace('customizable_types', 'foreign')},
+                           {'verification_stdout': exact + exact}, {'stderr': 'failure'}, {'exit': 2}):
+                with self.subTest(change=change), patch.dict(namespace, native=unittest.mock.Mock(
+                        side_effect=RuntimeError(json.dumps({**failure, **change})))):
+                    with self.assertRaises(RuntimeError):
+                        verify()
+                    self.assertEqual(namespace['native'].call_count, 1)
+            for ending in ('', 'unexpected output', RuntimeError('restore failed')):
+                native = unittest.mock.Mock(side_effect=[RuntimeError(json.dumps(failure)), ending, ''])
+                with self.subTest(ending=ending), patch.dict(namespace, native=native):
+                    if ending == '':
+                        result = verify()
+                        self.assertEqual(result['before'], result['after'])
+                        self.assertEqual(result['original_failure'], failure)
+                    else:
+                        with self.assertRaises((RuntimeError, AssertionError)):
+                            verify()
+                    self.assertEqual(native.call_args_list[1],
+                                     unittest.mock.call('rpm', '--restore', 'selinux-policy-targeted'))
+            with patch.dict(namespace, native=unittest.mock.Mock(side_effect=[
+                    RuntimeError(json.dumps(failure)), '', RuntimeError('verification still failed')])):
+                with self.assertRaisesRegex(RuntimeError, 'verification still failed'):
+                    verify()
+            path.unlink(); path.symlink_to(enforcement)
+            native = unittest.mock.Mock(side_effect=RuntimeError(json.dumps(failure)))
+            with patch.dict(namespace, native=native), self.assertRaises(AssertionError):
+                verify()
+            self.assertEqual(native.call_count, 1)
+            path.unlink()
+            for mutation in ('content', 'mode', 'xattr'):
+                path.write_bytes(b'unchanged synthetic policy'); path.chmod(0o600)
+
+                def restore(*args):
+                    if args == tuple(failure['command']):
+                        if native.call_count == 1:
+                            raise RuntimeError(json.dumps(failure))
+                        return ''
+                    if mutation == 'content':
+                        path.write_bytes(b'changed synthetic policy')
+                    elif mutation == 'mode':
+                        path.chmod(0o640)
+                    return ''
+
+                native = unittest.mock.Mock(side_effect=restore)
+                attrs = [[], ['user.synthetic']] if mutation == 'xattr' else [[], []]
+                with self.subTest(mutation=mutation), patch.dict(namespace, native=native), \
+                        patch.object(guest_os, 'listxattr', side_effect=attrs), \
+                        patch.object(guest_os, 'getxattr', return_value=b'changed'):
+                    with self.assertRaises(AssertionError):
+                        verify()
+
     def test_partial_transport_failure_retries_identical_url_and_verified_bytes(self):
         base = repository.BASES['41-updates']
         relative = 'Packages/f/fwupd-plugin-modem-manager-2.0.16-1.fc41.x86_64.rpm'

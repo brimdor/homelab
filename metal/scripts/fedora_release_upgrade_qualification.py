@@ -38,6 +38,30 @@ def native(*args):
     verification_stdout_bytes=len(result.stdout),verification_stdout_sha256=hashlib.sha256(result.stdout).hexdigest())
   raise RuntimeError(json.dumps(failure))
  return result.stdout.decode()
+def verify_packages():
+ command=('rpm','-V','fedora-release-common','selinux-policy-targeted')
+ try:
+  assert not native(*command)
+  return None
+ except RuntimeError as error:
+  failure=json.loads(str(error))
+  if(failure['command']!=list(command)or failure['exit']!=1 or failure['stderr']or
+     failure.get('verification_stdout')!='.......T.  c /etc/selinux/targeted/contexts/customizable_types\\n'):
+   raise
+ path=pathlib.Path('/etc/selinux/targeted/contexts/customizable_types')
+ assert path.is_file()and not path.is_symlink()
+ def snapshot():
+  value=path.stat()
+  return {'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+   'metadata':[value.st_dev,value.st_ino,value.st_size,value.st_mode,value.st_uid,value.st_gid,value.st_nlink],
+   'xattrs':{name:os.getxattr(path,name).hex()for name in sorted(os.listxattr(path))}}
+ before=snapshot()
+ # RPM's native metadata restoration is allowed only after the exact timestamp-only discrepancy above.
+ assert not native('rpm','--restore','selinux-policy-targeted')
+ after=snapshot();assert after==before
+ assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
+ assert not native(*command)
+ return {'original_failure':failure,'before':before,'after':after,'native_restore_and_clean_verification':True}
 '''
 
 
@@ -235,11 +259,14 @@ for name in ('dnf-automatic.timer','dnf5-automatic.timer'):
  assert result.returncode==1 and result.stdout.strip()==b'masked'
 kernel=native('uname','-r').strip();assert '.fc'+str(release)+'.'in kernel
 assert native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}','kernel-core-'+kernel)==kernel
-assert not native('rpm','-V','fedora-release-common','selinux-policy-targeted')
+restoration=verify_packages()
 packages=native('rpm','-qa','--qf','%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\\n').splitlines()
 print(json.dumps({'release':release,'enforcing':True,'kernel':kernel,'updaters_held':True,
- 'package_inventory':sorted(packages),'sysctl':61}))
+ 'package_inventory':sorted(packages),'sysctl':61,'package_metadata_restoration':restoration}))
 ''')
+        restoration = native.pop('package_metadata_restoration', None)
+        if restoration is not None:
+            self.persist('native-package-metadata-restored', release=release, result=restoration)
         current = self.corpus()
         if current != corpus:
             raise RuntimeError('full release-upgrade corpus or metadata changed')
