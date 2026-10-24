@@ -105,16 +105,31 @@ class UpgradeRefusals(unittest.TestCase):
     def test_path_binds_exact_origin_and_metadata_or_package(self):
         record = {'base': repository.BASES['39-base'],
                   'files': {'repodata/repomd.xml': 'a' * 64},
-                  'packages': {'Packages/k/kernel-core.rpm': 'b' * 64}}
+                  'packages': {'Packages/k/kernel-core.rpm': 'b' * 64,
+                               'Packages/l/libstdc++-13.3.1-3.fc39.x86_64.rpm': 'c' * 64,
+                               'Packages/t/tool-1^2026-1.fc44.x86_64.rpm': 'd' * 64}}
         repositories = {'39-base': record}
         self.assertEqual(repository.requested_path('/39-base/repodata/repomd.xml', repositories),
                          ('39-base', 'repodata/repomd.xml', 'a' * 64))
         self.assertEqual(repository.requested_path('/39-base/Packages/k/kernel-core.rpm', repositories),
                          ('39-base', 'Packages/k/kernel-core.rpm', 'b' * 64))
+        for spelling in ('libstdc++', 'libstdc%2b%2b', 'libstdc%2B%2B', 'libstdc%2b%2B'):
+            self.assertEqual(repository.requested_path('/39-base/Packages/l/' + spelling +
+                                                     '-13.3.1-3.fc39.x86_64.rpm', repositories),
+                             ('39-base', 'Packages/l/libstdc++-13.3.1-3.fc39.x86_64.rpm', 'c' * 64))
+        self.assertEqual(repository.requested_path('/39-base/Packages/t/tool-1%5E2026-1.fc44.x86_64.rpm',
+                                                  repositories),
+                         ('39-base', 'Packages/t/tool-1^2026-1.fc44.x86_64.rpm', 'd' * 64))
         for value in ('/39-base/../private', '/39-base//repodata/repomd.xml',
                       '/39-base/repodata/missing.xml', '/44-base/repodata/repomd.xml',
                       '/39-base/Packages/k/kernel-core.rpm?token=x',
                       '/39-base/Packages/k/kernel-core.rpm#x', '/39-base/%2e%2e/private',
+                      '/39-base/Packages/l/libstdc%252b%252b-13.3.1-3.fc39.x86_64.rpm',
+                      '/39-base/Packages%2Fl/libstdc++-13.3.1-3.fc39.x86_64.rpm',
+                      '/39-base/Packages/l/libstdc%2-13.3.1-3.fc39.x86_64.rpm',
+                      '/39-base/Packages%5cl/libstdc++-13.3.1-3.fc39.x86_64.rpm',
+                      '/39-base/Packages/l/libstdc%ff.rpm', '/39-base/Packages/l/libstdc%00.rpm',
+                      '/39-base/Packages/l/libstdc%3frpm', '/39-base/Packages/l/libstdc%23rpm',
                       'https://foreign.example/private', None):
             with self.subTest(value=value), self.assertRaises(RuntimeError):
                 repository.requested_path(value, repositories)

@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import threading
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -98,6 +99,13 @@ def mirror(root, name):
 
 
 def requested_path(raw, repositories):
+    if isinstance(raw, str):
+        if re.search(r'%(?![0-9A-Fa-f]{2})|%(?:2[fF]|5[cC]|25)', raw):
+            raise RuntimeError('unsafe upgrade request encoding')
+        try:
+            raw = urllib.parse.unquote(raw, encoding='ascii', errors='strict')
+        except UnicodeDecodeError as error:
+            raise RuntimeError('non-ASCII upgrade request encoding') from error
     if not isinstance(raw, str) or '?' in raw or '#' in raw or '%' in raw or not raw.startswith('/'):
         raise RuntimeError('foreign upgrade request')
     name, separator, relative = raw[1:].partition('/')
