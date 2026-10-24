@@ -3,6 +3,9 @@
 
 import gzip
 import hashlib
+import http.client
+import time
+import urllib.error
 from pathlib import PurePosixPath
 import re
 import subprocess
@@ -28,29 +31,61 @@ def safe_path(value, prefix):
     return value
 
 
-def fetch(base, relative, destination, expected=None):
+def retryable_fetch_error(error):
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in (500, 502, 503, 504)
+    reason = error.reason if isinstance(error, urllib.error.URLError) else error
+    return isinstance(reason, (TimeoutError, ConnectionResetError, ConnectionAbortedError,
+                               http.client.IncompleteRead))
+
+
+def fetch_verified(base, relative, destination, expected=None, attempts=None):
+    safe_path(relative, 'repodata' if relative.startswith('repodata/') else 'Packages')
+    if destination.exists() or any(path.is_symlink() for path in (destination, *destination.parents)):
+        raise RuntimeError('Fedora repository output already exists or is redirected')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, 4):
+        digest = hashlib.sha256()
+        try:
+            with urllib.request.urlopen(base + relative, timeout=90) as response, destination.open('xb') as output:
+                if response.status != 200 or response.url != base + relative:
+                    raise RuntimeError('official Fedora HTTPS response changed origin or path')
+                while block := response.read(4 * 1024 * 1024):
+                    output.write(block)
+                    digest.update(block)
+            if expected is not None and digest.hexdigest() != expected:
+                raise RuntimeError('official Fedora artifact checksum differs')
+            return digest.hexdigest()
+        except BaseException as error:
+            destination.unlink(missing_ok=True)
+            retry = attempt < 3 and retryable_fetch_error(error)
+            if attempts is not None:
+                reason = error.reason if isinstance(error, urllib.error.URLError) else error
+                attempts.append({'base': base, 'path': relative, 'attempt': attempt,
+                                 'error_type': type(error).__name__, 'reason_type': type(reason).__name__,
+                                 'http_status': error.code if isinstance(error, urllib.error.HTTPError) else None,
+                                 'retrying': retry})
+            if isinstance(error, urllib.error.HTTPError):
+                error.close()
+            if not retry:
+                raise
+            time.sleep(2)
+
+
+def fetch(base, relative, destination, expected=None, attempts=None):
     if base not in BASES.values():
         raise RuntimeError('foreign Fedora repository origin')
-    safe_path(relative, 'repodata' if relative.startswith('repodata/') else 'Packages')
-    digest = hashlib.sha256()
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(base + relative, timeout=90) as response, destination.open('xb') as output:
-        if response.status != 200 or response.geturl() != base + relative:
-            raise RuntimeError('official Fedora HTTPS response changed origin or path')
-        while block := response.read(4 * 1024 * 1024):
-            output.write(block)
-            digest.update(block)
-    if expected is not None and digest.hexdigest() != expected:
-        raise RuntimeError('official Fedora artifact hash differs')
-    return digest.hexdigest()
+    return fetch_verified(base, relative, destination, expected, attempts)
 
 
-def mirror(root, repository):
+def mirror(root, repository, attempts=None):
+    attempts = [] if attempts is None else attempts
+    first_attempt = len(attempts)
     base = BASES[repository]
     directory = root / repository
     directory.mkdir(mode=0o700)
     repomd = directory / 'repodata/repomd.xml'
-    repomd_hash = fetch(base, 'repodata/repomd.xml', repomd)
+    repomd_hash = fetch(base, 'repodata/repomd.xml', repomd, attempts=attempts)
     files = {'repodata/repomd.xml': repomd_hash}
     primary = None
     for record in ET.parse(repomd).getroot().findall('r:data', NS):
@@ -58,7 +93,7 @@ def mirror(root, repository):
         checksum = record.find('r:checksum', NS)
         if checksum.attrib['type'] != 'sha256' or not re.fullmatch(r'[0-9a-f]{64}', checksum.text or ''):
             raise RuntimeError('unsupported Fedora metadata checksum')
-        files[relative] = fetch(base, relative, directory / relative, checksum.text)
+        files[relative] = fetch(base, relative, directory / relative, checksum.text, attempts)
         if record.attrib['type'] == 'primary':
             if primary is not None:
                 raise RuntimeError('duplicate Fedora primary metadata')
@@ -91,7 +126,7 @@ def mirror(root, repository):
             package.clear()
     finally:
         raw.unlink()
-    return {'base': base, 'files': files, 'packages': packages}
+    return {'base': base, 'files': files, 'packages': packages, 'transport_attempts': attempts[first_attempt:]}
 
 
 def selection(url, repositories, guest_root):

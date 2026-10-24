@@ -211,7 +211,7 @@ for kind in ('base','updates'):
  (repos/(kind+'.repo')).write_text('[qualification-'+kind+']\\nname=qualification '+kind+'\\n'
   'baseurl=http://10.0.2.100:8080/$releasever-'+kind+'/\\nenabled=1\\ngpgcheck=1\\ngpgkey='+urls+'\\n')
 pathlib.Path('/etc/dnf/dnf.conf').write_text('[main]\\ngpgcheck=True\\nlocalpkg_gpgcheck=True\\n'
- 'install_weak_deps=False\\nkeepcache=True\\nmax_parallel_downloads=1\\nzchunk=False\\nreposdir='+str(repos)+'\\n')
+ 'install_weak_deps=False\\nkeepcache=True\\ntimeout=300\\nmax_parallel_downloads=1\\nzchunk=False\\nreposdir='+str(repos)+'\\n')
 native('systemctl','mask','dnf-automatic.timer','dnf5-automatic.timer')
 pathlib.Path('/etc/sysctl.d/99-qualification-upgrade.conf').write_text('vm.swappiness=61\\n')
 native('sysctl','-p','/etc/sysctl.d/99-qualification-upgrade.conf')

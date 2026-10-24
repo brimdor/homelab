@@ -3,20 +3,17 @@
 
 import gzip
 import hashlib
-import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import threading
-import time
-import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-from fedora_ceph_repository import NS, safe_path
+from fedora_ceph_repository import NS, safe_path, fetch_verified, retryable_fetch_error
 
 
 ARCHIVE = 'https://ftp-stud.hs-esslingen.de/pub/Mirrors/archive.fedoraproject.org/fedora/linux/'
@@ -27,47 +24,10 @@ BASES = {str(release) + '-' + kind: origin + path for release, origin in (
     ('updates', 'updates/' + str(release) + '/Everything/x86_64/'))}
 
 
-def retryable_fetch_error(error):
-    if isinstance(error, urllib.error.HTTPError):
-        return error.code in (500, 502, 503, 504)
-    reason = error.reason if isinstance(error, urllib.error.URLError) else error
-    return isinstance(reason, (TimeoutError, ConnectionResetError, ConnectionAbortedError,
-                               http.client.IncompleteRead))
-
-
 def fetch(base, relative, destination, expected=None, attempts=None):
     if base not in BASES.values():
         raise RuntimeError('foreign Fedora upgrade repository')
-    safe_path(relative, 'repodata' if relative.startswith('repodata/') else 'Packages')
-    if destination.exists() or any(path.is_symlink() for path in (destination, *destination.parents)):
-        raise RuntimeError('upgrade repository output already exists or is redirected')
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    for attempt in range(1, 4):
-        digest = hashlib.sha256()
-        try:
-            with urllib.request.urlopen(base + relative, timeout=90) as response, destination.open('xb') as output:
-                if response.status != 200 or response.url != base + relative:
-                    raise RuntimeError('Fedora upgrade response changed origin or path')
-                while block := response.read(4 * 1024 * 1024):
-                    output.write(block)
-                    digest.update(block)
-            if expected is not None and digest.hexdigest() != expected:
-                raise RuntimeError('Fedora upgrade artifact checksum differs')
-            return digest.hexdigest()
-        except BaseException as error:
-            destination.unlink(missing_ok=True)
-            retry = attempt < 3 and retryable_fetch_error(error)
-            if attempts is not None:
-                reason = error.reason if isinstance(error, urllib.error.URLError) else error
-                attempts.append({'base': base, 'path': relative, 'attempt': attempt,
-                                 'error_type': type(error).__name__, 'reason_type': type(reason).__name__,
-                                 'http_status': error.code if isinstance(error, urllib.error.HTTPError) else None,
-                                 'retrying': retry})
-            if isinstance(error, urllib.error.HTTPError):
-                error.close()
-            if not retry:
-                raise
-            time.sleep(2)
+    return fetch_verified(base, relative, destination, expected, attempts)
 
 
 def mirror(root, name, attempts=None):

@@ -40,7 +40,7 @@ class UpgradeRefusals(unittest.TestCase):
         attempts = []
         with tempfile.TemporaryDirectory() as temporary, \
                 patch('urllib.request.urlopen', side_effect=[partial, complete]) as request, \
-                patch.object(repository.time, 'sleep') as sleep:
+                patch('time.sleep') as sleep:
             path = Path(temporary) / 'package.rpm'
             expected = hashlib.sha256(payload).hexdigest()
             self.assertEqual(repository.fetch(base, relative, path, expected, attempts), expected)
@@ -57,7 +57,7 @@ class UpgradeRefusals(unittest.TestCase):
         attempts = []
         with tempfile.TemporaryDirectory() as temporary, \
                 patch('urllib.request.urlopen', side_effect=errors) as request, \
-                patch.object(repository.time, 'sleep') as sleep:
+                patch('time.sleep') as sleep:
             path = Path(temporary) / '41-updates/repodata/repomd.xml'
             with self.assertRaises(urllib.error.URLError):
                 repository.mirror(Path(temporary), '41-updates', attempts)
@@ -76,7 +76,7 @@ class UpgradeRefusals(unittest.TestCase):
             with self.subTest(error=type(error).__name__, code=getattr(error, 'code', None)), \
                     tempfile.TemporaryDirectory() as temporary, \
                     patch('urllib.request.urlopen', side_effect=error) as request, \
-                    patch.object(repository.time, 'sleep') as sleep:
+                    patch('time.sleep') as sleep:
                 path = Path(temporary) / 'package.rpm'
                 with self.assertRaises(type(error)):
                     repository.fetch(base, 'Packages/k/kernel.rpm', path)
@@ -160,7 +160,7 @@ class UpgradeRefusals(unittest.TestCase):
             self.assertEqual(digest, hashlib.sha256(path.read_bytes()).hexdigest())
             path.unlink()
             with patch('urllib.request.urlopen', return_value=Response(b'corrupted')) as request, \
-                    patch.object(repository.time, 'sleep') as sleep:
+                    patch('time.sleep') as sleep:
                 with self.assertRaisesRegex(RuntimeError, 'checksum'):
                     repository.fetch(base, relative, path, '0' * 64)
                 self.assertEqual(request.call_count, 1)
@@ -169,7 +169,7 @@ class UpgradeRefusals(unittest.TestCase):
             redirected = Response(b'owned public bytes')
             redirected.url = 'https://foreign.example/package.rpm'
             with patch('urllib.request.urlopen', return_value=redirected) as request, \
-                    patch.object(repository.time, 'sleep') as sleep:
+                    patch('time.sleep') as sleep:
                 with self.assertRaisesRegex(RuntimeError, 'origin'):
                     repository.fetch(base, relative, path)
                 self.assertEqual(request.call_count, 1)
@@ -180,8 +180,10 @@ class UpgradeRefusals(unittest.TestCase):
         fixture = object.__new__(upgrade.Qualification)
         fixture.contract = json.loads((upgrade.MAINTENANCE / 'fedora-upgrade-inputs.json').read_bytes())
         programs = []
+        generated = []
 
         def compile_guest(body):
+            generated.append(body)
             programs.append(compile(upgrade.GUEST + body, '<actual-upgrade-guest>', 'exec'))
             return {}
 
@@ -193,6 +195,8 @@ class UpgradeRefusals(unittest.TestCase):
             for release in fixture.contract['keys']:
                 (fixture.args.keys_dir / ('fedora' + release + '.gpg')).write_bytes(b'owned public bytes')
             fixture.configure()
+            self.assertIn('timeout=300', generated[0])
+            self.assertIn('max_parallel_downloads=1', generated[0])
         fixture.signatures()
         fixture.filesystems()
         fixture.state(39, {'unchanged': True})

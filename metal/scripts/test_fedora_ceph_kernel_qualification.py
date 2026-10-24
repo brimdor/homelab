@@ -9,6 +9,8 @@ import json
 import tempfile
 from types import SimpleNamespace
 import unittest
+import urllib.error
+import ssl
 from unittest.mock import patch
 
 import ceph_kernel_runtime as runtime
@@ -17,6 +19,57 @@ import fedora_ceph_repository as repository
 
 
 class CephKernelTests(unittest.TestCase):
+    def test_package_download_retries_only_typed_transport_failures(self):
+        base = repository.BASES['ceph-updates']
+        relative = 'Packages/c/ceph-mds-20.2.4-1.fc44.x86_64.rpm'
+        payload = b'synthetic complete signed-metadata-bound bytes'
+
+        class Response(io.BytesIO):
+            status = 200
+            url = base + relative
+
+        class Partial(Response):
+            def read(self, size=-1):
+                if self.tell():
+                    raise urllib.error.URLError(TimeoutError('synthetic handshake timeout'))
+                return super().read(4)
+
+        attempts = []
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch('urllib.request.urlopen', side_effect=[Partial(payload), Response(payload)]) as request, \
+                patch('time.sleep') as sleep:
+            output = Path(temporary) / 'package.rpm'
+            self.assertEqual(repository.fetch(base, relative, output, hashlib.sha256(payload).hexdigest(), attempts),
+                             hashlib.sha256(payload).hexdigest())
+            self.assertEqual(output.read_bytes(), payload)
+            self.assertEqual(request.call_args_list, [unittest.mock.call(base + relative, timeout=90)] * 2)
+            sleep.assert_called_once_with(2)
+        self.assertEqual([row['retrying'] for row in attempts], [True])
+        self.assertEqual(attempts[0]['reason_type'], 'TimeoutError')
+        for error, count in ((urllib.error.URLError(TimeoutError()), 3),
+                             (urllib.error.URLError(ssl.SSLCertVerificationError()), 1),
+                             (urllib.error.HTTPError(base, 403, '', {}, None), 1)):
+            attempts = []
+            with self.subTest(error=type(error).__name__), tempfile.TemporaryDirectory() as temporary, \
+                    patch('urllib.request.urlopen', side_effect=error) as request, patch('time.sleep'):
+                output = Path(temporary) / 'package.rpm'
+                with self.assertRaises(type(error)):
+                    repository.fetch(base, relative, output, attempts=attempts)
+                self.assertEqual(request.call_count, count)
+                self.assertFalse(output.exists())
+            self.assertEqual(attempts[-1]['retrying'], False)
+
+    def test_transport_evidence_survives_failed_native_cleanup(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = object.__new__(driver.Qualification)
+            fixture.root = Path(temporary)
+            fixture.transport_attempts = [{'reason_type': 'TimeoutError', 'retrying': False}]
+            with patch.object(driver.Kernel, 'cleanup', side_effect=RuntimeError('synthetic cleanup fault')), \
+                    self.assertRaisesRegex(RuntimeError, 'synthetic cleanup fault'):
+                fixture.cleanup()
+            self.assertEqual(json.loads((fixture.root / 'ceph-repository-transport.json').read_bytes()),
+                             {'attempts': fixture.transport_attempts})
+
     def test_foreign_paths_and_native_solver_urls_are_refused(self):
         for value in ('../Packages/a.rpm', '/Packages/a.rpm', 'Packages/../a.rpm',
                       'Packages//a.rpm', 'Packages/a;true.rpm', 'Packages/a%2fb.rpm',
@@ -86,6 +139,7 @@ class CephKernelTests(unittest.TestCase):
             fixture.args = SimpleNamespace(work_dir=Path(directory))
             fixture.root = Path(directory)
             fixture.ssh = []
+            fixture.transport_attempts = []
             fixture.upload = lambda *args: None
             fixture.identity = lambda: {}
             programs = []
@@ -140,6 +194,7 @@ class CephKernelTests(unittest.TestCase):
             fixture.args = SimpleNamespace(work_dir=Path(directory))
             fixture.root = Path(directory)
             fixture.ssh = []
+            fixture.transport_attempts = []
             fixture.upload = lambda *args: None
             fixture.command = lambda *args, **kwargs: json.dumps({'urls': [
                 'file:///mnt/qualification-repo/Packages/p/python3-dateutil.rpm']}).encode()

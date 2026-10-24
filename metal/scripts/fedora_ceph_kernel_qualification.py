@@ -19,6 +19,17 @@ TARGETS = [name + '-2:20.2.4-1.fc44.x86_64' for name in
 class Qualification(Kernel):
     targets = TARGETS
 
+    def __init__(self, args):
+        super().__init__(args)
+        self.transport_attempts = []
+
+    def cleanup(self):
+        try:
+            super().cleanup()
+        finally:
+            (self.root / 'ceph-repository-transport.json').write_text(json.dumps(
+                {'attempts': self.transport_attempts}, indent=2))
+
     def native_runtime(self):
         source_files = {}
         for name in ('ceph_kernel_runtime.py', 'ceph_runtime_qualification.py', 'etcd_recovery.py'):
@@ -32,7 +43,7 @@ class Qualification(Kernel):
     def run(self):
         metadata_root = self.args.work_dir / 'ceph-repositories'
         metadata_root.mkdir(mode=0o700)
-        repositories = {name: repository.mirror(metadata_root, name) for name in repository.BASES}
+        repositories = {name: repository.mirror(metadata_root, name, self.transport_attempts) for name in repository.BASES}
         kernel = super().run()
         (self.root / 'kernel-result.json').write_text(json.dumps(kernel, indent=2))
         for name, value in repositories.items():
@@ -60,7 +71,7 @@ print(json.dumps({'urls':urls,'native_solver':True}))
         for url in sorted(set(selected['urls'])):
             name, relative, digest = repository.selection(url, repositories, GUEST_ROOT)
             source = metadata_root / name / relative
-            repository.fetch(repositories[name]['base'], relative, source, digest)
+            repository.fetch(repositories[name]['base'], relative, source, digest, self.transport_attempts)
             destination = GUEST_ROOT + '/' + name + '/' + relative
             self.guest('directory=' + repr(str(Path(destination).parent)) + '\n' + '''
 pathlib.Path(directory).mkdir(parents=True,exist_ok=True)
