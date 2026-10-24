@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Exercise only the disconnected native Fedora fixture's Cilium datapath."""
 
+import base64
 import datetime
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
 import re
 import shutil
-import subprocess
+import ssl
 import sys
+import tempfile
 import time
 import tomllib
 import traceback
@@ -110,62 +113,74 @@ def cni_identity(configuration, info):
             'binary': str(binaries[0]), 'binary_sha256': sha_file(binaries[0])}
 
 
-def api_readiness_failure(raw):
+def api_credentials(value):
+    assert all(len(value[key]) == 1 for key in ('clusters', 'users', 'contexts'))
+    cluster, user, context = (value[key][0] for key in ('clusters', 'users', 'contexts'))
+    assert value['current-context'] == context['name']
+    assert context['context']['cluster'] == cluster['name'] and context['context']['user'] == user['name']
+    settings = cluster['cluster']
+    assert set(settings) == {'server', 'certificate-authority-data'}
+    assert settings['server'] == 'https://127.0.0.1:6443'
+    assert set(user['user']) == {'client-certificate-data', 'client-key-data'}
+    encoded = [settings['certificate-authority-data'], user['user']['client-certificate-data'],
+               user['user']['client-key-data']]
+    assert all(isinstance(item, str) and len(item) <= 65536 for item in encoded)
+    return tuple(base64.b64decode(item, validate=True) for item in encoded)
+
+
+def native_api_tls():
+    value = json.loads(native(K3S, 'kubectl', 'config', 'view', '--raw', '--minify', '--flatten', '-o', 'json'))
+    authority, certificate, key = api_credentials(value)
+    context = ssl.create_default_context(cadata=authority.decode('ascii'))
+    assert context.check_hostname and context.verify_mode == ssl.CERT_REQUIRED
+    with tempfile.TemporaryDirectory(prefix='qualification-api-', dir='/run') as directory:
+        paths = [Path(directory) / name for name in ('certificate.pem', 'key.pem')]
+        for path, content in zip(paths, (certificate, key)):
+            with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
+                output.write(content)
+        context.load_cert_chain(str(paths[0]), str(paths[1]))
+    assert not Path(directory).exists()
+    return context, {'server': 'https://127.0.0.1:6443', 'certificate_and_hostname_verified': True,
+                     'temporary_keyfiles_removed': True, 'ca_sha256': hashlib.sha256(authority).hexdigest(),
+                     'client_certificate_sha256': hashlib.sha256(certificate).hexdigest()}
+
+
+def api_response(context):
+    connection = http.client.HTTPSConnection('127.0.0.1', 6443, context=context, timeout=10)
     try:
-        message = raw.decode('utf-8').strip()
-    except UnicodeDecodeError:
-        return None
-    if message == 'Error from server (ServiceUnavailable): apiserver not ready':
-        return {'state': 'apiserver-starting'}
-    if re.fullmatch(r'The connection to the server (?:127\.0\.0\.1|localhost):6443 was refused '
-                    r'- did you specify the right host or port\?', message):
-        return {'state': 'loopback-not-listening'}
-    prefix = 'Error from server (InternalError): an error on the server ('
-    suffix = ') has prevented the request from succeeding'
-    if not message.startswith(prefix) or not message.endswith(suffix):
-        return None
-    try:
-        report = json.loads(message[len(prefix):-len(suffix)])
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(report, str):
-        return None
-    lines = report.splitlines()
-    if len(lines) < 2 or lines[-1] != 'readyz check failed':
-        return None
-    checks = []
-    for line in lines[:-1]:
-        match = re.fullmatch(r'\[([+-])\]([A-Za-z0-9._/-]+) (ok|failed: reason withheld)', line)
-        if not match or ((match[1] == '+') != (match[3] == 'ok')):
-            return None
-        checks.append({'name': match[2], 'ready': match[1] == '+'})
-    if not any(not check['ready'] for check in checks):
-        return None
-    return {'state': 'readyz-startup-checks', 'checks': checks}
+        connection.request('GET', '/readyz')
+        response = connection.getresponse()
+        body = response.read(65537)
+        assert len(body) <= 65536
+        return response.status, body
+    finally:
+        connection.close()
 
 
 def wait_api_ready():
+    context, trust = native_api_tls()
+    EVIDENCE.setdefault('api_readiness_tls', []).append(trust)
     started = time.monotonic()
     attempts = []
     EVIDENCE.setdefault('api_readiness', []).append(attempts)
     while True:
-        response = subprocess.run([K3S, 'kubectl', 'get', '--raw=/readyz', '--request-timeout=10s'],
-                                  capture_output=True, timeout=30)
-        if response.returncode:
-            expected = api_readiness_failure(response.stderr) if len(response.stderr) <= 32768 else None
-            attempts.append({'elapsed_seconds': time.monotonic() - started, 'exit': response.returncode,
-                             'stderr_bytes': len(response.stderr),
-                             'stderr_sha256': hashlib.sha256(response.stderr).hexdigest(),
-                             'classification': expected})
-            if response.returncode != 1 or expected is None:
-                raise RuntimeError('native API readiness response refused; inspect classification and digest')
-            if time.monotonic() - started >= 900:
-                raise RuntimeError('native API did not become ready within 900 seconds')
-            time.sleep(1)
+        try:
+            status, body = api_response(context)
+        except (ConnectionRefusedError, ConnectionResetError, http.client.RemoteDisconnected, TimeoutError) as error:
+            attempts.append({'elapsed_seconds': time.monotonic() - started, 'transport': type(error).__name__})
         else:
-            assert response.stdout.strip() == b'ok'
-            attempts.append({'elapsed_seconds': time.monotonic() - started, 'ready': True})
-            return
+            attempts.append({'elapsed_seconds': time.monotonic() - started, 'http_status': status,
+                             'body_bytes': len(body), 'body_sha256': hashlib.sha256(body).hexdigest()})
+            if status == 200:
+                assert body.strip() == b'ok'
+                attempts[-1]['ready'] = True
+                return
+            # Kubernetes explicitly defines HTTP status, not verbose text, as the machine contract.
+            if status not in (500, 503):
+                raise RuntimeError('native API readiness HTTP status refused: ' + str(status))
+        if time.monotonic() - started >= 900:
+            raise RuntimeError('native API did not become ready within 900 seconds')
+        time.sleep(1)
 
 
 def components():

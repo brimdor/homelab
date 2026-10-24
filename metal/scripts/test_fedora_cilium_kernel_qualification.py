@@ -8,7 +8,6 @@ import io
 import json
 from pathlib import Path
 import tempfile
-from types import SimpleNamespace
 import unittest
 
 import cilium_native_runtime as runtime
@@ -16,54 +15,115 @@ import fedora_cilium_kernel_qualification as subject
 
 
 class NativeCiliumEvidence(unittest.TestCase):
-    def test_api_readiness_waits_only_for_observed_startup_states(self):
+    def test_http_readiness_waits_for_status_and_never_records_response_body(self):
         from unittest.mock import patch
 
-        def failure(message):
-            return SimpleNamespace(returncode=1, stderr=message.encode(), stdout=b'')
-
-        messages = ['Error from server (ServiceUnavailable): apiserver not ready',
-                    'The connection to the server 127.0.0.1:6443 was refused - did you specify the right host or port?']
-        with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
-                patch.object(runtime.subprocess, 'run', side_effect=[*[failure(value) for value in messages],
-                                                                   SimpleNamespace(returncode=0, stdout=b'ok', stderr=b'')]), \
+        responses = [ConnectionRefusedError(), (503, b'PRIVATE_SENTINEL'), (500, b'any evolving readyz report'),
+                     (200, b'ok\n')]
+        with patch.dict(runtime.EVIDENCE, {'api_readiness': [], 'api_readiness_tls': []}), \
+                patch.object(runtime, 'native_api_tls', return_value=(object(), {'verified': True})), \
+                patch.object(runtime, 'api_response', side_effect=responses), \
                 patch.object(runtime.time, 'sleep') as sleep:
             runtime.wait_api_ready()
-            self.assertEqual(sleep.call_count, 2)
-            self.assertEqual(len(runtime.EVIDENCE['api_readiness'][0]), 3)
-            self.assertTrue(runtime.EVIDENCE['api_readiness'][0][-1]['ready'])
-        for message in ('Error from server (Forbidden): forbidden', 'x509: certificate unknown',
-                        'Error from server (ServiceUnavailable): unrelated failure'):
-            with self.subTest(message=message), patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
-                    patch.object(runtime.subprocess, 'run', return_value=failure(message)), \
-                    patch.object(runtime.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+            self.assertEqual(sleep.call_count, 3)
+            attempts = runtime.EVIDENCE['api_readiness'][0]
+            self.assertEqual([row.get('http_status') for row in attempts], [None, 503, 500, 200])
+            self.assertTrue(attempts[-1]['ready'])
+            self.assertNotIn('PRIVATE_SENTINEL', json.dumps(runtime.EVIDENCE))
+
+    def test_http_readiness_refuses_authentication_redirect_unknown_and_bad_success(self):
+        from unittest.mock import patch
+
+        for status, body in [(value, b'PRIVATE_SENTINEL') for value in (401, 403, 302, 404, 429, 502)] + [(200, b'bad')]:
+            with self.subTest(status=status), patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
+                    patch.object(runtime, 'native_api_tls', return_value=(object(), {})), \
+                    patch.object(runtime, 'api_response', return_value=(status, body)), \
+                    patch.object(runtime.time, 'sleep') as sleep, self.assertRaises((RuntimeError, AssertionError)):
                 runtime.wait_api_ready()
             sleep.assert_not_called()
         with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
-                patch.object(runtime.subprocess, 'run', return_value=failure(messages[0])), \
+                patch.object(runtime, 'native_api_tls', return_value=(object(), {})), \
+                patch.object(runtime, 'api_response', side_effect=runtime.ssl.SSLCertVerificationError('untrusted')), \
+                patch.object(runtime.time, 'sleep') as sleep, self.assertRaises(runtime.ssl.SSLCertVerificationError):
+            runtime.wait_api_ready()
+        sleep.assert_not_called()
+
+    def test_http_readiness_has_bounded_timeout(self):
+        from unittest.mock import patch
+
+        with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
+                patch.object(runtime, 'native_api_tls', return_value=(object(), {})), \
+                patch.object(runtime, 'api_response', return_value=(500, b'unready')), \
                 patch.object(runtime.time, 'monotonic', side_effect=[0, 901, 901]), \
                 patch.object(runtime.time, 'sleep') as sleep, self.assertRaisesRegex(RuntimeError, '900 seconds'):
             runtime.wait_api_ready()
         sleep.assert_not_called()
 
-    def test_complete_readyz_startup_report_and_unknown_truncated_or_mixed_refusals(self):
-        checks = '[+]ping ok\n[+]etcd ok\n' + ''.join(
-            '[-]poststarthook/fixture-' + str(index) + ' failed: reason withheld\n' for index in range(20))
-        report = checks + 'readyz check failed'
-        prefix = 'Error from server (InternalError): an error on the server ('
-        suffix = ') has prevented the request from succeeding'
-        message = (prefix + json.dumps(report) + suffix).encode()
-        self.assertGreater(len(message), 500)
-        actual = runtime.api_readiness_failure(message)
-        self.assertEqual(actual['state'], 'readyz-startup-checks')
-        self.assertEqual(len(actual['checks']), 22)
-        for bad in (message[:500], message + b' PRIVATE_SENTINEL',
-                    (prefix + json.dumps(report.replace('reason withheld', 'PRIVATE_SENTINEL')) + suffix).encode(),
-                    (prefix + json.dumps(report.replace('[-]', '[+]')) + suffix).encode(),
-                    (prefix + json.dumps(checks) + suffix).encode(),
-                    b'Error from server (InternalError): unrelated failure', b'\xff'):
-            with self.subTest(bad=bad[:40]):
-                self.assertIsNone(runtime.api_readiness_failure(bad))
+    def credentials(self):
+        return {'clusters': [{'name': 'fixture', 'cluster': {'server': 'https://127.0.0.1:6443',
+                'certificate-authority-data': runtime.base64.b64encode(b'authority').decode()}}],
+                'users': [{'name': 'fixture', 'user': {
+                    'client-certificate-data': runtime.base64.b64encode(b'certificate').decode(),
+                    'client-key-data': runtime.base64.b64encode(b'PRIVATE_SENTINEL').decode()}}],
+                'contexts': [{'name': 'fixture', 'context': {'cluster': 'fixture', 'user': 'fixture'}}],
+                'current-context': 'fixture'}
+
+    def test_exact_loopback_mutual_tls_identity_and_foreign_credentials_refused(self):
+        expected = self.credentials()
+        self.assertEqual(runtime.api_credentials(expected), (b'authority', b'certificate', b'PRIVATE_SENTINEL'))
+        changes = []
+        for key, value in (('server', 'https://10.0.20.50:6443'), ('proxy-url', 'http://proxy'),
+                           ('insecure-skip-tls-verify', True), ('tls-server-name', 'foreign')):
+            changed = copy.deepcopy(expected)
+            changed['clusters'][0]['cluster'][key] = value
+            changes.append(changed)
+        for key in ('token', 'exec', 'auth-provider'):
+            changed = copy.deepcopy(expected)
+            changed['users'][0]['user'][key] = 'foreign'
+            changes.append(changed)
+        changed = copy.deepcopy(expected)
+        changed['contexts'][0]['context']['cluster'] = 'foreign'
+        changes.append(changed)
+        changed = copy.deepcopy(expected)
+        changed['clusters'].append(copy.deepcopy(changed['clusters'][0]))
+        changes.append(changed)
+        changed = copy.deepcopy(expected)
+        changed['users'][0]['user']['client-key-data'] = 'invalid%'
+        changes.append(changed)
+        for changed in changes:
+            with self.subTest(changed=changed), self.assertRaises((AssertionError, ValueError)):
+                runtime.api_credentials(changed)
+
+    def test_native_tls_loads_private_files_then_removes_them(self):
+        import os
+        import stat
+        from unittest.mock import patch
+
+        private_paths = []
+        class Context:
+            check_hostname = True
+            verify_mode = runtime.ssl.CERT_REQUIRED
+
+            def load_cert_chain(self, certificate, key):
+                for filename, content in ((certificate, b'certificate'), (key, b'PRIVATE_SENTINEL')):
+                    path = Path(filename)
+                    self_case.assertEqual(path.read_bytes(), content)
+                    self_case.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+                    self_case.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
+                    private_paths.append(path)
+
+        self_case = self
+        original = tempfile.TemporaryDirectory
+        with patch.object(runtime, 'native', return_value=json.dumps(self.credentials()).encode()), \
+                patch.object(runtime.ssl, 'create_default_context', return_value=Context()) as create, \
+                patch.object(runtime.tempfile, 'TemporaryDirectory',
+                             side_effect=lambda **kwargs: original(prefix=kwargs['prefix'], dir=os.environ['TMPDIR'])):
+            _context, evidence = runtime.native_api_tls()
+        create.assert_called_once_with(cadata='authority')
+        self.assertTrue(evidence['certificate_and_hostname_verified'])
+        self.assertTrue(evidence['temporary_keyfiles_removed'])
+        self.assertTrue(all(not path.exists() for path in private_paths))
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(evidence))
 
     def cri_info(self, configuration, binaries):
         return {'config': {'cni': {'binDir': '', 'binDirs': [str(binaries)],
