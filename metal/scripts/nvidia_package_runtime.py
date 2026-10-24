@@ -11,6 +11,23 @@ import subprocess
 from nvidia_kernel_build import KERNEL, VERSION, compiler_matches
 
 
+def installed_packages(text):
+    packages = {}
+    for line in text.splitlines():
+        name, edition = line.split()
+        if name.startswith(('nvidia-', 'libnvidia-')) or name == 'kmod-nvidia-open-dkms':
+            assert name not in packages, name
+            # The vendor SELinux policy has its own release, independent of the driver.
+            if name == 'nvidia-driver-selinux':
+                assert edition == '0:0.1-2.fc44.noarch', (name, edition)
+            else:
+                assert edition.startswith('3:' + VERSION + '-'), (name, edition)
+            packages[name] = edition
+    assert {'nvidia-open', 'kmod-nvidia-open-dkms', 'nvidia-kmod-common', 'nvidia-driver-cuda',
+            'nvidia-driver', 'nvidia-driver-libs', 'nvidia-driver-selinux'} <= packages.keys()
+    return packages
+
+
 def run():
     def native(*args):
         return subprocess.check_output(args, stderr=subprocess.PIPE).decode().strip()
@@ -24,14 +41,7 @@ def run():
     status = native('dkms', 'status', '-m', 'nvidia', '-v', VERSION, '-k', KERNEL)
     assert re.fullmatch(r'nvidia/' + re.escape(VERSION) + ', ' + re.escape(KERNEL) +
                         r', x86_64: installed', status), status
-    packages = {}
-    for line in native('rpm', '-qa', '--qf', '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n').splitlines():
-        name, edition = line.split()
-        if name.startswith(('nvidia-', 'libnvidia-')) or name == 'kmod-nvidia-open-dkms':
-            assert name not in packages and edition.startswith('3:' + VERSION + '-'), (name, edition)
-            packages[name] = edition
-    assert {'nvidia-open', 'kmod-nvidia-open-dkms', 'nvidia-kmod-common', 'nvidia-driver-cuda',
-            'nvidia-driver', 'nvidia-driver-libs'} <= packages.keys()
+    packages = installed_packages(native('rpm', '-qa', '--qf', '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n'))
     modules = {}
     module_root = (Path('/usr/lib/modules') / KERNEL).resolve(strict=True)
     for name in ('nvidia', 'nvidia-modeset', 'nvidia-drm', 'nvidia-uvm', 'nvidia-peermem'):
