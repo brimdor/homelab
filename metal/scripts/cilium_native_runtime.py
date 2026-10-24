@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 import time
+import tomllib
 
 from nfs_csi_native_runtime import native, kubectl, get, apply, domains
 
@@ -68,6 +69,28 @@ def agent(*args):
     return kubectl('exec', '-n', 'kube-system', agent_pod()['metadata']['name'], '-c', 'cilium-agent', '--', *args)
 
 
+def cni_identity(configuration):
+    entries = [value['cni'] for value in tomllib.loads(configuration)['plugins'].values() if 'cni' in value]
+    assert len(entries) == 1
+    settings = entries[0]
+    assert not ('bin_dir' in settings and 'bin_dirs' in settings)
+    directories = settings.get('bin_dirs', [settings['bin_dir']] if 'bin_dir' in settings else [])
+    assert isinstance(directories, list) and directories and all(isinstance(value, str) for value in directories)
+    assert len(set(directories)) == len(directories) and all(Path(value).is_absolute() for value in directories)
+    directory = Path(settings['conf_dir'])
+    assert directory.is_absolute() and directory.is_dir()
+    files = sorted(path for path in directory.iterdir() if path.suffix in ('.conf', '.conflist', '.json'))
+    assert len(files) == 1 and files[0].is_file()
+    configuration = json.loads(files[0].read_bytes())
+    plugins = configuration.get('plugins', [configuration])
+    assert len(plugins) == 1 and plugins[0]['type'] == 'cilium-cni'
+    binaries = [Path(value) / 'cilium-cni' for value in directories if (Path(value) / 'cilium-cni').is_file()]
+    assert len(binaries) == 1 and os.access(binaries[0], os.X_OK)
+    return {'containerd_conf_dir': str(directory), 'containerd_bin_dirs': directories,
+            'active_configuration': str(files[0]), 'configuration_sha256': sha_file(files[0]),
+            'binary': str(binaries[0]), 'binary_sha256': sha_file(binaries[0])}
+
+
 def components():
     assert Path('/sys/fs/selinux/enforce').read_text().strip() == '1'
     for kind, name in (('daemonset', 'cilium'), ('daemonset', 'cilium-envoy'),
@@ -98,6 +121,7 @@ def components():
     return {'node_uid': nodes[0]['metadata']['uid'], 'cluster_uid': get('namespace', 'kube-system')['metadata']['uid'],
             'agent_uid': agent_pod()['metadata']['uid'], 'domains': all_domains,
             'kube_proxy_replacement': True, 'hubble_ready': True,
+            'native_cni': cni_identity(runtime),
             'config_sha256': hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()}
 
 
@@ -294,6 +318,7 @@ def main(phase):
     current = components()
     state = json.loads(STATE.read_text())
     assert all(current[k] == state[k] for k in ('node_uid', 'cluster_uid'))
+    persist(phase + '-native-components', **current)
     exercise(phase)
     if phase == 'initial':
         previous = agent_pod()['metadata']['uid']
@@ -309,6 +334,7 @@ def main(phase):
     packages = native('rpm', '-q', 'container-selinux', 'k3s-selinux').decode().splitlines()
     EVIDENCE.update(accepted=True, node_uid=current['node_uid'], cluster_uid=current['cluster_uid'],
                     packages=packages, booleans_sha256=booleans, images=inputs['records'],
+                    native_cni=current['native_cni'],
                     selinux_enforcing=True, fixture_only=True, production_and_multihost_unqualified=True)
     return EVIDENCE
 

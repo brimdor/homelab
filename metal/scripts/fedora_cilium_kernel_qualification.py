@@ -142,7 +142,7 @@ print(json.dumps({'signed_policy_and_dependencies':True,'policy':'1.6-1.el9.noar
         before_boot = self.identity()
         after_boot = self.reboot(VERSION, before_boot)
         after = self.runtime('after-reboot')
-        if any(before[k] != after[k] for k in ('node_uid', 'cluster_uid', 'packages', 'booleans_sha256', 'images')):
+        if any(before[k] != after[k] for k in ('node_uid', 'cluster_uid', 'packages', 'booleans_sha256', 'images', 'native_cni')):
             raise RuntimeError('native Cilium identities or policy changed across reboot')
         return {'accepted': True, 'kernel': kernel, 'installed': installed, 'before': before, 'after': after,
                 'before_boot': before_boot, 'after_boot': after_boot,

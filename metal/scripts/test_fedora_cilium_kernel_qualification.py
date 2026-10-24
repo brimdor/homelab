@@ -5,6 +5,9 @@ import copy
 import datetime
 import hashlib
 import io
+import json
+from pathlib import Path
+import tempfile
 import unittest
 
 import cilium_native_runtime as runtime
@@ -12,6 +15,40 @@ import fedora_cilium_kernel_qualification as subject
 
 
 class NativeCiliumEvidence(unittest.TestCase):
+    def test_actual_containerd_cni_paths_and_foreign_or_ambiguous_refusals(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            configuration = root / 'configuration'
+            binaries = root / 'binaries'
+            configuration.mkdir()
+            binaries.mkdir()
+            manifest = configuration / '05-cilium.conflist'
+            manifest.write_text(json.dumps({'plugins': [{'type': 'cilium-cni'}]}))
+            binary = binaries / 'cilium-cni'
+            binary.write_bytes(b'owned synthetic executable')
+            binary.chmod(0o700)
+            header = '[plugins."io.containerd.cri.v1.runtime".cni]\nconf_dir=' + json.dumps(str(configuration)) + '\n'
+            for option in ('bin_dir=' + json.dumps(str(binaries)), 'bin_dirs=[' + json.dumps(str(binaries)) + ']'):
+                actual = runtime.cni_identity(header + option)
+                self.assertEqual(actual['binary'], str(binary))
+                self.assertEqual(actual['active_configuration'], str(manifest))
+                self.assertEqual(actual['binary_sha256'], hashlib.sha256(binary.read_bytes()).hexdigest())
+            settings = header + 'bin_dirs=[' + json.dumps(str(binaries)) + ']'
+            manifest.write_text(json.dumps({'plugins': [{'type': 'foreign'}]}))
+            with self.assertRaises(AssertionError):
+                runtime.cni_identity(settings)
+            manifest.write_text(json.dumps({'plugins': [{'type': 'cilium-cni'}]}))
+            extra = configuration / '10-foreign.conf'
+            extra.write_text('{}')
+            with self.assertRaises(AssertionError):
+                runtime.cni_identity(settings)
+            extra.unlink()
+            with self.assertRaises(AssertionError):
+                runtime.cni_identity(settings + '\nbin_dir=' + json.dumps(str(binaries)))
+            binary.unlink()
+            with self.assertRaises(AssertionError):
+                runtime.cni_identity(settings)
+
     def flow(self):
         return {'flow': {'time': '2026-10-24T05:00:01Z', 'verdict': 'DROPPED',
                          'drop_reason_desc': 'POLICY_DENIED',
