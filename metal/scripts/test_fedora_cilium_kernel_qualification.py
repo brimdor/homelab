@@ -15,6 +15,75 @@ import fedora_cilium_kernel_qualification as subject
 
 
 class NativeCiliumEvidence(unittest.TestCase):
+    def agent_fixture(self):
+        pod = {'metadata': {'uid': 'current-pod', 'name': 'cilium-owned', 'namespace': 'kube-system'},
+               'status': {'containerStatuses': [{'name': 'cilium-agent', 'ready': True,
+                          'state': {'running': {}}, 'containerID': 'containerd://current-container'}]}}
+        container = {'id': 'current-container', 'state': 'CONTAINER_RUNNING',
+                     'metadata': {'name': 'cilium-agent'}, 'labels': {
+                         'io.kubernetes.pod.uid': 'current-pod', 'io.kubernetes.pod.name': 'cilium-owned',
+                         'io.kubernetes.pod.namespace': 'kube-system'}}
+        return pod, container
+
+    def test_current_agent_refuses_pre_reboot_foreign_unready_or_duplicate_containers(self):
+        pod, container = self.agent_fixture()
+        self.assertTrue(runtime.current_agent_running(pod, [container]))
+        for path, value in ((('id',), 'old-container'), (('state',), 'CONTAINER_EXITED'),
+                            (('metadata', 'name'), 'foreign'),
+                            (('labels', 'io.kubernetes.pod.uid'), 'old-pod'),
+                            (('labels', 'io.kubernetes.pod.name'), 'foreign'),
+                            (('labels', 'io.kubernetes.pod.namespace'), 'foreign')):
+            changed = copy.deepcopy(container)
+            selected = changed
+            for key in path[:-1]:
+                selected = selected[key]
+            selected[path[-1]] = value
+            with self.subTest(path=path):
+                self.assertFalse(runtime.current_agent_running(pod, [changed]))
+        self.assertFalse(runtime.current_agent_running(pod, []))
+        self.assertFalse(runtime.current_agent_running(pod, [container, container]))
+        pod['status']['containerStatuses'][0]['ready'] = False
+        self.assertFalse(runtime.current_agent_running(pod, [container]))
+        pod['status']['containerStatuses'][0]['ready'] = True
+        pod['metadata']['deletionTimestamp'] = 'deleting'
+        self.assertFalse(runtime.current_agent_running(pod, [container]))
+
+    def test_agent_waits_for_current_runtime_and_only_exact_kubelet_missing_container(self):
+        from unittest.mock import patch
+
+        pod, container = self.agent_fixture()
+        missing = RuntimeError(json.dumps({'exit': 1, 'stderr': [
+            'error: Internal error occurred: unable to upgrade connection: container not found ("cilium-agent")']}))
+        with patch.dict(runtime.EVIDENCE, {'agent_runtime_readiness': []}), \
+                patch.object(runtime, 'agent_pod', return_value=pod), \
+                patch.object(runtime, 'native', side_effect=[json.dumps({'containers': rows}).encode()
+                                                           for rows in ([], [container], [container])]), \
+                patch.object(runtime, 'kubectl', side_effect=[missing, b'{"accepted-native-status": true}']) as execute, \
+                patch.object(runtime.time, 'sleep') as sleep:
+            self.assertEqual(runtime.wait_agent_status(), {'accepted-native-status': True})
+            self.assertEqual(execute.call_count, 2)
+            self.assertEqual(sleep.call_count, 2)
+            self.assertFalse(runtime.EVIDENCE['agent_runtime_readiness'][0][0]['current_ready_container_running'])
+            self.assertTrue(runtime.EVIDENCE['agent_runtime_readiness'][0][1]['kubelet_container_lookup_pending'])
+            self.assertTrue(runtime.EVIDENCE['agent_runtime_readiness'][0][-1]['exec_succeeded'])
+        for error in (RuntimeError(json.dumps({'exit': 1, 'stderr': ['Forbidden']})),
+                      RuntimeError(json.dumps({'exit': 1, 'stderr': ['container not found ("foreign")']})),
+                      RuntimeError(json.dumps({'exit': 2, 'stderr': []}))):
+            with self.subTest(error=error), patch.dict(runtime.EVIDENCE, {'agent_runtime_readiness': []}), \
+                    patch.object(runtime, 'agent_pod', return_value=pod), \
+                    patch.object(runtime, 'native', return_value=json.dumps({'containers': [container]}).encode()), \
+                    patch.object(runtime, 'kubectl', side_effect=error), \
+                    patch.object(runtime.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+                runtime.wait_agent_status()
+            sleep.assert_not_called()
+        with patch.dict(runtime.EVIDENCE, {'agent_runtime_readiness': []}), \
+                patch.object(runtime, 'agent_pod', return_value=pod), \
+                patch.object(runtime, 'native', return_value=b'{"containers": []}'), \
+                patch.object(runtime.time, 'monotonic', side_effect=[0, 901, 901]), \
+                patch.object(runtime.time, 'sleep') as sleep, self.assertRaisesRegex(RuntimeError, '900 seconds'):
+            runtime.wait_agent_status()
+        sleep.assert_not_called()
+
     def test_kubelet_proxy_requires_real_health_before_exec_and_retries_gateway_startup(self):
         from unittest.mock import patch
 

@@ -74,6 +74,53 @@ def agent(*args):
     return kubectl('exec', '-n', 'kube-system', agent_pod()['metadata']['name'], '-c', 'cilium-agent', '--', *args)
 
 
+def current_agent_running(pod, containers):
+    statuses = [row for row in pod.get('status', {}).get('containerStatuses', [])
+                if row['name'] == 'cilium-agent']
+    if pod['metadata'].get('deletionTimestamp') or len(statuses) != 1:
+        return False
+    status = statuses[0]
+    if not status.get('ready') or 'running' not in status.get('state', {}):
+        return False
+    expected = {'io.kubernetes.pod.uid': pod['metadata']['uid'],
+                'io.kubernetes.pod.name': pod['metadata']['name'],
+                'io.kubernetes.pod.namespace': pod['metadata']['namespace']}
+    matches = [row for row in containers if status.get('containerID') == 'containerd://' + row['id']
+               and row['state'] == 'CONTAINER_RUNNING' and row['metadata']['name'] == 'cilium-agent'
+               and all(row.get('labels', {}).get(key) == value for key, value in expected.items())]
+    return len(matches) == 1
+
+
+def wait_agent_status():
+    started = time.monotonic()
+    attempts = []
+    EVIDENCE.setdefault('agent_runtime_readiness', []).append(attempts)
+    while True:
+        pod = agent_pod()
+        containers = json.loads(native(K3S, 'crictl', 'ps', '--output', 'json'))['containers']
+        current = current_agent_running(pod, containers)
+        observation = {'elapsed_seconds': time.monotonic() - started, 'pod_uid': pod['metadata']['uid'],
+                       'current_ready_container_running': current}
+        attempts.append(observation)
+        if current:
+            try:
+                result = kubectl('exec', '-n', 'kube-system', pod['metadata']['name'], '-c', 'cilium-agent',
+                                 '--', 'cilium-dbg', 'status', '--output', 'json')
+            except RuntimeError as error:
+                failure = json.loads(str(error))
+                if failure.get('exit') != 1 or failure.get('stderr') != [
+                        'error: Internal error occurred: unable to upgrade connection: '
+                        'container not found ("cilium-agent")']:
+                    raise
+                observation['kubelet_container_lookup_pending'] = True
+            else:
+                observation['exec_succeeded'] = True
+                return json.loads(result)
+        if time.monotonic() - started >= 900:
+            raise RuntimeError('native agent container did not become usable within 900 seconds')
+        time.sleep(1)
+
+
 def cni_identity(configuration, info):
     entries = [value['cni'] for value in tomllib.loads(configuration)['plugins'].values() if 'cni' in value]
     assert len(entries) <= 1
@@ -189,16 +236,16 @@ def wait_api_ready(path='/readyz'):
 def components():
     assert Path('/sys/fs/selinux/enforce').read_text().strip() == '1'
     wait_api_ready()
+    # A healthy kubelet tunnel can precede recreation of the pre-reboot container IDs.
+    wait_api_ready('/api/v1/nodes/' + NODE + '/proxy/healthz')
     for kind, name in (('daemonset', 'cilium'), ('daemonset', 'cilium-envoy'),
                        ('deployment', 'cilium-operator'), ('deployment', 'hubble-relay'),
                        ('deployment', 'coredns')):
         kubectl('rollout', 'status', kind + '/' + name, '-n', 'kube-system', '--timeout=900s')
     kubectl('wait', '--for=condition=Ready', 'node/' + NODE, '--timeout=900s')
-    # API readiness and a retained Node condition do not prove the kubelet tunnel is usable after reboot.
-    wait_api_ready('/api/v1/nodes/' + NODE + '/proxy/healthz')
     nodes = get('nodes')['items']
     assert len(nodes) == 1 and nodes[0]['metadata']['name'] == NODE
-    status = json.loads(agent('cilium-dbg', 'status', '--output', 'json'))
+    status = wait_agent_status()
     assert status['cilium']['state'] == 'Ok' and status['kubernetes']['state'] == 'Ok'
     assert str(status['kube-proxy-replacement']['mode']).lower() == 'true'
     assert status['hubble']['state'] == 'Ok'
