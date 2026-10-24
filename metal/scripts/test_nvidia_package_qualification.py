@@ -2,18 +2,88 @@
 
 import gzip
 import hashlib
+import io
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from contextlib import redirect_stdout
 
 import fedora_nvidia_package_qualification as driver
 import nvidia_package_repository as vendor
 
 
 class NvidiaPackageTests(unittest.TestCase):
+    def test_actual_storage_and_upload_diagnostic_programs_execute_with_shared_header(self):
+        mount = {'source': '/dev/vda3[/var]', 'fstype': 'btrfs', 'maj:min': '0:34'}
+        root_mount = {**mount, 'source': '/dev/vda3[/root]'}
+        repository = unittest.mock.MagicMock()
+        repository.__str__.return_value = driver.GUEST_ROOT
+        repository.parents = ()
+        repository.is_symlink.return_value = False
+        repository.stat.return_value = SimpleNamespace(st_uid=0, st_mode=0o40700)
+        programs = []
+
+        def path(value):
+            if value == '/etc/os-release':
+                return SimpleNamespace(read_text=lambda: 'VERSION_ID=44')
+            if value == '/sys/fs/selinux/enforce':
+                return SimpleNamespace(read_text=lambda: '1')
+            return repository
+
+        def native(arguments, **kwargs):
+            value = ''
+            if arguments[0] == 'findmnt':
+                value = json.dumps({'filesystems': [root_mount if arguments[3] == '/' else mount]})
+            if arguments[0] == 'rpm':
+                value = 'python3-libdnf5 synthetic signed identity'
+            return SimpleNamespace(returncode=0, stdout=value.encode())
+
+        def command(arguments, data):
+            programs.append(data)
+            output = io.StringIO()
+            with patch('pathlib.Path', side_effect=path), \
+                    patch.object(os, 'statvfs', return_value=SimpleNamespace(f_bavail=1024, f_blocks=2048, f_frsize=4096)), \
+                    patch.object(subprocess, 'check_output', return_value=b'qualification-fedora44'), \
+                    patch.object(subprocess, 'run', side_effect=native), redirect_stdout(output):
+                exec(compile(data, '<actual-storage-guest-program>', 'exec'), {})
+            return output.getvalue().encode()
+
+        class StorageAccepted(Exception):
+            pass
+
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = object.__new__(driver.Qualification)
+            fixture.args = SimpleNamespace(work_dir=Path(directory))
+            fixture.root = Path(directory)
+            fixture.ssh = []
+            def first(arguments, data):
+                value = json.loads(command(arguments, data))
+                self.assertEqual(value['mount'], [mount])
+                self.assertEqual(value['root_mount'], [root_mount])
+                self.assertEqual(value['available_bytes'], 4194304)
+                raise StorageAccepted()
+            fixture.command = first
+            metadata = {'files': {}, 'base': 'unused'}
+            with patch.object(driver.Kernel, 'run', return_value={'accepted': True}), \
+                    patch.object(driver.fedora_repository, 'mirror', return_value=metadata), \
+                    patch.object(driver.vendor, 'mirror', return_value=metadata), self.assertRaises(StorageAccepted):
+                fixture.run()
+            fixture.command = command
+            fixture.upload = unittest.mock.Mock(side_effect=RuntimeError('owned upload failed'))
+            source = fixture.root / 'public.rpm'
+            source.write_bytes(b'public')
+            with self.assertRaisesRegex(RuntimeError, '^owned upload failed$'):
+                fixture.transfer(source, driver.GUEST_ROOT + '/nvidia-vendor/public.rpm', 'a' * 64)
+            evidence = json.loads((fixture.root / 'gpu-package-upload-failure.json').read_text())
+            self.assertEqual(evidence['filesystem']['available_bytes'], 4194304)
+            self.assertNotIn('diagnostic_error_type', evidence)
+            self.assertEqual(len(programs), 3)
+
     def test_repository_disk_allows_real_btrfs_subvolumes_and_refuses_foreign_storage(self):
         root = {'source': '/dev/vda3[/root]', 'fstype': 'btrfs', 'maj:min': '0:34'}
         mount = {**root, 'source': '/dev/vda3[/var]'}

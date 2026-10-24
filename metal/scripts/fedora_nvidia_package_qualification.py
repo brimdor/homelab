@@ -70,7 +70,7 @@ class Qualification(Kernel):
         repositories['nvidia-vendor'] = vendor.mirror(metadata_root)
         kernel = super().run()
         (self.root / 'kernel-result.json').write_text(json.dumps(kernel, indent=2))
-        storage = self.guest(inspect.getsource(verify_repository_disk) + '\nrepository_path=' + repr(GUEST_ROOT) + '\n' + '''
+        storage = self.guest('import os\n' + inspect.getsource(verify_repository_disk) + '\nrepository_path=' + repr(GUEST_ROOT) + '\n' + '''
 repository=pathlib.Path(repository_path)
 assert not any(p.is_symlink() for p in (repository,*repository.parents))
 repository.mkdir(mode=0o700)
@@ -168,7 +168,7 @@ print(json.dumps({'native_signed_install':process.returncode==0,'exit':process.r
         except RuntimeError:
             evidence = {'destination': destination, 'source_bytes': source.stat().st_size}
             try:
-                evidence['filesystem'] = self.guest('directory=' + repr(str(Path(destination).parent)) + '\n' + '''
+                evidence['filesystem'] = self.guest('import os\ndirectory=' + repr(str(Path(destination).parent)) + '\n' + '''
 space=os.statvfs(directory)
 print(json.dumps({'available_bytes':space.f_bavail*space.f_frsize,'total_bytes':space.f_blocks*space.f_frsize,
  'mount':json.loads(native('findmnt','--json','--target',directory,'--output=TARGET,FSTYPE,MAJ:MIN'))['filesystems']}))
