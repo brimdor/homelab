@@ -14,6 +14,24 @@ import nvidia_package_repository as vendor
 
 
 class NvidiaPackageTests(unittest.TestCase):
+    def test_repository_disk_allows_real_btrfs_subvolumes_and_refuses_foreign_storage(self):
+        root = {'source': '/dev/vda3[/root]', 'fstype': 'btrfs', 'maj:min': '0:34'}
+        mount = {**root, 'source': '/dev/vda3[/var]'}
+        driver.verify_repository_disk([mount], [root])
+        driver.verify_repository_disk([{**mount, 'source': '/dev/vda3', 'fstype': 'ext4'}],
+                                      [{**root, 'source': '/dev/vda3', 'fstype': 'ext4'}])
+        for rows in ([], [mount, mount], [{}], [None], [{**mount, 'source': None}],
+                     [{**mount, 'source': '/dev/vda4[/var]'}],
+                     [{**mount, 'source': '/dev/vdb3[/var]'}],
+                     [{**mount, 'source': '/dev/vda3[/var]\nforeign'}],
+                     [{**mount, 'fstype': 'tmpfs'}], [{**mount, 'maj:min': '0:35'}]):
+            with self.subTest(rows=rows), self.assertRaises(RuntimeError):
+                driver.verify_repository_disk(rows, [root])
+        for roots in ([], [root, root], [{**root, 'fstype': 'nfs4'}],
+                      [{**root, 'maj:min': 'malformed'}], [{**root, 'source': 'foreign'}]):
+            with self.subTest(roots=roots), self.assertRaises(RuntimeError):
+                driver.verify_repository_disk([mount], roots)
+
     def test_failed_upload_retains_public_storage_evidence_without_masking_failure(self):
         for diagnostic in ({'available_bytes': 0, 'mount': [{'fstype': 'ext4'}]}, RuntimeError('query failed')):
             with self.subTest(diagnostic=diagnostic), tempfile.TemporaryDirectory() as directory:

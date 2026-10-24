@@ -20,6 +20,27 @@ TARGETS = [*BUILD_TARGETS, 'nvidia-open-3:' + build.VERSION + '-1.fc44.noarch',
            'kmod-nvidia-open-dkms-3:' + build.VERSION + '-1.fc44.noarch']
 
 
+def verify_repository_disk(mounts, roots):
+    import re
+
+    if (not isinstance(mounts, list) or not isinstance(roots, list) or
+            len(mounts) != 1 or len(roots) != 1 or
+            not isinstance(mounts[0], dict) or not isinstance(roots[0], dict)):
+        raise RuntimeError('ambiguous native repository/root mount inventory')
+    mount, root = mounts[0], roots[0]
+    if any(not isinstance(row.get(field), str) for row in (mount, root)
+           for field in ('source', 'fstype', 'maj:min')):
+        raise RuntimeError('malformed native repository/root mount fields')
+    sources = [re.fullmatch(r'(/dev/vda[1-9][0-9]*)(?:\[/[^\]\n]*\])?', row.get('source', ''))
+               for row in (mount, root)]
+    if (not all(sources) or sources[0][1] != sources[1][1] or
+            root.get('fstype') not in ('btrfs', 'ext4', 'xfs') or
+            mount.get('fstype') != root['fstype'] or
+            not re.fullmatch(r'[0-9]+:[0-9]+', root.get('maj:min', '')) or
+            mount.get('maj:min') != root['maj:min']):
+        raise RuntimeError('native repository is not on the owned root disk')
+
+
 def verify_key_listing(text, expected):
     import re
 
@@ -49,20 +70,20 @@ class Qualification(Kernel):
         repositories['nvidia-vendor'] = vendor.mirror(metadata_root)
         kernel = super().run()
         (self.root / 'kernel-result.json').write_text(json.dumps(kernel, indent=2))
-        storage = self.guest('repository_path=' + repr(GUEST_ROOT) + '\n' + '''
+        storage = self.guest(inspect.getsource(verify_repository_disk) + '\nrepository_path=' + repr(GUEST_ROOT) + '\n' + '''
 repository=pathlib.Path(repository_path)
 assert not any(p.is_symlink() for p in (repository,*repository.parents))
 repository.mkdir(mode=0o700)
 info=repository.stat();assert info.st_uid==0 and info.st_mode&0o777==0o700
-assert info.st_dev==pathlib.Path('/').stat().st_dev
-mount=json.loads(native('findmnt','--json','--target',str(repository),'--output=TARGET,FSTYPE,MAJ:MIN'))['filesystems']
-assert len(mount)==1 and mount[0]['fstype'] in ('btrfs','ext4','xfs')
+mount=json.loads(native('findmnt','--json','--target',str(repository),'--output=TARGET,SOURCE,FSTYPE,MAJ:MIN'))['filesystems']
+root_mount=json.loads(native('findmnt','--json','--target','/','--output=TARGET,SOURCE,FSTYPE,MAJ:MIN'))['filesystems']
+verify_repository_disk(mount,root_mount)
 space=os.statvfs(repository);assert space.f_bavail>0
 native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-repo','/mnt/qualification-repo')
 native('dnf5','--disable-repo=*','--enable-repo=qualification','--setopt=gpgcheck=True',
        '--setopt=install_weak_deps=False','--assumeyes','install','python3-libdnf5')
 print(json.dumps({'signed_dvd_binding':native('rpm','-q','python3-libdnf5').strip(),
- 'repository_path':str(repository),'mount':mount,'available_bytes':space.f_bavail*space.f_frsize}))
+ 'repository_path':str(repository),'mount':mount,'root_mount':root_mount,'available_bytes':space.f_bavail*space.f_frsize}))
 ''')
         (self.root / 'gpu-repository-storage.json').write_text(json.dumps(storage, indent=2))
         for name, value in repositories.items():
