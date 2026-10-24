@@ -206,7 +206,7 @@ for kind in ('base','updates'):
  (repos/(kind+'.repo')).write_text('[qualification-'+kind+']\\nname=qualification '+kind+'\\n'
   'baseurl=http://10.0.2.100:8080/$releasever-'+kind+'/\\nenabled=1\\ngpgcheck=1\\ngpgkey='+urls+'\\n')
 pathlib.Path('/etc/dnf/dnf.conf').write_text('[main]\\ngpgcheck=True\\nlocalpkg_gpgcheck=True\\n'
- 'install_weak_deps=False\\nkeepcache=True\\nmax_parallel_downloads=1\\nreposdir='+str(repos)+'\\n')
+ 'install_weak_deps=False\\nkeepcache=True\\nmax_parallel_downloads=1\\nzchunk=False\\nreposdir='+str(repos)+'\\n')
 native('systemctl','mask','dnf-automatic.timer','dnf5-automatic.timer')
 pathlib.Path('/etc/sysctl.d/99-qualification-upgrade.conf').write_text('vm.swappiness=61\\n')
 native('sysctl','-p','/etc/sysctl.d/99-qualification-upgrade.conf')
@@ -258,9 +258,21 @@ assert rows
 print(json.dumps({'packages':rows,'native_signature_verified':True}))
 ''')
 
+    def filesystems(self):
+        return self.guest('''
+rows={}
+for name in ('/','/var/cache/dnf','/var/tmp'):
+ path=pathlib.Path(name);path.mkdir(parents=True,exist_ok=True)
+ value=os.statvfs(path)
+ rows[name]={'bytes':value.f_blocks*value.f_frsize,
+  'available_bytes':value.f_bavail*value.f_frsize,'available_inodes':value.f_favail}
+print(json.dumps(rows))
+''')
+
     def offline(self, source, target):
         dnf = require_hop(source, target)
         self.repositories(source)
+        self.persist('pre-source-upgrade-filesystems', release=source, filesystems=self.filesystems())
         self.command(self.ssh + ['sudo ' + dnf + ' -y --refresh upgrade'])
         if source == 39:
             self.command(self.ssh + ['sudo ' + dnf + ' -y install dnf-plugin-system-upgrade'])

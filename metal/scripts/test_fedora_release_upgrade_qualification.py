@@ -90,8 +90,9 @@ class UpgradeRefusals(unittest.TestCase):
                 (fixture.args.keys_dir / ('fedora' + release + '.gpg')).write_bytes(b'owned public bytes')
             fixture.configure()
         fixture.signatures()
+        fixture.filesystems()
         fixture.state(39, {'unchanged': True})
-        self.assertEqual(len(programs), 3)
+        self.assertEqual(len(programs), 4)
 
     def test_only_declared_native_hops(self):
         self.assertEqual(upgrade.require_hop(39, 41), '/usr/bin/dnf')
