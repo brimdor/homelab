@@ -21,6 +21,32 @@ from fedora_upgrade_bridge import bridge
 
 
 class UpgradeRefusals(unittest.TestCase):
+    def test_each_native_offline_reboot_is_noninteractive(self):
+        for source, target in ((39, 41), (41, 43), (43, 44)):
+            with self.subTest(source=source, target=target):
+                fixture = object.__new__(upgrade.Qualification)
+                fixture.ssh = ['ssh', 'owned-synthetic-guest']
+                fixture.reference_corpus = {'unchanged': True}
+                fixture.checkpoint_states = {}
+                fixture.server = SimpleNamespace(errors=[])
+                before = {'machine': 'same', 'root_uuid': 'same',
+                          'architecture': 'x86_64', 'boot': 'before'}
+                fixture.identity = unittest.mock.Mock(side_effect=[before, {**before, 'boot': 'after'}])
+                fixture.guest = unittest.mock.Mock(return_value={
+                    'release': target, 'boot': 'after', 'offline_pending': False})
+                for name in ('repositories', 'filesystems', 'command', 'signatures',
+                             'persist', 'checkpoint', 'state', 'wait_ready'):
+                    setattr(fixture, name, unittest.mock.Mock())
+                fixture.offline(source, target)
+                dnf = '/usr/bin/dnf' if source == 39 else '/usr/bin/dnf5'
+                verb = 'system-upgrade' if source == 39 else 'offline'
+                fixture.command.assert_any_call(fixture.ssh + [
+                    'sudo systemd-run --on-active=2s --unit=qualification-upgrade-' +
+                    str(source) + '-' + str(target) + ' ' + dnf + ' -y ' + verb + ' reboot'])
+                fixture.persist.assert_called_with('offline-upgrade-prepared', source=source,
+                                                   target=target, signatures=fixture.signatures.return_value)
+                fixture.wait_ready.assert_called_once_with()
+
     def test_only_exact_timestamp_drift_can_restore_native_package_metadata(self):
         import ast
 

@@ -317,7 +317,7 @@ print(json.dumps(rows))
         self.persist('offline-upgrade-prepared', source=source, target=target, signatures=self.signatures())
         verb = 'system-upgrade' if source == 39 else 'offline'
         self.command(self.ssh + ['sudo systemd-run --on-active=2s --unit=qualification-upgrade-' + str(source) +
-                                 '-' + str(target) + ' ' + dnf + ' ' + verb + ' reboot'])
+                                 '-' + str(target) + ' ' + dnf + ' -y ' + verb + ' reboot'])
         while True:
             self.wait_ready()
             current = self.guest('''
