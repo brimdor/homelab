@@ -2,6 +2,7 @@
 """Qualify native Fedora39–41–43–44 upgrades only in an owned synthetic VM."""
 
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -46,6 +47,20 @@ def require_checkpoint_state(current, expected):
             any(current['identity'][key] != expected['identity'][key]
                 for key in ('machine', 'root_uuid', 'architecture', 'kernel'))):
         raise RuntimeError('restored checkpoint package, data or stable identity changed')
+
+
+def armor_public_key(raw):
+    # RPM4's public-key parser requires ASCII armor including its legacy CRC24.
+    crc = 0xB704CE
+    for value in raw:
+        crc ^= value << 16
+        for _ in range(8):
+            crc <<= 1
+            if crc & 0x1000000:
+                crc ^= 0x1864CFB
+    checksum = base64.b64encode((crc & 0xFFFFFF).to_bytes(3, 'big'))
+    return (b'-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n' + base64.encodebytes(raw) +
+            b'=' + checksum + b'\n-----END PGP PUBLIC KEY BLOCK-----\n')
 
 
 class Qualification(Target):
@@ -99,8 +114,10 @@ class Qualification(Target):
                            rr_name=name, joliet_path='/' + name)
             for release in self.contract['keys']:
                 name = 'fedora' + release + '.gpg'
-                iso.add_file(str(self.args.keys_dir / name), iso_path='/' + name.upper() + ';1',
-                             rr_name=name, joliet_path='/' + name)
+                raw = (self.args.keys_dir / name).read_bytes()
+                armored = armor_public_key(raw)
+                iso.add_fp(io.BytesIO(armored), len(armored), iso_path='/' + name.upper() + ';1',
+                           rr_name=name, joliet_path='/' + name)
             iso.write(str(seed))
         finally:
             iso.close()
@@ -172,12 +189,15 @@ class Qualification(Target):
                              package_count=len(value['packages']))
 
     def configure(self):
-        return self.guest('keys=' + repr(self.contract['keys']) + '\n' + '''
+        keys = {release: {**record, 'armored_sha256': hashlib.sha256(armor_public_key(
+            (self.args.keys_dir / ('fedora' + release + '.gpg')).read_bytes())).hexdigest()}
+            for release, record in self.contract['keys'].items()}
+        return self.guest('keys=' + repr(keys) + '\n' + '''
 seed=pathlib.Path('/mnt/qualification-upgrade-seed');seed.mkdir(mode=0o700)
 native('mount','-t','iso9660','-o','ro','/dev/disk/by-id/virtio-qualification-seed',str(seed))
 keydir=pathlib.Path('/var/lib/qualification-upgrade-keys');keydir.mkdir(mode=0o700)
 for release,record in keys.items():
- raw=(seed/('fedora'+release+'.gpg')).read_bytes();assert hashlib.sha256(raw).hexdigest()==record['sha256']
+ raw=(seed/('fedora'+release+'.gpg')).read_bytes();assert hashlib.sha256(raw).hexdigest()==record['armored_sha256']
  path=keydir/('fedora'+release+'.gpg');path.write_bytes(raw);path.chmod(0o600)
  native('rpmkeys','--import',str(path))
 repos=pathlib.Path('/var/tmp/qualification-upgrade-repos');repos.mkdir(mode=0o700)

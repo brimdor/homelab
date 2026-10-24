@@ -2,12 +2,14 @@
 """Refuse foreign upgrade requests, releases and unverified cache inputs."""
 
 import hashlib
+import base64
 import io
 import json
 import copy
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import fedora_release_upgrade_qualification as upgrade
@@ -16,6 +18,18 @@ from fedora_upgrade_bridge import bridge
 
 
 class UpgradeRefusals(unittest.TestCase):
+    def test_public_key_armor_preserves_bytes_and_known_crc24(self):
+        for raw in (b'123456789', bytes(range(256)) * 5):
+            armored = upgrade.armor_public_key(raw)
+            lines = armored.splitlines()
+            self.assertEqual(lines[0], b'-----BEGIN PGP PUBLIC KEY BLOCK-----')
+            self.assertEqual(lines[1], b'')
+            self.assertEqual(lines[-1], b'-----END PGP PUBLIC KEY BLOCK-----')
+            self.assertEqual(base64.b64decode(b''.join(lines[2:-2]), validate=True), raw)
+            self.assertTrue(all(len(line) <= 76 for line in lines[2:-2]))
+            if raw == b'123456789':
+                self.assertEqual(lines[-2], b'=Ic8C')
+
     def test_rollback_requires_exact_packages_data_and_stable_identity(self):
         expected = {'identity': {'machine': 'machine', 'root_uuid': 'root',
                                 'architecture': 'x86_64', 'kernel': 'kernel', 'boot': 'before'},
@@ -70,7 +84,11 @@ class UpgradeRefusals(unittest.TestCase):
         fixture.guest = compile_guest
         fixture.identity = lambda: {}
         fixture.corpus = lambda: {'unchanged': True}
-        fixture.configure()
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture.args = SimpleNamespace(keys_dir=Path(temporary))
+            for release in fixture.contract['keys']:
+                (fixture.args.keys_dir / ('fedora' + release + '.gpg')).write_bytes(b'owned public bytes')
+            fixture.configure()
         fixture.signatures()
         fixture.state(39, {'unchanged': True})
         self.assertEqual(len(programs), 3)
