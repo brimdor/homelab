@@ -11,6 +11,7 @@ import shutil
 import sys
 import time
 import tomllib
+import traceback
 
 from nfs_csi_native_runtime import native, kubectl, get, apply, domains
 
@@ -69,24 +70,41 @@ def agent(*args):
     return kubectl('exec', '-n', 'kube-system', agent_pod()['metadata']['name'], '-c', 'cilium-agent', '--', *args)
 
 
-def cni_identity(configuration):
+def cni_identity(configuration, info):
     entries = [value['cni'] for value in tomllib.loads(configuration)['plugins'].values() if 'cni' in value]
-    assert len(entries) == 1
-    settings = entries[0]
-    assert not ('bin_dir' in settings and 'bin_dirs' in settings)
-    directories = settings.get('bin_dirs', [settings['bin_dir']] if 'bin_dir' in settings else [])
+    assert len(entries) <= 1
+    settings, active = info['config']['cni'], info['cniconfig']
+    assert not (settings.get('binDir') and settings.get('binDirs'))
+    directories = settings.get('binDirs') or ([settings['binDir']] if settings.get('binDir') else [])
     assert isinstance(directories, list) and directories and all(isinstance(value, str) for value in directories)
     assert len(set(directories)) == len(directories) and all(Path(value).is_absolute() for value in directories)
-    directory = Path(settings['conf_dir'])
+    directory = Path(settings['confDir'])
     assert directory.is_absolute() and directory.is_dir()
+    assert active['PluginDirs'] == directories and active['PluginConfDir'] == str(directory)
+    assert settings['maxConfNum'] == active['PluginMaxConfNum'] == 1
+    for condition in ('RuntimeReady', 'NetworkReady'):
+        assert [row['status'] for row in info['status']['conditions'] if row['type'] == condition] == [True]
+    if entries:
+        explicit = entries[0]
+        assert not ('bin_dir' in explicit and 'bin_dirs' in explicit)
+        if 'bin_dir' in explicit or 'bin_dirs' in explicit:
+            assert explicit.get('bin_dirs', [explicit['bin_dir']] if 'bin_dir' in explicit else []) == directories
+        if 'conf_dir' in explicit:
+            assert explicit['conf_dir'] == str(directory)
+        if 'max_conf_num' in explicit:
+            assert explicit['max_conf_num'] == 1
     files = sorted(path for path in directory.iterdir() if path.suffix in ('.conf', '.conflist', '.json'))
     assert len(files) == 1 and files[0].is_file()
     configuration = json.loads(files[0].read_bytes())
     plugins = configuration.get('plugins', [configuration])
     assert len(plugins) == 1 and plugins[0]['type'] == 'cilium-cni'
+    loaded = [row['Config'] for row in active['Networks'] if row['IFName'] != 'lo']
+    assert len(loaded) == 1 and json.loads(loaded[0]['Source']) == configuration
+    assert [plugin['Network']['type'] for plugin in loaded[0]['Plugins']] == ['cilium-cni']
     binaries = [Path(value) / 'cilium-cni' for value in directories if (Path(value) / 'cilium-cni').is_file()]
     assert len(binaries) == 1 and os.access(binaries[0], os.X_OK)
     return {'containerd_conf_dir': str(directory), 'containerd_bin_dirs': directories,
+            'native_cri_ready_and_loaded_config_verified': True, 'toml_cni_explicit': bool(entries),
             'active_configuration': str(files[0]), 'configuration_sha256': sha_file(files[0]),
             'binary': str(binaries[0]), 'binary_sha256': sha_file(binaries[0])}
 
@@ -121,7 +139,7 @@ def components():
     return {'node_uid': nodes[0]['metadata']['uid'], 'cluster_uid': get('namespace', 'kube-system')['metadata']['uid'],
             'agent_uid': agent_pod()['metadata']['uid'], 'domains': all_domains,
             'kube_proxy_replacement': True, 'hubble_ready': True,
-            'native_cni': cni_identity(runtime),
+            'native_cni': cni_identity(runtime, json.loads(native(K3S, 'crictl', 'info'))),
             'config_sha256': hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()}
 
 
@@ -344,5 +362,8 @@ if __name__ == '__main__':
         result = main(sys.argv[1])
     except BaseException as error:
         EVIDENCE.update(error=type(error).__name__ + ': ' + str(error))
+        EVIDENCE['failure_location'] = [{'file': Path(frame.filename).name, 'line': frame.lineno,
+                                         'function': frame.name}
+                                        for frame in traceback.extract_tb(error.__traceback__)]
         result = EVIDENCE
     print(json.dumps(result), flush=True)

@@ -15,6 +15,16 @@ import fedora_cilium_kernel_qualification as subject
 
 
 class NativeCiliumEvidence(unittest.TestCase):
+    def cri_info(self, configuration, binaries):
+        return {'config': {'cni': {'binDir': '', 'binDirs': [str(binaries)],
+                                  'confDir': str(configuration), 'maxConfNum': 1}},
+                'status': {'conditions': [{'type': name, 'status': True}
+                                           for name in ('RuntimeReady', 'NetworkReady')]},
+                'cniconfig': {'PluginDirs': [str(binaries)], 'PluginConfDir': str(configuration),
+                              'PluginMaxConfNum': 1, 'Networks': [{'IFName': 'eth0', 'Config': {
+                                  'Source': json.dumps({'plugins': [{'type': 'cilium-cni'}]}),
+                                  'Plugins': [{'Network': {'type': 'cilium-cni'}}]}}]}}
+
     def test_actual_containerd_cni_paths_and_foreign_or_ambiguous_refusals(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -27,27 +37,70 @@ class NativeCiliumEvidence(unittest.TestCase):
             binary = binaries / 'cilium-cni'
             binary.write_bytes(b'owned synthetic executable')
             binary.chmod(0o700)
+            info = self.cri_info(configuration, binaries)
             header = '[plugins."io.containerd.cri.v1.runtime".cni]\nconf_dir=' + json.dumps(str(configuration)) + '\n'
             for option in ('bin_dir=' + json.dumps(str(binaries)), 'bin_dirs=[' + json.dumps(str(binaries)) + ']'):
-                actual = runtime.cni_identity(header + option)
+                actual = runtime.cni_identity(header + option, info)
                 self.assertEqual(actual['binary'], str(binary))
                 self.assertEqual(actual['active_configuration'], str(manifest))
                 self.assertEqual(actual['binary_sha256'], hashlib.sha256(binary.read_bytes()).hexdigest())
             settings = header + 'bin_dirs=[' + json.dumps(str(binaries)) + ']'
             manifest.write_text(json.dumps({'plugins': [{'type': 'foreign'}]}))
             with self.assertRaises(AssertionError):
-                runtime.cni_identity(settings)
+                runtime.cni_identity(settings, info)
             manifest.write_text(json.dumps({'plugins': [{'type': 'cilium-cni'}]}))
             extra = configuration / '10-foreign.conf'
             extra.write_text('{}')
             with self.assertRaises(AssertionError):
-                runtime.cni_identity(settings)
+                runtime.cni_identity(settings, info)
             extra.unlink()
             with self.assertRaises(AssertionError):
-                runtime.cni_identity(settings + '\nbin_dir=' + json.dumps(str(binaries)))
+                runtime.cni_identity(settings + '\nbin_dir=' + json.dumps(str(binaries)), info)
             binary.unlink()
             with self.assertRaises(AssertionError):
-                runtime.cni_identity(settings)
+                runtime.cni_identity(settings, info)
+
+    def test_native_cri_defaults_and_contradictory_or_unready_runtime_refusal(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            configuration, binaries = root / 'configuration', root / 'binaries'
+            configuration.mkdir()
+            binaries.mkdir()
+            (configuration / '05-cilium.conflist').write_text(json.dumps({'plugins': [{'type': 'cilium-cni'}]}))
+            (binaries / 'cilium-cni').write_bytes(b'owned synthetic executable')
+            (binaries / 'cilium-cni').chmod(0o700)
+            info = self.cri_info(configuration, binaries)
+            actual = runtime.cni_identity('[plugins]\n', info)
+            self.assertFalse(actual['toml_cni_explicit'])
+            self.assertTrue(actual['native_cri_ready_and_loaded_config_verified'])
+            legacy = copy.deepcopy(info)
+            legacy['config']['cni'].update(binDir=str(binaries), binDirs=[])
+            self.assertEqual(runtime.cni_identity('[plugins]\n', legacy), actual)
+            changes = [
+                ('config', 'cni', 'binDirs', ['relative']),
+                ('config', 'cni', 'binDir', str(binaries)),
+                ('config', 'cni', 'binDirs', [str(binaries), str(binaries)]),
+                ('cniconfig', 'PluginDirs', ['foreign']),
+                ('cniconfig', 'PluginConfDir', '/foreign'),
+                ('cniconfig', 'PluginMaxConfNum', 2),
+                ('cniconfig', 'Networks', []),
+                ('cniconfig', 'Networks', info['cniconfig']['Networks'] * 2),
+                ('cniconfig', 'Networks', [{'IFName': 'eth0', 'Config': {
+                    'Source': '{}', 'Plugins': [{'Network': {'type': 'cilium-cni'}}]}}]),
+                ('status', 'conditions', [{'type': 'NetworkReady', 'status': False}]),
+            ]
+            for *path, replacement in changes:
+                with self.subTest(path=path):
+                    changed = copy.deepcopy(info)
+                    selected = changed
+                    for key in path[:-1]:
+                        selected = selected[key]
+                    selected[path[-1]] = replacement
+                    with self.assertRaises(AssertionError):
+                        runtime.cni_identity('[plugins]\n', changed)
+            for fields in ('bin_dirs=["/foreign"]', 'conf_dir="/foreign"', 'max_conf_num=2'):
+                with self.subTest(fields=fields), self.assertRaises(AssertionError):
+                    runtime.cni_identity('[plugins."io.containerd.cri.v1.runtime".cni]\n' + fields, info)
 
     def flow(self):
         return {'flow': {'time': '2026-10-24T05:00:01Z', 'verdict': 'DROPPED',
