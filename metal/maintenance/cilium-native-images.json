@@ -1,0 +1,27 @@
+[
+  {
+    "image": "quay.io/cilium/cilium-envoy:v1.39.5-1792733054-8c73b2816bc8239e27f1fd53b271884688137459",
+    "index_digest": "sha256:547ab45f6092f681d9f54f3be9fa8fb1e705c9c5dc2df388efe3a52aa6965629",
+    "digest": "sha256:401bc8f7bebcc4760bce4cb7d4c70315449ebc3d0f6da4a4a3a73242bc2ad32a"
+  },
+  {
+    "image": "quay.io/cilium/cilium:v1.20.4",
+    "index_digest": "sha256:20fe92e4c86641233a450098c158d2d29085f3419931ab6bf681d2485dedf16e",
+    "digest": "sha256:fa56fecd779584642c7ec2da6872c03c45c1f1043da66665a73ed8c425584d54"
+  },
+  {
+    "image": "quay.io/cilium/hubble-relay:v1.20.4",
+    "index_digest": "sha256:cb23408209697ed30d2bc462e1f01eb622ea4423a891458f78bc88d7255bbfc1",
+    "digest": "sha256:649fa304850a3d00588fdfc95d48fd7df9156890ecb234f445484c390d2331bb"
+  },
+  {
+    "image": "quay.io/cilium/operator-generic:v1.20.4",
+    "index_digest": "sha256:7a7a3489dc66ad67e420d285c8a8d2e169b0957ad15e120f593d27081bf38d82",
+    "digest": "sha256:77a9b4371faed41dc9c2fb3942b6c02a581158be1d4aa46a0e62956ce2f55ff1"
+  },
+  {
+    "image": "docker.io/library/python:3.13-alpine",
+    "index_digest": "sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a",
+    "digest": "sha256:ba27df8b6499cc3756cff167690f3fcb5321faa1703b3a914df5f4fdadb32f05"
+  }
+]
