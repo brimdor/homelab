@@ -37,6 +37,24 @@ HTTPServer(('0.0.0.0',8080),Handler).serve_forever()
 PAYLOAD = hashlib.sha256(b'qualification-cilium-complete-payload\n').hexdigest()
 
 
+SUPPORTED_K3S = ('v1.33.6+k3s1', 'v1.36.5+k3s1')
+_UNSET = object()
+
+
+def require_k3s_version(expected, *, binary_output=_UNSET, kubelet_version=_UNSET):
+    if not isinstance(expected, str) or expected not in SUPPORTED_K3S:
+        raise RuntimeError('unreviewed native K3s release')
+    if binary_output is not _UNSET:
+        if not isinstance(binary_output, bytes) or not binary_output.splitlines():
+            raise RuntimeError('native K3s binary version missing')
+        if not re.fullmatch(rb'k3s version ' + re.escape(expected.encode()) + rb' \([0-9a-f]{7,40}\)',
+                            binary_output.splitlines()[0]):
+            raise RuntimeError('native K3s binary version differs')
+    if kubelet_version is not _UNSET and kubelet_version != expected:
+        raise RuntimeError('native K3s node version differs')
+    return expected
+
+
 def persist(stage, **values):
     EVIDENCE['stages'].append({'stage': stage, 'at_ns': time.time_ns(), **values})
     Path('/work/native-cilium-evidence.json').write_text(json.dumps(EVIDENCE, indent=2))
@@ -233,7 +251,7 @@ def wait_api_ready(path='/readyz'):
         time.sleep(1)
 
 
-def components():
+def components(inputs):
     assert Path('/sys/fs/selinux/enforce').read_text().strip() == '1'
     wait_api_ready()
     # A healthy kubelet tunnel can precede recreation of the pre-reboot container IDs.
@@ -245,6 +263,8 @@ def components():
     kubectl('wait', '--for=condition=Ready', 'node/' + NODE, '--timeout=900s')
     nodes = get('nodes')['items']
     assert len(nodes) == 1 and nodes[0]['metadata']['name'] == NODE
+    release = require_k3s_version(inputs['k3s_version'], binary_output=native(K3S, '--version'),
+                                  kubelet_version=nodes[0]['status'].get('nodeInfo', {}).get('kubeletVersion'))
     status = wait_agent_status()
     assert status['cilium']['state'] == 'Ok' and status['kubernetes']['state'] == 'Ok'
     assert str(status['kube-proxy-replacement']['mode']).lower() == 'true'
@@ -263,7 +283,7 @@ def components():
     assert pid > 1 and Path('/proc/' + str(pid) + '/attr/current').read_text().split(':')[2] == 'container_runtime_t'
     runtime = Path('/var/lib/rancher/k3s/agent/etc/containerd/config.toml').read_text()
     assert re.search(r'^\s*enable_selinux\s*=\s*true\s*$', runtime, re.M)
-    return {'node_uid': nodes[0]['metadata']['uid'], 'cluster_uid': get('namespace', 'kube-system')['metadata']['uid'],
+    return {'k3s_version': release, 'node_uid': nodes[0]['metadata']['uid'], 'cluster_uid': get('namespace', 'kube-system')['metadata']['uid'],
             'agent_uid': agent_pod()['metadata']['uid'], 'domains': all_domains,
             'kube_proxy_replacement': True, 'hubble_ready': True,
             'native_cni': cni_identity(runtime, json.loads(native(K3S, 'crictl', 'info'))),
@@ -290,7 +310,7 @@ def setup(inputs):
     Path(K3S).chmod(0o755)
     native('chcon', '-u', 'system_u', '-r', 'object_r', '-t', 'container_runtime_exec_t', K3S)
     assert os.getxattr(K3S, 'security.selinux').decode().split(':')[2] == 'container_runtime_exec_t'
-    assert b'v1.33.6+k3s1' in native(K3S, '--version')
+    require_k3s_version(inputs['k3s_version'], binary_output=native(K3S, '--version'))
     images = runtime / 'agent/images'
     images.mkdir(parents=True)
     shutil.move(str(ASSETS / 'airgap.tar.zst'), str(images / 'airgap.tar.zst'))
@@ -321,7 +341,7 @@ def setup(inputs):
         image = json.loads(native(K3S, 'crictl', 'inspecti', repository + '@' + record['digest']))
         assert repository + '@' + record['digest'] in image['status']['repoDigests']
     apply(*inputs['objects'])
-    current = components()
+    current = components(inputs)
     persist('native-cilium-components', **current)
     record = inputs['records'][-1]
     image = record['image'].rsplit(':', 1)[0] + '@' + record['digest']
@@ -332,7 +352,7 @@ def setup(inputs):
         ordinary_pod('server', image, SERVER), client,
         {'apiVersion': 'v1', 'kind': 'Service', 'metadata': {'name': 'echo', 'namespace': NAMESPACE},
          'spec': {'selector': {'role': 'server'}, 'ports': [{'port': 8080, 'targetPort': 8080}]}})
-    STATE.write_text(json.dumps({'node_uid': current['node_uid'], 'cluster_uid': current['cluster_uid'],
+    STATE.write_text(json.dumps({'k3s_version': current['k3s_version'], 'node_uid': current['node_uid'], 'cluster_uid': current['cluster_uid'],
                                  'booleans_sha256': hashlib.sha256(native('getsebool', '-a')).hexdigest()}))
 
 
@@ -460,24 +480,24 @@ def main(phase):
         setup(inputs)
     else:
         assert phase == 'after-reboot' and STATE.is_file()
-    current = components()
+    current = components(inputs)
     state = json.loads(STATE.read_text())
-    assert all(current[k] == state[k] for k in ('node_uid', 'cluster_uid'))
+    assert all(current[k] == state[k] for k in ('k3s_version', 'node_uid', 'cluster_uid'))
     persist(phase + '-native-components', **current)
     exercise(phase)
     if phase == 'initial':
         previous = agent_pod()['metadata']['uid']
         kubectl('delete', 'pod', agent_pod()['metadata']['name'], '-n', 'kube-system', '--wait=true')
-        replaced = components()
+        replaced = components(inputs)
         assert replaced['agent_uid'] != previous
-        assert all(replaced[k] == current[k] for k in ('node_uid', 'cluster_uid'))
+        assert all(replaced[k] == current[k] for k in ('k3s_version', 'node_uid', 'cluster_uid'))
         exercise('agent-replacement')
         persist('agent-replacement-identities', **replaced)
     booleans = hashlib.sha256(native('getsebool', '-a')).hexdigest()
     assert booleans == state['booleans_sha256']
     assert not native('rpm', '-V', 'container-selinux', 'k3s-selinux')
     packages = native('rpm', '-q', 'container-selinux', 'k3s-selinux').decode().splitlines()
-    EVIDENCE.update(accepted=True, node_uid=current['node_uid'], cluster_uid=current['cluster_uid'],
+    EVIDENCE.update(accepted=True, k3s_version=current['k3s_version'], node_uid=current['node_uid'], cluster_uid=current['cluster_uid'],
                     packages=packages, booleans_sha256=booleans, images=inputs['records'],
                     native_cni=current['native_cni'],
                     selinux_enforcing=True, fixture_only=True, production_and_multihost_unqualified=True)

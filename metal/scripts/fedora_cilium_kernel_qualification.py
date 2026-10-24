@@ -28,6 +28,20 @@ VALUES = {'operator': {'replicas': 1}, 'kubeProxyReplacement': True,
           'l2announcements': {'enabled': True}}
 
 
+K3S_RELEASES = {
+    'v1.33.6+k3s1': {'k3s': K3S, 'airgap.tar.zst': AIRGAP},
+    'v1.36.5+k3s1': {
+        'k3s': 'd73847bcd3c5fccef0115b372e2f9a91f3032dc84bbf71518a4617565294d313',
+        'airgap.tar.zst': '7d939471907df2d4e537a9c308bf94173e453fff4a2e9e77e9ae92a64be3007f'},
+}
+
+
+def k3s_release_inputs(release):
+    if not isinstance(release, str) or release not in K3S_RELEASES:
+        raise RuntimeError('unreviewed native K3s release')
+    return {'version': release, 'kubernetes_version': release[1:].split('+', 1)[0], **K3S_RELEASES[release]}
+
+
 def image_records():
     records = json.loads(IMAGE_FILE.read_bytes())
     if (len(records) != 5 or len({r['image'] for r in records}) != 5 or
@@ -73,8 +87,9 @@ class Qualification(Kernel):
         if (not args.assets_dir.is_absolute() or not args.assets_dir.is_relative_to(args.work_dir) or
                 any(p.is_symlink() for p in (args.assets_dir, *args.assets_dir.parents))):
             raise RuntimeError('native Cilium assets outside the owned fixture')
+        self.release = k3s_release_inputs(args.k3s_release)
         self.records = image_records()
-        self.assets = {'k3s': K3S, 'airgap.tar.zst': AIRGAP, 'policy.rpm': POLICY,
+        self.assets = {**K3S_RELEASES[self.release['version']], 'policy.rpm': POLICY,
                        'rancher-public.key': SELINUX_KEY, 'cilium-chart.tgz': CHART}
         for number, record in enumerate(self.records):
             path = args.assets_dir / ('image-' + str(number) + '.tar')
@@ -100,7 +115,7 @@ class Qualification(Kernel):
         values.write_text(yaml.safe_dump(VALUES))
         rendered = self.command([self.args.helm, 'template', 'cilium',
                                  str(self.args.assets_dir / 'cilium-chart.tgz'), '--namespace', 'kube-system',
-                                 '--kube-version', '1.33.6', '--include-crds', '-f', str(values)])
+                                 '--kube-version', self.release['kubernetes_version'], '--include-crds', '-f', str(values)])
         objects = reviewed_chart([o for o in yaml.safe_load_all(rendered) if o], self.records)
         storage = self.guest('import os\n' + inspect.getsource(verify_repository_disk) +
                              '\nassets_path=' + repr(ASSETS) + '\n' + '''
@@ -118,7 +133,8 @@ print(json.dumps({'mount':mount,'root_mount':root,'available_bytes':space.f_bava
         for name, digest in self.assets.items():
             self.upload(self.args.assets_dir / name, ASSETS + '/' + name, digest)
         payload = self.root / 'cilium-input.json'
-        payload.write_text(json.dumps({'records': self.records, 'objects': objects, 'assets': self.assets}))
+        payload.write_text(json.dumps({'records': self.records, 'objects': objects, 'assets': self.assets,
+                                       'k3s_version': self.release['version']}))
         self.upload(payload, ASSETS + '/input.json', hashlib.sha256(payload.read_bytes()).hexdigest())
         installed = self.guest(inspect.getsource(verify_signature_output) + '\nassets_path=' + repr(ASSETS) + '\n' + '''
 assets=pathlib.Path(assets_path)
@@ -142,9 +158,9 @@ print(json.dumps({'signed_policy_and_dependencies':True,'policy':'1.6-1.el9.noar
         before_boot = self.identity()
         after_boot = self.reboot(VERSION, before_boot)
         after = self.runtime('after-reboot')
-        if any(before[k] != after[k] for k in ('node_uid', 'cluster_uid', 'packages', 'booleans_sha256', 'images', 'native_cni')):
+        if any(before[k] != after[k] for k in ('k3s_version', 'node_uid', 'cluster_uid', 'packages', 'booleans_sha256', 'images', 'native_cni')):
             raise RuntimeError('native Cilium identities or policy changed across reboot')
-        return {'accepted': True, 'kernel': kernel, 'installed': installed, 'before': before, 'after': after,
+        return {'accepted': True, 'k3s_version': self.release['version'], 'kernel': kernel, 'installed': installed, 'before': before, 'after': after,
                 'before_boot': before_boot, 'after_boot': after_boot,
                 'production_nas_gpu_ceph_csi_and_multihost_unqualified': True}
 
@@ -157,6 +173,7 @@ def main():
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--qemu-img', default='qemu-img')
     parser.add_argument('--helm', default='helm')
+    parser.add_argument('--k3s-release', choices=tuple(K3S_RELEASES), default='v1.33.6+k3s1')
     qualification = Qualification(parser.parse_args())
 
     def cancel(_number, _frame):

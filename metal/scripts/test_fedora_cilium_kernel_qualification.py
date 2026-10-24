@@ -15,6 +15,36 @@ import fedora_cilium_kernel_qualification as subject
 
 
 class NativeCiliumEvidence(unittest.TestCase):
+    def test_reviewed_k3s_release_keeps_binary_and_airgap_paired(self):
+        self.assertEqual(set(subject.K3S_RELEASES), set(runtime.SUPPORTED_K3S))
+        baseline = subject.k3s_release_inputs('v1.33.6+k3s1')
+        self.assertEqual(baseline, {'version': 'v1.33.6+k3s1', 'kubernetes_version': '1.33.6',
+                                   'k3s': subject.K3S, 'airgap.tar.zst': subject.AIRGAP})
+        target = subject.k3s_release_inputs('v1.36.5+k3s1')
+        self.assertEqual(target, {
+            'version': 'v1.36.5+k3s1', 'kubernetes_version': '1.36.5',
+            'k3s': 'd73847bcd3c5fccef0115b372e2f9a91f3032dc84bbf71518a4617565294d313',
+            'airgap.tar.zst': '7d939471907df2d4e537a9c308bf94173e453fff4a2e9e77e9ae92a64be3007f'})
+        for foreign in ('latest', 'v1.36.6+k3s1', 'v1.36.5+k3s2', None, []):
+            with self.subTest(release=foreign), self.assertRaises(RuntimeError):
+                subject.k3s_release_inputs(foreign)
+
+    def test_native_k3s_requires_exact_binary_and_node_version(self):
+        for release in ('v1.33.6+k3s1', 'v1.36.5+k3s1'):
+            output = ('k3s version ' + release + ' (3dd98cc)\ngo version go1.26.0\n').encode()
+            self.assertEqual(runtime.require_k3s_version(release, binary_output=output,
+                                                        kubelet_version=release), release)
+            for foreign in ('v1.33.6+k3s2', 'v1.36.5+k3s2', '1.36.5', None):
+                with self.subTest(expected=release, node=foreign), self.assertRaises(RuntimeError):
+                    runtime.require_k3s_version(release, kubelet_version=foreign)
+            for output in (b'foreign k3s version v1.36.5+k3s1 (3dd98cc)',
+                           b'k3s version v1.36.5+k3s10 (3dd98cc)', b'k3s version foreign', b''):
+                with self.subTest(output=output), self.assertRaises(RuntimeError):
+                    runtime.require_k3s_version(release, binary_output=output)
+        for foreign in ('latest', 'v1.36.6+k3s1', None):
+            with self.subTest(release=foreign), self.assertRaises(RuntimeError):
+                runtime.require_k3s_version(foreign)
+
     def agent_fixture(self):
         pod = {'metadata': {'uid': 'current-pod', 'name': 'cilium-owned', 'namespace': 'kube-system'},
                'status': {'containerStatuses': [{'name': 'cilium-agent', 'ready': True,
