@@ -15,6 +15,31 @@ import fedora_cilium_kernel_qualification as subject
 
 
 class NativeCiliumEvidence(unittest.TestCase):
+    def test_kubelet_proxy_requires_real_health_before_exec_and_retries_gateway_startup(self):
+        from unittest.mock import patch
+
+        path = '/api/v1/nodes/' + runtime.NODE + '/proxy/healthz'
+        with patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
+                patch.object(runtime, 'native_api_tls', return_value=(object(), {})), \
+                patch.object(runtime, 'api_response', side_effect=[(502, b'not ready'), (200, b'ok')]) as response, \
+                patch.object(runtime.time, 'sleep') as sleep:
+            runtime.wait_api_ready(path)
+            self.assertEqual(sleep.call_count, 1)
+            self.assertEqual([call.args[1] for call in response.call_args_list], [path, path])
+            self.assertTrue(runtime.EVIDENCE['api_readiness'][0][-1]['ready'])
+        for foreign in ('https://foreign/healthz', '/api/v1/nodes/foreign/proxy/healthz', '/readyz?verbose'):
+            with self.subTest(path=foreign), patch.object(runtime, 'native_api_tls') as credentials:
+                with self.assertRaises(AssertionError):
+                    runtime.wait_api_ready(foreign)
+                credentials.assert_not_called()
+        for status in (401, 403, 302, 404, 429):
+            with self.subTest(status=status), patch.dict(runtime.EVIDENCE, {'api_readiness': []}), \
+                    patch.object(runtime, 'native_api_tls', return_value=(object(), {})), \
+                    patch.object(runtime, 'api_response', return_value=(status, b'refused')), \
+                    patch.object(runtime.time, 'sleep') as sleep, self.assertRaises(RuntimeError):
+                runtime.wait_api_ready(path)
+            sleep.assert_not_called()
+
     def test_http_readiness_waits_for_status_and_never_records_response_body(self):
         from unittest.mock import patch
 

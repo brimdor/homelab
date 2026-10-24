@@ -145,10 +145,11 @@ def native_api_tls():
                      'client_certificate_sha256': hashlib.sha256(certificate).hexdigest()}
 
 
-def api_response(context):
+def api_response(context, path):
+    assert path in ('/readyz', '/api/v1/nodes/' + NODE + '/proxy/healthz')
     connection = http.client.HTTPSConnection('127.0.0.1', 6443, context=context, timeout=10)
     try:
-        connection.request('GET', '/readyz')
+        connection.request('GET', path)
         response = connection.getresponse()
         body = response.read(65537)
         assert len(body) <= 65536
@@ -157,7 +158,9 @@ def api_response(context):
         connection.close()
 
 
-def wait_api_ready():
+def wait_api_ready(path='/readyz'):
+    kubelet_path = '/api/v1/nodes/' + NODE + '/proxy/healthz'
+    assert path in ('/readyz', kubelet_path)
     context, trust = native_api_tls()
     EVIDENCE.setdefault('api_readiness_tls', []).append(trust)
     started = time.monotonic()
@@ -165,18 +168,18 @@ def wait_api_ready():
     EVIDENCE.setdefault('api_readiness', []).append(attempts)
     while True:
         try:
-            status, body = api_response(context)
+            status, body = api_response(context, path)
         except (ConnectionRefusedError, ConnectionResetError, http.client.RemoteDisconnected, TimeoutError) as error:
             attempts.append({'elapsed_seconds': time.monotonic() - started, 'transport': type(error).__name__})
         else:
-            attempts.append({'elapsed_seconds': time.monotonic() - started, 'http_status': status,
+            attempts.append({'path': path, 'elapsed_seconds': time.monotonic() - started, 'http_status': status,
                              'body_bytes': len(body), 'body_sha256': hashlib.sha256(body).hexdigest()})
             if status == 200:
                 assert body.strip() == b'ok'
                 attempts[-1]['ready'] = True
                 return
             # Kubernetes explicitly defines HTTP status, not verbose text, as the machine contract.
-            if status not in (500, 503):
+            if status not in ((500, 502, 503) if path == kubelet_path else (500, 503)):
                 raise RuntimeError('native API readiness HTTP status refused: ' + str(status))
         if time.monotonic() - started >= 900:
             raise RuntimeError('native API did not become ready within 900 seconds')
@@ -191,6 +194,8 @@ def components():
                        ('deployment', 'coredns')):
         kubectl('rollout', 'status', kind + '/' + name, '-n', 'kube-system', '--timeout=900s')
     kubectl('wait', '--for=condition=Ready', 'node/' + NODE, '--timeout=900s')
+    # API readiness and a retained Node condition do not prove the kubelet tunnel is usable after reboot.
+    wait_api_ready('/api/v1/nodes/' + NODE + '/proxy/healthz')
     nodes = get('nodes')['items']
     assert len(nodes) == 1 and nodes[0]['metadata']['name'] == NODE
     status = json.loads(agent('cilium-dbg', 'status', '--output', 'json'))
