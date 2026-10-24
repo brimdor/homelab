@@ -17,6 +17,40 @@ MAINTENANCE = Path(__file__).resolve().parents[1] / 'maintenance'
 
 
 class NativeCsiRefusals(unittest.TestCase):
+    def test_bound_static_volume_accepts_only_empty_pv_class_and_explicit_empty_claim_class(self):
+        cluster = 'd370fba8-2ebc-4193-ab28-5c6ae368648d'
+        for kind in ('rbd', 'cephfs'):
+            pv, pvc = contract.static_binding(kind, cluster)
+            pv['metadata']['uid'], pvc['metadata']['uid'] = 'pv-uid', 'pvc-uid'
+            pv['status'], pvc['status'] = {'phase': 'Bound'}, {'phase': 'Bound'}
+            pv['spec']['claimRef']['uid'] = 'pvc-uid'
+            for omitted in (False, True):
+                volume = copy.deepcopy(pv)
+                if omitted:
+                    volume['spec'].pop('storageClassName')
+                with patch.object(runtime, 'get', side_effect=[volume, pvc]):
+                    accepted = runtime.binding(kind, cluster)
+                self.assertEqual(accepted['spec']['storageClassName'], '')
+                self.assertEqual((accepted['pv_uid'], accepted['pvc_uid']), ('pv-uid', 'pvc-uid'))
+            for target, key, value in (
+                    ('pv', 'storageClassName', 'foreign'), ('pv', 'storageClassName', None),
+                    ('pv', 'persistentVolumeReclaimPolicy', 'Delete'), ('pv', 'capacity', {'storage': '1Gi'}),
+                    ('pv', 'accessModes', ['ReadOnlyMany']), ('pv', 'mountOptions', ['ms_mode=crc']),
+                    ('pv', 'claimRef', {'name': kind, 'namespace': contract.CLIENT, 'uid': 'foreign'}),
+                    ('pvc', 'storageClassName', 'foreign'), ('pvc', 'storageClassName', None),
+                    ('pvc', 'volumeName', 'foreign')):
+                volume, claim = copy.deepcopy(pv), copy.deepcopy(pvc)
+                (volume if target == 'pv' else claim)['spec'][key] = value
+                with self.subTest(kind=kind, target=target, key=key, value=value):
+                    with patch.object(runtime, 'get', side_effect=[volume, claim]):
+                        with self.assertRaises(AssertionError):
+                            runtime.binding(kind, cluster)
+            claim = copy.deepcopy(pvc)
+            claim['spec'].pop('storageClassName')
+            with patch.object(runtime, 'get', side_effect=[pv, claim]):
+                with self.assertRaises(KeyError):
+                    runtime.binding(kind, cluster)
+
     def test_native_import_finishes_unpack_and_requires_exact_cri_digest(self):
         records = json.loads((MAINTENANCE / 'ceph-csi-native-images.json').read_bytes())
         calls = []

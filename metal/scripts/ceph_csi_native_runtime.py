@@ -226,7 +226,9 @@ def binding(kind, cluster):
     assert pv['spec']['claimRef']['uid'] == pvc['metadata']['uid']
     assert pv['spec']['claimRef']['name'] == kind and pv['spec']['claimRef']['namespace'] == CLIENT
     assert all(pv['spec'][key] == expected['spec'][key] for key in (
-        'csi', 'accessModes', 'volumeMode', 'storageClassName', 'persistentVolumeReclaimPolicy', 'capacity'))
+        'csi', 'accessModes', 'volumeMode', 'persistentVolumeReclaimPolicy', 'capacity'))
+    # The API omits an empty PV string; a PVC must still explicitly select no class.
+    assert pv['spec'].get('storageClassName', '') == expected['spec']['storageClassName']
     assert pv['spec'].get('mountOptions') == expected['spec'].get('mountOptions')
     assert all(pvc['spec'][key] == claim['spec'][key] for key in ('accessModes', 'volumeMode', 'storageClassName', 'volumeName'))
     return {'pv_uid': pv['metadata']['uid'], 'pvc_uid': pvc['metadata']['uid'], 'spec': expected['spec']}
