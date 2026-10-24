@@ -54,6 +54,22 @@ def route():
                                        for row in addresses[0]['addr_info'])
 
 
+def import_images(records, images):
+    imported = []
+    for index, record in enumerate(records):
+        repository = record['image'].rsplit(':', 1)[0]
+        started = time.monotonic()
+        # Finish extraction before kubelet's bounded CreateContainer RPC starts.
+        native(K3S, 'ctr', 'images', 'import', '--local', '--digests', '--all-platforms',
+               '--snapshotter', 'overlayfs', '--base-name', repository, str(images / ('image-' + str(index) + '.tar')))
+        reference = repository + '@' + record['digest']
+        image = json.loads(native(K3S, 'crictl', 'inspecti', reference))
+        assert reference in image['status']['repoDigests']
+        imported.append({'reference': reference, 'snapshotter': 'overlayfs',
+                         'elapsed_seconds': time.monotonic() - started})
+    return imported
+
+
 def start_k3s(inputs):
     for name, digest in inputs['assets'].items():
         value = hashlib.sha256()
@@ -91,12 +107,7 @@ def start_k3s(inputs):
     assert re.search(r'^\s*enable_selinux\s*=\s*true\s*$', config, re.M)
     pid = int(native('systemctl', 'show', 'qualification-k3s.service', '--property=MainPID', '--value'))
     assert pid > 1 and Path('/proc/' + str(pid) + '/attr/current').read_text().split(':')[2] == 'container_runtime_t'
-    for index, record in enumerate(inputs['records']):
-        repository = record['image'].rsplit(':', 1)[0]
-        native(K3S, 'ctr', 'images', 'import', '--local', '--digests', '--all-platforms', '--no-unpack',
-               '--base-name', repository, str(images / ('image-' + str(index) + '.tar')))
-        image = json.loads(native(K3S, 'crictl', 'inspecti', repository + '@' + record['digest']))
-        assert repository + '@' + record['digest'] in image['status']['repoDigests']
+    persist('native-images-unpacked', images=import_images(inputs['records'], images))
     kubectl('wait', '--for=create', 'node/' + NODE, '--timeout=900s')
     kubectl('wait', '--for=condition=Ready', 'node/' + NODE, '--timeout=900s')
     assert [node['metadata']['name'] for node in get('nodes')['items']] == [NODE]

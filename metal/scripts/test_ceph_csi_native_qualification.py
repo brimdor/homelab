@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import ceph_csi_native_contract as contract
 import ceph_csi_native_runtime as runtime
@@ -16,6 +17,28 @@ MAINTENANCE = Path(__file__).resolve().parents[1] / 'maintenance'
 
 
 class NativeCsiRefusals(unittest.TestCase):
+    def test_native_import_finishes_unpack_and_requires_exact_cri_digest(self):
+        records = json.loads((MAINTENANCE / 'ceph-csi-native-images.json').read_bytes())
+        calls = []
+
+        def native(*args):
+            calls.append(args)
+            if args[1:3] == ('crictl', 'inspecti'):
+                return json.dumps({'status': {'repoDigests': [args[-1]]}}).encode()
+            self.assertEqual(args[1:4], ('ctr', 'images', 'import'))
+            self.assertNotIn('--no-unpack', args)
+            self.assertEqual(args[args.index('--snapshotter') + 1], 'overlayfs')
+            return b''
+
+        with patch.object(runtime, 'native', side_effect=native):
+            imported = runtime.import_images(records, Path('/owned/images'))
+        self.assertEqual(len(imported), len(records))
+        self.assertEqual(len(calls), len(records) * 2)
+        self.assertTrue(all(row['elapsed_seconds'] >= 0 for row in imported))
+        with patch.object(runtime, 'native', side_effect=[b'', b'{"status":{"repoDigests":["foreign"]}}']):
+            with self.assertRaises(AssertionError):
+                runtime.import_images(records, Path('/owned/images'))
+
     def test_exact_upstream_and_static_actor_contract(self):
         bundle = json.loads((MAINTENANCE / 'ceph-csi-native-bundle.json').read_bytes())
         records = json.loads((MAINTENANCE / 'ceph-csi-native-images.json').read_bytes())
