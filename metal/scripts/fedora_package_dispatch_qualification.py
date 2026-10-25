@@ -283,9 +283,10 @@ print(json.dumps(unit_state(value['owner'],'offline_transaction')))
             raise RuntimeError('offline release did not produce exactly one new native DNF transaction')
         receipt = {'state': final, 'history': history_after, 'before': before,
                    'signatures': self.signatures(), 'transient_unit_not_required_after_reboot': True}
-        journal = self.accept('offline_transaction', receipt, 41)
+        self.persist('native-offline-transaction-observed', receipt=receipt)
         if self.server.errors:
             raise RuntimeError('verified package repository transport reported a failure')
+        journal = self.accept('offline_transaction', receipt, 41)
         self.persist('native-offline-transaction-accepted', receipt=receipt, journal=journal)
         self.result.update(accepted=True, actual_package_dispatch_and_exit_resume=True,
                            api_actor_and_scheduling_are_synthetic=True, source_supported_today=False,

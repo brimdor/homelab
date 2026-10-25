@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Mirror verified official Fedora44 metadata for a disconnected Ceph fixture."""
 
+import errno
 import gzip
 import hashlib
 import http.client
@@ -35,8 +36,9 @@ def retryable_fetch_error(error):
     if isinstance(error, urllib.error.HTTPError):
         return error.code in (500, 502, 503, 504)
     reason = error.reason if isinstance(error, urllib.error.URLError) else error
-    return isinstance(reason, (TimeoutError, ConnectionResetError, ConnectionAbortedError,
-                               http.client.IncompleteRead))
+    return (isinstance(reason, (TimeoutError, ConnectionResetError, ConnectionAbortedError,
+                                http.client.IncompleteRead)) or
+            isinstance(reason, OSError) and reason.errno in (errno.EHOSTUNREACH, errno.ENETUNREACH))
 
 
 def fetch_verified(base, relative, destination, expected=None, attempts=None):
@@ -63,6 +65,7 @@ def fetch_verified(base, relative, destination, expected=None, attempts=None):
                 reason = error.reason if isinstance(error, urllib.error.URLError) else error
                 attempts.append({'base': base, 'path': relative, 'attempt': attempt,
                                  'error_type': type(error).__name__, 'reason_type': type(reason).__name__,
+                                 'errno': getattr(reason, 'errno', None),
                                  'http_status': error.code if isinstance(error, urllib.error.HTTPError) else None,
                                  'retrying': retry})
             if isinstance(error, urllib.error.HTTPError):

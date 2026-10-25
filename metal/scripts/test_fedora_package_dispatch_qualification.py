@@ -187,6 +187,20 @@ class PackageQualificationTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in fixture.accept.call_args_list],
                          ['prepare_source', 'download_release', 'offline_transaction'])
         self.assertEqual(fixture.signatures.call_count, 4)
+        backend.update(id=1, boot='initial', release=39)
+        events.clear();fixture.accept.reset_mock();fixture.persist.reset_mock()
+        fixture.server.errors = [{'error': 'synthetic recorded transport failure'}]
+        fixture.result = {}
+        with tempfile.TemporaryDirectory(prefix='package-refusal-') as directory:
+            fixture.root = Path(directory)
+            with self.assertRaisesRegex(RuntimeError, 'repository transport reported a failure'):
+                fixture.run()
+            self.assertFalse((fixture.root / 'upgrade-result.json').exists())
+        self.assertIn('native-offline-transaction-observed', events)
+        self.assertNotIn('native-offline-transaction-accepted', events)
+        self.assertEqual([call.args[0] for call in fixture.accept.call_args_list],
+                         ['prepare_source', 'download_release'])
+        self.assertNotIn('accepted', fixture.result)
 
     def test_actual_prerequisite_resolves_capability_and_refuses_missing_provider(self):
         node = next(node for node in ast.parse(qualification.CONTEXT).body

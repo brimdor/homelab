@@ -6,6 +6,7 @@ import base64
 import io
 import json
 import copy
+import errno
 import http.client
 from pathlib import Path
 import tempfile
@@ -222,10 +223,43 @@ class UpgradeRefusals(unittest.TestCase):
             self.assertEqual(sleep.call_count, 2)
         self.assertEqual([row['retrying'] for row in attempts], [True, True, False])
 
+    def test_unreachable_route_recovery_is_bounded_and_keeps_exact_verified_origin(self):
+        base = repository.BASES['41-updates']
+        relative = 'Packages/l/libblkid.rpm'
+        payload = b'complete synthetic package'
+        expected = hashlib.sha256(payload).hexdigest()
+        class Response(io.BytesIO):
+            status = 200
+            url = base + relative
+        for code in (errno.EHOSTUNREACH, errno.ENETUNREACH):
+            for recovered in (True, False):
+                failure = urllib.error.URLError(OSError(code, 'synthetic unreachable route'))
+                outcomes = [failure, Response(payload)] if recovered else [failure] * 3
+                attempts = []
+                with self.subTest(code=code, recovered=recovered), tempfile.TemporaryDirectory() as temporary, \
+                        patch('urllib.request.urlopen', side_effect=outcomes) as request, \
+                        patch('time.sleep') as sleep:
+                    path = Path(temporary) / 'package.rpm'
+                    if recovered:
+                        self.assertEqual(repository.fetch(base, relative, path, expected, attempts), expected)
+                        self.assertEqual(path.read_bytes(), payload)
+                    else:
+                        with self.assertRaises(urllib.error.URLError):
+                            repository.fetch(base, relative, path, expected, attempts)
+                        self.assertFalse(path.exists())
+                    count = 2 if recovered else 3
+                    self.assertEqual(request.call_args_list,
+                                     [unittest.mock.call(base + relative, timeout=90)] * count)
+                    self.assertEqual(sleep.call_count, count - 1)
+                self.assertEqual([row['errno'] for row in attempts], [code] * len(attempts))
+                self.assertEqual([row['retrying'] for row in attempts], [True] if recovered else [True, True, False])
+
     def test_trust_access_and_unknown_failures_are_never_retried(self):
         base = repository.BASES['41-updates']
         for error in (urllib.error.URLError(ssl.SSLCertVerificationError('synthetic trust failure')),
                       urllib.error.URLError('unclassified failure'),
+                      *(urllib.error.URLError(OSError(code, 'synthetic refusal'))
+                        for code in (errno.EACCES, errno.EPERM, errno.EIO, errno.ECONNREFUSED)),
                       *(urllib.error.HTTPError(base, code, 'synthetic refusal', {}, io.BytesIO())
                         for code in (401, 403, 429))):
             body = error.fp if isinstance(error, urllib.error.HTTPError) else None
