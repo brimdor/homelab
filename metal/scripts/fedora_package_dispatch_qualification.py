@@ -32,7 +32,8 @@ def connect():
  owner=value['owner'];controller=api.controller()
  hold=actors.Hold(Systemd(),identity,lambda token:controller.resume(token)==owner,root/'state',root/'units')
  return value,hops.Journal(controller,hold,owner['owner'])
-def unit_state(owner,step):
+'''
+OBSERVATIONS = '''def unit_state(owner,step):
  unit=owner['owner']+'-'+step.replace('_','-')+'.service'
  fields=('LoadState','ActiveState','SubState','Result','ExecMainCode','ExecMainStatus','InvocationID','NRestarts')
  command=['systemctl','show',unit,*('--property='+field for field in fields)]
@@ -64,6 +65,7 @@ def prerequisites(value,step):
   'release':int(native('rpm','-E','%fedora').strip()),'config_sha256':hashlib.sha256(config).hexdigest(),
   'owner':value['owner'],'phase':step,'enforcing':True,'native_timer_masks':True}
 '''
+CONTEXT += OBSERVATIONS
 
 
 def service_complete(fields):

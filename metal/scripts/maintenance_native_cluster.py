@@ -6,14 +6,17 @@ import signal
 import subprocess
 
 import maintenance_actor_hold as actors
-from maintenance_combined_qualification import (AIRGAP, K3S, SELINUX_KEY, SELINUX_RPM,
+from maintenance_combined_qualification import (AIRGAP, K3S, SELINUX_KEY,
                                                 Qualification as Combined, archive_identity)
 from maintenance_fedora_endpoint import endpoint
 from fedora_target_qualification import require_media
+from fedora_nfs_csi_qualification import POLICY as SELINUX_RPM, archive_identity as workload_archive_identity
 
 
 ASSETS = '/var/tmp/qualification-native-assets'
 SERVER = '192.0.2.12'
+WORKLOAD = {'image': 'docker.io/library/python:3.13-alpine',
+            'digest': 'sha256:ba27df8b6499cc3756cff167690f3fcb5321faa1703b3a914df5f4fdadb32f05'}
 
 
 def configuration(index):
@@ -87,6 +90,8 @@ class Cluster:
         for name, digest in self.assets.items():require_media(args.work_dir, directory / name, digest)
         self.assets['kured.tar'] = archive_identity(directory / 'kured.tar')
         require_media(args.work_dir, directory / 'kured.tar', self.assets['kured.tar'])
+        self.assets['workload.tar'] = workload_archive_identity(directory / 'workload.tar', WORKLOAD)
+        require_media(args.work_dir, directory / 'workload.tar', self.assets['workload.tar'])
         self.prepared, self.started = set(), set()
 
     def prepare(self, index):
@@ -117,7 +122,7 @@ native('chcon','-u','system_u','-r','object_r','-t','container_runtime_exec_t',s
 assert os.getxattr(binary,'security.selinux').decode().split(':')[:3]==['system_u','object_r','container_runtime_exec_t']
 assert 'v1.33.6+k3s1'in native(str(binary),'--version')
 images=pathlib.Path('/var/lib/rancher/k3s/agent/images');assert not images.exists();images.mkdir(parents=True)
-for name in('airgap.tar.zst','kured.tar'):(assets/name).rename(images/name)
+for name in('airgap.tar.zst','kured.tar','workload.tar'):(assets/name).rename(images/name)
 config=pathlib.Path('/etc/rancher/k3s');config.mkdir(parents=True,mode=0o700,exist_ok=True)
 assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
 print(json.dumps({'signed_vendor_policy':'1.6-1.el9.noarch','enforcing':True,
@@ -153,4 +158,29 @@ pid=int(native('systemctl','show','qualification-k3s.service','--property=MainPI
 assert pid>1 and pathlib.Path('/proc/'+str(pid)+'/attr/current').read_text().split(':')[2]=='container_runtime_t'
 assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
 print(json.dumps({'native_service_started':True,'role':role,'pid':pid,'enforcing':True,'inert_dummy_default_only':True}))
+""")
+
+    def import_images(self, index):
+        actors.require(index in self.started, 'native container runtime not started')
+        return self.nodes[index].guest("workload=" + repr(WORKLOAD) + "\n" + """
+images=pathlib.Path('/var/lib/rancher/k3s/agent/images')
+for name,base,digest in [('kured.tar','ghcr.io/kubereboot/kured',
+ 'sha256:76567a71427b074bfc51df6797c8c30ba44c9678ace7cd61a186ddb662ce97b1'),
+ ('workload.tar','docker.io/library/python',workload['digest'])]:
+ native('/usr/local/bin/k3s','ctr','images','import','--local','--digests','--all-platforms','--no-unpack',
+  '--base-name',base,str(images/name))
+ ref=base+'@'+digest
+ assert ref in json.loads(native('/usr/local/bin/k3s','crictl','inspecti',ref))['status']['repoDigests']
+print(json.dumps({'verified_digest_imports':True,'enforcing':True}))
+""")
+
+    def wrapper(self, index):
+        actors.require(index in (0, 1) and index in self.started, 'foreign native API endpoint')
+        return self.nodes[index].guest('config_path=' + repr('/etc/rancher/k3s/k3s.yaml' if index == 1
+                                                           else '/etc/rancher/k3s/qualification-admin.yaml') + '\n' + """
+assert pathlib.Path(config_path).is_file()
+wrapper=pathlib.Path('/usr/local/bin/qualification-kubectl');assert not wrapper.exists()
+wrapper.write_text('#!/bin/sh\\nset -eu\\nexport KUBECONFIG='+config_path+
+ '\\nexec /usr/local/bin/k3s kubectl --request-timeout=30s "$@"\\n');wrapper.chmod(0o755)
+print(json.dumps({'fixed_private_API_wrapper_created':True}))
 """)

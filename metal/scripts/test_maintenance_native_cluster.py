@@ -49,6 +49,19 @@ class NativeCluster(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'never replay'):fixture.start(0)
         with self.assertRaisesRegex(RuntimeError,'not prepared'):fixture.start(1)
 
+    def test_actual_import_and_wrapper_programs_compile_and_refuse_foreign_endpoints(self):
+        fixture=object.__new__(cluster.Cluster);fixture.started={0,1,2};programs=[]
+        def guest(body):
+            compile(upgrade.guest_source('qualification-native-0')+body,'<native-runtime>','exec')
+            programs.append(body)
+        fixture.nodes=[SimpleNamespace(guest=guest)for _ in range(3)]
+        for index in range(3):fixture.import_images(index)
+        for index in(0,1):fixture.wrapper(index)
+        self.assertEqual(len(programs),5)
+        with self.assertRaises(RuntimeError):fixture.wrapper(2)
+        fixture.started=set()
+        with self.assertRaises(RuntimeError):fixture.import_images(0)
+
     def test_actual_native_programs_and_secure_transfer_shell_compile(self):
         with tempfile.TemporaryDirectory()as temporary:
             fixture=object.__new__(cluster.Cluster);fixture.prepared=set();fixture.started=set()

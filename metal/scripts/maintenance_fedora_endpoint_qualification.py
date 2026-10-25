@@ -28,6 +28,8 @@ with Server((sys.argv[1],18087),Handler)as server:server.serve_forever()
 
 
 class Qualification:
+    node_class = Endpoint
+
     def __init__(self, args):
         require_root(args.work_dir)
         actors.require(isinstance(args.revision, str) and re.fullmatch('[a-f0-9]{40}', args.revision),
@@ -72,7 +74,7 @@ class Qualification:
                 else:break
         self.hub.running()
         for index, port in enumerate(ports):
-            node = Endpoint(self.args, index, port)
+            node = self.node_class(self.args, index, port)
             self.endpoints.append(node)
             node.prepare()
             self.ownership()
