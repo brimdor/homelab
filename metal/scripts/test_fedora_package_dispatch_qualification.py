@@ -25,6 +25,34 @@ class PackageQualificationTests(unittest.TestCase):
         fixture.persist = Mock()
         return fixture
 
+    def test_history_success_binds_complete_original_output(self):
+        output = 'Transaction ID : 12\nEnd time : native-time\nReturn-Code    : Success\nPackages Altered:\n'
+        self.assertEqual(qualification.dnf4_history(output),
+                         {'id': 12, 'return_code': 'Success',
+                          'native_history_sha256': qualification.hashlib.sha256(output.encode()).hexdigest()})
+
+    def test_history_refuses_missing_ambiguous_failed_or_aborted_evidence(self):
+        success = 'Transaction ID : 12\nReturn-Code    : Success\n'
+        cases = [None, {}, '', 'Transaction ID : 12\n', 'Return-Code : Success\n',
+                 success + 'Transaction ID : 13\n', success + 'Return-Code : Success\n',
+                 success + 'Return-Code : Failure: 1\n']
+        for value in ('Failure: 1', 'Failures: 1, 2', '** Aborted **', 'Unknown', ''):
+            cases.append(success.replace('Success', value))
+        for value in ('0', '-1', '01', '1..12', '12 extra', ''):
+            cases.append(success.replace('ID : 12', 'ID : ' + value))
+        for value in cases:
+            with self.subTest(output=value), self.assertRaises(RuntimeError):
+                qualification.dnf4_history(value)
+
+    def test_actual_history_method_requires_native_success_and_fixed_locale(self):
+        fixture = self.fixture()
+        fixture.guest = Mock(return_value={'native_history_output': 'Transaction ID : 2\nReturn-Code : Success\n'})
+        self.assertEqual(fixture.history()['return_code'], 'Success')
+        self.assertIn("os.environ['LC_ALL']='C.UTF-8'", fixture.guest.call_args.args[0])
+        fixture.guest.return_value = {'native_history_output': 'Transaction ID : 2\nReturn-Code : Failure: 1\n'}
+        with self.assertRaisesRegex(RuntimeError, 'outcome refused'):
+            fixture.history()
+
     def test_native_unit_requires_exact_completion_without_restart(self):
         self.assertTrue(qualification.service_complete(SUCCESS))
         running = {**SUCCESS, 'SubState': 'running', 'ExecMainCode': '0'}
@@ -198,6 +226,8 @@ class PackageQualificationTests(unittest.TestCase):
                 return b''
             if 'failure_journal' in program:
                 return json.dumps({'unit': SUCCESS, 'failure_journal': None}).encode()
+            if 'native_history_output' in program:
+                return json.dumps({'native_history_output': 'Transaction ID : 1\nReturn-Code : Success\n'}).encode()
             return b'{}'
         fixture.command = command
         fixture.initialize()

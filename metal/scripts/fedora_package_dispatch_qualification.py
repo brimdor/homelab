@@ -69,6 +69,18 @@ def service_complete(fields):
     return complete
 
 
+def dnf4_history(output):
+    if not isinstance(output, str):
+        raise RuntimeError('native DNF history is not text')
+    ids = re.findall(r'^Transaction ID[ \t]*:[ \t]*([^\r\n]*)$', output, re.M)
+    outcomes = re.findall(r'^Return-Code[ \t]*:[ \t]*([^\r\n]*)$', output, re.M)
+    if (len(ids) != 1 or not re.fullmatch(r'[1-9][0-9]*', ids[0].strip()) or
+            len(outcomes) != 1 or outcomes[0].strip() != 'Success'):
+        raise RuntimeError('native DNF transaction identity/outcome refused')
+    return {'id': int(ids[0].strip()), 'return_code': 'Success',
+            'native_history_sha256': hashlib.sha256(output.encode()).hexdigest()}
+
+
 class Qualification(upgrade.Qualification):
     def __init__(self, args):
         if not re.fullmatch('[0-9a-f]{40}', args.revision):
@@ -150,13 +162,12 @@ print(json.dumps({'unit':fields,'failure_journal':failure}))
             time.sleep(5)
 
     def history(self):
-        return self.guest('''
+        result = self.guest('''
+os.environ['LC_ALL']='C.UTF-8'
 output=native('/usr/bin/dnf-3','history','info','last')
-import re
-ids=re.findall(r'^Transaction ID\\s*:\\s*(\\d+)\\s*$',output,re.M)
-assert len(ids)==1
-print(json.dumps({'id':int(ids[0]),'native_history_sha256':hashlib.sha256(output.encode()).hexdigest()}))
+print(json.dumps({'native_history_output':output}))
 ''')
+        return dnf4_history(result['native_history_output'])
 
     def prepare_plugin(self):
         before = self.history()
