@@ -152,7 +152,8 @@ class Qualification(drain_fixture.Qualification):
                        {k:v for k,v in after['spec'].items() if k != 'unschedulable'}, 'unrelated Node spec changed')
         final = journal.inspect()
         actors.require(final['completed'] == list(hops.STEPS[:-1]) and final['pending'] is None and
-                       after['spec']['unschedulable'] is False and len(api.node_patches) == 2 and
+                       scheduling.Scheduling(journal, api).snapshot(owner, after)['unschedulable'] is False and
+                       len(api.node_patches) == 2 and
                        len(api.posts) == 1 and hold.marker.exists() and ownership.resume(owner['owner']) == owner,
                        'actual scheduling outcome, ownership or mutation count differs')
         return {'cluster_uid': self.cluster_uid, 'node_uids': node_uids, 'initial_availability': initial,

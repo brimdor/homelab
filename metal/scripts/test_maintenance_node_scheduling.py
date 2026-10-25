@@ -42,6 +42,8 @@ class NodeAPI:
                 assert operation['op'] == 'add' and operation['path'] == '/spec/unschedulable'
                 candidate[section][field] = operation['value']
         candidate['metadata']['resourceVersion'] = str(int(candidate['metadata']['resourceVersion']) + 1)
+        # Kubernetes omits a false zero-value spec.unschedulable when serializing a Node.
+        if candidate['spec'].get('unschedulable') is False:candidate['spec'].pop('unschedulable')
         self.ownership.nodes[0] = candidate
         if self.lose_response:raise RuntimeError('lost scheduling response after committed patch')
         return copy.deepcopy(candidate)
@@ -99,6 +101,7 @@ class SchedulingTests(unittest.TestCase):
                 {'op': 'add', 'path': '/spec/unschedulable', 'value': value}])
         self.assertEqual(self.nodes.node['spec']['taints'], original_node['spec']['taints'])
         self.assertEqual(self.nodes.node['metadata']['annotations'], original_node['metadata']['annotations'])
+        self.assertNotIn('unschedulable', self.nodes.node['spec'])
         self.assertEqual(self.hold.marker.read_bytes(), marker)
         self.assertEqual(self.api.controller().resume(self.token), self.owner)
         self.assertEqual(self.api.writes, 1)
