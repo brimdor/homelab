@@ -59,6 +59,57 @@ class PackageQualificationTests(unittest.TestCase):
         fixture.persist.assert_called_once_with('native-package-unit-failure',
                                                 phase='download_release', observation=evidence)
 
+    def test_plugin_no_op_verifies_provider_without_inventing_downloads(self):
+        fixture = self.fixture()
+        history = {'id': 1, 'native_history_sha256': 'a' * 64}
+        fixture.history = Mock(side_effect=[history, history])
+        fixture.command = Mock()
+        fixture.guest = Mock(return_value={'installed_provider': 'synthetic-provider',
+                                           'native_rpm_verification_clean': True})
+        fixture.signatures = Mock(side_effect=AssertionError('no packages downloaded'))
+        fixture.prepare_plugin()
+        fixture.signatures.assert_not_called()
+        receipt = fixture.persist.call_args.kwargs
+        self.assertFalse(receipt['new_transaction'])
+        self.assertIsNone(receipt['signatures'])
+        self.assertEqual(receipt['no_op_provenance'], 'verified pinned cloud image')
+        fixture.command.assert_called_once_with(
+            fixture.ssh + ['sudo /usr/bin/dnf -y install dnf-plugin-system-upgrade'])
+        self.assertIn("native('rpm','-V',provider)", fixture.guest.call_args.args[0])
+
+    def test_plugin_new_transaction_requires_cache_signatures(self):
+        fixture = self.fixture()
+        fixture.history = Mock(side_effect=[{'id': 1}, {'id': 2}])
+        fixture.command = Mock();fixture.guest = Mock(return_value={'provider': 'synthetic'})
+        fixture.signatures = Mock(return_value={'native_signature_verified': True})
+        fixture.prepare_plugin()
+        fixture.signatures.assert_called_once_with()
+        self.assertTrue(fixture.persist.call_args.kwargs['new_transaction'])
+        self.assertEqual(fixture.persist.call_args.kwargs['signatures'],
+                         {'native_signature_verified': True})
+        fixture.signatures = Mock(side_effect=RuntimeError('bad signature'))
+        fixture.history = Mock(side_effect=[{'id': 2}, {'id': 3}]);fixture.persist.reset_mock()
+        with self.assertRaisesRegex(RuntimeError, 'bad signature'):
+            fixture.prepare_plugin()
+        fixture.persist.assert_not_called()
+
+    def test_plugin_ambiguous_history_or_provider_refuses(self):
+        for after in (0, 3):
+            fixture = self.fixture()
+            fixture.history = Mock(side_effect=[{'id': 1}, {'id': after}])
+            fixture.command = Mock();fixture.guest = Mock();fixture.signatures = Mock()
+            with self.subTest(after=after), self.assertRaisesRegex(RuntimeError, 'history ambiguously'):
+                fixture.prepare_plugin()
+            fixture.guest.assert_not_called();fixture.signatures.assert_not_called()
+            fixture.persist.assert_not_called()
+        fixture = self.fixture()
+        fixture.history = Mock(side_effect=[{'id': 1}, {'id': 1}])
+        fixture.command = Mock();fixture.guest = Mock(side_effect=RuntimeError('provider verification failed'))
+        fixture.signatures = Mock()
+        with self.assertRaisesRegex(RuntimeError, 'provider verification failed'):
+            fixture.prepare_plugin()
+        fixture.signatures.assert_not_called();fixture.persist.assert_not_called()
+
     def test_actual_complete_guest_programs_compile(self):
         fixture = self.fixture()
         programs = []

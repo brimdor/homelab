@@ -158,6 +158,24 @@ assert len(ids)==1
 print(json.dumps({'id':int(ids[0]),'native_history_sha256':hashlib.sha256(output.encode()).hexdigest()}))
 ''')
 
+    def prepare_plugin(self):
+        before = self.history()
+        self.command(self.ssh + ['sudo /usr/bin/dnf -y install dnf-plugin-system-upgrade'])
+        after = self.history()
+        if after['id'] not in (before['id'], before['id'] + 1):
+            raise RuntimeError('plugin preparation changed native history ambiguously')
+        provider = self.guest('''
+provider=native('rpm','-q','--whatprovides','dnf-plugin-system-upgrade').strip()
+assert provider and len(provider.splitlines())==1
+assert not native('rpm','-V',provider)
+print(json.dumps({'installed_provider':provider,'native_rpm_verification_clean':True}))
+''')
+        changed = after['id'] != before['id']
+        self.persist('separate-native-plugin-preparation', history_before=before, history_after=after,
+                     provider=provider, new_transaction=changed,
+                     signatures=self.signatures() if changed else None,
+                     no_op_provenance='verified pinned cloud image' if not changed else None)
+
     def accept(self, step, receipt, release, unit=None):
         checksum = hashlib.sha256(json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
         return self.package_guest('step=' + repr(step) + '\nchecksum=' + repr(checksum) +
@@ -180,8 +198,7 @@ print(json.dumps(journal.accept(pending['sha256'],checksum,observed)))
         initial = self.state(39, corpus)
         self.persist('initial-native-fedora39', result=initial, configured=configured)
         self.repositories(39)
-        self.command(self.ssh + ['sudo /usr/bin/dnf -y install dnf-plugin-system-upgrade'])
-        self.persist('separate-native-plugin-preparation', history=self.history(), signatures=self.signatures())
+        self.prepare_plugin()
         self.persist('synthetic-owner-and-journal-initialized', result=self.initialize())
         before_history = self.history()
         self.dispatch('prepare_source', lose_response=True)
