@@ -372,8 +372,12 @@ mutations=[json.loads(line)for line in(root/'api-mutations.jsonl').read_text().s
 assert sum(v['argv'][:2]==['patch','node']for v in mutations)==2
 assert sum(v['argv'][0]=='create'for v in mutations)==1
 assert sum(v['argv'][:2]==['patch','daemonset']for v in mutations)==2
+hop_records={p.name:json.loads(p.read_bytes())for p in sorted(journal.path.iterdir())}
+release_records={p.name:json.loads(p.read_bytes())for p in sorted(worker.path.iterdir())}
+assert len(hop_records)==19 and len(release_records)==5
 print(json.dumps({'application':state,'prepared':prepared,'host':host,'global':global_result,
- 'final':final,'mutations':mutations,'native_systemd_and_Kured_released':True}))
+ 'final':final,'mutations':mutations,'hop_records':hop_records,'release_records':release_records,
+ 'native_systemd_and_Kured_released':True}))
 ''')
         self.persist('actual-native-scheduling-application-ordered-release', restored=restored, released=released)
 
