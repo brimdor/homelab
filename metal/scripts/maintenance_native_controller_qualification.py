@@ -326,9 +326,9 @@ print(json.dumps({'journal':journal.inspect(),'actual_fixture_only':True}))
 value,journal=connect();current=available();checksum=drain.hashed(current)
 worker=scheduling.Scheduling(journal,api)
 plan=worker.plan('restore_scheduling',drain.private_json(root/'cordon.json'))
-worker.dispatch(plan,drain.hashed(plan),checksum,lambda *_:available()==current)
+dispatched=worker.dispatch(plan,drain.hashed(plan),checksum,lambda *_:available()==current)
 accepted=worker.observe(plan,checksum,lambda *_:available()==current);assert accepted['accepted']
-print(json.dumps({'restored':accepted}))
+print(json.dumps({'restored':accepted,'dispatched':dispatched}))
 ''')
         canary = copy.deepcopy(next(v for v in fixtures(2) if v['kind'] == 'Deployment'))
         canary['metadata']['name'] = 'native-canary';spec = canary['spec'];spec['replicas'] = 1

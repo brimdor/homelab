@@ -152,11 +152,38 @@ class SchedulingTests(unittest.TestCase):
         self.assertFalse(self.observe(plan)['accepted'])
         self.assertEqual(len(self.nodes.patches), 1)
 
-    def test_reviewed_node_version_change_before_dispatch_never_patches(self):
-        plan = self.worker.plan('cordon');self.nodes.node['metadata']['resourceVersion'] = '99'
-        with self.assertRaisesRegex(RuntimeError, 'changed before patch'):self.dispatch(plan)
-        self.assertEqual(self.nodes.patches, [])
-        self.assertIsNotNone(self.journal.inspect()['pending'])
+    def test_unrelated_updates_before_dispatch_use_fresh_version_for_each_transition(self):
+        for restore in (False, True):
+            with self.subTest(restore=restore):
+                if restore:
+                    self.setUp()
+                    _, plan = self.restore_ready()
+                else:plan = self.worker.plan('cordon')
+                reviewed = copy.deepcopy(plan)
+                self.nodes.node['metadata'].update(resourceVersion='99', annotations={'other': 'new'})
+                self.nodes.node['status']['conditions'][0]['lastHeartbeatTime'] = '2026-10-25T10:00:00Z'
+                dispatched = self.dispatch(plan)
+                self.assertEqual(dispatched['before']['resource_version'], '99')
+                self.assertEqual(self.nodes.patches[-1][1], {
+                    'op': 'test', 'path': '/metadata/resourceVersion', 'value': '99'})
+                self.assertEqual(plan, reviewed)
+                self.assertTrue(self.observe(plan)['accepted'])
+                self.assertEqual(self.nodes.node['metadata']['annotations'], {'other': 'new'})
+                self.assertEqual(self.nodes.node['status']['conditions'][0]['lastHeartbeatTime'],
+                                 '2026-10-25T10:00:00Z')
+
+    def test_changed_identity_deletion_or_scheduling_before_dispatch_never_patches(self):
+        for section, field, value in [('metadata', 'uid', 'foreign'),
+                                      ('metadata', 'deletionTimestamp', 'now'),
+                                      ('spec', 'unschedulable', True)]:
+            with self.subTest(field=field):
+                self.setUp();plan = self.worker.plan('cordon');original = copy.deepcopy(self.nodes.node)
+                self.nodes.node[section][field] = value
+                with self.assertRaises(RuntimeError):self.dispatch(plan)
+                self.assertEqual(self.nodes.patches, [])
+                self.api.nodes[0] = original
+                # Ownership can reject a foreign/deleting Node before intent is created.
+                if field == 'unschedulable':self.assertIsNotNone(self.journal.read()['pending'])
 
     def test_initially_cordoned_node_is_not_adopted(self):
         self.nodes.node['spec']['unschedulable'] = True
@@ -211,10 +238,25 @@ class SchedulingTests(unittest.TestCase):
     def test_changed_snapshot_or_refused_observation_retains_intent(self):
         plan = self.worker.plan('cordon');self.dispatch(plan);pending = self.journal.inspect()
         with self.assertRaisesRegex(RuntimeError, 'observed hop result'):self.observe(plan, lambda *_: False)
-        def changed(*_):self.nodes.node['metadata']['resourceVersion'] = '99';return True
+        def changed(*_):self.nodes.node['spec']['unschedulable'] = False;return True
         with self.assertRaisesRegex(RuntimeError, 'observed hop result'):self.observe(plan, changed)
         self.assertEqual(self.journal.inspect(), pending)
         self.assertEqual(len(self.nodes.patches), 1)
+
+    def test_observer_accepts_unrelated_version_updates_without_a_second_patch(self):
+        for restore in (False, True):
+            with self.subTest(restore=restore):
+                if restore:
+                    self.setUp()
+                    _, plan = self.restore_ready()
+                else:plan = self.worker.plan('cordon')
+                self.dispatch(plan);count = len(self.nodes.patches)
+                def changed(*_):
+                    self.nodes.node['metadata']['resourceVersion'] = '99'
+                    return True
+                accepted = self.observe(plan, changed)
+                self.assertTrue(accepted['accepted'])
+                self.assertEqual(len(self.nodes.patches), count)
 
     def test_foreign_deleting_or_malformed_node_refuses(self):
         node = copy.deepcopy(self.nodes.node)

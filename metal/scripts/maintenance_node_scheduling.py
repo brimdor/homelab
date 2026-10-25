@@ -91,13 +91,13 @@ class Scheduling:
             actors.require(self.journal.read() == pending, 'scheduling state changed during verification')
             self.journal.owners(idle=True)
             before = self.snapshot(pending['owners']['global'])
-            actors.require(before == {'node': plan['node'], 'uid': plan['uid'],
-                           'resource_version': plan['resource_version'],
-                           'unschedulable': plan['from_unschedulable']},
-                           'reviewed scheduling Node changed before patch')
+            actors.require(before['unschedulable'] is plan['from_unschedulable'],
+                           'reviewed scheduling Node changed before patch: ' +
+                           coordination.encoded({'plan': plan, 'observed': before}))
+            # Fence the fresh read; kubelet status updates need not freeze after review.
             operations = [
                 {'op': 'test', 'path': '/metadata/uid', 'value': plan['uid']},
-                {'op': 'test', 'path': '/metadata/resourceVersion', 'value': plan['resource_version']},
+                {'op': 'test', 'path': '/metadata/resourceVersion', 'value': before['resource_version']},
                 {'op': 'add', 'path': '/spec/unschedulable', 'value': plan['to_unschedulable']},
             ]
             result = self.api.call('patch', 'node', name(plan['node']), '--type=json',
@@ -105,7 +105,7 @@ class Scheduling:
             after = self.snapshot(pending['owners']['global'], result)
             actors.require(after['unschedulable'] is plan['to_unschedulable'],
                            'scheduling patch outcome uncertain; observe, never replay')
-            return {'accepted': False, 'pending': pending['pending'], 'observed': after}
+            return {'accepted': False, 'pending': pending['pending'], 'before': before, 'observed': after}
 
     def observe(self, plan, prerequisites_sha256, verify_prerequisites):
         actors.require(hops.checksum(prerequisites_sha256), 'invalid scheduling prerequisite digest')
@@ -121,6 +121,6 @@ class Scheduling:
         def verify(step, digest):
             return (step == plan['step'] and digest == hashed(receipt) and
                     verify_prerequisites(step, prerequisites_sha256) is True and
-                    self.snapshot(owner) == observed)
+                    self.snapshot(owner)['unschedulable'] is plan['to_unschedulable'])
         accepted = self.journal.accept(state['pending']['sha256'], hashed(receipt), verify)
         return {'accepted': True, 'receipt': receipt, 'journal': accepted}
