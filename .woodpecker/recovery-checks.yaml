@@ -30,3 +30,4 @@ steps:
         test_maintenance_package_dispatch
         test_maintenance_node_drain
         test_maintenance_node_scheduling
+        test_maintenance_safe_release
