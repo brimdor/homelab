@@ -99,6 +99,37 @@ class Endpoints(unittest.TestCase):
                     self.assertIn('IdentityAgent=none',instance.ssh)
                     self.assertEqual(yaml.safe_load((instance.root/'inventory.yml').read_bytes())['hostname'],instance.hostname)
 
+    def test_actual_native_identity_checks_disk_attribute_and_refuses_foreign_values(self):
+        instance=object.__new__(fleet.Endpoint);instance.endpoint=fleet.endpoint(0,23000)
+        instance.identity=lambda:{'machine':'synthetic-machine','root_uuid':'synthetic-root'}
+        expected=instance.endpoint;observed=[]
+        values={'/sys/class/net/management0/address':expected['management_mac'],
+                '/sys/class/net/cluster0/address':expected['cluster_mac'],
+                '/sys/class/block/vda/serial':expected['root_serial']}
+        def path(value):
+            if value not in values:raise FileNotFoundError(value)
+            return SimpleNamespace(read_text=lambda:values[value]+'\n')
+        commands={('ip','-j','address','show','dev','cluster0'):json.dumps([{
+            'flags':['UP'],'addr_info':[{'family':'inet','local':expected['address'],'prefixlen':24}]}]),
+            ('ip','-j','route','show','default'):'[]',('findmnt','-n','-o','SOURCE','/'):'/dev/vda4[/]',
+            ('lsblk','-dn','-o','PKNAME','/dev/vda4'):'vda'}
+        def guest(body):
+            emitted=[]
+            namespace={'json':json,'socket':SimpleNamespace(gethostname=lambda:expected['hostname']),
+                       'pathlib':SimpleNamespace(Path=path),'native':lambda *argv:commands[argv],
+                       'print':lambda value:emitted.append(json.loads(value))}
+            exec(compile(body,'<actual-native-identity>','exec'),namespace)
+            observed.append(namespace);return emitted[0]
+        instance.guest=guest
+        result=instance.private_identity()
+        self.assertEqual(result['private_endpoint']['root_serial'],expected['root_serial'])
+        self.assertEqual(len(observed),1)
+        for bad in ('foreign-disk','',expected['root_serial']+'-foreign'):
+            values['/sys/class/block/vda/serial']=bad
+            with self.subTest(serial=bad),self.assertRaises(AssertionError):instance.private_identity()
+        del values['/sys/class/block/vda/serial']
+        with self.assertRaises(FileNotFoundError):instance.private_identity()
+
     def test_original_defaults_and_generated_native_identity_program(self):
         self.assertEqual((upgrade.Qualification.hostname, upgrade.Qualification.runtime_name,
                           upgrade.Qualification.repository_name, upgrade.Qualification.management_mac),

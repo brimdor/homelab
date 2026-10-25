@@ -69,7 +69,7 @@ assert all(route['dev']!='cluster0'for route in routes)
 source=native('findmnt','-n','-o','SOURCE','/').strip().split('[')[0]
 assert re.fullmatch('/dev/vda[1-9][0-9]*',source)
 assert native('lsblk','-dn','-o','PKNAME',source).strip()=='vda'
-assert pathlib.Path('/sys/class/block/vda/device/serial').read_text().strip()==expected['root_serial']
+assert pathlib.Path('/sys/class/block/vda/serial').read_text().strip()==expected['root_serial']
 print(json.dumps({'hostname':socket.gethostname(),'root_serial':expected['root_serial'],
  'management_mac':expected['management_mac'],'cluster_mac':expected['cluster_mac'],
  'cluster_address':expected['address'],'cluster_has_no_default_route':True,'enforcing':True}))
