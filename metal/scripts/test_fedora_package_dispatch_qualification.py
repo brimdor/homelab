@@ -102,7 +102,7 @@ class PackageQualificationTests(unittest.TestCase):
         receipt = fixture.persist.call_args.kwargs
         self.assertFalse(receipt['new_transaction'])
         self.assertIsNone(receipt['signatures'])
-        self.assertEqual(receipt['no_op_provenance'], 'verified pinned cloud image')
+        self.assertEqual(receipt['no_op_provenance'], 'verified installed provider; no new transaction')
         fixture.command.assert_called_once_with(
             fixture.ssh + ['sudo /usr/bin/dnf -y install dnf-plugin-system-upgrade'])
         self.assertIn("native('rpm','-V',provider)", fixture.guest.call_args.args[0])

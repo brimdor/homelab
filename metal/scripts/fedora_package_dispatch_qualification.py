@@ -185,7 +185,7 @@ print(json.dumps({'installed_provider':provider,'native_rpm_verification_clean':
         self.persist('separate-native-plugin-preparation', history_before=before, history_after=after,
                      provider=provider, new_transaction=changed,
                      signatures=self.signatures() if changed else None,
-                     no_op_provenance='verified pinned cloud image' if not changed else None)
+                     no_op_provenance='verified installed provider; no new transaction' if not changed else None)
 
     def accept(self, step, receipt, release, unit=None):
         checksum = hashlib.sha256(json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
