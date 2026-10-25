@@ -51,8 +51,8 @@ class Kubectl:
         require(executable.startswith('/'), 'kubectl must be an absolute compatible executable')
         self.executable = executable
 
-    def call(self, *args):
-        result = subprocess.run([self.executable, *args], capture_output=True, check=False)
+    def call(self, *args, data=None):
+        result = subprocess.run([self.executable, *args], input=data, capture_output=True, check=False)
         # Only fixed nonsecret resources enter this adapter. Do not retain arbitrary stderr.
         require(result.returncode == 0, 'kubectl failed; observe ownership before retrying')
         return json.loads(result.stdout)
