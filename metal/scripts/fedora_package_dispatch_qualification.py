@@ -14,7 +14,8 @@ import fedora_release_upgrade_qualification as upgrade
 
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'test_maintenance_coordination', 'test_maintenance_actor_hold')
-CONTEXT = '''import types,sys
+CONTEXT = '''import types,sys,time
+unit_query_attempts=[]
 for name,source in bundle.items():
  module=types.ModuleType(name);module.__file__='/ram/'+name+'.py';sys.modules[name]=module
  exec(compile(source,module.__file__,'exec'),module.__dict__)
@@ -34,7 +35,19 @@ def connect():
 def unit_state(owner,step):
  unit=owner['owner']+'-'+step.replace('_','-')+'.service'
  fields=('LoadState','ActiveState','SubState','Result','ExecMainCode','ExecMainStatus','InvocationID','NRestarts')
- raw=native('systemctl','show',unit,*('--property='+field for field in fields))
+ command=['systemctl','show',unit,*('--property='+field for field in fields)]
+ for attempt in range(1,6):
+  result=subprocess.run(command,capture_output=True,env={**os.environ,'LC_ALL':'C.UTF-8'})
+  if result.returncode==0:
+   raw=result.stdout.decode();break
+  retryable=(result.returncode==1 and not result.stdout and
+   result.stderr==b'Failed to get properties: Transport endpoint is not connected\\n')
+  record={'command':command,'attempt':attempt,'exit':result.returncode,
+   'stderr_sha256':hashlib.sha256(result.stderr).hexdigest(),'retrying':retryable and attempt<5}
+  unit_query_attempts.append(record)
+  if not record['retrying']:
+   raise RuntimeError('native unit property observation refused: '+json.dumps(record,sort_keys=True))
+  time.sleep(5)
  result=dict(line.split('=',1)for line in raw.splitlines())
  assert set(result)==set(fields)
  return result
@@ -148,9 +161,12 @@ failure=None
 if fields['ActiveState'] in ('failed','inactive'):
  failure=native('journalctl','--no-pager','-o','cat','-n','80','-u',
   value['owner']['owner']+'-'+step.replace('_','-')+'.service')[-16000:]
-print(json.dumps({'unit':fields,'failure_journal':failure}))
+print(json.dumps({'unit':fields,'failure_journal':failure,'unit_query_attempts':unit_query_attempts}))
 ''')
             fields = observation['unit']
+            if observation.get('unit_query_attempts'):
+                self.persist('native-unit-property-transport', phase=step,
+                             attempts=observation['unit_query_attempts'])
             if observation['failure_journal'] is not None:
                 self.persist('native-package-unit-failure', phase=step, observation=observation)
             if invocation is None:

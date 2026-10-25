@@ -3,6 +3,7 @@
 import ast
 import copy
 import json
+import os
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -18,6 +19,47 @@ SUCCESS = {'LoadState': 'loaded', 'ActiveState': 'active', 'SubState': 'exited',
 
 
 class PackageQualificationTests(unittest.TestCase):
+    def property_query(self, results):
+        node = next(n for n in ast.parse(qualification.CONTEXT).body
+                    if isinstance(n, ast.FunctionDef) and n.name == 'unit_state')
+        run, sleep, attempts = Mock(side_effect=results), Mock(), []
+        scope = {'subprocess': SimpleNamespace(run=run), 'time': SimpleNamespace(sleep=sleep),
+                 'os': os, 'json': json, 'hashlib': qualification.hashlib,
+                 'unit_query_attempts': attempts}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), '<actual-unit-query>', 'exec'), scope)
+        return scope['unit_state'], run, sleep, attempts
+
+    def test_actual_unit_query_retries_only_exact_read_transport_failure(self):
+        failure = SimpleNamespace(returncode=1, stdout=b'',
+                                  stderr=b'Failed to get properties: Transport endpoint is not connected\n')
+        success = SimpleNamespace(returncode=0, stderr=b'',
+                                  stdout=''.join(k+'='+v+'\n' for k,v in SUCCESS.items()).encode())
+        query, run, sleep, attempts = self.property_query([failure, success])
+        self.assertEqual(query({'owner': 'synthetic-owner'}, 'prepare_source'), SUCCESS)
+        self.assertEqual(run.call_count, 2);sleep.assert_called_once_with(5)
+        self.assertEqual(run.call_args_list[0], run.call_args_list[1])
+        self.assertEqual(run.call_args.args[0][:3],
+                         ['systemctl', 'show', 'synthetic-owner-prepare-source.service'])
+        self.assertEqual(run.call_args.kwargs['env']['LC_ALL'], 'C.UTF-8')
+        self.assertEqual(len(attempts), 1);self.assertTrue(attempts[0]['retrying'])
+        query, run, sleep, attempts = self.property_query([failure]*5)
+        with self.assertRaisesRegex(RuntimeError, 'observation refused'):query({'owner': 'synthetic'}, 'prepare_source')
+        self.assertEqual(run.call_count, 5);self.assertEqual(sleep.call_count, 4)
+        self.assertEqual([a['attempt'] for a in attempts], list(range(1, 6)))
+        self.assertFalse(attempts[-1]['retrying'])
+
+    def test_actual_unit_query_refuses_access_unknown_partial_and_malformed_results(self):
+        exact = b'Failed to get properties: Transport endpoint is not connected\n'
+        cases = [(1, b'', b'Access denied\n'), (1, b'', b'Connection reset by peer\n'),
+                 (2, b'', exact), (1, b'partial', exact), (1, b'', exact+b'other\n'),
+                 (0, b'LoadState=loaded\n', b'')]
+        for code, output, error in cases:
+            query, run, sleep, _attempts = self.property_query([
+                SimpleNamespace(returncode=code, stdout=output, stderr=error)])
+            with self.subTest(code=code, error=error), self.assertRaises((RuntimeError, AssertionError)):
+                query({'owner': 'synthetic'}, 'prepare_source')
+            self.assertEqual(run.call_count, 1);sleep.assert_not_called()
+
     def fixture(self):
         fixture = object.__new__(qualification.Qualification)
         fixture.args = SimpleNamespace(revision='a' * 40)
