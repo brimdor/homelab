@@ -27,3 +27,4 @@ steps:
         test_gitea_recovery_transport
         test_gitea_postgres_startup_guard
         test_gitea_init_guard
+        test_maintenance_package_dispatch
