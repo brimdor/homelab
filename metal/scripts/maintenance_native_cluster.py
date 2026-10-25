@@ -10,11 +10,13 @@ from maintenance_combined_qualification import (AIRGAP, K3S, SELINUX_KEY,
                                                 Qualification as Combined, archive_identity)
 from maintenance_fedora_endpoint import endpoint
 from fedora_target_qualification import require_media
-from fedora_nfs_csi_qualification import POLICY as SELINUX_RPM, archive_identity as workload_archive_identity
+from fedora_nfs_csi_qualification import archive_identity as workload_archive_identity
 
 
 ASSETS = '/var/tmp/qualification-native-assets'
 SERVER = '192.0.2.12'
+# K3s 1.33.6's installer selects the vendor EL8 policy for Fedora releases above 36.
+SELINUX_RPM = 'a1e24b0d82b1a6806cd420e2c0398a1796b055efe368fa4aebc8bb173850934f'
 WORKLOAD = {'image': 'docker.io/library/python:3.13-alpine',
             'digest': 'sha256:ba27df8b6499cc3756cff167690f3fcb5321faa1703b3a914df5f4fdadb32f05'}
 
@@ -112,7 +114,7 @@ assets=pathlib.Path(assets_path)
 native('rpmkeys','--import',str(assets/'rancher-public.key'))
 signature=native('rpmkeys','--checksig','--verbose',str(assets/'policy.rpm'))
 assert 'e257814a'in signature.lower() and 'NOKEY'not in signature and 'NOT OK'not in signature and 'BAD'not in signature
-assert native('rpm','-qp','--qf','%{VERSION}-%{RELEASE}.%{ARCH}',str(assets/'policy.rpm'))=='1.6-1.el9.noarch'
+assert native('rpm','-qp','--qf','%{VERSION}-%{RELEASE}.%{ARCH}',str(assets/'policy.rpm'))=='1.6-1.el8.noarch'
 native('/usr/bin/dnf','-y','install','container-selinux',str(assets/'policy.rpm'))
 assert not native('rpm','-V','container-selinux','k3s-selinux')
 assert any(line.split()[:2]==['200','k3s']for line in native('semodule','--list=full').splitlines())
@@ -125,7 +127,7 @@ images=pathlib.Path('/var/lib/rancher/k3s/agent/images');assert not images.exist
 for name in('airgap.tar.zst','kured.tar','workload.tar'):(assets/name).rename(images/name)
 config=pathlib.Path('/etc/rancher/k3s');config.mkdir(parents=True,mode=0o700,exist_ok=True)
 assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
-print(json.dumps({'signed_vendor_policy':'1.6-1.el9.noarch','enforcing':True,
+print(json.dumps({'signed_vendor_policy':'1.6-1.el8.noarch','enforcing':True,
  'k3s':'v1.33.6+k3s1','native_rpm_verification_clean':True,'owned_images_preloaded':True}))
 """)
         return {'configured': configured, 'installed': result}

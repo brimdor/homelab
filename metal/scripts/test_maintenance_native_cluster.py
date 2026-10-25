@@ -76,6 +76,8 @@ class NativeCluster(unittest.TestCase):
                 fixture.prepare(0);upload.assert_called_once()
             fixture.start(0)
             self.assertEqual(len(programs),3)
+            self.assertIn("=='1.6-1.el8.noarch'",programs[1])
+            self.assertNotIn('1.6-1.el9.noarch',programs[1])
             tree=ast.parse(programs[-1]);self.assertEqual(ast.literal_eval(tree.body[0].value),cluster.configuration(0))
             calls=[]
             class Child:
