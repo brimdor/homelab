@@ -31,3 +31,4 @@ steps:
         test_maintenance_node_drain
         test_maintenance_node_scheduling
         test_maintenance_safe_release
+        test_maintenance_vm_network
