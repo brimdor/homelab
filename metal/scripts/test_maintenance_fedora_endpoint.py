@@ -17,6 +17,19 @@ import maintenance_fedora_endpoint as fleet
 
 
 class Endpoints(unittest.TestCase):
+    def test_prepared_public_packets_are_distinct_and_private_or_symlink_input_refused(self):
+        import base64
+        with tempfile.TemporaryDirectory() as temporary:
+            instance=object.__new__(fleet.Endpoint);instance.root=Path(temporary)
+            for index,name in enumerate(('host','login')):
+                packet=bytes.fromhex('0000000b7373682d6564323535313900000020')+bytes([index])*32
+                (instance.root/(name+'.pub')).write_text('ssh-ed25519 '+base64.b64encode(packet).decode()+' fixture\n')
+            result=instance.prepared_keys();self.assertEqual(len(set(result.values())),2)
+            path=instance.root/'host.pub';path.write_text('not a public key\n')
+            with self.assertRaisesRegex(RuntimeError,'foreign prepared'):instance.prepared_keys()
+            path.unlink();path.symlink_to(instance.root/'login.pub')
+            with self.assertRaisesRegex(RuntimeError,'unsafe'):instance.prepared_keys()
+
     def test_fixed_identity_and_bad_input_refusal_before_media_or_process(self):
         values = [fleet.endpoint(i, 23000 + i) for i in range(3)]
         for key in ('hostname', 'management_mac', 'cluster_mac', 'address', 'root_serial', 'port'):

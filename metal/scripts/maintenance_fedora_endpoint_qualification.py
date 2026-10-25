@@ -47,7 +47,8 @@ class Qualification:
                  'hub_argv': self.hub.argv if self.hub else [],
                  'endpoints': [{'pid': node.child.pid if node.child else None,
                                 'disk': str(node.disk) if hasattr(node, 'disk') else None,
-                                'argv': getattr(node, 'qemu_argv', [])} for node in self.endpoints]}
+                                'argv': getattr(node, 'qemu_argv', []),
+                                'prepared_public_keys': node.prepared_keys()} for node in self.endpoints]}
         (self.root / 'ownership.json').write_text(json.dumps(value, indent=2))
 
     def prepare(self):
@@ -123,12 +124,15 @@ print(json.dumps({'payload':value,'sha256':hashlib.sha256(answer).hexdigest(),'b
     def run(self):
         self.prepare()
         initial = self.identities()
+        keys = [node.prepared_keys() for node in self.endpoints]
+        actors.require(len({value for record in keys for value in record.values()}) == 6,
+                       'prepared native public-key identity collision')
         peers = [self.peer(node) for node in self.endpoints]
         first = [self.exchange(sender, receiver, 'initial') for sender in range(3)
                  for receiver in range(3) if sender != receiver]
         hub_pid = self.hub.running()
         survivor_pids = [node.child.pid for node in self.endpoints[1:]]
-        self.persist('three-distinct-native-endpoints', identities=initial, peers=peers,
+        self.persist('three-distinct-native-endpoints', identities=initial, prepared_public_keys=keys, peers=peers,
                      exchanges=first, hub_pid=hub_pid, survivor_pids=survivor_pids)
         target = self.endpoints[0]
         target.stop()
@@ -141,6 +145,8 @@ print(json.dumps({'payload':value,'sha256':hashlib.sha256(answer).hexdigest(),'b
         self.persist('peer-traffic-while-target-powered-off', exchanges=during)
         target.boot();self.ownership();target.wait_ready()
         returned = self.identities()
+        actors.require([node.prepared_keys() for node in self.endpoints] == keys,
+                       'prepared native public keys changed')
         for index, (before, after) in enumerate(zip(initial, returned)):
             actors.require(before['private_endpoint'] == after['private_endpoint'] and
                            all(before['stable'][key] == after['stable'][key]
@@ -161,7 +167,7 @@ print(json.dumps({'previous_owned_peer_source_removed':True}))
                        all(node.child.poll() is None and node.child.pid == pid
                            for node, pid in zip(self.endpoints[1:], survivor_pids)),
                        'surviving native processes changed after target return')
-        self.persist('target-returned-with-surviving-peers', identities=returned,
+        self.persist('target-returned-with-surviving-peers', identities=returned, prepared_public_keys=keys,
                      exchanges=after, target_peer=restarted)
         self.result.update(accepted=True, actual_native_private_peer_exchanges=14,
                            actual_target_shutdown_and_restart=True,

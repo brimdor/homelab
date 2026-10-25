@@ -41,10 +41,11 @@ class NativeFleet(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             fixture=object.__new__(fleet.Qualification);fixture.root=Path(temporary)
             fixture.hub=SimpleNamespace(child=SimpleNamespace(pid=11),argv=['owned-hub'])
-            node=SimpleNamespace(child=SimpleNamespace(pid=12),disk=fixture.root/'disk.qcow2',qemu_argv=['owned-VM'])
+            node=SimpleNamespace(child=SimpleNamespace(pid=12),disk=fixture.root/'disk.qcow2',qemu_argv=['owned-VM'],
+                                 prepared_keys=lambda:{'host':'a'*64,'login':'b'*64})
             fixture.endpoints=[node];fixture.ownership()
             first=json.loads((fixture.root/'ownership.json').read_text())
-            self.assertEqual(first,{'hub_pid':11,'hub_argv':['owned-hub'],'endpoints':[{'pid':12,'disk':str(node.disk),'argv':['owned-VM']}]})
+            self.assertEqual(first,{'hub_pid':11,'hub_argv':['owned-hub'],'endpoints':[{'pid':12,'disk':str(node.disk),'argv':['owned-VM'],'prepared_public_keys':{'host':'a'*64,'login':'b'*64}}]})
             node.child=SimpleNamespace(pid=13);fixture.ownership()
             second=json.loads((fixture.root/'ownership.json').read_text())
             self.assertEqual(second['hub_pid'],first['hub_pid'])

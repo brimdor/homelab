@@ -1,5 +1,8 @@
 """Fixed private Fedora endpoints for native maintenance qualification only."""
 
+import base64
+import hashlib
+
 import yaml
 
 import fedora_release_upgrade_qualification as upgrade
@@ -53,6 +56,19 @@ class Endpoint(upgrade.Qualification):
                                '-device', 'virtio-net-pci,netdev=cluster,mac=' + self.endpoint['cluster_mac']]
             self.network_attached = True
         super().boot()
+
+    def prepared_keys(self):
+        result = {}
+        for name in ('host', 'login'):
+            path = self.root / (name + '.pub')
+            actors.safe(path)
+            fields = path.read_text().split()
+            actors.require(len(fields) >= 2 and fields[0] == 'ssh-ed25519', 'foreign prepared public key')
+            raw = base64.b64decode(fields[1], validate=True)
+            actors.require(len(raw) == 51 and raw[:19] == bytes.fromhex('0000000b7373682d6564323535313900000020'),
+                           'invalid prepared Ed25519 public packet')
+            result[name] = hashlib.sha256(raw).hexdigest()
+        return result
 
     def private_identity(self):
         stable = self.identity()
