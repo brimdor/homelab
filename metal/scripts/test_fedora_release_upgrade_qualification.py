@@ -289,7 +289,8 @@ class UpgradeRefusals(unittest.TestCase):
         namespace = {'subprocess': subprocess, 'json': json, 'hashlib': hashlib}
         exec(compile(ast.Module(body=[function], type_ignores=[]), '<actual-guest-native>', 'exec'), namespace)
         commands = (('rpm', '-V', 'fedora-release-common', 'selinux-policy-targeted'),
-                    ('rpm', '-V', 'container-selinux', 'k3s-selinux'))
+                    ('rpm', '-V', 'container-selinux', 'k3s-selinux'),
+                    ('rpm', '-V', '--noghost', 'container-selinux', 'k3s-selinux'))
         output = b'S.5....T.  c /owned/synthetic/package-file\n'
         for arguments in (*commands, ('rpm', '-V', 'foreign-package'), ('other', 'command')):
             result = subprocess.CompletedProcess(arguments, 1, output, b'')

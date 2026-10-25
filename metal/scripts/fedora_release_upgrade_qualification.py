@@ -34,7 +34,8 @@ def native(*args):
  if result.returncode:
   failure={'command':list(args),'exit':result.returncode,'stderr':result.stderr.decode(errors='replace')[-16000:]}
   if args in (('rpm','-V','fedora-release-common','selinux-policy-targeted'),
-              ('rpm','-V','container-selinux','k3s-selinux')):
+              ('rpm','-V','container-selinux','k3s-selinux'),
+              ('rpm','-V','--noghost','container-selinux','k3s-selinux')):
    failure.update(verification_stdout=result.stdout.decode(errors='replace')[-16000:],
     verification_stdout_bytes=len(result.stdout),verification_stdout_sha256=hashlib.sha256(result.stdout).hexdigest())
   raise RuntimeError(json.dumps(failure))

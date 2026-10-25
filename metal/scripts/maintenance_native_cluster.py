@@ -14,6 +14,63 @@ from fedora_nfs_csi_qualification import archive_identity as workload_archive_id
 
 
 ASSETS = '/var/tmp/qualification-native-assets'
+
+POLICY_VERIFICATION = r'''def verify_policy_packages(assets):
+ import bz2,stat,tempfile
+ command=('rpm','-V','container-selinux','k3s-selinux')
+ failure=None
+ try:
+  assert not native(*command)
+ except RuntimeError as error:
+  failure=json.loads(str(error))
+ expected='.M.......  g /var/lib/selinux/targeted/active/modules/200/container\n'
+ if failure is not None:
+  assert failure=={'command':list(command),'exit':1,'stderr':'','verification_stdout':expected,
+   'verification_stdout_bytes':len(expected.encode()),
+   'verification_stdout_sha256':hashlib.sha256(expected.encode()).hexdigest()}
+ assert native('rpm','-q','--qf','%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}',
+  'container-selinux')=='2:2.233.0-1.fc39.noarch'
+ cached=list(pathlib.Path('/var/cache/dnf').rglob('container-selinux-2.233.0-1.fc39.noarch.rpm'))
+ assert len(cached)==1 and not cached[0].is_symlink()
+ assert hashlib.sha256(cached[0].read_bytes()).hexdigest()=='45012036a3c4f011d98509e310f640c448c43d500b80762204434b825cb5feeb'
+ query='[%{FILENAMES}\t%{FILEFLAGS}\t%{FILEMODES}\t%{FILEVERIFYFLAGS}\n]'
+ records=[line.split('\t')for line in native('rpm','-q','--qf',query,'container-selinux','k3s-selinux').splitlines()]
+ assert all(len(row)==4 for row in records)
+ ghosts=[row for row in records if int(row[1])&64]
+ path=pathlib.Path('/var/lib/selinux/targeted/active/modules/200/container')
+ assert ghosts==[[str(path),'64','32768','4294967256']]
+ assert not any(p.is_symlink()for p in(path,*path.parents))
+ def snapshot():
+  value=path.lstat()
+  assert stat.S_ISDIR(value.st_mode)and stat.S_IMODE(value.st_mode)==0o700
+  assert value.st_uid==value.st_gid==0
+  return {'metadata':[value.st_dev,value.st_ino,value.st_mode,value.st_uid,value.st_gid,value.st_nlink,value.st_mtime_ns],
+   'xattrs':{name:os.getxattr(path,name).hex()for name in sorted(os.listxattr(path))}}
+ before=snapshot()
+ native('matchpathcon','-V',str(path))
+ # This RPM declares its generated ghost with zero permissions; never apply that mode to the store.
+ assert not native('rpm','-V','--noghost','container-selinux','k3s-selinux')
+ compared={}
+ with tempfile.TemporaryDirectory(prefix='policy-extract-',dir=assets)as temporary:
+  args=['semodule','-X','200','--hll','-E','container','k3s']
+  extracted=subprocess.run(args,cwd=temporary,capture_output=True)
+  assert extracted.returncode==0, json.dumps({'command':args,'exit':extracted.returncode,
+   'stderr':extracted.stderr.decode(errors='replace')[-16000:]})
+  output=pathlib.Path(temporary)
+  assert sorted(p.name for p in output.iterdir())==['container.pp','k3s.pp']
+  for name in('container','k3s'):
+   payload=pathlib.Path('/usr/share/selinux/packages')/(name+('.pp.bz2'if name=='container'else'.pp'))
+   actual=output/(name+'.pp')
+   assert payload.is_file()and not payload.is_symlink()and actual.is_file()and not actual.is_symlink()
+   vendor=payload.read_bytes();vendor=bz2.decompress(vendor)if name=='container'else vendor
+   assert vendor and actual.read_bytes()==vendor
+   compared[name]={'bytes':len(vendor),'sha256':hashlib.sha256(vendor).hexdigest()}
+ assert snapshot()==before and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
+ return {'original_rpm_finding':failure,'ghost_header':ghosts[0],'generated_directory':before,
+  'native_nonghost_payload_verification_clean':True,'vendor_modules_byte_equal':compared,
+  'native_policy_context_verified':True,'policy_or_permissions_modified':False,
+  'owned_extraction_removed':not output.exists()}
+'''
 SERVER = '192.0.2.12'
 # K3s 1.33.6's installer selects the vendor EL8 policy for Fedora releases above 36.
 SELINUX_RPM = 'a1e24b0d82b1a6806cd420e2c0398a1796b055efe368fa4aebc8bb173850934f'
@@ -109,14 +166,14 @@ print(json.dumps({'private_asset_directory_created':True}))
 """)
         for name, digest in self.assets.items():
             Combined.upload(node, self.args.assets_dir / name, ASSETS + '/' + name, digest)
-        result = node.guest("assets_path=" + repr(ASSETS) + "\n" + """
+        result = node.guest(POLICY_VERIFICATION + "assets_path=" + repr(ASSETS) + "\n" + """
 assets=pathlib.Path(assets_path)
 native('rpmkeys','--import',str(assets/'rancher-public.key'))
 signature=native('rpmkeys','--checksig','--verbose',str(assets/'policy.rpm'))
 assert 'e257814a'in signature.lower() and 'NOKEY'not in signature and 'NOT OK'not in signature and 'BAD'not in signature
 assert native('rpm','-qp','--qf','%{VERSION}-%{RELEASE}.%{ARCH}',str(assets/'policy.rpm'))=='1.6-1.el8.noarch'
 native('/usr/bin/dnf','-y','install','container-selinux',str(assets/'policy.rpm'))
-assert not native('rpm','-V','container-selinux','k3s-selinux')
+policy_verification=verify_policy_packages(assets)
 assert any(line.split()[:2]==['200','k3s']for line in native('semodule','--list=full').splitlines())
 binary=pathlib.Path('/usr/local/bin/k3s');assert not binary.exists()
 (assets/'k3s').rename(binary);binary.chmod(0o755)
@@ -128,7 +185,7 @@ for name in('airgap.tar.zst','kured.tar','workload.tar'):(assets/name).rename(im
 config=pathlib.Path('/etc/rancher/k3s');config.mkdir(parents=True,mode=0o700,exist_ok=True)
 assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
 print(json.dumps({'signed_vendor_policy':'1.6-1.el8.noarch','enforcing':True,
- 'k3s':'v1.33.6+k3s1','native_rpm_verification_clean':True,'owned_images_preloaded':True}))
+ 'k3s':'v1.33.6+k3s1','native_policy_verification':policy_verification,'owned_images_preloaded':True}))
 """)
         return {'configured': configured, 'installed': result}
 
