@@ -26,8 +26,8 @@ from cephfs_kernel_runtime import CORPUS
 
 HOSTNAME = 'qualification-fedora-upgrade'
 MAINTENANCE = Path(__file__).resolve().parents[1] / 'maintenance'
-GUEST = '''import hashlib,json,os,pathlib,socket,subprocess
-assert os.geteuid()==0 and socket.gethostname()=='qualification-fedora-upgrade'
+GUEST_BODY = '''import hashlib,json,os,pathlib,socket,subprocess
+assert os.geteuid()==0 and socket.gethostname()==fixture_hostname
 assert pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1'
 def native(*args):
  result=subprocess.run(args,capture_output=True)
@@ -63,6 +63,15 @@ def verify_packages():
  assert not native(*command)
  return {'original_failure':failure,'before':before,'after':after,'native_restore_and_clean_verification':True}
 '''
+
+
+def guest_source(hostname=HOSTNAME):
+    if hostname not in (HOSTNAME, 'qualification-native-0', 'qualification-native-1', 'qualification-native-2'):
+        raise RuntimeError('foreign qualification hostname')
+    return 'fixture_hostname=' + repr(hostname) + '\n' + GUEST_BODY
+
+
+GUEST = guest_source()
 
 
 def require_hop(source, target):
@@ -103,6 +112,14 @@ def armor_public_key(raw):
 
 
 class Qualification(Target):
+    hostname = HOSTNAME
+    runtime_name = 'runtime'
+    repository_name = 'repositories'
+    management_mac = '52:54:00:10:03:39'
+
+    def extra_seed_files(self):
+        return ()
+
     def __init__(self, args):
         require_root(args.work_dir)
         self.contract = json.loads((MAINTENANCE / 'fedora-upgrade-inputs.json').read_bytes())
@@ -110,7 +127,7 @@ class Qualification(Target):
         for release, record in self.contract['keys'].items():
             require_media(args.work_dir, args.keys_dir / ('fedora' + release + '.gpg'), record['sha256'])
         self.args = args
-        self.root = args.work_dir / 'runtime'
+        self.root = args.work_dir / self.runtime_name
         self.root.mkdir(mode=0o700)
         self.number = 0
         self.child = None
@@ -125,7 +142,7 @@ class Qualification(Target):
         (self.root / 'upgrade-evidence.json').write_text(json.dumps(self.result, indent=2))
 
     def guest(self, script):
-        return json.loads(self.command(self.ssh + ['sudo python3 -B -'], data=(GUEST + script).encode()))
+        return json.loads(self.command(self.ssh + ['sudo python3 -B -'], data=(guest_source(self.hostname) + script).encode()))
 
     def prepare(self):
         info = json.loads(self.command([self.args.qemu_img, 'info', '--output=json', str(self.args.cloud_image)]))
@@ -133,7 +150,7 @@ class Qualification(Target):
             raise RuntimeError('Fedora39 image has external backing data')
         for name in ('login', 'host'):
             self.command(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(self.root / name)])
-        user = {'hostname': HOSTNAME, 'preserve_hostname': False, 'ssh_pwauth': False,
+        user = {'hostname': self.hostname, 'preserve_hostname': False, 'ssh_pwauth': False,
                 'disable_root': True, 'ssh_deletekeys': False,
                 'ssh_keys': {'ed25519_private': (self.root / 'host').read_text(),
                              'ed25519_public': (self.root / 'host.pub').read_text().strip()},
@@ -147,7 +164,8 @@ class Qualification(Target):
             iso.new(interchange_level=3, joliet=3, rock_ridge='1.09', vol_ident='CIDATA')
             for name, iso_name, raw in (
                 ('user-data', 'USER_DAT', ('#cloud-config\n' + yaml.safe_dump(user)).encode()),
-                ('meta-data', 'META_DAT', ('instance-id: ' + HOSTNAME + '\nlocal-hostname: ' + HOSTNAME + '\n').encode()),
+                ('meta-data', 'META_DAT', ('instance-id: ' + self.hostname + '\nlocal-hostname: ' + self.hostname + '\n').encode()),
+                *self.extra_seed_files(),
             ):
                 iso.add_fp(io.BytesIO(raw), len(raw), iso_path='/' + iso_name + '.;1',
                            rr_name=name, joliet_path='/' + name)
@@ -175,8 +193,8 @@ class Qualification(Target):
                   '-o', 'ControlMaster=no', '-o', 'ControlPersist=no', '-o', 'IdentityAgent=none',
                   '-o', 'ConnectTimeout=60']
         self.ssh = ['ssh', *common, '-i', str(self.root / 'login'), '-p', str(port), 'fixture@127.0.0.1']
-        (self.root / 'inventory.yml').write_text(yaml.safe_dump({'ssh': self.ssh, 'hostname': HOSTNAME}))
-        self.server = RepositoryServer(self.args.work_dir / 'repositories')
+        (self.root / 'inventory.yml').write_text(yaml.safe_dump({'ssh': self.ssh, 'hostname': self.hostname}))
+        self.server = RepositoryServer(self.args.work_dir / self.repository_name)
         self.server_thread = threading.Thread(target=self.server.serve_forever, name='owned-fedora-upgrade-repository')
         self.server_thread.start()
         bridge = shlex.join([sys.executable, '-B', str(Path(__file__).with_name('fedora_upgrade_bridge.py')),
@@ -192,7 +210,7 @@ class Qualification(Target):
             '-device', 'virtio-blk-pci,drive=seed,serial=qualification-seed',
             '-netdev', 'user,id=fixture,restrict=on,ipv6=off,hostfwd=tcp:127.0.0.1:' + str(port) + '-:22,'
                          'guestfwd=tcp:10.0.2.100:8080-cmd:' + bridge,
-            '-device', 'virtio-net-pci,netdev=fixture,mac=52:54:00:10:03:39',
+            '-device', 'virtio-net-pci,netdev=fixture,mac=' + self.management_mac,
             '-object', 'rng-random,id=random,filename=/dev/urandom', '-device', 'virtio-rng-pci,rng=random']
         self.boot()
 
