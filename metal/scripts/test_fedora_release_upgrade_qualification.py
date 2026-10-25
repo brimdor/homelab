@@ -288,23 +288,25 @@ class UpgradeRefusals(unittest.TestCase):
                         if isinstance(node, ast.FunctionDef) and node.name == 'native')
         namespace = {'subprocess': subprocess, 'json': json, 'hashlib': hashlib}
         exec(compile(ast.Module(body=[function], type_ignores=[]), '<actual-guest-native>', 'exec'), namespace)
-        command = ('rpm', '-V', 'fedora-release-common', 'selinux-policy-targeted')
+        commands = (('rpm', '-V', 'fedora-release-common', 'selinux-policy-targeted'),
+                    ('rpm', '-V', 'container-selinux', 'k3s-selinux'))
         output = b'S.5....T.  c /owned/synthetic/package-file\n'
-        for arguments in (command, ('other', 'command')):
+        for arguments in (*commands, ('rpm', '-V', 'foreign-package'), ('other', 'command')):
             result = subprocess.CompletedProcess(arguments, 1, output, b'')
             with self.subTest(command=arguments), patch.object(subprocess, 'run', return_value=result), \
                     self.assertRaises(RuntimeError) as failure:
                 namespace['native'](*arguments)
             retained = json.loads(str(failure.exception))
             self.assertEqual(retained['exit'], 1)
-            if arguments == command:
+            if arguments in commands:
                 self.assertEqual(retained['verification_stdout'], output.decode())
                 self.assertEqual(retained['verification_stdout_bytes'], len(output))
                 self.assertEqual(retained['verification_stdout_sha256'], hashlib.sha256(output).hexdigest())
             else:
                 self.assertNotIn('verification_stdout', retained)
-        with patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess(command, 0, b'', b'')):
-            self.assertEqual(namespace['native'](*command), '')
+        for command in commands:
+            with patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess(command, 0, b'', b'')):
+                self.assertEqual(namespace['native'](*command), '')
 
     def test_public_key_armor_preserves_bytes_and_known_crc24(self):
         for raw in (b'123456789', bytes(range(256)) * 5):
