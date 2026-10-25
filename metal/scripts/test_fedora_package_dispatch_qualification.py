@@ -3,6 +3,8 @@
 import ast
 import copy
 import json
+from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -109,6 +111,81 @@ class PackageQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'provider verification failed'):
             fixture.prepare_plugin()
         fixture.signatures.assert_not_called();fixture.persist.assert_not_called()
+
+    def test_actual_run_prepares_plugin_after_source_reboot_and_rebinds_history(self):
+        fixture = self.fixture()
+        events = []
+        backend = {'id': 1, 'boot': 'initial', 'release': 39}
+        stable = {'machine': 'synthetic-machine', 'root_uuid': 'synthetic-root',
+                  'architecture': 'x86_64'}
+        fixture.persist.side_effect = lambda stage, **_values: events.append(stage)
+        fixture.prepare = Mock();fixture.wait_ready = Mock();fixture.configure = Mock(return_value={})
+        fixture.corpus = Mock(return_value={'synthetic': True})
+        fixture.state = lambda *_args: {'identity': {**stable, 'boot': backend['boot']}}
+        fixture.repositories = Mock();fixture.initialize = Mock(return_value={})
+        fixture.history = lambda: {'id': backend['id']}
+        def command(argv):
+            self.assertIn('native-updated-source-reboot', events)
+            self.assertEqual(argv, fixture.ssh + ['sudo /usr/bin/dnf -y install dnf-plugin-system-upgrade'])
+            self.assertEqual(backend['id'], 2)
+            backend['id'] = 3
+        fixture.command = command
+        def guest(program):
+            if 'installed_provider' in program:
+                return {'installed_provider': 'synthetic-plugin', 'native_rpm_verification_clean': True}
+            return {'release': backend['release'], 'boot': backend['boot'], 'offline_pending': False}
+        fixture.guest = guest
+        def dispatch(step, **_kwargs):
+            if step == 'offline_transaction':
+                backend.update(id=4, release=41, boot='offline-reboot')
+        fixture.dispatch = dispatch
+        fixture.refuse_replay = Mock(return_value={})
+        def wait_unit(step):
+            if step == 'prepare_source':backend['id'] = 2
+            return copy.deepcopy(SUCCESS)
+        fixture.wait_unit = wait_unit
+        fixture.signatures = Mock(return_value={'native_signature_verified': True})
+        fixture.accept = Mock(return_value={})
+        fixture.checkpoint = lambda _name: backend.update(boot='updated-source-reboot')
+        fixture.identity = lambda: {**stable, 'boot': backend['boot']}
+        fixture.server = SimpleNamespace(errors=[])
+        fixture.result = {}
+        with tempfile.TemporaryDirectory(prefix='package-run-') as directory:
+            fixture.root = Path(directory)
+            result = fixture.run()
+            self.assertTrue(result['accepted'])
+            self.assertTrue((fixture.root / 'upgrade-result.json').is_file())
+        self.assertEqual(backend['id'], 4)
+        self.assertEqual([call.args[0] for call in fixture.accept.call_args_list],
+                         ['prepare_source', 'download_release', 'offline_transaction'])
+        self.assertEqual(fixture.signatures.call_count, 4)
+
+    def test_actual_prerequisite_resolves_capability_and_refuses_missing_provider(self):
+        node = next(node for node in ast.parse(qualification.CONTEXT).body
+                    if isinstance(node, ast.FunctionDef) and node.name == 'prerequisites')
+        available = True
+        calls = []
+        def native(*argv):
+            calls.append(argv)
+            if argv == ('rpm', '-E', '%fedora'):return '39'
+            if argv == ('rpm', '-q', '--whatprovides', 'dnf-plugin-system-upgrade') and available:
+                return 'synthetic-provider'
+            raise RuntimeError('installed capability unavailable')
+        def path(name):
+            if name == '/etc/dnf/dnf.conf':
+                return SimpleNamespace(read_bytes=lambda: b'gpgcheck=True\nlocalpkg_gpgcheck=True\n')
+            return SimpleNamespace(read_text=lambda: '1' if name.endswith('/enforce') else 'synthetic-boot')
+        scope = {'pathlib': SimpleNamespace(Path=path), 'native': native,
+                 'identity': lambda: {'synthetic': True}, 'hashlib': qualification.hashlib,
+                 'subprocess': SimpleNamespace(run=lambda *_args, **_kwargs:
+                                               SimpleNamespace(returncode=1, stdout=b'masked'))}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), '<actual-prerequisites>', 'exec'), scope)
+        for phase in ('download_release', 'offline_transaction'):
+            self.assertTrue(scope['prerequisites']({'owner': 'synthetic'}, phase)['enforcing'])
+        self.assertEqual(calls.count(('rpm', '-q', '--whatprovides', 'dnf-plugin-system-upgrade')), 2)
+        available = False
+        with self.assertRaisesRegex(RuntimeError, 'capability unavailable'):
+            scope['prerequisites']({'owner': 'synthetic'}, 'download_release')
 
     def test_actual_complete_guest_programs_compile(self):
         fixture = self.fixture()

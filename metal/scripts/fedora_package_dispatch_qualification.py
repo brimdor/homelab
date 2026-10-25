@@ -46,7 +46,7 @@ def prerequisites(value,step):
   result=subprocess.run(['systemctl','is-enabled',timer],capture_output=True)
   assert result.returncode==1 and result.stdout.strip()==b'masked'
  if step in ('download_release','offline_transaction'):
-  native('rpm','-q','dnf-plugin-system-upgrade')
+  native('rpm','-q','--whatprovides','dnf-plugin-system-upgrade')
  return {'identity':identity(),'boot':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
   'release':int(native('rpm','-E','%fedora').strip()),'config_sha256':hashlib.sha256(config).hexdigest(),
   'owner':value['owner'],'phase':step,'enforcing':True,'native_timer_masks':True}
@@ -198,7 +198,6 @@ print(json.dumps(journal.accept(pending['sha256'],checksum,observed)))
         initial = self.state(39, corpus)
         self.persist('initial-native-fedora39', result=initial, configured=configured)
         self.repositories(39)
-        self.prepare_plugin()
         self.persist('synthetic-owner-and-journal-initialized', result=self.initialize())
         before_history = self.history()
         self.dispatch('prepare_source', lose_response=True)
@@ -217,6 +216,8 @@ print(json.dumps(journal.accept(pending['sha256'],checksum,observed)))
                for key in ('machine', 'root_uuid', 'architecture')):
             raise RuntimeError('source39 checkpoint changed stable VM identity')
         self.persist('native-updated-source-reboot', result=updated_source)
+        self.prepare_plugin()
+        history = self.history()
         self.repositories(41)
         self.dispatch('download_release')
         unit = self.wait_unit('download_release')
