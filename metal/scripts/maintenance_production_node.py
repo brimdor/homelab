@@ -810,20 +810,34 @@ def main():
     if args.operation == 'resolve-release-precheck':
         require(args.failure_receipt, 'exact captured release pre-dispatch failure is required')
         raw = Path(args.failure_receipt).read_bytes()
-        failure_sha = 'd9bdfaf4ec423a08ea9fbb247631b6618c74f4858f1b664f70aa6e1ea38976e8'
+        profiles = {
+            'totodile': ('d9bdfaf4ec423a08ea9fbb247631b6618c74f4858f1b664f70aa6e1ea38976e8',
+                '630caadf53b29ca6efc20061630aacf3da24e847', 250,
+                'RuntimeError: current safe release evidence refused\n\n',
+                'homelab-maintenance-103-65a44a0d-b0a2-48f2-af67-2ba0218af10c',
+                'b920e73259c0092cda9003c1156b15ae6aee628f65c2211b9e466147ae516135'),
+            'pikachu': ('0a5cc76e6406d657deffc9a94e19cf1510f8d268eb90c8a30bcb987204f0d26a',
+                '2ae6c68ccce3ec45bf196037277c243a93132a12', 280,
+                'AssertionError: target node Pod is not ready: postgres/postgres-threads-backup-29883940-9ddl4\n\n',
+                'homelab-maintenance-103-32c03081-4e9e-4c7e-9167-93cc2133fc27',
+                'e9d6d639cbe7515069711332f6a7af3672435d4d0648cbc6124d0fb8253da2a0'),
+        }
+        failure_sha, prior_revision, failed_line, ending, failed_owner, release_head = profiles[NODE]
         require(hashlib.sha256(raw).hexdigest() == failure_sha, 'release failure receipt differs')
         failure = json.loads(raw)
         require(failure['exit'] == 1 and failure['output'] == '' and
-                'maintenance_coordination.py", line 250, in release' in failure['error'] and
-                failure['error'].endswith('RuntimeError: current safe release evidence refused\n\n'),
+                ('maintenance_coordination.py", line ' + str(failed_line) + ', in release') in failure['error'] and
+                failure['error'].endswith(ending),
                 'failure does not prove the reviewed pre-dispatch exit')
         prior = subprocess.check_output(['git', 'show',
-            '630caadf53b29ca6efc20061630aacf3da24e847:metal/scripts/maintenance_coordination.py'], text=True)
-        require(prior.splitlines()[249].strip().startswith('require(verify_safe_release(') and
-                prior.index('self.patch(ds, {LOCK:', prior.index('    def release(')) > prior.index('require(verify_safe_release('),
-                'original release failure does not precede its first patch')
-        precheck_proof = {'owner': 'homelab-maintenance-103-65a44a0d-b0a2-48f2-af67-2ba0218af10c',
-            'failure_sha256': failure_sha, 'release_head_sha256': 'b920e73259c0092cda9003c1156b15ae6aee628f65c2211b9e466147ae516135'}
+            prior_revision + ':metal/scripts/maintenance_coordination.py'], text=True)
+        release_source = prior[prior.index('    def release('):prior.index('\n\ndef main():')]
+        mutation_positions = [release_source.index(call) for call in
+            ('self.clear_queued_requests(', 'self.patch(ds, {LOCK:') if call in release_source]
+        require(prior.splitlines()[failed_line - 1].strip().startswith('require(verify_safe_release(') and
+                mutation_positions and release_source.index('require(verify_safe_release(') < min(mutation_positions),
+                'original release failure does not precede its first mutation')
+        precheck_proof = {'owner': failed_owner, 'failure_sha256': failure_sha, 'release_head_sha256': release_head}
     if args.operation == 'resolve-drain-precheck':
         require(args.failure_receipt, 'exact captured pre-dispatch failure is required')
         raw = Path(args.failure_receipt).read_bytes()
