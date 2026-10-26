@@ -154,13 +154,25 @@ class Ownership:
                 'missing exact published repository revision')
         ds = self.observed()
         annotations = ds['metadata'].get('annotations', {})
-        require(LOCK not in annotations and JOURNAL not in annotations,
+        skip_lock = None
+        if LOCK in annotations and JOURNAL not in annotations:
+            from maintenance_kured_20261026 import EXPIRES, OWNER
+            candidate = json.loads(annotations[LOCK])
+            created = datetime.fromisoformat(candidate['created'].replace('Z', '+00:00'))
+            require(candidate.get('nodeID') == OWNER and type(candidate.get('TTL')) is int and
+                    candidate['TTL'] > 0 and candidate.get('metadata') == {'unschedulable': True} and
+                    abs((EXPIRES - created).total_seconds() - candidate['TTL'] / 1_000_000_000) < 0.001,
+                    'foreign reboot lock; do not steal it')
+            skip_lock = candidate
+        require((LOCK not in annotations or skip_lock is not None) and JOURNAL not in annotations,
                 'ownership already exists; inspect and resume, never steal')
         token = 'homelab-maintenance-103-' + str(uuid.uuid4())
         created = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         journal = {'version': 1, 'owner': token, 'node': node, 'node_uid': self.nodes[node],
                    'source': source, 'target': target, 'revision': revision, 'created': created,
                    'phase': 'OWNED_KURED_ONLY'}
+        if skip_lock is not None:
+            journal['restore_window_lock'] = skip_lock
         lock = {'nodeID': token, 'metadata': {'unschedulable': True}, 'created': created, 'TTL': 0}
         self.patch(ds, {LOCK: encoded(lock), JOURNAL: encoded(journal)})
         return self.resume(token)
@@ -204,9 +216,20 @@ class Ownership:
         require(lock.get('nodeID') == token and type(lock.get('TTL')) is int and
                 lock['TTL'] == 0 and lock.get('created') == journal['created'],
                 'Kured ownership changed during release verification')
-        self.patch(ds, {LOCK: None, JOURNAL: None})
+        restore = journal.get('restore_window_lock')
+        if restore is not None:
+            from maintenance_kured_20261026 import EXPIRES, OWNER
+            require(restore.get('nodeID') == OWNER and type(restore.get('TTL')) is int and
+                    restore['TTL'] > 0 and abs((EXPIRES - datetime.fromisoformat(
+                        restore['created'].replace('Z', '+00:00'))).total_seconds() -
+                        restore['TTL'] / 1_000_000_000) < 0.001,
+                    'saved one-night lock changed; retain maintenance ownership')
+            if datetime.now(timezone.utc) >= EXPIRES:
+                restore = None
+        self.patch(ds, {LOCK: encoded(restore) if restore is not None else None, JOURNAL: None})
         after = self.observed()['metadata'].get('annotations', {})
-        require(JOURNAL not in after and LOCK not in after,
+        require(JOURNAL not in after and (after.get(LOCK) == encoded(restore)
+                if restore is not None else LOCK not in after),
                 'release response uncertain; inspect before another action')
         return journal
 
