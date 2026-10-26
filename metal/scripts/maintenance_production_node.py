@@ -455,7 +455,13 @@ def infrastructure(api, applications=False):
     result = prerequisites(api)
     pods = api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + NODE, '-o', 'json')['items']
     cilium = []
-    csi = []
+    expected_csi = {'rook-ceph.rbd.csi.ceph.com-nodeplugin',
+                    'rook-ceph.cephfs.csi.ceph.com-nodeplugin'}
+    daemonsets = api.call('get', 'daemonsets', '-n', 'rook-ceph', '-o', 'json')['items']
+    csi_owners = {d['metadata']['uid']: d['metadata']['name'] for d in daemonsets
+                  if d['metadata']['name'] in expected_csi and not d['metadata'].get('deletionTimestamp')}
+    require(set(csi_owners.values()) == expected_csi, 'expected Rook CSI controllers absent')
+    csi = {}
     for pod in pods:
         meta, status = pod['metadata'], pod.get('status', {})
         require(not meta.get('deletionTimestamp') and status.get('phase') == 'Running' and
@@ -465,14 +471,26 @@ def infrastructure(api, applications=False):
                 'target node Pod is not ready: ' + meta['namespace'] + '/' + meta['name'])
         if meta['namespace'] == 'kube-system' and meta.get('labels', {}).get('k8s-app') == 'cilium':
             cilium.append(pod)
-        if meta['namespace'] == 'rook-ceph' and meta['name'].startswith(('csi-rbdplugin-', 'csi-cephfsplugin-')):
-            csi.append(meta['uid'])
-    require(len(cilium) == 1 and len(csi) == 2, 'target Cilium or both CSI node plugins absent')
+        for reference in meta.get('ownerReferences', []):
+            if (meta['namespace'] == 'rook-ceph' and reference.get('kind') == 'DaemonSet' and
+                    reference.get('controller') is True and reference.get('uid') in csi_owners):
+                name = csi_owners[reference['uid']]
+                require(name not in csi and meta.get('labels', {}).get('app') == name,
+                        'duplicate or mismatched target CSI Pod')
+                csi[name] = meta['uid']
+    require(len(cilium) == 1 and set(csi) == expected_csi, 'target Cilium or both CSI node plugins absent')
+    registration = api.call('get', 'csinode', NODE, '-o', 'json')
+    require(not registration['metadata'].get('deletionTimestamp') and
+            any(o.get('kind') == 'Node' and o.get('uid') == UID
+                for o in registration['metadata'].get('ownerReferences', [])) and
+            {d['name'] for d in registration['spec']['drivers'] if d['nodeID'] == NODE} ==
+            {name.removesuffix('-nodeplugin') for name in expected_csi},
+            'both CSI drivers are not registered to the exact target Node')
     status = api.call('exec', '-n', 'kube-system', cilium[0]['metadata']['name'], '-c', 'cilium-agent',
                       '--', 'cilium-dbg', 'status', '--output', 'json')
     require(status['cilium']['state'] == 'Ok' and status['kubernetes']['state'] == 'Ok',
             'target Cilium runtime or Kubernetes connectivity is not healthy')
-    result.update(cilium_uid=cilium[0]['metadata']['uid'], csi_uids=sorted(csi), target_pods_ready=True)
+    result.update(cilium_uid=cilium[0]['metadata']['uid'], csi_uids=sorted(csi.values()), target_pods_ready=True)
     if applications:
         node = api.call('get', 'node', NODE, '-o', 'json')
         require(not node['spec'].get('unschedulable', False), 'target node remains cordoned')
