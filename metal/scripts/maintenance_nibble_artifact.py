@@ -15,7 +15,7 @@ DIGEST = 'sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d4
 IMAGE = '10.0.20.11:32309/nibble:issue-26-prod'
 SOURCE = '10.0.20.14'
 TARGET = '10.0.20.17'
-RECOVERY = '/var/lib/homelab-recovery/maintenance-103/nibble-image-bd302668'
+RECOVERY = '/var/lib/homelab-recovery/maintenance-103/nibble-image-bd302668-local-export'
 
 SOURCE_PROGRAM = '''
 import json,pathlib,socket,subprocess,os
@@ -24,7 +24,8 @@ assert pathlib.Path('/etc/machine-id').read_text().strip()=='0a7daf8b33244d9d85f
 images=json.loads(subprocess.check_output(['/usr/local/bin/k3s','crictl','images','-o','json']))['images']
 matches=[i for i in images if IMAGE in i.get('repoTags',[])]
 assert len(matches)==1 and '10.0.20.11:32309/nibble@'+DIGEST in matches[0]['repoDigests']
-os.execv('/usr/local/bin/k3s',['k3s','ctr','-n','k8s.io','images','export','--platform','linux/amd64','-',IMAGE])
+# Use the synchronous client exporter; retain the rejected transfer-API archive separately.
+os.execv('/usr/local/bin/k3s',['k3s','ctr','-n','k8s.io','images','export','--local','--platform','linux/amd64','-',IMAGE])
 '''
 
 RECEIVE_PROGRAM = '''
