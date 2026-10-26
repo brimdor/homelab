@@ -233,11 +233,12 @@ if operation=='release':
  if status['state']['kinds']==list(sys.modules['maintenance_safe_release'].KINDS[:3]):
   status=release.release_global(digest,safe_release)
  print(json.dumps({'result':status}),flush=True)
-elif operation in('security-policy','observe-security-policy','security-relabel'):
+elif operation in('security-policy','observe-security-policy','security-relabel','observe-host-security'):
  assert api.call('get','node','totodile','-o','json')['spec'].get('unschedulable')is True
- if operation!='observe-security-policy':evidence()
+ if operation not in('observe-security-policy','observe-host-security'):evidence()
  journal=hops.Journal(controller,hold,owner['owner'])
- result=sys.modules['maintenance_host_security'].execute(operation,journal,native,identity,recovery_manifest)
+ result=(sys.modules['maintenance_host_security'].facts(native)if operation=='observe-host-security'else
+  sys.modules['maintenance_host_security'].execute(operation,journal,native,identity,recovery_manifest))
  print(json.dumps({'result':result}),flush=True)
 elif operation=='initialize':
  if hold.marker.exists():hold.resume(owner['owner'])
@@ -617,7 +618,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-drain-precheck',
-                                             'repair-offline-repositories', 'security-policy', 'observe-security-policy', 'security-relabel'])
+                                             'repair-offline-repositories', 'security-policy', 'observe-security-policy', 'security-relabel', 'observe-host-security'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -672,7 +673,7 @@ def main():
     # Keep an active hop bound to its original recovery point after the target boots.
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
-    if args.operation in ('security-policy', 'observe-security-policy', 'security-relabel'):
+    if args.operation in ('security-policy', 'observe-security-policy', 'security-relabel','observe-host-security'):
         recovery_manifest = recovery(args, 44, capture=False)
     if args.operation == 'security-backup':
         require(owner is not None and owner['source'] == 43 and owner['target'] == 44,

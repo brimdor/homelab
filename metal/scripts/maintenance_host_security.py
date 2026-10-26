@@ -65,7 +65,7 @@ def execute(operation, journal, native, identity, recovery):
                 hold.exclusive_file(path, content, 0o600)
             assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
         signature = native('rpmkeys', '--checksig', '--verbose', str(assets / 'policy.rpm'))
-        assert ('key fingerprint: ' + SIGNING_FINGERPRINT + ': OK') in signature.lower().replace(': ok', ': OK') and not any(word in signature for word in ('NOKEY', 'NOT OK', 'BAD'))
+        assert ('key fingerprint: ' + SIGNING_FINGERPRINT + ': ok') in signature.lower() and not any(word in signature for word in ('NOKEY', 'NOT OK', 'BAD'))
         repos = root / ('fedora-repositories-44-' + token)
         assert (repos / 'maintenance.repo').is_file()
         command = ['systemd-run', '--unit=' + unit, '--property=Type=exec',
@@ -151,3 +151,41 @@ def relabel(journal, native, identity, recovery):
         native('systemd-run', '--unit=' + token + '-selinux-relabel', '--on-active=5s',
                '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
     return {'relabel_reboot_dispatched': True, 'owner_retained': True, 'node_stays_cordoned': True}
+
+
+def facts(native):
+    """Project security evidence without returning raw audit records or configuration."""
+    import re
+    import subprocess
+    import tomllib
+    boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+    pid = native('systemctl', 'show', 'k3s', '-p', 'MainPID', '--value')
+    process = Path('/proc') / pid / 'attr/current'
+    containerd = Path('/var/lib/rancher/k3s/agent/etc/containerd/config.toml')
+    config = tomllib.loads(containerd.read_text())
+    plugins = config.get('plugins', {})
+    runtime = plugins.get('io.containerd.cri.v1.runtime', plugins.get('io.containerd.grpc.v1.cri', {}))
+    audit = subprocess.run(['ausearch', '-m', 'AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR',
+                            '-ts', 'boot', '--raw'], capture_output=True, text=True)
+    assert audit.returncode in (0, 1), 'native audit query failed'
+    records = []
+    for line in audit.stdout.splitlines():
+        if not re.match(r'type=(?:AVC|USER_AVC|SELINUX_ERR|USER_SELINUX_ERR)\b', line):
+            continue
+        fields = {key: re.search(r'\b' + key + r'=("[^"]*"|[^ ]+)', line)
+                  for key in ('type', 'comm', 'scontext', 'tcontext', 'tclass', 'permissive')}
+        record = {key: match.group(1).strip('"') for key, match in fields.items() if match}
+        access = re.search(r'avc:\s+denied\s+\{([^}]*)\}', line)
+        if access:
+            record['denied'] = access.group(1).split()
+        record['record_sha256'] = hashlib.sha256(line.encode()).hexdigest()
+        records.append(record)
+    assert audit.returncode == 0 or (not records and audit.stdout.strip() == '<no matches>' and not audit.stderr.strip()), 'audit evidence unavailable'
+    return {'boot': boot, 'mode': native('getenforce'),
+            'kernel': native('uname', '-r'), 'autorelabel': Path('/.autorelabel').exists(),
+            'kernel_overrides': sorted({'selinux=0', 'enforcing=0'}.intersection(Path('/proc/cmdline').read_text().split())),
+            'k3s_context': process.read_text().strip() if process.exists() else None,
+            'k3s_binary_context': os.getxattr('/usr/local/bin/k3s', 'security.selinux').decode().rstrip(chr(0)),
+            'containerd_selinux': runtime.get('enable_selinux'),
+            'audit_records': records, 'audit_record_count': len(records),
+            'failed_units': native('systemctl', '--failed', '--no-legend', '--plain')}
