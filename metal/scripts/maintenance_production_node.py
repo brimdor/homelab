@@ -575,7 +575,54 @@ def completed_job_pod(api, pod):
     return {'pod_uid': meta['uid'], 'job_uid': owner['uid']}
 
 
-def infrastructure(api, applications=False):
+def pointview_baseline(api, application):
+    """Keep four proven earlier image-pull failures visible during Pikachu OS hops only."""
+    namespace = application['metadata']['name']
+    profiles = {
+        'pointview': {
+            'retention': ('5e2e2097-b4bb-421f-ac3d-c0237991c7a1', 'eede725c-f9c0-438c-8593-5c9e155acc61'),
+            'triage': ('cfb8a9b7-284e-4fa3-9e63-93883c37ab46', '50610e53-b900-46b3-8955-c11bd602b567')},
+        'pointview-canary': {
+            'retention': ('c72903d7-1682-4f22-8a84-697c4661e9c4', 'd98b2b80-4695-468c-946b-7b52edacbd6e'),
+            'triage': ('b72b5495-5494-4ac0-b9c2-0dbf3a4d07c0', '6527a8a7-896d-4b83-b12f-44b75fac4ab2')},
+    }
+    require(namespace in profiles and application['status']['health']['status'] == 'Degraded' and
+            not application['status'].get('conditions'), 'unreviewed application degradation')
+    expected = profiles[namespace]
+    jobs = api.call('get', 'jobs', '-n', namespace, '-o', 'json')['items']
+    failures = []
+    for job in jobs:
+        status, meta = job.get('status', {}), job['metadata']
+        if not any(c['type'] == 'Failed' and c['status'] == 'True' for c in status.get('conditions', [])):
+            require(not status.get('active') and not status.get('failed'), 'new PointView job activity or failure')
+            continue
+        kind = next((kind for kind, (uid, _) in expected.items() if uid == meta['uid']), None)
+        require(kind is not None and not meta.get('deletionTimestamp') and not status.get('active') and
+                meta['creationTimestamp'] < '2026-10-26T11:23:00Z' and
+                any(o.get('kind') == 'CronJob' and o.get('controller') is True and
+                    o.get('uid') == expected[kind][1] for o in meta.get('ownerReferences', [])) and
+                any(c['type'] == 'Failed' and c['status'] == 'True' and c.get('reason') == 'DeadlineExceeded'
+                    for c in status.get('conditions', [])), 'PointView baseline Job identity or failure changed')
+        failures.append(meta['uid'])
+    require(set(failures) == {uid for uid, _ in expected.values()}, 'PointView baseline failure set changed')
+    pods = api.call('get', 'pods', '-n', namespace, '-o', 'json')['items']
+    require(pods, 'PointView workload evidence absent')
+    for pod in pods:
+        if pod.get('status', {}).get('phase') == 'Succeeded':
+            completed_job_pod(api, pod)
+        else:
+            require(not pod['metadata'].get('deletionTimestamp') and
+                    pod['status'].get('phase') == 'Running' and
+                    any(c['type'] == 'Ready' and c['status'] == 'True'
+                        for c in pod['status'].get('conditions', [])) and
+                    len(pod['status'].get('containerStatuses', [])) == len(pod['spec']['containers']) and
+                    all(c.get('ready') for c in pod['status'].get('containerStatuses', [])),
+                    'new PointView Pod finding')
+    return {'application': namespace, 'failed_job_uids': sorted(failures),
+            'disposition': 'INCOMPLETE: preexisting image pull failures; final acceptance still blocked'}
+
+
+def infrastructure(api, applications=False, intermediate_pikachu=False):
     result = prerequisites(api)
     pods = api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + NODE, '-o', 'json')['items']
     cilium, completed_jobs = [], []
@@ -631,10 +678,17 @@ def infrastructure(api, applications=False):
                         observed.get('updatedReplicas', 0) == desired,
                         'controller recovery incomplete: ' + item['metadata']['namespace'] + '/' + item['metadata']['name'])
         apps = api.call('get', 'applications', '-n', 'argocd', '-o', 'json')['items']
-        require(apps and all(a.get('status', {}).get('sync', {}).get('status') == 'Synced' and
-                            a['status'].get('health', {}).get('status') == 'Healthy' for a in apps),
-                'Argo application recovery incomplete')
-        result['applications_synced_healthy'] = sorted(a['metadata']['name'] for a in apps)
+        require(apps and all(a.get('status', {}).get('sync', {}).get('status') == 'Synced' for a in apps),
+                'Argo application sync incomplete')
+        findings = []
+        for application in apps:
+            if application['status'].get('health', {}).get('status') != 'Healthy':
+                require(intermediate_pikachu and NODE == 'pikachu', 'Argo application recovery incomplete')
+                findings.append(pointview_baseline(api, application))
+        result['applications_synced_healthy'] = sorted(a['metadata']['name'] for a in apps
+            if a['status'].get('health', {}).get('status') == 'Healthy')
+        if findings:
+            result['unresolved_preexisting_findings'] = sorted(findings, key=lambda item: item['application'])
     return result
 
 
@@ -664,7 +718,9 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
                             'unreviewed Ceph health caller')
                     value = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'health', '-f', 'json')
                 elif request['rpc'] in ('infrastructure', 'applications'):
-                    value = infrastructure(api, applications=request['rpc'] == 'applications')
+                    value = infrastructure(api, applications=request['rpc'] == 'applications',
+                        intermediate_pikachu=NODE == 'pikachu' and
+                        (owner['source'], owner['target']) in ((39, 41), (41, 43)))
                 elif request['rpc'] == 'drain_controllers':
                     items = api.call('get', 'daemonsets,replicasets,statefulsets,jobs,replicationcontrollers',
                                      '-A', '-o', 'json')['items']
