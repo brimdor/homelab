@@ -194,7 +194,8 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
- return {'selinux':'Enforcing','persistent_configuration':True,'no_disabling_kernel_override':True}
+ journal=hops.Journal(controller,hold,owner['owner'])
+ return sys.modules['maintenance_host_security'].acceptance(journal,native,identity)
 if operation in('restore-scheduling','accept-applications','release'):final_security()
 def offline_repository_override():
  assert owner['source']==39 and owner['target']==41
@@ -233,7 +234,7 @@ if operation=='release':
  if status['state']['kinds']==list(sys.modules['maintenance_safe_release'].KINDS[:3]):
   status=release.release_global(digest,safe_release)
  print(json.dumps({'result':status}),flush=True)
-elif operation in('security-policy','observe-security-policy','security-relabel','observe-host-security'):
+elif operation in('security-policy','observe-security-policy','security-relabel','security-enforce','observe-host-security'):
  assert api.call('get','node','totodile','-o','json')['spec'].get('unschedulable')is True
  if operation not in('observe-security-policy','observe-host-security'):evidence()
  journal=hops.Journal(controller,hold,owner['owner'])
@@ -618,7 +619,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-drain-precheck',
-                                             'repair-offline-repositories', 'security-policy', 'observe-security-policy', 'security-relabel', 'observe-host-security'])
+                                             'repair-offline-repositories', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'observe-host-security'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -673,7 +674,7 @@ def main():
     # Keep an active hop bound to its original recovery point after the target boots.
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
-    if args.operation in ('security-policy', 'observe-security-policy', 'security-relabel','observe-host-security'):
+    if args.operation in ('security-policy', 'observe-security-policy', 'security-relabel','security-enforce','observe-host-security'):
         recovery_manifest = recovery(args, 44, capture=False)
     if args.operation == 'security-backup':
         require(owner is not None and owner['source'] == 43 and owner['target'] == 44,

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 import urllib.request
 
@@ -47,6 +48,8 @@ def execute(operation, journal, native, identity, recovery):
                 import maintenance_actor_hold as hold
                 hold.exclusive_file(path, json.dumps(result, sort_keys=True).encode(), 0o600)
         return result
+    if operation == 'security-enforce':
+        return enforce(journal, native, identity, recovery)
     if operation == 'security-relabel':
         return relabel(journal, native, identity, recovery)
     assert operation == 'security-policy'
@@ -153,7 +156,7 @@ def relabel(journal, native, identity, recovery):
     return {'relabel_reboot_dispatched': True, 'owner_retained': True, 'node_stays_cordoned': True}
 
 
-def facts(native):
+def facts(native, since=None):
     """Project security evidence without returning raw audit records or configuration."""
     import re
     import subprocess
@@ -172,20 +175,139 @@ def facts(native):
     for line in audit.stdout.splitlines():
         if not re.match(r'type=(?:AVC|USER_AVC|SELINUX_ERR|USER_SELINUX_ERR)\b', line):
             continue
+        timestamp = re.search(r'\bmsg=audit\((\d+(?:\.\d+)?):', line)
+        assert timestamp, 'audit event timestamp missing'
+        if since is not None and float(timestamp.group(1)) < since:
+            continue
         fields = {key: re.search(r'\b' + key + r'=("[^"]*"|[^ ]+)', line)
                   for key in ('type', 'comm', 'scontext', 'tcontext', 'tclass', 'permissive')}
         record = {key: match.group(1).strip('"') for key, match in fields.items() if match}
         access = re.search(r'avc:\s+denied\s+\{([^}]*)\}', line)
         if access:
             record['denied'] = access.group(1).split()
+        record['timestamp'] = float(timestamp.group(1))
         record['record_sha256'] = hashlib.sha256(line.encode()).hexdigest()
         records.append(record)
     assert audit.returncode == 0 or (not records and audit.stdout.strip() == '<no matches>' and not audit.stderr.strip()), 'audit evidence unavailable'
     return {'boot': boot, 'mode': native('getenforce'),
             'kernel': native('uname', '-r'), 'autorelabel': Path('/.autorelabel').exists(),
             'kernel_overrides': sorted({'selinux=0', 'enforcing=0'}.intersection(Path('/proc/cmdline').read_text().split())),
-            'k3s_context': process.read_text().strip() if process.exists() else None,
+            'k3s_context': process.read_text().strip().rstrip(chr(0)) if process.exists() else None,
             'k3s_binary_context': os.getxattr('/usr/local/bin/k3s', 'security.selinux').decode().rstrip(chr(0)),
             'containerd_selinux': runtime.get('enable_selinux'),
             'audit_records': records, 'audit_record_count': len(records),
             'failed_units': native('systemctl', '--failed', '--no-legend', '--plain')}
+
+
+def observers():
+    """Actual host-agent domains and process start times; never infer from Pod phase."""
+    names = {'node_exporter', 'nfd-worker', 'alloy'}
+    boot = int(next(line.split()[1] for line in Path('/proc/stat').read_text().splitlines()
+                    if line.startswith('btime ')))
+    result = {}
+    for process in Path('/proc').iterdir():
+        if not process.name.isdigit():
+            continue
+        try:
+            name = (process / 'comm').read_text().strip()
+            if name not in names:
+                continue
+            stat = (process / 'stat').read_text().rsplit(')', 1)[1].split()
+            context = (process / 'attr/current').read_text().strip().rstrip(chr(0))
+            assert name not in result, 'overlapping host-agent processes'
+            assert context.split(':')[2] == 'spc_t', 'host-agent GitOps correction not active'
+            result[name] = {'pid': int(process.name), 'context': context,
+                            'started': boot + int(stat[19]) / os.sysconf('SC_CLK_TCK')}
+        except FileNotFoundError:
+            continue
+    assert set(result) == names, 'host-agent process coverage incomplete'
+    return result
+
+
+def replace(path, content):
+    import maintenance_actor_hold as hold
+    hold.safe(path)
+    info = path.stat()
+    descriptor, temporary = tempfile.mkstemp(prefix='.maintenance103-', dir=path.parent)
+    try:
+        with os.fdopen(descriptor, 'wb') as target:
+            os.fchmod(target.fileno(), info.st_mode & 0o777)
+            os.fchown(target.fileno(), info.st_uid, info.st_gid)
+            target.write(content.encode()); target.flush(); os.fsync(target.fileno())
+        os.replace(temporary, path); hold.fsync_directory(path.parent)
+    finally:
+        if os.path.exists(temporary): os.unlink(temporary)
+
+
+def enforce(journal, native, identity, recovery):
+    """Persist enforcement and reboot once after actual corrected-agent acceptance."""
+    import maintenance_actor_hold as hold
+    token = journal.token
+    root = journal.hold.state
+    intent = root / ('host-enforce-' + token + '.json')
+    with journal.hold.serialized():
+        journal.owners(idle=True)
+        assert not intent.exists(), 'enforcement intent exists; observe, never replay'
+        relabel_intent = json.loads((root / ('host-relabel-' + token + '.json')).read_bytes())
+        assert relabel_intent['owner'] == token and relabel_intent['identity'] == identity()
+        agents = observers()
+        since = max(v['started'] for v in agents.values())
+        assert time.time() - since >= 90, 'corrected agents have not completed their actual collection interval'
+        observed = facts(native, since)
+        assert observed['mode'] == 'Permissive' and not observed['autorelabel'] and not observed['failed_units']
+        assert observed['boot'] != relabel_intent['boot'] and observed['containerd_selinux'] is True
+        assert observed['k3s_context'].split(':')[2] == 'container_runtime_t'
+        assert observed['k3s_binary_context'].split(':')[2] == 'container_runtime_exec_t'
+        assert observed['audit_record_count'] == 0, 'actual corrected runtime still produces SELinux denials'
+        native('rpm', '-V', '--noghost', 'k3s-selinux', 'container-selinux')
+        native('rpm', '-q', 'microcode_ctl')
+        config = Path('/etc/selinux/config')
+        assert config.read_text().splitlines().count('SELINUX=permissive') == 1
+        guard = Path('/etc/systemd/system/k3s.service.d/90-maintenance103-relabel.conf')
+        hold.safe(guard)
+        assert guard.read_bytes() == b'[Unit]\nConditionPathExists=!/.autorelabel\n'
+        assert 'selinux: true' in Path('/etc/rancher/k3s/config.yaml').read_text().splitlines()
+        record = {'owner': token, 'identity': identity(), 'boot': observed['boot'],
+                  'recovery_sha256': recovery['sha256'], 'agents': agents, 'audit_since': since,
+                  'before_selinux_config': config.read_text(),
+                  'k3s_configuration_sha256': hashlib.sha256(Path('/etc/rancher/k3s/config.yaml').read_bytes()).hexdigest(),
+                  'accepted_permissive_evidence': observed}
+        hold.exclusive_file(intent, json.dumps(record, sort_keys=True).encode(), 0o600)
+        replace(config, config.read_text().replace('SELINUX=permissive', 'SELINUX=enforcing'))
+        native('restorecon', '/etc/selinux/config')
+        native('grubby', '--update-kernel=ALL', '--remove-args=selinux enforcing')
+        assert not any(word in native('grubby', '--info=ALL') for word in ('selinux=0', 'enforcing=0'))
+        guard.unlink(); hold.fsync_directory(guard.parent)
+        native('systemctl', 'daemon-reload')
+        native('setenforce', '1')
+        assert native('getenforce') == 'Enforcing' and Path('/sys/fs/selinux/enforce').read_text().strip() == '1'
+        assert not native('systemctl', '--failed', '--no-legend', '--plain')
+        journal.owners(idle=True)
+        reboot = root / ('host-enforce-reboot-' + token + '.json')
+        hold.exclusive_file(reboot, json.dumps({'intent_sha256': hashlib.sha256(intent.read_bytes()).hexdigest(),
+                            'boot': observed['boot']}, sort_keys=True).encode(), 0o600)
+        native('systemd-run', '--unit=' + token + '-selinux-enforce', '--on-active=5s',
+               '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
+    return {'enforcement_reboot_dispatched': True, 'owner_retained': True, 'node_stays_cordoned': True,
+            'permissive_denials_after_correction': observed['audit_record_count']}
+
+
+def acceptance(journal, native, identity):
+    root = journal.hold.state
+    token = journal.token
+    record = json.loads((root / ('host-enforce-' + token + '.json')).read_bytes())
+    assert record['owner'] == token and record['identity'] == identity()
+    reboot = json.loads((root / ('host-enforce-reboot-' + token + '.json')).read_bytes())
+    assert reboot['intent_sha256'] == hashlib.sha256((root / ('host-enforce-' + token + '.json')).read_bytes()).hexdigest()
+    observed = facts(native)
+    assert observed['boot'] != reboot['boot'], 'persistent enforcement boot not yet proven'
+    assert observed['mode'] == 'Enforcing' and not observed['kernel_overrides'] and not observed['autorelabel']
+    assert not observed['failed_units'] and observed['audit_record_count'] == 0, 'host security findings remain'
+    assert observed['containerd_selinux'] is True and observed['k3s_context'].split(':')[2] == 'container_runtime_t'
+    assert observed['k3s_binary_context'].split(':')[2] == 'container_runtime_exec_t'
+    assert hashlib.sha256(Path('/etc/rancher/k3s/config.yaml').read_bytes()).hexdigest() == record['k3s_configuration_sha256']
+    native('rpm', '-V', '--noghost', 'k3s-selinux', 'container-selinux')
+    native('rpm', '-q', 'microcode_ctl')
+    observed['host_observers'] = observers()
+    observed['microcode_revision'] = Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip()
+    return observed

@@ -222,16 +222,26 @@ class Ownership:
         if JOURNAL in annotations:
             journal = json.loads(annotations[JOURNAL])
             verified = self.ownership(ds, journal.get('owner'))
-            return datetime.fromisoformat(verified['created'].replace('Z', '+00:00'))
+            created = datetime.fromisoformat(verified['created'].replace('Z', '+00:00'))
+            saved = verified.get('restore_window_lock')
+            if saved is not None:
+                since = self.window_since(saved)
+                if since is not None:
+                    return min(created, since)
+            return created
         if LOCK in annotations:
-            from maintenance_kured_20261026 import EXPIRES, OWNER
-            lock = json.loads(annotations[LOCK])
-            created = datetime.fromisoformat(lock['created'].replace('Z', '+00:00'))
-            if (lock.get('nodeID') == OWNER and type(lock.get('TTL')) is int and
-                    lock['TTL'] > 0 and lock.get('metadata') == {'unschedulable': True} and
-                    abs((EXPIRES - created).total_seconds() - lock['TTL'] / 1_000_000_000) < 0.001 and
-                    datetime.now(timezone.utc) < EXPIRES):
-                return created
+            return self.window_since(json.loads(annotations[LOCK]))
+        return None
+
+    @staticmethod
+    def window_since(lock):
+        from maintenance_kured_20261026 import EXPIRES, OWNER
+        created = datetime.fromisoformat(lock['created'].replace('Z', '+00:00'))
+        if (lock.get('nodeID') == OWNER and type(lock.get('TTL')) is int and
+                lock['TTL'] > 0 and lock.get('metadata') == {'unschedulable': True} and
+                abs((EXPIRES - created).total_seconds() - lock['TTL'] / 1_000_000_000) < 0.001 and
+                datetime.now(timezone.utc) < EXPIRES):
+            return created
         return None
 
     def release(self, token, verify_safe_release):
