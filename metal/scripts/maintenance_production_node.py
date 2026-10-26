@@ -577,8 +577,8 @@ def main():
     parser.add_argument('--failure-receipt')
     args = parser.parse_args()
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-    remote = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
-    require(remote == revision, 'publish reviewed source before production use')
+    published_tip = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
+    require(published_tip == revision, 'publish reviewed source before production use')
     bundle = {}
     for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key'):
         relative = 'metal/scripts/' + name + '.py'
