@@ -6,6 +6,9 @@ from maintenance_production_node import remote
 
 
 PROFILES = {
+    'strata-backup': ('10.0.20.11:32309/strata',
+                      '71f04326edf6e1defeabf2dc211abcf6bc6c7e14b0838c9e0704ab12253b08f0',
+                      '2a3b8160a9028d97db97420f62e237b50eed90206fc4790ffa42c3944e6e9b19', 13),
     'postgres': ('docker.io/brimdor/postgres',
                  'cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e',
                  '0096220d344ab0607551bb0b8259859179205f41f69dfdbbbc9db409fba0fad4', 17),
