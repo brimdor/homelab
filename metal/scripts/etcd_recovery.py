@@ -345,7 +345,7 @@ def produce_point(run_id):
     prefix = "maintenance-103-" + run_id
     if list(snapshots.glob(prefix + "*")):
         raise RuntimeError("refusing to repeat an existing named recovery point")
-    command(["/usr/local/bin/k3s", "etcd-snapshot", "save", "--name=" + prefix])
+    command(["/usr/local/bin/k3s", "etcd-snapshot", "save", "--s3=false", "--name=" + prefix])
     matches = list(snapshots.glob(prefix + "*"))
     if len(matches) != 1 or source_identity() != before:
         raise RuntimeError("snapshot or source identity is not stable")
