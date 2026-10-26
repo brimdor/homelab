@@ -9,6 +9,8 @@ app-template:
       strategy: Recreate
       replicas: 1
       pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
         securityContext: &pointview-pod-security
           runAsNonRoot: true
           runAsUser: 10001
@@ -23,7 +25,7 @@ app-template:
             repository: 10.0.20.11:32309/pointview
             tag: "d377729"
             digest: sha256:ee4876e6add9b45af87dd94af9fb9cd0cfca5d7f673e215c456f341983bb7113
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           args: [migrate]
           env: &pointview-env
             TZ: America/Chicago

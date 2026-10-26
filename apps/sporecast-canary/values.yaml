@@ -87,6 +87,9 @@ app-template:
               memory: 256Mi
 
     frontend:
+      pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
       type: deployment
       replicas: 1
       containers:
@@ -95,7 +98,8 @@ app-template:
           image:
             repository: 10.0.20.11:32309/sporecast-frontend
             tag: canary-a3fe7c8
-            pullPolicy: Always
+            digest: sha256:1ed9d37a40e4ef13b90194c3481ff16a60123144beb78847bd0fa954b60395ee
+            pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
               name: http

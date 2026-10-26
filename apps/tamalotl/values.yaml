@@ -8,6 +8,8 @@ app-template:
       replicas: 1
       strategy: RollingUpdate
       pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
         securityContext:
           runAsNonRoot: true
           runAsUser: 101

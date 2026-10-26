@@ -1,7 +1,10 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
+      strategy: Recreate
       rollingUpdate:
         unavailable: 1
         surge: "0"
@@ -39,7 +42,8 @@ app-template:
           image:
             repository: 10.0.20.11:32309/pages
             tag: "2026-05-14-v2"
-            pullPolicy: Always
+            digest: sha256:5e695aac4e01273f5f5938d382d72f3c2caddb84d034b0e476d8d0dfd33d279f
+            pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
               name: http

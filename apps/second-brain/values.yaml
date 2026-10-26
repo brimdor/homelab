@@ -1,6 +1,9 @@
 app-template:
   controllers:
     main:
+      pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
       strategy: RollingUpdate
       rollingUpdate:
         unavailable: 1
@@ -12,6 +15,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/second-brain
             tag: "2026-04-17-v1-prod"
+            digest: sha256:112b7db8fd2bffb9174797797b2980d4218974dd33085f302134257608c8e1c3
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

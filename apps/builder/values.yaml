@@ -6,6 +6,8 @@ app-template:
       strategy: Recreate
       replicas: 1
       pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
         terminationGracePeriodSeconds: 45
       containers:
         main:

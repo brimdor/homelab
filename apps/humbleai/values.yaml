@@ -1,12 +1,16 @@
 app-template:
   controllers:
     main:
-      strategy: RollingUpdate
+      pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
+      strategy: Recreate
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/humbleai
             tag: latest
+            digest: sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
