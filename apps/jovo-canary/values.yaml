@@ -3,6 +3,10 @@ app-template:
     main:
       strategy: Recreate
       replicas: 1
+      pod:
+        # Original private OCI artifacts are retained here until registry recovery.
+        nodeSelector:
+          kubernetes.io/hostname: totodile
       containers:
         database:
           image:
@@ -67,7 +71,7 @@ app-template:
             repository: 10.0.20.11:32309/broville/jovo_backend
             tag: main-34c3f1b
             digest: sha256:318caf0dff23a37af6be2bc1caa396899d73cee1ea9b5e18a2d63418cd3cf031
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             JOVO_HOST_URL: https://jovo-canary.eaglepass.io
@@ -129,7 +133,7 @@ app-template:
             repository: 10.0.20.11:32309/broville/jovo_frontend
             tag: main-34c3f1b
             digest: sha256:5d55e87f270624c5ec87595a731ff607d3f07589fec1fe4ebc5fa67afef69457
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             NEXT_PUBLIC_API_URL: https://jovo-canary.eaglepass.io/api
