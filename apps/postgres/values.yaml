@@ -161,7 +161,7 @@ app-template:
 
               prune_backups() {
                 prefix="$1"
-                cnt=$(ls -1 "/mnt/backup/db/${prefix}-"*.dump 2>/dev/null | wc -l)
+                cnt=$(ls -1 "/mnt/backup/db/${prefix}-"*.dump 2>/dev/null | awk 'END {print NR + 0}')
                 if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
                   ls -t "/mnt/backup/db/${prefix}-"*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
                 fi
