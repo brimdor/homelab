@@ -633,7 +633,20 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
                     argv = request['argv']
                     require(argv[0] in ('get', 'patch', 'create'), 'unreviewed RPC operation')
                     if argv[0] == 'patch':
-                        require(argv[1:3] in (['daemonset', 'kured'], ['node', NODE]), 'unreviewed patch target')
+                        if argv[1:3] not in (['daemonset', 'kured'], ['node', NODE]):
+                            require(args.operation in ('release', 'resolve-release-precheck') and
+                                    len(argv) == 8 and argv[1] == 'node' and
+                                    argv[2] in {n['metadata']['name'] for n in nodes} and
+                                    argv[3:5] == ['--type=json', '--patch'] and argv[6:] == ['-o', 'json'],
+                                    'unreviewed patch target')
+                            actual = api.call('get', 'node', argv[2], '-o', 'json')['metadata']
+                            pointer = '/metadata/annotations/weave.works~1kured-reboot-in-progress'
+                            require(json.loads(argv[5]) == [
+                                {'op': 'test', 'path': '/metadata/uid', 'value': actual['uid']},
+                                {'op': 'test', 'path': '/metadata/resourceVersion', 'value': actual['resourceVersion']},
+                                {'op': 'test', 'path': pointer, 'value': actual.get('annotations', {}).get(
+                                    'weave.works/kured-reboot-in-progress')},
+                                {'op': 'remove', 'path': pointer}], 'unreviewed queued-request patch')
                     if argv[0] == 'create':
                         body = json.loads(request['data'])
                         require(body['kind'] == 'Eviction' and body['apiVersion'] == 'policy/v1' and

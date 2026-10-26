@@ -225,7 +225,8 @@ class Ownership:
             created = datetime.fromisoformat(verified['created'].replace('Z', '+00:00'))
             saved = verified.get('restore_window_lock')
             if saved is not None:
-                since = self.window_since(saved)
+                # Expiry does not break a nonexpiring owner acquired within the window.
+                since = self.window_since(saved, created)
                 if since is not None:
                     return min(created, since)
             return created
@@ -234,15 +235,44 @@ class Ownership:
         return None
 
     @staticmethod
-    def window_since(lock):
+    def window_since(lock, at=None):
         from maintenance_kured_20261026 import EXPIRES, OWNER
         created = datetime.fromisoformat(lock['created'].replace('Z', '+00:00'))
         if (lock.get('nodeID') == OWNER and type(lock.get('TTL')) is int and
                 lock['TTL'] > 0 and lock.get('metadata') == {'unschedulable': True} and
                 abs((EXPIRES - created).total_seconds() - lock['TTL'] / 1_000_000_000) < 0.001 and
-                datetime.now(timezone.utc) < EXPIRES):
+                created <= (at if at is not None else datetime.now(timezone.utc)) < EXPIRES):
             return created
         return None
+
+    def clear_queued_requests(self, token, journal):
+        """Clear proven requests blocked by this owner, before releasing its lock."""
+        key = 'weave.works/kured-reboot-in-progress'
+        pointer = '/metadata/annotations/' + key.replace('/', '~1')
+        for node in self.api.call('get', 'nodes', '-o', 'json')['items']:
+            ds = self.observed()
+            require(self.ownership(ds, token) == journal, 'owner changed before queued-request cleanup')
+            node = self.api.call('get', 'node', node['metadata']['name'], '-o', 'json')
+            metadata = node['metadata']
+            pending = metadata.get('annotations', {}).get(key, 'false')
+            if pending == 'false':
+                continue
+            requested = datetime.fromisoformat(pending.replace('Z', '+00:00'))
+            since = self.protected_since(ds)
+            require(since is not None and requested.utcoffset() is not None and
+                    since <= requested <= datetime.now(timezone.utc), 'unproven queued reboot request')
+            operations = [
+                {'op': 'test', 'path': '/metadata/uid', 'value': self.nodes[metadata['name']]},
+                {'op': 'test', 'path': '/metadata/resourceVersion', 'value': metadata['resourceVersion']},
+                {'op': 'test', 'path': pointer, 'value': pending},
+                {'op': 'remove', 'path': pointer},
+            ]
+            self.api.call('patch', 'node', metadata['name'], '--type=json', '--patch',
+                          encoded(operations), '-o', 'json')
+            after = self.api.call('get', 'node', metadata['name'], '-o', 'json')
+            require(after['metadata']['uid'] == metadata['uid'] and
+                    key not in after['metadata'].get('annotations', {}),
+                    'queued-request cleanup uncertain; observe before another action')
 
     def release(self, token, verify_safe_release):
         # No CLI exposes this: the future controller must supply real acceptance gates.
@@ -266,6 +296,9 @@ class Ownership:
                     'saved one-night lock changed; retain maintenance ownership')
             if datetime.now(timezone.utc) >= EXPIRES:
                 restore = None
+                self.clear_queued_requests(token, journal)
+                ds = self.observed()
+                require(self.ownership(ds, token) == journal, 'owner changed during queued-request cleanup')
         self.patch(ds, {LOCK: encoded(restore) if restore is not None else None, JOURNAL: None})
         after = self.observed()['metadata'].get('annotations', {})
         require(JOURNAL not in after and (after.get(LOCK) == encoded(restore)
