@@ -196,7 +196,7 @@ def final_security():
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
  journal=hops.Journal(controller,hold,owner['owner'])
  return sys.modules['maintenance_host_security'].acceptance(journal,native,identity)
-if operation in('restore-scheduling','accept-applications','release'):final_security()
+if operation in('restore-scheduling','accept-applications','release','resolve-release-precheck'):final_security()
 def offline_repository_override():
  assert owner['source']==39 and owner['target']==41
  directory=root/('fedora-repositories-41-'+owner['owner'])
@@ -222,12 +222,31 @@ def remove_offline_repository_override():
   assert owner['source']==39 and path.read_bytes()==content
   path.unlink();actors.fsync_directory(path.parent)
  native('systemctl','daemon-reload')
-if operation=='release':
+if operation in('release','resolve-release-precheck'):
  release=sys.modules['maintenance_safe_release'].Release(hops.Journal(controller,hold,owner['owner']))
  value=rpc('applications');digest=drain.hashed(value)
  def safe_release(header,observed_digest):
   final_security()
-  return observed_digest==digest and rpc('applications')==value and identity()==header['owners']['host']['identity']
+  if observed_digest!=digest or identity()!=header['owners']['host']['identity']:return False
+  current=rpc('applications') # This call freshly validates every runtime and exact Job owner UID.
+  directory=root/('release-evidence-'+owner['owner']);actors.safe(directory)
+  if not directory.exists():directory.mkdir(mode=0o700);actors.fsync_directory(root)
+  proof={'owner':owner['owner'],'identity':identity(),'health':current}
+  path=directory/(drain.hashed(proof)+'.json')
+  if not path.exists():actors.exclusive_file(path,hops.canonical(proof),0o600)
+  assert path.read_bytes()==hops.canonical(proof)
+  return True
+ if operation=='resolve-release-precheck':
+  with hold.serialized():
+   state=release.read();assert state['kinds']==list(sys.modules['maintenance_safe_release'].KINDS[:4])
+   assert precheck_proof['owner']==owner['owner'] and not release.host_held(state['header']) and release.global_held(state['header'])
+   assert state['head_sha256']==precheck_proof['release_head_sha256']
+   release.verified(state,digest,safe_release)
+   dispatch=root/('release-predispatch-recovery-'+owner['owner']+'.json')
+   actors.exclusive_file(dispatch,hops.canonical({'proof':precheck_proof,'state_head':state['head_sha256'],'fresh_evidence_sha256':digest}),0o600)
+   def verified_first_dispatch(current):
+    return current==state['header']['owners']['global'] and release.read()==state and not release.host_held(state['header']) and release.verified(state,digest,safe_release)
+   controller.release(owner['owner'],verified_first_dispatch)
  if not release.path.exists():release.prepare(digest,safe_release)
  status=release.observe(digest,safe_release)
  if status['state']['kinds']==['header']:status=release.release_host(digest,safe_release)
@@ -618,7 +637,7 @@ def main():
                                              'source-repositories', 'target-repositories', 'prepare-source',
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
-                                             'accept-applications', 'release', 'resolve-drain-precheck',
+                                             'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck',
                                              'repair-offline-repositories', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
@@ -639,6 +658,23 @@ def main():
     require(Path(core_path).read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + core_path]),
             'unpublished CORE completion evidence parser')
     precheck_proof = None
+    if args.operation == 'resolve-release-precheck':
+        require(args.failure_receipt, 'exact captured release pre-dispatch failure is required')
+        raw = Path(args.failure_receipt).read_bytes()
+        failure_sha = 'd9bdfaf4ec423a08ea9fbb247631b6618c74f4858f1b664f70aa6e1ea38976e8'
+        require(hashlib.sha256(raw).hexdigest() == failure_sha, 'release failure receipt differs')
+        failure = json.loads(raw)
+        require(failure['exit'] == 1 and failure['output'] == '' and
+                'maintenance_coordination.py", line 250, in release' in failure['error'] and
+                failure['error'].endswith('RuntimeError: current safe release evidence refused\n\n'),
+                'failure does not prove the reviewed pre-dispatch exit')
+        prior = subprocess.check_output(['git', 'show',
+            '630caadf53b29ca6efc20061630aacf3da24e847:metal/scripts/maintenance_coordination.py'], text=True)
+        require(prior.splitlines()[249].strip().startswith('require(verify_safe_release(') and
+                prior.index('self.patch(ds, {LOCK:', prior.index('    def release(')) > prior.index('require(verify_safe_release('),
+                'original release failure does not precede its first patch')
+        precheck_proof = {'owner': 'homelab-maintenance-103-65a44a0d-b0a2-48f2-af67-2ba0218af10c',
+            'failure_sha256': failure_sha, 'release_head_sha256': 'b920e73259c0092cda9003c1156b15ae6aee628f65c2211b9e466147ae516135'}
     if args.operation == 'resolve-drain-precheck':
         require(args.failure_receipt, 'exact captured pre-dispatch failure is required')
         raw = Path(args.failure_receipt).read_bytes()
