@@ -212,15 +212,17 @@ else:
    def verify_drain(step,digest):
     return step=='drain' and digest==drain.hashed(accepted) and evidence()==value and not worker.read()['pending'] and len(worker.read()['completed'])==len(worker.read()['targets'])
    journal.accept(result['parent_intent']['sha256'],drain.hashed(accepted),verify_drain)
- elif operation=='source-repositories':
-  assert state['completed']==['cordon','drain'] and not state['pending']
+ elif operation in('source-repositories','target-repositories'):
+  expected=['cordon','drain']+(['prepare_source']if operation=='target-repositories'else[])
+  assert state['completed']==expected and not state['pending']
   hold.systemd.idle(hold.marker);assert native('rpm','-E','%fedora')==str(owner['source'])
-  directory=root/'fedora-repositories';directory.mkdir(mode=0o700,exist_ok=True)
+  release=str(owner['source']if operation=='source-repositories'else owner['target'])
+  directory=root/('fedora-repositories-'+release);directory.mkdir(mode=0o700,exist_ok=True)
   for release,raw in public_keys.items():
    key=base64.b64decode(raw);path=directory/('fedora'+release+'.gpg')
    if not path.exists():actors.exclusive_file(path,key,0o600)
    assert path.read_bytes()==key;native('rpmkeys','--import',str(path))
-  release=str(owner['source']);base='https://ftp-stud.hs-esslingen.de/pub/Mirrors/archive.fedoraproject.org/fedora/linux/'if int(release)<43 else 'https://dl.fedoraproject.org/pub/fedora/linux/'
+  base='https://ftp-stud.hs-esslingen.de/pub/Mirrors/archive.fedoraproject.org/fedora/linux/'if int(release)<43 else 'https://dl.fedoraproject.org/pub/fedora/linux/'
   keys=' '.join('file://'+str(directory/('fedora'+r+'.gpg'))for r in public_keys)
   content=''
   for name,url in [('fedora','releases/'+release+'/Everything/x86_64/os/'),('updates','updates/'+release+'/Everything/x86_64/')]:
@@ -228,7 +230,7 @@ else:
   path=directory/'maintenance.repo'
   if not path.exists():actors.exclusive_file(path,content.encode(),0o600)
   assert path.read_text()==content
-  result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'source':owner['source'],'gpgcheck':True}
+  result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'release':release,'gpgcheck':True}
  elif operation=='observe-package':
   assert state['pending'] and state['pending']['step']in('prepare_source','download_release')
   step=state['pending']['step'];unit=owner['owner']+'-'+step.replace('_','-')+'.service'
@@ -245,20 +247,28 @@ else:
     result['journal']=journal.accept(state['pending']['sha256'],drain.hashed(receipt),verified);result['accepted']=True
    elif fields['ActiveState']=='failed':
     result['failure_log']=native('journalctl','--no-pager','-u',unit,'-n','30','-o','cat')
- elif operation=='prepare-source':
+ elif operation in('prepare-source','download-release','offline-transaction'):
   assert native('rpm','-E','%fedora')==str(owner['source'])
-  assert state['completed']==['cordon','drain'] and not state['pending']
-  directory=root/'fedora-repositories';assert(directory/'maintenance.repo').is_file()
-  command=packages.command(owner,'prepare_source');position=command.index('/usr/bin/dnf'if owner['source']==39 else '/usr/bin/dnf5')
+  step=operation.replace('-','_')
+  expected=['cordon','drain']+(['prepare_source']if step!='prepare_source'else[])+(['download_release']if step=='offline_transaction'else[])
+  assert state['completed']==expected and not state['pending']
+  release=owner['source']if step=='prepare_source'else owner['target']
+  directory=root/('fedora-repositories-'+str(release));assert(directory/'maintenance.repo').is_file()
+  command=packages.command(owner,step);position=command.index('/usr/bin/dnf'if owner['source']==39 else '/usr/bin/dnf5')
   command[position+1:position+1]=['--setopt=reposdir='+str(directory),'--setopt=gpgcheck=True','--setopt=localpkg_gpgcheck=True']
-  if owner['source']==39:
+  if owner['source']==39 and step=='prepare_source':
    upgrade_command=command[position:]
    plugin_command=upgrade_command[:5]+['install','dnf-plugin-system-upgrade']
    payload='import subprocess;subprocess.run('+repr(upgrade_command)+',check=True);subprocess.run('+repr(plugin_command)+',check=True)'
    command[position:]=['/usr/bin/python3','-c',payload]
-  value=evidence();pending=journal.begin('prepare_source',drain.hashed(command),drain.hashed(value),prerequisites(value))
-  assert journal.inspect()==pending;hold.systemd.idle(hold.marker)
-  native(*command);result={'dispatched':True,'command':command,'pending':pending['pending']}
+  if step=='offline_transaction':
+   before={'boot':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'identity':identity(),'source':owner['source'],'target':owner['target']}
+   actors.exclusive_file(root/('before-offline-'+owner['owner']+'.json'),hops.canonical(before),0o600)
+  value=evidence();pending=journal.begin(step,drain.hashed(command),drain.hashed(value),prerequisites(value))
+  with hold.serialized():
+   assert journal.read()==pending;journal.owners(idle=True)
+   native(*command)
+  result={'dispatched':True,'command':command,'pending':pending['pending']}
  else:raise RuntimeError('unreviewed operation')
  print(json.dumps({'result':result}),flush=True)
 '''
@@ -297,9 +307,7 @@ def prerequisites(api):
             'ceph': health['status'], 'controllers_ready_except_target_observers': True}
 
 
-def run_worker(args, api, owner, public_keys, recovery_manifest):
-    root = Path(__file__).parent
-    bundle = {name: (root / (name + '.py')).read_text() for name in MODULES}
+def run_worker(args, api, owner, public_keys, recovery_manifest, bundle):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     program = ('bundle=' + repr(bundle) + '\nexpected_identity=' + repr(IDENTITY) +
                '\nexpected_ds_uid=' + repr(DS_UID) + '\nowner=' + repr(owner) +
@@ -351,7 +359,8 @@ def run_worker(args, api, owner, public_keys, recovery_manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
-                                             'source-repositories', 'prepare-source'])
+                                             'source-repositories', 'target-repositories', 'prepare-source',
+                                             'download-release', 'offline-transaction'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -360,6 +369,13 @@ def main():
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     remote = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
     require(remote == revision, 'publish reviewed source before production use')
+    bundle = {}
+    for name in (*MODULES, 'maintenance_production_node'):
+        relative = 'metal/scripts/' + name + '.py'
+        published = subprocess.check_output(['git', 'show', revision + ':' + relative])
+        require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
+        if name in MODULES:
+            bundle[name] = published.decode()
     recovery_manifest = recovery(args, capture=args.operation == 'backup')
     if args.operation == 'backup':
         print(encoded(recovery_manifest));return
@@ -374,7 +390,7 @@ def main():
         prerequisites(api)
         owner = controller.acquire(NODE, 39, 41, revision)
     public_keys = {}
-    if args.operation == 'source-repositories':
+    if args.operation in ('source-repositories', 'target-repositories'):
         records = json.loads(Path('metal/maintenance/fedora-upgrade-inputs.json').read_text())['keys']
         for release in ('39', '41'):
             record = records[release]
@@ -385,7 +401,7 @@ def main():
             raw = base64.b64decode(''.join(fields[4:]), validate=True)
             require(hashlib.sha256(raw).hexdigest() == record['sha256'], 'Fedora key fingerprint input changed')
             public_keys[release] = base64.b64encode(raw).decode()
-    print(encoded(run_worker(args, api, owner, public_keys, recovery_manifest)))
+    print(encoded(run_worker(args, api, owner, public_keys, recovery_manifest, bundle)))
 
 
 if __name__ == '__main__':
