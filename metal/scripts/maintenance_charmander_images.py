@@ -6,6 +6,9 @@ from maintenance_production_node import remote
 
 
 PROFILES = {
+    'postgres': ('docker.io/brimdor/postgres',
+                 'cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e',
+                 '0096220d344ab0607551bb0b8259859179205f41f69dfdbbbc9db409fba0fad4', 17),
     'jovo-backend': ('10.0.20.11:32309/broville/jovo_backend',
                      '318caf0dff23a37af6be2bc1caa396899d73cee1ea9b5e18a2d63418cd3cf031',
                      '96e57675e8bcc55e4dbae18ea37acde19cc214c75c9d3998c62082884d90be76', 14),
