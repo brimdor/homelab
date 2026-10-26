@@ -27,6 +27,11 @@ PROFILES = {
         'config': 'sha256:58fae48064aae9440e847719c22cc4443fe06dca4d6c4a426cfa66bfc7739a66',
         'blobs': 17,
         'source': '10.0.20.17',
+        'target': '10.0.20.18',
+        'target_host': 'growlithe',
+        'target_uid': '50f95b8f-4117-4c1e-84bc-266c5b23bffb',
+        'target_machine': 'a26cbcc990c044dea41fbf4f957f453d',
+        'target_root': '710e2dca-691e-4123-a867-4994b9c6e612',
         'source_host': 'totodile',
         'source_machine': '0f1915a59a124d999d8d68b53f406af1',
         'source_root': '489f1af8-5d55-4356-8d48-418fcb2069a2',
@@ -59,14 +64,19 @@ os.execv('/usr/local/bin/k3s',['k3s','ctr','-n','k8s.io','images','export','--lo
 
 RECEIVE_PROGRAM = '''
 import hashlib,json,os,pathlib,socket,subprocess,sys,tarfile
-assert os.geteuid()==0 and socket.gethostname()=='totodile'
-assert pathlib.Path('/etc/machine-id').read_text().strip()=='0f1915a59a124d999d8d68b53f406af1'
-assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='489f1af8-5d55-4356-8d48-418fcb2069a2'
+assert os.geteuid()==0 and socket.gethostname()==TARGET_HOST
+assert pathlib.Path('/etc/machine-id').read_text().strip()==TARGET_MACHINE
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==TARGET_ROOT
 root=pathlib.Path(RECOVERY)
+for parent in(root.parent.parent,root.parent):
+ assert not any(p.is_symlink()for p in(parent,*parent.parents))
+ if not parent.exists():parent.mkdir(mode=0o700)
+ assert parent.is_dir()and parent.stat().st_uid==0 and not parent.stat().st_mode&0o022
+ assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(parent)],text=True).strip()==TARGET_ROOT
 images=pathlib.Path('/var/lib/rancher/k3s/agent/images')
 for path in (root,images):
  assert not any(p.is_symlink()for p in(path,*path.parents))
- assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(path.parent)],text=True).strip()=='489f1af8-5d55-4356-8d48-418fcb2069a2'
+ assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(path.parent)],text=True).strip()==TARGET_ROOT
 assert not root.exists(),'existing recovery intent; observe only, never overwrite'
 assert not images.exists() or images.is_dir()
 final=images/ARTIFACT
@@ -107,7 +117,7 @@ with tarfile.open(archive,'r:')as tar:
  expected={DIGEST:len(tar.extractfile('blobs/sha256/'+DIGEST.split(':')[1]).read())}
  for descriptor in [manifest['config'],*manifest['layers']]:expected[descriptor['digest']]=descriptor['size']
  assert blobs==expected and len(blobs)==BLOB_COUNT
-record={'image':IMAGE,'digest':DIGEST,'archive_sha256':h.hexdigest(),'archive_bytes':size,'blobs':blobs,'target':'totodile','archive':str(archive),'native_import':str(final)}
+record={'image':IMAGE,'digest':DIGEST,'archive_sha256':h.hexdigest(),'archive_bytes':size,'blobs':blobs,'target':TARGET_HOST,'archive':str(archive),'native_import':str(final)}
 with(root/'verified.json').open('x')as output:
  os.fchmod(output.fileno(),0o600);json.dump(record,output);output.flush();os.fsync(output.fileno())
 # The retained archive and K3s import entry share one durable root-filesystem inode.
@@ -120,9 +130,9 @@ print(json.dumps(record))
 
 REGISTER_PROGRAM = '''
 import hashlib,json,os,pathlib,socket,subprocess
-assert os.geteuid()==0 and socket.gethostname()=='totodile'
-assert pathlib.Path('/etc/machine-id').read_text().strip()=='0f1915a59a124d999d8d68b53f406af1'
-assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='489f1af8-5d55-4356-8d48-418fcb2069a2'
+assert os.geteuid()==0 and socket.gethostname()==TARGET_HOST
+assert pathlib.Path('/etc/machine-id').read_text().strip()==TARGET_MACHINE
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==TARGET_ROOT
 root=pathlib.Path(RECOVERY)
 assert not any(p.is_symlink()for p in(root,*root.parents))
 record=json.loads((root/'verified.json').read_bytes());archive=root/'image.tar'
@@ -206,11 +216,11 @@ print(json.dumps(record))
 """
 
 
-def stream(args, source_address, source_program, receiver_program):
+def stream(args, source_address, source_program, receiver_program, target_address=TARGET):
     source = subprocess.Popen(ssh(args, source_address) + ['python3 -B -c ' + shlex.quote(source_program)],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
-        receiver = subprocess.run(ssh(args, TARGET) + ['python3 -B -c ' + shlex.quote(receiver_program)],
+        receiver = subprocess.run(ssh(args, target_address) + ['python3 -B -c ' + shlex.quote(receiver_program)],
                                  stdin=source.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         source.stdout.close()
         error = source.stderr.read()
@@ -252,8 +262,8 @@ def main():
             (node['spec'].get('unschedulable') is True or args.image == 'pointview' and
              not node['spec'].get('unschedulable') and any(c['type'] == 'Ready' and c['status'] == 'True'
              for c in node['status']['conditions'])), 'exact Pikachu maintenance state required')
-    target = get('get', 'node', 'totodile')
-    require(target['metadata']['uid'] == '83e0e536-e94a-45a1-8dfb-1cedac1e9bd7' and
+    target = get('get', 'node', profile.get('target_host', 'totodile'))
+    require(target['metadata']['uid'] == profile.get('target_uid', '83e0e536-e94a-45a1-8dfb-1cedac1e9bd7') and
             not target['spec'].get('unschedulable') and any(c['type'] == 'Ready' and c['status'] == 'True'
             for c in target['status']['conditions']), 'accepted receiver is not ready')
     ds = get('get', 'daemonset', 'kured', '-n', 'kured')
@@ -284,13 +294,16 @@ def main():
     values = {'IMAGE': profile['image'], 'DIGEST': profile['digest'], 'CONFIG': profile['config'],
               'RECOVERY': profile['recovery'], 'ARTIFACT': profile['artifact'],
               'BLOB_COUNT': profile['blobs'],
+              'TARGET_HOST': profile.get('target_host', 'totodile'),
+              'TARGET_MACHINE': profile.get('target_machine', '0f1915a59a124d999d8d68b53f406af1'),
+              'TARGET_ROOT': profile.get('target_root', '489f1af8-5d55-4356-8d48-418fcb2069a2'),
               'SOURCE_HOST': profile.get('source_host', 'pikachu'),
               'SOURCE_MACHINE': profile.get('source_machine', '0a7daf8b33244d9d85f46223c3582da9'),
               'SOURCE_ROOT': profile.get('source_root', '76e53a95-725a-4430-9d7b-a8db413f3997'),
               'ALIAS': profile['image'] if '@' in profile['image'] else profile['image'].rsplit(':', 1)[0] + '@' + profile['digest']}
     bindings = ''.join(name + '=' + repr(value) + '\n' for name, value in values.items())
     if args.register_digest:
-        print(json.dumps(remote(args, bindings + REGISTER_PROGRAM, TARGET)))
+        print(json.dumps(remote(args, bindings + REGISTER_PROGRAM, profile.get('target', TARGET))))
         return
     if args.recover_base_layers:
         require(args.image == 'pointview', 'base recovery is PointView only')
@@ -299,7 +312,7 @@ def main():
             print(json.dumps(stream(args, '10.0.20.11', values + BASE_SOURCE, values + BASE_RECEIVER)), flush=True)
         return
     print(json.dumps(stream(args, profile.get('source', SOURCE),
-                            bindings + SOURCE_PROGRAM, bindings + RECEIVE_PROGRAM)))
+                            bindings + SOURCE_PROGRAM, bindings + RECEIVE_PROGRAM, profile.get('target', TARGET))))
 
 
 if __name__ == '__main__':

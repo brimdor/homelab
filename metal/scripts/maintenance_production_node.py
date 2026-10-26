@@ -76,10 +76,16 @@ def remote(args, program, address=None):
 def recovery(args, source, capture=False):
     require(source in BACKUPS, 'unreviewed recovery source release')
     backup = BACKUPS[source]
+    receiver_name, receiver_address, receiver_identity = RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
+    if NODE == 'pikachu' and source in (43, 44):
+        receiver_name, receiver_address = 'growlithe', '10.0.20.18'
+        receiver_identity = {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
+                             'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}
     readback = """
-import hashlib,json,os,pathlib,socket,stat
+import hashlib,json,os,pathlib,socket,stat,subprocess
 assert os.geteuid()==0 and socket.gethostname()==%r
 assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==%r
 root=pathlib.Path(%r)
 assert not any(p.is_symlink()for p in(root,*root.parents))
 manifest=root/'verified.json'
@@ -92,8 +98,8 @@ else:
   for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
  assert archive.stat().st_size==value['bytes']and digest.hexdigest()==value['sha256']
  print(json.dumps(value))
-""" % (RECEIVER, RECEIVER_IDENTITY['machine'], backup)
-    existing = remote(args, readback, RECEIVER_ADDRESS)
+""" % (receiver_name, receiver_identity['machine'], receiver_identity['root_uuid'], backup)
+    existing = remote(args, readback, receiver_address)
     if existing is not None:
         require(existing['identity'] == IDENTITY and existing['node_uid'] == UID and
                 existing.get('source_release', 39) == source, 'recovery identity or source changed')
@@ -119,11 +125,16 @@ command=['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-sys
 sys.exit(subprocess.run(command).returncode)
 """ % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC)
     receiver = """
-import hashlib,json,os,pathlib,socket,stat,sys
+import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
 assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==%r
 root=pathlib.Path(%r)
 assert not any(p.is_symlink()for p in(root,*root.parents))
+for parent in (root.parent.parent,root.parent):
+ assert not any(p.is_symlink()for p in(parent,*parent.parents))
+ if not parent.exists():parent.mkdir(mode=0o700)
+ assert parent.is_dir()and parent.stat().st_uid==0 and not parent.stat().st_mode&0o022
 assert root.parent.is_dir()
 if root.exists():
  partial=root/'node-config.partial';info=partial.stat()
@@ -141,10 +152,10 @@ with path.open('xb')as target:
   target.write(chunk);digest.update(chunk);size+=len(chunk)
  target.flush();os.fsync(target.fileno())
 print(json.dumps({'sha256':digest.hexdigest(),'bytes':size}))
-""" % (RECEIVER, RECEIVER_IDENTITY['machine'], backup)
+""" % (receiver_name, receiver_identity['machine'], receiver_identity['root_uuid'], backup)
     producer = subprocess.Popen(ssh(args) + ['python3 -B -c ' + shlex.quote(source_program)],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    consumer = subprocess.Popen(ssh(args, RECEIVER_ADDRESS) + ['python3 -B -c ' + shlex.quote(receiver)],
+    consumer = subprocess.Popen(ssh(args, receiver_address) + ['python3 -B -c ' + shlex.quote(receiver)],
                                 stdin=producer.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     producer.stdout.close()
     try:
@@ -167,8 +178,8 @@ with(root/'verified.json').open('x')as output:
 descriptor=os.open(root,os.O_DIRECTORY);os.fsync(descriptor);os.close(descriptor)
 print(json.dumps(value))
 """ % (backup, manifest)
-        remote(args, finalize, RECEIVER_ADDRESS)
-        return remote(args, readback, RECEIVER_ADDRESS)
+        remote(args, finalize, receiver_address)
+        return remote(args, readback, receiver_address)
     finally:
         for child in (producer, consumer):
             if child.poll() is None:
