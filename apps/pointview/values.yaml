@@ -364,7 +364,7 @@ postgresMigration:
   archive: "55811f7e61437836770b8bac938936bc09d4565b4661f1432f9c546c4cf66398"
 
 maintenanceEmptyJobs:
-  enabled: true
+  enabled: false
   ownerUIDs:
     triage: 50610e53-b900-46b3-8955-c11bd602b567
     retention: eede725c-f9c0-438c-8593-5c9e155acc61
