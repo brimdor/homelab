@@ -300,7 +300,9 @@ else:
    if fields['Result']=='success' and fields['ExecMainStatus']=='0' and fields['ActiveState']=='active':
     value=evidence();receipt={'unit':unit,'status':fields,'release':native('rpm','-E','%fedora'),'prerequisites':value}
     assert receipt['release']==str(owner['source'])
-    if step=='prepare_source' and owner['source']==39:native('rpm','-q','dnf-plugin-system-upgrade')
+    if step=='prepare_source' and owner['source']==39:
+     receipt['upgrade_plugin_provider']=native('rpm','-q','--whatprovides','dnf-plugin-system-upgrade')
+     assert 'System-upgrade command-specific options:'in native('/usr/bin/dnf','system-upgrade','--help')
     if step=='download_release':
      cache=pathlib.Path('/var/lib/dnf/system-upgrade')if owner['source']==39 else pathlib.Path('/usr/lib/sysimage/libdnf5/offline')
      files=sorted(cache.rglob('*.rpm'));assert files,'offline target RPMs absent'
