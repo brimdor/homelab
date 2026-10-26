@@ -288,7 +288,7 @@ elif operation=='recover-pending-kanidm':
  with hold.serialized():
   journal.owners(idle=True)
   assert api.call('get','node','pikachu','-o','json')['spec'].get('unschedulable')is True
-  assert api.call('exec','-n','rook-ceph','deploy/rook-ceph-tools','--','ceph','health','-f','json')['status']=='HEALTH_OK'
+  assert rpc('ceph_health')['status']=='HEALTH_OK'
   app=api.call('get','application','kanidm','-n','argocd','-o','json')
   assert app['status']['sync']['status']=='Synced' and app['spec']['source']['path']=='platform/kanidm'
   sts=api.call('get','statefulset','kanidm','-n','kanidm','-o','json')
@@ -654,6 +654,9 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
             try:
                 if request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
+                elif request['rpc'] == 'ceph_health':
+                    require(args.operation == 'recover-pending-kanidm', 'unreviewed Ceph health caller')
+                    value = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'health', '-f', 'json')
                 elif request['rpc'] in ('infrastructure', 'applications'):
                     value = infrastructure(api, applications=request['rpc'] == 'applications')
                 elif request['rpc'] == 'drain_controllers':
