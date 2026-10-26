@@ -294,8 +294,9 @@ elif operation=='recover-pending-kanidm':
   sts=api.call('get','statefulset','kanidm','-n','kanidm','-o','json')
   assert sts['metadata']['uid']=='c967eb10-6452-4803-ab18-fb09210daa66' and sts['status']['observedGeneration']==sts['metadata']['generation']
   assert not sts['spec']['template']['spec'].get('nodeSelector') and sts['status']['currentRevision']!=sts['status']['updateRevision']
+  assert sts['spec']['updateStrategy']['type']=='RollingUpdate' and sts['spec']['updateStrategy'].get('rollingUpdate',{}).get('partition')==0
   pod=api.call('get','pod','kanidm-0','-n','kanidm','-o','json');meta=pod['metadata']
-  assert meta['uid']=='d4ea1c77-8a3c-448c-83b6-fd388ae92437' and not meta.get('deletionTimestamp')
+  assert meta['uid']=='ec5c8370-616e-40a4-8fc3-6615c25113f3' and not meta.get('deletionTimestamp')
   assert pod['status']['phase']=='Pending' and not pod['spec'].get('nodeName') and not pod['status'].get('containerStatuses')
   assert pod['spec']['nodeSelector']=={'kubernetes.io/hostname':'pikachu'} and meta['labels']['controller-revision-hash']==sts['status']['currentRevision']
   assert len(meta['ownerReferences'])==1 and meta['ownerReferences'][0]['controller']is True and meta['ownerReferences'][0]['uid']==sts['metadata']['uid']

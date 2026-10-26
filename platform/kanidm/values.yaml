@@ -2,6 +2,9 @@ app-template:
   controllers:
     main:
       type: statefulset
+      rollingUpdate:
+        # Common 5.0.1 drops integer zero; this renders the required native partition: 0.
+        partition: "0"
       containers:
         main:
           image:
