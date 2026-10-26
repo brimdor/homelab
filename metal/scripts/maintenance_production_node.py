@@ -282,37 +282,41 @@ elif operation in('security-policy','observe-security-policy','security-relabel'
  result=(sys.modules['maintenance_host_security'].facts(native)if operation=='observe-host-security'else
   sys.modules['maintenance_host_security'].execute(operation,journal,native,identity,recovery_manifest))
  print(json.dumps({'result':result}),flush=True)
-elif operation=='recover-pending-kanidm':
+elif operation in('recover-pending-kanidm','recover-pending-outline'):
  assert expected_node=='pikachu' and owner['owner']=='homelab-maintenance-103-6f78a7a1-d165-430e-bde4-b85894582e77'
+ profiles={
+  'recover-pending-kanidm':('kanidm','platform/kanidm','kanidm','kanidm-0','ec5c8370-616e-40a4-8fc3-6615c25113f3','c967eb10-6452-4803-ab18-fb09210daa66','data-kanidm-0','cd728e28-34e1-4373-8c8d-65a314b758ad','c4a539ff-4ec2-4313-a053-29df5340615c'),
+  'recover-pending-outline':('outline','apps/outline','outline-postgres','outline-postgres-0','32d5c378-0d90-4ae2-8266-dc6af20c3ccb','c361fc29-fa98-425e-8551-df21704e2c87','outline','36cb3442-3bf9-4ccd-a7be-4edd211f361a','409b7753-b5c5-424b-8709-643290566685')}
+ namespace,app_path,sts_name,pod_name,pod_uid,sts_uid,claim_name,claim_uid,pv_uid=profiles[operation]
  journal=hops.Journal(controller,hold,owner['owner'])
  with hold.serialized():
   journal.owners(idle=True)
   assert api.call('get','node','pikachu','-o','json')['spec'].get('unschedulable')is True
   assert rpc('ceph_health')['status']=='HEALTH_OK'
-  app=api.call('get','application','kanidm','-n','argocd','-o','json')
-  assert app['status']['sync']['status']=='Synced' and app['spec']['source']['path']=='platform/kanidm'
-  sts=api.call('get','statefulset','kanidm','-n','kanidm','-o','json')
-  assert sts['metadata']['uid']=='c967eb10-6452-4803-ab18-fb09210daa66' and sts['status']['observedGeneration']==sts['metadata']['generation']
+  app=api.call('get','application',namespace,'-n','argocd','-o','json')
+  assert app['status']['sync']['status']=='Synced' and app['spec']['source']['path']==app_path
+  sts=api.call('get','statefulset',sts_name,'-n',namespace,'-o','json')
+  assert sts['metadata']['uid']==sts_uid and sts['status']['observedGeneration']==sts['metadata']['generation']
   assert not sts['spec']['template']['spec'].get('nodeSelector') and sts['status']['currentRevision']!=sts['status']['updateRevision']
   assert sts['spec']['updateStrategy']['type']=='RollingUpdate' and sts['spec']['updateStrategy'].get('rollingUpdate',{}).get('partition')==0
-  pod=api.call('get','pod','kanidm-0','-n','kanidm','-o','json');meta=pod['metadata']
-  assert meta['uid']=='ec5c8370-616e-40a4-8fc3-6615c25113f3' and not meta.get('deletionTimestamp')
+  pod=api.call('get','pod',pod_name,'-n',namespace,'-o','json');meta=pod['metadata']
+  assert meta['uid']==pod_uid and not meta.get('deletionTimestamp')
   assert pod['status']['phase']=='Pending' and not pod['spec'].get('nodeName') and not pod['status'].get('containerStatuses')
   assert pod['spec']['nodeSelector']=={'kubernetes.io/hostname':'pikachu'} and meta['labels']['controller-revision-hash']==sts['status']['currentRevision']
   assert len(meta['ownerReferences'])==1 and meta['ownerReferences'][0]['controller']is True and meta['ownerReferences'][0]['uid']==sts['metadata']['uid']
-  claim=api.call('get','persistentvolumeclaim','data-kanidm-0','-n','kanidm','-o','json')
+  claim=api.call('get','persistentvolumeclaim',claim_name,'-n',namespace,'-o','json')
   volume=api.call('get','persistentvolume',claim['spec']['volumeName'],'-o','json')
-  assert claim['metadata']['uid']=='cd728e28-34e1-4373-8c8d-65a314b758ad' and claim['status']['phase']=='Bound'
-  assert volume['metadata']['uid']=='c4a539ff-4ec2-4313-a053-29df5340615c' and volume['spec']['claimRef']['uid']==claim['metadata']['uid']
-  eviction={'apiVersion':'policy/v1','kind':'Eviction','metadata':{'namespace':'kanidm','name':'kanidm-0'},
+  assert claim['metadata']['uid']==claim_uid and claim['status']['phase']=='Bound'
+  assert volume['metadata']['uid']==pv_uid and volume['spec']['claimRef']['uid']==claim['metadata']['uid']
+  eviction={'apiVersion':'policy/v1','kind':'Eviction','metadata':{'namespace':namespace,'name':pod_name},
    'deleteOptions':{'preconditions':{'uid':meta['uid'],'resourceVersion':meta['resourceVersion']}}}
   record={'owner':owner['owner'],'pod_uid':meta['uid'],'claim_uid':claim['metadata']['uid'],'pv_uid':volume['metadata']['uid'],
    'current_revision':sts['status']['currentRevision'],'update_revision':sts['status']['updateRevision'],'eviction':eviction}
-  path=root/('kanidm-pending-replacement-'+meta['uid']+'.json')
+  path=root/(namespace+'-pending-replacement-'+meta['uid']+'.json')
   assert not path.exists(),'replacement intent exists; observe only, never replay'
   assert controller.resume(owner['owner'])==owner
   actors.exclusive_file(path,hops.canonical(record),0o600)
-  response=api.call('create','--raw=/api/v1/namespaces/kanidm/pods/kanidm-0/eviction','-f','-',data=hops.canonical(eviction))
+  response=api.call('create','--raw=/api/v1/namespaces/'+namespace+'/pods/'+pod_name+'/eviction','-f','-',data=hops.canonical(eviction))
   assert response.get('kind')=='Status' and response.get('status')=='Success','replacement uncertain; observe only'
   actors.exclusive_file(root/(path.stem+'-accepted.json'),hops.canonical({'intent_sha256':drain.hashed(record),'response':response}),0o600)
  print(json.dumps({'result':{'eviction_accepted':True,'pod_uid':meta['uid'],'original_storage_preserved':True}}),flush=True)
@@ -709,7 +713,7 @@ def main():
                                              'source-repositories', 'target-repositories', 'prepare-source',
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
-                                             'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm',
+                                             'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'repair-offline-repositories', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu'), default='totodile')
     parser.add_argument('--kubectl', required=True)

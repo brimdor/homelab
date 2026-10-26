@@ -147,9 +147,10 @@ app-template:
     postgres:
       type: statefulset
       replicas: 1
+      rollingUpdate:
+        # Common 5.0.1 requires quoted zero to render the native rollout partition.
+        partition: "0"
       pod:
-        nodeSelector:
-          kubernetes.io/hostname: pikachu
         annotations:
           operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/atb6uu3xrclvwjwgxms4xeekoy"
           operator.1password.io/item-name: "secrets"
