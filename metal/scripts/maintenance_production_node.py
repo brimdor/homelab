@@ -221,8 +221,8 @@ else:
   hold.systemd.idle(hold.marker);assert native('rpm','-E','%fedora')==str(owner['source'])
   release=str(owner['source']if operation=='source-repositories'else owner['target'])
   directory=root/('fedora-repositories-'+release);directory.mkdir(mode=0o700,exist_ok=True)
-  for release,raw in public_keys.items():
-   key=base64.b64decode(raw);path=directory/('fedora'+release+'.gpg')
+  for key_release,raw in public_keys.items():
+   key=base64.b64decode(raw);path=directory/('fedora'+key_release+'.gpg')
    if not path.exists():actors.exclusive_file(path,key,0o600)
    assert path.read_bytes()==key;native('rpmkeys','--import',str(path))
   base='https://ftp-stud.hs-esslingen.de/pub/Mirrors/archive.fedoraproject.org/fedora/linux/'if int(release)<43 else 'https://dl.fedoraproject.org/pub/fedora/linux/'
