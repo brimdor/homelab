@@ -56,6 +56,8 @@ class Drain:
                       node['spec'].get('unschedulable') is True, 'drain Node identity or cordon differs')
         pods = self.api.call('get', 'pods', '-A', '--field-selector',
                              'spec.nodeName=' + owner['node'], '-o', 'json')['items']
+        batch = getattr(self.api, 'drain_controllers', None)
+        controllers_by_identity = batch() if batch is not None else None
         refs = []
         for pod in pods:
             metadata = pod['metadata']
@@ -74,7 +76,11 @@ class Drain:
             argv = ['get', CONTROLLERS[kind], name(controller['name'])]
             if kind != 'Node':
                 argv += ['-n', namespace]
-            actual = self.api.call(*argv, '-o', 'json')
+            if controllers_by_identity is not None and kind != 'Node':
+                actual = controllers_by_identity.get((kind, namespace, controller['name']))
+                actor.require(actual is not None, 'drain controller absent from fresh inventory')
+            else:
+                actual = self.api.call(*argv, '-o', 'json')
             actor.require(actual['metadata']['uid'] == controller['uid'] and
                           actual.get('kind') == kind and actual.get('apiVersion') == controller['apiVersion'] and
                           not actual['metadata'].get('deletionTimestamp'), 'drain controller identity differs')

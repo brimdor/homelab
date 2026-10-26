@@ -167,6 +167,8 @@ class API:
   return(self.call('get','daemonset','kured','-n','kured','-o','json'),
    self.call('get','pods','-n','kured','-o','json')['items'],self.call('get','nodes','-o','json')['items'])
  def patch(self,operations):return self.call('patch','daemonset','kured','-n','kured','--type=json','--patch',coord.encoded(operations),'-o','json')
+ def drain_controllers(self):
+  return{(v['kind'],v['metadata']['namespace'],v['metadata']['name']):v for v in rpc('drain_controllers')}
 api=API();controller=coord.Ownership(api,expected_ds_uid,node_uids)
 assert controller.resume(owner['owner'])==owner
 hold=actors.Hold(actors.Systemd(),identity,lambda token:controller.resume(token)==owner)
@@ -317,6 +319,12 @@ def run_worker(args, api, owner, public_keys, recovery_manifest):
             try:
                 if request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
+                elif request['rpc'] == 'drain_controllers':
+                    items = api.call('get', 'daemonsets,replicasets,statefulsets,jobs,replicationcontrollers',
+                                     '-A', '-o', 'json')['items']
+                    value = [{'apiVersion': item['apiVersion'], 'kind': item['kind'],
+                              'metadata': {k: item['metadata'].get(k) for k in
+                                           ('namespace', 'name', 'uid', 'deletionTimestamp')}} for item in items]
                 else:
                     argv = request['argv']
                     require(argv[0] in ('get', 'patch', 'create'), 'unreviewed RPC operation')
