@@ -16,6 +16,7 @@ import signal
 import subprocess
 import sys
 
+from fedora_public_key import armor_public_key
 from maintenance_coordination import JOURNAL, Ownership, encoded, require
 from maintenance_api_reader import Reader
 
@@ -262,11 +263,11 @@ else:
   release=str(owner['source']if operation=='source-repositories'else owner['target'])
   directory=root/('fedora-repositories-'+release+'-'+owner['owner']);directory.mkdir(mode=0o700,exist_ok=True)
   for key_release,raw in public_keys.items():
-   key=base64.b64decode(raw);path=directory/('fedora'+key_release+'.gpg')
+   key=base64.b64decode(raw);path=directory/('fedora'+key_release+'.asc')
    if not path.exists():actors.exclusive_file(path,key,0o600)
    assert path.read_bytes()==key;native('rpmkeys','--import',str(path))
   base='https://ftp-stud.hs-esslingen.de/pub/Mirrors/archive.fedoraproject.org/fedora/linux/'if int(release)<43 else 'https://dl.fedoraproject.org/pub/fedora/linux/'
-  keys=' '.join('file://'+str(directory/('fedora'+r+'.gpg'))for r in public_keys)
+  keys=' '.join('file://'+str(directory/('fedora'+r+'.asc'))for r in public_keys)
   content=''
   for name,url in [('fedora','releases/'+release+'/Everything/x86_64/os/'),('updates','updates/'+release+'/Everything/x86_64/')]:
    content+='[maintenance-'+name+']\nname=Issue 103 signed Fedora '+release+' '+name+'\nbaseurl='+base+url+'\nenabled=1\ngpgcheck=1\ngpgkey='+keys+'\n'
@@ -491,7 +492,7 @@ def main():
     remote = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
     require(remote == revision, 'publish reviewed source before production use')
     bundle = {}
-    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader'):
+    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key'):
         relative = 'metal/scripts/' + name + '.py'
         published = subprocess.check_output(['git', 'show', revision + ':' + relative])
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
@@ -544,7 +545,7 @@ def main():
                     fields[2:4] == ['IN', 'OPENPGPKEY'], 'unexpected Fedora public-key DNS answer')
             raw = base64.b64decode(''.join(fields[4:]), validate=True)
             require(hashlib.sha256(raw).hexdigest() == record['sha256'], 'Fedora key fingerprint input changed')
-            public_keys[release] = base64.b64encode(raw).decode()
+            public_keys[release] = base64.b64encode(armor_public_key(raw)).decode()
     print(encoded(run_worker(args, api, owner, public_keys, recovery_manifest, bundle, precheck_proof)))
 
 

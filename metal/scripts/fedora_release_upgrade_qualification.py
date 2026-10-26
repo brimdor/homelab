@@ -19,6 +19,7 @@ import time
 import pycdlib
 import yaml
 
+from fedora_public_key import armor_public_key
 from fedora_target_qualification import Qualification as Target, require_media, require_root
 from fedora_upgrade_repository import RepositoryServer, mirror
 from cephfs_kernel_runtime import CORPUS
@@ -97,20 +98,6 @@ def require_checkpoint_state(current, expected):
             any(current['identity'][key] != expected['identity'][key]
                 for key in ('machine', 'root_uuid', 'architecture', 'kernel'))):
         raise RuntimeError('restored checkpoint package, data or stable identity changed')
-
-
-def armor_public_key(raw):
-    # RPM4's public-key parser requires ASCII armor including its legacy CRC24.
-    crc = 0xB704CE
-    for value in raw:
-        crc ^= value << 16
-        for _ in range(8):
-            crc <<= 1
-            if crc & 0x1000000:
-                crc ^= 0x1864CFB
-    checksum = base64.b64encode((crc & 0xFFFFFF).to_bytes(3, 'big'))
-    return (b'-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n' + base64.encodebytes(raw) +
-            b'=' + checksum + b'\n-----END PGP PUBLIC KEY BLOCK-----\n')
 
 
 class Qualification(Target):
