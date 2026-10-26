@@ -114,7 +114,9 @@ def main():
     require(target['metadata']['uid'] == '83e0e536-e94a-45a1-8dfb-1cedac1e9bd7' and
             not target['spec'].get('unschedulable') and any(c['type'] == 'Ready' and c['status'] == 'True'
             for c in target['status']['conditions']), 'accepted receiver is not ready')
-    ds = get('get', 'daemonset', 'kured', '-n', 'kube-system')
+    ds = get('get', 'daemonset', 'kured', '-n', 'kured')
+    require(ds['metadata']['uid'] == '4abc4fee-c3be-440e-8945-34bb3fb15ce1',
+            'Kured controller identity differs')
     owner = json.loads(ds['metadata']['annotations']['weave.works/kured-node-lock'])
     require(owner['nodeID'] == 'homelab-maintenance-103-6f78a7a1-d165-430e-bde4-b85894582e77',
             'active maintenance owner differs')
