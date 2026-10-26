@@ -161,6 +161,18 @@ class Drain:
                           hops.checksum(value['prerequisites_sha256']), 'invalid eviction intent')
             expected.add(intent_name)
             hashes[intent_name] = hashed(value)
+            dispatch_name = prefix + '.first-dispatch.json'
+            if (self.path / dispatch_name).exists():
+                dispatch = private_json(self.path / dispatch_name)
+                actor.require(set(dispatch) == {'version', 'intent_sha256', 'failure_sha256',
+                                               'resource_version', 'prerequisites_sha256'} and
+                              type(dispatch['version']) is int and dispatch['version'] == 1 and
+                              dispatch['intent_sha256'] == hashed(value) and
+                              hops.checksum(dispatch['failure_sha256']) and
+                              hops.checksum(dispatch['prerequisites_sha256']) and
+                              isinstance(dispatch['resource_version'], str) and dispatch['resource_version'],
+                              'invalid first-dispatch recovery record')
+                expected.add(dispatch_name);hashes[dispatch_name] = hashed(dispatch)
             if not (self.path / observed_name).exists():
                 pending = {'index': index, 'pod': ref, 'intent_sha256': hashed(value)}
                 break
@@ -225,9 +237,10 @@ class Drain:
             record = {'version': 1, 'parent': state['header']['intent']['sha256'], 'index': index,
                       'pod': ref, 'resource_version': pod['metadata']['resourceVersion'],
                       'prerequisites_sha256': prerequisites_sha256}
-            actor.exclusive_file(self.path / (str(index).zfill(8) + '.intent.json'), hops.canonical(record), 0o600)
+            # Complete fallible prechecks before recording the dispatch intent.
             self.journal.owners(idle=True)
-            actor.require(self.inventory() == current, 'drain inventory changed after durable intent')
+            actor.require(self.inventory() == current, 'drain inventory changed before durable intent')
+            actor.exclusive_file(self.path / (str(index).zfill(8) + '.intent.json'), hops.canonical(record), 0o600)
             eviction = {'apiVersion': 'policy/v1', 'kind': 'Eviction',
                         'metadata': {'namespace': ref['namespace'], 'name': ref['name']},
                         'deleteOptions': {'preconditions': {'uid': ref['uid'],
@@ -237,3 +250,37 @@ class Drain:
             actor.require(isinstance(result, dict) and result.get('kind') == 'Status' and
                           result.get('status') == 'Success', 'eviction response uncertain; observe, never replay')
             return {'complete': False, 'queued': ref, 'mutation_performed': True, 'accepted': False}
+
+    def first_dispatch(self, intent_sha256, failure_sha256, prerequisites_sha256,
+                       verify_not_dispatched, verify_prerequisites):
+        """An exact captured pre-dispatch failure permits one first API request."""
+        with self.journal.hold.serialized():
+            state = self.read();pending = state['pending']
+            actor.require(pending and pending['intent_sha256'] == intent_sha256 and
+                          hops.checksum(failure_sha256) and
+                          verify_not_dispatched(pending, failure_sha256) is True,
+                          'definitive pre-dispatch evidence missing; observation only')
+            self.journal.owners(idle=True)
+            actor.require(verify_prerequisites('drain', prerequisites_sha256) is True,
+                          'current drain prerequisites refused')
+            current = self.inventory();ref = pending['pod']
+            expected = [p for p in state['header']['plan']['pods'] if p['uid'] not in state['completed']]
+            actor.require(current['pods'] == expected and self.read() == state,
+                          'reviewed remaining drain inventory changed')
+            pod = self.api.call('get', 'pod', ref['name'], '-n', ref['namespace'], '-o', 'json')
+            actor.require(pod['metadata']['uid'] == ref['uid'] and not pod['metadata'].get('deletionTimestamp') and
+                          hashed(pod['spec']) == ref['spec_sha256'], 'undispatched Pod identity changed')
+            version = pod['metadata']['resourceVersion']
+            record = {'version': 1, 'intent_sha256': intent_sha256, 'failure_sha256': failure_sha256,
+                      'resource_version': version, 'prerequisites_sha256': prerequisites_sha256}
+            # Exclusive creation prevents a second request after any uncertain outcome.
+            actor.exclusive_file(self.path / (str(pending['index']).zfill(8) + '.first-dispatch.json'),
+                                 hops.canonical(record), 0o600)
+            eviction = {'apiVersion': 'policy/v1', 'kind': 'Eviction',
+                        'metadata': {'namespace': ref['namespace'], 'name': ref['name']},
+                        'deleteOptions': {'preconditions': {'uid': ref['uid'], 'resourceVersion': version}}}
+            endpoint = '/api/v1/namespaces/' + ref['namespace'] + '/pods/' + ref['name'] + '/eviction'
+            result = self.api.call('create', '--raw=' + endpoint, '-f', '-', data=hops.canonical(eviction))
+            actor.require(result.get('kind') == 'Status' and result.get('status') == 'Success',
+                          'first eviction dispatch uncertain; observe only')
+            return {'queued': ref, 'first_dispatch': True, 'replayed': False}

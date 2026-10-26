@@ -248,6 +248,13 @@ else:
    def verify_drain(step,digest):
     return step=='drain' and digest==drain.hashed(accepted) and evidence()==value and not worker.read()['pending'] and len(worker.read()['completed'])==len(worker.read()['targets'])
    journal.accept(result['parent_intent']['sha256'],drain.hashed(accepted),verify_drain)
+ elif operation=='resolve-drain-precheck':
+  assert precheck_proof and owner['owner']==precheck_proof['owner'] and state['pending']['step']=='drain'
+  worker=drain.Drain(journal,api);value=evidence()
+  def certain(pending,failure_digest):
+   return pending['intent_sha256']==precheck_proof['intent_sha256'] and pending['pod']['uid']==precheck_proof['pod_uid'] and failure_digest==precheck_proof['failure_sha256']
+  result=worker.first_dispatch(precheck_proof['intent_sha256'],precheck_proof['failure_sha256'],
+   drain.hashed(value),certain,prerequisites(value))
  elif operation in('source-repositories','target-repositories'):
   expected=['cordon','drain']+(['prepare_source']if operation=='target-repositories'else[])
   assert state['completed']==expected and not state['pending']
@@ -415,12 +422,13 @@ def infrastructure(api, applications=False):
     return result
 
 
-def run_worker(args, api, owner, public_keys, recovery_manifest, bundle):
+def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, precheck_proof=None):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     program = ('bundle=' + repr(bundle) + '\nexpected_identity=' + repr(IDENTITY) +
                '\nexpected_ds_uid=' + repr(DS_UID) + '\nowner=' + repr(owner) +
                '\nnode_uids=' + repr({n['metadata']['name']: n['metadata']['uid'] for n in nodes}) +
                '\noperation=' + repr(args.operation) + '\npublic_keys=' + repr(public_keys) +
+               '\nprecheck_proof=' + repr(precheck_proof) +
                '\nrecovery_manifest=' + repr(recovery_manifest) + '\n' + NATIVE)
     bootstrap = 'import json,sys;exec(compile(json.loads(sys.stdin.readline())["program"],"production-controller","exec"))'
     child = subprocess.Popen(ssh(args) + ['python3 -u -c ' + shlex.quote(bootstrap)],
@@ -473,10 +481,11 @@ def main():
                                              'source-repositories', 'target-repositories', 'prepare-source',
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
-                                             'accept-applications', 'release'])
+                                             'accept-applications', 'release', 'resolve-drain-precheck'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
+    parser.add_argument('--failure-receipt')
     args = parser.parse_args()
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     remote = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
@@ -488,6 +497,26 @@ def main():
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
         if name in MODULES:
             bundle[name] = published.decode()
+    precheck_proof = None
+    if args.operation == 'resolve-drain-precheck':
+        require(args.failure_receipt, 'exact captured pre-dispatch failure is required')
+        raw = Path(args.failure_receipt).read_bytes()
+        expected_failure = '1553dfc2b049c0bb7cd6e8a379e691e72555c711581878a2016ece428393c44e'
+        require(hashlib.sha256(raw).hexdigest() == expected_failure, 'pre-dispatch failure receipt differs')
+        failure = json.loads(raw)
+        require(failure['exit'] == 1 and failure['output'] == '' and
+                'maintenance_node_drain.py", line 229, in advance' in failure['error'] and
+                failure['error'].endswith('RuntimeError: native package actor active; never terminate it\n\n'),
+                'failure did not prove the reviewed pre-dispatch exit')
+        original = subprocess.check_output(['git', 'show',
+            '70db7b9e06e699f375cf5fac39e75507c7d0eeee:metal/scripts/maintenance_node_drain.py'], text=True)
+        require(original.splitlines()[228].strip() == 'self.journal.owners(idle=True)' and
+                original.index("result = self.api.call('create'") > original.index('self.journal.owners(idle=True)'),
+                'original failure path does not precede the first eviction request')
+        precheck_proof = {'owner': 'homelab-maintenance-103-c8345d91-1dfe-4e58-8c13-b7c7b7519d54',
+            'pod_uid': 'a9c87317-b6df-414b-8357-454bd5361e49',
+            'intent_sha256': 'c6e261fbd338d54ea9314cf2cabeb650f76af3e1a2be6182127326498768a03b',
+            'failure_sha256': expected_failure}
     recovery_manifest = recovery(args, capture=args.operation == 'backup')
     if args.operation == 'backup':
         print(encoded(recovery_manifest));return
@@ -516,7 +545,7 @@ def main():
             raw = base64.b64decode(''.join(fields[4:]), validate=True)
             require(hashlib.sha256(raw).hexdigest() == record['sha256'], 'Fedora key fingerprint input changed')
             public_keys[release] = base64.b64encode(raw).decode()
-    print(encoded(run_worker(args, api, owner, public_keys, recovery_manifest, bundle)))
+    print(encoded(run_worker(args, api, owner, public_keys, recovery_manifest, bundle, precheck_proof)))
 
 
 if __name__ == '__main__':
