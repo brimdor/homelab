@@ -660,7 +660,8 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
                 if request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
                 elif request['rpc'] == 'ceph_health':
-                    require(args.operation == 'recover-pending-kanidm', 'unreviewed Ceph health caller')
+                    require(args.operation in ('recover-pending-kanidm', 'recover-pending-outline'),
+                            'unreviewed Ceph health caller')
                     value = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'health', '-f', 'json')
                 elif request['rpc'] in ('infrastructure', 'applications'):
                     value = infrastructure(api, applications=request['rpc'] == 'applications')
