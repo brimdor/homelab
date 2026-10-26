@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 RECOVERY = 'maintenance-empty-jobs-103-20261026-a'
@@ -19,6 +20,12 @@ TARGETS = {
 REPLACEMENTS = {
     'pointview': ('a0ed3137-4411-47d2-9f93-530a5d71ab76', 'e114bd64-7dd3-4dd9-aeb3-8111859d4e9b'),
     'pointview-canary': ('d453c83e-556c-476c-84db-301919125895', '4ab1258b-fccf-4507-8cc8-aa8f44fcd798'),
+}
+CLEANUP = {
+    ('pointview-canary', 'triage'): ('f5c8752d-d7aa-4836-95f0-cb376099e24c', 'ef1f8437-62a1-48d4-bef9-0dd8d0f0c9f7'),
+    ('pointview-canary', 'retention'): ('da0d9e27-4d9b-44a3-8a7c-bccdda1b4b68', 'e670cb20-dbff-4556-b49a-d917efdf6600'),
+    ('pointview', 'triage'): ('21befabe-500f-4e2e-a75c-911bed350071', 'f16e72d0-a839-4b4e-8f12-a604736c455f'),
+    ('pointview', 'retention'): ('eb56e576-7117-4180-afce-9202cb4e0dc8', '787e207c-0305-4ccb-b1b8-e5e2639e5d73'),
 }
 
 
@@ -74,10 +81,83 @@ def replacement(job, pods, namespace, event):
             'Original commands did not prove safe successful execution')
 
 
+def cleanup_proof(job, pods, cron, namespace, task, event):
+    job_uid, pod_uid = CLEANUP[(namespace, task)]
+    require(job['metadata']['uid'] == job_uid and not job['metadata'].get('deletionTimestamp')
+            and not job['status'].get('active') and not job['status'].get('failed')
+            and job['status'].get('succeeded') == 1 and job['status'].get('completionTime')
+            and any(c['type'] == 'Complete' and c['status'] == 'True' for c in job['status']['conditions']),
+            'Completed recovery Job identity/status changed')
+    owner = job['metadata']['ownerReferences']
+    require(len(owner) == 1 and owner[0]['controller'] is True and owner[0]['kind'] == 'CronJob'
+            and owner[0]['name'] == namespace + '-' + task and owner[0]['uid'] == cron['metadata']['uid'],
+            'Native CronJob owner changed')
+    require(not cron['status'].get('active') and cron['status']['lastSuccessfulTime'] >= job['status']['completionTime']
+            and cron['status']['lastSuccessfulTime'] > cron['status']['lastScheduleTime'], 'CronJob recovery not proven')
+    require(len(pods) == 1, 'Completed recovery Pod is ambiguous')
+    pod = pods[0]
+    require(pod['metadata']['uid'] == pod_uid and not pod['metadata'].get('deletionTimestamp')
+            and pod['status']['phase'] == 'Succeeded' and pod['spec']['restartPolicy'] == 'Never'
+            and not pod['spec'].get('initContainers'), 'Completed recovery Pod identity/status changed')
+    owner = pod['metadata']['ownerReferences']
+    require(len(owner) == 1 and owner[0]['uid'] == job_uid and owner[0]['controller'] is True,
+            'Completed recovery Pod owner changed')
+    containers = pod['status']['containerStatuses']
+    require(len(containers) == 1 and containers[0]['restartCount'] == 0
+            and containers[0]['state']['terminated']['exitCode'] == 0
+            and containers[0]['imageID'].endswith('@' + DIGEST), 'Original successful image execution missing')
+    require(event['event'] == 'maintenance.empty-jobs.completed'
+            and event['retention' if task == 'triage' else 'triage'] is None, 'Recovery task result changed')
+    result = event[task]
+    require(result['event'] == task + '.completed', 'Original task completion missing')
+    if task == 'triage':
+        require(result['completed'] == result['needsAttention'] == 0 and result['stopReason'] == 'QUEUE_EMPTY',
+                'Triage did not prove empty successful execution')
+    else:
+        require(all(result[k] == 0 for k in ('selected', 'deleted', 'failed', 'deletedBytes')),
+                'Retention did not prove empty successful execution')
+
+
+def cleanup_recovery(base, get, head, apply):
+    results = []
+    for namespace, task in CLEANUP:
+        require('maintenanceEmptyJobs:\n  enabled: false' in run(
+            ['git', 'show', head + ':apps/' + namespace + '/values.yaml']), 'Recovery still desired in published source')
+        app = get('applications.argoproj.io', 'argocd', namespace)
+        require(app['status']['sync']['status'] == 'Synced' and app['status']['sync']['revision'] == head
+                and app['status']['health']['status'] == 'Healthy', 'Application not reconciled and healthy')
+        name = 'maintenance-103-' + task + '-20261026-b'
+        job = get('job', namespace, name)
+        if job is None:
+            results.append({'namespace': namespace, 'name': name, 'already_absent': True})
+            continue
+        pods = get('pods', namespace, selector='job-name=' + name)['items']
+        cron = get('cronjob', namespace, namespace + '-' + task)
+        lines = run(base + ['logs', '-n', namespace, 'job/' + name, '-c', 'recovery']).splitlines()
+        require(len(lines) == 1, 'Completed recovery result is ambiguous')
+        cleanup_proof(job, pods, cron, namespace, task, json.loads(lines[0]))
+        require(get('job', namespace, name) == job, 'Completed recovery Job changed before deletion')
+        if apply:
+            options = {'apiVersion': 'v1', 'kind': 'DeleteOptions', 'propagationPolicy': 'Foreground',
+                       'preconditions': {'uid': job['metadata']['uid'], 'resourceVersion': job['metadata']['resourceVersion']}}
+            run(base + ['delete', '--raw', '/apis/batch/v1/namespaces/' + namespace + '/jobs/' + name, '-f', '-'], json.dumps(options))
+            # Observe this single dispatch to completion; never replay a pending delete.
+            while get('job', namespace, name) is not None:
+                time.sleep(2)
+            require(not get('pods', namespace, selector='job-name=' + name)['items'], 'Completed recovery Pod remains')
+            current = get('cronjob', namespace, namespace + '-' + task)
+            require(current['metadata']['uid'] == cron['metadata']['uid'] and current['spec'] == cron['spec']
+                    and current['status']['lastSuccessfulTime'] == cron['status']['lastSuccessfulTime'],
+                    'Original CronJob changed after completed history cleanup')
+        results.append({'namespace': namespace, 'name': name, 'uid': job['metadata']['uid'], 'applied': apply})
+    return {'source': head, 'results': results, 'scope': 'four completed recovery Jobs and their Pods only'}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--cleanup-recovery', action='store_true')
     args = parser.parse_args()
     require(ROOT == Path('/Users/chris/Documents/Github/homelab'), 'Canonical checkout required')
     require(run(['git', 'branch', '--show-current']).strip() == 'master'
@@ -109,6 +189,10 @@ def main():
             argv += ['-l', selector]
         raw = run(argv + ['-o', 'json'])
         return json.loads(raw) if raw.strip() else None
+
+    if args.cleanup_recovery:
+        print(json.dumps(cleanup_recovery(base, get, head, args.apply)))
+        return
 
     def verify_recovery(namespace):
         job = get('job', namespace, RECOVERY)
