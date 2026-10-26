@@ -17,6 +17,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/library/busybox
             tag: latest
+            digest: sha256:39773805de69ccb43c90319d34430273dc43d4bb1b3617b39bbba628ef15165b
             pullPolicy: IfNotPresent
           command:
             - /bin/sh
