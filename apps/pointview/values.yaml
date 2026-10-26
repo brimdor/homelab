@@ -161,11 +161,16 @@ app-template:
         backoffLimit: 0
         activeDeadlineSeconds: 21600
       pod:
+        # Original image is protected in Growlithe's native cache while NAS registry writes remain forbidden.
+        nodeSelector:
+          kubernetes.io/hostname: growlithe
         restartPolicy: Never
         securityContext: *pointview-pod-security
       containers:
         triage:
-          image: *pointview-image
+          image:
+            <<: *pointview-image
+            pullPolicy: IfNotPresent
           args: [triage]
           env: *pointview-env
           resources:
@@ -185,11 +190,16 @@ app-template:
         backoffLimit: 1
         activeDeadlineSeconds: 3600
       pod:
+        # Original image is protected in Growlithe's native cache while NAS registry writes remain forbidden.
+        nodeSelector:
+          kubernetes.io/hostname: growlithe
         restartPolicy: Never
         securityContext: *pointview-pod-security
       containers:
         retention:
-          image: *pointview-image
+          image:
+            <<: *pointview-image
+            pullPolicy: IfNotPresent
           args: [retention]
           env: *pointview-env
           resources:
