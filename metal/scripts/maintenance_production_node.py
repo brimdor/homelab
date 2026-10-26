@@ -144,7 +144,7 @@ print(json.dumps(value))
 
 
 NATIVE = r'''
-import fcntl,hashlib,json,os,pathlib,socket,subprocess,sys,types
+import base64,fcntl,hashlib,json,os,pathlib,socket,subprocess,sys,types
 for module_name,source in bundle.items():
  module=types.ModuleType(module_name);sys.modules[module_name]=module
  exec(compile(source,module_name+'.py','exec'),module.__dict__)
