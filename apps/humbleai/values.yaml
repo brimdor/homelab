@@ -1,6 +1,9 @@
 app-template:
   controllers:
     main:
+      # Replace this Deployment to remove legacy rollingUpdate fields when applying Recreate.
+      annotations:
+        argocd.argoproj.io/sync-options: Replace=true
       pod:
         nodeSelector:
           kubernetes.io/hostname: pikachu
