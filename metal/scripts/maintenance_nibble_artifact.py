@@ -8,7 +8,7 @@ import shlex
 import subprocess
 
 from maintenance_coordination import require
-from maintenance_production_node import ssh
+from maintenance_production_node import remote, ssh
 
 
 DIGEST = 'sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d46'
@@ -89,12 +89,51 @@ for path in (root,images):
 print(json.dumps(record))
 '''
 
+REGISTER_PROGRAM = '''
+import hashlib,json,os,pathlib,socket,subprocess
+assert os.geteuid()==0 and socket.gethostname()=='totodile'
+assert pathlib.Path('/etc/machine-id').read_text().strip()=='0f1915a59a124d999d8d68b53f406af1'
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='489f1af8-5d55-4356-8d48-418fcb2069a2'
+root=pathlib.Path(RECOVERY)
+assert not any(p.is_symlink()for p in(root,*root.parents))
+record=json.loads((root/'verified.json').read_bytes());archive=root/'image.tar'
+assert record['digest']==DIGEST and record['image']==IMAGE and archive.stat().st_size==record['archive_bytes']
+with archive.open('rb')as source:assert hashlib.file_digest(source,'sha256').hexdigest()==record['archive_sha256']
+native=pathlib.Path(record['native_import']);assert native.samefile(archive)
+prefix=['/usr/local/bin/k3s','ctr','-n','k8s.io','images']
+alias='10.0.20.11:32309/nibble@'+DIGEST
+def rows(reference):
+ return subprocess.check_output(prefix+['list','name=='+reference],text=True).splitlines()[1:]
+def exact(reference):
+ matches=rows(reference)
+ assert len(matches)==1 and matches[0].split()[0]==reference and matches[0].split()[2]==DIGEST
+ return matches[0]
+assert 'io.cri-containerd.pinned=pinned'in exact(IMAGE)
+intent=root/'digest-registration.json'
+if intent.exists():
+ assert json.loads(intent.read_bytes())=={'image':IMAGE,'digest':DIGEST,'alias':alias,'archive_sha256':record['archive_sha256']}
+ exact(alias)
+ print(json.dumps({'alias':alias,'already_observed':True,'mutation_performed':False}))
+else:
+ assert not rows(alias),'foreign digest registration; inspect before changing'
+ with intent.open('x')as output:
+  os.fchmod(output.fileno(),0o600)
+  json.dump({'image':IMAGE,'digest':DIGEST,'alias':alias,'archive_sha256':record['archive_sha256']},output)
+  output.flush();os.fsync(output.fileno())
+ directory=os.open(root,os.O_RDONLY|os.O_DIRECTORY);os.fsync(directory);os.close(directory)
+ # Native Create preserves the exact descriptor and labels; never use --force.
+ subprocess.run(prefix+['tag','--local',IMAGE,alias],check=True,stdout=subprocess.PIPE)
+ assert 'io.cri-containerd.pinned=pinned'in exact(alias)
+ print(json.dumps({'alias':alias,'registration_accepted':True,'mutation_performed':True}))
+'''
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
     parser.add_argument('--kubectl', required=True)
+    parser.add_argument('--register-digest', action='store_true')
     args = parser.parse_args()
     require(Path.cwd() == Path('/Users/chris/Documents/Github/homelab'), 'canonical checkout required')
     require(subprocess.check_output(['git', 'branch', '--show-current'], text=True).strip() == 'master',
@@ -125,6 +164,9 @@ def main():
         'deploy/rook-ceph-tools', '--', 'ceph', 'health', '-f', 'json']))
     require(ceph['status'] == 'HEALTH_OK', 'Ceph not HEALTH_OK')
     bindings = 'IMAGE=' + repr(IMAGE) + '\nDIGEST=' + repr(DIGEST) + '\nRECOVERY=' + repr(RECOVERY) + '\n'
+    if args.register_digest:
+        print(json.dumps(remote(args, bindings + REGISTER_PROGRAM, TARGET)))
+        return
     source = subprocess.Popen(ssh(args, SOURCE) + ['python3 -B -c ' +
         shlex.quote(bindings + SOURCE_PROGRAM)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
