@@ -3,12 +3,17 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
+      pod:
+        # Exact recovered OCI archive is retained on this accepted node until registry repair.
+        nodeSelector:
+          kubernetes.io/hostname: totodile
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/nibble
             tag: "issue-26-prod"
-            pullPolicy: Always
+            digest: sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d46
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:
