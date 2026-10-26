@@ -179,7 +179,18 @@ root=hold.state
 def evidence():return rpc('prerequisites')
 def prerequisites(value):
  return lambda step,digest:evidence()==value and digest==drain.hashed(value)
-if operation=='initialize':
+if operation=='release':
+ release=sys.modules['maintenance_safe_release'].Release(hops.Journal(controller,hold,owner['owner']))
+ value=rpc('applications');digest=drain.hashed(value)
+ def safe_release(header,observed_digest):
+  return observed_digest==digest and rpc('applications')==value and identity()==header['owners']['host']['identity']
+ if not release.path.exists():release.prepare(digest,safe_release)
+ status=release.observe(digest,safe_release)
+ if status['state']['kinds']==['header']:status=release.release_host(digest,safe_release)
+ if status['state']['kinds']==list(sys.modules['maintenance_safe_release'].KINDS[:3]):
+  status=release.release_global(digest,safe_release)
+ print(json.dumps({'result':status}),flush=True)
+elif operation=='initialize':
  if hold.marker.exists():hold.resume(owner['owner'])
  else:hold.acquire(owner['owner'],expected_identity,owner['revision'])
  recovery_path=root/'production-recovery.json'
@@ -194,14 +205,36 @@ else:
   result={'owner':owner,'journal':state,'identity':identity(),'release':native('rpm','-E','%fedora'),
    'boot':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
    'kernel':native('uname','-r')}
- elif operation=='cordon':
-  path=root/('cordon-'+owner['owner']+'.json');worker=scheduling.Scheduling(journal,api)
+ elif operation in('cordon','restore-scheduling'):
+  step=operation.replace('-','_')
+  path=root/(step+'-'+owner['owner']+'.json');worker=scheduling.Scheduling(journal,api)
   value=evidence();verify=prerequisites(value);digest=drain.hashed(value)
-  if not path.exists():actors.exclusive_file(path,hops.canonical(worker.plan('cordon')),0o600)
+  original=json.loads((root/('cordon-'+owner['owner']+'.json')).read_bytes())if step=='restore_scheduling'else None
+  if not path.exists():actors.exclusive_file(path,hops.canonical(worker.plan(step,original)),0o600)
   plan=json.loads(path.read_bytes())
   if not state['pending']:
-   assert not state['completed'];worker.dispatch(plan,drain.hashed(plan),digest,verify)
+   assert step==hops.STEPS[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
   result=worker.observe(plan,digest,verify)
+ elif operation in('trusted-reconnect','verify-infrastructure','accept-applications'):
+  step=operation.replace('-','_')
+  before=json.loads((root/('before-offline-'+owner['owner']+'.json')).read_bytes())
+  boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+  kernel=native('uname','-r')
+  assert identity()==before['identity'] and boot!=before['boot']
+  assert native('rpm','-E','%fedora')==str(owner['target'])and '.fc'+str(owner['target'])+'.'in kernel
+  value={'identity':identity(),'boot':boot,'kernel':kernel,'release':owner['target']}
+  if step!='trusted_reconnect':
+   assert not native('systemctl','--failed','--no-legend','--plain'),'failed native units remain'
+   value['runtime']=rpc('applications'if step=='accept_applications'else'infrastructure')
+  else:value['prerequisites']=evidence()
+  digest=drain.hashed(value)
+  def verified_observation(step_name,observed_digest):
+   if step_name!=step or observed_digest!=digest or identity()!=value['identity']:return False
+   if step=='trusted_reconnect':return evidence()==value['prerequisites']
+   return rpc('applications'if step=='accept_applications'else'infrastructure')==value['runtime']
+  if state['pending'] is None:state=journal.begin(step,digest,digest,verified_observation)
+  assert state['pending']['step']==step
+  result={'receipt':value,'journal':journal.accept(state['pending']['sha256'],digest,verified_observation)}
  elif operation=='drain':
   worker=drain.Drain(journal,api);path=root/('drain-'+owner['owner']+'.json')
   value=evidence();verify=prerequisites(value);digest=drain.hashed(value)
@@ -220,7 +253,7 @@ else:
   assert state['completed']==expected and not state['pending']
   hold.systemd.idle(hold.marker);assert native('rpm','-E','%fedora')==str(owner['source'])
   release=str(owner['source']if operation=='source-repositories'else owner['target'])
-  directory=root/('fedora-repositories-'+release);directory.mkdir(mode=0o700,exist_ok=True)
+  directory=root/('fedora-repositories-'+release+'-'+owner['owner']);directory.mkdir(mode=0o700,exist_ok=True)
   for key_release,raw in public_keys.items():
    key=base64.b64decode(raw);path=directory/('fedora'+key_release+'.gpg')
    if not path.exists():actors.exclusive_file(path,key,0o600)
@@ -243,7 +276,7 @@ else:
   assert not pathlib.Path('/system-update').exists()and not pathlib.Path('/system-update').is_symlink()
   kernel=native('uname','-r');assert '.fc'+str(owner['target'])+'.'in kernel
   assert native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}','kernel-core-'+kernel)==kernel
-  native('/usr/bin/dnf5','--setopt=reposdir='+str(root/('fedora-repositories-'+str(owner['target']))),'check')
+  native('/usr/bin/dnf5','--setopt=reposdir='+str(root/('fedora-repositories-'+str(owner['target'])+'-'+owner['owner'])),'check')
   native('rpm','-V','fedora-release-common')
   value=evidence();receipt={'before':before,'boot':boot,'kernel':kernel,'release':owner['target'],'identity':identity(),'prerequisites':value}
   def verified(step,digest):return step=='offline_transaction' and digest==drain.hashed(receipt) and evidence()==value and identity()==before['identity']
@@ -287,7 +320,7 @@ else:
   expected=['cordon','drain']+(['prepare_source']if step!='prepare_source'else[])+(['download_release']if step=='offline_transaction'else[])
   assert state['completed']==expected and not state['pending']
   release=owner['source']if step=='prepare_source'else owner['target']
-  directory=root/('fedora-repositories-'+str(release));assert(directory/'maintenance.repo').is_file()
+  directory=root/('fedora-repositories-'+str(release)+'-'+owner['owner']);assert(directory/'maintenance.repo').is_file()
   command=packages.command(owner,step);position=command.index('/usr/bin/dnf'if owner['source']==39 else '/usr/bin/dnf5')
   command[position+1:position+1]=['--setopt=reposdir='+str(directory),'--setopt=gpgcheck=True','--setopt=localpkg_gpgcheck=True']
   if owner['source']==39 and step=='prepare_source':
@@ -341,6 +374,47 @@ def prerequisites(api):
             'ceph': health['status'], 'controllers_ready_except_target_observers': True}
 
 
+def infrastructure(api, applications=False):
+    result = prerequisites(api)
+    pods = api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + NODE, '-o', 'json')['items']
+    cilium = []
+    csi = []
+    for pod in pods:
+        meta, status = pod['metadata'], pod.get('status', {})
+        require(not meta.get('deletionTimestamp') and status.get('phase') == 'Running' and
+                any(c['type'] == 'Ready' and c['status'] == 'True' for c in status.get('conditions', [])) and
+                all(c.get('ready') for c in status.get('containerStatuses', [])) and
+                len(status.get('containerStatuses', [])) == len(pod['spec']['containers']),
+                'target node Pod is not ready: ' + meta['namespace'] + '/' + meta['name'])
+        if meta['namespace'] == 'kube-system' and meta.get('labels', {}).get('k8s-app') == 'cilium':
+            cilium.append(pod)
+        if meta['namespace'] == 'rook-ceph' and meta['name'].startswith(('csi-rbdplugin-', 'csi-cephfsplugin-')):
+            csi.append(meta['uid'])
+    require(len(cilium) == 1 and len(csi) == 2, 'target Cilium or both CSI node plugins absent')
+    status = api.call('exec', '-n', 'kube-system', cilium[0]['metadata']['name'], '-c', 'cilium-agent',
+                      '--', 'cilium-dbg', 'status', '--output', 'json')
+    require(status['cilium']['state'] == 'Ok' and status['kubernetes']['state'] == 'Ok',
+            'target Cilium runtime or Kubernetes connectivity is not healthy')
+    result.update(cilium_uid=cilium[0]['metadata']['uid'], csi_uids=sorted(csi), target_pods_ready=True)
+    if applications:
+        node = api.call('get', 'node', NODE, '-o', 'json')
+        require(not node['spec'].get('unschedulable', False), 'target node remains cordoned')
+        for kind in ('deployments', 'statefulsets'):
+            for item in api.call('get', kind, '-A', '-o', 'json')['items']:
+                desired = item['spec'].get('replicas', 1)
+                observed = item.get('status', {})
+                require(observed.get('observedGeneration') == item['metadata']['generation'] and
+                        observed.get('readyReplicas', 0) == desired and
+                        observed.get('updatedReplicas', 0) == desired,
+                        'controller recovery incomplete: ' + item['metadata']['namespace'] + '/' + item['metadata']['name'])
+        apps = api.call('get', 'applications', '-n', 'argocd', '-o', 'json')['items']
+        require(apps and all(a.get('status', {}).get('sync', {}).get('status') == 'Synced' and
+                            a['status'].get('health', {}).get('status') == 'Healthy' for a in apps),
+                'Argo application recovery incomplete')
+        result['applications_synced_healthy'] = sorted(a['metadata']['name'] for a in apps)
+    return result
+
+
 def run_worker(args, api, owner, public_keys, recovery_manifest, bundle):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     program = ('bundle=' + repr(bundle) + '\nexpected_identity=' + repr(IDENTITY) +
@@ -361,6 +435,8 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle):
             try:
                 if request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
+                elif request['rpc'] in ('infrastructure', 'applications'):
+                    value = infrastructure(api, applications=request['rpc'] == 'applications')
                 elif request['rpc'] == 'drain_controllers':
                     items = api.call('get', 'daemonsets,replicasets,statefulsets,jobs,replicationcontrollers',
                                      '-A', '-o', 'json')['items']
@@ -395,7 +471,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'target-repositories', 'prepare-source',
-                                             'download-release', 'offline-transaction', 'observe-offline'])
+                                             'download-release', 'offline-transaction', 'observe-offline',
+                                             'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
+                                             'accept-applications', 'release'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -423,11 +501,13 @@ def main():
     else:
         require(args.operation == 'initialize', 'initialize production ownership first')
         prerequisites(api)
-        owner = controller.acquire(NODE, 39, 41, revision)
+        source = remote(args, "import json,subprocess;print(json.dumps(int(subprocess.check_output(['rpm','-E','%fedora']))))")
+        require(source in (39, 41, 43), 'unreviewed production source release')
+        owner = controller.acquire(NODE, source, {39: 41, 41: 43, 43: 44}[source], revision)
     public_keys = {}
     if args.operation in ('source-repositories', 'target-repositories'):
         records = json.loads(Path('metal/maintenance/fedora-upgrade-inputs.json').read_text())['keys']
-        for release in ('39', '41'):
+        for release in (str(owner['source']), str(owner['target'])):
             record = records[release]
             answer = subprocess.check_output(['dig', '+noall', '+answer', record['dns'], 'OPENPGPKEY'], text=True)
             fields = answer.split()
