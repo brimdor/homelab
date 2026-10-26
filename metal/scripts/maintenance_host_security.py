@@ -158,6 +158,7 @@ def relabel(journal, native, identity, recovery):
             '/etc/fstab': {
                 'totodile': 'b03fa47b7c80bdf71de0b1ff8201da20e194af73d23f6fa74c5c13fc82ad374f',
                 'pikachu': 'bfcac7e9a8b978a3489b67b3814f0c8c97afa31a2b6c722cbbf0a6c18fee9f4a',
+                'squirtle': '815421a44967bad88f2a26d5707496c132477f2babf7237b439e3a969255d459',
             }[journal.owners()['global']['node']],
         }
         for name, digest in expected.items():
@@ -178,7 +179,10 @@ def relabel(journal, native, identity, recovery):
         for path in (config, k3s, exclude, guard):
             hold.safe(path)
         assert hashlib.sha256(config.read_bytes()).hexdigest() == '8f7613640d263143e3563c8f1a919358712cc368ad854e6edca3bd75487e9b13'
-        assert hashlib.sha256(k3s.read_bytes()).hexdigest() == 'bc77fad02ca8d4251895857d3f04cb4bd510ca6b8074febebc9310fa51d713e8'
+        expected_k3s = ('baff07e0022153096c784bb3e581ad5ff84f804521ee7cd3701cdfcb539456b4'
+                        if journal.owners()['global']['node'] == 'squirtle' else
+                        'bc77fad02ca8d4251895857d3f04cb4bd510ca6b8074febebc9310fa51d713e8')
+        assert hashlib.sha256(k3s.read_bytes()).hexdigest() == expected_k3s
         assert not exclude.exists() and not guard.exists(), 'unreviewed existing relabel exclusions or guard'
         record = {'owner': token, 'identity': identity(), 'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
                   'recovery_sha256': recovery['sha256'], 'native_contract': expected,

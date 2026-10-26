@@ -8,6 +8,7 @@ from pathlib import Path
 CLIENT = '/var/lib/homelab-recovery/maintenance-103/tools/etcd-v3.5.21/etcdctl'
 ARCHIVE_URL = 'https://github.com/etcd-io/etcd/releases/download/v3.5.21/etcd-v3.5.21-linux-amd64.tar.gz'
 ARCHIVE_SHA256 = 'adddda4b06718e68671ffabff2f8cee48488ba61ad82900e639d108f2148501c'
+BINARY_SHA256 = 'a3599fe339c6c1c9f67263565055ba7b84ac9198c9aea7abf9175a476ae2ca22'
 IDENTITY = '90c7f1d7caea486d9dc9bdbb4ec5ae21'
 
 INSTALL = r'''
@@ -36,9 +37,10 @@ print(json.dumps({'installed':str(path),'archive_sha256':ARCHIVE_SHA256,'binary_
 '''
 
 OBSERVE = r'''
-import json,os,pathlib,socket,subprocess,urllib.request
+import hashlib,json,os,pathlib,socket,subprocess,urllib.request
 assert os.geteuid()==0 and socket.gethostname()=='squirtle'
 assert pathlib.Path('/etc/machine-id').read_text().strip()==IDENTITY
+assert hashlib.sha256(pathlib.Path(CLIENT).read_bytes()).hexdigest()==BINARY_SHA256,'etcd client changed'
 tls='/var/lib/rancher/k3s/server/tls/etcd/'
 argv=[CLIENT,'--endpoints=https://10.0.20.11:2379,https://10.0.20.12:2379,https://10.0.20.13:2379',
  '--cacert='+tls+'server-ca.crt','--cert='+tls+'client.crt','--key='+tls+'client.key',
@@ -55,6 +57,11 @@ assert {m['peerURLs'][0]for m in members['members']}=={u.replace(':2379',':2380'
 assert len(status)==len(health)==3 and {v['Endpoint']for v in status}==expected
 assert all(v['health']is True for v in health)and not alarms.get('alarms')
 assert len({v['Status']['header']['cluster_id']for v in status})==1
+assert status[0]['Status']['header']['cluster_id']==10496245635645811339
+assert {m['clientURLs'][0]:m['ID']for m in members['members']}=={
+ 'https://10.0.20.11:2379':11787375536453005064,
+ 'https://10.0.20.12:2379':16426130908996892198,
+ 'https://10.0.20.13:2379':480346530818056711}
 assert len({v['Status']['leader']for v in status})==1 and status[0]['Status']['leader']in{m['ID']for m in members['members']}
 assert {v['Status']['header']['member_id']for v in status}=={m['ID']for m in members['members']}
 assert all(v['Status']['version']=='3.5.21'and not v['Status'].get('errors')for v in status)
@@ -64,7 +71,8 @@ print(json.dumps({'members':members,'status':status,'health':health,'alarms':ala
 
 def program(source):
     return ('CLIENT=' + repr(CLIENT) + '\nIDENTITY=' + repr(IDENTITY) +
-            '\nARCHIVE_URL=' + repr(ARCHIVE_URL) + '\nARCHIVE_SHA256=' + repr(ARCHIVE_SHA256) + '\n' + source)
+            '\nARCHIVE_URL=' + repr(ARCHIVE_URL) + '\nARCHIVE_SHA256=' + repr(ARCHIVE_SHA256) +
+            '\nBINARY_SHA256=' + repr(BINARY_SHA256) + '\n' + source)
 
 
 def observe(args):

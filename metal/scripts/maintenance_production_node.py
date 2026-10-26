@@ -41,11 +41,20 @@ MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_ho
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release',
            'maintenance_host_security')
 ACTIVE_READER = None
+ACTIVE_ARGS = None
 
 
 def select_node(node):
     global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if node == 'totodile':
+        return
+    if node == 'squirtle':
+        NODE, ADDRESS, UID, MAC = ('squirtle', '10.0.20.12',
+            '10951ffe-dd31-4c38-b854-67f3a011458c', '00:23:24:e2:1f:a1')
+        IDENTITY = {'machine': '90c7f1d7caea486d9dc9bdbb4ec5ae21',
+                    'root_uuid': 'eea5afa0-dbb6-43f5-abe6-f1be801fb03a'}
+        BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/squirtle-fedora' +
+                   str(release) + '-config-20261026-a' for release in (39, 41, 43, 44)}
         return
     require(node == 'pikachu', 'worker profile is not reviewed')
     RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY = NODE, ADDRESS, dict(IDENTITY)
@@ -76,6 +85,10 @@ def remote(args, program, address=None):
 def recovery(args, source, capture=False):
     require(source in BACKUPS, 'unreviewed recovery source release')
     backup = BACKUPS[source]
+    control_plane = None
+    if NODE == 'squirtle':
+        from maintenance_control_plane import recovery as control_plane_recovery
+        control_plane = control_plane_recovery(args, source, capture)
     receiver_name, receiver_address, receiver_identity = RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if NODE == 'pikachu' and source in (43, 44):
         receiver_name, receiver_address = 'growlithe', '10.0.20.18'
@@ -103,6 +116,9 @@ else:
     if existing is not None:
         require(existing['identity'] == IDENTITY and existing['node_uid'] == UID and
                 existing.get('source_release', 39) == source, 'recovery identity or source changed')
+        if control_plane is not None:
+            require(existing.get('control_plane_recovery') == control_plane,
+                    'configuration archive is not bound to the protected consistent etcd snapshot')
         return existing
     require(capture, 'capture protected target configuration before production ownership')
     source_program = """
@@ -114,16 +130,23 @@ assert int(subprocess.check_output(['rpm','-E','%%fedora']))==%r
 assert %r in{p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
 pid=subprocess.check_output(['systemctl','show','k3s','-p','MainPID','--value'],text=True).strip()
 argv=(pathlib.Path('/proc')/pid/'cmdline').read_bytes().split(bytes([0]))
-assert argv[0]in(b'k3s agent',b'k3s-agent',b'/usr/local/bin/k3s agent') or len(argv)>1 and argv[1]==b'agent'
 etcd=pathlib.Path('/var/lib/rancher/k3s/server/db/etcd')
-assert not etcd.exists() or {p.name for p in etcd.iterdir()}<={'name'}
 listeners=subprocess.check_output(['ss','-H','-lnt'],text=True)
-assert not any(':2379'in line or ':2380'in line for line in listeners.splitlines())
+if %r:
+ assert argv[0]in(b'k3s server',b'k3s-server',b'/usr/local/bin/k3s server')or len(argv)>1 and argv[1]==b'server'
+ assert etcd.is_dir()and any(':2379'in line for line in listeners.splitlines())
+else:
+ assert argv[0]in(b'k3s agent',b'k3s-agent',b'/usr/local/bin/k3s agent')or len(argv)>1 and argv[1]==b'agent'
+ assert not etcd.exists()or {p.name for p in etcd.iterdir()}<={'name'}
+ assert not any(':2379'in line or ':2380'in line for line in listeners.splitlines())
 command=['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-system',
  '--exclude=var/lib/rancher/k3s/agent/containerd','--exclude=var/lib/rancher/k3s/agent/images',
  '-C','/','-cf','-','etc','boot','boot/efi','usr/local/bin/k3s','var/lib/rancher/k3s/agent','var/lib/rancher/k3s/server']
+if %r:
+ command.insert(1,'--exclude=var/lib/rancher/k3s/server/db')
+ command.append('var/lib/homelab-recovery/maintenance-103')
 sys.exit(subprocess.run(command).returncode)
-""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC)
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE == 'squirtle', NODE == 'squirtle')
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
@@ -166,6 +189,9 @@ print(json.dumps({'sha256':digest.hexdigest(),'bytes':size}))
                 producer.stderr.read().decode()[-700:] + receiver_error.decode()[-700:])
         manifest = json.loads(output)
         manifest.update(identity=IDENTITY, node_uid=UID, node=NODE, source_release=source, recovery_scope='configuration-boot-worker-identity')
+        if control_plane is not None:
+            manifest.update(control_plane_recovery=control_plane,
+                            recovery_scope='configuration-boot-server-identity-retained-material-with-separate-consistent-etcd')
         finalize = """
 import hashlib,json,os,pathlib
 root=pathlib.Path(%r);value=%r;partial=root/'node-config.partial';digest=hashlib.sha256()
@@ -559,8 +585,15 @@ def prerequisites(api):
                 exceptions.append(meta['uid'])
                 continue
             raise RuntimeError('controller unready: ' + meta['namespace'] + '/' + meta['name'])
-    return {'node_uids': {n['metadata']['name']: n['metadata']['uid'] for n in nodes},
-            'ceph': health['status'], 'controllers_ready_except_target_observers': True}
+    result = {'node_uids': {n['metadata']['name']: n['metadata']['uid'] for n in nodes},
+              'ceph': health['status'], 'controllers_ready_except_target_observers': True}
+    if NODE == 'squirtle':
+        from maintenance_control_plane import observe
+        quorum = observe(ACTIVE_ARGS)
+        result['etcd'] = {'members': sorted(m['ID'] for m in quorum['members']['members']),
+                          'cluster_id': quorum['status'][0]['Status']['header']['cluster_id'],
+                          'leader': quorum['status'][0]['Status']['leader']}
+    return result
 
 
 def completed_job_pod(api, pod):
@@ -778,7 +811,7 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
 
 
 def main():
-    global ACTIVE_READER
+    global ACTIVE_READER, ACTIVE_ARGS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['backup', 'security-backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'target-repositories', 'prepare-source',
@@ -786,18 +819,19 @@ def main():
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'repair-offline-repositories', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
-    parser.add_argument('--node', choices=('totodile', 'pikachu'), default='totodile')
+    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
     parser.add_argument('--failure-receipt')
     args = parser.parse_args()
+    ACTIVE_ARGS = args
     select_node(args.node)
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     published_tip = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
     require(published_tip == revision, 'publish reviewed source before production use')
     bundle = {}
-    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key', 'maintenance_receiver_protection'):
+    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key', 'maintenance_receiver_protection', 'maintenance_control_plane', 'etcd_recovery'):
         relative = 'metal/scripts/' + name + '.py'
         published = subprocess.check_output(['git', 'show', revision + ':' + relative])
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)

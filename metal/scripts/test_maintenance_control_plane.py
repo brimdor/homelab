@@ -4,24 +4,28 @@ import contextlib
 import copy
 import io
 import json
+import importlib
 from pathlib import Path
+import shlex
 import subprocess
 import unittest
 from unittest.mock import patch
 
 import maintenance_control_plane as CP
+import maintenance_production_node as PRODUCTION
 
 
 class QuorumTests(unittest.TestCase):
     def setUp(self):
         self.urls = ['https://10.0.20.' + str(n) + ':2379' for n in (11, 12, 13)]
+        self.ids = [11787375536453005064, 16426130908996892198, 480346530818056711]
         self.values = {
             ('member', 'list'): {'members': [
                 {'ID': n, 'clientURLs': [url], 'peerURLs': [url.replace('2379', '2380')]}
-                for n, url in enumerate(self.urls, 1)]},
+                for n, url in zip(self.ids, self.urls)]},
             ('endpoint', 'status'): [{'Endpoint': url, 'Status': {
-                'header': {'cluster_id': 42, 'member_id': n}, 'leader': 1, 'version': '3.5.21'}}
-                for n, url in enumerate(self.urls, 1)],
+                'header': {'cluster_id': 10496245635645811339, 'member_id': n}, 'leader': self.ids[0], 'version': '3.5.21'}}
+                for n, url in zip(self.ids, self.urls)],
             ('endpoint', 'health'): [{'endpoint': url, 'health': True} for url in self.urls],
             ('alarm', 'list'): {},
         }
@@ -34,7 +38,10 @@ class QuorumTests(unittest.TestCase):
             return subprocess.CompletedProcess(argv, 0, json.dumps(values[tuple(argv[-2:])]).encode(), b'')
         with patch('os.geteuid', return_value=0), patch('socket.gethostname', return_value='squirtle'), \
                 patch.object(Path, 'read_text', return_value=CP.IDENTITY), patch('subprocess.run', side_effect=run), \
+                patch.object(Path, 'read_bytes', return_value=b'client'), \
+                patch('hashlib.sha256') as digest, \
                 contextlib.redirect_stdout(io.StringIO()):
+            digest.return_value.hexdigest.return_value = CP.BINARY_SHA256
             exec(compile(CP.program(CP.OBSERVE), 'native-etcd-observation', 'exec'), {})
 
     def test_exact_three_voting_members_are_accepted(self):
@@ -50,6 +57,48 @@ class QuorumTests(unittest.TestCase):
             if fault == 'alarm': values[('alarm', 'list')]['alarms'] = [{'alarm': 1}]
             with self.subTest(fault=fault), self.assertRaises(AssertionError):
                 self.observe(values)
+
+
+class ProductionProfileTests(unittest.TestCase):
+    def setUp(self):
+        importlib.reload(PRODUCTION)
+        self.addCleanup(importlib.reload, PRODUCTION)
+
+    def test_master_archive_excludes_live_etcd_and_binds_protected_snapshot(self):
+        PRODUCTION.select_node('squirtle')
+        point = {'manifest_sha256': 'a' * 64}
+        manifest = {'identity': PRODUCTION.IDENTITY, 'node_uid': PRODUCTION.UID,
+                    'source_release': 39, 'control_plane_recovery': point}
+        with patch.object(CP, 'recovery', return_value=point), \
+                patch.object(PRODUCTION, 'remote', return_value=manifest):
+            self.assertEqual(PRODUCTION.recovery(None, 39), manifest)
+        changed = dict(manifest, control_plane_recovery={'manifest_sha256': 'b' * 64})
+        with patch.object(CP, 'recovery', return_value=point), \
+                patch.object(PRODUCTION, 'remote', return_value=changed), self.assertRaises(RuntimeError):
+            PRODUCTION.recovery(None, 39)
+
+    def test_generated_master_archive_program_has_no_live_etcd_database(self):
+        PRODUCTION.select_node('squirtle')
+        point = {'manifest_sha256': 'a' * 64}
+        class Child:
+            returncode = 0
+            stdout = io.BytesIO()
+            stderr = io.BytesIO()
+            def communicate(self): return (b'{"sha256":"abc","bytes":1024}', b'')
+            def wait(self): return 0
+            def poll(self): return 0
+        from types import SimpleNamespace
+        args = SimpleNamespace(identity='/secure/identity', known_hosts='/secure/known_hosts')
+        with patch.object(CP, 'recovery', return_value=point), \
+                patch.object(PRODUCTION, 'remote', side_effect=[None, {}, {'accepted': True}]), \
+                patch.object(PRODUCTION.subprocess, 'Popen', side_effect=[Child(), Child()]) as popen:
+            PRODUCTION.recovery(args, 39, capture=True)
+        source = shlex.split(popen.call_args_list[0].args[0][-1])[3]
+        compile(source, 'native-master-archive', 'exec')
+        self.assertIn("if True:", source)
+        self.assertIn("command.insert(1,'--exclude=var/lib/rancher/k3s/server/db')", source)
+        self.assertIn("command.append('var/lib/homelab-recovery/maintenance-103')", source)
+        compile(PRODUCTION.NATIVE, 'native-production', 'exec')
 
 
 if __name__ == '__main__':
