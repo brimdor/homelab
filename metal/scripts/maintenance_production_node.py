@@ -30,7 +30,8 @@ IDENTITY = {'machine': '0f1915a59a124d999d8d68b53f406af1',
             'root_uuid': '489f1af8-5d55-4356-8d48-418fcb2069a2'}
 BACKUPS = {39: '/var/lib/homelab-recovery/maintenance-103/totodile-config-20261026-a',
            41: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora41-config-20261026-a',
-           43: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora43-config-20261026-a'}
+           43: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora43-config-20261026-a',
+           44: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora44-config-20261026-a'}
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release')
@@ -187,6 +188,13 @@ root=hold.state
 def evidence():return rpc('prerequisites')
 def prerequisites(value):
  return lambda step,digest:evidence()==value and digest==drain.hashed(value)
+def final_security():
+ if owner['target']!=44:return None
+ assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
+ assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
+ assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
+ return {'selinux':'Enforcing','persistent_configuration':True,'no_disabling_kernel_override':True}
+if operation in('restore-scheduling','accept-applications','release'):final_security()
 def offline_repository_override():
  assert owner['source']==39 and owner['target']==41
  directory=root/('fedora-repositories-41-'+owner['owner'])
@@ -216,6 +224,7 @@ if operation=='release':
  release=sys.modules['maintenance_safe_release'].Release(hops.Journal(controller,hold,owner['owner']))
  value=rpc('applications');digest=drain.hashed(value)
  def safe_release(header,observed_digest):
+  final_security()
   return observed_digest==digest and rpc('applications')==value and identity()==header['owners']['host']['identity']
  if not release.path.exists():release.prepare(digest,safe_release)
  status=release.observe(digest,safe_release)
@@ -596,7 +605,7 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
 def main():
     global ACTIVE_READER
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
+    parser.add_argument('operation', choices=['backup', 'security-backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'target-repositories', 'prepare-source',
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
@@ -656,6 +665,10 @@ def main():
     # Keep an active hop bound to its original recovery point after the target boots.
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
+    if args.operation == 'security-backup':
+        require(owner is not None and owner['source'] == 43 and owner['target'] == 44,
+                'final host-security recovery requires the active 43-to-44 owner')
+        print(encoded(recovery(args, 44, capture=True)));return
     if args.operation == 'backup':
         print(encoded(recovery_manifest));return
     if owner is None:
