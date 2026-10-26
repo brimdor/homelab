@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "ref": {
+    "controller": {
+      "apiVersion": "batch/v1",
+      "blockOwnerDeletion": true,
+      "controller": true,
+      "kind": "Job",
+      "name": "strata-backup-29884110",
+      "uid": "b74ae262-99f2-421c-aeb6-6543f38fadd9"
+    },
+    "keep": false,
+    "name": "strata-backup-29884110-nk4kd",
+    "namespace": "strata",
+    "spec_sha256": "2c41a4a3c292c35ec1581e54b5e877e057ab815de6b02c0e153dc35a226df636",
+    "uid": "531f9c8d-729f-43ef-9e26-8eb2aa14406c"
+  },
+  "prior_success": {
+    "observed_at": "2026-10-26T23:37:58Z",
+    "pod": {
+      "name": "strata-backup-29884110-nk4kd",
+      "uid": "531f9c8d-729f-43ef-9e26-8eb2aa14406c",
+      "node": "charmander",
+      "phase": "Succeeded",
+      "deleting": null,
+      "images": [
+        {
+          "name": "sqlite-backup",
+          "image": "10.0.20.11:32309/strata:canary-501d6ae-20260825@sha256:71f04326edf6e1defeabf2dc211abcf6bc6c7e14b0838c9e0704ab12253b08f0",
+          "policy": "IfNotPresent"
+        }
+      ],
+      "states": [
+        {
+          "name": "sqlite-backup",
+          "ready": false,
+          "restarts": 0,
+          "state": {
+            "terminated": {
+              "containerID": "containerd://3cbfac3fe23ec0624e160ceaf55700662b05189c19431ea62bd6127fb77f2a35",
+              "exitCode": 0,
+              "finishedAt": "2026-10-26T20:30:41Z",
+              "reason": "Completed",
+              "startedAt": "2026-10-26T20:30:01Z"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "name": "strata-backup-29884110",
+      "uid": "b74ae262-99f2-421c-aeb6-6543f38fadd9",
+      "status": {
+        "completionTime": "2026-10-26T20:30:43Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-10-26T20:30:43Z",
+            "lastTransitionTime": "2026-10-26T20:30:43Z",
+            "message": "Reached expected number of succeeded pods",
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "SuccessCriteriaMet"
+          },
+          {
+            "lastProbeTime": "2026-10-26T20:30:43Z",
+            "lastTransitionTime": "2026-10-26T20:30:43Z",
+            "message": "Reached expected number of succeeded pods",
+            "reason": "CompletionsReached",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-10-26T20:30:00Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "owners": [
+        {
+          "apiVersion": "batch/v1",
+          "blockOwnerDeletion": true,
+          "controller": true,
+          "kind": "CronJob",
+          "name": "strata-backup",
+          "uid": "71e995a6-ea65-4272-8a00-27eac21edfc5"
+        }
+      ]
+    },
+    "evidence_sha256": {
+      "prior_pod": "28257ef65a25930c287b9c5f9b29a12ee33fd79f9854849c677b9e5c1f00c37c",
+      "prior_job": "c02b662d79d3603f9a2c3c7774aad9dfac143ca7355b9573f4cbf563eaf8a346"
+    }
+  },
+  "cron_uid": "71e995a6-ea65-4272-8a00-27eac21edfc5",
+  "cron_spec": "938a0cd1a191542d475dceb068399330fa75b304c20791d00cdeaa727bbb8110",
+  "recovery": {
+    "job_uid": "da512a8c-e117-4576-a953-ffee66063817",
+    "pod_uid": "0f1f2eee-2b29-4a06-bf2a-36e9dc7cacf1",
+    "completion_time": "2026-10-26T23:40:42Z",
+    "image_digest": "sha256:71f04326edf6e1defeabf2dc211abcf6bc6c7e14b0838c9e0704ab12253b08f0"
+  }
+}

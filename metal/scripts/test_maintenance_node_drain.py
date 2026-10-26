@@ -245,6 +245,40 @@ class NodeDrainTests(unittest.TestCase):
         self.assertTrue((self.worker.path / '00000000.intent.json').exists())
         self.assertFalse(self.pod_api.posts)
 
+    def test_reviewed_successful_job_removal_has_separate_record_without_eviction(self):
+        self.start();self.advance();self.advance()
+        ref = self.worker.read()['targets'][1]
+        self.pod_api.pods = [p for p in self.pod_api.pods if p['metadata']['uid'] != ref['uid']]
+        proof = {'kind': 'successful-job-removal', 'pod_uid': ref['uid'],
+                 'job_uid': ref['controller']['uid'], 'prior_success_sha256': 'e' * 64,
+                 'recovery_sha256': 'f' * 64}
+        result = self.worker.advance('c' * 64, lambda *_: True, lambda actual: proof if actual == ref else None)
+        self.assertFalse(result['mutation_performed'])
+        self.assertEqual(len(self.pod_api.posts), 1)
+        self.assertTrue((self.worker.path / '00000001.external.json').exists())
+        self.assertFalse((self.worker.path / '00000001.intent.json').exists())
+        self.assertTrue(self.advance(self.fresh_drain())['complete'])
+
+    def test_external_removal_refuses_wrong_uid_missing_proof_and_changed_prerequisites(self):
+        self.start();self.advance();self.advance()
+        ref = self.worker.read()['targets'][1]
+        self.pod_api.pods = [p for p in self.pod_api.pods if p['metadata']['uid'] != ref['uid']]
+        proof = {'kind': 'successful-job-removal', 'pod_uid': ref['uid'],
+                 'job_uid': ref['controller']['uid'], 'prior_success_sha256': 'e' * 64,
+                 'recovery_sha256': 'f' * 64}
+        for bad in (None, dict(proof, pod_uid='foreign'), dict(proof, job_uid='foreign'),
+                    dict(proof, prior_success_sha256=''), dict(proof, recovery_sha256='')):
+            with self.assertRaisesRegex(RuntimeError, 'exact prior success'):
+                self.worker.advance('c' * 64, lambda *_: True, lambda _: bad)
+        calls = []
+        def changed(*_):
+            calls.append(True)
+            return len(calls) == 1
+        with self.assertRaisesRegex(RuntimeError, 'external removal prerequisites'):
+            self.worker.advance('c' * 64, changed, lambda _: proof)
+        self.assertFalse((self.worker.path / '00000001.external.json').exists())
+        self.assertEqual(len(self.pod_api.posts), 1)
+
     def test_corruption_foreign_files_and_permissions_refuse(self):
         self.start();path = self.worker.path / 'header.json';original = path.read_bytes()
         path.write_bytes(original + b'\n')

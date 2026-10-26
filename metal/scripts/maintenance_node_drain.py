@@ -149,6 +149,21 @@ class Drain:
         for index, ref in enumerate(targets):
             prefix = str(index).zfill(8)
             intent_name, observed_name = prefix + '.intent.json', prefix + '.observed.json'
+            external_name = prefix + '.external.json'
+            if (self.path / external_name).exists():
+                value = private_json(self.path / external_name)
+                actor.require(not (self.path / intent_name).exists() and
+                              set(value) == {'version', 'parent', 'index', 'pod', 'proof',
+                                             'inventory_sha256', 'prerequisites_sha256'} and
+                              type(value['version']) is int and value['version'] == 1 and
+                              type(value['index']) is int and value['index'] == index and
+                              value['parent'] == state['pending']['sha256'] and value['pod'] == ref and
+                              hops.checksum(value['inventory_sha256']) and
+                              hops.checksum(value['prerequisites_sha256']), 'invalid external removal record')
+                self.removal_proof(ref, value['proof'])
+                expected.add(external_name);hashes[external_name] = hashed(value)
+                completed.append(ref['uid'])
+                continue
             if not (self.path / intent_name).exists():
                 break
             value = private_json(self.path / intent_name)
@@ -189,7 +204,17 @@ class Drain:
         return {'header': header, 'completed': completed, 'pending': pending, 'targets': targets,
                 'records_sha256': hashed(hashes)}
 
-    def advance(self, prerequisites_sha256, verify_prerequisites):
+    @staticmethod
+    def removal_proof(ref, proof):
+        actor.require(ref['controller']['kind'] == 'Job' and not ref['keep'] and
+                      isinstance(proof, dict) and set(proof) == {'kind', 'pod_uid', 'job_uid',
+                                                               'prior_success_sha256', 'recovery_sha256'} and
+                      proof['kind'] == 'successful-job-removal' and proof['pod_uid'] == ref['uid'] and
+                      proof['job_uid'] == ref['controller']['uid'] and
+                      hops.checksum(proof['prior_success_sha256']) and hops.checksum(proof['recovery_sha256']),
+                      'completed removal lacks exact prior success and current recovery proof')
+
+    def advance(self, prerequisites_sha256, verify_prerequisites, verify_removed=None):
         actor.require(hops.checksum(prerequisites_sha256), 'invalid drain prerequisite digest')
         with self.journal.hold.serialized():
             state = self.read()
@@ -227,6 +252,19 @@ class Drain:
                         'inventory_sha256': hashed(current), 'records_sha256': state['records_sha256'],
                         'prerequisites_sha256': prerequisites_sha256, 'mutation_performed': False}
             ref = state['targets'][index]
+            if ref['uid'] not in present and verify_removed is not None:
+                proof = verify_removed(ref)
+                self.removal_proof(ref, proof)
+                self.journal.owners(idle=True)
+                actor.require(verify_prerequisites('drain', prerequisites_sha256) is True and
+                              self.read() == state and self.inventory() == current,
+                              'external removal prerequisites or inventory changed')
+                record = {'version': 1, 'parent': state['header']['intent']['sha256'], 'index': index,
+                          'pod': ref, 'proof': proof, 'inventory_sha256': hashed(current),
+                          'prerequisites_sha256': prerequisites_sha256}
+                actor.exclusive_file(self.path / (str(index).zfill(8) + '.external.json'),
+                                     hops.canonical(record), 0o600)
+                return {'complete': False, 'external_removal': record, 'mutation_performed': False}
             actor.require(ref['uid'] in present, 'unstarted eviction Pod disappeared; review required')
             pod = self.api.call('get', 'pod', ref['name'], '-n', ref['namespace'], '-o', 'json')
             actor.require(pod['metadata']['uid'] == ref['uid'] and not pod['metadata'].get('deletionTimestamp') and
@@ -241,6 +279,8 @@ class Drain:
             self.journal.owners(idle=True)
             actor.require(self.inventory() == current, 'drain inventory changed before durable intent')
             actor.exclusive_file(self.path / (str(index).zfill(8) + '.intent.json'), hops.canonical(record), 0o600)
+            self.journal.owners(idle=True)
+            actor.require(self.inventory() == current, 'drain inventory changed before eviction dispatch')
             eviction = {'apiVersion': 'policy/v1', 'kind': 'Eviction',
                         'metadata': {'namespace': ref['namespace'], 'name': ref['name']},
                         'deleteOptions': {'preconditions': {'uid': ref['uid'],

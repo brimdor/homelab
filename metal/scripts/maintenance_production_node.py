@@ -421,7 +421,8 @@ else:
   plan=json.loads(path.read_bytes())
   if not state['pending']:worker.start(plan,drain.hashed(plan),digest,verify)
   elif not worker.path.exists():worker.attach(plan)
-  result=worker.advance(digest,verify)
+  removed=(lambda ref:rpc('removed_completed_job',ref=ref))if expected_node=='charmander'and owner['owner']=='homelab-maintenance-103-8dba9073-c2fc-4941-a6d2-1228086bd554'else None
+  result=worker.advance(digest,verify,removed)
   if result.get('complete'):
    accepted=dict(result)
    def verify_drain(step,digest):
@@ -748,6 +749,50 @@ def infrastructure(api, applications=False, intermediate_pikachu=False):
     return result
 
 
+def removed_completed_job(api, ref):
+    """Observe only the reviewed successful Strata Job retired by CronJob history."""
+    from maintenance_node_drain import hashed
+    path = Path('metal/maintenance/charmander-completed-job-removal.json')
+    require(path.read_bytes() == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
+            'completed removal profile must be published')
+    profile = json.loads(path.read_bytes())
+    require(ref == profile['ref'], 'unreviewed missing Pod; no external completion allowance')
+    pods = api.call('get', 'pods', '-n', 'strata', '-o', 'json')['items']
+    jobs = api.call('get', 'jobs', '-n', 'strata', '-o', 'json')['items']
+    require(not any(p['metadata']['uid'] == ref['uid'] or p['metadata']['name'] == ref['name'] for p in pods)
+            and not any(j['metadata']['uid'] == ref['controller']['uid'] or
+                        j['metadata']['name'] == ref['controller']['name'] for j in jobs),
+            'reviewed Pod or Job still exists or name was reused')
+    cron = api.call('get', 'cronjob', 'strata-backup', '-n', 'strata', '-o', 'json')
+    require(cron['metadata']['uid'] == profile['cron_uid'] and not cron['metadata'].get('deletionTimestamp')
+            and hashlib.sha256(json.dumps(cron['spec'], sort_keys=True).encode()).hexdigest() == profile['cron_spec'],
+            'original CronJob history policy changed')
+    recovery = profile['recovery']
+    job = next((j for j in jobs if j['metadata']['uid'] == recovery['job_uid']), None)
+    pod = next((p for p in pods if p['metadata']['uid'] == recovery['pod_uid']), None)
+    require(job is not None and pod is not None and not job['metadata'].get('deletionTimestamp')
+            and job['status'].get('succeeded') == 1 and not job['status'].get('active')
+            and not job['status'].get('failed') and
+            any(c['type'] == 'Complete' and c['status'] == 'True' for c in job['status'].get('conditions', []))
+            and job['status'].get('completionTime') == recovery['completion_time']
+            and cron['status'].get('lastSuccessfulTime', '') >= recovery['completion_time'],
+            'reviewed ordinary recovery Job is not successfully complete')
+    owners = job['metadata'].get('ownerReferences', [])
+    require(len(owners) == 1 and owners[0].get('controller') is True and
+            owners[0].get('kind') == 'CronJob' and owners[0].get('uid') == profile['cron_uid'],
+            'recovery Job has foreign owner')
+    # Reuse the full Job/Pod completion contract, including ordinary init containers.
+    completion = completed_job_pod(api, pod)
+    states = pod['status'].get('containerStatuses', [])
+    require(completion['job_uid'] == recovery['job_uid'] and len(states) == 1 and
+            states[0]['imageID'].endswith('@' + recovery['image_digest']) and states[0]['restartCount'] == 0,
+            'original recovery image did not complete normally')
+    return {'kind': 'successful-job-removal', 'pod_uid': ref['uid'], 'job_uid': ref['controller']['uid'],
+            'prior_success_sha256': hashed(profile['prior_success']),
+            'recovery_sha256': hashed({'completion': completion, 'recovery': recovery,
+                                       'cron_uid': cron['metadata']['uid'], 'cron_spec': profile['cron_spec']})}
+
+
 def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, precheck_proof=None):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     program = ('bundle=' + repr(bundle) + '\nexpected_identity=' + repr(IDENTITY) +
@@ -769,6 +814,11 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
             try:
                 if request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
+                elif request['rpc'] == 'removed_completed_job':
+                    require(args.operation == 'drain' and NODE == 'charmander' and
+                            owner['owner'] == 'homelab-maintenance-103-8dba9073-c2fc-4941-a6d2-1228086bd554' and
+                            (owner['source'], owner['target']) == (39, 41), 'unreviewed external completion caller')
+                    value = removed_completed_job(api, request['ref'])
                 elif request['rpc'] == 'ceph_health':
                     require(args.operation in ('recover-pending-kanidm', 'recover-pending-outline'),
                             'unreviewed Ceph health caller')
