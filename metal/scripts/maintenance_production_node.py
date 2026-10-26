@@ -8,6 +8,7 @@ its existing protected stdio channel for fresh API observations and mutations.
 import argparse
 import base64
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -451,10 +452,36 @@ def prerequisites(api):
             'ceph': health['status'], 'controllers_ready_except_target_observers': True}
 
 
+def completed_job_pod(api, pod):
+    """Use CORE's existing evidence parsers; completion alone is insufficient."""
+    meta, spec, status = pod['metadata'], pod['spec'], pod.get('status', {})
+    require(status.get('phase') == 'Succeeded' and not meta.get('deletionTimestamp') and
+            spec.get('restartPolicy') in ('Never', 'OnFailure'), 'unproven completed Pod')
+    owners = [o for o in meta.get('ownerReferences', []) if o.get('kind') == 'Job' and
+              o.get('controller') is True and isinstance(o.get('uid'), str) and o['uid']]
+    require(len(owners) == 1, 'completed Pod lacks one controlling Job UID')
+    owner = owners[0]
+    job = api.call('get', 'job', owner['name'], '-n', meta['namespace'], '-o', 'json')
+    require(job['metadata']['uid'] == owner['uid'] and not job['metadata'].get('deletionTimestamp'),
+            'completed Pod Job identity differs')
+    module_spec = importlib.util.spec_from_file_location('maintenance_core_evidence',
+        Path(__file__).resolve().parents[2] / 'scripts/homelab-health.py')
+    core = importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(core)
+    evidence = core.job_evidence(job)
+    require(evidence['complete'] or evidence['active'] > 0 and not evidence['terminal_failed'],
+            'completed Pod Job is neither complete nor active and nonfailed')
+    containers = core.container_evidence(spec, status, 'containers')
+    initializers = core.container_evidence(spec, status, 'initContainers')
+    require(all(c['state'] == 'terminated' and c['exit_code'] == 0 for c in containers) and
+            all(c['state'] == 'terminated' and (c['sidecar_init'] or c['exit_code'] == 0)
+                for c in initializers), 'completed Pod containers did not legitimately succeed')
+    return {'pod_uid': meta['uid'], 'job_uid': owner['uid']}
+
+
 def infrastructure(api, applications=False):
     result = prerequisites(api)
     pods = api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + NODE, '-o', 'json')['items']
-    cilium = []
+    cilium, completed_jobs = [], []
     expected_csi = {'rook-ceph.rbd.csi.ceph.com-nodeplugin',
                     'rook-ceph.cephfs.csi.ceph.com-nodeplugin'}
     daemonsets = api.call('get', 'daemonsets', '-n', 'rook-ceph', '-o', 'json')['items']
@@ -464,6 +491,9 @@ def infrastructure(api, applications=False):
     csi = {}
     for pod in pods:
         meta, status = pod['metadata'], pod.get('status', {})
+        if status.get('phase') == 'Succeeded':
+            completed_jobs.append(completed_job_pod(api, pod))
+            continue
         require(not meta.get('deletionTimestamp') and status.get('phase') == 'Running' and
                 any(c['type'] == 'Ready' and c['status'] == 'True' for c in status.get('conditions', [])) and
                 all(c.get('ready') for c in status.get('containerStatuses', [])) and
@@ -490,7 +520,8 @@ def infrastructure(api, applications=False):
                       '--', 'cilium-dbg', 'status', '--output', 'json')
     require(status['cilium']['state'] == 'Ok' and status['kubernetes']['state'] == 'Ok',
             'target Cilium runtime or Kubernetes connectivity is not healthy')
-    result.update(cilium_uid=cilium[0]['metadata']['uid'], csi_uids=sorted(csi.values()), target_pods_ready=True)
+    result.update(cilium_uid=cilium[0]['metadata']['uid'], csi_uids=sorted(csi.values()), target_pods_ready=True,
+                  completed_jobs=sorted(completed_jobs, key=lambda item: item['pod_uid']))
     if applications:
         node = api.call('get', 'node', NODE, '-o', 'json')
         require(not node['spec'].get('unschedulable', False), 'target node remains cordoned')
@@ -586,6 +617,9 @@ def main():
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
         if name in MODULES:
             bundle[name] = published.decode()
+    core_path = 'scripts/homelab-health.py'
+    require(Path(core_path).read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + core_path]),
+            'unpublished CORE completion evidence parser')
     precheck_proof = None
     if args.operation == 'resolve-drain-precheck':
         require(args.failure_receipt, 'exact captured pre-dispatch failure is required')
