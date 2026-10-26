@@ -17,6 +17,10 @@ app-template:
           operator.1password.io/item-name: "secrets"
       containers:
         main:
+          securityContext:
+            # Libuv falls back to epoll when the runtime denies io_uring.
+            seccompProfile:
+              type: RuntimeDefault
           image:
             repository: outlinewiki/outline
             tag: "1.8.0-1"
