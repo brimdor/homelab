@@ -7,11 +7,14 @@ app-template:
           strata.eaglepass.io/reset-at: "2026-08-26T13:09:00Z"
       containers:
         main:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           image:
             repository: 10.0.20.11:32309/strata
             tag: 0edef37
             digest: sha256:52991cff84cf9c743d376b7509b9d40151bc3f6e89dafe269169bc62e1001774
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
             NODE_ENV: canary
@@ -123,7 +126,12 @@ app-template:
               - protocol: TCP
                 port: 2049
   defaultPodOptions:
+    nodeSelector:
+      kubernetes.io/hostname: totodile
     securityContext:
       runAsUser: 1000
       runAsGroup: 1000
       fsGroup: 1000
+      # Canary has its own category pair; production keeps its existing pair.
+      seLinuxOptions:
+        level: s0:c308,c595
