@@ -365,3 +365,6 @@ postgresMigration:
 
 maintenanceEmptyJobs:
   enabled: true
+  ownerUIDs:
+    triage: 50610e53-b900-46b3-8955-c11bd602b567
+    retention: eede725c-f9c0-438c-8593-5c9e155acc61

@@ -1,9 +1,10 @@
 {{- with .Values.maintenanceEmptyJobs }}
 {{- if .enabled }}
 {{- $app := index $.Values "app-template" }}
+{{- $name := "maintenance-empty-jobs-103-20261026-a" }}
+{{- $script := $.Files.Get "files/maintenance-empty-jobs.mjs" }}
 {{- $controller := $app.controllers.retention }}
 {{- $container := $controller.containers.retention }}
-{{- $name := "maintenance-empty-jobs-103-20261026-a" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,11 +12,20 @@ metadata:
 data:
   run.mjs: |
 {{ $.Files.Get "files/maintenance-empty-jobs.mjs" | indent 4 }}
+{{- range $task := list "triage" "retention" }}
+{{- $job := printf "maintenance-103-%s-20261026-b" $task }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ $name }}
+  name: {{ $job }}
+  ownerReferences:
+    - apiVersion: batch/v1
+      kind: CronJob
+      name: {{ printf "%s-%s" $.Release.Name $task }}
+      uid: {{ index $.Values.maintenanceEmptyJobs.ownerUIDs $task | quote }}
+      controller: true
+      blockOwnerDeletion: false
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 180
@@ -42,6 +52,8 @@ spec:
           command: [node, /maintenance/run.mjs]
           workingDir: /app
           env:
+            - name: MAINTENANCE_TASK
+              value: {{ $task | quote }}
 {{- range $key, $value := $container.env }}
             - name: {{ $key }}
 {{- if kindIs "map" $value }}
@@ -66,5 +78,6 @@ spec:
           persistentVolumeClaim: {claimName: {{ printf "%s-attachments" $.Release.Name }}}
         - name: tmp
           emptyDir: {}
+{{- end }}
 {{- end }}
 {{- end }}

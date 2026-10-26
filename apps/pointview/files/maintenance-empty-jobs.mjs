@@ -55,8 +55,10 @@ try {
                            WHERE fu.feedback_record_id = fr.id AND fu.state <> 'TERMINAL')) AS retention
     `;
     assert.ok(Object.values(counts).every((value) => value === 0), 'actionable work requires ordinary scheduled execution');
-    const triage = await runOriginal('triage');
-    const retention = await runOriginal('retention');
+    const task = process.env.MAINTENANCE_TASK ?? 'all';
+    assert.ok(['all', 'triage', 'retention'].includes(task));
+    const triage = task === 'retention' ? null : await runOriginal('triage');
+    const retention = task === 'triage' ? null : await runOriginal('retention');
     await guard`SELECT 1`;
     console.log(JSON.stringify({ event: 'maintenance.empty-jobs.completed', triage, retention }));
   });
