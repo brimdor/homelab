@@ -224,6 +224,7 @@ def prerequisites(value):
  return lambda step,digest:evidence()==value and digest==drain.hashed(value)
 def final_security():
  if owner['target']!=44:return None
+ assert api.call('get','node',expected_node,'-o','json')['status']['nodeInfo']['bootID']==pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'Node readiness belongs to an earlier boot'
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
@@ -287,7 +288,9 @@ if operation in('release','resolve-release-precheck'):
   status=release.release_global(digest,safe_release)
  print(json.dumps({'result':status}),flush=True)
 elif operation in('security-tools', 'observe-security-tools', 'security-policy','observe-security-policy','security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
- assert api.call('get','node',expected_node,'-o','json')['spec'].get('unschedulable')is True
+ current_node=api.call('get','node',expected_node,'-o','json')
+ assert current_node['spec'].get('unschedulable')is True
+ assert current_node['status']['nodeInfo']['bootID']==pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'Node readiness belongs to an earlier boot'
  if operation not in('observe-security-tools','observe-security-policy','observe-security-firmware','observe-host-security'):evidence()
  journal=hops.Journal(controller,hold,owner['owner'])
  result=(sys.modules['maintenance_host_security'].facts(native)if operation=='observe-host-security'else

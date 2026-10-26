@@ -30,6 +30,12 @@
     msg: UFW manages ICMP through before.rules; no explicit rule is required.
   when: ufw_binary.stat.exists
 
+- name: Install native SELinux management tools
+  ansible.builtin.package:
+    name: policycoreutils-python-utils
+    state: present
+  when: k3s_selinux | default(false)
+
 - name: Install node firmware and disk health packages
   ansible.builtin.package:
     name:
