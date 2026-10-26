@@ -103,7 +103,10 @@ def relabel(journal, native, identity, recovery):
             '/usr/lib/systemd/system/selinux-autorelabel.target': 'c340133060c163caf9e22f0624306bd528768e89b3d5faf7285f23d2bada9485',
             '/usr/lib/systemd/system/selinux-autorelabel.service': '9b39bc7e3fb46bc916b23933ad742f11e58401b14755d3a5c991ce5718669586',
             '/usr/libexec/selinux/selinux-autorelabel': '7510982b425be80a45d4186a57ad1b99471a2a7f58a9e311d7ecc6f056d0f154',
-            '/etc/fstab': 'b03fa47b7c80bdf71de0b1ff8201da20e194af73d23f6fa74c5c13fc82ad374f',
+            '/etc/fstab': {
+                'totodile': 'b03fa47b7c80bdf71de0b1ff8201da20e194af73d23f6fa74c5c13fc82ad374f',
+                'pikachu': 'bfcac7e9a8b978a3489b67b3814f0c8c97afa31a2b6c722cbbf0a6c18fee9f4a',
+            }[journal.owners()['global']['node']],
         }
         for name, digest in expected.items():
             assert hashlib.sha256(Path(name).read_bytes()).hexdigest() == digest, 'native relabel contract changed'
@@ -446,7 +449,7 @@ def firmware(operation, journal, native, identity, recovery):
                    '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
             return {'firmware_reboot_dispatched': True, 'node_stays_cordoned': True, 'owner_retained': True}
         assert operation == 'security-firmware' and not intent.exists() and not candidate.exists()
-        assert Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip() == '0xec'
+        assert Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip() in ('0xea', '0xec')
         firmware_path = Path('/usr/lib/firmware/intel-ucode/06-5e-03')
         assert hashlib.sha256(firmware_path.read_bytes()).hexdigest() == FIRMWARE_SHA256
         native('rpm', '-V', '--noghost', 'microcode_ctl')

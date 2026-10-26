@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Issue 103 production controller: exact Totodile identity, existing secure access.
+"""Issue 103 production controller: exact reviewed worker identities, existing secure access.
 
 The workstation retains Kubernetes credentials. The root SSH child calls back over
 its existing protected stdio channel for fresh API observations and mutations.
@@ -25,6 +25,10 @@ from maintenance_api_reader import Reader
 NODE = 'totodile'
 ADDRESS = '10.0.20.17'
 UID = '83e0e536-e94a-45a1-8dfb-1cedac1e9bd7'
+MAC = '6c:4b:90:5b:a3:56'
+RECEIVER = 'pikachu'
+RECEIVER_ADDRESS = '10.0.20.14'
+RECEIVER_IDENTITY = {'machine': '0a7daf8b33244d9d85f46223c3582da9', 'root_uuid': '76e53a95-725a-4430-9d7b-a8db413f3997'}
 DS_UID = '4abc4fee-c3be-440e-8945-34bb3fb15ce1'
 IDENTITY = {'machine': '0f1915a59a124d999d8d68b53f406af1',
             'root_uuid': '489f1af8-5d55-4356-8d48-418fcb2069a2'}
@@ -39,14 +43,30 @@ MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_ho
 ACTIVE_READER = None
 
 
-def ssh(args, address=ADDRESS):
+def select_node(node):
+    global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
+    if node == 'totodile':
+        return
+    require(node == 'pikachu', 'worker profile is not reviewed')
+    RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY = NODE, ADDRESS, dict(IDENTITY)
+    NODE, ADDRESS, UID, MAC = ('pikachu', '10.0.20.14',
+        '7ec4e786-0b5d-416d-9284-8eac993635bf', 'e0:4f:43:24:0b:53')
+    IDENTITY = {'machine': '0a7daf8b33244d9d85f46223c3582da9',
+                'root_uuid': '76e53a95-725a-4430-9d7b-a8db413f3997'}
+    BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/pikachu-' +
+        ('config' if release == 39 else 'fedora' + str(release) + '-config') + '-20261026-a'
+        for release in (39, 41, 43, 44)}
+
+
+def ssh(args, address=None):
+    address = ADDRESS if address is None else address
     return ['ssh', '-i', args.identity, '-o', 'IdentitiesOnly=yes',
             '-o', 'UserKnownHostsFile=' + args.known_hosts, '-o', 'StrictHostKeyChecking=yes',
             '-o', 'UpdateHostKeys=no', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15',
             'root@' + address]
 
 
-def remote(args, program, address=ADDRESS):
+def remote(args, program, address=None):
     result = subprocess.run(ssh(args, address) + ['python3 -B -'], input=program.encode(),
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     require(result.returncode == 0, 'protected remote operation failed: ' + result.stderr.decode()[-1500:])
@@ -58,7 +78,8 @@ def recovery(args, source, capture=False):
     backup = BACKUPS[source]
     readback = """
 import hashlib,json,os,pathlib,socket,stat
-assert os.geteuid()==0 and socket.gethostname()=='pikachu'
+assert os.geteuid()==0 and socket.gethostname()==%r
+assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
 root=pathlib.Path(%r)
 assert not any(p.is_symlink()for p in(root,*root.parents))
 manifest=root/'verified.json'
@@ -71,20 +92,20 @@ else:
   for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
  assert archive.stat().st_size==value['bytes']and digest.hexdigest()==value['sha256']
  print(json.dumps(value))
-""" % backup
-    existing = remote(args, readback, '10.0.20.14')
+""" % (RECEIVER, RECEIVER_IDENTITY['machine'], backup)
+    existing = remote(args, readback, RECEIVER_ADDRESS)
     if existing is not None:
         require(existing['identity'] == IDENTITY and existing['node_uid'] == UID and
                 existing.get('source_release', 39) == source, 'recovery identity or source changed')
         return existing
-    require(capture, 'capture protected Totodile configuration before production ownership')
+    require(capture, 'capture protected target configuration before production ownership')
     source_program = """
 import os,pathlib,socket,subprocess,sys
-assert os.geteuid()==0 and socket.gethostname()=='totodile'
+assert os.geteuid()==0 and socket.gethostname()==%r
 assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
 assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==%r
 assert int(subprocess.check_output(['rpm','-E','%%fedora']))==%r
-assert '6c:4b:90:5b:a3:56'in{p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
+assert %r in{p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
 pid=subprocess.check_output(['systemctl','show','k3s','-p','MainPID','--value'],text=True).strip()
 argv=(pathlib.Path('/proc')/pid/'cmdline').read_bytes().split(bytes([0]))
 assert argv[0]in(b'k3s agent',b'k3s-agent',b'/usr/local/bin/k3s agent') or len(argv)>1 and argv[1]==b'agent'
@@ -96,10 +117,11 @@ command=['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-sys
  '--exclude=var/lib/rancher/k3s/agent/containerd','--exclude=var/lib/rancher/k3s/agent/images',
  '-C','/','-cf','-','etc','boot','boot/efi','usr/local/bin/k3s','var/lib/rancher/k3s/agent','var/lib/rancher/k3s/server']
 sys.exit(subprocess.run(command).returncode)
-""" % (IDENTITY['machine'], IDENTITY['root_uuid'], source)
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC)
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,sys
-assert os.geteuid()==0 and socket.gethostname()=='pikachu'
+assert os.geteuid()==0 and socket.gethostname()==%r
+assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
 root=pathlib.Path(%r)
 assert not any(p.is_symlink()for p in(root,*root.parents))
 assert root.parent.is_dir()
@@ -119,10 +141,10 @@ with path.open('xb')as target:
   target.write(chunk);digest.update(chunk);size+=len(chunk)
  target.flush();os.fsync(target.fileno())
 print(json.dumps({'sha256':digest.hexdigest(),'bytes':size}))
-""" % backup
+""" % (RECEIVER, RECEIVER_IDENTITY['machine'], backup)
     producer = subprocess.Popen(ssh(args) + ['python3 -B -c ' + shlex.quote(source_program)],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    consumer = subprocess.Popen(ssh(args, '10.0.20.14') + ['python3 -B -c ' + shlex.quote(receiver)],
+    consumer = subprocess.Popen(ssh(args, RECEIVER_ADDRESS) + ['python3 -B -c ' + shlex.quote(receiver)],
                                 stdin=producer.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     producer.stdout.close()
     try:
@@ -145,8 +167,8 @@ with(root/'verified.json').open('x')as output:
 descriptor=os.open(root,os.O_DIRECTORY);os.fsync(descriptor);os.close(descriptor)
 print(json.dumps(value))
 """ % (backup, manifest)
-        remote(args, finalize, '10.0.20.14')
-        return remote(args, readback, '10.0.20.14')
+        remote(args, finalize, RECEIVER_ADDRESS)
+        return remote(args, readback, RECEIVER_ADDRESS)
     finally:
         for child in (producer, consumer):
             if child.poll() is None:
@@ -166,8 +188,8 @@ def native(*argv):
 def identity():
  result={'machine':pathlib.Path('/etc/machine-id').read_text().strip(),
          'root_uuid':native('findmnt','-n','-o','UUID','/')}
- assert os.geteuid()==0 and socket.gethostname()=='totodile' and result==expected_identity
- assert '6c:4b:90:5b:a3:56' in {p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
+ assert os.geteuid()==0 and socket.gethostname()==expected_node and result==expected_identity
+ assert expected_mac in {p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
  return result
 identity()
 def rpc(kind,**payload):
@@ -254,7 +276,7 @@ if operation in('release','resolve-release-precheck'):
   status=release.release_global(digest,safe_release)
  print(json.dumps({'result':status}),flush=True)
 elif operation in('security-policy','observe-security-policy','security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
- assert api.call('get','node','totodile','-o','json')['spec'].get('unschedulable')is True
+ assert api.call('get','node',expected_node,'-o','json')['spec'].get('unschedulable')is True
  if operation not in('observe-security-policy','observe-security-firmware','observe-host-security'):evidence()
  journal=hops.Journal(controller,hold,owner['owner'])
  result=(sys.modules['maintenance_host_security'].facts(native)if operation=='observe-host-security'else
@@ -581,7 +603,7 @@ def infrastructure(api, applications=False):
 def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, precheck_proof=None):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     program = ('bundle=' + repr(bundle) + '\nexpected_identity=' + repr(IDENTITY) +
-               '\nexpected_ds_uid=' + repr(DS_UID) + '\nowner=' + repr(owner) +
+               '\nexpected_node=' + repr(NODE) + '\nexpected_mac=' + repr(MAC) + '\nexpected_ds_uid=' + repr(DS_UID) + '\nowner=' + repr(owner) +
                '\nnode_uids=' + repr({n['metadata']['name']: n['metadata']['uid'] for n in nodes}) +
                '\noperation=' + repr(args.operation) + '\npublic_keys=' + repr(public_keys) +
                '\nprecheck_proof=' + repr(precheck_proof) +
@@ -639,16 +661,18 @@ def main():
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck',
                                              'repair-offline-repositories', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
+    parser.add_argument('--node', choices=('totodile', 'pikachu'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
     parser.add_argument('--failure-receipt')
     args = parser.parse_args()
+    select_node(args.node)
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     published_tip = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
     require(published_tip == revision, 'publish reviewed source before production use')
     bundle = {}
-    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key'):
+    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key', 'maintenance_receiver_protection'):
         relative = 'metal/scripts/' + name + '.py'
         published = subprocess.check_output(['git', 'show', revision + ':' + relative])
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
@@ -717,7 +741,13 @@ def main():
                 'final host-security recovery requires the active 43-to-44 owner')
         print(encoded(recovery(args, 44, capture=True)));return
     if args.operation == 'backup':
+        if NODE == 'pikachu':
+            from maintenance_receiver_protection import verify
+            verify(args)
         print(encoded(recovery_manifest));return
+    if owner is None and NODE == 'pikachu':
+        from maintenance_receiver_protection import verify
+        verify(args)
     if owner is None:
         owner = controller.acquire(NODE, source, {39: 41, 41: 43, 43: 44}[source], revision)
     public_keys = {}
