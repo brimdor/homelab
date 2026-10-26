@@ -10,8 +10,7 @@ import urllib.request
 
 POLICY = ('https://github.com/k3s-io/k3s-selinux/releases/download/v1.6.latest.1/k3s-selinux-1.6-1.el9.noarch.rpm',
           '1115a1223b0db998c7977c879f2a3a6f07a0c63240f68f6e3b665a7ae27c38f7')
-KEY = ('https://rpm.rancher.io/public.key',
-       'b2ebdeb8d9b1bb66696622da6d086c2376de772af3dd96cc3a6cb4ca5568d171')
+SIGNING_FINGERPRINT = 'c8cff216455126e9b9c918be925ea29ae257814a'
 
 
 def execute(operation, journal, native, identity, recovery):
@@ -57,7 +56,7 @@ def execute(operation, journal, native, identity, recovery):
         journal.owners(idle=True)
         assets = root / ('host-security-assets-' + token)
         assets.mkdir(mode=0o700, exist_ok=True)
-        for name, (url, digest) in (('policy.rpm', POLICY), ('rancher-public.key', KEY)):
+        for name, (url, digest) in (('policy.rpm', POLICY),):
             path = assets / name
             if not path.exists():
                 with urllib.request.urlopen(url, timeout=60) as response:
@@ -65,9 +64,8 @@ def execute(operation, journal, native, identity, recovery):
                 assert hashlib.sha256(content).hexdigest() == digest, 'vendor artifact changed'
                 hold.exclusive_file(path, content, 0o600)
             assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
-        native('rpmkeys', '--import', str(assets / 'rancher-public.key'))
         signature = native('rpmkeys', '--checksig', '--verbose', str(assets / 'policy.rpm'))
-        assert 'e257814a' in signature.lower() and not any(word in signature for word in ('NOKEY', 'NOT OK', 'BAD'))
+        assert ('key fingerprint: ' + SIGNING_FINGERPRINT + ': OK') in signature.lower().replace(': ok', ': OK') and not any(word in signature for word in ('NOKEY', 'NOT OK', 'BAD'))
         repos = root / ('fedora-repositories-44-' + token)
         assert (repos / 'maintenance.repo').is_file()
         command = ['systemd-run', '--unit=' + unit, '--property=Type=exec',
