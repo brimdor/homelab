@@ -227,12 +227,33 @@ else:
   if not path.exists():actors.exclusive_file(path,content.encode(),0o600)
   assert path.read_text()==content
   result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'source':owner['source'],'gpgcheck':True}
+ elif operation=='observe-package':
+  assert state['pending'] and state['pending']['step']in('prepare_source','download_release')
+  step=state['pending']['step'];unit=owner['owner']+'-'+step.replace('_','-')+'.service'
+  raw=native('systemctl','show',unit,'-p','LoadState','-p','ActiveState','-p','Result','-p','ExecMainStatus','-p','MainPID','-p','ControlPID')
+  fields=dict(line.split('=',1)for line in raw.splitlines())
+  assert fields['LoadState']=='loaded','unit absent; retain uncertain intent'
+  result={'unit':unit,'status':fields,'accepted':False}
+  if fields['MainPID']=='0' and fields['ControlPID']=='0':
+   if fields['Result']=='success' and fields['ExecMainStatus']=='0' and fields['ActiveState']=='active':
+    value=evidence();receipt={'unit':unit,'status':fields,'release':native('rpm','-E','%fedora'),'prerequisites':value}
+    assert receipt['release']==str(owner['source'])
+    if step=='prepare_source' and owner['source']==39:native('rpm','-q','dnf-plugin-system-upgrade')
+    def verified(step_name,digest):return step_name==step and digest==drain.hashed(receipt) and evidence()==value
+    result['journal']=journal.accept(state['pending']['sha256'],drain.hashed(receipt),verified);result['accepted']=True
+   elif fields['ActiveState']=='failed':
+    result['failure_log']=native('journalctl','--no-pager','-u',unit,'-n','30','-o','cat')
  elif operation=='prepare-source':
   assert native('rpm','-E','%fedora')==str(owner['source'])
   assert state['completed']==['cordon','drain'] and not state['pending']
   directory=root/'fedora-repositories';assert(directory/'maintenance.repo').is_file()
   command=packages.command(owner,'prepare_source');position=command.index('/usr/bin/dnf'if owner['source']==39 else '/usr/bin/dnf5')
   command[position+1:position+1]=['--setopt=reposdir='+str(directory),'--setopt=gpgcheck=True','--setopt=localpkg_gpgcheck=True']
+  if owner['source']==39:
+   upgrade_command=command[position:]
+   plugin_command=upgrade_command[:5]+['install','dnf-plugin-system-upgrade']
+   payload='import subprocess;subprocess.run('+repr(upgrade_command)+',check=True);subprocess.run('+repr(plugin_command)+',check=True)'
+   command[position:]=['/usr/bin/python3','-c',payload]
   value=evidence();pending=journal.begin('prepare_source',drain.hashed(command),drain.hashed(value),prerequisites(value))
   assert journal.inspect()==pending;hold.systemd.idle(hold.marker)
   native(*command);result={'dispatched':True,'command':command,'pending':pending['pending']}
@@ -321,7 +342,7 @@ def run_worker(args, api, owner, public_keys, recovery_manifest):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['backup', 'initialize', 'inspect', 'cordon', 'drain',
+    parser.add_argument('operation', choices=['backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'prepare-source'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
