@@ -129,8 +129,8 @@ server:
   singleBinary:
     replicas: 1
     sidecar: false
-    nodeSelector:
-      kubernetes.io/hostname: totodile
+    # Ceph RBD follows this single writer when a node is drained.
+    nodeSelector: {}
     persistence:
       enabled: false
       dataVolumeParameters:
