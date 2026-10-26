@@ -72,10 +72,16 @@ assert os.geteuid()==0 and socket.gethostname()=='totodile'
 assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
 assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==%r
 assert '6c:4b:90:5b:a3:56'in{p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
-assert not pathlib.Path('/var/lib/rancher/k3s/server').exists()
+pid=subprocess.check_output(['systemctl','show','k3s','-p','MainPID','--value'],text=True).strip()
+argv=(pathlib.Path('/proc')/pid/'cmdline').read_bytes().split(bytes([0]))
+assert argv[0]in(b'k3s agent',b'k3s-agent') or len(argv)>1 and argv[1]==b'agent'
+etcd=pathlib.Path('/var/lib/rancher/k3s/server/db/etcd')
+assert not etcd.exists() or {p.name for p in etcd.iterdir()}<={'name'}
+listeners=subprocess.check_output(['ss','-H','-lnt'],text=True)
+assert not any(':2379'in line or ':2380'in line for line in listeners.splitlines())
 command=['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-system',
  '--exclude=var/lib/rancher/k3s/agent/containerd','--exclude=var/lib/rancher/k3s/agent/images',
- '-C','/','-cf','-','etc','boot','boot/efi','usr/local/bin/k3s','var/lib/rancher/k3s/agent']
+ '-C','/','-cf','-','etc','boot','boot/efi','usr/local/bin/k3s','var/lib/rancher/k3s/agent','var/lib/rancher/k3s/server']
 sys.exit(subprocess.run(command).returncode)
 """ % (IDENTITY['machine'], IDENTITY['root_uuid'])
     receiver = """
@@ -83,7 +89,12 @@ import hashlib,json,os,pathlib,socket,stat,sys
 assert os.geteuid()==0 and socket.gethostname()=='pikachu'
 root=pathlib.Path(%r)
 assert not any(p.is_symlink()for p in(root,*root.parents))
-assert root.parent.is_dir();root.mkdir(mode=0o700)
+assert root.parent.is_dir()
+if root.exists():
+ partial=root/'node-config.partial';info=partial.stat()
+ assert {p.name for p in root.iterdir()}=={'node-config.partial'}and info.st_size==0 and info.st_uid==0 and info.st_nlink==1 and stat.S_IMODE(info.st_mode)==0o600
+ partial.unlink()
+else:root.mkdir(mode=0o700)
 assert stat.S_IMODE(root.stat().st_mode)==0o700
 path=root/'node-config.partial';digest=hashlib.sha256();size=0
 with path.open('xb')as target:
