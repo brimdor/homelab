@@ -26,6 +26,8 @@ def execute(operation, journal, native, identity, recovery):
         'cordon', 'drain', 'prepare_source', 'download_release', 'offline_transaction',
         'trusted_reconnect', 'verify_infrastructure']
     token = owner['owner']
+    if operation in ('security-tools', 'observe-security-tools'):
+        return security_tools(operation, journal, native, identity, recovery)
     unit = token + '-host-policy.service'
     intent = root / ('host-policy-' + token + '.json')
     if operation == 'observe-security-policy':
@@ -79,12 +81,62 @@ def execute(operation, journal, native, identity, recovery):
                    '--property=RemainAfterExit=yes', '--property=Restart=no', '--setenv=LANG=C.UTF-8',
                    '/usr/bin/dnf5', '--setopt=reposdir=' + str(repos), '--setopt=gpgcheck=True',
                    '--setopt=localpkg_gpgcheck=True', '--assumeyes', 'install',
-                   str(assets / 'policy.rpm'), 'microcode_ctl']
+                   str(assets / 'policy.rpm'), 'microcode_ctl', 'policycoreutils-python-utils']
         record = {'owner': token, 'identity': identity(), 'command': command,
                   'recovery_sha256': recovery['sha256']}
         hold.exclusive_file(intent, json.dumps(record, sort_keys=True).encode(), 0o600)
         native(*command)
     return {'dispatched': True, 'unit': unit, 'intent_sha256': hashlib.sha256(intent.read_bytes()).hexdigest()}
+
+
+def security_tools(operation, journal, native, identity, recovery):
+    """Recover the missing native label tool without replaying accepted policy work."""
+    import maintenance_actor_hold as hold
+    token = journal.token
+    root = journal.hold.state
+    intent = root / ('host-tools-' + token + '.json')
+    accepted = root / ('host-tools-accepted-' + token + '.json')
+    unit = token + '-host-tools.service'
+    policy = json.loads((root / ('host-policy-' + token + '.json')).read_bytes())
+    proof = json.loads((root / ('host-policy-accepted-' + token + '.json')).read_bytes())
+    assert policy['owner'] == token and policy['identity'] == identity() and proof['accepted'] is True
+    assert native('getenforce') == 'Permissive'
+    if operation == 'observe-security-tools':
+        record = json.loads(intent.read_bytes())
+        assert record['owner'] == token and record['identity'] == identity()
+        fields = dict(line.split('=', 1) for line in native('systemctl', 'show', unit,
+            '-p', 'LoadState', '-p', 'ActiveState', '-p', 'Result', '-p', 'ExecMainStatus',
+            '-p', 'MainPID', '-p', 'ControlPID').splitlines())
+        assert fields['LoadState'] == 'loaded', 'uncertain tools dispatch; never replay'
+        result = {'unit': unit, 'status': fields, 'accepted': False}
+        if fields['MainPID'] == fields['ControlPID'] == '0':
+            assert fields['ActiveState'] == 'active' and fields['Result'] == 'success' and fields['ExecMainStatus'] == '0', native('journalctl', '-u', unit, '-n', '20', '--no-pager', '-o', 'cat')
+            package = native('rpm', '-q', 'policycoreutils-python-utils', '--qf', '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}')
+            assert package.startswith('policycoreutils-python-utils ') and '.fc44.' in package
+            native('rpm', '-V', '--noghost', 'policycoreutils-python-utils')
+            assert native('rpm', '-qf', '/usr/bin/semanage', '--qf', '%{NAME}') == 'policycoreutils-python-utils'
+            native('semanage', 'fcontext', '-l', '-C')
+            result.update(accepted=True, package=package, owner=token, identity=identity())
+            if not accepted.exists():hold.exclusive_file(accepted, json.dumps(result, sort_keys=True).encode(), 0o600)
+        return result
+    with journal.hold.serialized():
+        journal.owners(idle=True)
+        for path in (intent, accepted):hold.safe(path)
+        assert operation == 'security-tools' and not intent.exists(), 'tools intent exists; observe, never replay'
+        assert not (root / ('host-enforce-' + token + '.json')).exists(), 'enforcement already dispatched'
+        repos = root / ('fedora-repositories-44-' + token)
+        hold.safe(repos / 'maintenance.repo')
+        assert (repos / 'maintenance.repo').is_file()
+        command = ['systemd-run', '--unit=' + unit, '--property=Type=exec',
+            '--property=RemainAfterExit=yes', '--property=Restart=no', '--setenv=LANG=C.UTF-8',
+            '/usr/bin/dnf5', '--setopt=reposdir=' + str(repos), '--setopt=gpgcheck=True',
+            '--setopt=localpkg_gpgcheck=True', '--assumeyes', 'install', 'policycoreutils-python-utils']
+        record = {'owner': token, 'identity': identity(), 'command': command,
+            'policy_intent_sha256': hashlib.sha256((root / ('host-policy-' + token + '.json')).read_bytes()).hexdigest(),
+            'recovery_sha256': recovery['sha256']}
+        hold.exclusive_file(intent, json.dumps(record, sort_keys=True).encode(), 0o600)
+        native(*command)
+    return {'dispatched': True, 'unit': unit, 'owner_retained': True}
 
 
 def relabel(journal, native, identity, recovery):
