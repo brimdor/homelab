@@ -74,7 +74,7 @@ assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip
 assert '6c:4b:90:5b:a3:56'in{p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
 pid=subprocess.check_output(['systemctl','show','k3s','-p','MainPID','--value'],text=True).strip()
 argv=(pathlib.Path('/proc')/pid/'cmdline').read_bytes().split(bytes([0]))
-assert argv[0]in(b'k3s agent',b'k3s-agent') or len(argv)>1 and argv[1]==b'agent'
+assert argv[0]in(b'k3s agent',b'k3s-agent',b'/usr/local/bin/k3s agent') or len(argv)>1 and argv[1]==b'agent'
 etcd=pathlib.Path('/var/lib/rancher/k3s/server/db/etcd')
 assert not etcd.exists() or {p.name for p in etcd.iterdir()}<={'name'}
 listeners=subprocess.check_output(['ss','-H','-lnt'],text=True)
