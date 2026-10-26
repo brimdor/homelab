@@ -1,15 +1,17 @@
 # https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
-  defaultPodOptions:
-    nodeSelector:
-      kubernetes.io/hostname: charmander
   controllers:
     main:
+      pod:
+        # Exact running image is retained on this prepared receiver during maintenance.
+        nodeSelector:
+          kubernetes.io/hostname: totodile
       containers:
         main:
           image:
             repository: docker.io/brimdor/postgres
             tag: "17.5-bookworm"
+            digest: sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e
           env:
             TZ: "America/Chicago"
             PGDATA: "/var/lib/postgresql/data"
