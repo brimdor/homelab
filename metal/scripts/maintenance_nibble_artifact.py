@@ -7,7 +7,7 @@ from pathlib import Path
 import shlex
 import subprocess
 
-from maintenance_coordination import require
+from maintenance_coordination import JOURNAL, Kubectl, Ownership, require
 from maintenance_production_node import remote, ssh
 
 
@@ -30,7 +30,7 @@ PROFILES = {
         'source_host': 'totodile',
         'source_machine': '0f1915a59a124d999d8d68b53f406af1',
         'source_root': '489f1af8-5d55-4356-8d48-418fcb2069a2',
-        'recovery': '/var/lib/homelab-recovery/maintenance-103/pointview-image-ee4876e6-local-export',
+        'recovery': '/var/lib/homelab-recovery/maintenance-103/pointview-image-ee4876e6-complete-export',
         'artifact': 'maintenance103-pointview-ee4876e6.tar',
     },
     'pages-canary': {
@@ -160,12 +160,78 @@ else:
 '''
 
 
+
+BASE_LAYERS = (
+    ('sha256:b623269625fa50efaed58431bcf95ba7d8bc11d5d48d6ea77941a8b9a82764d4', 30190329),
+    ('sha256:0a43925a970bc92e3c311426f82bad9dc0cdfe4f69efd7be82033e0bbb275e35', 51672843),
+    ('sha256:a324de66f53f2f1f9a002ee9ace90d15ffdb6b06cb7bfba1d52b6e012f969b00', 1798795),
+)
+BASE_SOURCE = """
+import os,pathlib,socket,subprocess
+assert os.geteuid()==0 and socket.gethostname()=='charmander'
+assert pathlib.Path('/etc/machine-id').read_text().strip()=='58d682ccab5a4269acedc3cdf53e46dc'
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='4a64a6d6-e982-4694-aa03-ad5f317b3ab2'
+os.execv('/usr/local/bin/k3s',['k3s','ctr','-n','k8s.io','content','get',BLOB])
+"""
+BASE_RECEIVER = """
+import hashlib,json,os,pathlib,socket,subprocess,sys
+assert os.geteuid()==0 and socket.gethostname()=='totodile'
+assert pathlib.Path('/etc/machine-id').read_text().strip()=='0f1915a59a124d999d8d68b53f406af1'
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='489f1af8-5d55-4356-8d48-418fcb2069a2'
+root=pathlib.Path('/var/lib/homelab-recovery/maintenance-103/pointview-base-'+BLOB.split(':')[1])
+assert not any(p.is_symlink()for p in(root,*root.parents))
+assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(root.parent)],text=True).strip()=='489f1af8-5d55-4356-8d48-418fcb2069a2'
+assert not root.exists(),'existing blob recovery intent; observe only'
+root.mkdir(mode=0o700);archive=root/'blob';h=hashlib.sha256();size=0
+with archive.open('xb')as output:
+ os.fchmod(output.fileno(),0o600)
+ while True:
+  chunk=sys.stdin.buffer.read(1024*1024)
+  if not chunk:break
+  output.write(chunk);h.update(chunk);size+=len(chunk)
+ output.flush();os.fsync(output.fileno())
+assert size==SIZE and h.hexdigest()==BLOB.split(':')[1]
+prefix=['/usr/local/bin/k3s','ctr','-n','k8s.io','content']
+with archive.open('rb')as source:
+ subprocess.run(prefix+['ingest','--expected-size',str(SIZE),'--expected-digest',BLOB,'maintenance103-pointview-'+BLOB.split(':')[1]],stdin=source,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+child=subprocess.Popen(prefix+['get',BLOB],stdout=subprocess.PIPE,stderr=subprocess.PIPE);check=hashlib.sha256();observed=0
+for chunk in iter(lambda:child.stdout.read(1024*1024),b''):check.update(chunk);observed+=len(chunk)
+child.stderr.read();assert child.wait()==0 and observed==SIZE and check.hexdigest()==BLOB.split(':')[1]
+record={'digest':BLOB,'bytes':size,'sha256':h.hexdigest(),'native_readback_verified':True,'source':'charmander','target':'totodile'}
+with(root/'verified.json').open('x')as output:
+ os.fchmod(output.fileno(),0o600);json.dump(record,output);output.flush();os.fsync(output.fileno())
+for path in(root,root.parent):
+ directory=os.open(path,os.O_RDONLY|os.O_DIRECTORY);os.fsync(directory);os.close(directory)
+print(json.dumps(record))
+"""
+
+
+def stream(args, source_address, source_program, receiver_program):
+    source = subprocess.Popen(ssh(args, source_address) + ['python3 -B -c ' + shlex.quote(source_program)],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        receiver = subprocess.run(ssh(args, TARGET) + ['python3 -B -c ' + shlex.quote(receiver_program)],
+                                 stdin=source.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        source.stdout.close()
+        error = source.stderr.read()
+        status = source.wait()
+        require(status == 0 and receiver.returncode == 0,
+                'artifact transfer failed; observe retained intent: ' +
+                error.decode()[-1000:] + receiver.stderr.decode()[-1000:])
+        return json.loads(receiver.stdout)
+    finally:
+        if source.poll() is None:
+            source.terminate()
+            source.wait()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--register-digest', action='store_true')
+    parser.add_argument('--recover-base-layers', action='store_true')
     parser.add_argument('--image', choices=tuple(PROFILES), default='nibble')
     args = parser.parse_args()
     require(Path.cwd() == Path('/Users/chris/Documents/Github/homelab'), 'canonical checkout required')
@@ -194,8 +260,18 @@ def main():
     require(ds['metadata']['uid'] == '4abc4fee-c3be-440e-8945-34bb3fb15ce1',
             'Kured controller identity differs')
     owner = json.loads(ds['metadata']['annotations']['weave.works/kured-node-lock'])
-    require(owner['nodeID'] == 'homelab-maintenance-103-6f78a7a1-d165-430e-bde4-b85894582e77',
-            'active maintenance owner differs')
+    if args.image == 'pointview':
+        saved = json.loads(ds['metadata']['annotations'][JOURNAL])
+        nodes = get('get', 'nodes')['items']
+        active = Ownership(Kubectl(args.kubectl), ds['metadata']['uid'],
+            {n['metadata']['name']: n['metadata']['uid'] for n in nodes}).resume(saved['owner'])
+        require(active['node'] == 'pikachu' and active['node_uid'] == node['metadata']['uid'] and
+                owner['nodeID'] == active['owner'] and
+                (active['source'], active['target']) in ((39, 41), (41, 43), (43, 44)),
+                'reviewed Pikachu maintenance owner differs')
+    else:
+        require(owner['nodeID'] == 'homelab-maintenance-103-6f78a7a1-d165-430e-bde4-b85894582e77',
+                'active maintenance owner differs')
     ceph = json.loads(subprocess.check_output([args.kubectl, 'exec', '-n', 'rook-ceph',
         'deploy/rook-ceph-tools', '--', 'ceph', 'health', '-f', 'json']))
     require(ceph['status'] == 'HEALTH_OK', 'Ceph not HEALTH_OK')
@@ -216,23 +292,14 @@ def main():
     if args.register_digest:
         print(json.dumps(remote(args, bindings + REGISTER_PROGRAM, TARGET)))
         return
-    source = subprocess.Popen(ssh(args, profile.get('source', SOURCE)) + ['python3 -B -c ' +
-        shlex.quote(bindings + SOURCE_PROGRAM)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    try:
-        receiver = subprocess.run(ssh(args, TARGET) + ['python3 -B -c ' +
-            shlex.quote(bindings + RECEIVE_PROGRAM)], stdin=source.stdout,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        source.stdout.close()
-        error = source.stderr.read()
-        status = source.wait()
-        require(status == 0 and receiver.returncode == 0,
-                'artifact transfer failed; observe retained intent: ' +
-                error.decode()[-1000:] + receiver.stderr.decode()[-1000:])
-        print(json.dumps(json.loads(receiver.stdout)))
-    finally:
-        if source.poll() is None:
-            source.terminate()
-            source.wait()
+    if args.recover_base_layers:
+        require(args.image == 'pointview', 'base recovery is PointView only')
+        for digest, size in BASE_LAYERS:
+            values = 'BLOB=' + repr(digest) + '\nSIZE=' + repr(size) + '\n'
+            print(json.dumps(stream(args, '10.0.20.11', values + BASE_SOURCE, values + BASE_RECEIVER)), flush=True)
+        return
+    print(json.dumps(stream(args, profile.get('source', SOURCE),
+                            bindings + SOURCE_PROGRAM, bindings + RECEIVE_PROGRAM)))
 
 
 if __name__ == '__main__':
