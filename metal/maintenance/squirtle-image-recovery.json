@@ -61,5 +61,12 @@
     "digest": "sha256:39773805de69ccb43c90319d34430273dc43d4bb1b3617b39bbba628ef15165b",
     "config": "sha256:274e4c20767202acbc4472fbb20ab1dede1d08ec91db5ec68154b884f799b15f",
     "blobs": 3
+  },
+  "pointguide": {
+    "image": "10.0.20.11:32309/pointguide@sha256:f1e45ecc611027e44d7f0ac0ad3939c36a5f32628bd95451c08a2a537a6e3035",
+    "declared": "10.0.20.11:32309/pointguide:a9df3d9@sha256:f1e45ecc611027e44d7f0ac0ad3939c36a5f32628bd95451c08a2a537a6e3035",
+    "digest": "sha256:f1e45ecc611027e44d7f0ac0ad3939c36a5f32628bd95451c08a2a537a6e3035",
+    "config": "sha256:b8b94906748a7c00bc953cfe86ad39fa1929d8206ce2e86edca78f5a45b90f77",
+    "blobs": 17
   }
 }
