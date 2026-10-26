@@ -165,7 +165,7 @@ def facts(native):
     config = tomllib.loads(containerd.read_text())
     plugins = config.get('plugins', {})
     runtime = plugins.get('io.containerd.cri.v1.runtime', plugins.get('io.containerd.grpc.v1.cri', {}))
-    audit = subprocess.run(['ausearch', '-m', 'AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR',
+    audit = subprocess.run(['ausearch', '--input', '/var/log/audit', '-m', 'AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR',
                             '-ts', 'boot', '--raw'], capture_output=True, text=True)
     assert audit.returncode in (0, 1), 'native audit query failed'
     records = []
