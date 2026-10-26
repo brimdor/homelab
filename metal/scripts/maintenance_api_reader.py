@@ -123,4 +123,11 @@ class Reader(Kubectl):
         response = self.connection.getresponse()
         raw = response.read()
         require(response.status == 200, 'fresh Kubernetes read failed HTTP ' + str(response.status))
-        return json.loads(raw)
+        value = json.loads(raw)
+        # Typed API lists omit per-item TypeMeta; kubectl normally supplies it.
+        if value.get('kind', '').endswith('List'):
+            for item in value['items']:
+                for key, expected in (('apiVersion', value['apiVersion']), ('kind', value['kind'][:-4])):
+                    require(key not in item or item[key] == expected, 'list item type differs')
+                    item[key] = expected
+        return value
