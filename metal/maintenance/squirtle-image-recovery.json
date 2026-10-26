@@ -1,0 +1,58 @@
+{
+  "humbleai": {
+    "image": "10.0.20.11:32309/humbleai@sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542",
+    "declared": "10.0.20.11:32309/humbleai:latest",
+    "digest": "sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542",
+    "config": "sha256:da30cfa6e21c5ff8a1291228bab6ab4b212145e36b2b1fcf0187f0d2b02f0802",
+    "blobs": 13
+  },
+  "pages": {
+    "image": "10.0.20.11:32309/pages@sha256:5e695aac4e01273f5f5938d382d72f3c2caddb84d034b0e476d8d0dfd33d279f",
+    "declared": "10.0.20.11:32309/pages:2026-05-14-v2",
+    "digest": "sha256:5e695aac4e01273f5f5938d382d72f3c2caddb84d034b0e476d8d0dfd33d279f",
+    "config": "sha256:7a62e9d1e1dea4e8dde76e60e690638fff1fc582d45ea8ca1522b1463c8fbe95",
+    "blobs": 25
+  },
+  "pointsite-builder": {
+    "image": "10.0.20.11:32309/pointsite-builder@sha256:39ef6b0c5551140226a900d633feca7b7808c32cc36e4466ab8299aed0c45d5f",
+    "declared": "10.0.20.11:32309/pointsite-builder:5fd3162d2777920e229917a427c056be1f2981be@sha256:39ef6b0c5551140226a900d633feca7b7808c32cc36e4466ab8299aed0c45d5f",
+    "digest": "sha256:39ef6b0c5551140226a900d633feca7b7808c32cc36e4466ab8299aed0c45d5f",
+    "config": "sha256:9f56c20b76f6eb252019b51e94e0bc3eaee3cb0528a8cc819199343da72d05e5",
+    "blobs": 13
+  },
+  "pointview": {
+    "image": "10.0.20.11:32309/pointview@sha256:ee4876e6add9b45af87dd94af9fb9cd0cfca5d7f673e215c456f341983bb7113",
+    "declared": "10.0.20.11:32309/pointview:d377729@sha256:ee4876e6add9b45af87dd94af9fb9cd0cfca5d7f673e215c456f341983bb7113",
+    "digest": "sha256:ee4876e6add9b45af87dd94af9fb9cd0cfca5d7f673e215c456f341983bb7113",
+    "config": "sha256:58fae48064aae9440e847719c22cc4443fe06dca4d6c4a426cfa66bfc7739a66",
+    "blobs": 17
+  },
+  "second-brain": {
+    "image": "10.0.20.11:32309/second-brain@sha256:112b7db8fd2bffb9174797797b2980d4218974dd33085f302134257608c8e1c3",
+    "declared": "10.0.20.11:32309/second-brain:2026-04-17-v1-prod",
+    "digest": "sha256:112b7db8fd2bffb9174797797b2980d4218974dd33085f302134257608c8e1c3",
+    "config": "sha256:4fc483420dbef5f1f7bfae15dc2d7a5ceffdf1b847475ff92d4c7176d979fb47",
+    "blobs": 17
+  },
+  "sporecast-backend": {
+    "image": "10.0.20.11:32309/sporecast-backend@sha256:1eb8f84e6188481d0db009088b4b5d1a6ac3158dbc41a6f6db187bf787857063",
+    "declared": "10.0.20.11:32309/sporecast-backend:a3fe7c8",
+    "digest": "sha256:1eb8f84e6188481d0db009088b4b5d1a6ac3158dbc41a6f6db187bf787857063",
+    "config": "sha256:1f42d28483fbcc74dc5732327b8141f12486059cdb26ad9c5af9cc73eb9657dd",
+    "blobs": 17
+  },
+  "sporecast-frontend": {
+    "image": "10.0.20.11:32309/sporecast-frontend@sha256:1ed9d37a40e4ef13b90194c3481ff16a60123144beb78847bd0fa954b60395ee",
+    "declared": "10.0.20.11:32309/sporecast-frontend:canary-a3fe7c8",
+    "digest": "sha256:1ed9d37a40e4ef13b90194c3481ff16a60123144beb78847bd0fa954b60395ee",
+    "config": "sha256:28f2ca8d33aabcb4d11a1880cd2fd79b531136bf7530d840a492a7e8403b5a36",
+    "blobs": 12
+  },
+  "tamalotl": {
+    "image": "10.0.20.11:32309/tamalotl@sha256:23b06aa96c5532556aea10cd418971a3136c37bf864f5bb4c0307a8576ca1c88",
+    "declared": "10.0.20.11:32309/tamalotl:canary-5d869cda9b71906cc7e948455fe9ef0b1e6267db@sha256:23b06aa96c5532556aea10cd418971a3136c37bf864f5bb4c0307a8576ca1c88",
+    "digest": "sha256:23b06aa96c5532556aea10cd418971a3136c37bf864f5bb4c0307a8576ca1c88",
+    "config": "sha256:59fb987496e1866d2a521f2e8bc68d0c425a736d45f071dd6db44b4f0b23fea1",
+    "blobs": 13
+  }
+}
