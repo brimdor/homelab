@@ -26,7 +26,7 @@ class ReadOnlySourceTests(unittest.TestCase):
                 config, layer = b'{"architecture":"amd64","os":"linux"}', b'original compressed layer'
                 descriptor = lambda data: {'digest': 'sha256:' + hashlib.sha256(data).hexdigest(), 'size': len(data)}
                 manifest = {'schemaVersion': 2, 'mediaType': 'application/vnd.oci.image.manifest.v1+json',
-                            'config': descriptor(config), 'layers': [descriptor(layer)]}
+                            'config': descriptor(config), 'layers': [descriptor(layer), descriptor(layer)]}
                 raw = json.dumps(manifest).encode();digest = descriptor(raw)['digest']
                 for data in (raw, config, layer): (root / descriptor(data)['digest'][7:]).write_bytes(data)
                 if damaged: (root / descriptor(layer)['digest'][7:]).write_bytes(b'X' + layer[1:])
@@ -56,6 +56,7 @@ class ReadOnlySourceTests(unittest.TestCase):
                 self.assertFalse(active[0]);self.assertFalse(mount.exists())
                 if not damaged:
                     with tarfile.open(fileobj=io.BytesIO(output.getvalue())) as archive:
+                        self.assertEqual(len(archive.getnames()), len(set(archive.getnames())))
                         index = json.load(archive.extractfile('index.json'))
                         self.assertEqual(index['manifests'][0]['digest'], digest)
                         self.assertEqual(archive.extractfile('blobs/sha256/' + digest[7:]).read(), raw)

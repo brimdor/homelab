@@ -75,7 +75,12 @@ try:
  manifest=json.loads(raw)
  assert manifest['schemaVersion']==2 and manifest['config']['digest']==CONFIG
  descriptors=[{'digest':DIGEST,'size':len(raw)},manifest['config'],*manifest['layers']]
- assert len({v['digest']for v in descriptors})==BLOB_COUNT
+ unique={}
+ for descriptor in descriptors:
+  assert descriptor['digest']not in unique or unique[descriptor['digest']]['size']==descriptor['size']
+  unique[descriptor['digest']]=descriptor
+ assert len(unique)==BLOB_COUNT
+ descriptors=list(unique.values())
  with tarfile.open(fileobj=sys.stdout.buffer,mode='w|')as archive:
   def add(name,content):
    entry=tarfile.TarInfo(name);entry.size=len(content);entry.mode=0o644
@@ -110,12 +115,14 @@ def profiles():
 
 def bindings(key):
     profile = profiles()[key]
+    # Preserve the first Pages archive, rejected before native import for duplicate OCI members.
+    suffix = '-v2' if key == 'pages' else ''
     values = {'NAS': NAS, 'PV_UID': PV_UID, 'PVC_UID': PVC_UID,
               'REPOSITORY': profile['image'].split('/', 1)[1].split('@')[0],
               'IMAGE': profile['image'] if '@' in profile['declared'] else profile['declared'],
               'DIGEST': profile['digest'], 'CONFIG': profile['config'], 'BLOB_COUNT': profile['blobs'],
-              'RECOVERY': '/var/lib/homelab-recovery/maintenance-103/squirtle-image-' + key + '-' + profile['digest'][7:15],
-              'ARTIFACT': 'maintenance103-squirtle-' + key + '-' + profile['digest'][7:15] + '.tar',
+              'RECOVERY': '/var/lib/homelab-recovery/maintenance-103/squirtle-image-' + key + '-' + profile['digest'][7:15] + suffix,
+              'ARTIFACT': 'maintenance103-squirtle-' + key + '-' + profile['digest'][7:15] + suffix + '.tar',
               'TARGET_HOST': 'pikachu', 'TARGET_MACHINE': '0a7daf8b33244d9d85f46223c3582da9',
               'TARGET_ROOT': '76e53a95-725a-4430-9d7b-a8db413f3997', 'ALIAS': profile['image']}
     return ''.join(name + '=' + repr(value) + '\n' for name, value in values.items())
