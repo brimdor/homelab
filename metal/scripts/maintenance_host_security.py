@@ -260,6 +260,7 @@ def enforce(journal, native, identity, recovery):
     with journal.hold.serialized():
         journal.owners(idle=True)
         assert not intent.exists(), 'enforcement intent exists; observe, never replay'
+        rook_hostpaths(native)
         relabel_intent = json.loads((root / ('host-relabel-' + token + '.json')).read_bytes())
         assert relabel_intent['owner'] == token and relabel_intent['identity'] == identity()
         agents = observers()
@@ -302,6 +303,44 @@ def enforce(journal, native, identity, recovery):
                '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
     return {'enforcement_reboot_dispatched': True, 'owner_retained': True, 'node_stays_cordoned': True,
             'permissive_denials_after_correction': observed['audit_record_count']}
+
+
+def rook_hostpaths(native):
+    """Label only Rook's shared local log, crash and socket directories."""
+    roots = tuple(Path(p) for p in ('/var/lib/rook/exporter',
+        '/var/lib/rook/rook-ceph/log', '/var/lib/rook/rook-ceph/crash'))
+    mounts = json.loads(native('findmnt', '--json', '--list', '-o', 'TARGET,FSTYPE'))['filesystems']
+    root_mount = next(m for m in mounts if m['target'] == '/')
+    assert root_mount['fstype'] == 'ext4', 'review another root filesystem first'
+    device = Path('/').stat().st_dev
+
+    def inspect():
+        contexts = {}
+        for root in roots:
+            assert root.is_dir() and not any(p.is_symlink() for p in (root, *root.parents))
+            assert not any(m['target'] == str(root) or m['target'].startswith(str(root) + '/')
+                           for m in mounts), 'mounted data under Rook hostPath'
+            for path in (root, *root.rglob('*')):
+                assert not path.is_symlink() and path.lstat().st_dev == device
+                label = os.getxattr(path, 'security.selinux', follow_symlinks=False).decode().rstrip('\0')
+                contexts[label] = contexts.get(label, 0) + 1
+        return contexts
+
+    before = inspect()
+    local = native('semanage', 'fcontext', '-l', '-C').splitlines()
+    for root in roots:
+        pattern = str(root) + '(/.*)?'
+        existing = [line for line in local if line.split() and line.split()[0] == pattern]
+        if existing:
+            assert len(existing) == 1 and existing[0].split()[-1] == 'system_u:object_r:container_file_t:s0'
+        else:
+            native('semanage', 'fcontext', '-a', '-t', 'container_file_t', '-r', 's0', pattern)
+        # Shared Rook daemons need s0, rather than one Pod's private MCS categories.
+        native('restorecon', '-R', '-F', '-x', str(root))
+        assert native('matchpathcon', '-n', str(root)) == 'system_u:object_r:container_file_t:s0'
+    after = inspect()
+    assert set(after) == {'system_u:object_r:container_file_t:s0'}
+    return {'before': before, 'after': after, 'paths': [str(p) for p in roots]}
 
 
 def mitigate_gds(journal, native, identity, recovery):
