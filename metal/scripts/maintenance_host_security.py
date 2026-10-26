@@ -50,6 +50,8 @@ def execute(operation, journal, native, identity, recovery):
         return result
     if operation in ('security-firmware', 'observe-security-firmware', 'security-firmware-reboot'):
         return firmware(operation, journal, native, identity, recovery)
+    if operation == 'security-gds':
+        return mitigate_gds(journal, native, identity, recovery)
     if operation == 'security-enforce':
         return enforce(journal, native, identity, recovery)
     if operation == 'security-relabel':
@@ -297,6 +299,41 @@ def enforce(journal, native, identity, recovery):
                '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
     return {'enforcement_reboot_dispatched': True, 'owner_retained': True, 'node_stays_cordoned': True,
             'permissive_denials_after_correction': observed['audit_record_count']}
+
+
+def mitigate_gds(journal, native, identity, recovery):
+    """Use the kernel's supported AVX fallback only for the observed missing mitigation."""
+    import maintenance_actor_hold as hold
+    token = journal.token
+    root = journal.hold.state
+    intent = root / ('host-gds-' + token + '.json')
+    with journal.hold.serialized():
+        journal.owners(idle=True)
+        assert not intent.exists(), 'GDS intent exists; observe boot, never replay'
+        observed = facts(native)
+        assert observed['mode'] == 'Enforcing' and observed['audit_record_count'] == 0 and not observed['failed_units']
+        assert native('uname', '-r') == FIRMWARE_KERNEL
+        assert Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip() == '0xf0'
+        assert Path('/sys/devices/system/cpu/vulnerabilities/gather_data_sampling').read_text().strip() == 'Vulnerable: No microcode'
+        assert early_intel_revision(Path('/boot/initramfs-' + FIRMWARE_KERNEL + '.img')) == 0xf0
+        firmware_boot = json.loads((root / ('host-firmware-reboot-' + token + '.json')).read_bytes())
+        assert firmware_boot['owner'] == token and firmware_boot['identity'] == identity() and firmware_boot['boot'] != observed['boot']
+        before = native('grubby', '--info=ALL')
+        assert 'gather_data_sampling=' not in before and 'mitigations=off' not in before
+        hold.exclusive_file(intent, json.dumps({'owner': token, 'identity': identity(), 'boot': observed['boot'],
+            'recovery_sha256': recovery['sha256'], 'before_boot_entries': before,
+            'argument': 'gather_data_sampling=force', 'rollback': 'remove only gather_data_sampling=force, then reboot'}, sort_keys=True).encode(), 0o600)
+        native('grubby', '--update-kernel=ALL', '--args=gather_data_sampling=force')
+        entries = native('grubby', '--info=ALL')
+        arguments = [line for line in entries.splitlines() if line.startswith('args=')]
+        assert arguments and all('gather_data_sampling=force' in line for line in arguments)
+        journal.owners(idle=True)
+        reboot = root / ('host-gds-reboot-' + token + '.json')
+        hold.exclusive_file(reboot, json.dumps({'intent_sha256': hashlib.sha256(intent.read_bytes()).hexdigest(),
+            'boot': observed['boot']}, sort_keys=True).encode(), 0o600)
+        native('systemd-run', '--unit=' + token + '-gds-reboot', '--on-active=5s',
+               '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
+    return {'gds_reboot_dispatched': True, 'avx_fallback': True, 'node_stays_cordoned': True, 'owner_retained': True}
 
 
 def acceptance(journal, native, identity):

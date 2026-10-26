@@ -47,3 +47,15 @@
     group: root
     mode: "0644"
   when: host_microcode_early | default(false)
+
+- name: Read configured node kernel arguments
+  ansible.builtin.command: grubby --info=ALL
+  register: host_kernel_entries
+  changed_when: false
+  when: host_gds_force | default(false)
+
+- name: Retain the supported GDS mitigation on affected nodes
+  ansible.builtin.command: grubby --update-kernel=ALL --args=gather_data_sampling=force
+  when:
+    - host_gds_force | default(false)
+    - host_kernel_entries.stdout_lines | select('match', '^args=') | reject('search', 'gather_data_sampling=force') | list | length > 0
