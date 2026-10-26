@@ -48,6 +48,8 @@ def execute(operation, journal, native, identity, recovery):
                 import maintenance_actor_hold as hold
                 hold.exclusive_file(path, json.dumps(result, sort_keys=True).encode(), 0o600)
         return result
+    if operation in ('security-firmware', 'observe-security-firmware', 'security-firmware-reboot'):
+        return firmware(operation, journal, native, identity, recovery)
     if operation == 'security-enforce':
         return enforce(journal, native, identity, recovery)
     if operation == 'security-relabel':
@@ -188,7 +190,12 @@ def facts(native, since=None):
         record['timestamp'] = float(timestamp.group(1))
         record['record_sha256'] = hashlib.sha256(line.encode()).hexdigest()
         records.append(record)
-    assert audit.returncode == 0 or (not records and audit.stdout.strip() == '<no matches>' and not audit.stderr.strip()), 'audit evidence unavailable'
+    assert all(re.fullmatch(r'NOTE - using logs in /var/log/audit/audit\.log(?:\.[0-9]+)?', line)
+               for line in audit.stderr.splitlines()), 'native audit diagnostics require review'
+    assert audit.returncode == 0 or (not records and not audit.stdout.strip()), 'audit evidence unavailable'
+    assert Path('/var/log/audit/audit.log').stat().st_size > 0, 'audit log unavailable'
+    audit_state = dict(line.split(None, 1) for line in native('auditctl', '-s').splitlines())
+    assert audit_state.get('enabled') in ('1', '2') and audit_state.get('lost') == '0', 'audit collection disabled or events lost'
     return {'boot': boot, 'mode': native('getenforce'),
             'kernel': native('uname', '-r'), 'autorelabel': Path('/.autorelabel').exists(),
             'kernel_overrides': sorted({'selinux=0', 'enforcing=0'}.intersection(Path('/proc/cmdline').read_text().split())),
@@ -310,4 +317,122 @@ def acceptance(journal, native, identity):
     native('rpm', '-q', 'microcode_ctl')
     observed['host_observers'] = observers()
     observed['microcode_revision'] = Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip()
+    firmware_boot = json.loads((root / ('host-firmware-reboot-' + token + '.json')).read_bytes())
+    assert firmware_boot['owner'] == token and firmware_boot['identity'] == identity() and firmware_boot['boot'] != observed['boot']
+    assert int(observed['microcode_revision'], 16) >= 0xf0, 'new microcode has not actually loaded'
+    assert early_intel_revision(Path('/boot/initramfs-' + FIRMWARE_KERNEL + '.img')) == 0xf0
+    assert not any(p.read_text().strip().startswith('Vulnerable') for p in Path('/sys/devices/system/cpu/vulnerabilities').iterdir()), 'CPU security finding remains'
     return observed
+
+
+FIRMWARE_CONFIG = 'early_microcode="yes"\n'
+FIRMWARE_SHA256 = '15e96637a89012390e2c254effad092fc9535912b709ffa316069fc5606efb65'
+FIRMWARE_KERNEL = '7.2.11-200.fc44.x86_64'
+
+
+def early_intel_revision(path):
+    """Read the real uncompressed early newc archive and checksum Intel updates."""
+    import struct
+    with path.open('rb') as source:
+        offset = 0
+        for _ in range(100):
+            source.seek(offset); header = source.read(110)
+            assert header[:6] in (b'070701', b'070702'), 'early microcode CPIO missing'
+            size, namesize = int(header[54:62], 16), int(header[94:102], 16)
+            assert 0 < namesize < 4096 and size < 16 * 1024 * 1024
+            name = source.read(namesize).rstrip(bytes([0])).decode()
+            start = (offset + 110 + namesize + 3) & ~3
+            offset = (start + size + 3) & ~3
+            if name == 'TRAILER!!!': break
+            if name != 'kernel/x86/microcode/GenuineIntel.bin': continue
+            source.seek(start); data = source.read(size); revisions = []; position = 0
+            while position < len(data):
+                fields = struct.unpack_from('<12I', data, position)
+                length = fields[8] or 2048
+                assert fields[0] == 1 and length >= 48 and length % 4 == 0 and position + length <= len(data)
+                block = data[position:position + length]
+                assert sum(struct.unpack('<' + str(length // 4) + 'I', block)) & 0xffffffff == 0
+                if fields[3] == 0x506e3: revisions.append(fields[1])
+                position += length
+            assert revisions, 'target CPU update absent from early archive'
+            return max(revisions)
+    raise AssertionError('Intel early microcode payload absent')
+
+
+def firmware(operation, journal, native, identity, recovery):
+    """Build a candidate first; verify it before replacing the boot image once."""
+    import maintenance_actor_hold as hold
+    import shlex
+    token = journal.token; root = journal.hold.state
+    intent = root / ('host-firmware-' + token + '.json')
+    accepted = root / ('host-firmware-accepted-' + token + '.json')
+    install = root / ('host-firmware-reboot-' + token + '.json')
+    unit = token + '-host-firmware.service'
+    image = Path('/boot/initramfs-' + FIRMWARE_KERNEL + '.img')
+    candidate = Path('/boot/.maintenance103-' + token + '.img')
+    assert native('uname', '-r') == FIRMWARE_KERNEL and native('getenforce') == 'Enforcing'
+    if operation == 'observe-security-firmware':
+        record = json.loads(intent.read_bytes())
+        assert record['owner'] == token and record['identity'] == identity()
+        fields = dict(line.split('=', 1) for line in native('systemctl', 'show', unit,
+            '-p', 'LoadState', '-p', 'ActiveState', '-p', 'Result', '-p', 'ExecMainStatus',
+            '-p', 'MainPID', '-p', 'ControlPID').splitlines())
+        assert fields['LoadState'] == 'loaded', 'uncertain firmware dispatch; never replay'
+        result = {'unit': unit, 'status': fields, 'accepted': False}
+        if fields['MainPID'] == fields['ControlPID'] == '0':
+            assert fields['ActiveState'] == 'active' and fields['Result'] == 'success' and fields['ExecMainStatus'] == '0', native('journalctl', '-u', unit, '-n', '20', '--no-pager', '-o', 'cat')
+            assert early_intel_revision(candidate) == 0xf0
+            native('rpm', '-q', 'smartmontools'); native('rpm', '-V', '--noghost', 'microcode_ctl')
+            result.update(accepted=True, candidate_sha256=hashlib.sha256(candidate.read_bytes()).hexdigest(),
+                          target_microcode='0xf0', boot=record['boot'], identity=identity(), owner=token)
+            if not accepted.exists():hold.exclusive_file(accepted, json.dumps(result, sort_keys=True).encode(), 0o600)
+        return result
+    with journal.hold.serialized():
+        journal.owners(idle=True)
+        for path in (image, candidate, intent, accepted, install):hold.safe(path)
+        if operation == 'security-firmware-reboot':
+            assert not install.exists(), 'firmware installation intent exists; observe boot, never replay'
+            record = json.loads(intent.read_bytes()); proof = json.loads(accepted.read_bytes())
+            assert record['owner'] == proof['owner'] == token and record['identity'] == proof['identity'] == identity()
+            assert proof['accepted'] is True and hashlib.sha256(candidate.read_bytes()).hexdigest() == proof['candidate_sha256']
+            assert early_intel_revision(candidate) == 0xf0
+            assert hashlib.sha256(image.read_bytes()).hexdigest() == record['before_image_sha256']
+            assert Path('/proc/sys/kernel/random/boot_id').read_text().strip() == record['boot']
+            hold.exclusive_file(install, json.dumps({'owner': token, 'identity': identity(), 'boot': record['boot'],
+                'candidate_sha256': proof['candidate_sha256'], 'before_image_sha256': record['before_image_sha256']}, sort_keys=True).encode(), 0o600)
+            os.chmod(candidate, image.stat().st_mode & 0o777); os.chown(candidate, 0, 0)
+            with candidate.open('rb') as descriptor:os.fsync(descriptor.fileno())
+            os.replace(candidate, image); hold.fsync_directory(image.parent)
+            native('restorecon', str(image))
+            assert hashlib.sha256(image.read_bytes()).hexdigest() == proof['candidate_sha256']
+            native('systemd-run', '--unit=' + token + '-firmware-reboot', '--on-active=5s',
+                   '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
+            return {'firmware_reboot_dispatched': True, 'node_stays_cordoned': True, 'owner_retained': True}
+        assert operation == 'security-firmware' and not intent.exists() and not candidate.exists()
+        assert Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip() == '0xec'
+        firmware_path = Path('/usr/lib/firmware/intel-ucode/06-5e-03')
+        assert hashlib.sha256(firmware_path.read_bytes()).hexdigest() == FIRMWARE_SHA256
+        native('rpm', '-V', '--noghost', 'microcode_ctl')
+        config = Path('/etc/dracut.conf.d/90-homelab-microcode.conf'); hold.safe(config)
+        assert not config.exists(), 'existing early-microcode configuration requires review'
+        original = root / ('host-firmware-original-' + token + '.img')
+        before = hashlib.sha256(image.read_bytes()).hexdigest()
+        script = root / ('host-firmware-' + token + '.sh')
+        repos = root / ('fedora-repositories-44-' + token)
+        assert (repos / 'maintenance.repo').is_file()
+        commands = [['/usr/bin/dnf5', '--setopt=reposdir=' + str(repos), '--setopt=gpgcheck=True',
+                    '--setopt=localpkg_gpgcheck=True', '--assumeyes', 'install', 'smartmontools'],
+                    ['/usr/bin/dracut', '--early-microcode', '--kver', FIRMWARE_KERNEL, str(candidate)]]
+        content = '#!/bin/bash\nset -euo pipefail\n' + '\n'.join(shlex.join(c) for c in commands) + '\n'
+        record = {'owner': token, 'identity': identity(), 'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                  'before_image_sha256': before, 'recovery_sha256': recovery['sha256'],
+                  'firmware_sha256': FIRMWARE_SHA256, 'script_sha256': hashlib.sha256(content.encode()).hexdigest()}
+        hold.exclusive_file(original, image.read_bytes(), 0o600)
+        assert hashlib.sha256(original.read_bytes()).hexdigest() == before
+        hold.exclusive_file(intent, json.dumps(record, sort_keys=True).encode(), 0o600)
+        hold.exclusive_file(config, FIRMWARE_CONFIG.encode(), 0o644)
+        native('restorecon', str(config))
+        hold.exclusive_file(script, content.encode(), 0o700)
+        native('systemd-run', '--unit=' + unit, '--property=Type=exec', '--property=RemainAfterExit=yes',
+               '--property=Restart=no', '--setenv=LANG=C.UTF-8', '/bin/bash', str(script))
+        return {'firmware_build_dispatched': True, 'boot_image_unchanged': True, 'owner_retained': True}

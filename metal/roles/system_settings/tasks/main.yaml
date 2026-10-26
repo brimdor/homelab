@@ -29,3 +29,21 @@
   ansible.builtin.debug:
     msg: UFW manages ICMP through before.rules; no explicit rule is required.
   when: ufw_binary.stat.exists
+
+- name: Install node firmware and disk health packages
+  ansible.builtin.package:
+    name:
+      - microcode_ctl
+      - smartmontools
+    state: present
+  when: host_microcode_early | default(false)
+
+- name: Retain early microcode in future initramfs builds
+  ansible.builtin.copy:
+    dest: /etc/dracut.conf.d/90-homelab-microcode.conf
+    content: |
+      early_microcode="yes"
+    owner: root
+    group: root
+    mode: "0644"
+  when: host_microcode_early | default(false)
