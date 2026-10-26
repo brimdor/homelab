@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recover Nibble's exact retained OCI image without writing the NAS registry."""
+"""Recover exact reviewed retained OCI images without writing the NAS registry."""
 
 import argparse
 import json
@@ -11,11 +11,26 @@ from maintenance_coordination import require
 from maintenance_production_node import remote, ssh
 
 
-DIGEST = 'sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d46'
-IMAGE = '10.0.20.11:32309/nibble:issue-26-prod'
+PROFILES = {
+    'nibble': {
+        'image': '10.0.20.11:32309/nibble:issue-26-prod',
+        'digest': 'sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d46',
+        'config': 'sha256:c5041e29afd7b0b6ac5e6adb59d5abb063358af0ea59688071721ecb7d0325d7',
+        'blobs': 14,
+        'recovery': '/var/lib/homelab-recovery/maintenance-103/nibble-image-bd302668-local-export',
+        'artifact': 'maintenance103-nibble-bd302668.tar',
+    },
+    'pages-canary': {
+        'image': '10.0.20.11:32309/pages:2026-07-13-v1-canary',
+        'digest': 'sha256:b2bc2a7eaaad23fb8b6a079a6dca521dd92555f4bd540c1b1d099400f4ac0eb3',
+        'config': 'sha256:65850e052c7d484c0e58a506792a084acf490cd4a1966daf87736001ff17de95',
+        'blobs': 25,
+        'recovery': '/var/lib/homelab-recovery/maintenance-103/pages-canary-image-b2bc2a7e-local-export',
+        'artifact': 'maintenance103-pages-canary-b2bc2a7e.tar',
+    },
+}
 SOURCE = '10.0.20.14'
 TARGET = '10.0.20.17'
-RECOVERY = '/var/lib/homelab-recovery/maintenance-103/nibble-image-bd302668-local-export'
 
 SOURCE_PROGRAM = '''
 import json,pathlib,socket,subprocess,os
@@ -23,7 +38,7 @@ assert os.geteuid()==0 and socket.gethostname()=='pikachu'
 assert pathlib.Path('/etc/machine-id').read_text().strip()=='0a7daf8b33244d9d85f46223c3582da9'
 images=json.loads(subprocess.check_output(['/usr/local/bin/k3s','crictl','images','-o','json']))['images']
 matches=[i for i in images if IMAGE in i.get('repoTags',[])]
-assert len(matches)==1 and '10.0.20.11:32309/nibble@'+DIGEST in matches[0]['repoDigests']
+assert len(matches)==1 and ALIAS in matches[0]['repoDigests'] and matches[0]['id']==CONFIG
 # Use the synchronous client exporter; retain the rejected transfer-API archive separately.
 os.execv('/usr/local/bin/k3s',['k3s','ctr','-n','k8s.io','images','export','--local','--platform','linux/amd64','-',IMAGE])
 '''
@@ -40,7 +55,7 @@ for path in (root,images):
  assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(path.parent)],text=True).strip()=='489f1af8-5d55-4356-8d48-418fcb2069a2'
 assert not root.exists(),'existing recovery intent; observe only, never overwrite'
 assert not images.exists() or images.is_dir()
-final=images/'maintenance103-nibble-bd302668.tar'
+final=images/ARTIFACT
 assert not final.exists()
 root.mkdir(mode=0o700)
 for path in (root,root.parent):
@@ -74,10 +89,10 @@ with tarfile.open(archive,'r:')as tar:
  index=json.load(tar.extractfile('index.json'))
  assert len(index['manifests'])==1 and index['manifests'][0]['digest']==DIGEST
  manifest=json.load(tar.extractfile('blobs/sha256/'+DIGEST.split(':')[1]))
- assert manifest['schemaVersion']==2 and 'manifests'not in manifest
+ assert manifest['schemaVersion']==2 and 'manifests'not in manifest and manifest['config']['digest']==CONFIG
  expected={DIGEST:len(tar.extractfile('blobs/sha256/'+DIGEST.split(':')[1]).read())}
  for descriptor in [manifest['config'],*manifest['layers']]:expected[descriptor['digest']]=descriptor['size']
- assert blobs==expected and len(blobs)==14
+ assert blobs==expected and len(blobs)==BLOB_COUNT
 record={'image':IMAGE,'digest':DIGEST,'archive_sha256':h.hexdigest(),'archive_bytes':size,'blobs':blobs,'target':'totodile','archive':str(archive),'native_import':str(final)}
 with(root/'verified.json').open('x')as output:
  os.fchmod(output.fileno(),0o600);json.dump(record,output);output.flush();os.fsync(output.fileno())
@@ -101,7 +116,7 @@ assert record['digest']==DIGEST and record['image']==IMAGE and archive.stat().st
 with archive.open('rb')as source:assert hashlib.file_digest(source,'sha256').hexdigest()==record['archive_sha256']
 native=pathlib.Path(record['native_import']);assert native.samefile(archive)
 prefix=['/usr/local/bin/k3s','ctr','-n','k8s.io','images']
-alias='10.0.20.11:32309/nibble@'+DIGEST
+alias=ALIAS
 def rows(reference):
  return subprocess.check_output(prefix+['list','name=='+reference],text=True).splitlines()[1:]
 def exact(reference):
@@ -134,6 +149,7 @@ def main():
     parser.add_argument('--known-hosts', required=True)
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--register-digest', action='store_true')
+    parser.add_argument('--image', choices=tuple(PROFILES), default='nibble')
     args = parser.parse_args()
     require(Path.cwd() == Path('/Users/chris/Documents/Github/homelab'), 'canonical checkout required')
     require(subprocess.check_output(['git', 'branch', '--show-current'], text=True).strip() == 'master',
@@ -163,7 +179,15 @@ def main():
     ceph = json.loads(subprocess.check_output([args.kubectl, 'exec', '-n', 'rook-ceph',
         'deploy/rook-ceph-tools', '--', 'ceph', 'health', '-f', 'json']))
     require(ceph['status'] == 'HEALTH_OK', 'Ceph not HEALTH_OK')
-    bindings = 'IMAGE=' + repr(IMAGE) + '\nDIGEST=' + repr(DIGEST) + '\nRECOVERY=' + repr(RECOVERY) + '\n'
+    profile = PROFILES[args.image]
+    deployment = get('get', 'deployment', args.image, '-n', args.image)
+    expected = {profile['image'], profile['image'] + '@' + profile['digest']}
+    require(sum(c['image'] in expected for c in deployment['spec']['template']['spec']['containers']) == 1,
+            'declared application artifact changed')
+    values = {'IMAGE': profile['image'], 'DIGEST': profile['digest'], 'CONFIG': profile['config'],
+              'RECOVERY': profile['recovery'], 'ARTIFACT': profile['artifact'],
+              'BLOB_COUNT': profile['blobs'], 'ALIAS': profile['image'].rsplit(':', 1)[0] + '@' + profile['digest']}
+    bindings = ''.join(name + '=' + repr(value) + '\n' for name, value in values.items())
     if args.register_digest:
         print(json.dumps(remote(args, bindings + REGISTER_PROGRAM, TARGET)))
         return
