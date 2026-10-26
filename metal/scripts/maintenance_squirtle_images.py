@@ -136,6 +136,17 @@ def preserve(args, key):
     return stream(args, '10.0.20.14', wrapper, bindings(key) + RECEIVE_PROGRAM, '10.0.20.14')
 
 
+
+def preserve_pages_init(args):
+    from maintenance_nibble_artifact import RECEIVE_PROGRAM, SOURCE_PROGRAM, stream
+    source_identity = ("SOURCE_HOST='squirtle'\n"
+                       "SOURCE_MACHINE='90c7f1d7caea486d9dc9bdbb4ec5ae21'\n"
+                       "SOURCE_ROOT='eea5afa0-dbb6-43f5-abe6-f1be801fb03a'\n")
+    values = bindings('pages-init')
+    return stream(args, '10.0.20.12', values + source_identity + SOURCE_PROGRAM,
+                  values + RECEIVE_PROGRAM, '10.0.20.14')
+
+
 def register(args, key):
     from maintenance_nibble_artifact import REGISTER_PROGRAM
     return remote(args, bindings(key) + REGISTER_PROGRAM, '10.0.20.14')

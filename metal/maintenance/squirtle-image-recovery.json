@@ -54,5 +54,12 @@
     "digest": "sha256:23b06aa96c5532556aea10cd418971a3136c37bf864f5bb4c0307a8576ca1c88",
     "config": "sha256:59fb987496e1866d2a521f2e8bc68d0c425a736d45f071dd6db44b4f0b23fea1",
     "blobs": 13
+  },
+  "pages-init": {
+    "image": "10.0.20.11:32309/library/busybox@sha256:39773805de69ccb43c90319d34430273dc43d4bb1b3617b39bbba628ef15165b",
+    "declared": "10.0.20.11:32309/library/busybox:latest",
+    "digest": "sha256:39773805de69ccb43c90319d34430273dc43d4bb1b3617b39bbba628ef15165b",
+    "config": "sha256:274e4c20767202acbc4472fbb20ab1dede1d08ec91db5ec68154b884f799b15f",
+    "blobs": 3
   }
 }
