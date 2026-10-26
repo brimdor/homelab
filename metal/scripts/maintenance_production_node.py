@@ -90,7 +90,8 @@ def recovery(args, source, capture=False):
         from maintenance_control_plane import recovery as control_plane_recovery
         control_plane = control_plane_recovery(args, source, capture)
     receiver_name, receiver_address, receiver_identity = RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
-    if NODE == 'pikachu' and source in (43, 44):
+    if (NODE == 'pikachu' and source in (43, 44) or
+            NODE == 'squirtle' and source in (41, 43, 44)):
         receiver_name, receiver_address = 'growlithe', '10.0.20.18'
         receiver_identity = {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
                              'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}

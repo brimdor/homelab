@@ -64,6 +64,29 @@ class ProductionProfileTests(unittest.TestCase):
         importlib.reload(PRODUCTION)
         self.addCleanup(importlib.reload, PRODUCTION)
 
+    def test_configuration_recovery_uses_reviewed_receiver_for_each_source(self):
+        for node in ('totodile', 'pikachu', 'squirtle'):
+            for release in (39, 41, 43, 44):
+                with self.subTest(node=node, release=release):
+                    importlib.reload(PRODUCTION)
+                    PRODUCTION.select_node(node)
+                    growlithe = (node == 'pikachu' and release in (43, 44) or
+                                 node == 'squirtle' and release in (41, 43, 44))
+                    receiver = '10.0.20.18' if growlithe else (
+                        '10.0.20.17' if node == 'pikachu' else '10.0.20.14')
+                    point = {'manifest_sha256': 'a' * 64}
+                    manifest = {'identity': PRODUCTION.IDENTITY, 'node_uid': PRODUCTION.UID,
+                                'source_release': release}
+                    if node == 'squirtle':
+                        manifest['control_plane_recovery'] = point
+                    with patch.object(CP, 'recovery', return_value=point), \
+                            patch.object(PRODUCTION, 'remote', return_value=manifest) as readback:
+                        self.assertEqual(PRODUCTION.recovery(None, release), manifest)
+                    self.assertEqual(readback.call_args.args[2], receiver)
+                    if growlithe:
+                        self.assertIn('a26cbcc990c044dea41fbf4f957f453d', readback.call_args.args[1])
+                        self.assertIn('710e2dca-691e-4123-a867-4994b9c6e612', readback.call_args.args[1])
+
     def test_master_archive_excludes_live_etcd_and_binds_protected_snapshot(self):
         PRODUCTION.select_node('squirtle')
         point = {'manifest_sha256': 'a' * 64}
