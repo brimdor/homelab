@@ -90,15 +90,26 @@ class Ownership:
                 'Kured controller identity changed')
         require({n['metadata']['name']: n['metadata']['uid'] for n in nodes} == self.nodes,
                 'active node identities changed')
+        protected_since = self.protected_since(ds)
         for node in nodes:
             require(not node['metadata'].get('deletionTimestamp'), 'node is deleting')
             conditions = {c['type']: c['status'] for c in node['status']['conditions']}
             require(conditions.get('Ready') == 'True' and all(
                 conditions.get(k) == 'False' for k in ('MemoryPressure', 'DiskPressure', 'PIDPressure')),
                 'node health does not permit ownership transition')
-            require(node['metadata'].get('annotations', {}).get(
-                'weave.works/kured-reboot-in-progress', 'false') == 'false',
-                'Kured reboot is in progress')
+            pending = node['metadata'].get('annotations', {}).get(
+                'weave.works/kured-reboot-in-progress', 'false')
+            if pending != 'false':
+                # Kured 1.21 annotates before Acquire: a request queued behind our
+                # continuously held lock is not an active reboot. Older requests
+                # and any unrecognized/expired lock still fail closed.
+                try:
+                    requested = datetime.fromisoformat(pending.replace('Z', '+00:00'))
+                    require(protected_since is not None and requested.utcoffset() is not None and
+                            protected_since <= requested <= datetime.now(timezone.utc),
+                            'Kured reboot request predates verified maintenance lock')
+                except (TypeError, ValueError, AttributeError) as error:
+                    raise RuntimeError('invalid Kured reboot request time') from error
         expected = len(self.nodes)
         status = ds['status']
         require(rollout_ready(meta, status, expected), 'Kured rollout is incomplete ' + encoded({
@@ -178,9 +189,11 @@ class Ownership:
         return self.resume(token)
 
     def resume(self, token):
+        return self.ownership(self.observed(), token)
+
+    def ownership(self, ds, token):
         require(isinstance(token, str) and re.fullmatch(
             r'homelab-maintenance-103-[0-9a-f-]{36}', token), 'invalid maintenance owner')
-        ds = self.observed()
         annotations = ds['metadata'].get('annotations', {})
         try:
             lock, journal = json.loads(annotations[LOCK]), json.loads(annotations[JOURNAL])
@@ -203,6 +216,23 @@ class Ownership:
         except (KeyError, TypeError, ValueError, AttributeError) as error:
             raise RuntimeError('invalid owner creation time') from error
         return copy.deepcopy(journal)
+
+    def protected_since(self, ds):
+        annotations = ds['metadata'].get('annotations', {})
+        if JOURNAL in annotations:
+            journal = json.loads(annotations[JOURNAL])
+            verified = self.ownership(ds, journal.get('owner'))
+            return datetime.fromisoformat(verified['created'].replace('Z', '+00:00'))
+        if LOCK in annotations:
+            from maintenance_kured_20261026 import EXPIRES, OWNER
+            lock = json.loads(annotations[LOCK])
+            created = datetime.fromisoformat(lock['created'].replace('Z', '+00:00'))
+            if (lock.get('nodeID') == OWNER and type(lock.get('TTL')) is int and
+                    lock['TTL'] > 0 and lock.get('metadata') == {'unschedulable': True} and
+                    abs((EXPIRES - created).total_seconds() - lock['TTL'] / 1_000_000_000) < 0.001 and
+                    datetime.now(timezone.utc) < EXPIRES):
+                return created
+        return None
 
     def release(self, token, verify_safe_release):
         # No CLI exposes this: the future controller must supply real acceptance gates.
