@@ -581,6 +581,10 @@ node-feature-discovery:
       name: node-feature-discovery
       create: false
   worker:
+    # NFD reads host kernel/module and kubelet metadata on enforcing Fedora.
+    securityContext:
+      seLinuxOptions:
+        type: spc_t
     serviceAccount:
       name: node-feature-discovery
       # disable creation to avoid duplicate serviceaccount creation by master spec below

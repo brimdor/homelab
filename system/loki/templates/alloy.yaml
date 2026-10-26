@@ -65,6 +65,9 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
           securityContext:
+            # Host logs and the existing host cursor directory need host-agent access.
+            seLinuxOptions:
+              type: spc_t
             allowPrivilegeEscalation: false
             capabilities:
               drop:

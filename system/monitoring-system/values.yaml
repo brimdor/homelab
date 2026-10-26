@@ -50,6 +50,10 @@ kube-prometheus-stack:
       sha: ''
       pullPolicy: IfNotPresent
   prometheus-node-exporter:
+    # Read-only host process collectors must cross the host SELinux boundary.
+    containerSecurityContext:
+      seLinuxOptions:
+        type: spc_t
     image:
       registry: quay.io
       repository: prometheus/node-exporter
