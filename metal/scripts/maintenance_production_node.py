@@ -27,7 +27,9 @@ UID = '83e0e536-e94a-45a1-8dfb-1cedac1e9bd7'
 DS_UID = '4abc4fee-c3be-440e-8945-34bb3fb15ce1'
 IDENTITY = {'machine': '0f1915a59a124d999d8d68b53f406af1',
             'root_uuid': '489f1af8-5d55-4356-8d48-418fcb2069a2'}
-BACKUP = '/var/lib/homelab-recovery/maintenance-103/totodile-config-20261026-a'
+BACKUPS = {39: '/var/lib/homelab-recovery/maintenance-103/totodile-config-20261026-a',
+           41: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora41-config-20261026-a',
+           43: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora43-config-20261026-a'}
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release')
@@ -48,7 +50,9 @@ def remote(args, program, address=ADDRESS):
     return json.loads(result.stdout)
 
 
-def recovery(args, capture=False):
+def recovery(args, source, capture=False):
+    require(source in BACKUPS, 'unreviewed recovery source release')
+    backup = BACKUPS[source]
     readback = """
 import hashlib,json,os,pathlib,socket,stat
 assert os.geteuid()==0 and socket.gethostname()=='pikachu'
@@ -64,17 +68,19 @@ else:
   for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
  assert archive.stat().st_size==value['bytes']and digest.hexdigest()==value['sha256']
  print(json.dumps(value))
-""" % BACKUP
+""" % backup
     existing = remote(args, readback, '10.0.20.14')
     if existing is not None:
-        require(existing['identity'] == IDENTITY and existing['node_uid'] == UID, 'recovery identity changed')
+        require(existing['identity'] == IDENTITY and existing['node_uid'] == UID and
+                existing.get('source_release', 39) == source, 'recovery identity or source changed')
         return existing
     require(capture, 'capture protected Totodile configuration before production ownership')
-    source = """
+    source_program = """
 import os,pathlib,socket,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()=='totodile'
 assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
 assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==%r
+assert int(subprocess.check_output(['rpm','-E','%%fedora']))==%r
 assert '6c:4b:90:5b:a3:56'in{p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
 pid=subprocess.check_output(['systemctl','show','k3s','-p','MainPID','--value'],text=True).strip()
 argv=(pathlib.Path('/proc')/pid/'cmdline').read_bytes().split(bytes([0]))
@@ -87,7 +93,7 @@ command=['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-sys
  '--exclude=var/lib/rancher/k3s/agent/containerd','--exclude=var/lib/rancher/k3s/agent/images',
  '-C','/','-cf','-','etc','boot','boot/efi','usr/local/bin/k3s','var/lib/rancher/k3s/agent','var/lib/rancher/k3s/server']
 sys.exit(subprocess.run(command).returncode)
-""" % (IDENTITY['machine'], IDENTITY['root_uuid'])
+""" % (IDENTITY['machine'], IDENTITY['root_uuid'], source)
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,sys
 assert os.geteuid()==0 and socket.gethostname()=='pikachu'
@@ -110,8 +116,8 @@ with path.open('xb')as target:
   target.write(chunk);digest.update(chunk);size+=len(chunk)
  target.flush();os.fsync(target.fileno())
 print(json.dumps({'sha256':digest.hexdigest(),'bytes':size}))
-""" % BACKUP
-    producer = subprocess.Popen(ssh(args) + ['python3 -B -c ' + shlex.quote(source)],
+""" % backup
+    producer = subprocess.Popen(ssh(args) + ['python3 -B -c ' + shlex.quote(source_program)],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     consumer = subprocess.Popen(ssh(args, '10.0.20.14') + ['python3 -B -c ' + shlex.quote(receiver)],
                                 stdin=producer.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -123,7 +129,7 @@ print(json.dumps({'sha256':digest.hexdigest(),'bytes':size}))
                 'configuration stream failed; protected partial retained: ' +
                 producer.stderr.read().decode()[-700:] + receiver_error.decode()[-700:])
         manifest = json.loads(output)
-        manifest.update(identity=IDENTITY, node_uid=UID, node=NODE, recovery_scope='configuration-boot-worker-identity')
+        manifest.update(identity=IDENTITY, node_uid=UID, node=NODE, source_release=source, recovery_scope='configuration-boot-worker-identity')
         finalize = """
 import hashlib,json,os,pathlib
 root=pathlib.Path(%r);value=%r;partial=root/'node-config.partial';digest=hashlib.sha256()
@@ -135,7 +141,7 @@ with(root/'verified.json').open('x')as output:
  os.fchmod(output.fileno(),0o600);json.dump(value,output);output.flush();os.fsync(output.fileno())
 descriptor=os.open(root,os.O_DIRECTORY);os.fsync(descriptor);os.close(descriptor)
 print(json.dumps(value))
-""" % (BACKUP, manifest)
+""" % (backup, manifest)
         remote(args, finalize, '10.0.20.14')
         return remote(args, readback, '10.0.20.14')
     finally:
@@ -180,6 +186,31 @@ root=hold.state
 def evidence():return rpc('prerequisites')
 def prerequisites(value):
  return lambda step,digest:evidence()==value and digest==drain.hashed(value)
+def offline_repository_override():
+ assert owner['source']==39 and owner['target']==41
+ directory=root/('fedora-repositories-41-'+owner['owner'])
+ assert(directory/'maintenance.repo').is_file()
+ parent=pathlib.Path('/etc/systemd/system/dnf-system-upgrade.service.d');actors.safe(parent)
+ parent.mkdir(mode=0o755,exist_ok=True)
+ path=parent/('90-'+owner['owner']+'.conf')
+ arguments='/usr/bin/dnf-3 --setopt=reposdir='+str(directory)+' --setopt=gpgcheck=True --setopt=localpkg_gpgcheck=True system-upgrade upgrade'
+ content=('[Service]\nExecStart=\nExecStart='+arguments+'\n').encode()
+ if not path.exists():
+  assert 'argv[]=/usr/bin/dnf-3 system-upgrade upgrade ;'in native('systemctl','show','dnf-system-upgrade.service','-p','ExecStart','--value')
+  actors.exclusive_file(path,content,0o600)
+ assert path.read_bytes()==content
+ native('systemctl','daemon-reload')
+ assert 'argv[]='+arguments+' ;'in native('systemctl','show','dnf-system-upgrade.service','-p','ExecStart','--value')
+ return {'path':str(path),'sha256':hashlib.sha256(content).hexdigest()}
+def remove_offline_repository_override():
+ path=pathlib.Path('/etc/systemd/system/dnf-system-upgrade.service.d')/('90-'+owner['owner']+'.conf')
+ actors.safe(path)
+ if path.exists():
+  directory=root/('fedora-repositories-41-'+owner['owner'])
+  content=('[Service]\nExecStart=\nExecStart=/usr/bin/dnf-3 --setopt=reposdir='+str(directory)+' --setopt=gpgcheck=True --setopt=localpkg_gpgcheck=True system-upgrade upgrade\n').encode()
+  assert owner['source']==39 and path.read_bytes()==content
+  path.unlink();actors.fsync_directory(path.parent)
+ native('systemctl','daemon-reload')
 if operation=='release':
  release=sys.modules['maintenance_safe_release'].Release(hops.Journal(controller,hold,owner['owner']))
  value=rpc('applications');digest=drain.hashed(value)
@@ -194,7 +225,7 @@ if operation=='release':
 elif operation=='initialize':
  if hold.marker.exists():hold.resume(owner['owner'])
  else:hold.acquire(owner['owner'],expected_identity,owner['revision'])
- recovery_path=root/'production-recovery.json'
+ recovery_path=root/('production-recovery.json'if owner['source']==39 else 'production-recovery-'+owner['owner']+'.json')
  if not recovery_path.exists():actors.exclusive_file(recovery_path,hops.canonical(recovery_manifest),0o600)
  assert json.loads(recovery_path.read_bytes())==recovery_manifest
  journal=hops.Journal(controller,hold,owner['owner'])
@@ -275,6 +306,40 @@ else:
   if not path.exists():actors.exclusive_file(path,content.encode(),0o600)
   assert path.read_text()==content
   result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'release':release,'gpgcheck':True}
+ elif operation=='repair-offline-repositories':
+  assert owner['owner']=='homelab-maintenance-103-c8345d91-1dfe-4e58-8c13-b7c7b7519d54'
+  assert owner['source']==39 and owner['target']==41 and native('rpm','-E','%fedora')=='39'
+  assert state['pending']['step']=='offline_transaction'and state['pending']['sha256']=='b868cc31fc75e88cd7ae1dab713d1b9cba05da91e9fcef70a4fbefb7aff03f46'
+  assert pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()=='b76b2d31-b03f-4a5c-896a-5e070d0f4171'
+  assert not pathlib.Path('/system-update').exists()and not pathlib.Path('/system-update').is_symlink()
+  cache=pathlib.Path('/var/lib/dnf/system-upgrade')
+  saved=json.loads((cache/'system-upgrade-state.json').read_bytes())
+  assert saved['system_releasever']=='39'and saved['target_releasever']=='41'and saved['download_status']=='complete'and saved['upgrade_status']=='ready'
+  assert saved['gpgcheck']is True and set(saved['gpgcheck_repos'])=={'maintenance-fedora','maintenance-updates'}
+  failure=native('journalctl','--no-pager','-b','3db3caf7534445ab96b0aaa0fa5432a3','-u','dnf-system-upgrade.service','-o','cat')
+  assert "Error: Cache-only enabled but no cache for 'fedora'"in failure and 'status=1/FAILURE'in failure
+  assert 'Starting system upgrade. This will take a while.'not in failure
+  files=sorted(cache.rglob('*.rpm'));assert len(files)==663
+  signatures=[]
+  for path in files:
+   assert path.is_file()and not path.is_symlink()
+   output=native('rpmkeys','--checksig','--verbose',str(path))
+   assert all(v not in output for v in('NOKEY','NOT OK','BAD'))and 'signature'in output.lower()and 'OK'in output
+   signatures.append([path.name,hashlib.sha256(path.read_bytes()).hexdigest()])
+  directory=root/('fedora-repositories-41-'+owner['owner'])
+  command=packages.command(owner,'offline_transaction');command[1]='--unit='+owner['owner']+'-offline-repository-recovery'
+  position=command.index('/usr/bin/dnf');command[position+1:position+1]=['--setopt=reposdir='+str(directory),'--setopt=gpgcheck=True','--setopt=localpkg_gpgcheck=True']
+  value=evidence()
+  with hold.serialized():
+   journal.owners(idle=True);assert journal.read()==state
+   override=offline_repository_override()
+   record={'version':1,'pending':state['pending'],'failed_boot':'3db3caf7534445ab96b0aaa0fa5432a3','boot':'b76b2d31-b03f-4a5c-896a-5e070d0f4171',
+    'failure_sha256':hashlib.sha256(failure.encode()).hexdigest(),'saved_state_sha256':drain.hashed(saved),
+    'transaction_sha256':hashlib.sha256((cache/'system-upgrade-transaction.json').read_bytes()).hexdigest(),
+    'signed_rpms_sha256':drain.hashed(signatures),'override':override,'command':command,'prerequisites':value}
+   actors.exclusive_file(root/('offline-repository-recovery-'+owner['owner']+'.json'),hops.canonical(record),0o600)
+   native(*command)
+  result={'dispatched_recovery':True,'original_pending_preserved':True,'record_sha256':drain.hashed(record)}
  elif operation=='observe-offline':
   assert state['pending'] and state['pending']['step']=='offline_transaction'
   before=json.loads((root/('before-offline-'+owner['owner']+'.json')).read_bytes())
@@ -286,6 +351,7 @@ else:
   assert native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}','kernel-core-'+kernel)==kernel
   native('/usr/bin/dnf5','--setopt=reposdir='+str(root/('fedora-repositories-'+str(owner['target'])+'-'+owner['owner'])),'check')
   native('rpm','-V','fedora-release-common')
+  if owner['source']==39:remove_offline_repository_override()
   value=evidence();receipt={'before':before,'boot':boot,'kernel':kernel,'release':owner['target'],'identity':identity(),'prerequisites':value}
   def verified(step,digest):return step=='offline_transaction' and digest==drain.hashed(receipt) and evidence()==value and identity()==before['identity']
   result={'receipt':receipt,'journal':journal.accept(state['pending']['sha256'],drain.hashed(receipt),verified)}
@@ -339,6 +405,7 @@ else:
    payload='import subprocess;subprocess.run('+repr(upgrade_command)+',check=True);subprocess.run('+repr(plugin_command)+',check=True)'
    command[position:]=['/usr/bin/python3','-c',payload]
   if step=='offline_transaction':
+   if owner['source']==39:offline_repository_override()
    before={'boot':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'identity':identity(),'source':owner['source'],'target':owner['target']}
    actors.exclusive_file(root/('before-offline-'+owner['owner']+'.json'),hops.canonical(before),0o600)
   value=evidence();pending=journal.begin(step,drain.hashed(command),drain.hashed(value),prerequisites(value))
@@ -484,7 +551,8 @@ def main():
                                              'source-repositories', 'target-repositories', 'prepare-source',
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
-                                             'accept-applications', 'release', 'resolve-drain-precheck'])
+                                             'accept-applications', 'release', 'resolve-drain-precheck',
+                                             'repair-offline-repositories'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -520,9 +588,6 @@ def main():
             'pod_uid': 'a9c87317-b6df-414b-8357-454bd5361e49',
             'intent_sha256': 'c6e261fbd338d54ea9314cf2cabeb650f76af3e1a2be6182127326498768a03b',
             'failure_sha256': expected_failure}
-    recovery_manifest = recovery(args, capture=args.operation == 'backup')
-    if args.operation == 'backup':
-        print(encoded(recovery_manifest));return
     api = ACTIVE_READER = Reader(args.kubectl)
     ds, _, nodes = api.snapshot()
     controller = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
@@ -531,10 +596,17 @@ def main():
         owner = json.loads(annotations[JOURNAL]);owner = controller.resume(owner['owner'])
         require(owner['node'] == NODE and owner['node_uid'] == UID, 'another node owns maintenance')
     else:
-        require(args.operation == 'initialize', 'initialize production ownership first')
+        require(args.operation in ('backup', 'initialize'), 'initialize production ownership first')
         prerequisites(api)
         source = remote(args, "import json,subprocess;print(json.dumps(int(subprocess.check_output(['rpm','-E','%fedora']))))")
         require(source in (39, 41, 43), 'unreviewed production source release')
+        owner = None
+    # Keep an active hop bound to its original recovery point after the target boots.
+    recovery_manifest = recovery(args, owner['source'] if owner else source,
+                                 capture=args.operation == 'backup')
+    if args.operation == 'backup':
+        print(encoded(recovery_manifest));return
+    if owner is None:
         owner = controller.acquire(NODE, source, {39: 41, 41: 43, 43: 44}[source], revision)
     public_keys = {}
     if args.operation in ('source-repositories', 'target-repositories'):
