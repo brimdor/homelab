@@ -91,6 +91,10 @@ class Release:
         annotations = ds['metadata'].get('annotations', {})
         if coordination.LOCK not in annotations and coordination.JOURNAL not in annotations:
             return False
+        saved_window = header['owners']['global'].get('restore_window_lock')
+        if (coordination.JOURNAL not in annotations and saved_window is not None and
+                annotations.get(coordination.LOCK) == coordination.encoded(saved_window)):
+            return False
         actors.require(self.ownership.resume(self.journal.token) == header['owners']['global'],
                        'global release owner differs')
         return True

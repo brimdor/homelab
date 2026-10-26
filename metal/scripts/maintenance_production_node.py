@@ -29,7 +29,7 @@ IDENTITY = {'machine': '0f1915a59a124d999d8d68b53f406af1',
 BACKUP = '/var/lib/homelab-recovery/maintenance-103/totodile-config-20261026-a'
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
-           'maintenance_node_scheduling', 'maintenance_kured_20261026')
+           'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release')
 ACTIVE_READER = None
 
 
@@ -234,6 +234,20 @@ else:
   if not path.exists():actors.exclusive_file(path,content.encode(),0o600)
   assert path.read_text()==content
   result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'release':release,'gpgcheck':True}
+ elif operation=='observe-offline':
+  assert state['pending'] and state['pending']['step']=='offline_transaction'
+  before=json.loads((root/('before-offline-'+owner['owner']+'.json')).read_bytes())
+  assert before['identity']==identity() and before['source']==owner['source']and before['target']==owner['target']
+  boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+  assert boot!=before['boot'] and native('rpm','-E','%fedora')==str(owner['target'])
+  assert not pathlib.Path('/system-update').exists()and not pathlib.Path('/system-update').is_symlink()
+  kernel=native('uname','-r');assert '.fc'+str(owner['target'])+'.'in kernel
+  assert native('rpm','-q','--qf','%{VERSION}-%{RELEASE}.%{ARCH}','kernel-core-'+kernel)==kernel
+  native('/usr/bin/dnf5','--setopt=reposdir='+str(root/('fedora-repositories-'+str(owner['target']))),'check')
+  native('rpm','-V','fedora-release-common')
+  value=evidence();receipt={'before':before,'boot':boot,'kernel':kernel,'release':owner['target'],'identity':identity(),'prerequisites':value}
+  def verified(step,digest):return step=='offline_transaction' and digest==drain.hashed(receipt) and evidence()==value and identity()==before['identity']
+  result={'receipt':receipt,'journal':journal.accept(state['pending']['sha256'],drain.hashed(receipt),verified)}
  elif operation=='observe-package':
   assert state['pending'] and state['pending']['step']in('prepare_source','download_release')
   step=state['pending']['step'];unit=owner['owner']+'-'+step.replace('_','-')+'.service'
@@ -246,6 +260,23 @@ else:
     value=evidence();receipt={'unit':unit,'status':fields,'release':native('rpm','-E','%fedora'),'prerequisites':value}
     assert receipt['release']==str(owner['source'])
     if step=='prepare_source' and owner['source']==39:native('rpm','-q','dnf-plugin-system-upgrade')
+    if step=='download_release':
+     cache=pathlib.Path('/var/lib/dnf/system-upgrade')if owner['source']==39 else pathlib.Path('/usr/lib/sysimage/libdnf5/offline')
+     files=sorted(cache.rglob('*.rpm'));assert files,'offline target RPMs absent'
+     signed=[];target_release=False;target_kernel=False
+     for path in files:
+      assert path.is_file()and not path.is_symlink()
+      output=native('rpmkeys','--checksig','--verbose',str(path))
+      assert all(v not in output for v in('NOKEY','NOT OK','BAD'))and 'signature'in output.lower()and 'OK'in output
+      metadata=native('rpm','-qp','--qf','%{NAME} %{VERSION} %{RELEASE}',str(path)).split()
+      target_release=target_release or metadata[0]=='fedora-release-common'and metadata[1]==str(owner['target'])
+      target_kernel=target_kernel or metadata[0]=='kernel-core'and '.fc'+str(owner['target'])in metadata[2]
+      digest=hashlib.sha256()
+      with path.open('rb')as source:
+       for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
+      signed.append([path.name,digest.hexdigest()])
+     assert target_release and target_kernel
+     receipt['signed_rpms']={'count':len(signed),'sha256':drain.hashed(signed),'target_release_and_kernel':True}
     def verified(step_name,digest):return step_name==step and digest==drain.hashed(receipt) and evidence()==value
     result['journal']=journal.accept(state['pending']['sha256'],drain.hashed(receipt),verified);result['accepted']=True
    elif fields['ActiveState']=='failed':
@@ -364,7 +395,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'target-repositories', 'prepare-source',
-                                             'download-release', 'offline-transaction'])
+                                             'download-release', 'offline-transaction', 'observe-offline'])
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
