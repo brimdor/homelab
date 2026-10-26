@@ -12,10 +12,12 @@ import json
 import os
 from pathlib import Path
 import shlex
+import signal
 import subprocess
 import sys
 
-from maintenance_coordination import JOURNAL, Kubectl, Ownership, encoded, require
+from maintenance_coordination import JOURNAL, Ownership, encoded, require
+from maintenance_api_reader import Reader
 
 
 NODE = 'totodile'
@@ -28,6 +30,7 @@ BACKUP = '/var/lib/homelab-recovery/maintenance-103/totodile-config-20261026-a'
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026')
+ACTIVE_READER = None
 
 
 def ssh(args, address=ADDRESS):
@@ -357,6 +360,7 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle):
 
 
 def main():
+    global ACTIVE_READER
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'target-repositories', 'prepare-source',
@@ -365,12 +369,11 @@ def main():
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
     args = parser.parse_args()
-    api = Kubectl(args.kubectl)
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     remote = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
     require(remote == revision, 'publish reviewed source before production use')
     bundle = {}
-    for name in (*MODULES, 'maintenance_production_node'):
+    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader'):
         relative = 'metal/scripts/' + name + '.py'
         published = subprocess.check_output(['git', 'show', revision + ':' + relative])
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
@@ -379,6 +382,7 @@ def main():
     recovery_manifest = recovery(args, capture=args.operation == 'backup')
     if args.operation == 'backup':
         print(encoded(recovery_manifest));return
+    api = ACTIVE_READER = Reader(args.kubectl)
     ds, _, nodes = api.snapshot()
     controller = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
     annotations = ds['metadata'].get('annotations', {})
@@ -405,4 +409,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(128 + signum))
+    try:
+        main()
+    finally:
+        if ACTIVE_READER is not None:
+            ACTIVE_READER.close()
