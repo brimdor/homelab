@@ -9,6 +9,8 @@ app-template:
       strategy: Recreate
       replicas: 1
       pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
         securityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -97,7 +99,7 @@ app-template:
             repository: 10.0.20.11:32309/pointguide
             tag: "a9df3d9"
             digest: sha256:f1e45ecc611027e44d7f0ac0ad3939c36a5f32628bd95451c08a2a537a6e3035
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           command: [./node_modules/.bin/tsx, scripts/migrate.ts]
           env:
             DATABASE_URL:
