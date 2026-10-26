@@ -65,19 +65,19 @@ class ProductionProfileTests(unittest.TestCase):
         self.addCleanup(importlib.reload, PRODUCTION)
 
     def test_configuration_recovery_uses_reviewed_receiver_for_each_source(self):
-        for node in ('totodile', 'pikachu', 'squirtle'):
+        for node in ('totodile', 'pikachu', 'squirtle', 'charmander'):
             for release in (39, 41, 43, 44):
                 with self.subTest(node=node, release=release):
                     importlib.reload(PRODUCTION)
                     PRODUCTION.select_node(node)
                     growlithe = (node == 'pikachu' and release in (43, 44) or
-                                 node == 'squirtle' and release in (41, 43, 44))
+                                 node == 'squirtle' and release in (41, 43, 44) or node == 'charmander')
                     receiver = '10.0.20.18' if growlithe else (
                         '10.0.20.17' if node == 'pikachu' else '10.0.20.14')
                     point = {'manifest_sha256': 'a' * 64}
                     manifest = {'identity': PRODUCTION.IDENTITY, 'node_uid': PRODUCTION.UID,
                                 'source_release': release}
-                    if node == 'squirtle':
+                    if node in ('squirtle', 'charmander'):
                         manifest['control_plane_recovery'] = point
                     with patch.object(CP, 'recovery', return_value=point), \
                             patch.object(PRODUCTION, 'remote', return_value=manifest) as readback:

@@ -80,12 +80,13 @@ def observe(args):
     return remote(args, program(OBSERVE), '10.0.20.12')
 
 
-def recovery(args, release, capture=False):
+def recovery(args, release, capture=False, node='squirtle'):
     """A consistent K3s snapshot, token and encryption config remain on Pikachu."""
     import etcd_recovery
     from maintenance_production_node import remote
     assert release in (39, 41, 43, 44)
-    run_id = 'squirtle-fedora' + str(release) + '-20261026-a'
+    assert node in ('squirtle', 'charmander')
+    run_id = node + '-fedora' + str(release) + '-20261026-a'
     point = str(etcd_recovery.ROOT / run_id)
     read = ('from pathlib import Path\nimport json\npoint=Path(' + repr(point) + ')\n' +
             "print(json.dumps(json.loads((point/'verified.json').read_bytes())if(point/'verified.json').exists()else None))")

@@ -48,6 +48,14 @@ def select_node(node):
     global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if node == 'totodile':
         return
+    if node == 'charmander':
+        NODE, ADDRESS, UID, MAC = ('charmander', '10.0.20.11',
+            '9108f105-f73d-41bb-891f-ac2db6658714', '00:23:24:b0:ff:03')
+        IDENTITY = {'machine': '58d682ccab5a4269acedc3cdf53e46dc',
+                    'root_uuid': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2'}
+        BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/charmander-fedora' +
+                   str(release) + '-config-20261026-a' for release in (39, 41, 43, 44)}
+        return
     if node == 'squirtle':
         NODE, ADDRESS, UID, MAC = ('squirtle', '10.0.20.12',
             '10951ffe-dd31-4c38-b854-67f3a011458c', '00:23:24:e2:1f:a1')
@@ -86,12 +94,12 @@ def recovery(args, source, capture=False):
     require(source in BACKUPS, 'unreviewed recovery source release')
     backup = BACKUPS[source]
     control_plane = None
-    if NODE == 'squirtle':
+    if NODE in ('squirtle', 'charmander'):
         from maintenance_control_plane import recovery as control_plane_recovery
-        control_plane = control_plane_recovery(args, source, capture)
+        control_plane = control_plane_recovery(args, source, capture, node=NODE)
     receiver_name, receiver_address, receiver_identity = RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if (NODE == 'pikachu' and source in (43, 44) or
-            NODE == 'squirtle' and source in (41, 43, 44)):
+            NODE == 'squirtle' and source in (41, 43, 44) or NODE == 'charmander'):
         receiver_name, receiver_address = 'growlithe', '10.0.20.18'
         receiver_identity = {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
                              'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}
@@ -147,7 +155,7 @@ if %r:
  command.insert(1,'--exclude=var/lib/rancher/k3s/server/db')
  command.append('var/lib/homelab-recovery/maintenance-103')
 sys.exit(subprocess.run(command).returncode)
-""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE == 'squirtle', NODE == 'squirtle')
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'))
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
@@ -588,7 +596,7 @@ def prerequisites(api):
             raise RuntimeError('controller unready: ' + meta['namespace'] + '/' + meta['name'])
     result = {'node_uids': {n['metadata']['name']: n['metadata']['uid'] for n in nodes},
               'ceph': health['status'], 'controllers_ready_except_target_observers': True}
-    if NODE == 'squirtle':
+    if NODE in ('squirtle', 'charmander'):
         from maintenance_control_plane import observe
         quorum = observe(ACTIVE_ARGS)
         result['etcd'] = {'members': sorted(m['ID'] for m in quorum['members']['members']),
@@ -814,13 +822,13 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
 def main():
     global ACTIVE_READER, ACTIVE_ARGS
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['backup', 'security-backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
+    parser.add_argument('operation', choices=['backup', 'monitor-backup', 'security-backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'target-repositories', 'prepare-source',
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'repair-offline-repositories', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
-    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle'), default='totodile')
+    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -832,7 +840,7 @@ def main():
     published_tip = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
     require(published_tip == revision, 'publish reviewed source before production use')
     bundle = {}
-    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key', 'maintenance_receiver_protection', 'maintenance_control_plane', 'etcd_recovery'):
+    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key', 'maintenance_receiver_protection', 'maintenance_control_plane', 'maintenance_monitor_recovery', 'etcd_recovery'):
         relative = 'metal/scripts/' + name + '.py'
         published = subprocess.check_output(['git', 'show', revision + ':' + relative])
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
@@ -908,6 +916,14 @@ def main():
     # Keep an active hop bound to its original recovery point after the target boots.
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
+    if args.operation == 'monitor-backup':
+        require(NODE == 'charmander' and owner is not None, 'exact owned monitor target required')
+        from maintenance_monitor_recovery import preserve
+        print(encoded(preserve(args, api, controller, owner)));return
+    if NODE == 'charmander' and args.operation in ('source-repositories', 'prepare-source',
+                                                  'download-release', 'offline-transaction'):
+        from maintenance_monitor_recovery import verify
+        verify(args)
     if args.operation in ('security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
         recovery_manifest = recovery(args, 44, capture=False)
     if args.operation == 'security-backup':
