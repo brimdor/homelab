@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 CRON_UID = '71e995a6-ea65-4272-8a00-27eac21edfc5'
@@ -70,6 +71,17 @@ def recovered(job, pod, cron, job_uid, pod_uid):
             and statuses[0]['imageID'].endswith('@' + DIGEST) and statuses[0]['restartCount'] == 0
             and statuses[0]['state'].get('terminated', {}).get('exitCode') == 0,
             'Original backup image did not execute successfully')
+
+
+def observe_deleted(get, name, uid):
+    """Observe the one accepted foreground delete without another API write."""
+    while True:
+        current = get('job', name)
+        if current is None:
+            return
+        require(current['metadata']['uid'] == uid and current['metadata'].get('deletionTimestamp'),
+                'Deletion outcome changed or uncertain; observe without replay')
+        time.sleep(2)
 
 
 def main():
@@ -140,7 +152,7 @@ def main():
             options = {'apiVersion': 'v1', 'kind': 'DeleteOptions', 'propagationPolicy': 'Foreground',
                        'preconditions': {'uid': job['metadata']['uid'], 'resourceVersion': job['metadata']['resourceVersion']}}
             run(base + ['delete', '--raw', '/apis/batch/v1/namespaces/strata/jobs/' + name, '-f', '-'], json.dumps(options))
-            require(get('job', name) is None, 'Deletion pending or uncertain; observe without replay')
+            observe_deleted(get, name, job['metadata']['uid'])
         results.append({'name': name, 'uid': job['metadata']['uid'], 'applied': args.apply})
     proof()
     print(json.dumps({'source': head, 'results': results, 'scope': 'three resolved Kubernetes Job records only; no NAS access'}))
