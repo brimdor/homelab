@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Pages Canary image recovery</title>
+<style>body{background:#111827;color:#e5e7eb;font:16px/1.6 system-ui;max-width:900px;margin:3rem auto;padding:0 1rem}code{color:#93c5fd}h1,h2{color:#fff}</style>
+<h1>Issue 103: Pages Canary image recovery</h1>
+<p>2026-10-27. Planned recovery; this document does not certify execution.</p>
+<h2>Evidence and cause</h2>
+<p>During Totodile's serial drain, replacement Pod <code>e5ac29b5-40f3-488b-b5e3-942b58c8b659</code>
+scheduled to Growlithe. The registry returns NotFound for its existing Canary image tag.
+Totodile retains the original pinned image and a verified 54,111,232-byte OCI archive.
+Its SHA-256 is <code>7e0aa7e078e51b51c1841a3d856c96dc202b176857c439ea5f97d47303ee0050</code>.
+Evidence: private TESTING runs <code>maintenance103-pages-canary-drain-failure-readback-gynm36cw</code>
+and <code>maintenance103-pages-canary-original-cache-check-cyp2uyfe</code>.</p>
+<h2>Execution</h2>
+<p>Publish the repository-owned helper before execution. Require the exact current Totodile maintenance
+owner, cordoned source, ready uncordoned Growlithe, unchanged Deployment, scheduled Pod UID, declared
+image and IfNotPresent policy, and Ceph HEALTH_OK. Stream the protected original archive directly between
+nodes. Reuse the existing archive receiver to verify every OCI descriptor and all 25 blobs before linking
+the archive into K3s's supported image-import directory. The receiver stores this new recovery point
+outside Growlithe's previously protected recovery-store inventory. Register the original digest alias only
+after native import has been observed.</p>
+<h2>Acceptance and limits</h2>
+<p>Verify the same Pod becomes Ready with the original image digest, zero main-container restarts,
+and successful HTTP page/API responses. Totodile's drain continues only after controller readiness.
+No application chart, image content, Pod, PVC, NAS configuration, NAS file, or registry content is manually
+changed. Existing automatic backup runtime remains governed by its unchanged Pod specification.</p>
+<h2>Failure and rollback</h2>
+<p>Stop on changed identity, damaged archive, missing blobs, or failed import. Preserve partial recovery
+intent and original source material; do not overwrite or force-retag. Maintenance ownership remains held.
+The registry's missing artifact remains an unresolved independent finding.</p>
+</html>
