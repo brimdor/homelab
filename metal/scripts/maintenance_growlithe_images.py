@@ -56,6 +56,21 @@ VERSA = {
     'ARTIFACT': 'maintenance103-growlithe-versa-a2b42b99.tar',
 }
 
+VERSA_CYNDAQUIL = {
+    **VERSA,
+    'SOURCE_HOST': 'charmander',
+    'SOURCE_MACHINE': '58d682ccab5a4269acedc3cdf53e46dc',
+    'SOURCE_ROOT': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2',
+    'SOURCE_ARCHIVE': VERSA['RECOVERY'] + '/image.tar',
+    'SOURCE_ARCHIVE_SHA256': '8637f116ca3a888f0a456e29deeb6dce0e3d5945c11b73350b50c2387c3cf3fe',
+    'SOURCE_ARCHIVE_BYTES': 145570304,
+    'TARGET_HOST': 'cyndaquil',
+    'TARGET_MACHINE': '51140709f60f45c1bcd0edfa23dba2ef',
+    'TARGET_ROOT': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8',
+    'RECOVERY': '/var/lib/homelab-recovery/maintenance-103/growlithe-versa-a2b42b99-cyndaquil',
+    'ARTIFACT': 'maintenance103-growlithe-versa-a2b42b99-cyndaquil.tar',
+}
+
 PROTECTED_NIBBLE_SOURCE = '''
 import hashlib,json,os,pathlib,socket,stat,subprocess
 assert os.geteuid()==0 and socket.gethostname()==SOURCE_HOST
@@ -126,3 +141,12 @@ def preserve_versa(args):
 
 def register_versa(args):
     return remote(args, bindings(VERSA) + CAPACITY + REGISTER_PROGRAM, '10.0.20.11')
+
+
+def preserve_versa_cyndaquil(args):
+    return stream(args, '10.0.20.11', bindings(VERSA_CYNDAQUIL) + PROTECTED_NIBBLE_SOURCE,
+                  bindings(VERSA_CYNDAQUIL) + CAPACITY + RECEIVE_PROGRAM, '10.0.20.16')
+
+
+def register_versa_cyndaquil(args):
+    return remote(args, bindings(VERSA_CYNDAQUIL) + CAPACITY + REGISTER_PROGRAM, '10.0.20.16')

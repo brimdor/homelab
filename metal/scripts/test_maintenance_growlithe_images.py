@@ -76,6 +76,26 @@ class GrowlitheImageTests(unittest.TestCase):
         self.assertIn("if IMAGE==alias:", native.call_args.args[1])
         self.assertEqual(native.call_args.args[2], target_address)
 
+    def test_versa_cyndaquil_uses_complete_protected_original_without_overwrite(self):
+        with mock.patch.object(images, 'stream') as transfer:
+            images.preserve_versa_cyndaquil(None)
+        _, source_address, source, receiver, target_address = transfer.call_args.args
+        self.assertEqual((source_address, target_address), ('10.0.20.11', '10.0.20.16'))
+        self.assertIn(images.VERSA_CYNDAQUIL['SOURCE_ARCHIVE_SHA256'], source)
+        self.assertIn("hashlib.file_digest(source,'sha256')", source)
+        self.assertIn('SOURCE_ARCHIVE_BYTES=145570304', source)
+        self.assertEqual(images.VERSA_CYNDAQUIL['DIGEST'], images.VERSA['DIGEST'])
+        self.assertEqual(images.VERSA_CYNDAQUIL['CONFIG'], images.VERSA['CONFIG'])
+        self.assertIn(images.VERSA_CYNDAQUIL['TARGET_ROOT'], receiver)
+        self.assertIn('BLOB_COUNT=25', receiver)
+        self.assertIn('assert not root.exists()', receiver)
+        compile(source, '<versa-protected-source>', 'exec')
+        compile(receiver, '<versa-cyndaquil-receiver>', 'exec')
+        with mock.patch.object(images, 'remote') as native:
+            images.register_versa_cyndaquil(None)
+        self.assertIn('if IMAGE==alias:', native.call_args.args[1])
+        self.assertEqual(native.call_args.args[2], target_address)
+
 
 if __name__ == '__main__':
     unittest.main()
