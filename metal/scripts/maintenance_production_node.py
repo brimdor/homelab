@@ -48,6 +48,14 @@ def select_node(node):
     global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if node == 'totodile':
         return
+    if node == 'cyndaquil':
+        NODE, ADDRESS, UID, MAC = ('cyndaquil', '10.0.20.16',
+            '6a26f4ed-68e6-4681-baf9-47660549c4fb', '6c:4b:90:5f:8e:43')
+        IDENTITY = {'machine': '51140709f60f45c1bcd0edfa23dba2ef',
+                    'root_uuid': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8'}
+        BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/cyndaquil-fedora' +
+                   str(release) + '-config-20261027-a' for release in (39, 41, 43, 44)}
+        return
     if node == 'charmander':
         NODE, ADDRESS, UID, MAC = ('charmander', '10.0.20.11',
             '9108f105-f73d-41bb-891f-ac2db6658714', '00:23:24:b0:ff:03')
@@ -99,12 +107,12 @@ def recovery(args, source, capture=False):
         control_plane = control_plane_recovery(args, source, capture, node=NODE)
     receiver_name, receiver_address, receiver_identity = RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if (NODE == 'pikachu' and source in (43, 44) or
-            NODE == 'squirtle' and source in (41, 43, 44) or NODE == 'charmander'):
+            NODE == 'squirtle' and source in (41, 43, 44) or NODE in ('charmander', 'cyndaquil')):
         receiver_name, receiver_address = 'growlithe', '10.0.20.18'
         receiver_identity = {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
                              'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}
     readback = """
-import hashlib,json,os,pathlib,socket,stat,subprocess
+import hashlib,json,os,pathlib,socket,stat,subprocess,tarfile
 assert os.geteuid()==0 and socket.gethostname()==%r
 assert pathlib.Path('/etc/machine-id').read_text().strip()==%r
 assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==%r
@@ -119,6 +127,13 @@ else:
  with archive.open('rb')as source:
   for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
  assert archive.stat().st_size==value['bytes']and digest.hexdigest()==value['sha256']
+ if value.get('node')=='cyndaquil':
+  prefix='var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02'
+  with tarfile.open(archive)as saved:
+   members={m.name:m for m in saved if m.name==prefix or m.name.startswith(prefix+'/')}
+   assert set(members)=={prefix,*[prefix+'/'+n for n in ('block','ceph_fsid','fsid','keyring','ready','require_osd_release','type','whoami')]}
+   assert members[prefix].isdir()and members[prefix+'/block'].issym()and members[prefix+'/block'].linkname=='/dev/sda3'
+   assert all(m.isreg()for n,m in members.items()if n not in(prefix,prefix+'/block'))
  print(json.dumps(value))
 """ % (receiver_name, receiver_identity['machine'], receiver_identity['root_uuid'], backup)
     existing = remote(args, readback, receiver_address)
@@ -154,8 +169,10 @@ command=['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-sys
 if %r:
  command.insert(1,'--exclude=var/lib/rancher/k3s/server/db')
  command.append('var/lib/homelab-recovery/maintenance-103')
+if %r:
+ command.append('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02')
 sys.exit(subprocess.run(command).returncode)
-""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'))
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE == 'cyndaquil')
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
@@ -574,9 +591,15 @@ def prerequisites(api):
         conditions = {c['type']: c['status'] for c in node['status']['conditions']}
         require(conditions.get('Ready') == 'True' and all(conditions.get(k) == 'False'
                 for k in ('DiskPressure', 'MemoryPressure', 'PIDPressure')), 'node health is not green')
-    health = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
-                      'ceph', 'health', '-f', 'json')
-    require(health['status'] == 'HEALTH_OK', 'Ceph is not HEALTH_OK')
+    osd_gate = None
+    if NODE == 'cyndaquil':
+        from maintenance_osd_host import observe
+        osd_gate = observe(api)
+        health = {'status': osd_gate['scope']}
+    else:
+        health = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
+                          'ceph', 'health', '-f', 'json')
+        require(health['status'] == 'HEALTH_OK', 'Ceph is not HEALTH_OK')
     exceptions = []
     for kind in ('deployments', 'statefulsets'):
         for item in api.call('get', kind, '-A', '-o', 'json')['items']:
@@ -588,6 +611,10 @@ def prerequisites(api):
                 continue
             meta = item['metadata']
             pinned = item['spec']['template']['spec'].get('nodeSelector', {})
+            # Only the exact freshly validated OSD may wait for this cordoned host.
+            if osd_gate and meta['uid'] == osd_gate['managed_deployment_uid']:
+                exceptions.append(meta['uid'])
+                continue
             # These node-local Rook observers return only after the node is uncordoned.
             if (meta['namespace'] == 'rook-ceph' and pinned.get('kubernetes.io/hostname') == NODE and
                     (meta['name'].startswith('rook-ceph-crashcollector-') or
@@ -597,6 +624,8 @@ def prerequisites(api):
             raise RuntimeError('controller unready: ' + meta['namespace'] + '/' + meta['name'])
     result = {'node_uids': {n['metadata']['name']: n['metadata']['uid'] for n in nodes},
               'ceph': health['status'], 'controllers_ready_except_target_observers': True}
+    if osd_gate is not None:
+        result['osd_host'] = osd_gate
     if NODE in ('squirtle', 'charmander'):
         from maintenance_control_plane import observe
         quorum = observe(ACTIVE_ARGS)
@@ -878,7 +907,7 @@ def main():
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'repair-offline-repositories', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
-    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander'), default='totodile')
+    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -890,12 +919,15 @@ def main():
     published_tip = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0]
     require(published_tip == revision, 'publish reviewed source before production use')
     bundle = {}
-    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key', 'maintenance_receiver_protection', 'maintenance_control_plane', 'maintenance_monitor_recovery', 'etcd_recovery'):
+    for name in (*MODULES, 'maintenance_production_node', 'maintenance_api_reader', 'fedora_public_key', 'maintenance_receiver_protection', 'maintenance_control_plane', 'maintenance_monitor_recovery', 'etcd_recovery', 'maintenance_osd_host'):
         relative = 'metal/scripts/' + name + '.py'
         published = subprocess.check_output(['git', 'show', revision + ':' + relative])
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
         if name in MODULES:
             bundle[name] = published.decode()
+    if NODE == 'cyndaquil':
+        from maintenance_osd_host import native_identity
+        native_identity(args)
     core_path = 'scripts/homelab-health.py'
     require(Path(core_path).read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + core_path]),
             'unpublished CORE completion evidence parser')
