@@ -133,6 +133,37 @@ class NodeDrainTests(unittest.TestCase):
             self.api.nodes, self.pod_api.pods, self.pod_api.controllers = nodes, pods, controllers
         self.assertFalse(self.pod_api.posts)
 
+    def add_osd_fixture(self):
+        pod = copy.deepcopy(self.pod_api.pods[2])
+        controller = pod['metadata']['ownerReferences'][0]
+        controller.update(name='rook-ceph-osd-1-abcdef', uid='osd-controller-uid')
+        pod['metadata'].update(namespace='rook-ceph', name='rook-ceph-osd-1-abcdef-pod', uid='osd-pod-uid')
+        self.pod_api.controllers[('replicaset', controller['name'])] = {
+            'apiVersion': 'apps/v1', 'kind': 'ReplicaSet',
+            'metadata': {'name': controller['name'], 'uid': controller['uid']}}
+        self.pod_api.pods.append(pod)
+        self.pod_api.pods[3]['metadata']['namespace'] = 'volsync-system'
+
+    def test_osd_eviction_follows_every_other_workload(self):
+        self.add_osd_fixture()
+        plan = self.worker.inventory()
+        self.assertEqual([p['uid'] for p in plan['pods'] if not p['keep']],
+                         ['workload-a-uid', 'workload-b-uid', 'osd-pod-uid'])
+        self.assertEqual({p['uid'] for p in plan['pods']}, {p['metadata']['uid'] for p in self.pod_api.pods})
+        self.assertFalse(self.pod_api.posts)
+
+    def test_prior_lexical_plan_resumes_without_reordering_or_replay(self):
+        self.add_osd_fixture()
+        plan = self.worker.inventory()
+        plan['pods'].sort(key=lambda ref: (ref['namespace'], ref['name'], ref['uid']))
+        with patch.object(self.worker, 'inventory', return_value=copy.deepcopy(plan)):
+            self.worker.start(plan, drain.hashed(plan), 'c' * 64, lambda *_: True)
+        for ref in [p for p in plan['pods'] if not p['keep']]:
+            self.assertEqual(self.advance()['queued']['uid'], ref['uid'])
+            self.assertIn('observed', self.advance(self.fresh_drain()))
+        self.assertTrue(self.advance()['complete'])
+        self.assertEqual(len(self.pod_api.posts), 3)
+
     def test_review_and_prerequisites_refuse_before_parent_intent(self):
         plan = self.worker.inventory();before = self.journal.inspect()
         with self.assertRaisesRegex(RuntimeError, 'reviewed inventory'):
