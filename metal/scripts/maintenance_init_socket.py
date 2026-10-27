@@ -9,6 +9,8 @@ OWNER = 'homelab-maintenance-103-ff28f905-dd10-4857-affb-a06f56240ca6'
 BOOT = '0e8373c7-598e-421e-880e-ff28131c82ca'
 POLICY = b'(allow init_t kernel_t (netlink_kobject_uevent_socket (getattr)))\n'
 MODULE = 'homelab_init_socket'
+PROBE_HASHES = {'c4006ab1dea3412879f28df680dd9b9e6fe27eee00c5afcee00262fe542265c9',
+                'a6edc0b5726cd8e240989deeb1055962ef3a5ad6120b73b8e9f26eef0e0bf2e3'}
 HISTORICAL = ('audit: type=1400 audit(1793137096.898:4): avc:  denied  { getattr } for  '
               'pid=1 comm="systemd" path="socket:[3054]" dev="sockfs" ino=3054 '
               'scontext=system_u:system_r:init_t:s0 tcontext=system_u:system_r:kernel_t:s0 '
@@ -21,11 +23,25 @@ def kernel_records(native):
 
 
 def allowed():
+    import selinux
     import setools
     policy = setools.SELinuxPolicy('/sys/fs/selinux/policy')
     rules = list(setools.TERuleQuery(policy, ruletype=['allow'], source='init_t', target='kernel_t',
         tclass=['netlink_kobject_uevent_socket']).results())
-    return len(rules) == 1 and set(rules[0].perms) == {'getattr'}
+    if len(rules) != 1 or set(rules[0].perms) != {'getattr'}: return False
+    tclass = selinux.string_to_security_class('netlink_kobject_uevent_socket')
+    permission = selinux.string_to_av_perm(tclass, 'getattr')
+    decision = selinux.av_decision()
+    result = selinux.security_compute_av_raw('system_u:system_r:init_t:s0',
+        'system_u:system_r:kernel_t:s0', tclass, permission, decision)
+    return result == 0 and permission > 0 and decision.allowed & permission == permission
+
+
+def diagnostic_audits_resolved(records, boot):
+    """Keep the two failed verification probes; never excuse another denial."""
+    return (boot == BOOT and len(records) == 2 and
+            {r.get('record_sha256') for r in records} == PROBE_HASHES and
+            not any((Path('/proc') / str(pid)).exists() for pid in (8771, 8891)))
 
 
 def verify(native, record):

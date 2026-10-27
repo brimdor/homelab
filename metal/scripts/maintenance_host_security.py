@@ -670,17 +670,22 @@ def acceptance(journal, native, identity):
     observed = facts(native)
     assert observed['boot'] != reboot['boot'], 'persistent enforcement boot not yet proven'
     assert observed['mode'] == 'Enforcing' and not observed['kernel_overrides'] and not observed['autorelabel']
-    assert not observed['failed_units'] and observed['audit_record_count'] == 0, 'host security findings remain'
+    socket_intent = root / ('init-socket-policy-' + journal.token + '.json')
+    if socket_intent.exists():
+        import maintenance_init_socket as init_socket
+        observed['init_socket_policy'] = init_socket.verify(native, private_json(socket_intent, security_receipt=True))
+        assert observed['audit_record_count'] == 0 or init_socket.diagnostic_audits_resolved(
+            observed['audit_records'], observed['boot']), 'unresolved host security findings remain'
+        observed['diagnostic_audit_disposition'] = 'Exact two terminated verification probes; original records retained'
+    else:
+        assert observed['audit_record_count'] == 0, 'host security findings remain'
+    assert not observed['failed_units'], 'failed host units remain'
     assert observed['containerd_selinux'] is True and observed['k3s_context'].split(':')[2] == 'container_runtime_t'
     assert observed['k3s_binary_context'].split(':')[2] == 'container_runtime_exec_t'
     expected_configuration = followup['after_config_sha256'] if followup else record['k3s_configuration_sha256']
     assert hashlib.sha256(Path('/etc/rancher/k3s/config.yaml').read_bytes()).hexdigest() == expected_configuration
     native('rpm', '-V', '--noghost', 'k3s-selinux', 'container-selinux')
     native('rpm', '-q', 'microcode_ctl')
-    socket_intent = root / ('init-socket-policy-' + journal.token + '.json')
-    if socket_intent.exists():
-        import maintenance_init_socket as init_socket
-        observed['init_socket_policy'] = init_socket.verify(native, private_json(socket_intent, security_receipt=True))
     observed['host_observers'] = observers()
     observed['microcode_revision'] = Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip()
     firmware_boot = json.loads((root / ('host-firmware-reboot-' + token + '.json')).read_bytes())

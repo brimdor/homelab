@@ -23,6 +23,18 @@ class InitSocketTests(unittest.TestCase):
         with self.assertRaises(AssertionError): socket_policy.execute(journal, native, Mock(), {})
         native.assert_not_called()
 
+    def test_only_two_exact_terminated_probe_records_are_accounted(self):
+        records = [{'record_sha256': value} for value in socket_policy.PROBE_HASHES]
+        with patch.object(socket_policy, 'Path') as path:
+            path.return_value.__truediv__.return_value.exists.return_value = False
+            self.assertTrue(socket_policy.diagnostic_audits_resolved(records, socket_policy.BOOT))
+            self.assertFalse(socket_policy.diagnostic_audits_resolved(records, 'another-boot'))
+            self.assertFalse(socket_policy.diagnostic_audits_resolved(records[:1], socket_policy.BOOT))
+            self.assertFalse(socket_policy.diagnostic_audits_resolved(records + records[:1], socket_policy.BOOT))
+            self.assertFalse(socket_policy.diagnostic_audits_resolved([records[0], {'record_sha256': 'changed'}], socket_policy.BOOT))
+            path.return_value.__truediv__.return_value.exists.return_value = True
+            self.assertFalse(socket_policy.diagnostic_audits_resolved(records, socket_policy.BOOT))
+
     def test_new_kernel_denial_or_missing_permission_stays_blocked(self):
         record = {'owner': socket_policy.OWNER, 'boot': socket_policy.BOOT,
                   'policy_sha256': hashlib.sha256(socket_policy.POLICY).hexdigest()}
