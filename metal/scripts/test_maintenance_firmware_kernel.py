@@ -10,6 +10,24 @@ import maintenance_host_security as security
 
 
 class FirmwareKernelTests(unittest.TestCase):
+    def test_already_loaded_target_requires_exact_arcanine_cpu(self):
+        block = 'vendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 94\nstepping\t: 3\nmicrocode\t: 0xf0'
+        cpuinfo = '\n\n'.join([block] * 8)
+        self.assertEqual(security.firmware_source('arcanine', '0xf0', cpuinfo),
+                         {'revision': '0xf0', 'already_loaded_target': True})
+        for changed in ('', block, cpuinfo.replace('94', '95', 1), cpuinfo.replace('GenuineIntel', 'AuthenticAMD'),
+                        cpuinfo.replace('0xf0', '0xec', 1)):
+            with self.subTest(changed=changed[:80]), self.assertRaisesRegex(AssertionError, 'CPU identity changed'):
+                security.firmware_source('arcanine', '0xf0', changed)
+        for revision in ('0xea', '0xf1', ''):
+            with self.subTest(revision=revision), self.assertRaisesRegex(AssertionError, 'source microcode changed'):
+                security.firmware_source('arcanine', revision, cpuinfo)
+        for node in ('growlithe', 'charmander', 'cyndaquil', 'totodile', 'pikachu'):
+            with self.subTest(node=node):
+                self.assertFalse(security.firmware_source(node, '0xec', '')['already_loaded_target'])
+                with self.assertRaisesRegex(AssertionError, 'review source microcode revision'):
+                    security.firmware_source(node, '0xf0', cpuinfo)
+
     def native(self, kernel, package=None):
         calls = []
 

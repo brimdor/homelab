@@ -743,6 +743,22 @@ def early_intel_revision(path):
     raise AssertionError('Intel early microcode payload absent')
 
 
+def firmware_source(node, revision, cpuinfo):
+    """Arcanine already loads f0; still prove its exact CPU before rebuilding early boot."""
+    if node == 'arcanine':
+        assert revision == '0xf0', 'Arcanine source microcode changed'
+        expected = {'vendor_id': 'GenuineIntel', 'cpu family': '6', 'model': '94',
+                    'stepping': '3', 'microcode': revision}
+        processors = [{k.strip(): v.strip() for k, v in
+                       (line.split(':', 1) for line in block.splitlines() if ':' in line)}
+                      for block in cpuinfo.strip().split('\n\n')]
+        assert len(processors) == 8 and all(all(cpu.get(k) == v for k, v in expected.items())
+                                           for cpu in processors), 'Arcanine CPU identity changed'
+    else:
+        assert revision in ('0xea', '0xec'), 'review source microcode revision'
+    return {'revision': revision, 'already_loaded_target': revision == '0xf0'}
+
+
 def firmware(operation, journal, native, identity, recovery):
     """Build a candidate first; verify it before replacing the boot image once."""
     import maintenance_actor_hold as hold
@@ -796,7 +812,9 @@ def firmware(operation, journal, native, identity, recovery):
                    '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
             return {'firmware_reboot_dispatched': True, 'node_stays_cordoned': True, 'owner_retained': True}
         assert operation == 'security-firmware' and not intent.exists() and not candidate.exists()
-        assert Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip() in ('0xea', '0xec')
+        source_microcode = firmware_source(journal.owners()['global']['node'],
+            Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip(),
+            Path('/proc/cpuinfo').read_text())
         firmware_path = Path('/usr/lib/firmware/intel-ucode/06-5e-03')
         assert hashlib.sha256(firmware_path.read_bytes()).hexdigest() == FIRMWARE_SHA256
         native('rpm', '-V', '--noghost', 'microcode_ctl')
@@ -813,6 +831,7 @@ def firmware(operation, journal, native, identity, recovery):
         content = '#!/bin/bash\nset -euo pipefail\n' + '\n'.join(shlex.join(c) for c in commands) + '\n'
         record = {'owner': token, 'identity': identity(), 'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
                   'kernel': kernel,
+                  'source_microcode': source_microcode,
                   'before_image_sha256': before, 'recovery_sha256': recovery['sha256'],
                   'firmware_sha256': FIRMWARE_SHA256, 'script_sha256': hashlib.sha256(content.encode()).hexdigest()}
         hold.exclusive_file(original, image.read_bytes(), 0o600)
