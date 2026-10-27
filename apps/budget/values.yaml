@@ -82,7 +82,7 @@ app-template:
             - path: /app/data
   defaultPodOptions:
     nodeSelector:
-      kubernetes.io/hostname: cyndaquil
+      kubernetes.io/hostname: charmander
     hostAliases:
       - ip: "127.0.0.1"
         hostnames:
