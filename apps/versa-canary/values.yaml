@@ -14,7 +14,7 @@ app-template:
             repository: 10.0.20.11:32309/versa
             tag: "3c876f6"
             digest: sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           command:
             - npm
             - run
@@ -59,7 +59,7 @@ app-template:
             repository: 10.0.20.11:32309/versa
             tag: "3c876f6"
             digest: sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d
-            pullPolicy: Always
+            pullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
               name: http
@@ -196,6 +196,8 @@ app-template:
                 port: 443
 
   defaultPodOptions:
+    nodeSelector:
+      kubernetes.io/hostname: charmander
     securityContext:
       runAsNonRoot: true
       runAsUser: 1000
