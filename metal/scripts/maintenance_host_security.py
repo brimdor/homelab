@@ -677,6 +677,10 @@ def acceptance(journal, native, identity):
     assert hashlib.sha256(Path('/etc/rancher/k3s/config.yaml').read_bytes()).hexdigest() == expected_configuration
     native('rpm', '-V', '--noghost', 'k3s-selinux', 'container-selinux')
     native('rpm', '-q', 'microcode_ctl')
+    socket_intent = root / ('init-socket-policy-' + journal.token + '.json')
+    if socket_intent.exists():
+        import maintenance_init_socket as init_socket
+        observed['init_socket_policy'] = init_socket.verify(native, private_json(socket_intent, security_receipt=True))
     observed['host_observers'] = observers()
     observed['microcode_revision'] = Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip()
     firmware_boot = json.loads((root / ('host-firmware-reboot-' + token + '.json')).read_bytes())

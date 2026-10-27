@@ -41,7 +41,7 @@ SECURITY_BACKUPS = {node: '/var/lib/homelab-recovery/maintenance-103/' + node +
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release',
-           'maintenance_host_security')
+           'maintenance_host_security', 'maintenance_init_socket')
 OSD_RECOVERY = {
     'cyndaquil': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02', '/dev/sda3'),
     'growlithe': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85', '/dev/nvme0n1p1'),
@@ -440,6 +440,8 @@ else:
   result={'owner':owner,'journal':state,'identity':identity(),'release':native('rpm','-E','%fedora'),
    'boot':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
    'kernel':native('uname','-r')}
+ elif operation=='repair-init-socket-policy':
+  result=sys.modules['maintenance_init_socket'].execute(journal,native,identity,recovery_manifest)
  elif operation in('cordon','restore-scheduling'):
   step=operation.replace('-','_')
   path=root/(step+'-'+owner['owner']+'.json');worker=scheduling.Scheduling(journal,api)
@@ -1104,7 +1106,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
-                                             'repair-offline-repositories', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
+                                             'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
