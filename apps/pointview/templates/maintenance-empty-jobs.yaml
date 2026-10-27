@@ -1,7 +1,7 @@
 {{- with .Values.maintenanceEmptyJobs }}
 {{- if .enabled }}
 {{- $app := index $.Values "app-template" }}
-{{- $name := "maintenance-empty-jobs-103-20261026-a" }}
+{{- $name := "maintenance-empty-jobs-103-20261027-a" }}
 {{- $script := $.Files.Get "files/maintenance-empty-jobs.mjs" }}
 {{- $controller := $app.controllers.retention }}
 {{- $container := $controller.containers.retention }}
@@ -13,7 +13,7 @@ data:
   run.mjs: |
 {{ $.Files.Get "files/maintenance-empty-jobs.mjs" | indent 4 }}
 {{- range $task := list "triage" "retention" }}
-{{- $job := printf "maintenance-103-%s-20261026-b" $task }}
+{{- $job := printf "maintenance-103-%s-20261027-a" $task }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -41,7 +41,7 @@ spec:
       restartPolicy: Never
       automountServiceAccountToken: false
       nodeSelector:
-        kubernetes.io/hostname: growlithe
+        kubernetes.io/hostname: pikachu
       terminationGracePeriodSeconds: 10
       securityContext:
 {{ toYaml $controller.pod.securityContext | indent 8 }}
