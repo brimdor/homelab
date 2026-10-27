@@ -22,6 +22,9 @@ app-template:
         securityContext:
           fsGroup: 65532
           fsGroupChangePolicy: OnRootMismatch
+          # The ordinary backup shares this RWO volume under enforcing SELinux.
+          seLinuxOptions:
+            level: s0:c317,c677
       containers:
         main:
           nameOverride: backend
