@@ -64,13 +64,22 @@ class RecoveryRoleTests(unittest.TestCase):
         self.assertEqual(production.RECEIVER_ADDRESS, '10.0.20.11')
         self.assertTrue(production.BACKUPS[39].endswith('growlithe-fedora39-config-20261027-a'))
 
+    def test_arcanine_preserves_both_metadata_directories_without_reading_block_devices(self):
+        paths = self.archive_paths('arcanine', True)
+        self.assertEqual(production.RECEIVER_ADDRESS, '10.0.20.11')
+        for prefix, block in production.OSD_RECOVERY['arcanine']:
+            self.assertIn(prefix, paths)
+            self.assertNotIn(block, paths)
+        self.assertNotIn('--dereference', paths)
+        self.assertEqual(production.UID, '88aa2572-09df-40b9-8a00-960e9682917c')
+
     def test_generated_metadata_readback_refuses_foreign_block_and_missing_members(self):
         import io
         import tarfile
         import tempfile
         import textwrap
         from pathlib import Path
-        for node in ('cyndaquil', 'growlithe'):
+        for node in ('cyndaquil', 'growlithe', 'arcanine'):
             production.select_node(node)
             class ReadbackCaptured(Exception):
                 pass
@@ -85,18 +94,21 @@ class RecoveryRoleTests(unittest.TestCase):
             start = program.index(' osd_recovery=')
             end = program.index(' print(json.dumps(value))', start)
             snippet = textwrap.dedent(program[start:end])
-            prefix, block = production.OSD_RECOVERY[node]
+            pairs = production.OSD_RECOVERY[node] if node == 'arcanine' else (production.OSD_RECOVERY[node],)
             names = ('ceph_fsid', 'fsid', 'keyring', 'ready', 'require_osd_release', 'type', 'whoami')
-            for fault in (None, 'foreign-block', 'missing-member'):
+            for fault in (None, 'foreign-block', 'missing-member', 'missing-osd', 'duplicate-member'):
                 with self.subTest(node=node, fault=fault), tempfile.TemporaryDirectory() as directory:
                     archive = Path(directory) / 'synthetic.tar'
                     with tarfile.open(archive, 'w') as target:
-                        entry = tarfile.TarInfo(prefix);entry.type = tarfile.DIRTYPE;target.addfile(entry)
-                        entry = tarfile.TarInfo(prefix + '/block');entry.type = tarfile.SYMTYPE
-                        entry.linkname = '/dev/foreign' if fault == 'foreign-block' else block;target.addfile(entry)
-                        for name in names:
-                            if fault == 'missing-member' and name == 'whoami':continue
-                            entry = tarfile.TarInfo(prefix + '/' + name);entry.size = 1;target.addfile(entry, io.BytesIO(b'x'))
+                        for index, (prefix, block) in enumerate(pairs):
+                            if fault == 'missing-osd' and index == len(pairs) - 1:continue
+                            entry = tarfile.TarInfo(prefix);entry.type = tarfile.DIRTYPE;target.addfile(entry)
+                            entry = tarfile.TarInfo(prefix + '/block');entry.type = tarfile.SYMTYPE
+                            entry.linkname = '/dev/foreign' if fault == 'foreign-block' else block;target.addfile(entry)
+                            for name in names:
+                                if fault == 'missing-member' and name == 'whoami':continue
+                                entry = tarfile.TarInfo(prefix + '/' + name);entry.size = 1;target.addfile(entry, io.BytesIO(b'x'))
+                            if fault == 'duplicate-member':target.addfile(entry, io.BytesIO(b'x'))
                     scope = {'value': {'node': node}, 'archive': archive, 'tarfile': tarfile}
                     if fault is None:exec(snippet, scope)
                     else:

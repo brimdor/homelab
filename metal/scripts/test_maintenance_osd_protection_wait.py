@@ -95,7 +95,7 @@ class ProtectionWaitTests(unittest.TestCase):
 
     def test_native_wait_follows_only_a_new_queued_osd_eviction(self):
         source = (Path(__file__).parent / 'maintenance_production_node.py').read_text()
-        self.assertIn("result.get('queued')and expected_node in('cyndaquil','growlithe')", source)
+        self.assertIn("result.get('queued')and expected_node in('cyndaquil','growlithe','arcanine')", source)
         self.assertLess(source.index('result=worker.advance(digest,verify,removed)'),
                         source.index("rpc('await_osd_protection',ref=ref)"))
         self.assertIn("args.operation == 'drain' and NODE in OSD_RECOVERY", source)

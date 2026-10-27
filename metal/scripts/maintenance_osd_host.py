@@ -336,7 +336,46 @@ for before, after in (
 GROWLITHE_NATIVE_IDENTITY = GROWLITHE_NATIVE_IDENTITY.replace("root=pathlib.Path('/var/lib/rook/rook-ceph/", "nvme=json.loads(subprocess.check_output(['lsblk','--json','--bytes','-o','NAME,TYPE,SIZE,FSTYPE,UUID,PARTUUID,SERIAL','/dev/nvme0n1']))['blockdevices']\nassert nvme==[{'name': 'nvme0n1', 'type': 'disk', 'size': 500107862016, 'fstype': None, 'uuid': None, 'partuuid': None, 'serial': 'S58SNM0R508184P', 'children': [{'name': 'nvme0n1p1', 'type': 'part', 'size': 500106788864, 'fstype': 'ceph_bluestore', 'uuid': None, 'partuuid': '7f1094b0-d185-448d-9a09-6a35e46309e5', 'serial': None}]}]\n" + "root=pathlib.Path('/var/lib/rook/rook-ceph/", 1)
 
 
+ARCANINE_NATIVE_IDENTITY = r'''
+import json,os,pathlib,socket,stat,subprocess
+assert os.geteuid()==0 and socket.gethostname()=='arcanine'
+assert pathlib.Path('/etc/machine-id').read_text().strip()=='d877c676fcc2434f9a169f8dc0594676'
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='d5ffa207-0e76-47a7-a941-1829732d3bc6'
+assert '4c:cc:6a:3d:e5:3f'in{p.read_text().strip()for p in pathlib.Path('/sys/class/net').glob('*/address')}
+columns='NAME,TYPE,SIZE,FSTYPE,UUID,PARTUUID,SERIAL'
+disk=json.loads(subprocess.check_output(['lsblk','--json','--bytes','-o',columns,'/dev/sda']))['blockdevices']
+assert len(disk)==1 and disk[0]['type']=='disk'and disk[0]['name']=='sda'
+assert disk[0]['serial']=='160511B2554D'and disk[0]['size']==1024209543168
+parts=disk[0]['children']
+assert [(p['name'],p['size'],p['fstype'],p['uuid'],p['partuuid'])for p in parts]==[
+ ('sda1',536870912,'vfat','D3B6-7854','26c0de68-23b8-4a74-abbe-fc1054cc60a3'),
+ ('sda2',68719476736,'ext4','d5ffa207-0e76-47a7-a941-1829732d3bc6','71e8bd51-73b4-4d35-838d-0f7085e869d5'),
+ ('sda3',954951794688,'ceph_bluestore',None,'1a61507d-ed61-4f12-8927-4eb3716555b5')]
+assert all(p['type']=='part'and not p.get('children')for p in parts)
+second=json.loads(subprocess.check_output(['lsblk','--json','--bytes','-o',columns,'/dev/sdb']))['blockdevices']
+assert second==[{'name':'sdb','type':'disk','size':512110190592,'fstype':'ceph_bluestore','uuid':None,
+ 'partuuid':None,'serial':'S1ZKNXAGA08806'}]
+fsid='13c20377-d801-43f9-aebd-59f62df5dad1'
+identities={2:('a527115d-9f22-48cc-a718-4f30bdb64399','/dev/sda3'),8:('38cfd0d6-ace5-4bc2-972a-0315835b3b92','/dev/sdb')}
+for target,(uid,block)in identities.items():
+ root=pathlib.Path('/var/lib/rook/rook-ceph')/(fsid+'_'+uid)
+ assert root.is_dir()and not any(p.is_symlink()for p in(root,*root.parents))
+ assert(root/'block').is_symlink()and os.readlink(root/'block')==block
+ for name,wanted in [('ceph_fsid',fsid),('fsid',uid),('whoami',str(target)),('type','bluestore')]:
+  path=root/name
+  assert path.is_file()and not path.is_symlink()and path.read_text().strip()==wanted
+ info=(root/'keyring').lstat()
+ assert stat.S_ISREG(info.st_mode)and info.st_uid==0 and not info.st_mode&0o022 and 0<info.st_size<4096
+print(json.dumps({'node':'arcanine','machine':'d877c676fcc2434f9a169f8dc0594676',
+ 'root_uuid':'d5ffa207-0e76-47a7-a941-1829732d3bc6','disk_serials':['160511B2554D','S1ZKNXAGA08806'],
+ 'osds':{str(i):uid for i,(uid,block)in identities.items()},
+ 'partition_table_and_osd_identity_verified':True,'keyring_content_not_returned':True}))
+'''
+
+
 def native_identity(args, node=NODE):
     from maintenance_production_node import remote
     profile = profile_for(node)
-    return remote(args, NATIVE_IDENTITY if node == 'cyndaquil' else GROWLITHE_NATIVE_IDENTITY, profile['address'])
+    program = {'cyndaquil': NATIVE_IDENTITY, 'growlithe': GROWLITHE_NATIVE_IDENTITY,
+               'arcanine': ARCANINE_NATIVE_IDENTITY}[node]
+    return remote(args, program, profile['address'])

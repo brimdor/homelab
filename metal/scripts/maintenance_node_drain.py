@@ -72,6 +72,20 @@ class Drain:
             actor.require(len(controllers) == 1, 'drain Pod lacks one exact controller')
             controller = controllers[0]
             kind = controller.get('kind')
+            if kind == 'ClusterPolicy':
+                # GPU validators are not Jobs; retain only CORE's exact successful CUDA exception.
+                observer = getattr(self.api, 'completed_cuda', None)
+                ref = {'namespace': namespace, 'name': pod_name, 'uid': metadata['uid'],
+                       'spec_sha256': hashed(pod['spec']), 'controller': controller, 'keep': True}
+                actor.require(callable(observer) and controller.get('apiVersion') == 'nvidia.com/v1' and
+                              controller.get('name') == 'cluster-policy' and controller.get('uid'),
+                              'unreviewed GPU completion controller')
+                proof = observer(ref)
+                actor.require(proof.get('pod_uid') == metadata['uid'] and
+                              proof.get('spec_sha256') == ref['spec_sha256'] and
+                              proof.get('cluster_policy_uid') == controller['uid'], 'GPU completion identity changed')
+                refs.append(ref)
+                continue
             actor.require(kind in CONTROLLERS and isinstance(controller.get('uid'), str) and
                           controller['uid'] and controller.get('apiVersion') in
                           ('v1', 'apps/v1', 'batch/v1'), 'unreviewed drain Pod controller')

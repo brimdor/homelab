@@ -41,8 +41,10 @@ SECURITY_BACKUPS = {node: '/var/lib/homelab-recovery/maintenance-103/' + node +
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release',
-           'maintenance_host_security', 'maintenance_init_socket')
+           'maintenance_host_security', 'maintenance_init_socket', 'maintenance_nvidia')
 OSD_RECOVERY = {
+    'arcanine': (('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_a527115d-9f22-48cc-a718-4f30bdb64399', '/dev/sda3'),
+                 ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_38cfd0d6-ace5-4bc2-972a-0315835b3b92', '/dev/sdb')),
     'cyndaquil': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02', '/dev/sda3'),
     'growlithe': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85', '/dev/nvme0n1p1'),
 }
@@ -53,6 +55,17 @@ ACTIVE_ARGS = None
 def select_node(node):
     global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if node == 'totodile':
+        return
+    if node == 'arcanine':
+        NODE, ADDRESS, UID, MAC = ('arcanine', '10.0.20.19',
+            '88aa2572-09df-40b9-8a00-960e9682917c', '4c:cc:6a:3d:e5:3f')
+        IDENTITY = {'machine': 'd877c676fcc2434f9a169f8dc0594676',
+                    'root_uuid': 'd5ffa207-0e76-47a7-a941-1829732d3bc6'}
+        RECEIVER, RECEIVER_ADDRESS = 'charmander', '10.0.20.11'
+        RECEIVER_IDENTITY = {'machine': '58d682ccab5a4269acedc3cdf53e46dc',
+                             'root_uuid': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2'}
+        BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/arcanine-fedora' +
+                   str(release) + '-config-20261027-a' for release in (39, 41, 43, 44)}
         return
     if node == 'growlithe':
         NODE, ADDRESS, UID, MAC = ('growlithe', '10.0.20.18',
@@ -120,6 +133,8 @@ def remote(args, program, address=None):
 def recovery(args, source, capture=False):
     require(source in BACKUPS, 'unreviewed recovery source release')
     backup = BACKUPS[source]
+    osd_recovery = {node: entries if node == 'arcanine' else (entries,)
+                    for node, entries in OSD_RECOVERY.items()}
     control_plane = None
     if NODE in ('squirtle', 'charmander'):
         from maintenance_control_plane import recovery as control_plane_recovery
@@ -152,14 +167,15 @@ else:
  assert archive.stat().st_size==value['bytes']and digest.hexdigest()==value['sha256']
  osd_recovery=%r
  if value.get('node')in osd_recovery:
-  prefix,block=osd_recovery[value['node']]
-  with tarfile.open(archive)as saved:
-   members={m.name:m for m in saved if m.name==prefix or m.name.startswith(prefix+'/')}
-   assert set(members)=={prefix,*[prefix+'/'+n for n in ('block','ceph_fsid','fsid','keyring','ready','require_osd_release','type','whoami')]}
-   assert members[prefix].isdir()and members[prefix+'/block'].issym()and members[prefix+'/block'].linkname==block
-   assert all(m.isreg()for n,m in members.items()if n not in(prefix,prefix+'/block'))
+  for prefix,block in osd_recovery[value['node']]:
+   with tarfile.open(archive)as saved:
+    entries=[m for m in saved if m.name==prefix or m.name.startswith(prefix+'/')]
+    members={m.name:m for m in entries};assert len(members)==len(entries)
+    assert set(members)=={prefix,*[prefix+'/'+n for n in ('block','ceph_fsid','fsid','keyring','ready','require_osd_release','type','whoami')]}
+    assert members[prefix].isdir()and members[prefix+'/block'].issym()and members[prefix+'/block'].linkname==block
+    assert all(m.isreg()for n,m in members.items()if n not in(prefix,prefix+'/block'))
  print(json.dumps(value))
-""" % (receiver_name, receiver_identity['machine'], receiver_identity['root_uuid'], backup, OSD_RECOVERY)
+""" % (receiver_name, receiver_identity['machine'], receiver_identity['root_uuid'], backup, osd_recovery)
     existing = remote(args, readback, receiver_address)
     if existing is not None:
         require(existing['identity'] == IDENTITY and existing['node_uid'] == UID and
@@ -199,10 +215,10 @@ else:assert not %r,'control-plane recovery requires its server directory'
 if %r:
  command.insert(1,'--exclude=var/lib/rancher/k3s/server/db')
  command.append('var/lib/homelab-recovery/maintenance-103')
-if %r:
- command.append(%r)
+for prefix,block in %r:
+ command.append(prefix)
 sys.exit(subprocess.run(command).returncode)
-""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in OSD_RECOVERY, OSD_RECOVERY.get(NODE, (None, None))[0])
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), osd_recovery.get(NODE, ()))
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
@@ -295,6 +311,7 @@ class API:
   return(self.call('get','daemonset','kured','-n','kured','-o','json'),
    self.call('get','pods','-n','kured','-o','json')['items'],self.call('get','nodes','-o','json')['items'])
  def patch(self,operations):return self.call('patch','daemonset','kured','-n','kured','--type=json','--patch',coord.encoded(operations),'-o','json')
+ def completed_cuda(self,ref):return rpc('completed_cuda',ref=ref)
  def drain_controllers(self):
   return{(v['kind'],v['metadata']['namespace'],v['metadata']['name']):v for v in rpc('drain_controllers')}
 api=API();controller=coord.Ownership(api,expected_ds_uid,node_uids)
@@ -310,7 +327,7 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
- if expected_node in('charmander','cyndaquil','growlithe')or owner['source']==owner['target']==44:
+ if expected_node in('charmander','cyndaquil','growlithe','arcanine')or owner['source']==owner['target']==44:
   pods=api.call('get','pods','-n','loki','--field-selector','spec.nodeName='+expected_node,'-o','json')['items']
   agents=[p for p in pods if any(c['name']=='alloy'for c in p['spec']['containers'])]
   assert len(agents)==1,'existing Alloy acceptance process absent or ambiguous'
@@ -454,7 +471,7 @@ else:
    assert step==hops.steps(owner)[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
    dispatched=True
   # This OSD can return only after uncordon; accept its intent on a later healthy observation.
-  if dispatched and expected_node in('cyndaquil','growlithe') and step=='restore_scheduling':
+  if dispatched and expected_node in('cyndaquil','growlithe','arcanine') and step=='restore_scheduling':
    result={'accepted':False,'pending':journal.inspect()['pending'],'scheduling_patch_dispatched':True}
   else:result=worker.observe(plan,digest,verify)
  elif operation in('security-default','observe-security-default'):
@@ -482,12 +499,13 @@ else:
   if step!='trusted_reconnect':
    assert not native('systemctl','--failed','--no-legend','--plain'),'failed native units remain'
    value['runtime']=rpc('applications'if step=='accept_applications'else'infrastructure')
+   if expected_node=='arcanine':value['gpu']=sys.modules['maintenance_nvidia'].runtime(native,owner['target'])
   else:value['prerequisites']=evidence()
   digest=drain.hashed(value)
   def verified_observation(step_name,observed_digest):
    if step_name!=step or observed_digest!=digest or identity()!=value['identity']:return False
    if step=='trusted_reconnect':return evidence()==value['prerequisites']
-   return rpc('applications'if step=='accept_applications'else'infrastructure')==value['runtime']
+   return rpc('applications'if step=='accept_applications'else'infrastructure')==value['runtime']and(expected_node!='arcanine'or sys.modules['maintenance_nvidia'].runtime(native,owner['target'])==value['gpu'])
   if state['pending'] is None:state=journal.begin(step,digest,digest,verified_observation)
   assert state['pending']['step']==step
   result={'receipt':value,'journal':journal.accept(state['pending']['sha256'],digest,verified_observation)}
@@ -502,9 +520,9 @@ else:
   if expected_node=='growlithe'and owner['owner']=='homelab-maintenance-103-44e0fa41-4b7e-4ba2-bb2e-370e59f61876':
    removed=lambda ref:rpc('removed_versa_canary',ref=ref)
   result=worker.advance(digest,verify,removed)
-  if result.get('queued')and expected_node in('cyndaquil','growlithe'):
-   ref=result['queued'];osd=str(1 if expected_node=='cyndaquil'else 6)
-   if ref['namespace']=='rook-ceph'and ref['controller']['kind']=='ReplicaSet'and ref['controller']['name'].startswith('rook-ceph-osd-'+osd+'-'):
+  if result.get('queued')and expected_node in('cyndaquil','growlithe','arcanine'):
+   ref=result['queued'];osds={'cyndaquil':(1,),'growlithe':(6,),'arcanine':(2,8)}[expected_node]
+   if ref['namespace']=='rook-ceph'and ref['controller']['kind']=='ReplicaSet'and any(ref['controller']['name'].startswith('rook-ceph-osd-'+str(osd)+'-')for osd in osds):
     result['owned_osd_protection']=rpc('await_osd_protection',ref=ref)
   if result.get('complete'):
    accepted=dict(result)
@@ -537,6 +555,8 @@ else:
   if not path.exists():actors.exclusive_file(path,content.encode(),0o600)
   assert path.read_text()==content
   result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'release':release,'gpgcheck':True}
+  if expected_node=='arcanine'and int(release)>39:
+   result['nvidia']=sys.modules['maintenance_nvidia'].configure(directory,int(release),native)
  elif operation=='repair-offline-repositories':
   assert owner['owner']=='homelab-maintenance-103-c8345d91-1dfe-4e58-8c13-b7c7b7519d54'
   assert owner['source']==39 and owner['target']==41 and native('rpm','-E','%fedora')=='39'
@@ -603,12 +623,12 @@ else:
     if step=='download_release':
      cache=pathlib.Path('/var/lib/dnf/system-upgrade')if owner['source']==39 else pathlib.Path('/usr/lib/sysimage/libdnf5/offline')
      files=sorted(cache.rglob('*.rpm'));assert files,'offline target RPMs absent'
-     signed=[];target_release=False;target_kernel=False
+     signed=[];target_release=False;target_kernel=False;package_metadata=[]
      for path in files:
       assert path.is_file()and not path.is_symlink()
       output=native('rpmkeys','--checksig','--verbose',str(path))
       assert all(v not in output for v in('NOKEY','NOT OK','BAD'))and 'signature'in output.lower()and 'OK'in output
-      metadata=native('rpm','-qp','--qf','%{NAME} %{VERSION} %{RELEASE}',str(path)).split()
+      metadata=native('rpm','-qp','--qf','%{NAME} %{VERSION} %{RELEASE}',str(path)).split();package_metadata.append(metadata)
       target_release=target_release or metadata[0]=='fedora-release-common'and metadata[1]==str(owner['target'])
       target_kernel=target_kernel or metadata[0]=='kernel-core'and '.fc'+str(owner['target'])in metadata[2]
       digest=hashlib.sha256()
@@ -616,6 +636,7 @@ else:
        for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
       signed.append([path.name,digest.hexdigest()])
      assert target_release and target_kernel
+     if expected_node=='arcanine':receipt['nvidia']=sys.modules['maintenance_nvidia'].downloaded(package_metadata,owner['target'])
      receipt['signed_rpms']={'count':len(signed),'sha256':drain.hashed(signed),'target_release_and_kernel':True}
     def verified(step_name,digest):return step_name==step and digest==drain.hashed(receipt) and evidence()==value
     result['journal']=journal.accept(state['pending']['sha256'],drain.hashed(receipt),verified);result['accepted']=True
@@ -789,7 +810,7 @@ def prerequisites(api):
             meta = item['metadata']
             pinned = item['spec']['template']['spec'].get('nodeSelector', {})
             # Only the exact freshly validated OSD may wait for this cordoned host.
-            if osd_gate and meta['uid'] == osd_gate['managed_deployment_uid']:
+            if osd_gate and meta['uid'] in osd_gate.get('managed_deployment_uids', [osd_gate.get('managed_deployment_uid')]):
                 exceptions.append(meta['uid'])
                 continue
             # These node-local Rook observers return only after the node is uncordoned.
@@ -829,6 +850,22 @@ def completed_job_pod(api, pod):
     meta, spec, status = pod['metadata'], pod['spec'], pod.get('status', {})
     require(status.get('phase') == 'Succeeded' and not meta.get('deletionTimestamp') and
             spec.get('restartPolicy') in ('Never', 'OnFailure'), 'unproven completed Pod')
+    module_spec = importlib.util.spec_from_file_location('maintenance_core_evidence',
+        Path(__file__).resolve().parents[2] / 'scripts/homelab-health.py')
+    core = importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(core)
+    if any(o.get('kind') == 'ClusterPolicy' for o in meta.get('ownerReferences', [])):
+        node = api.call('get', 'node', NODE, '-o', 'json')
+        require(spec.get('nodeName') == NODE and node['metadata']['uid'] == UID and
+                not node['metadata'].get('deletionTimestamp'), 'completed validator target identity differs')
+        row = {'namespace': meta['namespace'], 'name': meta['name'], 'node_in_active_inventory': True,
+               'containers': core.container_evidence(spec, status, 'containers'),
+               'init_containers': core.container_evidence(spec, status, 'initContainers')}
+        validators = api.call('get', 'daemonsets', '-n', 'gpu-operator', '-o', 'json')['items']
+        require(core.cuda_completion_proven(pod, row, validators), 'completed CUDA validator is unproven')
+        policy = api.call('get', 'clusterpolicy', 'cluster-policy', '-o', 'json')
+        require(policy['metadata']['uid'] == meta['ownerReferences'][0]['uid'] and
+                not policy['metadata'].get('deletionTimestamp'), 'CUDA ClusterPolicy was replaced or deleted')
+        return {'pod_uid': meta['uid'], 'cluster_policy_uid': policy['metadata']['uid']}
     owners = [o for o in meta.get('ownerReferences', []) if o.get('kind') == 'Job' and
               o.get('controller') is True and isinstance(o.get('uid'), str) and o['uid']]
     require(len(owners) == 1, 'completed Pod lacks one controlling Job UID')
@@ -836,9 +873,6 @@ def completed_job_pod(api, pod):
     job = api.call('get', 'job', owner['name'], '-n', meta['namespace'], '-o', 'json')
     require(job['metadata']['uid'] == owner['uid'] and not job['metadata'].get('deletionTimestamp'),
             'completed Pod Job identity differs')
-    module_spec = importlib.util.spec_from_file_location('maintenance_core_evidence',
-        Path(__file__).resolve().parents[2] / 'scripts/homelab-health.py')
-    core = importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(core)
     evidence = core.job_evidence(job)
     require(evidence['complete'] or evidence['active'] > 0 and not evidence['terminal_failed'],
             'completed Pod Job is neither complete nor active and nonfailed')
@@ -1056,6 +1090,17 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
                     value = infrastructure(api, applications=request['rpc'] == 'applications',
                         intermediate_pikachu=NODE == 'pikachu' and
                         (owner['source'], owner['target']) in ((39, 41), (41, 43)))
+                elif request['rpc'] == 'completed_cuda':
+                    require(args.operation == 'drain' and NODE == 'arcanine', 'unreviewed CUDA drain observer')
+                    ref = request['ref']
+                    require(ref['namespace'] == 'gpu-operator', 'foreign CUDA namespace')
+                    pod = api.call('get', 'pod', ref['name'], '-n', 'gpu-operator', '-o', 'json')
+                    from maintenance_node_drain import hashed
+                    require(pod['metadata']['uid'] == ref['uid'] and hashed(pod['spec']) == ref['spec_sha256'],
+                            'completed CUDA Pod changed before observation')
+                    value = completed_job_pod(api, pod)
+                    require('cluster_policy_uid' in value, 'Job completion cannot authorize a ClusterPolicy Pod')
+                    value['spec_sha256'] = hashed(pod['spec'])
                 elif request['rpc'] == 'drain_controllers':
                     items = api.call('get', 'daemonsets,replicasets,statefulsets,jobs,replicationcontrollers',
                                      '-A', '-o', 'json')['items']
@@ -1107,7 +1152,7 @@ def main():
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
-    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe'), default='totodile')
+    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -1205,13 +1250,17 @@ def main():
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
     if args.operation == 'monitor-backup':
-        require(NODE == 'charmander' and owner is not None, 'exact owned monitor target required')
+        require(NODE in ('charmander', 'arcanine') and owner is not None, 'exact owned monitor target required')
         from maintenance_monitor_recovery import preserve
-        print(encoded(preserve(args, api, controller, owner)));return
+        print(encoded(preserve(args, api, controller, owner, node=NODE)));return
     if NODE == 'charmander' and args.operation in ('source-repositories', 'prepare-source',
                                                   'download-release', 'offline-transaction'):
         from maintenance_monitor_recovery import verify
         verify(args)
+    if NODE == 'arcanine' and args.operation in ('source-repositories', 'prepare-source',
+                                                'download-release', 'offline-transaction'):
+        from maintenance_monitor_recovery import verify
+        verify(args, node=NODE)
     if args.operation in ('security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
         recovery_manifest = recovery(args, 44, capture=False)
     if args.operation == 'security-backup':

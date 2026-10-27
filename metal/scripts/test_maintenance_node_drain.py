@@ -144,6 +144,31 @@ class NodeDrainTests(unittest.TestCase):
         self.pod_api.pods.append(pod)
         self.pod_api.pods[3]['metadata']['namespace'] = 'volsync-system'
 
+    def test_clusterpolicy_pod_requires_fresh_exact_cuda_proof_before_retention(self):
+        pod = copy.deepcopy(self.pod_api.pods[2])
+        pod['metadata'].update(namespace='gpu-operator', name='nvidia-cuda-validator-fixture', uid='cuda-pod')
+        pod['metadata']['ownerReferences'] = [{'apiVersion': 'nvidia.com/v1', 'kind': 'ClusterPolicy',
+            'name': 'cluster-policy', 'uid': 'policy', 'controller': True}]
+        self.pod_api.pods.append(pod)
+        with self.assertRaisesRegex(RuntimeError, 'unreviewed GPU'):
+            self.worker.inventory()
+        proof = {'pod_uid': 'cuda-pod', 'spec_sha256': drain.hashed(pod['spec']), 'cluster_policy_uid': 'policy'}
+        calls = []
+        def observe(ref):
+            calls.append(ref)
+            return dict(proof)
+        self.pod_api.completed_cuda = observe
+        plan = self.worker.inventory()
+        kept = next(ref for ref in plan['pods'] if ref['uid'] == 'cuda-pod')
+        self.assertTrue(kept['keep'])
+        self.assertEqual(calls, [kept])
+        for field in proof:
+            original = proof[field]; proof[field] = 'changed'
+            with self.subTest(field=field), self.assertRaisesRegex(RuntimeError, 'GPU completion identity'):
+                self.worker.inventory()
+            proof[field] = original
+        self.assertFalse(self.pod_api.posts)
+
     def test_osd_eviction_follows_every_other_workload(self):
         self.add_osd_fixture()
         plan = self.worker.inventory()

@@ -501,6 +501,43 @@ def job_evidence(item):
     return result
 
 
+def cuda_completion_proven(item, row, daemonsets):
+    """One exact successful validator shape and its current healthy policy-owned DaemonSet."""
+    spec = item["spec"]
+    metadata = item["metadata"]
+    if (row["namespace"] == "gpu-operator" and row["name"].startswith("nvidia-cuda-validator-") and
+            mapping(metadata.get("labels", {})).get("app") == "nvidia-cuda-validator" and
+            spec.get("serviceAccountName") == "nvidia-operator-validator" and
+            spec.get("restartPolicy") == "OnFailure" and row["node_in_active_inventory"] and
+            not metadata.get("deletionTimestamp") and
+            [c["name"] for c in row["containers"]] == ["nvidia-cuda-validator"] and
+            [c["name"] for c in row["init_containers"]] == ["cuda-validation"] and
+            not row["init_containers"][0]["sidecar_init"] and
+            all(c["state"] == "terminated" and c["exit_code"] == 0
+                for c in row["containers"] + row["init_containers"])):
+        validators = [ds for ds in daemonsets if
+                      ds["metadata"].get("namespace") == "gpu-operator" and
+                      ds["metadata"]["name"] == "nvidia-operator-validator"]
+        owners = metadata.get("ownerReferences", [])
+        if len(validators) == 1 and len(owners) == 1:
+            parent = validators[0]["metadata"]
+            parent_status = mapping(validators[0].get("status", {}))
+            parent_owners = sequence(parent.get("ownerReferences", []))
+            desired = integer(parent_status.get("desiredNumberScheduled"))
+            return (not parent.get("deletionTimestamp") and len(parent_owners) == 1 and
+                all(mapping(o).get("apiVersion") == "nvidia.com/v1" and
+                    o.get("kind") == "ClusterPolicy" and o.get("name") == "cluster-policy"
+                    for o in owners + parent_owners) and
+                isinstance(owners[0].get("uid"), str) and bool(owners[0]["uid"]) and
+                owners[0]["uid"] == parent_owners[0].get("uid") and
+                integer(parent_status.get("observedGeneration", 0)) >= integer(parent.get("generation")) and
+                desired > 0 and all(integer(parent_status.get(field, 0)) == desired for field in
+                    ("currentNumberScheduled", "updatedNumberScheduled", "numberReady", "numberAvailable")) and
+                integer(parent_status.get("numberMisscheduled", 0)) == 0 and
+                integer(parent_status.get("numberUnavailable", 0)) == 0)
+    return False
+
+
 def expected_application_namespace(app, charts):
     if app not in charts:
         return None
@@ -634,37 +671,7 @@ def evaluate(sources, expected_nodes, charts, expected_revision=None):
                         completed_job_pod = eligible and all(c["state"] == "terminated" and c["exit_code"] == 0
                                                             for c in row["containers"])
                         completed_cuda_pod = False
-                        metadata = item["metadata"]
-                        if (row["namespace"] == "gpu-operator" and row["name"].startswith("nvidia-cuda-validator-") and
-                                mapping(metadata.get("labels", {})).get("app") == "nvidia-cuda-validator" and
-                                spec.get("serviceAccountName") == "nvidia-operator-validator" and
-                                spec.get("restartPolicy") == "OnFailure" and row["node_in_active_inventory"] and
-                                not metadata.get("deletionTimestamp") and
-                                [c["name"] for c in row["containers"]] == ["nvidia-cuda-validator"] and
-                                [c["name"] for c in row["init_containers"]] == ["cuda-validation"] and
-                                not row["init_containers"][0]["sidecar_init"] and
-                                all(c["state"] == "terminated" and c["exit_code"] == 0
-                                    for c in row["containers"] + row["init_containers"])):
-                            validators = [ds for ds in parsed.get("daemonsets", []) if
-                                          ds["metadata"].get("namespace") == "gpu-operator" and
-                                          ds["metadata"]["name"] == "nvidia-operator-validator"]
-                            owners = metadata.get("ownerReferences", [])
-                            if len(validators) == 1 and len(owners) == 1:
-                                parent = validators[0]["metadata"]
-                                parent_status = mapping(validators[0].get("status", {}))
-                                parent_owners = sequence(parent.get("ownerReferences", []))
-                                desired = integer(parent_status.get("desiredNumberScheduled"))
-                                completed_cuda_pod = (not parent.get("deletionTimestamp") and len(parent_owners) == 1 and
-                                    all(mapping(o).get("apiVersion") == "nvidia.com/v1" and
-                                        o.get("kind") == "ClusterPolicy" and o.get("name") == "cluster-policy"
-                                        for o in owners + parent_owners) and
-                                    isinstance(owners[0].get("uid"), str) and bool(owners[0]["uid"]) and
-                                    owners[0]["uid"] == parent_owners[0].get("uid") and
-                                    integer(parent_status.get("observedGeneration", 0)) >= integer(parent.get("generation")) and
-                                    desired > 0 and all(integer(parent_status.get(field, 0)) == desired for field in
-                                        ("currentNumberScheduled", "updatedNumberScheduled", "numberReady", "numberAvailable")) and
-                                    integer(parent_status.get("numberMisscheduled", 0)) == 0 and
-                                    integer(parent_status.get("numberUnavailable", 0)) == 0)
+                        completed_cuda_pod = cuda_completion_proven(item, row, parsed.get("daemonsets", []))
                         if not completed_job_pod and not completed_cuda_pod:
                             finding(key, row, "pod_completion_not_proven")
                     else:
