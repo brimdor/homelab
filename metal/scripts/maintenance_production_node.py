@@ -55,6 +55,8 @@ def select_node(node):
                     'root_uuid': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8'}
         BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/cyndaquil-fedora' +
                    str(release) + '-config-20261027-a' for release in (39, 41, 43, 44)}
+        # Preserve the failed role-mismatch capture; never overwrite its nonempty partial.
+        BACKUPS[39] = '/var/lib/homelab-recovery/maintenance-103/cyndaquil-fedora39-config-20261027-b'
         return
     if node == 'charmander':
         NODE, ADDRESS, UID, MAC = ('charmander', '10.0.20.11',
@@ -165,14 +167,20 @@ else:
  assert not any(':2379'in line or ':2380'in line for line in listeners.splitlines())
 command=['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-system',
  '--exclude=var/lib/rancher/k3s/agent/containerd','--exclude=var/lib/rancher/k3s/agent/images',
- '-C','/','-cf','-','etc','boot','boot/efi','usr/local/bin/k3s','var/lib/rancher/k3s/agent','var/lib/rancher/k3s/server']
+ '-C','/','-cf','-','etc','boot','boot/efi','usr/local/bin/k3s','var/lib/rancher/k3s/agent']
+server=pathlib.Path('/var/lib/rancher/k3s/server')
+assert not server.is_symlink()
+if server.exists():
+ assert server.is_dir()
+ command.append('var/lib/rancher/k3s/server')
+else:assert not %r,'control-plane recovery requires its server directory'
 if %r:
  command.insert(1,'--exclude=var/lib/rancher/k3s/server/db')
  command.append('var/lib/homelab-recovery/maintenance-103')
 if %r:
  command.append('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02')
 sys.exit(subprocess.run(command).returncode)
-""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE == 'cyndaquil')
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE == 'cyndaquil')
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
