@@ -25,6 +25,46 @@ def profile_for(node):
     require(node in PROFILES, 'unreviewed OSD host profile')
     return PROFILES[node]
 
+
+def wait_for_protection(api, node, owner, ref):
+    """After one committed eviction, await Rook's own flag; never set it ourselves."""
+    profile = profile_for(node)
+    require(owner.get('node') == node and owner.get('node_uid') == profile['node_uid'] and
+            ref.get('namespace') == 'rook-ceph' and ref.get('keep') is False and
+            ref.get('uid') and ref['controller']['kind'] == 'ReplicaSet' and
+            re.fullmatch('rook-ceph-osd-' + str(profile['osd']) + '-[a-z0-9]+',
+                         ref['controller']['name']), 'unreviewed queued OSD eviction')
+    ds = api.call('get', 'daemonset', 'kured', '-n', 'kured', '-o', 'json')
+    require(ds['metadata']['uid'] == '4abc4fee-c3be-440e-8945-34bb3fb15ce1' and
+            json.loads(ds['metadata']['annotations'][JOURNAL]) == owner,
+            'OSD protection wait owner changed')
+    target = api.call('get', 'node', node, '-o', 'json')
+    require(target['metadata']['uid'] == profile['node_uid'] and
+            target['spec'].get('unschedulable') is True, 'OSD protection wait lost cordon')
+    replica = api.call('get', 'replicaset', ref['controller']['name'], '-n', 'rook-ceph', '-o', 'json')
+    parents = replica['metadata'].get('ownerReferences', [])
+    require(replica['metadata']['uid'] == ref['controller']['uid'] and
+            not replica['metadata'].get('deletionTimestamp') and len(parents) == 1 and
+            parents[0].get('kind') == 'Deployment' and parents[0].get('controller') is True and
+            parents[0].get('uid') == profile['deployment_uid'], 'queued OSD controller changed')
+    state = api.call('get', 'configmap', 'rook-ceph-pdbstatemap', '-n', 'rook-ceph', '-o', 'json')
+    require(state['metadata']['uid'] == STATE_UID and
+            state['data'].get('draining-failure-domain', '') in ('', node),
+            'foreign Rook protection owner')
+    # Eviction acceptance precedes Rook's asynchronous noout/ConfigMap update.
+    state = api.call('wait', 'configmap/rook-ceph-pdbstatemap', '-n', 'rook-ceph',
+                     '--for=jsonpath={.data.set-no-out}=true', '--timeout=60s', '-o', 'json')
+    require(state['metadata']['uid'] == STATE_UID and
+            state['data'].get('draining-failure-domain') == node and
+            state['data'].get('set-no-out') == 'true', 'Rook protection wait did not match this host')
+    accepted = observe(api, node=node)
+    current = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
+                       'ceph', 'osd', 'dump', '--format', 'json')
+    require(accepted['owner'] == owner['owner'] and current['fsid'] == FSID and
+            current['crush_node_flags'] == {node: ['noout']}, 'actual owned noout protection is absent')
+    return {'owner': owner['owner'], 'osd': profile['osd'], 'evicted_pod_uid': ref['uid'],
+            'rook_state_uid': STATE_UID, 'actual_noout_verified': True, 'mutation_performed': False}
+
 OSDS = {1: '1c69c51e-b0da-42ee-bd34-581361740a02',
         2: 'a527115d-9f22-48cc-a718-4f30bdb64399',
         6: 'e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85',

@@ -480,6 +480,10 @@ else:
   if expected_node=='growlithe'and owner['owner']=='homelab-maintenance-103-44e0fa41-4b7e-4ba2-bb2e-370e59f61876':
    removed=lambda ref:rpc('removed_versa_canary',ref=ref)
   result=worker.advance(digest,verify,removed)
+  if result.get('queued')and expected_node in('cyndaquil','growlithe'):
+   ref=result['queued'];osd=str(1 if expected_node=='cyndaquil'else 6)
+   if ref['namespace']=='rook-ceph'and ref['controller']['kind']=='ReplicaSet'and ref['controller']['name'].startswith('rook-ceph-osd-'+osd+'-'):
+    result['owned_osd_protection']=rpc('await_osd_protection',ref=ref)
   if result.get('complete'):
    accepted=dict(result)
    def verify_drain(step,digest):
@@ -888,6 +892,11 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
             try:
                 if request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
+                elif request['rpc'] == 'await_osd_protection':
+                    require(args.operation == 'drain' and NODE in OSD_RECOVERY,
+                            'unreviewed OSD protection wait caller')
+                    from maintenance_osd_host import wait_for_protection
+                    value = wait_for_protection(api, NODE, owner, request['ref'])
                 elif request['rpc'] == 'removed_completed_job':
                     require(args.operation == 'drain' and NODE == 'charmander' and
                             owner['owner'] == 'homelab-maintenance-103-8dba9073-c2fc-4941-a6d2-1228086bd554' and
