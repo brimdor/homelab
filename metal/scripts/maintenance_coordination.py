@@ -32,6 +32,12 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+def reviewed_hop(node, source, target):
+    return (type(source) is int and type(target) is int and
+            ((source, target) in ((39, 41), (41, 43), (43, 44)) or
+             node == 'totodile' and source == target == 44))
+
+
 def rollout_ready(meta, status, expected):
     return (status.get('observedGeneration') == meta['generation'] and
             all(status.get(k) == expected for k in (
@@ -159,7 +165,7 @@ class Ownership:
         self.api.patch(operations)
 
     def acquire(self, node, source, target, revision):
-        require(node in self.nodes and (source, target) in ((39, 41), (41, 43), (43, 44)),
+        require(node in self.nodes and reviewed_hop(node, source, target),
                 'unreviewed node or Fedora hop')
         require(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision),
                 'missing exact published repository revision')
@@ -205,7 +211,7 @@ class Ownership:
                 journal.get('version') == 1 and journal.get('phase') == 'OWNED_KURED_ONLY' and
                 journal.get('node') in self.nodes and
                 journal.get('node_uid') == self.nodes[journal['node']] and
-                (journal.get('source'), journal.get('target')) in ((39, 41), (41, 43), (43, 44)) and
+                reviewed_hop(journal.get('node'), journal.get('source'), journal.get('target')) and
                 isinstance(journal.get('revision'), str) and
                 re.fullmatch('[0-9a-f]{40}', journal['revision']) and
                 lock.get('created') == journal.get('created') and

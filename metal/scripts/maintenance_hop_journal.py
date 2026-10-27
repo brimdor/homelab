@@ -13,6 +13,15 @@ import maintenance_coordination as global_owner
 
 STEPS = ('cordon', 'drain', 'prepare_source', 'download_release', 'offline_transaction',
          'trusted_reconnect', 'verify_infrastructure', 'restore_scheduling', 'accept_applications')
+SECURITY_STEPS = ('cordon', 'drain', 'security_default', 'trusted_reconnect',
+                  'verify_infrastructure', 'restore_scheduling', 'accept_applications')
+
+
+def steps(owner):
+    if owner['source'] == owner['target'] == 44:
+        actor.require(owner['node'] == 'totodile', 'unreviewed security follow-up node')
+        return SECURITY_STEPS
+    return STEPS
 
 
 def digest(data):
@@ -74,10 +83,11 @@ class Journal:
 
     def read(self):
         owners = self.owners()
+        sequence = steps(owners['global'])
         private_directory(self.parent)
         private_directory(self.path)
         names = sorted(p.name for p in self.path.iterdir())
-        actor.require(names and len(names) <= 1 + len(STEPS) * 2 and names == [
+        actor.require(names and len(names) <= 1 + len(sequence) * 2 and names == [
             str(i).zfill(8) + '.json' for i in range(len(names))], 'incomplete or foreign hop records')
         previous, pending, completed = None, None, []
         for index, name in enumerate(names):
@@ -104,8 +114,8 @@ class Journal:
                               record['owners'] == owners, 'hop owner or header differs')
             elif record.get('kind') == 'intent':
                 actor.require(set(record) == base | {'step', 'inputs_sha256', 'prerequisites_sha256'} and
-                              pending is None and len(completed) < len(STEPS) and
-                              record['step'] == STEPS[len(completed)] and
+                              pending is None and len(completed) < len(sequence) and
+                              record['step'] == sequence[len(completed)] and
                               checksum(record['inputs_sha256']) and checksum(record['prerequisites_sha256']),
                               'invalid or overlapping hop intent')
                 pending = {'step': record['step'], 'sha256': digest(raw), 'sequence': index}
@@ -128,12 +138,13 @@ class Journal:
             return self.read()
 
     def begin(self, step, inputs_sha256, prerequisites_sha256, verify_prerequisites):
-        actor.require(step in STEPS and checksum(inputs_sha256) and checksum(prerequisites_sha256),
+        sequence = steps(self.owners()['global'])
+        actor.require(step in sequence and checksum(inputs_sha256) and checksum(prerequisites_sha256),
                       'unreviewed hop step or evidence digest')
         with self.hold.serialized():
             state = self.read()
-            actor.require(state['pending'] is None and len(state['completed']) < len(STEPS) and
-                          step == STEPS[len(state['completed'])], 'pending or out-of-order hop; observe, never replay')
+            actor.require(state['pending'] is None and len(state['completed']) < len(sequence) and
+                          step == sequence[len(state['completed'])], 'pending or out-of-order hop; observe, never replay')
             self.owners(idle=True)
             actor.require(verify_prerequisites(step, prerequisites_sha256) is True,
                           'hop prerequisite evidence refused')

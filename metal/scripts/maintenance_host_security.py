@@ -543,9 +543,99 @@ def seccomp_default(native, pod_uid):
     return dict(result, pod_uid=pod_uid, container_id=container['id'], pid=pid)
 
 
+DEFAULT_PRIOR_OWNER = 'homelab-maintenance-103-65a44a0d-b0a2-48f2-af67-2ba0218af10c'
+DEFAULT_CONFIG_SHA256 = '5b02189973fe385cf61fd5d82559c99392e16c3c1fcb67167a3f1f261cb6a623'
+DEFAULT_PRIOR_PROOFS = {
+    'host-enforce-': '8c2046054f755844a97d401c83ac9189d055817c882f7a9a7be5a9103f4a7c92',
+    'host-firmware-reboot-': 'cba1a29173a3c07a983e7160a3dbf4e054af414f56cdaa8f66d7656beab4017e',
+}
+
+
+def default_config(before):
+    assert hashlib.sha256(before.encode()).hexdigest() == DEFAULT_CONFIG_SHA256, 'review changed native K3s configuration'
+    assert before.splitlines().count('selinux: true') == 1
+    assert not any(line.lstrip().startswith('kubelet-arg:') for line in before.splitlines())
+    return before.rstrip() + '\nkubelet-arg:\n  - seccomp-default=true\n'
+
+
+def default_plan(journal, native, identity, recovery):
+    """Bind the completed original security work; do not invent another OS upgrade."""
+    from maintenance_node_drain import private_json
+    owner = journal.owners(idle=True)['global']
+    assert owner['node'] == 'totodile' and owner['source'] == owner['target'] == 44
+    assert native('rpm', '-E', '%fedora') == '44' and firmware_kernel(native) == '7.2.11-200.fc44.x86_64'
+    assert recovery['source_release'] == 44 and recovery['identity'] == identity()
+    assert not list(Path('/etc/rancher/k3s/config.yaml.d').glob('*'))
+    before = Path('/etc/rancher/k3s/config.yaml').read_text()
+    after = default_config(before)
+    root = journal.hold.state
+    for prefix, digest in DEFAULT_PRIOR_PROOFS.items():
+        path = root / (prefix + DEFAULT_PRIOR_OWNER + '.json')
+        record = private_json(path)
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+        assert record['owner'] == DEFAULT_PRIOR_OWNER and record['identity'] == identity()
+    release = root / 'releases' / DEFAULT_PRIOR_OWNER / '00000004.json'
+    assert hashlib.sha256(release.read_bytes()).hexdigest() == '23d81eb796d1b36f8532e46c4a31e0968db6060eded8ac88f367d6205fc26255'
+    assert private_json(release)['kind'] == 'global-accepted'
+    observed = facts(native)
+    assert observed['mode'] == 'Enforcing' and not observed['failed_units'] and not observed['kernel_overrides']
+    assert not observed['autorelabel'] and observed['containerd_selinux'] is True
+    assert all(r.get('tclass') == 'anon_inode' and r.get('denied') == ['create'] and
+               r.get('tcontext', '').split(':')[2] == 'io_uring_t' for r in observed['audit_records']), 'another host security fault requires its own fix'
+    return {'owner': owner['owner'], 'identity': identity(), 'boot': observed['boot'],
+            'previous_owner': DEFAULT_PRIOR_OWNER, 'recovery_sha256': recovery['sha256'],
+            'before_configuration': before, 'after_config_sha256': hashlib.sha256(after.encode()).hexdigest()}
+
+
+def default_dispatch(journal, native, identity, recovery, proof):
+    """One config replacement and reboot; existing intent always requires observation."""
+    import maintenance_actor_hold as hold
+    from maintenance_node_drain import private_json, hashed
+    root = journal.hold.state
+    intent = root / ('host-seccomp-' + journal.token + '.json')
+    reboot = root / ('host-seccomp-reboot-' + journal.token + '.json')
+    before = root / ('before-offline-' + journal.token + '.json')
+    with journal.hold.serialized():
+        state = journal.read()
+        assert state['completed'] == ['cordon', 'drain'] and state['pending']['step'] == 'security_default'
+        pending = private_json(journal.path / (str(state['pending']['sequence']).zfill(8) + '.json'))
+        assert pending['inputs_sha256'] == hashed(proof) and default_plan(journal, native, identity, recovery) == proof
+        for path in (intent, reboot, before):
+            hold.safe(path)
+            assert not path.exists(), 'seccomp intent exists; observe, never replay'
+        hold.exclusive_file(intent, json.dumps(proof, sort_keys=True).encode(), 0o600)
+        hold.exclusive_file(before, json.dumps({'identity': identity(), 'boot': proof['boot'],
+            'source': 44, 'target': 44}, sort_keys=True).encode(), 0o600)
+        config = Path('/etc/rancher/k3s/config.yaml')
+        replace(config, default_config(proof['before_configuration']))
+        native('restorecon', str(config))
+        assert hashlib.sha256(config.read_bytes()).hexdigest() == proof['after_config_sha256']
+        journal.owners(idle=True)
+        hold.exclusive_file(reboot, json.dumps({'intent_sha256': hashlib.sha256(intent.read_bytes()).hexdigest(),
+            'boot': proof['boot']}, sort_keys=True).encode(), 0o600)
+        native('systemd-run', '--unit=' + journal.token + '-seccomp-default', '--on-active=5s',
+               '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
+    return {'security_default_reboot_dispatched': True, 'owner_retained': True, 'node_stays_cordoned': True}
+
+
 def acceptance(journal, native, identity):
+    from maintenance_node_drain import private_json
     root = journal.hold.state
     token = journal.token
+    followup = None
+    original_owner = private_json(journal.path / '00000000.json')['owners']['global']
+    if original_owner['source'] == original_owner['target'] == 44:
+        assert original_owner['node'] == 'totodile'
+        intent = root / ('host-seccomp-' + token + '.json')
+        followup = private_json(intent)
+        reboot = private_json(root / ('host-seccomp-reboot-' + token + '.json'))
+        assert followup['owner'] == token and followup['identity'] == identity()
+        assert reboot['intent_sha256'] == hashlib.sha256(intent.read_bytes()).hexdigest()
+        assert Path('/proc/sys/kernel/random/boot_id').read_text().strip() != reboot['boot'] == followup['boot']
+        assert followup['previous_owner'] == DEFAULT_PRIOR_OWNER
+        token = DEFAULT_PRIOR_OWNER
+        for prefix, digest in DEFAULT_PRIOR_PROOFS.items():
+            assert hashlib.sha256((root / (prefix + token + '.json')).read_bytes()).hexdigest() == digest
     record = json.loads((root / ('host-enforce-' + token + '.json')).read_bytes())
     assert record['owner'] == token and record['identity'] == identity()
     reboot = json.loads((root / ('host-enforce-reboot-' + token + '.json')).read_bytes())
@@ -556,7 +646,8 @@ def acceptance(journal, native, identity):
     assert not observed['failed_units'] and observed['audit_record_count'] == 0, 'host security findings remain'
     assert observed['containerd_selinux'] is True and observed['k3s_context'].split(':')[2] == 'container_runtime_t'
     assert observed['k3s_binary_context'].split(':')[2] == 'container_runtime_exec_t'
-    assert hashlib.sha256(Path('/etc/rancher/k3s/config.yaml').read_bytes()).hexdigest() == record['k3s_configuration_sha256']
+    expected_configuration = followup['after_config_sha256'] if followup else record['k3s_configuration_sha256']
+    assert hashlib.sha256(Path('/etc/rancher/k3s/config.yaml').read_bytes()).hexdigest() == expected_configuration
     native('rpm', '-V', '--noghost', 'k3s-selinux', 'container-selinux')
     native('rpm', '-q', 'microcode_ctl')
     observed['host_observers'] = observers()

@@ -21,7 +21,7 @@ class Release:
         actors.require(hops.checksum(evidence_sha256), 'invalid release evidence digest')
         with self.hold.serialized():
             state = self.journal.read()
-            actors.require(state['pending'] is None and state['completed'] == list(hops.STEPS),
+            actors.require(state['pending'] is None and state['completed'] == list(hops.steps(state['owners']['global'])),
                            'release requires every accepted hop step')
             self.journal.owners(idle=True)
             files = {p.name: hashed(private_json(p)) for p in sorted(self.journal.path.iterdir())}
@@ -63,7 +63,7 @@ class Release:
                        'release original owner or host identity differs')
         hops.private_directory(self.journal.parent);hops.private_directory(self.journal.path)
         files = header['hop_records']
-        expected = [str(i).zfill(8) + '.json' for i in range(1 + 2 * len(hops.STEPS))]
+        expected = [str(i).zfill(8) + '.json' for i in range(1 + 2 * len(hops.steps(header['owners']['global'])))]
         actors.require(isinstance(files, dict) and sorted(files) == expected and
                        sorted(p.name for p in self.journal.path.iterdir()) == expected,
                        'original complete hop files differ')

@@ -1,0 +1,104 @@
+"""Real immutable journal files; synthetic ownership, scheduling and native APIs."""
+
+import copy
+import hashlib
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import maintenance_actor_hold as actors
+import maintenance_coordination as coordination
+import maintenance_hop_journal as hops
+import maintenance_host_security as security
+import maintenance_production_node as production
+import maintenance_safe_release as release
+from test_maintenance_actor_hold import IDENTITY, Systemd as ActorSystemd
+from test_maintenance_coordination import API
+from test_maintenance_safe_release import Systemd
+
+
+class SecurityFollowupTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.api = API()
+        self.api.nodes[0]['metadata']['name'] = 'totodile'
+        self.api.pods[0]['spec']['nodeName'] = 'totodile'
+        self.owner = self.api.controller().acquire('totodile', 44, 44, 'a' * 40)
+        self.units = self.root / 'units'
+        self.units.mkdir()
+        self.hold = actors.Hold(ActorSystemd(), lambda: dict(IDENTITY),
+            lambda token: self.api.controller().resume(token) == self.owner,
+            self.root / 'state', self.units)
+        self.hold.acquire(self.owner['owner'], IDENTITY, 'a' * 40)
+        self.hold.systemd = Systemd()
+        self.journal = hops.Journal(self.api.controller(), self.hold, self.owner['owner'])
+        self.journal.initialize()
+
+    def test_distinct_security_sequence_never_accepts_fake_upgrade_or_early_release(self):
+        worker = release.Release(self.journal)
+        with self.assertRaises(RuntimeError):
+            self.journal.begin('prepare_source', 'b' * 64, 'c' * 64, lambda *_: True)
+        with self.assertRaises(RuntimeError):
+            worker.prepare('b' * 64, lambda *_: True)
+        for step in hops.SECURITY_STEPS:
+            pending = self.journal.begin(step, 'b' * 64, 'c' * 64, lambda *_: True)
+            self.journal.accept(pending['pending']['sha256'], 'd' * 64, lambda *_: True)
+        self.assertEqual(self.journal.inspect()['completed'], list(hops.SECURITY_STEPS))
+        worker.prepare('e' * 64, lambda *_: True)
+        worker.release_host('f' * 64, lambda *_: True)
+        result = worker.release_global('a' * 64, lambda *_: True)
+        self.assertTrue(result['complete'])
+        self.assertFalse(result['mutation_replayed'])
+        self.assertEqual(self.api.ds['metadata']['annotations'], {'unrelated': 'preserve'})
+        self.assertEqual(len(result['state']['header']['hop_records']), 15)
+
+    def test_only_reviewed_node_and_exact_integer_hops(self):
+        for node, source, target in [('pikachu', 44, 44), ('squirtle', 44, 44),
+                                     ('totodile', 44, 45), ('totodile', True, 44)]:
+            self.assertFalse(coordination.reviewed_hop(node, source, target))
+        self.assertTrue(coordination.reviewed_hop('totodile', 44, 44))
+        self.assertEqual(hops.steps({'node': 'fixture-a', 'source': 43, 'target': 44}), hops.STEPS)
+
+    def test_configuration_preserves_original_and_refuses_existing_arguments(self):
+        before = 'selinux: true\nsnapshotter: stargz\n'
+        with patch.object(security, 'DEFAULT_CONFIG_SHA256', hashlib.sha256(before.encode()).hexdigest()):
+            self.assertEqual(security.default_config(before), before + 'kubelet-arg:\n  - seccomp-default=true\n')
+            with self.assertRaises(AssertionError):
+                security.default_config(before + 'debug: true\n')
+        before += 'kubelet-arg:\n  - existing=true\n'
+        with patch.object(security, 'DEFAULT_CONFIG_SHA256', hashlib.sha256(before.encode()).hexdigest()):
+            with self.assertRaises(AssertionError):
+                security.default_config(before)
+
+    def test_pending_allowance_requires_exact_owner_unscheduled_and_never_a_failed_runtime(self):
+        item = {'kind': 'Deployment', 'metadata': {'namespace': 'test', 'name': 'main', 'uid': 'deployment'},
+                'spec': {'selector': {'matchLabels': {'app': 'main'}},
+                         'template': {'spec': {'nodeSelector': {'kubernetes.io/hostname': 'totodile'}}}}}
+        pod = {'metadata': {'labels': {'app': 'main'}, 'ownerReferences': [
+            {'controller': True, 'kind': 'ReplicaSet', 'name': 'main-rs', 'uid': 'replica'}]},
+            'spec': copy.deepcopy(item['spec']['template']['spec']), 'status': {'phase': 'Pending'}}
+        replica = {'metadata': {'uid': 'replica', 'ownerReferences': [
+            {'controller': True, 'kind': 'Deployment', 'name': 'main', 'uid': 'deployment'}]}}
+        class PendingAPI:
+            def call(self, *argv):
+                return {'items': [pod]} if argv[1] == 'pods' else replica
+        api = PendingAPI()
+        self.assertTrue(production.pending_on_maintained_node(api, item, 'totodile'))
+        for mutation in (
+            lambda: pod['spec'].update(nodeName='totodile'),
+            lambda: pod['status'].update(phase='Failed'),
+            lambda: pod['status'].update(containerStatuses=[{'ready': False}]),
+            lambda: pod['metadata'].update(deletionTimestamp='now'),
+            lambda: replica['metadata']['ownerReferences'][0].update(uid='foreign'),
+        ):
+            original = copy.deepcopy((pod, replica))
+            mutation()
+            self.assertFalse(production.pending_on_maintained_node(api, item, 'totodile'))
+            pod.clear(); pod.update(original[0]); replica.clear(); replica.update(original[1])
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -304,7 +304,7 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
- if expected_node in('charmander','cyndaquil','growlithe'):
+ if expected_node in('charmander','cyndaquil','growlithe')or owner['source']==owner['target']==44:
   pods=api.call('get','pods','-n','loki','--field-selector','spec.nodeName='+expected_node,'-o','json')['items']
   agents=[p for p in pods if any(c['name']=='alloy'for c in p['spec']['containers'])]
   assert len(agents)==1,'existing Alloy acceptance process absent or ambiguous'
@@ -443,12 +443,26 @@ else:
   plan=json.loads(path.read_bytes())
   dispatched=False
   if not state['pending']:
-   assert step==hops.STEPS[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
+   assert step==hops.steps(owner)[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
    dispatched=True
   # This OSD can return only after uncordon; accept its intent on a later healthy observation.
   if dispatched and expected_node in('cyndaquil','growlithe') and step=='restore_scheduling':
    result={'accepted':False,'pending':journal.inspect()['pending'],'scheduling_patch_dispatched':True}
   else:result=worker.observe(plan,digest,verify)
+ elif operation in('security-default','observe-security-default'):
+  assert owner['node']=='totodile'and owner['source']==owner['target']==44
+  assert api.call('get','node',expected_node,'-o','json')['spec'].get('unschedulable')is True
+  value=evidence();digest=drain.hashed(value);verify=prerequisites(value)
+  security=sys.modules['maintenance_host_security']
+  if operation=='security-default':
+   assert state['pending']is None and state['completed']==['cordon','drain']
+   proof=security.default_plan(journal,native,identity,recovery_manifest)
+   state=journal.begin('security_default',drain.hashed(proof),digest,verify)
+   result=security.default_dispatch(journal,native,identity,recovery_manifest,proof)
+  else:
+   assert state['pending']and state['pending']['step']=='security_default'
+   result=final_security()
+   journal.accept(state['pending']['sha256'],drain.hashed(result),lambda step,h:step=='security_default'and h==drain.hashed(result)and evidence()==value)
  elif operation in('trusted-reconnect','verify-infrastructure','accept-applications'):
   step=operation.replace('-','_')
   before=json.loads((root/('before-offline-'+owner['owner']+'.json')).read_bytes())
@@ -632,6 +646,35 @@ else:
 '''
 
 
+def pending_on_maintained_node(api, item, node):
+    """Only an unscheduled replacement of this exact target-pinned controller."""
+    meta, template = item['metadata'], item['spec']['template']['spec']
+    pods = api.call('get', 'pods', '-n', meta['namespace'], '-o', 'json')['items']
+    selector = item['spec']['selector'].get('matchLabels', {})
+    pods = [p for p in pods if selector and all(p['metadata'].get('labels', {}).get(k) == v for k, v in selector.items())]
+    if len(pods) != 1:
+        return False
+    pod = pods[0]
+    if (pod['status']['phase'] != 'Pending' or pod['metadata'].get('deletionTimestamp') or
+            pod['status'].get('containerStatuses') or pod['status'].get('initContainerStatuses') or
+            pod['spec'].get('nodeName') or pod['spec'].get('nodeSelector') != template.get('nodeSelector') or
+            template.get('nodeSelector', {}).get('kubernetes.io/hostname') != node):
+        return False
+    owners = [o for o in pod['metadata'].get('ownerReferences', []) if o.get('controller') is True]
+    if len(owners) != 1 or not owners[0].get('uid'):
+        return False
+    owner = owners[0]
+    if item['kind'] == 'StatefulSet':
+        return owner['kind'] == 'StatefulSet' and owner['uid'] == meta['uid'] and owner['name'] == meta['name']
+    if item['kind'] != 'Deployment' or owner['kind'] != 'ReplicaSet':
+        return False
+    replica = api.call('get', 'replicaset', owner['name'], '-n', meta['namespace'], '-o', 'json')
+    parents = [o for o in replica['metadata'].get('ownerReferences', []) if o.get('controller') is True]
+    return (replica['metadata']['uid'] == owner['uid'] and not replica['metadata'].get('deletionTimestamp') and
+            len(parents) == 1 and parents[0]['kind'] == 'Deployment' and
+            parents[0]['uid'] == meta['uid'] and parents[0]['name'] == meta['name'])
+
+
 def prerequisites(api):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     require(len(nodes) == 9 and any(n['metadata']['uid'] == UID and n['metadata']['name'] == NODE for n in nodes),
@@ -650,6 +693,15 @@ def prerequisites(api):
                           'ceph', 'health', '-f', 'json')
         require(health['status'] == 'HEALTH_OK', 'Ceph is not HEALTH_OK')
     exceptions = []
+    ds = api.call('get', 'daemonset', 'kured', '-n', 'kured', '-o', 'json')
+    raw_owner = ds['metadata'].get('annotations', {}).get(JOURNAL)
+    security_followup = False
+    if raw_owner is not None:
+        candidate = json.loads(raw_owner)
+        if candidate.get('source') == candidate.get('target') == 44:
+            verified_owner = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes}).resume(candidate['owner'])
+            security_followup = (NODE == 'totodile' and verified_owner['node'] == NODE and
+                                 next(n for n in nodes if n['metadata']['name'] == NODE)['spec'].get('unschedulable') is True)
     for kind in ('deployments', 'statefulsets'):
         for item in api.call('get', kind, '-A', '-o', 'json')['items']:
             desired = item['spec'].get('replicas', 1)
@@ -670,6 +722,11 @@ def prerequisites(api):
                      meta['name'].startswith('rook-ceph-exporter-'))):
                 exceptions.append(meta['uid'])
                 continue
+            if security_followup and pinned.get('kubernetes.io/hostname') == NODE and desired == 1:
+                # Authorized node downtime ends on uncordon; never excuse a failing runtime.
+                if pending_on_maintained_node(api, item, NODE):
+                    exceptions.append(meta['uid'])
+                    continue
             raise RuntimeError('controller unready: ' + meta['namespace'] + '/' + meta['name'])
     result = {'node_uids': {n['metadata']['name']: n['metadata']['uid'] for n in nodes},
               'ceph': health['status'], 'controllers_ready_except_target_observers': True}
@@ -966,7 +1023,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
-                                             'repair-offline-repositories', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
+                                             'repair-offline-repositories', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
@@ -1053,8 +1110,11 @@ def main():
         require(args.operation in ('backup', 'initialize'), 'initialize production ownership first')
         prerequisites(api)
         source = remote(args, "import json,subprocess;print(json.dumps(int(subprocess.check_output(['rpm','-E','%fedora']))))")
-        require(source in (39, 41, 43), 'unreviewed production source release')
+        require(source in (39, 41, 43) or NODE == 'totodile' and source == 44,
+                'unreviewed production source release')
         owner = None
+    if NODE == 'totodile' and (owner['source'] if owner else source) == 44:
+        BACKUPS[44] = '/var/lib/homelab-recovery/maintenance-103/totodile-fedora44-seccomp-config-20261027-a'
     if NODE == 'growlithe' and owner is None:
         from maintenance_receiver_protection import verify
         verify(args, node=NODE)
@@ -1084,7 +1144,7 @@ def main():
         from maintenance_receiver_protection import verify
         verify(args)
     if owner is None:
-        owner = controller.acquire(NODE, source, {39: 41, 41: 43, 43: 44}[source], revision)
+        owner = controller.acquire(NODE, source, {39: 41, 41: 43, 43: 44, 44: 44}[source], revision)
     public_keys = {}
     if args.operation in ('source-repositories', 'target-repositories'):
         records = json.loads(Path('metal/maintenance/fedora-upgrade-inputs.json').read_text())['keys']
