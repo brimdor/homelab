@@ -2,6 +2,7 @@
 
 import copy
 import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ import maintenance_actor_hold as actors
 import maintenance_coordination as coordination
 import maintenance_hop_journal as hops
 import maintenance_host_security as security
+import maintenance_node_drain as drain
 import maintenance_production_node as production
 import maintenance_safe_release as release
 from test_maintenance_actor_hold import IDENTITY, Systemd as ActorSystemd
@@ -36,6 +38,26 @@ class SecurityFollowupTests(unittest.TestCase):
         self.hold.systemd = Systemd()
         self.journal = hops.Journal(self.api.controller(), self.hold, self.owner['owner'])
         self.journal.initialize()
+
+    def test_security_receipt_spacing_never_weakens_drain_record_format(self):
+        path = self.root / 'security.json'
+        value = {'owner': self.owner['owner'], 'identity': IDENTITY}
+        raw = json.dumps(value, sort_keys=True).encode()
+        path.write_bytes(raw)
+        path.chmod(0o600)
+        checksum = hashlib.sha256(raw).hexdigest()
+        with self.assertRaisesRegex(RuntimeError, 'noncanonical drain record'):
+            drain.private_json(path)
+        self.assertEqual(drain.private_json(path, security_receipt=True), value)
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), checksum)
+        for damaged in (raw + b'\n', json.dumps(value, indent=2).encode(), hops.canonical(value)):
+            path.write_bytes(damaged)
+            with self.assertRaisesRegex(RuntimeError, 'noncanonical drain record'):
+                drain.private_json(path, security_receipt=True)
+        path.write_bytes(raw)
+        path.chmod(0o644)
+        with self.assertRaisesRegex(RuntimeError, 'unsafe drain record'):
+            drain.private_json(path, security_receipt=True)
 
     def test_distinct_security_sequence_never_accepts_fake_upgrade_or_early_release(self):
         worker = release.Release(self.journal)

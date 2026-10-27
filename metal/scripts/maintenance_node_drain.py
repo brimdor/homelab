@@ -24,7 +24,7 @@ def name(value):
     return value
 
 
-def private_json(path):
+def private_json(path, *, security_receipt=False):
     actor.safe(path)
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(descriptor, 'rb') as source:
@@ -38,7 +38,9 @@ def private_json(path):
                   (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns),
                   'drain record changed during read')
     value = json.loads(raw)
-    actor.require(isinstance(value, dict) and raw == hops.canonical(value), 'noncanonical drain record')
+    # Host-security receipts predate drain journals and use sorted JSON with spaces.
+    serialized = (json.dumps(value, sort_keys=True).encode() if security_receipt else hops.canonical(value))
+    actor.require(isinstance(value, dict) and raw == serialized, 'noncanonical drain record')
     return value
 
 

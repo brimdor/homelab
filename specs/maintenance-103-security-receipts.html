@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Original security receipt format</title>
+<style>body{background:#111827;color:#e5e7eb;font:16px/1.6 system-ui;max-width:900px;margin:3rem auto;padding:0 1rem}code{color:#93c5fd}h1,h2{color:#fff}</style>
+<h1>Original security receipt format</h1>
+<p>2026-10-27. Totodile's 24-target drain completed in private TESTING run <code>4he_r_51</code>.
+The next step stopped before creating a security-default intent or changing configuration: the strict
+drain parser rejected an original host-security receipt.</p>
+<h2>Cause and correction</h2>
+<p>Host-security receipts were deliberately written with sorted JSON and default spaces; immutable
+drain journals use compact sorted JSON. Preserve both contracts explicitly: only host-security receipt
+callers select the original spaced format. Drain, hop and release journal callers retain their compact
+format. Keep the existing no-symlink ancestry, ownership, 0600 permissions, single-link regular-file,
+size, stable-read and exact serialization checks. All original receipt SHA-256 bindings remain
+mandatory. No historical byte is rewritten.</p>
+<h2>Acceptance</h2>
+<p>Test cross-format, changed permissions and trailing/alternate whitespace refusals. Validate the
+exact original native receipt hashes and compile the embedded controller. Publish before resuming
+the existing owner with completed cordon and drain. Apply the security-default step exactly once,
+observe its actual response key, then validate the new enforcing boot, original disks and data,
+hardware, metrics, controllers and application behavior. Require full readiness after restoring
+scheduling. Preserve NAS restrictions and the recurring Kured schedule.</p>
+</html>

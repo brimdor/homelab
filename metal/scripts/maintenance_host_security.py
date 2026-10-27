@@ -571,7 +571,7 @@ def default_plan(journal, native, identity, recovery):
     root = journal.hold.state
     for prefix, digest in DEFAULT_PRIOR_PROOFS.items():
         path = root / (prefix + DEFAULT_PRIOR_OWNER + '.json')
-        record = private_json(path)
+        record = private_json(path, security_receipt=True)
         assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
         assert record['owner'] == DEFAULT_PRIOR_OWNER and record['identity'] == identity()
     release = root / 'releases' / DEFAULT_PRIOR_OWNER / '00000004.json'
@@ -627,8 +627,8 @@ def acceptance(journal, native, identity):
     if original_owner['source'] == original_owner['target'] == 44:
         assert original_owner['node'] == 'totodile'
         intent = root / ('host-seccomp-' + token + '.json')
-        followup = private_json(intent)
-        reboot = private_json(root / ('host-seccomp-reboot-' + token + '.json'))
+        followup = private_json(intent, security_receipt=True)
+        reboot = private_json(root / ('host-seccomp-reboot-' + token + '.json'), security_receipt=True)
         assert followup['owner'] == token and followup['identity'] == identity()
         assert reboot['intent_sha256'] == hashlib.sha256(intent.read_bytes()).hexdigest()
         assert Path('/proc/sys/kernel/random/boot_id').read_text().strip() != reboot['boot'] == followup['boot']
