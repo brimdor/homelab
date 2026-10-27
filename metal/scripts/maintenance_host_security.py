@@ -12,6 +12,49 @@ import urllib.request
 POLICY = ('https://github.com/k3s-io/k3s-selinux/releases/download/v1.6.latest.1/k3s-selinux-1.6-1.el9.noarch.rpm',
           '1115a1223b0db998c7977c879f2a3a6f07a0c63240f68f6e3b665a7ae27c38f7')
 SIGNING_FINGERPRINT = 'c8cff216455126e9b9c918be925ea29ae257814a'
+POLICY_SIGNING_KEY_SHA256 = '7d2415f7fc532c365c8874bfad966566daaa0d04a9a5ba14d1db6080a9c12629'
+POLICY_SIGNING_KEY = b"""-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+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
+51EaKIT6lPXy
+=08O8
+-----END PGP PUBLIC KEY BLOCK-----
+"""
 
 
 def execute(operation, journal, native, identity, recovery):
@@ -73,6 +116,7 @@ def execute(operation, journal, native, identity, recovery):
                 assert hashlib.sha256(content).hexdigest() == digest, 'vendor artifact changed'
                 hold.exclusive_file(path, content, 0o600)
             assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+        ensure_policy_signing_key(native, assets, hold)
         signature = native('rpmkeys', '--checksig', '--verbose', str(assets / 'policy.rpm'))
         assert ('key fingerprint: ' + SIGNING_FINGERPRINT + ': ok') in signature.lower() and not any(word in signature for word in ('NOKEY', 'NOT OK', 'BAD'))
         repos = root / ('fedora-repositories-44-' + token)
@@ -87,6 +131,21 @@ def execute(operation, journal, native, identity, recovery):
         hold.exclusive_file(intent, json.dumps(record, sort_keys=True).encode(), 0o600)
         native(*command)
     return {'dispatched': True, 'unit': unit, 'intent_sha256': hashlib.sha256(intent.read_bytes()).hexdigest()}
+
+
+def ensure_policy_signing_key(native, assets, hold):
+    """Restore only the existing reviewed public trust anchor before package checks."""
+    assert hashlib.sha256(POLICY_SIGNING_KEY).hexdigest() == POLICY_SIGNING_KEY_SHA256
+    path = assets / 'rancher-public.key'
+    hold.safe(path)
+    if not path.exists():
+        hold.exclusive_file(path, POLICY_SIGNING_KEY, 0o600)
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == POLICY_SIGNING_KEY_SHA256, 'policy signing key asset differs'
+    def trusted():
+        return SIGNING_FINGERPRINT in [line.split()[0] for line in native('rpmkeys', '--list').splitlines() if line.split()]
+    if not trusted():
+        native('rpmkeys', '--import', str(path))
+    assert trusted(), 'policy signing key absent after import'
 
 
 def security_tools(operation, journal, native, identity, recovery):
