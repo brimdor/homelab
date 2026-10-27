@@ -2,6 +2,7 @@
 """Freeze exact Sporecast writers into memory; restore copied WAL state offline."""
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -311,6 +312,23 @@ def require_container(value, scratch, run_id):
         raise RuntimeError('native Sporecast isolation changed')
 
 
+def docker_load_archive(source, target):
+    """Keep verified layer bytes; omit OCI names and Docker tags from this copy."""
+    verified = cached_archive(source)
+    with tarfile.open(source, 'r:') as incoming, target.open('xb') as output:
+        os.fchmod(output.fileno(), 0o600)
+        with tarfile.open(fileobj=output, mode='w|') as archive:
+            for entry in incoming.getmembers():
+                if entry.name in ('index.json', 'oci-layout'): continue
+                if entry.name == 'manifest.json':
+                    mapping = json.load(incoming.extractfile(entry)); mapping[0]['RepoTags'] = None
+                    content = common.canonical(mapping); entry.size = len(content)
+                    archive.addfile(entry, io.BytesIO(content))
+                else:
+                    archive.addfile(entry, incoming.extractfile(entry) if entry.isfile() else None)
+    return verified
+
+
 def restore(namespace, run_id, checksum):
     point = point_path(namespace, run_id); manifest = verify(point, checksum, namespace)
     if common.docker('ps', '-aq', '--filter=label=' + LABEL).stdout.strip(): raise RuntimeError('owned restore already active')
@@ -331,8 +349,9 @@ def restore(namespace, run_id, checksum):
             archive = scratch / 'image.tar'
             common.command(['/usr/local/bin/k3s', 'ctr', '-n', 'k8s.io', 'images', 'export',
                             '--platform', 'linux/amd64', str(archive), CACHED_IMAGE])
-            cached = cached_archive(archive); image_id = image_reference = CACHED_CONFIG
-            if image_id not in images: common.docker('image', 'load', '--input', str(archive))
+            load_archive = scratch / 'docker-image.tar'
+            cached = docker_load_archive(archive, load_archive); image_id = image_reference = CACHED_CONFIG
+            if image_id not in images: common.docker('image', 'load', '--input', str(load_archive))
         else:
             common.docker('pull', IMAGE)
         image = json.loads(common.docker('image', 'inspect', image_reference).stdout)[0]; image_id = image['Id']

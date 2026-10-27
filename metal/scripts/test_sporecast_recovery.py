@@ -181,6 +181,14 @@ class RecoveryGuards(unittest.TestCase):
                 patch.object(recovery, 'CACHED_IMAGE', reference), patch.object(recovery, 'CACHED_CONFIG', config_digest):
             accepted = recovery.cached_archive(write(records))
             self.assertEqual(accepted['blobs'], 3); self.assertEqual(accepted['config'], config_digest)
+            load_archive = self.root / 'docker-image.tar'
+            self.assertEqual(recovery.docker_load_archive(write(records), load_archive), accepted)
+            with tarfile.open(load_archive) as archive:
+                self.assertNotIn('oci-layout', archive.getnames()); self.assertNotIn('index.json', archive.getnames())
+                self.assertIsNone(json.load(archive.extractfile('manifest.json'))[0]['RepoTags'])
+                for name in (path_for(config_digest), path_for(layer_digest), path_for(digest)):
+                    self.assertEqual(archive.extractfile(name).read(), records[name])
+            with self.assertRaises(FileExistsError): recovery.docker_load_archive(write(records), load_archive)
             for name, data in [(path_for(layer_digest), b'damaged'), ('../escape', b'bad'),
                                ('manifest.json', b'[{"Config":"wrong","Layers":[],"RepoTags":null}]'),
                                ('index.json', b'{"manifests":[]}')]:
