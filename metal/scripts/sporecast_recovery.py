@@ -11,6 +11,7 @@ import signal
 import sqlite3
 import stat
 import sys
+import tarfile
 import tempfile
 import time
 import urllib.parse
@@ -20,6 +21,8 @@ import prometheus_recovery as process
 import grafana_recovery as files
 
 IMAGE = 'registry.eaglepass.io/sporecast-backend@sha256:1eb8f84e6188481d0db009088b4b5d1a6ac3158dbc41a6f6db187bf787857063'
+CACHED_IMAGE = '10.0.20.11:32309/sporecast-backend@' + IMAGE.split('@')[1]
+CACHED_CONFIG = 'sha256:1f42d28483fbcc74dc5732327b8141f12486059cdb26ad9c5af9cc73eb9657dd'
 LABEL = 'io.eaglepass.sporecast-recovery-103'
 SOURCES = {
     'sporecast': {'pod_uid': 'a414ace7-de7d-4415-b87b-c3a1ab0916a9', 'pid': 8939,
@@ -240,13 +243,64 @@ def wal_fingerprint(root, target):
     return files.fingerprint(target)
 
 
+def cached_archive(path):
+    """Check every OCI blob and the Docker load mapping without extracting files."""
+    with tarfile.open(path, 'r:') as archive:
+        entries = archive.getmembers(); names = [entry.name for entry in entries]
+        if len(names) != len(set(names)): raise RuntimeError('duplicate cached archive member')
+        blobs = {}
+        for entry in entries:
+            if entry.isdir() and entry.name.rstrip('/') in ('blobs', 'blobs/sha256'): continue
+            if not entry.isfile(): raise RuntimeError('cached archive contains a non-file')
+            if entry.name in ('index.json', 'oci-layout', 'manifest.json'): continue
+            if not re.fullmatch('blobs/sha256/[a-f0-9]{64}', entry.name): raise RuntimeError('unreviewed cached archive member')
+            stream = archive.extractfile(entry)
+            if hashlib.file_digest(stream, 'sha256').hexdigest() != entry.name.split('/')[-1]:
+                raise RuntimeError('cached image blob hash differs')
+            blobs['sha256:' + entry.name.split('/')[-1]] = entry.size
+        def record(name):
+            entry = archive.getmember(name)
+            if entry.size > 1048576: raise RuntimeError('cached image metadata too large')
+            return json.load(archive.extractfile(entry))
+        index = record('index.json'); digest = IMAGE.split('@')[1]
+        if len(index['manifests']) != 1 or index['manifests'][0]['digest'] != digest:
+            raise RuntimeError('cached image manifest differs')
+        annotations = index['manifests'][0].get('annotations', {})
+        if (record('oci-layout') != {'imageLayoutVersion': '1.0.0'} or
+                annotations.get('io.containerd.image.name') not in (None, CACHED_IMAGE) or
+                annotations.get('org.opencontainers.image.ref.name') not in (None, digest, '@' + digest)):
+            raise RuntimeError('cached OCI import reference differs')
+        manifest = record('blobs/sha256/' + digest.split(':')[1])
+        if manifest.get('schemaVersion') != 2 or manifest['config']['digest'] != CACHED_CONFIG:
+            raise RuntimeError('cached image config differs')
+        expected = {digest: archive.getmember('blobs/sha256/' + digest.split(':')[1]).size}
+        for descriptor in [manifest['config'], *manifest['layers']]: expected[descriptor['digest']] = descriptor['size']
+        docker_manifest = record('manifest.json')
+        if (not isinstance(docker_manifest, list) or len(docker_manifest) != 1 or
+                docker_manifest[0].get('RepoTags') not in (None, [], [CACHED_IMAGE])):
+            raise RuntimeError('cached archive would import unreviewed Docker tags')
+        docker_manifest[0]['RepoTags'] = None
+        if (blobs != expected or index['manifests'][0]['size'] != expected[digest] or
+                docker_manifest != [{'Config': 'blobs/sha256/' + CACHED_CONFIG.split(':')[1],
+                                     'RepoTags': None,
+                                     'Layers': ['blobs/sha256/' + layer['digest'].split(':')[1] for layer in manifest['layers']]}]):
+            raise RuntimeError('cached image descriptors or Docker mapping differ')
+        config = record('blobs/sha256/' + CACHED_CONFIG.split(':')[1])
+        if config['architecture'] != 'amd64' or config['os'] != 'linux' or config.get('config', {}).get('Volumes'):
+            raise RuntimeError('cached image platform or anonymous volumes differ')
+        with path.open('rb') as stream: archive_hash = hashlib.file_digest(stream, 'sha256').hexdigest()
+        return {'config': CACHED_CONFIG, 'rootfs': {'Type': config['rootfs']['type'], 'Layers': config['rootfs']['diff_ids']},
+                'blobs': len(blobs), 'archive_sha256': archive_hash, 'source_image': CACHED_IMAGE}
+
+
 def require_container(value, scratch, run_id):
     host = value['HostConfig']; config = value['Config']; environment = dict(e.split('=', 1) for e in config.get('Env', []) if '=' in e)
     expected = {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'IpcMode': 'private', 'PidMode': '', 'UTSMode': '', 'UsernsMode': '',
                 'PidsLimit': 128, 'Memory': 536870912, 'NanoCpus': 1000000000, 'Tmpfs': {'/tmp': 'rw,nosuid,nodev'},
                 'Binds': [str(scratch / 'data') + ':/data:Z']}
-    if (config['Image'] != IMAGE or config['User'] != '65532:65532' or config.get('Labels', {}).get(LABEL) != run_id or
+    expected_image = CACHED_CONFIG if SOURCES is PIKACHU_20261027 else IMAGE
+    if (config['Image'] != expected_image or config['User'] != '65532:65532' or config.get('Labels', {}).get(LABEL) != run_id or
             config.get('Entrypoint') != ['/sporecast-backend'] or config.get('Cmd') not in (None, []) or
             any(environment.get(k) != v for k, v in ENVIRONMENT.items()) or
             any(host.get(k) != v for k, v in expected.items()) or host.get('RestartPolicy', {}).get('Name') != 'no' or
@@ -268,9 +322,23 @@ def restore(namespace, run_id, checksum):
         files.copy_tree(point / 'data', scratch / 'data'); files.copy_tree(point / 'data', scratch / 'reader')
         snapshot = wal_fingerprint(scratch / 'reader', scratch / 'canonical.db')
         if files.tree(scratch / 'data') != manifest['tree']: raise RuntimeError('untouched raw restore copy differs')
-        common.docker('pull', IMAGE); image = json.loads(common.docker('image', 'inspect', IMAGE).stdout)[0]; image_id = image['Id']
+        image_reference = IMAGE; cached = None
+        if SOURCES is PIKACHU_20261027:
+            expected = SOURCES[namespace]; common.require_host(expected['node'])
+            if (Path('/etc/machine-id').read_text().strip() != expected['machine'] or
+                    common.command(['findmnt', '-n', '-o', 'UUID', '/']).stdout.decode().strip() != expected['root_uuid']):
+                raise RuntimeError('cached image source host changed')
+            archive = scratch / 'image.tar'
+            common.command(['/usr/local/bin/k3s', 'ctr', '-n', 'k8s.io', 'images', 'export',
+                            '--platform', 'linux/amd64', str(archive), CACHED_IMAGE])
+            cached = cached_archive(archive); image_id = image_reference = CACHED_CONFIG
+            if image_id not in images: common.docker('image', 'load', '--input', str(archive))
+        else:
+            common.docker('pull', IMAGE)
+        image = json.loads(common.docker('image', 'inspect', image_reference).stdout)[0]; image_id = image['Id']
         if (image['Architecture'] != 'amd64' or image['Os'] != 'linux' or image['Config'].get('Volumes') or
-                not any(r.split('@')[-1] == IMAGE.split('@')[-1] and r.split('@')[0] == 'registry.eaglepass.io/sporecast-backend' for r in image.get('RepoDigests', []))):
+                (cached is not None and (image_id != CACHED_CONFIG or image['RootFS'] != cached['rootfs'])) or
+                (cached is None and not any(r.split('@')[-1] == IMAGE.split('@')[-1] and r.split('@')[0] == 'registry.eaglepass.io/sporecast-backend' for r in image.get('RepoDigests', [])))):
             raise RuntimeError('exact native Sporecast image contract changed')
         for parent, _, names in os.walk(scratch / 'data'):
             os.chown(parent, 65532, 65532)
@@ -281,7 +349,7 @@ def restore(namespace, run_id, checksum):
                 # Relabel only the disposable copy for this isolated container.
                 '--volume=' + str(scratch / 'data') + ':/data:Z']
         for key, value in ENVIRONMENT.items(): args.extend(['--env', key + '=' + value])
-        container = common.docker(*args, IMAGE).stdout.decode().strip()
+        container = common.docker(*args, image_reference).stdout.decode().strip()
         if not re.fullmatch('[a-f0-9]{64}', container): raise RuntimeError('invalid owned container')
         require_container(common.inspect(container), scratch, run_id); common.docker('start', container)
         state = common.inspect(container); require_container(state, scratch, run_id); pid = str(state['State']['Pid'])
@@ -306,7 +374,8 @@ def restore(namespace, run_id, checksum):
         files.copy_tree(scratch / 'data', scratch / 'stopped-reader')
         after = wal_fingerprint(scratch / 'stopped-reader', scratch / 'stopped.db')
         verify(point, checksum, namespace)
-        result.update(accepted=True, image=IMAGE, source_snapshot=snapshot, stopped_native_snapshot=after,
+        if snapshot != after: raise RuntimeError('native Sporecast restore changed canonical data')
+        result.update(accepted=True, image=IMAGE, cached_image=cached, source_snapshot=snapshot, stopped_native_snapshot=after,
                       native_exit_code=stopped['ExitCode'], native_ready=health, original_raw_unmounted=True,
                       untouched_wal_copy_started=True, production_network_unroutable=True, source_writers_quiesced=False,
                       providers_webhooks_nas_later_writes_unqualified=True)
@@ -315,9 +384,9 @@ def restore(namespace, run_id, checksum):
             require_container(common.inspect(container), scratch, run_id); common.docker('rm', '-f', container)
             if common.docker('inspect', container, check=False).returncode == 0: raise RuntimeError('owned container remains')
         removed = False
-        if image_id and image_id not in images:
+        if image_id and image_id not in images and common.docker('image', 'inspect', image_id, check=False).returncode == 0:
             if common.docker('ps', '-aq', '--filter=ancestor=' + image_id).stdout.strip(): raise RuntimeError('new image has another consumer; retained')
-            common.docker('image', 'rm', IMAGE); removed = common.docker('image', 'inspect', IMAGE, check=False).returncode != 0
+            common.docker('image', 'rm', '-f', image_id); removed = common.docker('image', 'inspect', image_id, check=False).returncode != 0
             if not removed: raise RuntimeError('new unused image remains')
         allocated = sum(p.stat().st_blocks * 512 for p in scratch.rglob('*') if p.is_file() and not p.is_symlink())
         shutil.rmtree(scratch); verify(point, checksum, namespace)

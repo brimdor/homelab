@@ -3,9 +3,11 @@
 import copy
 import hashlib
 import io
+import json
 from pathlib import Path
 import sqlite3
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 
@@ -154,6 +156,49 @@ class RecoveryGuards(unittest.TestCase):
         with self.assertRaises(RuntimeError): recovery.select_profile('unreviewed')
         recovery.select_profile('historical'); recovery.validate_manifest(historical, 'sporecast')
         with self.assertRaises(RuntimeError): recovery.validate_manifest(current, 'sporecast')
+
+    def test_cached_archive_binds_all_blobs_and_refuses_load_mapping_drift(self):
+        def blob(data): return 'sha256:' + hashlib.sha256(data).hexdigest()
+        config = json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + 'a' * 64]}}).encode()
+        layer = b'synthetic layer'; config_digest = blob(config); layer_digest = blob(layer)
+        manifest = json.dumps({'schemaVersion': 2, 'config': {'digest': config_digest, 'size': len(config)},
+                               'layers': [{'digest': layer_digest, 'size': len(layer)}]}).encode()
+        digest = blob(manifest); reference = '10.0.20.11:32309/sporecast-backend@' + digest
+        path_for = lambda value: 'blobs/sha256/' + value.split(':')[1]
+        records = {path_for(config_digest): config, path_for(layer_digest): layer, path_for(digest): manifest,
+                   'index.json': json.dumps({'manifests': [{'digest': digest, 'size': len(manifest)}]}).encode(),
+                   'oci-layout': b'{"imageLayoutVersion":"1.0.0"}',
+                   'manifest.json': json.dumps([{'Config': path_for(config_digest), 'RepoTags': [reference],
+                                                'Layers': [path_for(layer_digest)]}]).encode()}
+        def write(values, extra=None):
+            path = self.root / 'image.tar'
+            with tarfile.open(path, 'w') as archive:
+                for name, data in values.items():
+                    entry = tarfile.TarInfo(name); entry.size = len(data); archive.addfile(entry, io.BytesIO(data))
+                if extra: archive.addfile(extra)
+            return path
+        with patch.object(recovery, 'IMAGE', 'registry.eaglepass.io/sporecast-backend@' + digest), \
+                patch.object(recovery, 'CACHED_IMAGE', reference), patch.object(recovery, 'CACHED_CONFIG', config_digest):
+            accepted = recovery.cached_archive(write(records))
+            self.assertEqual(accepted['blobs'], 3); self.assertEqual(accepted['config'], config_digest)
+            for name, data in [(path_for(layer_digest), b'damaged'), ('../escape', b'bad'),
+                               ('manifest.json', b'[{"Config":"wrong","Layers":[],"RepoTags":null}]'),
+                               ('index.json', b'{"manifests":[]}')]:
+                changed = dict(records); changed[name] = data
+                with self.subTest(name=name), self.assertRaises((RuntimeError, KeyError)):
+                    recovery.cached_archive(write(changed))
+            changed = dict(records); mapping = json.loads(changed['manifest.json']); mapping[0]['RepoTags'] = ['unrelated:latest']
+            changed['manifest.json'] = json.dumps(mapping).encode()
+            with self.assertRaises(RuntimeError): recovery.cached_archive(write(changed))
+            for entry in (tarfile.TarInfo('index.json'), tarfile.TarInfo('link')):
+                if entry.name == 'link': entry.type = tarfile.SYMTYPE; entry.linkname = '/production'
+                with self.assertRaises(RuntimeError): recovery.cached_archive(write(records, entry))
+
+    def test_current_restore_container_requires_verified_config_not_tag(self):
+        recovery.select_profile('pikachu-20261027')
+        # The existing isolation test exercises every other field with its historical profile.
+        with self.assertRaises(RuntimeError):
+            recovery.require_container({'HostConfig': {}, 'Config': {'Image': recovery.IMAGE}}, self.root, 'fixture')
 
 
 if __name__ == '__main__': unittest.main()
