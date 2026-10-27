@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Totodile database downtime sequence</title>
+<style>body{background:#111827;color:#e5e7eb;font:16px/1.6 system-ui;max-width:900px;margin:3rem auto;padding:0 1rem}code{color:#93c5fd}h1,h2{color:#fff}</style>
+<h1>Issue 103: Totodile database downtime sequence</h1>
+<p>2026-10-27. The serial drain evicted shared PostgreSQL from Totodile. Its replacement is correctly
+unscheduled because the declared selector remains Totodile and that node is cordoned. Versa Production
+and Canary both depend on this database: their unchanged web containers remain running with zero restarts,
+health 200, and database readiness 503. The approved image and migration remain unchanged.</p>
+<h2>Evidence</h2>
+<p>Private TESTING runs <code>maintenance103-totodile-postgres-dependent-readiness-evidence-9x5kjo16</code>
+and <code>maintenance103-postgres-downtime-contract-readback-ai97ehxk</code> bind the exact controller
+generations, templates, original images, Pod UIDs, and database host. The source of this outage is the
+deliberate serial maintenance drain, not an application rollout.</p>
+<h2>Correction</h2>
+<p>While the exact Totodile security-follow-up owner is verified and Totodile remains cordoned,
+recognize only these two approved unchanged dependent Pods as expected database downtime. Require
+the exact PostgreSQL controller/template and pending replacement, full controller ownership, original
+approved image in all containers, successful migration, zero restarts, live processes, healthy worker,
+health 200, and readiness 503 with the declared shared database hostname. Record these outages explicitly
+in prerequisite evidence. Any changed identity, failed process, or unrelated controller failure is refused.</p>
+<h2>Execution and completion</h2>
+<p>Validate and publish the sequencer patch before resuming the existing immutable drain journal.
+Observe the pending eviction; never replay it. Complete the drain, apply the already published host
+seccomp-default update, and reboot Totodile. Restore scheduling after infrastructure acceptance.
+The outage exception is unavailable once Totodile is uncordoned: PostgreSQL, Versa Production,
+Versa Canary, every expected controller, and Argo health must recover before node release. Verify both
+Versa health/readiness endpoints return 200 again. No application image/configuration, storage identity,
+NAS file, NAS backup schedule, or registry content changes.</p>
+<p>Keep maintenance ownership on any failure. Restore the sequencer through Git if necessary; do not
+manually alter ownership or Pod scheduling to bypass a refusal.</p>
+</html>

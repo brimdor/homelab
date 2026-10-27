@@ -675,6 +675,73 @@ def pending_on_maintained_node(api, item, node):
             parents[0]['uid'] == meta['uid'] and parents[0]['name'] == meta['name'])
 
 
+def pending_postgres_dependent(api, item, owner):
+    """Observe only the approved Versa pair's expected shared-DB maintenance outage."""
+    contracts = {
+        'versa': ('c7202fda-0426-463e-b426-5b14f6743a4b', 40,
+                  '91bb775bcccc5360d8909d0253ad971bb91fc3731d17e0c9f812db73a8ed653e',
+                  '40207d9c-5d2d-41d6-974b-d94554533e43', 'cyndaquil',
+                  'versa-c4cd76876', '06d0d8fd-4fd8-4979-8528-1b31c64e127a'),
+        'versa-canary': ('72b69cae-fea1-4b99-ae0c-c515851cfac0', 132,
+                         '92307b8f0e1555a430ac80fd82917e32a4db98428227ecf4df3506d00e3a2ace',
+                         'a64b0886-fb7e-4e1b-b9f1-185e759525de', 'charmander',
+                         'versa-canary-5c57fb798b', 'e5342b06-6ffe-4b84-97d5-011e74c40de7'),
+    }
+    meta = item['metadata']; namespace = meta['namespace']
+    if (owner.get('owner') != 'homelab-maintenance-103-1c844363-2bac-4e15-90f5-6139f5624d5c' or
+            namespace not in contracts or meta['name'] != namespace or item['kind'] != 'Deployment'):
+        return None
+    uid, generation, template, pod_uid, node, replica_name, replica_uid = contracts[namespace]
+    require(meta['uid'] == uid and meta['generation'] == generation and not meta.get('deletionTimestamp') and
+            item['spec'].get('replicas', 1) == 1 and
+            hashlib.sha256(encoded(item['spec']['template']).encode()).hexdigest() == template,
+            'approved dependent deployment changed')
+    database = api.call('get', 'deployment', 'postgres', '-n', 'postgres', '-o', 'json')
+    require(database['metadata']['uid'] == '9a7e7dcd-2302-401e-be49-af545ac06f9b' and
+            database['metadata']['generation'] == 15 and
+            hashlib.sha256(encoded(database['spec']['template']).encode()).hexdigest() ==
+            '0f663742d95bb476040309324e2354ab6ee7ec3231ecf03f1a618bc4ee5bfab7' and
+            pending_on_maintained_node(api, database, 'totodile'), 'expected database downtime differs')
+    database_pods = api.call('get', 'pods', '-n', 'postgres', '-o', 'json')['items']
+    require(any(p['metadata']['uid'] == '5fd59434-bdbc-47fa-9e8e-8eef5021f58e' and
+                p['status']['phase'] == 'Pending' and not p['spec'].get('nodeName')
+                for p in database_pods), 'database pending replacement changed')
+    pods = api.call('get', 'pods', '-n', namespace, '-o', 'json')['items']
+    require(len(pods) == 1, 'dependent Pod membership changed')
+    pod = pods[0]; owners = [o for o in pod['metadata'].get('ownerReferences', []) if o.get('controller')]
+    require(pod['metadata']['uid'] == pod_uid and pod['spec'].get('nodeName') == node and
+            not pod['metadata'].get('deletionTimestamp') and pod['status']['phase'] == 'Running' and
+            len(owners) == 1 and owners[0]['kind'] == 'ReplicaSet' and
+            owners[0]['name'] == replica_name and owners[0]['uid'] == replica_uid,
+            'approved dependent Pod changed')
+    replica = api.call('get', 'replicaset', replica_name, '-n', namespace, '-o', 'json')
+    parents = [o for o in replica['metadata'].get('ownerReferences', []) if o.get('controller')]
+    require(replica['metadata']['uid'] == replica_uid and not replica['metadata'].get('deletionTimestamp') and
+            len(parents) == 1 and parents[0]['kind'] == 'Deployment' and parents[0]['uid'] == uid,
+            'dependent controller ownership changed')
+    states = pod['status'].get('containerStatuses', [])
+    init = pod['status'].get('initContainerStatuses', [])
+    digest = 'sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d'
+    require(len(states) == 2 and {c['name'] for c in states} == {'web', 'worker'} and
+            len(init) == 1 and init[0]['name'] == 'migrate' and
+            init[0]['state'].get('terminated', {}).get('exitCode') == 0 and
+            all(c['imageID'].endswith('@' + digest) and c['restartCount'] == 0 for c in states + init) and
+            all(c.get('started') and 'running' in c['state'] and
+                (not c['ready'] if c['name'] == 'web' else c['ready']) for c in states),
+            'dependent has an unexpected runtime failure')
+    program = ('const h=await fetch(`http://${process.env.HOSTNAME}:3000/healthz`);'
+               'const hj=await h.json();const r=await fetch(`http://${process.env.HOSTNAME}:3000/readyz`);'
+               'const rj=await r.json();console.log(JSON.stringify({'
+               'host:new URL(process.env.DATABASE_URL).hostname,health:h.status,ok:hj.ok,'
+               'readiness:r.status,ready:rj.ready}));')
+    proof = api.call('exec', '-n', namespace, pod['metadata']['name'], '-c', 'web', '--',
+                     'node', '--input-type=module', '-e', program)
+    require(proof == {'host': 'postgres.postgres.svc.cluster.local', 'health': 200, 'ok': True,
+                      'readiness': 503, 'ready': False}, 'dependent failure is not the expected database outage')
+    return {'deployment_uid': uid, 'pod_uid': pod_uid, 'database_pending_uid':
+            '5fd59434-bdbc-47fa-9e8e-8eef5021f58e', 'proof': proof}
+
+
 def prerequisites(api):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     require(len(nodes) == 9 and any(n['metadata']['uid'] == UID and n['metadata']['name'] == NODE for n in nodes),
@@ -696,6 +763,7 @@ def prerequisites(api):
     ds = api.call('get', 'daemonset', 'kured', '-n', 'kured', '-o', 'json')
     raw_owner = ds['metadata'].get('annotations', {}).get(JOURNAL)
     security_followup = False
+    dependency_outages = []
     if raw_owner is not None:
         candidate = json.loads(raw_owner)
         if candidate.get('source') == candidate.get('target') == 44:
@@ -727,9 +795,16 @@ def prerequisites(api):
                 if pending_on_maintained_node(api, item, NODE):
                     exceptions.append(meta['uid'])
                     continue
+            if security_followup:
+                dependent = pending_postgres_dependent(api, item, verified_owner)
+                if dependent:
+                    dependency_outages.append(dependent)
+                    continue
             raise RuntimeError('controller unready: ' + meta['namespace'] + '/' + meta['name'])
     result = {'node_uids': {n['metadata']['name']: n['metadata']['uid'] for n in nodes},
-              'ceph': health['status'], 'controllers_ready_except_target_observers': True}
+              'ceph': health['status'], 'controllers_ready_except_target_observers': not dependency_outages}
+    if dependency_outages:
+        result['expected_dependency_outages'] = sorted(dependency_outages, key=lambda p: p['deployment_uid'])
     if osd_gate is not None:
         result['osd_host'] = osd_gate
     if NODE in ('squirtle', 'charmander'):
