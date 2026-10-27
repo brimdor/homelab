@@ -260,6 +260,7 @@ app-template:
       kubernetes.io/hostname: totodile
     securityContext:
       fsGroup: 999
+      seccompProfile: {type: RuntimeDefault}
     annotations:
       operator.1password.io/item-path: "vaults/4uaua4a45yuhnwhehp5bwylmti/items/jovo-secrets"
       operator.1password.io/item-name: "jovo-secrets"
