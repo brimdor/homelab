@@ -101,22 +101,29 @@ def validate(value, now=None):
             for i, p in pools.items()), 'review changed pool replication before maintenance')
     require(pgs and len(pgs) == value['num_pgs'] and
             len({p['pgid'] for p in pgs}) == len(pgs), 'PG evidence incomplete or duplicated')
+    restored = value.get('restored_mapping', {})
+    if down:
+        require(set(restored) == {p['pgid'] for p in pgs}, 'restored PG mapping evidence incomplete')
     for pg in pgs:
         states = set(pg['state'].split('+'))
-        affected = 1 in pg['up'] or 1 in pg['acting']
+        expected = restored[pg['pgid']] if down else pg['up']
+        affected = 1 in expected
         allowed = OWNED_STATES if maintenance and affected else CLEAN_STATES
         require('active' in states and states <= allowed and
                 (maintenance and affected or 'clean' in states), 'inactive or unrelated unhealthy PG')
         pool = pools.get(pg['pgid'].split('.', 1)[0])
         require(pool is not None, 'PG pool is not reviewed')
-        require(len(pg['up']) == pool['size'] and
-                len(set(pg['up'])) == pool['size'] and set(pg['up']) <= set(OSDS) and
+        require(len(expected) == pool['size'] and len(set(expected)) == pool['size'] and
+                set(expected) <= set(OSDS) and
+                set(pg['up']) == set(expected) - down and
+                len(set(pg['up'])) == len(pg['up']) and
                 pg['acting'] and len(set(pg['acting'])) == len(pg['acting']) and
-                set(pg['acting']) <= set(OSDS) and
+                set(pg['acting']) <= set(expected) and
                 sum(osds[i]['up'] == 1 for i in pg['acting']) >= pool['min_size'],
                 'PG lacks a reviewed active surviving replica')
         if 'clean' in states:
-            require(set(pg['up']) == set(pg['acting']), 'clean PG mapping differs')
+            require(set(pg['up']) == set(pg['acting']) and len(pg['up']) == pool['size'],
+                    'clean PG mapping differs')
     if not down:
         stop = value['ok_to_stop']
         require(stop['ok_to_stop'] is True and stop['osds'] == [1] and
@@ -148,7 +155,45 @@ def observe(api):
              'num_pgs': status['pgmap']['num_pgs']}
     if all(o['up'] == 1 for o in value['map']['osds']):
         value['ok_to_stop'] = ceph('osd', 'ok-to-stop', '1')
+    if any(o['up'] != 1 for o in value['map']['osds']):
+        recovered = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
+                             'python3', '-c', OFFLINE_MAPPING)
+        require(recovered['map'] == value['map'] and recovered['temporary_removed'],
+                'OSD map changed during offline attribution or native cleanup failed')
+        value['restored_mapping'] = parse_mapping(recovered['mapping'])
     return validate(value)
+
+
+# Ceph's --mark-up changes only the copied map in memory; never use --save.
+OFFLINE_MAPPING = r'''
+import tempfile,subprocess,pathlib,json,hashlib
+with tempfile.TemporaryDirectory(prefix='maintenance103-readonly-osdmap-') as directory:
+ path=pathlib.Path(directory)/'map'
+ subprocess.run(['ceph','osd','getmap','-o',str(path)],check=True,capture_output=True)
+ digest=hashlib.sha256(path.read_bytes()).hexdigest()
+ def call(*args):
+  return subprocess.check_output(['osdmaptool',str(path),*args],text=True,stderr=subprocess.PIPE)
+ result={'map':json.loads(call('--dump','json')),
+         'mapping':call('--mark-up','1','--test-map-pgs-dump-all')}
+ assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
+assert not pathlib.Path(directory).exists()
+result['temporary_removed']=True
+print(json.dumps(result))
+'''
+
+
+def parse_mapping(text):
+    """Use the upmap-adjusted placement, not raw CRUSH or temporary acting sets."""
+    result = {}
+    pattern = r'([0-9]+\.[0-9a-f]+) raw \(\[.*?\], p-?\d+\) up \(\[([0-9,]*)\], p-?\d+\) acting \(\[.*?\], p-?\d+\)'
+    for line in text.splitlines():
+        if not re.match(r'^[0-9]+\.[0-9a-f]+\s', line):
+            continue
+        match = re.fullmatch(pattern, line)
+        require(match is not None and match[1] not in result, 'invalid or duplicate offline PG mapping')
+        result[match[1]] = [int(i) for i in match[2].split(',')] if match[2] else []
+    require(result, 'offline PG mapping absent')
+    return result
 
 
 NATIVE_IDENTITY = r'''

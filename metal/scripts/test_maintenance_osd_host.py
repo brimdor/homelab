@@ -43,6 +43,7 @@ def fixture(owned=False, down=False):
                 {'pgid': '4.1', 'state': 'active+clean', 'up': [1, 6, 8], 'acting': [1, 6, 8]}],
         'num_pgs': 3, 'ok_to_stop': {'ok_to_stop': True, 'osds': [1], 'num_not_ok_pgs': 0}}
     if down:
+        value['restored_mapping'] = {p['pgid']: p['up'][:] for p in value['pgs']}
         value['map']['osds'][0]['up'] = 0
         value['map']['crush_node_flags'] = {osd.NODE: ['noout']}
         value['pdb_state']['data'] = {'draining-failure-domain': osd.NODE, 'set-no-out': 'true',
@@ -50,8 +51,8 @@ def fixture(owned=False, down=False):
         value['health'] = {'status': 'HEALTH_WARN', 'checks': {
             n: {'severity': 'HEALTH_WARN'} for n in ['OSD_DOWN', 'OSD_FLAGS', 'PG_DEGRADED']}, 'mutes': []}
         value['deployment']['status']['readyReplicas'] = 0
-        value['pgs'][0].update(state='active+undersized+degraded', acting=[2])
-        value['pgs'][2].update(state='active+undersized+degraded', acting=[6, 8])
+        value['pgs'][0].update(state='active+undersized+degraded', up=[2], acting=[2])
+        value['pgs'][2].update(state='active+undersized+degraded', up=[6, 8], acting=[6, 8])
     return value
 
 
@@ -59,6 +60,12 @@ class OSDHostTests(unittest.TestCase):
     def test_clean_and_exact_owned_down_state(self):
         self.assertEqual(osd.validate(fixture(), NOW)['scope'], 'HEALTH_OK')
         self.assertEqual(osd.validate(fixture(True, True), NOW)['scope'], 'OWNED_OSD_HOST_INTERVAL')
+
+    def test_offline_mapping_uses_upmap_and_rejects_ambiguous_rows(self):
+        row = '1.0 raw ([8,1], p8) up ([8,6], p8) acting ([8,6], p8)'
+        self.assertEqual(osd.parse_mapping('pool 1 pg_num 1\n' + row), {'1.0': [8, 6]})
+        for text in (row + '\n' + row, '1.0 invalid', 'empty'):
+            with self.assertRaises(RuntimeError):osd.parse_mapping(text)
 
     def test_owner_interval_stable_across_cordon(self):
         before = fixture(True);before['node']['spec']['unschedulable'] = False
@@ -81,6 +88,10 @@ class OSDHostTests(unittest.TestCase):
             ('expired', lambda v: v['pdb_state']['data'].update({osd.NODE + '-noout-last-set-at': (NOW - datetime.timedelta(minutes=90)).isoformat()})),
             ('future', lambda v: v['pdb_state']['data'].update({osd.NODE + '-noout-last-set-at': (NOW + datetime.timedelta(seconds=1)).isoformat()})),
             ('inactive PG', lambda v: v['pgs'][0].update(state='peering+undersized')),
+            ('missing reference', lambda v: v.pop('restored_mapping')),
+            ('foreign mapping', lambda v: v['restored_mapping'].update({'1.1': [6, 2]})),
+            ('survivor changed', lambda v: v['pgs'][0].update(up=[6], acting=[6])),
+            ('false clean', lambda v: v['pgs'][0].update(state='active+clean')),
             ('missing PG', lambda v: v.update(num_pgs=4)),
             ('no live replica', lambda v: v['pgs'][0].update(acting=[1])),
             ('mgr quorum lost', lambda v: v['pgs'][2].update(acting=[6])),
