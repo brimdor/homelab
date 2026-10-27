@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-frontend-static
+data:
+  index.html: {{ .Files.Get "patches/index.html" | toJson }}
+  preferences.html: {{ .Files.Get "patches/preferences.html" | toJson }}
+  styles.css: {{ .Files.Get "patches/styles.css" | toJson }}

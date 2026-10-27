@@ -95,6 +95,8 @@ app-template:
       type: deployment
       replicas: 1
       pod:
+        annotations:
+          checksum/frontend-static: 5eb038ed349b0312c915b8c8a0a1fd46899a502583976ecd70591278a608dc15
         nodeSelector:
           kubernetes.io/hostname: pikachu
       containers:
@@ -175,6 +177,21 @@ app-template:
           secretName: sporecast-tls
 
   persistence:
+    frontend-static:
+      type: configMap
+      name: sporecast-frontend-static
+      advancedMounts:
+        frontend:
+          main:
+            - path: /usr/share/nginx/html/index.html
+              subPath: index.html
+              readOnly: true
+            - path: /usr/share/nginx/html/preferences.html
+              subPath: preferences.html
+              readOnly: true
+            - path: /usr/share/nginx/html/styles.css
+              subPath: styles.css
+              readOnly: true
     data:
       type: persistentVolumeClaim
       existingClaim: "{{ .Release.Name }}"

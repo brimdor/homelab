@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sporecast — Daily allergy digest</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script>
+    if (localStorage.theme === 'light' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .dark body { background-color: #0f172a; color: #e2e8f0; }
+
+    .touch-target { min-height: 44px; }
+    input, select, button { touch-target; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="border-b border-slate-700/30 bg-white dark:bg-slate-900/50 sticky top-0">
+    <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-bold tracking-tight">🌾 Sporecast</h1>
+      <button id="themeToggle" class="text-sm px-3 py-1 rounded border border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800">Toggle theme</button>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <section class="mb-8">
+      <h2 class="text-3xl font-semibold mb-2">Get a daily allergy digest for your ZIP code.</h2>
+      <p class="text-slate-600 dark:text-slate-400">No account, no ads, no tracking. We only store a random link.</p>
+    </section>
+
+    <form id="createForm" class="space-y-6 bg-white dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700/30 shadow-sm">
+      <div>
+        <label class="block text-sm font-medium mb-1" for="zip">ZIP / Postal code</label>
+        <input id="zip" name="zip" type="text" required class="w-full rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="84101 or 84101-1234" autocomplete="postal-code">
+        <p class="text-xs text-slate-400 mt-1" id="zipHint">US format: 5-digit ZIP or ZIP+4</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">What to track</label>
+        <div id="allergenGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+        <p id="regionNote" class="text-xs text-slate-400 mt-2 hidden">Pollen forecast is not available for US ZIP codes in this MVP.</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">When to alert</label>
+        <div id="thresholdList" class="space-y-3"></div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1" for="digestTime">Digest time</label>
+          <input id="digestTime" name="digest_time" type="time" value="07:00" required class="w-full rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-900 px-3 py-2">
+          <p class="text-xs text-slate-400 mt-1">Rounded to the nearest 5 minutes.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="checkInterval">Check cadence</label>
+          <select id="checkInterval" name="check_interval"
+                  class="w-full rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-900 px-3 py-2">
+            <option value="">Daily at digest time (default)</option>
+            <option value="30">Every 30 minutes</option>
+            <option value="60">Every hour</option>
+            <option value="180">Every 3 hours</option>
+            <option value="480">Every 8 hours</option>
+            <option value="720">Every 12 hours</option>
+          </select>
+          <p class="text-xs text-slate-400 mt-1">For interval checks, "Digest time" becomes the first check time.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-1 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1" for="timezone">Timezone</label>
+          <input id="timezone" name="timezone" type="text" required class="w-full rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-900 px-3 py-2" value="America/Chicago">
+        </div>
+      </div>
+
+      <div class="border-t border-slate-700/30 pt-4 space-y-3">
+        <p class="text-sm font-medium">Webhook destination</p>
+        <div>
+          <label class="block text-xs mb-1" for="webhookUrl">URL (https only)</label>
+          <input id="webhookUrl" name="webhook_url" type="url" required placeholder="https://discord.com/api/webhooks/..." class="w-full rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-900 px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-xs mb-1" for="webhookFormat">Format</label>
+          <select id="webhookFormat" name="webhook_format" class="w-full rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-900 px-3 py-2">
+            <option value="discord">Discord</option>
+            <option value="generic-json">Generic JSON</option>
+            <option value="generic-text">Generic text</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs mb-1" for="webhookLabel">Label</label>
+          <input id="webhookLabel" name="webhook_label" type="text" value="My webhook" class="w-full rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-900 px-3 py-2">
+        </div>
+      </div>
+
+      <div id="errorBox" class="hidden rounded-lg bg-red-900/30 text-red-200 p-3 text-sm"></div>
+      <div id="successBox" class="hidden rounded-lg bg-emerald-900/30 text-emerald-200 p-3 text-sm"></div>
+
+      <button type="submit" class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 touch-target">Create alert</button>
+    </form>
+  </main>
+
+  <footer class="max-w-3xl mx-auto px-4 py-8 text-xs text-slate-500">
+    <p>Data from Open-Meteo and Zippopotam.us. No API keys. No PII.</p>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
