@@ -22,6 +22,7 @@ app-template:
             pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
+            SERVE_STATIC: "true"
             GOOGLE_CLIENT_SECRET:
               valueFrom:
                 secretKeyRef:
@@ -48,12 +49,12 @@ app-template:
                 initialDelaySeconds: 30
                 periodSeconds: 10
             readiness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
                   path: /
-                  port: http
+                  port: 3001
                 initialDelaySeconds: 5
                 periodSeconds: 10
           resources:
@@ -69,6 +70,7 @@ app-template:
       ports:
         http:
           port: 3000
+          targetPort: 3001
           protocol: HTTP
     api:
       controller: main
