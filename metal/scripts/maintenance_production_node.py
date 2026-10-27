@@ -477,6 +477,8 @@ else:
   if not state['pending']:worker.start(plan,drain.hashed(plan),digest,verify)
   elif not worker.path.exists():worker.attach(plan)
   removed=(lambda ref:rpc('removed_completed_job',ref=ref))if expected_node=='charmander'and owner['owner']=='homelab-maintenance-103-8dba9073-c2fc-4941-a6d2-1228086bd554'else None
+  if expected_node=='growlithe'and owner['owner']=='homelab-maintenance-103-44e0fa41-4b7e-4ba2-bb2e-370e59f61876':
+   removed=lambda ref:rpc('removed_versa_canary',ref=ref)
   result=worker.advance(digest,verify,removed)
   if result.get('complete'):
    accepted=dict(result)
@@ -891,6 +893,12 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
                             owner['owner'] == 'homelab-maintenance-103-8dba9073-c2fc-4941-a6d2-1228086bd554' and
                             (owner['source'], owner['target']) == (39, 41), 'unreviewed external completion caller')
                     value = removed_completed_job(api, request['ref'])
+                elif request['rpc'] == 'removed_versa_canary':
+                    require(args.operation == 'drain' and NODE == 'growlithe' and
+                            owner['owner'] == 'homelab-maintenance-103-44e0fa41-4b7e-4ba2-bb2e-370e59f61876' and
+                            (owner['source'], owner['target']) == (39, 41), 'unreviewed relocation caller')
+                    from maintenance_growlithe_relocation import observe
+                    value = observe(api, request['ref'])
                 elif request['rpc'] == 'ceph_health':
                     require(args.operation in ('recover-pending-kanidm', 'recover-pending-outline'),
                             'unreviewed Ceph health caller')

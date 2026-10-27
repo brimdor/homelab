@@ -310,6 +310,36 @@ class NodeDrainTests(unittest.TestCase):
         self.assertFalse((self.worker.path / '00000001.external.json').exists())
         self.assertEqual(len(self.pod_api.posts), 1)
 
+    def test_approved_controller_replacement_is_observed_without_eviction(self):
+        self.start();ref = self.worker.read()['targets'][0]
+        self.pod_api.pods = [p for p in self.pod_api.pods if p['metadata']['uid'] != ref['uid']]
+        proof = {'kind': 'verified-controller-replacement', 'pod_uid': ref['uid'],
+                 'controller_uid': ref['controller']['uid'], 'replacement_uid': 'replacement',
+                 'application_uid': 'application', 'configuration_commit': 'a' * 40,
+                 'artifact_sha256': 'b' * 64, 'acceptance_sha256': 'c' * 64}
+        for bad in (dict(proof, pod_uid='foreign'), dict(proof, controller_uid='foreign'),
+                    dict(proof, replacement_uid=ref['uid']), dict(proof, configuration_commit=0),
+                    dict(proof, acceptance_sha256='')):
+            with self.assertRaisesRegex(RuntimeError, 'exact replacement acceptance'):
+                self.worker.advance('c' * 64, lambda *_: True, lambda _: bad)
+        result = self.worker.advance('c' * 64, lambda *_: True, lambda _: proof)
+        self.assertFalse(result['mutation_performed'])
+        self.assertFalse(self.pod_api.posts)
+        self.assertEqual(self.fresh_drain().read()['completed'], [ref['uid']])
+
+    def test_controller_replacement_is_rechecked_before_durable_record(self):
+        self.start();ref = self.worker.read()['targets'][0]
+        self.pod_api.pods = [p for p in self.pod_api.pods if p['metadata']['uid'] != ref['uid']]
+        proof = {'kind': 'verified-controller-replacement', 'pod_uid': ref['uid'],
+                 'controller_uid': ref['controller']['uid'], 'replacement_uid': 'replacement',
+                 'application_uid': 'application', 'configuration_commit': 'a' * 40,
+                 'artifact_sha256': 'b' * 64, 'acceptance_sha256': 'c' * 64}
+        observations = iter((proof, dict(proof, acceptance_sha256='d' * 64)))
+        with self.assertRaisesRegex(RuntimeError, 'replacement changed'):
+            self.worker.advance('c' * 64, lambda *_: True, lambda _: next(observations))
+        self.assertFalse((self.worker.path / '00000000.external.json').exists())
+        self.assertFalse(self.pod_api.posts)
+
     def test_corruption_foreign_files_and_permissions_refuse(self):
         self.start();path = self.worker.path / 'header.json';original = path.read_bytes()
         path.write_bytes(original + b'\n')

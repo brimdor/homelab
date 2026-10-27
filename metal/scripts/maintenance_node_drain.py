@@ -210,6 +210,20 @@ class Drain:
 
     @staticmethod
     def removal_proof(ref, proof):
+        if isinstance(proof, dict) and proof.get('kind') == 'verified-controller-replacement':
+            actor.require(ref['controller']['kind'] == 'ReplicaSet' and not ref['keep'] and
+                          set(proof) == {'kind', 'pod_uid', 'controller_uid', 'replacement_uid',
+                                         'application_uid', 'configuration_commit', 'artifact_sha256',
+                                         'acceptance_sha256'} and proof['pod_uid'] == ref['uid'] and
+                          proof['controller_uid'] == ref['controller']['uid'] and
+                          all(isinstance(proof[k], str) and proof[k] for k in
+                              ('replacement_uid', 'application_uid')) and
+                          proof['replacement_uid'] != ref['uid'] and
+                          isinstance(proof['configuration_commit'], str) and
+                          re.fullmatch('[0-9a-f]{40}', proof['configuration_commit']) and
+                          hops.checksum(proof['artifact_sha256']) and hops.checksum(proof['acceptance_sha256']),
+                          'controller removal lacks exact replacement acceptance')
+            return
         actor.require(ref['controller']['kind'] == 'Job' and not ref['keep'] and
                       isinstance(proof, dict) and set(proof) == {'kind', 'pod_uid', 'job_uid',
                                                                'prior_success_sha256', 'recovery_sha256'} and
@@ -263,6 +277,8 @@ class Drain:
                 actor.require(verify_prerequisites('drain', prerequisites_sha256) is True and
                               self.read() == state and self.inventory() == current,
                               'external removal prerequisites or inventory changed')
+                if proof['kind'] == 'verified-controller-replacement':
+                    actor.require(verify_removed(ref) == proof, 'controller replacement changed before recording')
                 record = {'version': 1, 'parent': state['header']['intent']['sha256'], 'index': index,
                           'pod': ref, 'proof': proof, 'inventory_sha256': hashed(current),
                           'prerequisites_sha256': prerequisites_sha256}
