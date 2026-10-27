@@ -43,8 +43,10 @@ class GrowlitheImageTests(unittest.TestCase):
         with mock.patch.object(images, 'stream') as transfer:
             images.preserve_nibble(None)
         _, address, source, receiver, target = transfer.call_args.args
-        self.assertEqual((address, target), ('10.0.20.18', '10.0.20.11'))
-        self.assertIn("'linux/amd64'", source)
+        self.assertEqual((address, target), ('10.0.20.17', '10.0.20.11'))
+        self.assertIn(images.NIBBLE['SOURCE_ARCHIVE_SHA256'], source)
+        self.assertIn("hashlib.file_digest(source,'sha256')", source)
+        self.assertIn("'st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns'", source)
         self.assertNotIn("'linux/arm64'", source)
         self.assertIn(images.NIBBLE['CONFIG'], source)
         self.assertNotIn('handler_ready(', receiver)
