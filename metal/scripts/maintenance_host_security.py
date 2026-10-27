@@ -429,11 +429,12 @@ def mitigate_gds(journal, native, identity, recovery):
         assert not intent.exists(), 'GDS intent exists; observe boot, never replay'
         observed = facts(native)
         assert observed['mode'] == 'Enforcing' and observed['audit_record_count'] == 0 and not observed['failed_units']
-        assert native('uname', '-r') == FIRMWARE_KERNEL
+        kernel = firmware_kernel(native)
         assert Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip() == '0xf0'
         assert Path('/sys/devices/system/cpu/vulnerabilities/gather_data_sampling').read_text().strip() == 'Vulnerable: No microcode'
-        assert early_intel_revision(Path('/boot/initramfs-' + FIRMWARE_KERNEL + '.img')) == 0xf0
+        assert early_intel_revision(Path('/boot/initramfs-' + kernel + '.img')) == 0xf0
         firmware_boot = json.loads((root / ('host-firmware-reboot-' + token + '.json')).read_bytes())
+        assert firmware_boot.get('kernel', FIRMWARE_KERNELS[0]) == kernel, 'firmware record kernel differs'
         assert firmware_boot['owner'] == token and firmware_boot['identity'] == identity() and firmware_boot['boot'] != observed['boot']
         before = native('grubby', '--info=ALL')
         assert 'gather_data_sampling=' not in before and 'mitigations=off' not in before
@@ -501,16 +502,28 @@ def acceptance(journal, native, identity):
     observed['host_observers'] = observers()
     observed['microcode_revision'] = Path('/sys/devices/system/cpu/cpu0/microcode/version').read_text().strip()
     firmware_boot = json.loads((root / ('host-firmware-reboot-' + token + '.json')).read_bytes())
+    kernel = firmware_kernel(native)
+    assert firmware_boot.get('kernel', FIRMWARE_KERNELS[0]) == kernel, 'firmware record kernel differs'
     assert firmware_boot['owner'] == token and firmware_boot['identity'] == identity() and firmware_boot['boot'] != observed['boot']
     assert int(observed['microcode_revision'], 16) >= 0xf0, 'new microcode has not actually loaded'
-    assert early_intel_revision(Path('/boot/initramfs-' + FIRMWARE_KERNEL + '.img')) == 0xf0
+    assert early_intel_revision(Path('/boot/initramfs-' + kernel + '.img')) == 0xf0
     assert not any(p.read_text().strip().startswith('Vulnerable') for p in Path('/sys/devices/system/cpu/vulnerabilities').iterdir()), 'CPU security finding remains'
     return observed
 
 
 FIRMWARE_CONFIG = 'early_microcode="yes"\n'
 FIRMWARE_SHA256 = '15e96637a89012390e2c254effad092fc9535912b709ffa316069fc5606efb65'
-FIRMWARE_KERNEL = '7.2.11-200.fc44.x86_64'
+FIRMWARE_KERNELS = ('7.2.11-200.fc44.x86_64', '7.2.12-200.fc44.x86_64')
+
+
+def firmware_kernel(native):
+    """Select only a reviewed running kernel with its exact Fedora package owner."""
+    kernel = native('uname', '-r')
+    assert kernel in FIRMWARE_KERNELS, 'review current Fedora 44 kernel before firmware work'
+    package = native('rpm', '-qf', '/boot/vmlinuz-' + kernel,
+                     '--qf', '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}')
+    assert package == 'kernel-core ' + kernel, 'running kernel package differs'
+    return kernel
 
 
 def early_intel_revision(path):
@@ -551,12 +564,14 @@ def firmware(operation, journal, native, identity, recovery):
     accepted = root / ('host-firmware-accepted-' + token + '.json')
     install = root / ('host-firmware-reboot-' + token + '.json')
     unit = token + '-host-firmware.service'
-    image = Path('/boot/initramfs-' + FIRMWARE_KERNEL + '.img')
+    kernel = firmware_kernel(native)
+    image = Path('/boot/initramfs-' + kernel + '.img')
     candidate = Path('/boot/.maintenance103-' + token + '.img')
-    assert native('uname', '-r') == FIRMWARE_KERNEL and native('getenforce') == 'Enforcing'
+    assert native('getenforce') == 'Enforcing'
     if operation == 'observe-security-firmware':
         record = json.loads(intent.read_bytes())
         assert record['owner'] == token and record['identity'] == identity()
+        assert record.get('kernel', FIRMWARE_KERNELS[0]) == kernel, 'firmware record kernel differs'
         fields = dict(line.split('=', 1) for line in native('systemctl', 'show', unit,
             '-p', 'LoadState', '-p', 'ActiveState', '-p', 'Result', '-p', 'ExecMainStatus',
             '-p', 'MainPID', '-p', 'ControlPID').splitlines())
@@ -567,7 +582,7 @@ def firmware(operation, journal, native, identity, recovery):
             assert early_intel_revision(candidate) == 0xf0
             native('rpm', '-q', 'smartmontools'); native('rpm', '-V', '--noghost', 'microcode_ctl')
             result.update(accepted=True, candidate_sha256=hashlib.sha256(candidate.read_bytes()).hexdigest(),
-                          target_microcode='0xf0', boot=record['boot'], identity=identity(), owner=token)
+                          target_microcode='0xf0', boot=record['boot'], identity=identity(), owner=token, kernel=kernel)
             if not accepted.exists():hold.exclusive_file(accepted, json.dumps(result, sort_keys=True).encode(), 0o600)
         return result
     with journal.hold.serialized():
@@ -576,13 +591,14 @@ def firmware(operation, journal, native, identity, recovery):
         if operation == 'security-firmware-reboot':
             assert not install.exists(), 'firmware installation intent exists; observe boot, never replay'
             record = json.loads(intent.read_bytes()); proof = json.loads(accepted.read_bytes())
+            assert record.get('kernel', FIRMWARE_KERNELS[0]) == proof.get('kernel', FIRMWARE_KERNELS[0]) == kernel, 'firmware record kernel differs'
             assert record['owner'] == proof['owner'] == token and record['identity'] == proof['identity'] == identity()
             assert proof['accepted'] is True and hashlib.sha256(candidate.read_bytes()).hexdigest() == proof['candidate_sha256']
             assert early_intel_revision(candidate) == 0xf0
             assert hashlib.sha256(image.read_bytes()).hexdigest() == record['before_image_sha256']
             assert Path('/proc/sys/kernel/random/boot_id').read_text().strip() == record['boot']
             hold.exclusive_file(install, json.dumps({'owner': token, 'identity': identity(), 'boot': record['boot'],
-                'candidate_sha256': proof['candidate_sha256'], 'before_image_sha256': record['before_image_sha256']}, sort_keys=True).encode(), 0o600)
+                'kernel': kernel, 'candidate_sha256': proof['candidate_sha256'], 'before_image_sha256': record['before_image_sha256']}, sort_keys=True).encode(), 0o600)
             os.chmod(candidate, image.stat().st_mode & 0o777); os.chown(candidate, 0, 0)
             with candidate.open('rb') as descriptor:os.fsync(descriptor.fileno())
             os.replace(candidate, image); hold.fsync_directory(image.parent)
@@ -605,9 +621,10 @@ def firmware(operation, journal, native, identity, recovery):
         assert (repos / 'maintenance.repo').is_file()
         commands = [['/usr/bin/dnf5', '--setopt=reposdir=' + str(repos), '--setopt=gpgcheck=True',
                     '--setopt=localpkg_gpgcheck=True', '--assumeyes', 'install', 'smartmontools'],
-                    ['/usr/bin/dracut', '--early-microcode', '--kver', FIRMWARE_KERNEL, str(candidate)]]
+                    ['/usr/bin/dracut', '--early-microcode', '--kver', kernel, str(candidate)]]
         content = '#!/bin/bash\nset -euo pipefail\n' + '\n'.join(shlex.join(c) for c in commands) + '\n'
         record = {'owner': token, 'identity': identity(), 'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                  'kernel': kernel,
                   'before_image_sha256': before, 'recovery_sha256': recovery['sha256'],
                   'firmware_sha256': FIRMWARE_SHA256, 'script_sha256': hashlib.sha256(content.encode()).hexdigest()}
         hold.exclusive_file(original, image.read_bytes(), 0o600)
