@@ -50,7 +50,7 @@ class GrowlitheOSDTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'surviving replica'):osd.validate(value,NOW,node='growlithe')
 
     def test_unknown_profile_is_refused_before_api_read(self):
-        with self.assertRaisesRegex(RuntimeError,'unreviewed'):osd.observe(None,node='arcanine')
+        with self.assertRaisesRegex(RuntimeError,'unreviewed'):osd.observe(None,node='unreviewed-host')
 
     def test_native_program_guards_both_disks_and_real_nvme_osd(self):
         ast.parse(osd.NATIVE_IDENTITY);ast.parse(osd.GROWLITHE_NATIVE_IDENTITY)

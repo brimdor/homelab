@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Arcanine maintenance</title>
+<style>body{color:#e6edf3;background:#0d1117;font:16px/1.55 system-ui;max-width:1000px;margin:40px auto;padding:0 24px}h1,h2{color:#79c0ff}code,pre{background:#161b22;padding:3px 6px;overflow:auto}a{color:#a5d6ff}li{margin:.5em 0}.open{color:#ffa657}</style>
+<h1>Issue 103: Arcanine maintenance</h1>
+<p class="open">INCOMPLETE. Read-only observations collected October 27, 2026. No Arcanine maintenance owner, drain, package transaction or reboot has been started.</p>
+<h2>Objective and authority</h2>
+<p>Complete the approved serial Fedora maintenance on Arcanine, the first tainted node, before starting another node. The user approved maintenance actions, software fixes and repository publication. Existing NAS restrictions and separate application release gates remain binding. Fedora 44 is the selected final target; intermediate hops are 39 to 41, 41 to 43, and 43 to 44.</p>
+<h2>Observed identities and dependencies</h2>
+<ul>
+<li>Arcanine: 10.0.20.19; Node UID 88aa2572-09df-40b9-8a00-960e9682917c; machine d877c676fcc2434f9a169f8dc0594676; root UUID d5ffa207-0e76-47a7-a941-1829732d3bc6.</li>
+<li>OSD 2: a527115d-9f22-48cc-a718-4f30bdb64399, /dev/sda3, Deployment f8842303-fd7d-423e-84da-43cda22c7c9b. OSD 8: 38cfd0d6-ace5-4bc2-972a-0315835b3b92, whole /dev/sdb, Deployment 2c6eb278-3ab2-4f6c-b694-64eeb4324648.</li>
+<li>Ceph FSID 13c20377-d801-43f9-aebd-59f62df5dad1. Combined <code>ceph osd ok-to-stop 2 8</code> passed for all 177 placement groups. No group placed both replicas on these OSDs. This is dated evidence; repeat before disruption.</li>
+<li>Monitor n is on Arcanine. Original Pod UID bc113cbd-a8a8-4b2c-a85f-7da4fe180e83; store /var/lib/rook/mon-n. Preserve it cold off-node, then require Rook's normal three-monitor recovery before OSD disruption.</li>
+<li>RTX 3090: GPU-a45669eb-7817-bca9-6c78-d268e0750059, PCI 00000000:01:00.0. Current NVIDIA open driver 560.35.05 on Fedora 39. Determine signed vendor packages compatible with each target kernel before dispatch; package availability alone is not build or runtime proof.</li>
+<li>Read-only process, Docker and Podman observations found no active native VMs, display services, containers or NFS mounts. Preserve unknown historical OSD metadata directories. No cleanup is authorized by their apparent age.</li>
+</ul>
+<h2>Implementation plan and tasks</h2>
+<ol>
+<li>Extend the existing OSD host gate for the exact two-OSD failure domain. Require combined stop safety, both controller identities, all surviving PG min_size constraints, and the unchanged Rook 90-minute protection limit. Reject unrelated degradation, missing mappings and replacement identities. Verify old single-OSD profiles remain strict.</li>
+<li>Extend the existing production profile and configuration recovery to protect both OSD metadata directories without reading block devices. Use new private recovery paths on Charmander; do not add files to Growlithe's hash-bound protected recovery store.</li>
+<li>Extend monitor cold recovery for monitor n. After its UID-scoped eviction, prove native ceph-mon absent, surviving quorum and all five OSDs healthy; stream and hash the original store to Charmander. Wait for Rook to replace the monitor and restore HEALTH_OK. Never manually alter monitor placement or delete its data.</li>
+<li>Resolve official NVIDIA repository keys, exact package plans and target-kernel builds. Publish the supported installation path before using it. Preserve CUDA workloads and configuration; do not build application images on nodes.</li>
+<li>Publish validated controller changes to Gitea master. Capture and verify off-node recovery; acquire the existing exclusive maintenance owner. Cordon and evict serially through the existing journal. OSD evictions occur only after monitor recovery. Perform each supported Fedora hop, restore scheduling, recover storage and GPU runtime, and retain immutable evidence.</li>
+<li>Complete Fedora 44 SELinux Enforcing, RuntimeDefault, firmware/security, disk identity/health, monitoring, Cilium/CSI, Ceph HEALTH_OK and actual CUDA acceptance. Release the owner only after FINAL. Update Issue 103 with exact evidence and unresolved independent gates.</li>
+</ol>
+<h2>Commands, code and verification</h2>
+<p>Existing Python standard-library controllers live in metal/scripts. Regression tests use unittest and preserve existing assertions and error handling. A reviewed operation uses the existing <code>maintenance_production_node.py</code> command with <code>--node arcanine</code>, explicit compatible kubectl, SSH identity and strict known-hosts paths; add that parser profile only when its dependent recovery paths are implemented.</p>
+<pre>python3 -B -m unittest discover -s metal/scripts -p 'test_maintenance_*osd*.py'
+git diff --check
+pre-commit run --files metal/scripts/maintenance_osd_host.py metal/scripts/test_maintenance_arcanine_osd.py</pre>
+<p>Tests must exercise clean state, either and both owned OSDs down, foreign failures, insufficient survivors, missing or duplicate controllers, unsafe combined stop, expired protection, and unchanged single-OSD behavior. Read-only offline mapping must use only a temporary copied OSD map, preserve its hash and remove it afterward. Native embedded programs must compile before publication.</p>
+<pre>targets = {2, 8}
+require(not down or maintenance and down &lt;= targets, 'unowned or unrelated down OSD')</pre>
+<h2>Boundaries and rollback</h2>
+<ul>
+<li>Always: repository first, exact identities, fresh observations, exclusive ownership, retained protected recovery, one node at a time. Never replay uncertain package or drain intents.</li>
+<li>Never: wipe, PXE, reformat, purge OSDs, lower replication, bypass PDBs, hide warnings, mutate NAS/Zot, change regular Monday/Wednesday/Friday schedules, or promote Strata under Versa approval.</li>
+<li>Rollback: retain original disk layouts, boot/config archives, OSD metadata and cold monitor store. An interrupted transaction remains owned and is observed before recovery. Do not start an older incompatible runtime on changed data or restore monitor stores into a live cluster without an exact recovery plan.</li>
+<li>Ask only for an actual unresolved human, physical or separate explicit approval gate. Implementation gaps remain agent work.</li>
+</ul>
+<h2>Evidence</h2>
+<p>Retained read-only runs: maintenance103-arcanine-readonly-maintenance-inputs-yikedw20 (22:17:50Z); maintenance103-arcanine-native-consumer-and-recovery-inputs-6x011nq8 (22:20:41Z). Repository base: 5923ee102200193ef2884b9a5cd16a08b565c224. Inputs are observations, not maintenance completion.</p>
+<p>Primary references: <a href="https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/fedora.html">NVIDIA Fedora installation guide</a>; <a href="https://raw.githubusercontent.com/ceph/ceph/v20.2.1/src/tools/osdmaptool.cc">Ceph 20.2.1 copied-map tooling</a>.</p>
+</html>

@@ -16,6 +16,9 @@ STATE_UID = '5bb7a0f0-5cd6-4c83-b004-2d11c1def154'
 PROFILES = {
     'cyndaquil': {'node_uid': NODE_UID, 'osd': 1, 'deployment_uid': DEPLOYMENT_UID,
                    'address': '10.0.20.16'},
+    'arcanine': {'node_uid': '88aa2572-09df-40b9-8a00-960e9682917c',
+                 'osds': {2: 'f8842303-fd7d-423e-84da-43cda22c7c9b',
+                          8: '2c6eb278-3ab2-4f6c-b694-64eeb4324648'}, 'address': '10.0.20.19'},
     'growlithe': {'node_uid': '50f95b8f-4117-4c1e-84bc-266c5b23bffb', 'osd': 6,
                   'deployment_uid': '2c29b0f2-06c1-4f67-8bc5-6dccee9c7970', 'address': '10.0.20.18'},
 }
@@ -26,27 +29,34 @@ def profile_for(node):
     return PROFILES[node]
 
 
+def targets_for(node):
+    profile = profile_for(node)
+    return profile['osds'] if 'osds' in profile else {profile['osd']: profile['deployment_uid']}
+
+
 def wait_for_protection(api, node, owner, ref):
     """After one committed eviction, await Rook's own flag; never set it ourselves."""
     profile = profile_for(node)
+    targets = targets_for(node)
+    match = re.fullmatch(r'rook-ceph-osd-([0-9]+)-[a-z0-9]+', ref.get('controller', {}).get('name', ''))
+    target = int(match[1]) if match else None
     require(owner.get('node') == node and owner.get('node_uid') == profile['node_uid'] and
             ref.get('namespace') == 'rook-ceph' and ref.get('keep') is False and
             ref.get('uid') and ref['controller']['kind'] == 'ReplicaSet' and
-            re.fullmatch('rook-ceph-osd-' + str(profile['osd']) + '-[a-z0-9]+',
-                         ref['controller']['name']), 'unreviewed queued OSD eviction')
+            target in targets, 'unreviewed queued OSD eviction')
     ds = api.call('get', 'daemonset', 'kured', '-n', 'kured', '-o', 'json')
     require(ds['metadata']['uid'] == '4abc4fee-c3be-440e-8945-34bb3fb15ce1' and
             json.loads(ds['metadata']['annotations'][JOURNAL]) == owner,
             'OSD protection wait owner changed')
-    target = api.call('get', 'node', node, '-o', 'json')
-    require(target['metadata']['uid'] == profile['node_uid'] and
-            target['spec'].get('unschedulable') is True, 'OSD protection wait lost cordon')
+    current_node = api.call('get', 'node', node, '-o', 'json')
+    require(current_node['metadata']['uid'] == profile['node_uid'] and
+            current_node['spec'].get('unschedulable') is True, 'OSD protection wait lost cordon')
     replica = api.call('get', 'replicaset', ref['controller']['name'], '-n', 'rook-ceph', '-o', 'json')
     parents = replica['metadata'].get('ownerReferences', [])
     require(replica['metadata']['uid'] == ref['controller']['uid'] and
             not replica['metadata'].get('deletionTimestamp') and len(parents) == 1 and
             parents[0].get('kind') == 'Deployment' and parents[0].get('controller') is True and
-            parents[0].get('uid') == profile['deployment_uid'], 'queued OSD controller changed')
+            parents[0].get('uid') == targets[target], 'queued OSD controller changed')
     state = api.call('get', 'configmap', 'rook-ceph-pdbstatemap', '-n', 'rook-ceph', '-o', 'json')
     require(state['metadata']['uid'] == STATE_UID and
             state['data'].get('draining-failure-domain', '') in ('', node),
@@ -62,7 +72,7 @@ def wait_for_protection(api, node, owner, ref):
                        'ceph', 'osd', 'dump', '--format', 'json')
     require(accepted['owner'] == owner['owner'] and current['fsid'] == FSID and
             current['crush_node_flags'] == {node: ['noout']}, 'actual owned noout protection is absent')
-    return {'owner': owner['owner'], 'osd': profile['osd'], 'evicted_pod_uid': ref['uid'],
+    return {'owner': owner['owner'], 'osd': target, 'evicted_pod_uid': ref['uid'],
             'rook_state_uid': STATE_UID, 'actual_noout_verified': True, 'mutation_performed': False}
 
 OSDS = {1: '1c69c51e-b0da-42ee-bd34-581361740a02',
@@ -82,18 +92,22 @@ def validate(value, now=None, node=NODE):
     """Reject any degradation outside the exact owned, cordoned failure domain."""
     profile = profile_for(node)
     node_name, node_uid = node, profile['node_uid']
-    deployment_uid, target = profile['deployment_uid'], profile['osd']
-    node, cluster, deployment = value['node'], value['cluster'], value['deployment']
+    targets = targets_for(node)
+    deployments = value['deployments'] if len(targets) > 1 else {next(iter(targets)): value['deployment']}
+    require(set(deployments) == set(targets), 'exact OSD deployment set differs')
+    node, cluster = value['node'], value['cluster']
     require(node['metadata']['name'] == node_name and node['metadata']['uid'] == node_uid and
             not node['metadata'].get('deletionTimestamp'), 'OSD node identity differs')
     require(cluster['metadata']['uid'] == CLUSTER_UID and
             cluster['spec']['removeOSDsIfOutAndSafeToRemove'] is False and
             cluster['spec']['disruptionManagement'] == {
                 'managePodBudgets': True, 'osdMaintenanceTimeout': 90}, 'OSD protection differs')
-    require(deployment['metadata']['uid'] == deployment_uid and
-            deployment['spec']['replicas'] == 1 and
-            deployment['spec']['template']['spec']['nodeSelector']['kubernetes.io/hostname'] == node_name and
-            not deployment['metadata'].get('deletionTimestamp'), 'exact OSD deployment differs')
+    for target, deployment_uid in targets.items():
+        deployment = deployments[target]
+        require(deployment['metadata']['uid'] == deployment_uid and
+                deployment['spec']['replicas'] == 1 and
+                deployment['spec']['template']['spec']['nodeSelector']['kubernetes.io/hostname'] == node_name and
+                not deployment['metadata'].get('deletionTimestamp'), 'exact OSD deployment differs')
     ds = value['kured']
     require(ds['metadata']['uid'] == '4abc4fee-c3be-440e-8945-34bb3fb15ce1', 'Kured identity differs')
     raw = ds['metadata'].get('annotations', {}).get(JOURNAL)
@@ -116,7 +130,7 @@ def validate(value, now=None, node=NODE):
             all(o['uuid'] == OSDS[i] and o['in'] == 1 and o['weight'] == 1
                 for i, o in osds.items()), 'OSD identity, membership or weight differs')
     down = {i for i, o in osds.items() if o['up'] != 1}
-    require(not down or maintenance and down == {target}, 'unowned or unrelated down OSD')
+    require(not down or maintenance and down <= set(targets), 'unowned or unrelated down OSD')
     require(set(osdmap['flags_set']) == BASE_FLAGS and not osdmap['device_class_flags'] and
             all(not (set(o.get('state', [])) & {'noout', 'noup', 'nodown', 'noin'})
                 for o in osds.values()), 'unowned global, class or individual OSD flags')
@@ -144,7 +158,7 @@ def validate(value, now=None, node=NODE):
         require(health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and set(checks) <= WARNING_CHECKS and
                 all(c.get('severity') == 'HEALTH_WARN' for c in checks.values()),
                 'unexpected Ceph health finding during owned OSD maintenance')
-        require(not (set(checks) & {'OSD_DOWN', 'OSD_HOST_DOWN'}) or down == {target},
+        require(not (set(checks) & {'OSD_DOWN', 'OSD_HOST_DOWN'}) or down and down <= set(targets),
                 'OSD health warning does not match observed down target')
         require('OSD_FLAGS' not in checks or flags == {node_name: ['noout']}, 'OSD flag warning is not owned')
     else:
@@ -162,7 +176,7 @@ def validate(value, now=None, node=NODE):
     for pg in pgs:
         states = set(pg['state'].split('+'))
         expected = restored[pg['pgid']] if down else pg['up']
-        affected = target in expected
+        affected = bool(set(targets) & set(expected))
         allowed = OWNED_STATES if maintenance and affected else CLEAN_STATES
         require('active' in states and states <= allowed and
                 (maintenance and affected or 'clean' in states), 'inactive or unrelated unhealthy PG')
@@ -170,6 +184,7 @@ def validate(value, now=None, node=NODE):
         require(pool is not None, 'PG pool is not reviewed')
         require(len(expected) == pool['size'] and len(set(expected)) == pool['size'] and
                 set(expected) <= set(OSDS) and
+                len(set(expected) - set(targets)) >= pool['min_size'] and
                 set(pg['up']) == set(expected) - down and
                 len(set(pg['up'])) == len(pg['up']) and
                 pg['acting'] and len(set(pg['acting'])) == len(pg['acting']) and
@@ -181,39 +196,49 @@ def validate(value, now=None, node=NODE):
                     'clean PG mapping differs')
     if not down:
         stop = value['ok_to_stop']
-        require(stop['ok_to_stop'] is True and stop['osds'] == [target] and
+        require(stop['ok_to_stop'] is True and stop['osds'] == sorted(targets) and
                 stop['num_not_ok_pgs'] == 0, 'exact OSD is not safe to stop')
-    unready = not (deployment.get('status', {}).get('observedGeneration') == deployment['metadata']['generation'] and
-                   deployment.get('status', {}).get('readyReplicas') == 1 and
-                   deployment.get('status', {}).get('updatedReplicas') == 1)
-    require(not unready or maintenance, 'OSD deployment has not recovered')
+    for deployment in deployments.values():
+        unready = not (deployment.get('status', {}).get('observedGeneration') == deployment['metadata']['generation'] and
+                       deployment.get('status', {}).get('readyReplicas') == 1 and
+                       deployment.get('status', {}).get('updatedReplicas') == 1)
+        require(not unready or maintenance, 'OSD deployment has not recovered')
     # Recheck actual state each time; keep the owner interval stable across a cordon.
-    return {'scope': 'OWNED_OSD_HOST_INTERVAL' if owned else 'HEALTH_OK',
-            'cluster_uid': CLUSTER_UID, 'fsid': FSID, 'osd': target, 'osd_uuid': OSDS[target],
-            'owner': owner['owner'] if owned else None,
-            'managed_deployment_uid': deployment_uid}
+    result = {'scope': 'OWNED_OSD_HOST_INTERVAL' if owned else 'HEALTH_OK',
+              'cluster_uid': CLUSTER_UID, 'fsid': FSID, 'owner': owner['owner'] if owned else None}
+    if len(targets) == 1:
+        target, deployment_uid = next(iter(targets.items()))
+        result.update(osd=target, osd_uuid=OSDS[target], managed_deployment_uid=deployment_uid)
+    else:
+        result.update(osds={str(i): OSDS[i] for i in targets},
+                      managed_deployment_uids=sorted(targets.values()))
+    return result
 
 
 def observe(api, node=NODE):
     """No mutations: gather complete native Ceph and controller evidence."""
-    target = profile_for(node)['osd']
+    targets = targets_for(node)
     def ceph(*args):
         return api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
                         'ceph', *args, '--format', 'json')
     status = ceph('status')
     value = {'node': api.call('get', 'node', node, '-o', 'json'),
              'cluster': api.call('get', 'cephcluster', 'rook-ceph', '-n', 'rook-ceph', '-o', 'json'),
-             'deployment': api.call('get', 'deployment', 'rook-ceph-osd-' + str(target), '-n', 'rook-ceph', '-o', 'json'),
              'kured': api.call('get', 'daemonset', 'kured', '-n', 'kured', '-o', 'json'),
              'pdb_state': api.call('get', 'configmap', 'rook-ceph-pdbstatemap', '-n', 'rook-ceph', '-o', 'json'),
              'map': ceph('osd', 'dump'), 'quorum': ceph('quorum_status'),
              'health': ceph('health', 'detail'), 'pgs': ceph('pg', 'dump', 'pgs_brief')['pg_stats'],
              'num_pgs': status['pgmap']['num_pgs']}
+    deployments = {i: api.call('get', 'deployment', 'rook-ceph-osd-' + str(i), '-n', 'rook-ceph', '-o', 'json') for i in targets}
+    if len(targets) == 1:
+        value['deployment'] = next(iter(deployments.values()))
+    else:
+        value['deployments'] = deployments
     if all(o['up'] == 1 for o in value['map']['osds']):
-        value['ok_to_stop'] = ceph('osd', 'ok-to-stop', str(target))
+        value['ok_to_stop'] = ceph('osd', 'ok-to-stop', *map(str, sorted(targets)))
     if any(o['up'] != 1 for o in value['map']['osds']):
         recovered = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
-                             'python3', '-c', OFFLINE_MAPPING, str(target))
+                             'python3', '-c', OFFLINE_MAPPING, *map(str, sorted(targets)))
         require(recovered['map'] == value['map'] and recovered['temporary_removed'],
                 'OSD map changed during offline attribution or native cleanup failed')
         value['restored_mapping'] = parse_mapping(recovered['mapping'])
@@ -223,15 +248,23 @@ def observe(api, node=NODE):
 # Ceph's --mark-up changes only the copied map in memory; never use --save.
 OFFLINE_MAPPING = r'''
 import tempfile,subprocess,pathlib,json,hashlib,sys
-target=sys.argv[1];assert target in ('1','6')
+targets=sys.argv[1:];assert targets in (['1'],['6'],['2','8'])
 with tempfile.TemporaryDirectory(prefix='maintenance103-readonly-osdmap-') as directory:
  path=pathlib.Path(directory)/'map'
  subprocess.run(['ceph','osd','getmap','-o',str(path)],check=True,capture_output=True)
  digest=hashlib.sha256(path.read_bytes()).hexdigest()
  def call(*args):
   return subprocess.check_output(['osdmaptool',str(path),*args],text=True,stderr=subprocess.PIPE)
- result={'map':json.loads(call('--dump','json')),
-         'mapping':call('--mark-up',target,'--test-map-pgs-dump-all')}
+ original=json.loads(call('--dump','json'))
+ assert original['fsid']=='13c20377-d801-43f9-aebd-59f62df5dad1'
+ osds=original['osds']
+ assert {o['osd']for o in osds}=={1,2,6,7,8}and len(osds)==5
+ assert all(o['in']==1 and o['weight']==1 for o in osds)
+ assert {o['osd']for o in osds if o['up']!=1}<=set(map(int,targets))
+ # Ceph 20.2.1 retains only the last --mark-up argument. With every other OSD
+ # already up/in at weight one, --mark-up-in restores only this copied host.
+ arguments=['--mark-up',targets[0]]if len(targets)==1 else ['--mark-up-in']
+ result={'map':original,'mapping':call(*arguments,'--test-map-pgs-dump-all')}
  assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
 assert not pathlib.Path(directory).exists()
 result['temporary_removed']=True

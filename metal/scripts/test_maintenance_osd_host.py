@@ -133,6 +133,7 @@ class OSDHostTests(unittest.TestCase):
                 if args[:2] == ('get', 'nodes'):return {'items': nodes}
                 if args[:2] == ('get', 'deployments'):return {'items': self.deployments}
                 if args[:2] == ('get', 'statefulsets'):return {'items': []}
+                if args[:2] == ('get', 'daemonset'):return {'metadata': {'annotations': {}}}
                 if args[0] == 'exec':return {'status': 'HEALTH_WARN'}
                 raise AssertionError(args)
 
@@ -156,7 +157,7 @@ class OSDHostTests(unittest.TestCase):
         import types
         import maintenance_production_node as production
         start = production.NATIVE.index("elif operation in('cordon','restore-scheduling'):")
-        end = production.NATIVE.index("elif operation in('trusted-reconnect'", start)
+        end = production.NATIVE.index('\n elif ', start)
         block = production.NATIVE[start:end].replace('elif operation', 'if operation', 1)
 
         class StoredPlan:
@@ -182,7 +183,7 @@ class OSDHostTests(unittest.TestCase):
                  'api': None, 'scheduling': types.SimpleNamespace(Scheduling=lambda *args: worker),
                  'evidence': lambda: {}, 'prerequisites': lambda value: lambda *args: True,
                  'drain': types.SimpleNamespace(hashed=lambda value: 'digest'),
-                 'hops': types.SimpleNamespace(STEPS=['restore_scheduling']), 'json': json}
+                 'hops': types.SimpleNamespace(steps=lambda owner: ['restore_scheduling']), 'json': json}
         exec(block, scope)
         self.assertFalse(scope['result']['accepted'])
         self.assertEqual((worker.dispatches, worker.observations), (1, 0))
