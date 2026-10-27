@@ -3,12 +3,17 @@ app-template:
     main:
       strategy: RollingUpdate
       replicas: 1
+      pod:
+        # Original artifact is protected on this accepted node while registry repair is restricted.
+        nodeSelector:
+          kubernetes.io/hostname: charmander
       containers:
         main:
           image:
             repository: 10.0.20.11:32309/nibble
             tag: "issue-26-audit-canary"
-            pullPolicy: Always
+            digest: sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d46
+            pullPolicy: IfNotPresent
           env:
             TZ: America/Chicago
           probes:
