@@ -39,6 +39,24 @@ class GrowlitheImageTests(unittest.TestCase):
         self.assertIn("io.cri-containerd.pinned=pinned", program)
         compile(program, '<register>', 'exec')
 
+    def test_nibble_keeps_its_amd64_graph_and_charmander_receiver(self):
+        with mock.patch.object(images, 'stream') as transfer:
+            images.preserve_nibble(None)
+        _, address, source, receiver, target = transfer.call_args.args
+        self.assertEqual((address, target), ('10.0.20.18', '10.0.20.11'))
+        self.assertIn("'linux/amd64'", source)
+        self.assertNotIn("'linux/arm64'", source)
+        self.assertIn(images.NIBBLE['CONFIG'], source)
+        self.assertNotIn('handler_ready(', receiver)
+        self.assertIn(images.NIBBLE['TARGET_ROOT'], receiver)
+        self.assertIn('BLOB_COUNT=14', receiver)
+        compile(source, '<nibble-source>', 'exec')
+        compile(receiver, '<nibble-receiver>', 'exec')
+        with mock.patch.object(images, 'remote') as native:
+            images.register_nibble(None)
+        self.assertIn(images.NIBBLE['ALIAS'], native.call_args.args[1])
+        self.assertEqual(native.call_args.args[2], target)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -22,6 +22,26 @@ VALUES = {
     'ARTIFACT': 'maintenance103-growlithe-humbleai-demo-fcf08c14.tar',
 }
 
+NIBBLE = {
+    **VALUES,
+    'IMAGE': '10.0.20.11:32309/nibble:issue-26-audit-canary',
+    'ALIAS': '10.0.20.11:32309/nibble@sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d46',
+    'DIGEST': 'sha256:bd302668a32803da79db8dc178cf93b0c05cd6f48766acca0bf5075cddd53d46',
+    'CONFIG': 'sha256:c5041e29afd7b0b6ac5e6adb59d5abb063358af0ea59688071721ecb7d0325d7',
+    'BLOB_COUNT': 14,
+    'TARGET_HOST': 'charmander',
+    'TARGET_MACHINE': '58d682ccab5a4269acedc3cdf53e46dc',
+    'TARGET_ROOT': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2',
+    'RECOVERY': '/var/lib/homelab-recovery/maintenance-103/growlithe-nibble-canary-bd302668',
+    'ARTIFACT': 'maintenance103-growlithe-nibble-canary-bd302668.tar',
+}
+
+CAPACITY = '''
+import shutil
+usage=shutil.disk_usage('/var/lib')
+assert usage.free-2*1024**3>usage.total//5,'receiver needs archive and native import headroom'
+'''
+
 
 def handler_ready(text):
     lines = text.splitlines()
@@ -30,16 +50,14 @@ def handler_ready(text):
             any(line.startswith('flags: ') and 'F' in line[7:] for line in lines))
 
 
-def bindings():
-    return ''.join(key + '=' + repr(value) + '\n' for key, value in VALUES.items())
+def bindings(values=VALUES):
+    return ''.join(key + '=' + repr(value) + '\n' for key, value in values.items())
 
 
 def receiver_guard():
-    return 'import pathlib,shutil\n' + inspect.getsource(handler_ready) + '''
+    return 'import pathlib\n' + inspect.getsource(handler_ready) + '''
 assert handler_ready(pathlib.Path('/proc/sys/fs/binfmt_misc/qemu-aarch64').read_text()),'existing ARM64 handler unavailable'
-usage=shutil.disk_usage('/var/lib')
-assert usage.free-2*1024**3>usage.total//5,'receiver needs archive and native import headroom'
-'''
+''' + CAPACITY
 
 
 def preserve(args):
@@ -52,3 +70,12 @@ def preserve(args):
 
 def register(args):
     return remote(args, bindings() + receiver_guard() + REGISTER_PROGRAM, '10.0.20.16')
+
+
+def preserve_nibble(args):
+    return stream(args, '10.0.20.18', bindings(NIBBLE) + SOURCE_PROGRAM,
+                  bindings(NIBBLE) + CAPACITY + RECEIVE_PROGRAM, '10.0.20.11')
+
+
+def register_nibble(args):
+    return remote(args, bindings(NIBBLE) + CAPACITY + REGISTER_PROGRAM, '10.0.20.11')
