@@ -1,4 +1,4 @@
-"""Preserve Charmander's cold original monitor store before any OS transaction."""
+"""Preserve the exact cold original monitor store before any OS transaction."""
 
 import json
 import shlex
@@ -15,21 +15,43 @@ IDENTITY = {'machine': '58d682ccab5a4269acedc3cdf53e46dc',
 ROOT = '/var/lib/homelab-recovery/maintenance-103/charmander-mon-h-20261026-a'
 RECEIVER = '10.0.20.18'
 
+PROFILES = {
+    'charmander': {'node_uid': NODE_UID, 'pod_uid': POD_UID, 'identity': IDENTITY,
+                  'root': ROOT, 'address': '10.0.20.11', 'monitor': 'h', 'survivors': {'l', 'n'},
+                  'receiver': RECEIVER, 'receiver_node': 'growlithe',
+                  'receiver_identity': {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
+                      'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}},
+    'arcanine': {'node_uid': '88aa2572-09df-40b9-8a00-960e9682917c',
+                'pod_uid': 'bc113cbd-a8a8-4b2c-a85f-7da4fe180e83',
+                'identity': {'machine': 'd877c676fcc2434f9a169f8dc0594676',
+                             'root_uuid': 'd5ffa207-0e76-47a7-a941-1829732d3bc6'},
+                'root': '/var/lib/homelab-recovery/maintenance-103/arcanine-mon-n-20261027-a',
+                'address': '10.0.20.19', 'monitor': 'n', 'survivors': {'l', 'o'},
+                'receiver': '10.0.20.11', 'receiver_node': 'charmander',
+                'receiver_identity': IDENTITY},
+}
 
-def guard(node, pods, status):
+
+def profile_for(node):
+    require(node in PROFILES, 'unreviewed cold monitor profile')
+    return PROFILES[node]
+
+
+def guard(node, pods, status, target='charmander'):
     """The planned single-monitor outage permits recovery reads, never OS work."""
+    profile = profile_for(target)
     health = status.get('health', {})
     osds = status.get('osdmap', {})
     groups = status.get('pgmap', {}).get('pgs_by_state', [])
-    require(node['metadata']['name'] == 'charmander' and node['metadata']['uid'] == NODE_UID and
+    require(node['metadata']['name'] == target and node['metadata']['uid'] == profile['node_uid'] and
             node['spec'].get('unschedulable') is True and
             not node['metadata'].get('deletionTimestamp'), 'cold recovery target or cordon differs')
-    require(not any(p['metadata']['uid'] == POD_UID or
-                    p['spec'].get('nodeName') == 'charmander' and
+    require(not any(p['metadata']['uid'] == profile['pod_uid'] or
+                    p['spec'].get('nodeName') == target and
                     p['metadata'].get('labels', {}).get('app') == 'rook-ceph-mon' for p in pods),
             'original monitor Pod remains or another monitor occupies the target')
-    require(status.get('fsid') == FSID and {'l', 'n'} <= set(status.get('quorum_names', [])) and
-            'h' not in status.get('quorum_names', []) and
+    require(status.get('fsid') == FSID and profile['survivors'] <= set(status.get('quorum_names', [])) and
+            profile['monitor'] not in status.get('quorum_names', []) and
             set(health.get('checks', {})) <= {'MON_DOWN'} and
             health.get('status') == ('HEALTH_WARN' if health.get('checks') else 'HEALTH_OK') and
             osds.get('num_osds') == osds.get('num_up_osds') == osds.get('num_in_osds') == 5 and
@@ -39,12 +61,12 @@ def guard(node, pods, status):
 
 RECEIVER_IDENTITY = r'''
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys,tarfile
-assert os.geteuid()==0 and socket.gethostname()=='growlithe'
-assert pathlib.Path('/etc/machine-id').read_text().strip()=='a26cbcc990c044dea41fbf4f957f453d'
-assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='710e2dca-691e-4123-a867-4994b9c6e612'
+assert os.geteuid()==0 and socket.gethostname()==RECEIVER_NODE
+assert pathlib.Path('/etc/machine-id').read_text().strip()==RECEIVER_IDENTITY['machine']
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==RECEIVER_IDENTITY['root_uuid']
 root=pathlib.Path(ROOT)
 assert not any(p.is_symlink()for p in(root,*root.parents))
-assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(root.parent)],text=True).strip()=='710e2dca-691e-4123-a867-4994b9c6e612'
+assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(root.parent)],text=True).strip()==RECEIVER_IDENTITY['root_uuid']
 def check(path):
  info=path.stat();assert stat.S_ISREG(info.st_mode)and info.st_uid==0 and stat.S_IMODE(info.st_mode)==0o600 and info.st_nlink==1
  digest=hashlib.sha256()
@@ -54,12 +76,12 @@ def check(path):
  with tarfile.open(path,'r:')as archive:
   for entry in archive:
    name=pathlib.PurePosixPath(entry.name)
-   assert not name.is_absolute()and '..'not in name.parts and name.parts[0]=='mon-h'
+   assert not name.is_absolute()and '..'not in name.parts and name.parts[0]=='mon-'+MONITOR
    assert entry.isfile()or entry.isdir()or entry.islnk()
    if entry.islnk():
     link=pathlib.PurePosixPath(entry.linkname)
-    assert not link.is_absolute()and '..'not in link.parts and link.parts[0]=='mon-h'
-   store|=name.parts[:3]==('mon-h','data','store.db');count+=1
+    assert not link.is_absolute()and '..'not in link.parts and link.parts[0]=='mon-'+MONITOR
+   store|=name.parts[:3]==('mon-'+MONITOR,'data','store.db');count+=1
  assert count>0 and store
  return {'sha256':digest.hexdigest(),'bytes':path.stat().st_size,'members':count}
 '''
@@ -76,7 +98,7 @@ else:
 
 SOURCE = r'''
 import fcntl,json,os,pathlib,socket,stat,subprocess,sys
-assert os.geteuid()==0 and socket.gethostname()=='charmander'
+assert os.geteuid()==0 and socket.gethostname()==NODE
 assert pathlib.Path('/etc/machine-id').read_text().strip()==IDENTITY['machine']
 assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==IDENTITY['root_uuid']
 state=pathlib.Path('/var/lib/homelab-maintenance')
@@ -84,7 +106,7 @@ lock=os.open(state/'controller.lock',os.O_RDWR|os.O_NOFOLLOW)
 fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
 def cold():
  assert json.loads((state/'owner.json').read_bytes())=={'version':1,'owner':OWNER['owner'],'identity':IDENTITY,'revision':OWNER['revision']}
- root=pathlib.Path('/var/lib/rook/mon-h')
+ root=pathlib.Path('/var/lib/rook')/('mon-'+MONITOR)
  assert not any(p.is_symlink()for p in(root,*root.parents))and(root/'data/store.db').is_dir()
  assert subprocess.check_output(['findmnt','-n','-o','UUID','-T',str(root)],text=True).strip()==IDENTITY['root_uuid']
  for p in pathlib.Path('/proc').iterdir():
@@ -93,7 +115,7 @@ def cold():
   except FileNotFoundError:continue
   assert command!='ceph-mon','monitor is not cold'
 cold()
-result=subprocess.run(['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-system','-C','/var/lib/rook','-cf','-','mon-h'])
+result=subprocess.run(['tar','--numeric-owner','--acls','--xattrs','--selinux','--one-file-system','-C','/var/lib/rook','-cf','-','mon-'+MONITOR])
 assert result.returncode==0,'cold archive stream failed'
 cold()
 '''
@@ -116,36 +138,41 @@ print(json.dumps(check(root/'monitor.partial')))
 '''
 
 
-def bindings():
+def bindings(node='charmander'):
+    profile = profile_for(node)
     return ''.join(k + '=' + repr(v) + '\n' for k, v in {
-        'ROOT': ROOT, 'FSID': FSID, 'NODE_UID': NODE_UID, 'POD_UID': POD_UID, 'IDENTITY': IDENTITY}.items())
+        'ROOT': profile['root'], 'FSID': FSID, 'NODE_UID': profile['node_uid'],
+        'POD_UID': profile['pod_uid'], 'IDENTITY': profile['identity'], 'NODE': node,
+        'MONITOR': profile['monitor'], 'RECEIVER_NODE': profile['receiver_node'],
+        'RECEIVER_IDENTITY': profile['receiver_identity']}.items())
 
 
-def verify(args):
+def verify(args, node='charmander'):
     from maintenance_production_node import remote
-    record = remote(args, bindings() + READBACK, RECEIVER)
+    record = remote(args, bindings(node) + READBACK, profile_for(node)['receiver'])
     require(record is not None, 'protect the cold original monitor store before package work')
     return record
 
 
-def preserve(args, api, controller, owner):
+def preserve(args, api, controller, owner, node='charmander'):
     from maintenance_production_node import remote, ssh
-    require(owner['node'] == 'charmander' and owner['node_uid'] == NODE_UID and
+    profile = profile_for(node)
+    require(owner['node'] == node and owner['node_uid'] == profile['node_uid'] and
             owner['source'] == 39 and owner['target'] == 41, 'cold recovery owner differs')
     def current():
         require(controller.resume(owner['owner']) == owner, 'cold recovery global owner changed')
-        guard(api.call('get', 'node', 'charmander', '-o', 'json'),
+        guard(api.call('get', 'node', node, '-o', 'json'),
               api.call('get', 'pods', '-n', 'rook-ceph', '-o', 'json')['items'],
-              api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'status', '-f', 'json'))
+              api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'status', '-f', 'json'), target=node)
     current()
-    existing = remote(args, bindings() + READBACK, RECEIVER)
+    existing = remote(args, bindings(node) + READBACK, profile['receiver'])
     if existing is not None:
         require(existing['owner'] == owner, 'cold recovery belongs to another owner')
         return existing
-    prefix = bindings() + 'OWNER=' + repr(owner) + '\n'
-    producer = subprocess.Popen(ssh(args, '10.0.20.11') + ['python3 -B -c ' + shlex.quote(prefix + SOURCE)],
+    prefix = bindings(node) + 'OWNER=' + repr(owner) + '\n'
+    producer = subprocess.Popen(ssh(args, profile['address']) + ['python3 -B -c ' + shlex.quote(prefix + SOURCE)],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    consumer = subprocess.Popen(ssh(args, RECEIVER) + ['python3 -B -c ' + shlex.quote(prefix + RECEIVE)],
+    consumer = subprocess.Popen(ssh(args, profile['receiver']) + ['python3 -B -c ' + shlex.quote(prefix + RECEIVE)],
                                 stdin=producer.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     producer.stdout.close()
     try:
@@ -155,8 +182,8 @@ def preserve(args, api, controller, owner):
                 'cold stream failed; protected partial retained: ' + producer.stderr.read().decode()[-700:] + error.decode()[-700:])
         archive = json.loads(output)
         current()
-        record = {'fsid': FSID, 'node_uid': NODE_UID, 'pod_uid': POD_UID,
-                  'identity': IDENTITY, 'owner': owner, 'archive': archive}
+        record = {'fsid': FSID, 'node_uid': profile['node_uid'], 'pod_uid': profile['pod_uid'],
+                  'identity': profile['identity'], 'owner': owner, 'archive': archive}
         finalize = RECEIVER_IDENTITY + '\nrecord=' + repr(record) + r'''
 assert check(root/'monitor.partial')==record['archive']
 os.link(root/'monitor.partial',root/'monitor.tar');(root/'monitor.partial').unlink()
@@ -165,8 +192,8 @@ with(root/'verified.json').open('x')as target:
 fd=os.open(root,os.O_DIRECTORY);os.fsync(fd);os.close(fd)
 print(json.dumps(record))
 '''
-        remote(args, bindings() + finalize, RECEIVER)
-        require(verify(args) == record, 'cold archive final readback differs')
+        remote(args, bindings(node) + finalize, profile['receiver'])
+        require(verify(args, node=node) == record, 'cold archive final readback differs')
         return record
     finally:
         for child in (producer, consumer):

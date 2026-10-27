@@ -46,6 +46,44 @@ class MonitorRecoveryTests(unittest.TestCase):
         self.assertLess(gate, dispatch)
         self.assertIn('verify(args)', source[gate:dispatch])
 
+    def test_arcanine_cold_monitor_requires_both_survivors_and_every_osd_up(self):
+        profile = subject.profile_for('arcanine')
+        node = {'metadata': {'name': 'arcanine', 'uid': profile['node_uid']},
+                'spec': {'unschedulable': True}}
+        status = copy.deepcopy(self.status)
+        status['quorum_names'] = ['l', 'o']
+        subject.guard(node, [], status, target='arcanine')
+        # Rook may finish failover while the original cold store is protected.
+        status['quorum_names'].append('p')
+        status['health'] = {'status': 'HEALTH_OK', 'checks': {}}
+        subject.guard(node, [], status, target='arcanine')
+        for fault in ('original live', 'replacement local', 'old monitor quorum', 'lost survivor', 'down osd'):
+            changed, pods = copy.deepcopy(status), []
+            if fault == 'original live':pods = [{'metadata': {'uid': profile['pod_uid']}, 'spec': {}}]
+            if fault == 'replacement local':pods = [{'metadata': {'uid': 'new', 'labels': {
+                'app': 'rook-ceph-mon'}}, 'spec': {'nodeName': 'arcanine'}}]
+            if fault == 'old monitor quorum':changed['quorum_names'].append('n')
+            if fault == 'lost survivor':changed['quorum_names'] = ['l', 'p']
+            if fault == 'down osd':changed['osdmap']['num_up_osds'] = 4
+            with self.subTest(fault=fault), self.assertRaises(RuntimeError):
+                subject.guard(node, pods, changed, target='arcanine')
+
+    def test_arcanine_bindings_keep_exact_archive_and_receiver_separate(self):
+        scope = {}
+        exec(subject.bindings('arcanine'), scope)
+        self.assertEqual(scope['MONITOR'], 'n')
+        self.assertEqual(scope['NODE'], 'arcanine')
+        self.assertEqual(scope['RECEIVER_NODE'], 'charmander')
+        self.assertEqual(scope['ROOT'], '/var/lib/homelab-recovery/maintenance-103/arcanine-mon-n-20261027-a')
+        self.assertEqual(scope['POD_UID'], 'bc113cbd-a8a8-4b2c-a85f-7da4fe180e83')
+        for source in (subject.READBACK, subject.SOURCE, subject.RECEIVE):
+            compile(subject.bindings('arcanine') + source, 'arcanine-cold-monitor-native', 'exec')
+            self.assertNotIn('mon-h', source)
+        self.assertEqual(subject.PROFILES['arcanine']['receiver'], '10.0.20.11')
+        self.assertEqual(subject.PROFILES['charmander']['receiver'], '10.0.20.18')
+        with self.assertRaisesRegex(RuntimeError, 'unreviewed'):
+            subject.bindings('unknown')
+
 
 if __name__ == '__main__':
     unittest.main()
