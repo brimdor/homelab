@@ -280,6 +280,15 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
+ if expected_node=='charmander':
+  pods=api.call('get','pods','-n','loki','--field-selector','spec.nodeName='+expected_node,'-o','json')['items']
+  agents=[p for p in pods if any(c['name']=='alloy'for c in p['spec']['containers'])]
+  assert len(agents)==1,'existing Alloy acceptance process absent or ambiguous'
+  agent=agents[0];container=next(c for c in agent['spec']['containers']if c['name']=='alloy')
+  assert not agent['metadata'].get('deletionTimestamp')and any(c['type']=='Ready'and c['status']=='True'for c in agent['status']['conditions'])
+  assert not agent['spec'].get('securityContext',{}).get('seccompProfile')and not container.get('securityContext',{}).get('seccompProfile')
+  assert not container.get('securityContext',{}).get('privileged',False),'privileged process cannot prove kubelet default'
+  sys.modules['maintenance_host_security'].seccomp_default(native,agent['metadata']['uid'])
  journal=hops.Journal(controller,hold,owner['owner'])
  return sys.modules['maintenance_host_security'].acceptance(journal,native,identity)
 if operation in('restore-scheduling','accept-applications','release','resolve-release-precheck'):final_security()
@@ -408,9 +417,14 @@ else:
   original=json.loads((root/('cordon-'+owner['owner']+'.json')).read_bytes())if step=='restore_scheduling'else None
   if not path.exists():actors.exclusive_file(path,hops.canonical(worker.plan(step,original)),0o600)
   plan=json.loads(path.read_bytes())
+  dispatched=False
   if not state['pending']:
    assert step==hops.STEPS[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
-  result=worker.observe(plan,digest,verify)
+   dispatched=True
+  # This OSD can return only after uncordon; accept its intent on a later healthy observation.
+  if dispatched and expected_node=='cyndaquil' and step=='restore_scheduling':
+   result={'accepted':False,'pending':journal.inspect()['pending'],'scheduling_patch_dispatched':True}
+  else:result=worker.observe(plan,digest,verify)
  elif operation in('trusted-reconnect','verify-infrastructure','accept-applications'):
   step=operation.replace('-','_')
   before=json.loads((root/('before-offline-'+owner['owner']+'.json')).read_bytes())
@@ -572,7 +586,12 @@ else:
   if step=='offline_transaction':
    if owner['source']==39:offline_repository_override()
    before={'boot':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'identity':identity(),'source':owner['source'],'target':owner['target']}
-   actors.exclusive_file(root/('before-offline-'+owner['owner']+'.json'),hops.canonical(before),0o600)
+   before_path=root/('before-offline-'+owner['owner']+'.json');actors.safe(before_path)
+   if before_path.exists():
+    info=before_path.stat()
+    assert info.st_uid==os.geteuid() and info.st_nlink==1 and info.st_mode&0o777==0o600
+    assert before_path.read_bytes()==hops.canonical(before),'pre-dispatch boot identity changed; never replay'
+   else:actors.exclusive_file(before_path,hops.canonical(before),0o600)
   value=evidence();pending=journal.begin(step,drain.hashed(command),drain.hashed(value),prerequisites(value))
   with hold.serialized():
    assert journal.read()==pending;journal.owners(idle=True)

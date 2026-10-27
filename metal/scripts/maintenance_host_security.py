@@ -139,6 +139,16 @@ def security_tools(operation, journal, native, identity, recovery):
     return {'dispatched': True, 'unit': unit, 'owner_retained': True}
 
 
+
+def k3s_security_config(before, node):
+    """Keep the default-seccomp rollout on the reviewed first node."""
+    result = before.rstrip() + '\nselinux: true\n'
+    if node == 'charmander':
+        assert not any(line.lstrip().startswith('kubelet-arg:') for line in before.splitlines()), 'review existing kubelet arguments first'
+        result += 'kubelet-arg:\n  - seccomp-default=true\n'
+    return result
+
+
 def relabel(journal, native, identity, recovery):
     """One vendor permissive relabel reboot; preserve all volume data and history."""
     import maintenance_actor_hold as hold
@@ -204,7 +214,7 @@ def relabel(journal, native, identity, recovery):
             finally:
                 if os.path.exists(temporary): os.unlink(temporary)
         replace(config, config.read_text().replace('SELINUX=disabled', 'SELINUX=permissive'))
-        replace(k3s, k3s.read_text().rstrip() + '\nselinux: true\n')
+        replace(k3s, k3s_security_config(k3s.read_text(), journal.owners()['global']['node']))
         hold.exclusive_file(exclude, b'/mnt\n/media\n/var/lib/kubelet/pods\n/var/lib/kubelet/plugins\n/run\n', 0o644)
         guard.parent.mkdir(mode=0o755, exist_ok=True)
         hold.exclusive_file(guard, b'[Unit]\nConditionPathExists=!/.autorelabel\n', 0o644)
@@ -441,6 +451,35 @@ def mitigate_gds(journal, native, identity, recovery):
         native('systemd-run', '--unit=' + token + '-gds-reboot', '--on-active=5s',
                '--property=Restart=no', '/usr/bin/systemctl', 'reboot')
     return {'gds_reboot_dispatched': True, 'avx_fallback': True, 'node_stays_cordoned': True, 'owner_retained': True}
+
+
+def seccomp_profile(profile, status):
+    """Require the live OCI filter to deny io_uring before SELinux sees it."""
+    assert profile.get('defaultAction') == 'SCMP_ACT_ERRNO', 'default seccomp errno filter missing'
+    blocked = {'io_uring_setup', 'io_uring_enter', 'io_uring_register'}
+    assert not any(blocked.intersection(rule.get('names', [])) and
+                   rule.get('action') != 'SCMP_ACT_ERRNO' for rule in profile.get('syscalls', [])), 'io_uring allowed by runtime filter'
+    fields = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
+    assert fields.get('Seccomp', '').strip() == '2', 'native process has no seccomp filter'
+    return {'default_action': profile['defaultAction'], 'io_uring_blocked': True, 'native_seccomp': 2}
+
+
+def seccomp_default(native, pod_uid):
+    """Inspect an existing unprivileged Alloy process without an explicit Pod profile."""
+    containers = json.loads(native('/usr/local/bin/k3s', 'crictl', 'ps', '-o', 'json'))['containers']
+    matches = [c for c in containers if c['metadata']['name'] == 'alloy' and
+               c.get('labels', {}).get('io.kubernetes.pod.uid') == pod_uid]
+    assert len(matches) == 1, 'exact existing Alloy process absent or ambiguous'
+    container = matches[0]
+    details = json.loads(native('/usr/local/bin/k3s', 'crictl', 'inspect', container['id']))
+    assert details['status']['state'] == 'CONTAINER_RUNNING'
+    assert details['status']['labels']['io.kubernetes.pod.uid'] == pod_uid
+    info = details['info'];pid = int(info['pid']);assert pid > 1
+    status = (Path('/proc') / str(pid) / 'status').read_text()
+    result = seccomp_profile(info['runtimeSpec']['linux'].get('seccomp', {}), status)
+    assert (Path('/proc') / str(pid) / 'comm').read_text().strip() == 'alloy'
+    assert '  - seccomp-default=true' in Path('/etc/rancher/k3s/config.yaml').read_text().splitlines()
+    return dict(result, pod_uid=pod_uid, container_id=container['id'], pid=pid)
 
 
 def acceptance(journal, native, identity):

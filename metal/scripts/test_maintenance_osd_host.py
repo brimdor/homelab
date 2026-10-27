@@ -141,5 +141,49 @@ class OSDHostTests(unittest.TestCase):
                 production.prerequisites(api)
 
 
+    def test_uncordon_acceptance_waits_for_osd_recovery_without_replaying_patch(self):
+        import types
+        import maintenance_production_node as production
+        start = production.NATIVE.index("elif operation in('cordon','restore-scheduling'):")
+        end = production.NATIVE.index("elif operation in('trusted-reconnect'", start)
+        block = production.NATIVE[start:end].replace('elif operation', 'if operation', 1)
+
+        class StoredPlan:
+            def __truediv__(self, name):return self
+            def exists(self):return True
+            def read_bytes(self):return b'{}'
+
+        class Worker:
+            dispatches = 0
+            observations = 0
+
+            def dispatch(self, *args):self.dispatches += 1
+            def observe(self, *args):
+                self.observations += 1
+                return {'accepted': True}
+
+        worker = Worker()
+        pending = {'step': 'restore_scheduling'}
+        scope = {'operation': 'restore-scheduling', 'expected_node': 'cyndaquil',
+                 'owner': {'owner': 'test'}, 'root': StoredPlan(),
+                 'state': {'pending': None, 'completed': []},
+                 'journal': types.SimpleNamespace(inspect=lambda: {'pending': pending}),
+                 'api': None, 'scheduling': types.SimpleNamespace(Scheduling=lambda *args: worker),
+                 'evidence': lambda: {}, 'prerequisites': lambda value: lambda *args: True,
+                 'drain': types.SimpleNamespace(hashed=lambda value: 'digest'),
+                 'hops': types.SimpleNamespace(STEPS=['restore_scheduling']), 'json': json}
+        exec(block, scope)
+        self.assertFalse(scope['result']['accepted'])
+        self.assertEqual((worker.dispatches, worker.observations), (1, 0))
+        scope['state']['pending'] = pending
+        exec(block, scope)
+        self.assertTrue(scope['result']['accepted'])
+        self.assertEqual((worker.dispatches, worker.observations), (1, 1))
+        scope['state']['pending'] = None;scope['expected_node'] = 'totodile'
+        exec(block, scope)
+        self.assertTrue(scope['result']['accepted'])
+        self.assertEqual((worker.dispatches, worker.observations), (2, 2))
+
+
 if __name__ == '__main__':
     unittest.main()

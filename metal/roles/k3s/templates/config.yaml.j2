@@ -11,3 +11,7 @@ snapshotter: stargz
 {% if k3s_selinux | default(false) %}
 selinux: true
 {% endif %}
+{% if k3s_seccomp_default | default(false) %}
+kubelet-arg:
+  - seccomp-default=true
+{% endif %}
