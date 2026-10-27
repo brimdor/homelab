@@ -163,9 +163,9 @@ app-template:
         backoffLimit: 0
         activeDeadlineSeconds: 21600
       pod:
-        # Original image is protected in Growlithe's native cache while NAS registry writes remain forbidden.
+        # Use the accepted original cache alongside main so Growlithe maintenance cannot strand scheduled jobs.
         nodeSelector:
-          kubernetes.io/hostname: growlithe
+          kubernetes.io/hostname: pikachu
         restartPolicy: Never
         securityContext: *pointview-pod-security
       containers:
@@ -192,9 +192,9 @@ app-template:
         backoffLimit: 1
         activeDeadlineSeconds: 3600
       pod:
-        # Original image is protected in Growlithe's native cache while NAS registry writes remain forbidden.
+        # Use the accepted original cache alongside main so Growlithe maintenance cannot strand scheduled jobs.
         nodeSelector:
-          kubernetes.io/hostname: growlithe
+          kubernetes.io/hostname: pikachu
         restartPolicy: Never
         securityContext: *pointview-pod-security
       containers:
