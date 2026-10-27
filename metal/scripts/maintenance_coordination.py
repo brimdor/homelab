@@ -35,7 +35,7 @@ def require(condition, message):
 def reviewed_hop(node, source, target):
     return (type(source) is int and type(target) is int and
             ((source, target) in ((39, 41), (41, 43), (43, 44)) or
-             node == 'totodile' and source == target == 44))
+             node in ('totodile', 'pikachu') and source == target == 44))
 
 
 def rollout_ready(meta, status, expected):
@@ -96,7 +96,10 @@ class Ownership:
                 'Kured controller identity changed')
         require({n['metadata']['name']: n['metadata']['uid'] for n in nodes} == self.nodes,
                 'active node identities changed')
-        protected_since = self.protected_since(ds)
+        try:
+            protected_since = self.protected_since(ds)
+        except (ValueError, KeyError, TypeError) as error:
+            raise RuntimeError('malformed maintenance ownership state') from error
         for node in nodes:
             require(not node['metadata'].get('deletionTimestamp'), 'node is deleting')
             conditions = {c['type']: c['status'] for c in node['status']['conditions']}
@@ -227,6 +230,7 @@ class Ownership:
         annotations = ds['metadata'].get('annotations', {})
         if JOURNAL in annotations:
             journal = json.loads(annotations[JOURNAL])
+            require(isinstance(journal, dict), 'malformed maintenance ownership state')
             verified = self.ownership(ds, journal.get('owner'))
             created = datetime.fromisoformat(verified['created'].replace('Z', '+00:00'))
             saved = verified.get('restore_window_lock')

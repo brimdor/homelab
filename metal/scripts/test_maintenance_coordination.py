@@ -134,7 +134,7 @@ class CoordinationTests(unittest.TestCase):
                 api = API()
                 api.ds['metadata']['annotations'][owner.LOCK] = value
                 before = copy.deepcopy(api.ds)
-                with self.assertRaisesRegex(RuntimeError, 'already exists'):
+                with self.assertRaisesRegex(RuntimeError, 'already exists|foreign reboot lock|malformed maintenance ownership state'):
                     self.acquire(api)
                 self.assertEqual(api.ds, before)
                 self.assertEqual(api.writes, 0)
@@ -222,7 +222,7 @@ class CoordinationTests(unittest.TestCase):
             api.ds['metadata']['annotations'][owner.LOCK] = json.dumps(lock)
             return True
 
-        with self.assertRaisesRegex(RuntimeError, 'ownership changed'):
+        with self.assertRaisesRegex(RuntimeError, 'ownership changed|ownership contract differs'):
             api.controller().release(journal['owner'], changed)
         self.assertEqual(api.writes, 1)
 

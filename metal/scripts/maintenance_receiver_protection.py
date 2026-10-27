@@ -13,6 +13,13 @@ from maintenance_coordination import require
 
 
 PROFILES = {
+    'pikachu-security-20261027': {'source': 'pikachu', 'source_address': '10.0.20.14',
+        'source_machine': '0a7daf8b33244d9d85f46223c3582da9',
+        'source_root': '76e53a95-725a-4430-9d7b-a8db413f3997',
+        'receiver': 'cyndaquil', 'receiver_address': '10.0.20.16',
+        'receiver_machine': '51140709f60f45c1bcd0edfa23dba2ef',
+        'receiver_root': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8',
+        'destination': '/var/lib/homelab-recovery/maintenance-103/pikachu-retained-recovery-20261027-security-a'},
     'pikachu': {'source': 'pikachu', 'source_address': '10.0.20.14',
         'source_machine': '0a7daf8b33244d9d85f46223c3582da9',
         'source_root': '76e53a95-725a-4430-9d7b-a8db413f3997',

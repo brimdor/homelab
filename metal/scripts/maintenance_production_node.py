@@ -36,6 +36,8 @@ BACKUPS = {39: '/var/lib/homelab-recovery/maintenance-103/totodile-config-202610
            41: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora41-config-20261026-a',
            43: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora43-config-20261026-a',
            44: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora44-config-20261026-a'}
+SECURITY_BACKUPS = {node: '/var/lib/homelab-recovery/maintenance-103/' + node +
+                    '-fedora44-seccomp-config-20261027-a' for node in ('totodile', 'pikachu')}
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release',
@@ -128,6 +130,10 @@ def recovery(args, source, capture=False):
         receiver_name, receiver_address = 'growlithe', '10.0.20.18'
         receiver_identity = {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
                              'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}
+    if NODE == 'pikachu' and source == 44 and BACKUPS[44] == SECURITY_BACKUPS[NODE]:
+        receiver_name, receiver_address = 'cyndaquil', '10.0.20.16'
+        receiver_identity = {'machine': '51140709f60f45c1bcd0edfa23dba2ef',
+                             'root_uuid': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8'}
     readback = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,tarfile
 assert os.geteuid()==0 and socket.gethostname()==%r
@@ -450,7 +456,7 @@ else:
    result={'accepted':False,'pending':journal.inspect()['pending'],'scheduling_patch_dispatched':True}
   else:result=worker.observe(plan,digest,verify)
  elif operation in('security-default','observe-security-default'):
-  assert owner['node']=='totodile'and owner['source']==owner['target']==44
+  assert owner['node']in('totodile','pikachu')and owner['source']==owner['target']==44
   assert api.call('get','node',expected_node,'-o','json')['spec'].get('unschedulable')is True
   value=evidence();digest=drain.hashed(value);verify=prerequisites(value)
   security=sys.modules['maintenance_host_security']
@@ -768,7 +774,7 @@ def prerequisites(api):
         candidate = json.loads(raw_owner)
         if candidate.get('source') == candidate.get('target') == 44:
             verified_owner = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes}).resume(candidate['owner'])
-            security_followup = (NODE == 'totodile' and verified_owner['node'] == NODE and
+            security_followup = (NODE in ('totodile', 'pikachu') and verified_owner['node'] == NODE and
                                  next(n for n in nodes if n['metadata']['name'] == NODE)['spec'].get('unschedulable') is True)
     for kind in ('deployments', 'statefulsets'):
         for item in api.call('get', kind, '-A', '-o', 'json')['items']:
@@ -1185,11 +1191,11 @@ def main():
         require(args.operation in ('backup', 'initialize'), 'initialize production ownership first')
         prerequisites(api)
         source = remote(args, "import json,subprocess;print(json.dumps(int(subprocess.check_output(['rpm','-E','%fedora']))))")
-        require(source in (39, 41, 43) or NODE == 'totodile' and source == 44,
+        require(source in (39, 41, 43) or NODE in SECURITY_BACKUPS and source == 44,
                 'unreviewed production source release')
         owner = None
-    if NODE == 'totodile' and (owner['source'] if owner else source) == 44:
-        BACKUPS[44] = '/var/lib/homelab-recovery/maintenance-103/totodile-fedora44-seccomp-config-20261027-a'
+    if NODE in SECURITY_BACKUPS and (owner['source'] if owner else source) == 44:
+        BACKUPS[44] = SECURITY_BACKUPS[NODE]
     if NODE == 'growlithe' and owner is None:
         from maintenance_receiver_protection import verify
         verify(args, node=NODE)
@@ -1213,11 +1219,11 @@ def main():
     if args.operation == 'backup':
         if NODE == 'pikachu':
             from maintenance_receiver_protection import verify
-            verify(args)
+            verify(args, node='pikachu-security-20261027' if source == 44 else NODE)
         print(encoded(recovery_manifest));return
     if owner is None and NODE == 'pikachu':
         from maintenance_receiver_protection import verify
-        verify(args)
+        verify(args, node='pikachu-security-20261027' if source == 44 else NODE)
     if owner is None:
         owner = controller.acquire(NODE, source, {39: 41, 41: 43, 43: 44, 44: 44}[source], revision)
     public_keys = {}

@@ -549,6 +549,31 @@ DEFAULT_PRIOR_PROOFS = {
     'host-enforce-': '8c2046054f755844a97d401c83ac9189d055817c882f7a9a7be5a9103f4a7c92',
     'host-firmware-reboot-': 'cba1a29173a3c07a983e7160a3dbf4e054af414f56cdaa8f66d7656beab4017e',
 }
+PIKACHU_DEFAULT_PROFILE = {
+    'owner': 'homelab-maintenance-103-32c03081-4e9e-4c7e-9167-93cc2133fc27',
+    'proofs': {'host-enforce-': '9ce3f4cebfe712561c3dab19090249849228c659ffbf378344027a69031eda55',
+               'host-firmware-reboot-': 'd73f678c16b1ba925b8361574ff3074db8522127c7ddd9f117fddc238ca1e881'},
+    'release': '448082082f685fad05b31587ae176a7e0518c5ac28f676f5ebcc36ab3daec0bf',
+}
+
+
+def default_profile(node):
+    if node == 'pikachu': return PIKACHU_DEFAULT_PROFILE
+    assert node == 'totodile', 'unreviewed security follow-up node'
+    return {'owner': DEFAULT_PRIOR_OWNER, 'proofs': DEFAULT_PRIOR_PROOFS,
+            'release': '23d81eb796d1b36f8532e46c4a31e0968db6060eded8ac88f367d6205fc26255'}
+
+
+def default_audit_resolved(record, node):
+    """Retain old findings; allow only the faults fixed before/by this reboot."""
+    if (record.get('tclass') == 'anon_inode' and record.get('denied') == ['create'] and
+            record.get('tcontext', '').split(':')[2:3] == ['io_uring_t']): return True
+    expected = {'type': 'AVC', 'comm': 'sporecast-backe', 'denied': ['lock'], 'permissive': '0',
+                'scontext': 'system_u:system_r:container_t:s0:c599,c776', 'tclass': 'file',
+                'tcontext': 'system_u:object_r:container_file_t:s0:c317,c677'}
+    # Exact production repair 7f6c1b7e passed real SQLite lock acceptance at 20:14:21 UTC.
+    return (node == 'pikachu' and record.get('timestamp', float('inf')) <= 1793132061.0 and
+            all(record.get(key) == value for key, value in expected.items()))
 
 
 def default_config(before):
@@ -562,28 +587,30 @@ def default_plan(journal, native, identity, recovery):
     """Bind the completed original security work; do not invent another OS upgrade."""
     from maintenance_node_drain import private_json
     owner = journal.owners(idle=True)['global']
-    assert owner['node'] == 'totodile' and owner['source'] == owner['target'] == 44
+    profile = default_profile(owner['node'])
+    assert owner['source'] == owner['target'] == 44
     assert native('rpm', '-E', '%fedora') == '44' and firmware_kernel(native) == '7.2.11-200.fc44.x86_64'
     assert recovery['source_release'] == 44 and recovery['identity'] == identity()
     assert not list(Path('/etc/rancher/k3s/config.yaml.d').glob('*'))
     before = Path('/etc/rancher/k3s/config.yaml').read_text()
     after = default_config(before)
     root = journal.hold.state
-    for prefix, digest in DEFAULT_PRIOR_PROOFS.items():
-        path = root / (prefix + DEFAULT_PRIOR_OWNER + '.json')
+    for prefix, digest in profile['proofs'].items():
+        path = root / (prefix + profile['owner'] + '.json')
         record = private_json(path, security_receipt=True)
         assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
-        assert record['owner'] == DEFAULT_PRIOR_OWNER and record['identity'] == identity()
-    release = root / 'releases' / DEFAULT_PRIOR_OWNER / '00000004.json'
-    assert hashlib.sha256(release.read_bytes()).hexdigest() == '23d81eb796d1b36f8532e46c4a31e0968db6060eded8ac88f367d6205fc26255'
+        assert record['owner'] == profile['owner'] and record['identity'] == identity()
+    release = root / 'releases' / profile['owner'] / '00000004.json'
+    assert hashlib.sha256(release.read_bytes()).hexdigest() == profile['release']
     assert private_json(release)['kind'] == 'global-accepted'
     observed = facts(native)
     assert observed['mode'] == 'Enforcing' and not observed['failed_units'] and not observed['kernel_overrides']
     assert not observed['autorelabel'] and observed['containerd_selinux'] is True
-    assert all(r.get('tclass') == 'anon_inode' and r.get('denied') == ['create'] and
-               r.get('tcontext', '').split(':')[2] == 'io_uring_t' for r in observed['audit_records']), 'another host security fault requires its own fix'
+    assert all(default_audit_resolved(r, owner['node']) for r in observed['audit_records']), 'another host security fault requires its own fix'
     return {'owner': owner['owner'], 'identity': identity(), 'boot': observed['boot'],
-            'previous_owner': DEFAULT_PRIOR_OWNER, 'recovery_sha256': recovery['sha256'],
+            'previous_owner': profile['owner'], 'recovery_sha256': recovery['sha256'],
+            'historical_audit_count': observed['audit_record_count'],
+            'historical_audit_sha256': hashlib.sha256(json.dumps(observed['audit_records'], sort_keys=True).encode()).hexdigest(),
             'before_configuration': before, 'after_config_sha256': hashlib.sha256(after.encode()).hexdigest()}
 
 
@@ -625,16 +652,16 @@ def acceptance(journal, native, identity):
     followup = None
     original_owner = private_json(journal.path / '00000000.json')['owners']['global']
     if original_owner['source'] == original_owner['target'] == 44:
-        assert original_owner['node'] == 'totodile'
+        profile = default_profile(original_owner['node'])
         intent = root / ('host-seccomp-' + token + '.json')
         followup = private_json(intent, security_receipt=True)
         reboot = private_json(root / ('host-seccomp-reboot-' + token + '.json'), security_receipt=True)
         assert followup['owner'] == token and followup['identity'] == identity()
         assert reboot['intent_sha256'] == hashlib.sha256(intent.read_bytes()).hexdigest()
         assert Path('/proc/sys/kernel/random/boot_id').read_text().strip() != reboot['boot'] == followup['boot']
-        assert followup['previous_owner'] == DEFAULT_PRIOR_OWNER
-        token = DEFAULT_PRIOR_OWNER
-        for prefix, digest in DEFAULT_PRIOR_PROOFS.items():
+        assert followup['previous_owner'] == profile['owner']
+        token = profile['owner']
+        for prefix, digest in profile['proofs'].items():
             assert hashlib.sha256((root / (prefix + token + '.json')).read_bytes()).hexdigest() == digest
     record = json.loads((root / ('host-enforce-' + token + '.json')).read_bytes())
     assert record['owner'] == token and record['identity'] == identity()

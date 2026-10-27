@@ -78,11 +78,28 @@ class SecurityFollowupTests(unittest.TestCase):
         self.assertEqual(len(result['state']['header']['hop_records']), 15)
 
     def test_only_reviewed_node_and_exact_integer_hops(self):
-        for node, source, target in [('pikachu', 44, 44), ('squirtle', 44, 44),
+        for node, source, target in [('growlithe', 44, 44), ('squirtle', 44, 44),
                                      ('totodile', 44, 45), ('totodile', True, 44)]:
             self.assertFalse(coordination.reviewed_hop(node, source, target))
         self.assertTrue(coordination.reviewed_hop('totodile', 44, 44))
+        self.assertTrue(coordination.reviewed_hop('pikachu', 44, 44))
+        self.assertEqual(hops.steps({'node': 'pikachu', 'source': 44, 'target': 44}), hops.SECURITY_STEPS)
         self.assertEqual(hops.steps({'node': 'fixture-a', 'source': 43, 'target': 44}), hops.STEPS)
+
+    def test_pikachu_prior_receipts_and_historical_repair_are_exact(self):
+        self.assertNotEqual(security.default_profile('pikachu')['owner'], security.default_profile('totodile')['owner'])
+        with self.assertRaises(AssertionError): security.default_profile('squirtle')
+        record = {'type': 'AVC', 'comm': 'sporecast-backe', 'denied': ['lock'], 'permissive': '0',
+                  'scontext': 'system_u:system_r:container_t:s0:c599,c776', 'tclass': 'file',
+                  'tcontext': 'system_u:object_r:container_file_t:s0:c317,c677', 'timestamp': 1793131965.0}
+        self.assertTrue(security.default_audit_resolved(record, 'pikachu'))
+        self.assertFalse(security.default_audit_resolved(record, 'totodile'))
+        for key, value in [('timestamp', 1793132061.1), ('timestamp', float('inf')), ('comm', 'different'),
+                           ('scontext', 'system_u:system_r:container_t:s0:c317,c677'), ('denied', ['write']),
+                           ('tcontext', 'system_u:object_r:container_file_t:s0:c1,c2'), ('permissive', '1')]:
+            changed = dict(record); changed[key] = value
+            with self.subTest(key=key): self.assertFalse(security.default_audit_resolved(changed, 'pikachu'))
+        del record['timestamp']; self.assertFalse(security.default_audit_resolved(record, 'pikachu'))
 
     def test_configuration_preserves_original_and_refuses_existing_arguments(self):
         before = 'selinux: true\nsnapshotter: stargz\n'

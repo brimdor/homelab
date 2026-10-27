@@ -19,7 +19,7 @@ SECURITY_STEPS = ('cordon', 'drain', 'security_default', 'trusted_reconnect',
 
 def steps(owner):
     if owner['source'] == owner['target'] == 44:
-        actor.require(owner['node'] == 'totodile', 'unreviewed security follow-up node')
+        actor.require(owner['node'] in ('totodile', 'pikachu'), 'unreviewed security follow-up node')
         return SECURITY_STEPS
     return STEPS
 

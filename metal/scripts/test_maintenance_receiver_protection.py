@@ -7,7 +7,8 @@ import maintenance_receiver_protection as recovery
 
 class ReceiverTests(unittest.TestCase):
     def test_reviewed_source_receiver_pairs_and_native_guards(self):
-        pairs = {'pikachu': ('10.0.20.14','10.0.20.17'), 'growlithe': ('10.0.20.18','10.0.20.11')}
+        pairs = {'pikachu': ('10.0.20.14','10.0.20.17'), 'growlithe': ('10.0.20.18','10.0.20.11'),
+                 'pikachu-security-20261027': ('10.0.20.14','10.0.20.16')}
         for node, addresses in pairs.items():
             with self.subTest(node=node):
                 profile, inventory, readback = recovery.programs(node)
@@ -21,7 +22,7 @@ class ReceiverTests(unittest.TestCase):
                 ast.parse(inventory);ast.parse(readback)
 
     def test_verification_reads_fixed_receiver_then_unchanged_source(self):
-        for node in ('pikachu','growlithe'):
+        for node in recovery.PROFILES:
             profile, _, _ = recovery.programs(node)
             saved = {'source_inventory': {'files':7,'bytes':1024,'metadata_sha256':'a'*64}}
             with mock.patch.object(recovery,'remote',side_effect=[saved,saved['source_inventory']]) as remote:
