@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Issue 103: HumbleAI original image relocation</title>
+<style>body{background:#15191f;color:#e6edf3;font:16px system-ui;max-width:960px;margin:3rem auto;padding:0 1rem}code{color:#9ed7ff}h1,h2{color:#b6dcff}</style>
+<h1>Issue 103: HumbleAI original image relocation</h1>
+<p>Approved maintenance scope: unblock Growlithe's owned serial drain without changing application code, image, data, secrets, or NAS state.</p>
+<h2>Evidence and cause</h2>
+<p>On 2026-10-27 at 07:15 UTC, the replacement Pod was Pending because its hostname selector required cordoned Growlithe. The original registry manifest returned HTTP 404. Growlithe retains the exact ARM64 image; Cyndaquil already has Fedora 44's enabled qemu-aarch64 handler with the F flag.</p>
+<p>The immutable manifest is <code>sha256:fcf08c14538753af9539a66d2c3551e07445c664970a392da4928b80cb9fe542</code>, config <code>sha256:da30cfa6e21c5ff8a1291228bab6ab4b212145e36b2b1fcf0187f0d2b02f0802</code>: 13 blobs, 146202356 descriptor bytes. PVC <code>humbleai-demo-data</code> has UID <code>f1f77195-ff05-4c5a-bcc0-45953b9ad4f3</code>.</p>
+<h2>Plan and implementation</h2>
+<ol><li>Publish the narrow artifact helper and its tests. Reuse the existing verified OCI stream, exclusive durable recovery directory, native K3s import, digest registration, and strict host identities.</li>
+<li>Export the original ARM64 image from Growlithe to Cyndaquil's native recovery store. Verify all blob hashes, preserve the archive, observe native pinned import, and register the declared digest alias. Never overwrite an existing recovery intent or replay uncertain registration.</li>
+<li>Change only the chart hostname selector to Cyndaquil. Render both versions and prove every other rendered field unchanged, including the retained PVC, Recreate strategy, image, secrets, mounts, and disabled seed.</li>
+<li>Publish to Gitea master, refresh Argo, and verify the exact replacement, image ID, single writer, retained PVC/PV identities, frontend and read-only API behavior. Resume only the existing drain tail.</li></ol>
+<h2>Commands and structure</h2>
+<p><code>PYTHONPATH=metal/scripts python3 -B -m unittest metal/scripts/test_maintenance_growlithe_images.py</code>; isolated Helm dependency update, lint, render, semantic comparison; applicable pre-commit checks. Helper: <code>metal/scripts/maintenance_growlithe_images.py</code>; placement: <code>apps/humbleai-demo/values.yaml</code>. Follow neighboring Python helpers with explicit assertions and immutable identity bindings.</p>
+<h2>Acceptance and boundaries</h2>
+<p>Require existing ARM64 emulation, native recovery and complete image graph, original digest, one ready replacement on Cyndaquil, unchanged retained storage, and successful read-only application checks. No new emulator, registry write, NAS operation, rebuild, reseed, database migration, OAuth/AI/provider request, or relaxed security policy.</p>
+<p>Rollback is a repository selector revert to Growlithe only after that node is schedulable and the current writer is stopped. Retain original and copied image artifacts. The previously documented HumbleAI historical continuity gap remains unresolved; relocation does not prove lossless historical recovery.</p>
+</html>
