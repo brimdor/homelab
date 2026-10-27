@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Issue 103: Cyndaquil SMART acceptance</title>
+<style>body{background:#111827;color:#e5e7eb;font:17px system-ui;max-width:900px;margin:3rem auto;padding:1rem}a{color:#93c5fd}</style>
+<h1>Cyndaquil SMART acceptance correction</h1>
+<p>Status: approved Issue 103 software prerequisite. The previous read-only observer raised KeyError for absent attribute 197. No maintenance action failed at that point.</p>
+<h2>Evidence and contract</h2>
+<p>The actual Samsung MZ7LN512HCHP-000L1, firmware EMT04L0Q, reports SMART pass, zero ATA errors and zero supported error counters. Its PM871 schema lacks HDD attributes 197 and 198. The <a href="https://github.com/smartmontools/smartmontools/blob/master/smartmontools/drivedb.h">official Smartmontools database</a> matches this model family and supplies its vendor attribute names.</p>
+<p>Bind exact model, serial, firmware and capacity. Require attributes 5, 171, 172, 178, 184, 187 and 199 with exact names and zero raw errors. Require all reported positive normalized thresholds satisfied and no failed attribute. Preserve historical power losses (25), normalized wear level (84), and unused reserve (1568) as observations. No self-test is claimed.</p>
+<h2>Implementation and verification</h2>
+<p>Add one repository-owned read-only observer and focused tests. Preserve host identity, Fedora 44 Enforcing, partition UUIDs and sizes, existing BlueStore partition, Yoshi key permissions, NFS utilities and boolean, and failed-unit checks. Publish before native observation. Resume only the unfinished final acceptance, scheduling restoration and release; never replay firmware, reboot or package work.</p>
+<h2>Rollback and limits</h2>
+<p>The observer performs no hardware/configuration write. Any changed identity, schema or real failure stops acceptance. NAS restrictions and existing maintenance ownership remain. SMART pass alone does not certify all hardware or the whole homelab.</p>
+</html>
