@@ -9,23 +9,18 @@ import subprocess
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-RECOVERY = 'maintenance-empty-jobs-103-20261026-a'
 DIGEST = 'sha256:ee4876e6add9b45af87dd94af9fb9cd0cfca5d7f673e215c456f341983bb7113'
 TARGETS = {
-    ('pointview', 'pointview-retention-29883450'): ('5e2e2097-b4bb-421f-ac3d-c0237991c7a1', 'eede725c-f9c0-438c-8593-5c9e155acc61'),
-    ('pointview', 'pointview-triage-29883360'): ('cfb8a9b7-284e-4fa3-9e63-93883c37ab46', '50610e53-b900-46b3-8955-c11bd602b567'),
-    ('pointview-canary', 'pointview-canary-retention-29883450'): ('c72903d7-1682-4f22-8a84-697c4661e9c4', 'd98b2b80-4695-468c-946b-7b52edacbd6e'),
-    ('pointview-canary', 'pointview-canary-triage-29883360'): ('b72b5495-5494-4ac0-b9c2-0dbf3a4d07c0', '6527a8a7-896d-4b83-b12f-44b75fac4ab2'),
-}
-REPLACEMENTS = {
-    'pointview': ('a0ed3137-4411-47d2-9f93-530a5d71ab76', 'e114bd64-7dd3-4dd9-aeb3-8111859d4e9b'),
-    'pointview-canary': ('d453c83e-556c-476c-84db-301919125895', '4ab1258b-fccf-4507-8cc8-aa8f44fcd798'),
+    ('pointview', 'pointview-retention-29884890'): ('2088d176-bdb9-42df-bc35-3d413283805c', 'eede725c-f9c0-438c-8593-5c9e155acc61'),
+    ('pointview', 'pointview-triage-29884800'): ('c2bf46f4-0324-451b-9318-079e835953d5', '50610e53-b900-46b3-8955-c11bd602b567'),
+    ('pointview-canary', 'pointview-canary-retention-29884890'): ('c367bae2-acee-47a2-a744-658f916f366e', 'd98b2b80-4695-468c-946b-7b52edacbd6e'),
+    ('pointview-canary', 'pointview-canary-triage-29884800'): ('33cc4aec-4521-49cf-ab90-a205e425e3a0', '6527a8a7-896d-4b83-b12f-44b75fac4ab2'),
 }
 CLEANUP = {
-    ('pointview-canary', 'triage'): ('f5c8752d-d7aa-4836-95f0-cb376099e24c', 'ef1f8437-62a1-48d4-bef9-0dd8d0f0c9f7'),
-    ('pointview-canary', 'retention'): ('da0d9e27-4d9b-44a3-8a7c-bccdda1b4b68', 'e670cb20-dbff-4556-b49a-d917efdf6600'),
-    ('pointview', 'triage'): ('21befabe-500f-4e2e-a75c-911bed350071', 'f16e72d0-a839-4b4e-8f12-a604736c455f'),
-    ('pointview', 'retention'): ('eb56e576-7117-4180-afce-9202cb4e0dc8', '787e207c-0305-4ccb-b1b8-e5e2639e5d73'),
+    ('pointview-canary', 'triage'): ('38642328-d9c8-49b0-8fbc-7bd9a355676e', '7b079d41-8adb-407b-ae70-1017ab92893d'),
+    ('pointview-canary', 'retention'): ('a888ec90-3b32-4c7d-a3ae-37dfcdd140a4', 'b437e4bf-f58b-4583-a25c-9205c7c47cd2'),
+    ('pointview', 'triage'): ('356c25a4-b88b-4cd9-b7cb-4ccc6588d078', '60342f08-017c-46e5-b317-646d1970b751'),
+    ('pointview', 'retention'): ('2f811967-cb0d-4468-bac5-5c75f2036ec8', '8f3194b9-52e9-4300-bae2-5af480387762'),
 }
 
 
@@ -51,34 +46,8 @@ def old_job(job, namespace, name):
     require(not status.get('active') and not status.get('succeeded') and any(
         c['type'] == 'Failed' and c['status'] == 'True' and c['reason'] == 'DeadlineExceeded'
         for c in status.get('conditions', [])), 'Job is not the resolved deadline failure')
-    require(meta['creationTimestamp'] < '2026-10-26T11:23:00Z', 'Failure is not the recorded baseline')
+    require(meta['creationTimestamp'] == ('2026-10-27T08:00:00Z' if '-triage-' in name else '2026-10-27T09:30:00Z'), 'Failure is not the recorded baseline')
     return owners[0]['name'], cron_uid
-
-
-def replacement(job, pods, namespace, event):
-    job_uid, pod_uid = REPLACEMENTS[namespace]
-    require(job['metadata']['uid'] == job_uid and not job['metadata'].get('deletionTimestamp')
-            and not job['status'].get('active') and not job['status'].get('failed')
-            and job['status'].get('succeeded') == 1 and any(c['type'] == 'Complete' and c['status'] == 'True'
-                for c in job['status'].get('conditions', [])), 'Successful recovery Job changed')
-    require(len(pods) == 1, 'Recovery Pod evidence is ambiguous')
-    pod = pods[0]
-    require(pod['metadata']['uid'] == pod_uid and not pod['metadata'].get('deletionTimestamp')
-            and pod['status']['phase'] == 'Succeeded' and pod['spec']['restartPolicy'] == 'Never'
-            and pod['spec']['nodeName'] == 'growlithe', 'Recovery Pod identity/completion changed')
-    owners = pod['metadata'].get('ownerReferences', [])
-    require(len(owners) == 1 and owners[0]['uid'] == job_uid and owners[0]['controller'] is True,
-            'Recovery Pod owner changed')
-    containers = pod['status']['containerStatuses']
-    require(len(containers) == 1 and containers[0]['imageID'].endswith('@' + DIGEST)
-            and containers[0]['restartCount'] == 0 and containers[0]['state']['terminated']['exitCode'] == 0,
-            'Original image execution not proven')
-    require(event['event'] == 'maintenance.empty-jobs.completed'
-            and event['triage']['event'] == 'triage.completed' and event['triage']['completed'] == 0
-            and event['triage']['needsAttention'] == 0 and event['triage']['stopReason'] == 'QUEUE_EMPTY'
-            and event['retention']['event'] == 'retention.completed'
-            and all(event['retention'][k] == 0 for k in ('selected', 'deleted', 'failed', 'deletedBytes')),
-            'Original commands did not prove safe successful execution')
 
 
 def cleanup_proof(job, pods, cron, namespace, task, event):
@@ -97,7 +66,8 @@ def cleanup_proof(job, pods, cron, namespace, task, event):
     require(len(pods) == 1, 'Completed recovery Pod is ambiguous')
     pod = pods[0]
     require(pod['metadata']['uid'] == pod_uid and not pod['metadata'].get('deletionTimestamp')
-            and pod['status']['phase'] == 'Succeeded' and pod['spec']['restartPolicy'] == 'Never'
+            and pod['status']['phase'] == 'Succeeded' and pod['spec']['nodeName'] == 'pikachu'
+            and pod['spec']['restartPolicy'] == 'Never'
             and not pod['spec'].get('initContainers'), 'Completed recovery Pod identity/status changed')
     owner = pod['metadata']['ownerReferences']
     require(len(owner) == 1 and owner[0]['uid'] == job_uid and owner[0]['controller'] is True,
@@ -126,7 +96,7 @@ def cleanup_recovery(base, get, head, apply):
         app = get('applications.argoproj.io', 'argocd', namespace)
         require(app['status']['sync']['status'] == 'Synced' and app['status']['sync']['revision'] == head
                 and app['status']['health']['status'] == 'Healthy', 'Application not reconciled and healthy')
-        name = 'maintenance-103-' + task + '-20261026-b'
+        name = 'maintenance-103-' + task + '-20261027-a'
         job = get('job', namespace, name)
         if job is None:
             results.append({'namespace': namespace, 'name': name, 'already_absent': True})
@@ -195,16 +165,19 @@ def main():
         return
 
     def verify_recovery(namespace):
-        job = get('job', namespace, RECOVERY)
-        pods = get('pods', namespace, selector='job-name=' + RECOVERY)['items']
-        lines = run(base + ['logs', '-n', namespace, 'job/' + RECOVERY, '-c', 'recovery']).splitlines()
-        require(len(lines) == 1, 'Recovery result is ambiguous')
-        replacement(job, pods, namespace, json.loads(lines[0]))
+        for task in ('triage', 'retention'):
+            name = 'maintenance-103-' + task + '-20261027-a'
+            job = get('job', namespace, name)
+            pods = get('pods', namespace, selector='job-name=' + name)['items']
+            cron = get('cronjob', namespace, namespace + '-' + task)
+            lines = run(base + ['logs', '-n', namespace, 'job/' + name, '-c', 'recovery']).splitlines()
+            require(len(lines) == 1, 'Recovery result is ambiguous')
+            cleanup_proof(job, pods, cron, namespace, task, json.loads(lines[0]))
         app = get('applications.argoproj.io', 'argocd', namespace)
         require(app['status']['sync']['status'] == 'Synced' and app['status']['sync']['revision'] == head,
                 'Desired-state repair is not reconciled')
 
-    for namespace in REPLACEMENTS:
+    for namespace in sorted({namespace for namespace, _ in CLEANUP}):
         verify_recovery(namespace)
     results = []
     for namespace, name in TARGETS:
@@ -215,7 +188,7 @@ def main():
         cron_name, cron_uid = old_job(job, namespace, name)
         cron = get('cronjob', namespace, cron_name)
         pod_spec = cron['spec']['jobTemplate']['spec']['template']['spec']
-        require(cron['metadata']['uid'] == cron_uid and pod_spec['nodeSelector'] == {'kubernetes.io/hostname': 'growlithe'}
+        require(cron['metadata']['uid'] == cron_uid and pod_spec['nodeSelector'] == {'kubernetes.io/hostname': 'pikachu'}
                 and all(c['imagePullPolicy'] == 'IfNotPresent' and c['image'].endswith('@' + DIGEST)
                         for c in pod_spec['containers']), 'Future CronJob repair changed')
         require(not get('pods', namespace, selector='job-name=' + name)['items'], 'Original Job still has Pods')
