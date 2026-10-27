@@ -42,6 +42,20 @@ NIBBLE = {
     'ARTIFACT': 'maintenance103-growlithe-nibble-canary-bd302668-protected-copy.tar',
 }
 
+VERSA = {
+    **VALUES,
+    'IMAGE': '10.0.20.11:32309/versa@sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d',
+    'ALIAS': '10.0.20.11:32309/versa@sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d',
+    'DIGEST': 'sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d',
+    'CONFIG': 'sha256:1df79cdcd6b4fea80959f9bbda1fc7548a311212cb14882bcd1dbc227297625b',
+    'BLOB_COUNT': 25,
+    'TARGET_HOST': 'charmander',
+    'TARGET_MACHINE': '58d682ccab5a4269acedc3cdf53e46dc',
+    'TARGET_ROOT': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2',
+    'RECOVERY': '/var/lib/homelab-recovery/maintenance-103/growlithe-versa-a2b42b99',
+    'ARTIFACT': 'maintenance103-growlithe-versa-a2b42b99.tar',
+}
+
 PROTECTED_NIBBLE_SOURCE = '''
 import hashlib,json,os,pathlib,socket,stat,subprocess
 assert os.geteuid()==0 and socket.gethostname()==SOURCE_HOST
@@ -103,3 +117,12 @@ def preserve_nibble(args):
 
 def register_nibble(args):
     return remote(args, bindings(NIBBLE) + CAPACITY + REGISTER_PROGRAM, '10.0.20.11')
+
+
+def preserve_versa(args):
+    return stream(args, '10.0.20.18', bindings(VERSA) + SOURCE_PROGRAM,
+                  bindings(VERSA) + CAPACITY + RECEIVE_PROGRAM, '10.0.20.11')
+
+
+def register_versa(args):
+    return remote(args, bindings(VERSA) + CAPACITY + REGISTER_PROGRAM, '10.0.20.11')

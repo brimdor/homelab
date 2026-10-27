@@ -59,6 +59,23 @@ class GrowlitheImageTests(unittest.TestCase):
         self.assertIn(images.NIBBLE['ALIAS'], native.call_args.args[1])
         self.assertEqual(native.call_args.args[2], target)
 
+    def test_versa_preserves_declared_digest_without_changing_a_release(self):
+        with mock.patch.object(images, 'stream') as transfer:
+            images.preserve_versa(None)
+        _, source_address, source, receiver, target_address = transfer.call_args.args
+        self.assertEqual((source_address, target_address), ('10.0.20.18', '10.0.20.11'))
+        self.assertEqual(images.VERSA['IMAGE'], images.VERSA['ALIAS'])
+        self.assertIn("'linux/amd64'", source)
+        self.assertIn(images.VERSA['CONFIG'], source)
+        self.assertIn('BLOB_COUNT=25', receiver)
+        self.assertIn(images.VERSA['TARGET_ROOT'], receiver)
+        compile(source, '<versa-source>', 'exec')
+        compile(receiver, '<versa-receiver>', 'exec')
+        with mock.patch.object(images, 'remote') as native:
+            images.register_versa(None)
+        self.assertIn("if IMAGE==alias:", native.call_args.args[1])
+        self.assertEqual(native.call_args.args[2], target_address)
+
 
 if __name__ == '__main__':
     unittest.main()
