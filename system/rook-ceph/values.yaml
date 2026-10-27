@@ -1,4 +1,6 @@
 rook-ceph:
+  # Supported Rook mode for SELinux-restricted Ceph hostPaths.
+  hostpathRequiresPrivileged: true
   monitoring:
     enabled: true
   csi:
