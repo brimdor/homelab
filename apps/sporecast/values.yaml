@@ -94,13 +94,17 @@ app-template:
     frontend:
       type: deployment
       replicas: 1
+      pod:
+        nodeSelector:
+          kubernetes.io/hostname: pikachu
       containers:
         main:
           nameOverride: frontend
           image:
             repository: 10.0.20.11:32309/sporecast-frontend
             tag: a3fe7c8
-            pullPolicy: Always
+            digest: sha256:6993efa30e8c0298243706307e2026ace448e673e97d374e2d6fc498cdb12d62
+            pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
               name: http
