@@ -1,4 +1,4 @@
-"""Read-only, exact Cyndaquil OSD gates for Issue 103 in-place host maintenance."""
+"""Read-only, exact serial OSD host gates for Issue 103 in-place host maintenance."""
 
 import datetime
 import json
@@ -13,6 +13,18 @@ CLUSTER_UID = '901ad331-70b6-40cf-8654-2c6ed97a06b2'
 FSID = '13c20377-d801-43f9-aebd-59f62df5dad1'
 DEPLOYMENT_UID = '204dce1a-c8d5-49ed-9b40-76ed940e6cfe'
 STATE_UID = '5bb7a0f0-5cd6-4c83-b004-2d11c1def154'
+PROFILES = {
+    'cyndaquil': {'node_uid': NODE_UID, 'osd': 1, 'deployment_uid': DEPLOYMENT_UID,
+                   'address': '10.0.20.16'},
+    'growlithe': {'node_uid': '50f95b8f-4117-4c1e-84bc-266c5b23bffb', 'osd': 6,
+                  'deployment_uid': '2c29b0f2-06c1-4f67-8bc5-6dccee9c7970', 'address': '10.0.20.18'},
+}
+
+
+def profile_for(node):
+    require(node in PROFILES, 'unreviewed OSD host profile')
+    return PROFILES[node]
+
 OSDS = {1: '1c69c51e-b0da-42ee-bd34-581361740a02',
         2: 'a527115d-9f22-48cc-a718-4f30bdb64399',
         6: 'e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85',
@@ -26,26 +38,29 @@ CLEAN_STATES = {'active', 'clean', 'scrubbing', 'deep'}
 OWNED_STATES = CLEAN_STATES | {'undersized', 'degraded', 'recovering', 'recovery_wait'}
 
 
-def validate(value, now=None):
+def validate(value, now=None, node=NODE):
     """Reject any degradation outside the exact owned, cordoned failure domain."""
+    profile = profile_for(node)
+    node_name, node_uid = node, profile['node_uid']
+    deployment_uid, target = profile['deployment_uid'], profile['osd']
     node, cluster, deployment = value['node'], value['cluster'], value['deployment']
-    require(node['metadata']['name'] == NODE and node['metadata']['uid'] == NODE_UID and
+    require(node['metadata']['name'] == node_name and node['metadata']['uid'] == node_uid and
             not node['metadata'].get('deletionTimestamp'), 'OSD node identity differs')
     require(cluster['metadata']['uid'] == CLUSTER_UID and
             cluster['spec']['removeOSDsIfOutAndSafeToRemove'] is False and
             cluster['spec']['disruptionManagement'] == {
                 'managePodBudgets': True, 'osdMaintenanceTimeout': 90}, 'OSD protection differs')
-    require(deployment['metadata']['uid'] == DEPLOYMENT_UID and
+    require(deployment['metadata']['uid'] == deployment_uid and
             deployment['spec']['replicas'] == 1 and
-            deployment['spec']['template']['spec']['nodeSelector']['kubernetes.io/hostname'] == NODE and
+            deployment['spec']['template']['spec']['nodeSelector']['kubernetes.io/hostname'] == node_name and
             not deployment['metadata'].get('deletionTimestamp'), 'exact OSD deployment differs')
     ds = value['kured']
     require(ds['metadata']['uid'] == '4abc4fee-c3be-440e-8945-34bb3fb15ce1', 'Kured identity differs')
     raw = ds['metadata'].get('annotations', {}).get(JOURNAL)
     owner = json.loads(raw) if raw else None
-    owned = bool(owner and owner.get('node') == NODE)
+    owned = bool(owner and owner.get('node') == node_name)
     if owned:
-        require(owner.get('node_uid') == NODE_UID and re.fullmatch(
+        require(owner.get('node_uid') == node_uid and re.fullmatch(
             r'homelab-maintenance-103-[0-9a-f-]{36}', owner.get('owner', '')) and
             (owner.get('source'), owner.get('target')) in ((39, 41), (41, 43), (43, 44)),
             'OSD maintenance owner differs')
@@ -61,22 +76,22 @@ def validate(value, now=None):
             all(o['uuid'] == OSDS[i] and o['in'] == 1 and o['weight'] == 1
                 for i, o in osds.items()), 'OSD identity, membership or weight differs')
     down = {i for i, o in osds.items() if o['up'] != 1}
-    require(not down or maintenance and down == {1}, 'unowned or unrelated down OSD')
+    require(not down or maintenance and down == {target}, 'unowned or unrelated down OSD')
     require(set(osdmap['flags_set']) == BASE_FLAGS and not osdmap['device_class_flags'] and
             all(not (set(o.get('state', [])) & {'noout', 'noup', 'nodown', 'noin'})
                 for o in osds.values()), 'unowned global, class or individual OSD flags')
     flags = osdmap['crush_node_flags']
-    require(not flags or maintenance and flags == {NODE: ['noout']}, 'foreign CRUSH maintenance flags')
+    require(not flags or maintenance and flags == {node_name: ['noout']}, 'foreign CRUSH maintenance flags')
     state = value['pdb_state']
     require(state['metadata']['uid'] == STATE_UID, 'Rook managed PDB state identity differs')
     data = state['data']
-    require(not maintenance or data.get('draining-failure-domain', '') in ('', NODE),
+    require(not maintenance or data.get('draining-failure-domain', '') in ('', node_name),
             'another failure domain owns Rook disruption protection')
     if flags or down:
-        require(maintenance and flags == {NODE: ['noout']} and
-                data.get('draining-failure-domain') == NODE and data.get('set-no-out') == 'true',
+        require(maintenance and flags == {node_name: ['noout']} and
+                data.get('draining-failure-domain') == node_name and data.get('set-no-out') == 'true',
                 'owned OSD noout protection is absent')
-        stamp = datetime.datetime.fromisoformat(data[NODE + '-noout-last-set-at'].replace('Z', '+00:00'))
+        stamp = datetime.datetime.fromisoformat(data[node_name + '-noout-last-set-at'].replace('Z', '+00:00'))
         require(stamp.tzinfo is not None, 'Rook noout timestamp lacks timezone')
         now = now or datetime.datetime.now(datetime.timezone.utc)
         require(0 <= (now - stamp).total_seconds() < 90 * 60, 'Rook noout protection expired or timestamp is future')
@@ -89,9 +104,9 @@ def validate(value, now=None):
         require(health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and set(checks) <= WARNING_CHECKS and
                 all(c.get('severity') == 'HEALTH_WARN' for c in checks.values()),
                 'unexpected Ceph health finding during owned OSD maintenance')
-        require(not (set(checks) & {'OSD_DOWN', 'OSD_HOST_DOWN'}) or down == {1},
+        require(not (set(checks) & {'OSD_DOWN', 'OSD_HOST_DOWN'}) or down == {target},
                 'OSD health warning does not match observed down target')
-        require('OSD_FLAGS' not in checks or flags == {NODE: ['noout']}, 'OSD flag warning is not owned')
+        require('OSD_FLAGS' not in checks or flags == {node_name: ['noout']}, 'OSD flag warning is not owned')
     else:
         require(health['status'] == 'HEALTH_OK' and not checks and not down and not flags,
                 'OSD host requires fully recovered HEALTH_OK')
@@ -107,7 +122,7 @@ def validate(value, now=None):
     for pg in pgs:
         states = set(pg['state'].split('+'))
         expected = restored[pg['pgid']] if down else pg['up']
-        affected = 1 in expected
+        affected = target in expected
         allowed = OWNED_STATES if maintenance and affected else CLEAN_STATES
         require('active' in states and states <= allowed and
                 (maintenance and affected or 'clean' in states), 'inactive or unrelated unhealthy PG')
@@ -126,7 +141,7 @@ def validate(value, now=None):
                     'clean PG mapping differs')
     if not down:
         stop = value['ok_to_stop']
-        require(stop['ok_to_stop'] is True and stop['osds'] == [1] and
+        require(stop['ok_to_stop'] is True and stop['osds'] == [target] and
                 stop['num_not_ok_pgs'] == 0, 'exact OSD is not safe to stop')
     unready = not (deployment.get('status', {}).get('observedGeneration') == deployment['metadata']['generation'] and
                    deployment.get('status', {}).get('readyReplicas') == 1 and
@@ -134,39 +149,41 @@ def validate(value, now=None):
     require(not unready or maintenance, 'OSD deployment has not recovered')
     # Recheck actual state each time; keep the owner interval stable across a cordon.
     return {'scope': 'OWNED_OSD_HOST_INTERVAL' if owned else 'HEALTH_OK',
-            'cluster_uid': CLUSTER_UID, 'fsid': FSID, 'osd': 1, 'osd_uuid': OSDS[1],
+            'cluster_uid': CLUSTER_UID, 'fsid': FSID, 'osd': target, 'osd_uuid': OSDS[target],
             'owner': owner['owner'] if owned else None,
-            'managed_deployment_uid': DEPLOYMENT_UID}
+            'managed_deployment_uid': deployment_uid}
 
 
-def observe(api):
+def observe(api, node=NODE):
     """No mutations: gather complete native Ceph and controller evidence."""
+    target = profile_for(node)['osd']
     def ceph(*args):
         return api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
                         'ceph', *args, '--format', 'json')
     status = ceph('status')
-    value = {'node': api.call('get', 'node', NODE, '-o', 'json'),
+    value = {'node': api.call('get', 'node', node, '-o', 'json'),
              'cluster': api.call('get', 'cephcluster', 'rook-ceph', '-n', 'rook-ceph', '-o', 'json'),
-             'deployment': api.call('get', 'deployment', 'rook-ceph-osd-1', '-n', 'rook-ceph', '-o', 'json'),
+             'deployment': api.call('get', 'deployment', 'rook-ceph-osd-' + str(target), '-n', 'rook-ceph', '-o', 'json'),
              'kured': api.call('get', 'daemonset', 'kured', '-n', 'kured', '-o', 'json'),
              'pdb_state': api.call('get', 'configmap', 'rook-ceph-pdbstatemap', '-n', 'rook-ceph', '-o', 'json'),
              'map': ceph('osd', 'dump'), 'quorum': ceph('quorum_status'),
              'health': ceph('health', 'detail'), 'pgs': ceph('pg', 'dump', 'pgs_brief')['pg_stats'],
              'num_pgs': status['pgmap']['num_pgs']}
     if all(o['up'] == 1 for o in value['map']['osds']):
-        value['ok_to_stop'] = ceph('osd', 'ok-to-stop', '1')
+        value['ok_to_stop'] = ceph('osd', 'ok-to-stop', str(target))
     if any(o['up'] != 1 for o in value['map']['osds']):
         recovered = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
-                             'python3', '-c', OFFLINE_MAPPING)
+                             'python3', '-c', OFFLINE_MAPPING, str(target))
         require(recovered['map'] == value['map'] and recovered['temporary_removed'],
                 'OSD map changed during offline attribution or native cleanup failed')
         value['restored_mapping'] = parse_mapping(recovered['mapping'])
-    return validate(value)
+    return validate(value, node=node)
 
 
 # Ceph's --mark-up changes only the copied map in memory; never use --save.
 OFFLINE_MAPPING = r'''
-import tempfile,subprocess,pathlib,json,hashlib
+import tempfile,subprocess,pathlib,json,hashlib,sys
+target=sys.argv[1];assert target in ('1','6')
 with tempfile.TemporaryDirectory(prefix='maintenance103-readonly-osdmap-') as directory:
  path=pathlib.Path(directory)/'map'
  subprocess.run(['ceph','osd','getmap','-o',str(path)],check=True,capture_output=True)
@@ -174,7 +191,7 @@ with tempfile.TemporaryDirectory(prefix='maintenance103-readonly-osdmap-') as di
  def call(*args):
   return subprocess.check_output(['osdmaptool',str(path),*args],text=True,stderr=subprocess.PIPE)
  result={'map':json.loads(call('--dump','json')),
-         'mapping':call('--mark-up','1','--test-map-pgs-dump-all')}
+         'mapping':call('--mark-up',target,'--test-map-pgs-dump-all')}
  assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
 assert not pathlib.Path(directory).exists()
 result['temporary_removed']=True
@@ -225,6 +242,28 @@ print(json.dumps({'node':'cyndaquil','machine':'51140709f60f45c1bcd0edfa23dba2ef
 '''
 
 
-def native_identity(args):
+GROWLITHE_NATIVE_IDENTITY = NATIVE_IDENTITY
+for before, after in (
+    ('cyndaquil', 'growlithe'),
+    ('51140709f60f45c1bcd0edfa23dba2ef', 'a26cbcc990c044dea41fbf4f957f453d'),
+    ('fc02c8c4-35c6-4efe-a88a-b03d7673c0c8', '710e2dca-691e-4123-a867-4994b9c6e612'),
+    ('6c:4b:90:5f:8e:43', '6c:4b:90:5b:6e:6d'),
+    ('S1ZKNXAGB03370', '3C320074050513551212'),
+    ('8CAE-C52C', 'D52C-5831'),
+    ('c32010c6-b680-4d44-9c1e-4e21384488b0', '5e4ff3cd-c90e-4eac-adfa-58e8f40b8597'),
+    ('3286e8ce-0da8-4e56-bb7c-42a957e8ca2c', '5150bd4d-4287-4f71-8ba4-c5315fa3c44a'),
+    ('65459bd3-62d0-457c-8d50-d8629b78e787', 'af9a1561-010c-4a61-b73b-e54c75f5c44b'),
+    ('1c69c51e-b0da-42ee-bd34-581361740a02', 'e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85'),
+    ("('whoami','1')", "('whoami','6')"),
+    ("=='/dev/sda3'", "=='/dev/nvme0n1p1'"),
+    ("'osd_partition':'af9a1561-010c-4a61-b73b-e54c75f5c44b'", "'osd_partition':'7f1094b0-d185-448d-9a09-6a35e46309e5'"),
+):
+    assert before in GROWLITHE_NATIVE_IDENTITY
+    GROWLITHE_NATIVE_IDENTITY = GROWLITHE_NATIVE_IDENTITY.replace(before, after)
+GROWLITHE_NATIVE_IDENTITY = GROWLITHE_NATIVE_IDENTITY.replace("root=pathlib.Path('/var/lib/rook/rook-ceph/", "nvme=json.loads(subprocess.check_output(['lsblk','--json','--bytes','-o','NAME,TYPE,SIZE,FSTYPE,UUID,PARTUUID,SERIAL','/dev/nvme0n1']))['blockdevices']\nassert nvme==[{'name': 'nvme0n1', 'type': 'disk', 'size': 500107862016, 'fstype': None, 'uuid': None, 'partuuid': None, 'serial': 'S58SNM0R508184P', 'children': [{'name': 'nvme0n1p1', 'type': 'part', 'size': 500106788864, 'fstype': 'ceph_bluestore', 'uuid': None, 'partuuid': '7f1094b0-d185-448d-9a09-6a35e46309e5', 'serial': None}]}]\n" + "root=pathlib.Path('/var/lib/rook/rook-ceph/", 1)
+
+
+def native_identity(args, node=NODE):
     from maintenance_production_node import remote
-    return remote(args, NATIVE_IDENTITY, '10.0.20.16')
+    profile = profile_for(node)
+    return remote(args, NATIVE_IDENTITY if node == 'cyndaquil' else GROWLITHE_NATIVE_IDENTITY, profile['address'])

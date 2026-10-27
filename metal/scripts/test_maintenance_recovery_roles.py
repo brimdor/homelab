@@ -56,6 +56,60 @@ class RecoveryRoleTests(unittest.TestCase):
             self.assertIn(required, paths)
         self.assertTrue(production.BACKUPS[39].endswith('-20261027-b'))
 
+    def test_growlithe_retains_its_existing_agent_state_and_exact_nvme_metadata(self):
+        paths = self.archive_paths('growlithe', True)
+        self.assertIn('var/lib/rancher/k3s/server', paths)
+        self.assertIn('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85', paths)
+        self.assertNotIn('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02', paths)
+        self.assertEqual(production.RECEIVER_ADDRESS, '10.0.20.11')
+        self.assertTrue(production.BACKUPS[39].endswith('growlithe-fedora39-config-20261027-a'))
+
+    def test_generated_metadata_readback_refuses_foreign_block_and_missing_members(self):
+        import io
+        import tarfile
+        import tempfile
+        import textwrap
+        from pathlib import Path
+        for node in ('cyndaquil', 'growlithe'):
+            production.select_node(node)
+            class ReadbackCaptured(Exception):
+                pass
+            programs = []
+            def capture(args, program, address):
+                programs.append(program)
+                raise ReadbackCaptured()
+            with mock.patch.object(production, 'remote', side_effect=capture):
+                with self.assertRaises(ReadbackCaptured):
+                    production.recovery(None, 39)
+            program = programs[0]
+            start = program.index(' osd_recovery=')
+            end = program.index(' print(json.dumps(value))', start)
+            snippet = textwrap.dedent(program[start:end])
+            prefix, block = production.OSD_RECOVERY[node]
+            names = ('ceph_fsid', 'fsid', 'keyring', 'ready', 'require_osd_release', 'type', 'whoami')
+            for fault in (None, 'foreign-block', 'missing-member'):
+                with self.subTest(node=node, fault=fault), tempfile.TemporaryDirectory() as directory:
+                    archive = Path(directory) / 'synthetic.tar'
+                    with tarfile.open(archive, 'w') as target:
+                        entry = tarfile.TarInfo(prefix);entry.type = tarfile.DIRTYPE;target.addfile(entry)
+                        entry = tarfile.TarInfo(prefix + '/block');entry.type = tarfile.SYMTYPE
+                        entry.linkname = '/dev/foreign' if fault == 'foreign-block' else block;target.addfile(entry)
+                        for name in names:
+                            if fault == 'missing-member' and name == 'whoami':continue
+                            entry = tarfile.TarInfo(prefix + '/' + name);entry.size = 1;target.addfile(entry, io.BytesIO(b'x'))
+                    scope = {'value': {'node': node}, 'archive': archive, 'tarfile': tarfile}
+                    if fault is None:exec(snippet, scope)
+                    else:
+                        with self.assertRaises(AssertionError):exec(snippet, scope)
+
+    def test_retained_store_is_verified_before_growlithe_configuration_capture(self):
+        import inspect
+        source = inspect.getsource(production.main)
+        guard = source.index("if NODE == 'growlithe' and owner is None:")
+        capture = source.index('recovery_manifest = recovery(args,')
+        self.assertLess(guard, capture)
+        self.assertIn('verify(args, node=NODE)', source[guard:capture])
+
     def test_existing_agent_server_state_is_preserved(self):
         self.assertIn('var/lib/rancher/k3s/server', self.archive_paths('cyndaquil', True))
 

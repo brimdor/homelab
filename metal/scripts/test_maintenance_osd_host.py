@@ -141,7 +141,7 @@ class OSDHostTests(unittest.TestCase):
         with mock.patch.object(production, 'NODE', osd.NODE), mock.patch.object(
                 production, 'UID', osd.NODE_UID), mock.patch.object(osd, 'observe', return_value=gate) as observe:
             self.assertEqual(production.prerequisites(api)['osd_host'], gate)
-            observe.assert_called_once_with(api)
+            observe.assert_called_once_with(api, node=osd.NODE)
             foreign = copy.deepcopy(target);foreign['metadata'].update(uid='unreviewed', name='rook-ceph-osd-2')
             api.deployments = [target, foreign]
             with self.assertRaisesRegex(RuntimeError, 'controller unready'):

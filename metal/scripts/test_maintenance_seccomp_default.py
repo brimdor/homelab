@@ -13,6 +13,9 @@ class SeccompDefaultTests(unittest.TestCase):
         self.assertEqual(security.k3s_security_config('snapshotter: stargz\n', 'cyndaquil'),
                          'snapshotter: stargz\nselinux: true\nkubelet-arg:\n  - seccomp-default=true\n')
 
+    def test_next_osd_worker_uses_the_accepted_default(self):
+        self.assertIn('  - seccomp-default=true\n', security.k3s_security_config('snapshotter: stargz\n', 'growlithe'))
+
     def test_other_nodes_keep_existing_behavior(self):
         for node in ('totodile', 'pikachu', 'squirtle'):
             with self.subTest(node=node):

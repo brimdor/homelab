@@ -40,6 +40,10 @@ MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_ho
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release',
            'maintenance_host_security')
+OSD_RECOVERY = {
+    'cyndaquil': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02', '/dev/sda3'),
+    'growlithe': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85', '/dev/nvme0n1p1'),
+}
 ACTIVE_READER = None
 ACTIVE_ARGS = None
 
@@ -47,6 +51,17 @@ ACTIVE_ARGS = None
 def select_node(node):
     global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if node == 'totodile':
+        return
+    if node == 'growlithe':
+        NODE, ADDRESS, UID, MAC = ('growlithe', '10.0.20.18',
+            '50f95b8f-4117-4c1e-84bc-266c5b23bffb', '6c:4b:90:5b:6e:6d')
+        IDENTITY = {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
+                    'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}
+        RECEIVER, RECEIVER_ADDRESS = 'charmander', '10.0.20.11'
+        RECEIVER_IDENTITY = {'machine': '58d682ccab5a4269acedc3cdf53e46dc',
+                             'root_uuid': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2'}
+        BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/growlithe-fedora' +
+                   str(release) + '-config-20261027-a' for release in (39, 41, 43, 44)}
         return
     if node == 'cyndaquil':
         NODE, ADDRESS, UID, MAC = ('cyndaquil', '10.0.20.16',
@@ -129,15 +144,16 @@ else:
  with archive.open('rb')as source:
   for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
  assert archive.stat().st_size==value['bytes']and digest.hexdigest()==value['sha256']
- if value.get('node')=='cyndaquil':
-  prefix='var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02'
+ osd_recovery=%r
+ if value.get('node')in osd_recovery:
+  prefix,block=osd_recovery[value['node']]
   with tarfile.open(archive)as saved:
    members={m.name:m for m in saved if m.name==prefix or m.name.startswith(prefix+'/')}
    assert set(members)=={prefix,*[prefix+'/'+n for n in ('block','ceph_fsid','fsid','keyring','ready','require_osd_release','type','whoami')]}
-   assert members[prefix].isdir()and members[prefix+'/block'].issym()and members[prefix+'/block'].linkname=='/dev/sda3'
+   assert members[prefix].isdir()and members[prefix+'/block'].issym()and members[prefix+'/block'].linkname==block
    assert all(m.isreg()for n,m in members.items()if n not in(prefix,prefix+'/block'))
  print(json.dumps(value))
-""" % (receiver_name, receiver_identity['machine'], receiver_identity['root_uuid'], backup)
+""" % (receiver_name, receiver_identity['machine'], receiver_identity['root_uuid'], backup, OSD_RECOVERY)
     existing = remote(args, readback, receiver_address)
     if existing is not None:
         require(existing['identity'] == IDENTITY and existing['node_uid'] == UID and
@@ -178,9 +194,9 @@ if %r:
  command.insert(1,'--exclude=var/lib/rancher/k3s/server/db')
  command.append('var/lib/homelab-recovery/maintenance-103')
 if %r:
- command.append('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02')
+ command.append(%r)
 sys.exit(subprocess.run(command).returncode)
-""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE == 'cyndaquil')
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in OSD_RECOVERY, OSD_RECOVERY.get(NODE, (None, None))[0])
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
@@ -288,7 +304,7 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
- if expected_node in('charmander','cyndaquil'):
+ if expected_node in('charmander','cyndaquil','growlithe'):
   pods=api.call('get','pods','-n','loki','--field-selector','spec.nodeName='+expected_node,'-o','json')['items']
   agents=[p for p in pods if any(c['name']=='alloy'for c in p['spec']['containers'])]
   assert len(agents)==1,'existing Alloy acceptance process absent or ambiguous'
@@ -430,7 +446,7 @@ else:
    assert step==hops.STEPS[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
    dispatched=True
   # This OSD can return only after uncordon; accept its intent on a later healthy observation.
-  if dispatched and expected_node=='cyndaquil' and step=='restore_scheduling':
+  if dispatched and expected_node in('cyndaquil','growlithe') and step=='restore_scheduling':
    result={'accepted':False,'pending':journal.inspect()['pending'],'scheduling_patch_dispatched':True}
   else:result=worker.observe(plan,digest,verify)
  elif operation in('trusted-reconnect','verify-infrastructure','accept-applications'):
@@ -619,9 +635,9 @@ def prerequisites(api):
         require(conditions.get('Ready') == 'True' and all(conditions.get(k) == 'False'
                 for k in ('DiskPressure', 'MemoryPressure', 'PIDPressure')), 'node health is not green')
     osd_gate = None
-    if NODE == 'cyndaquil':
+    if NODE in OSD_RECOVERY:
         from maintenance_osd_host import observe
-        osd_gate = observe(api)
+        osd_gate = observe(api, node=NODE)
         health = {'status': osd_gate['scope']}
     else:
         health = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
@@ -934,7 +950,7 @@ def main():
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'repair-offline-repositories', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
-    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil'), default='totodile')
+    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -952,9 +968,9 @@ def main():
         require(Path(relative).read_bytes() == published, 'unpublished controller source: ' + relative)
         if name in MODULES:
             bundle[name] = published.decode()
-    if NODE == 'cyndaquil':
+    if NODE in OSD_RECOVERY:
         from maintenance_osd_host import native_identity
-        native_identity(args)
+        native_identity(args, node=NODE)
     core_path = 'scripts/homelab-health.py'
     require(Path(core_path).read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + core_path]),
             'unpublished CORE completion evidence parser')
@@ -1022,6 +1038,9 @@ def main():
         source = remote(args, "import json,subprocess;print(json.dumps(int(subprocess.check_output(['rpm','-E','%fedora']))))")
         require(source in (39, 41, 43), 'unreviewed production source release')
         owner = None
+    if NODE == 'growlithe' and owner is None:
+        from maintenance_receiver_protection import verify
+        verify(args, node=NODE)
     # Keep an active hop bound to its original recovery point after the target boots.
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
