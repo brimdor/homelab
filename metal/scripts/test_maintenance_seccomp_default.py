@@ -16,6 +16,12 @@ class SeccompDefaultTests(unittest.TestCase):
     def test_next_osd_worker_uses_the_accepted_default(self):
         self.assertIn('  - seccomp-default=true\n', security.k3s_security_config('snapshotter: stargz\n', 'growlithe'))
 
+    def test_gpu_worker_uses_default_and_rejects_conflicting_arguments(self):
+        self.assertEqual(security.k3s_security_config('snapshotter: stargz\n', 'arcanine'),
+                         'snapshotter: stargz\nselinux: true\nkubelet-arg:\n  - seccomp-default=true\n')
+        with self.assertRaisesRegex(AssertionError, 'review existing kubelet arguments'):
+            security.k3s_security_config('kubelet-arg:\n  - rotate-certificates=true\n', 'arcanine')
+
     def test_other_nodes_keep_existing_behavior(self):
         for node in ('totodile', 'pikachu', 'squirtle'):
             with self.subTest(node=node):
