@@ -141,9 +141,9 @@ def security_tools(operation, journal, native, identity, recovery):
 
 
 def k3s_security_config(before, node):
-    """Keep the default-seccomp rollout on the reviewed first node."""
+    """Keep the default-seccomp rollout on the reviewed serial nodes."""
     result = before.rstrip() + '\nselinux: true\n'
-    if node == 'charmander':
+    if node in ('charmander', 'cyndaquil'):
         assert not any(line.lstrip().startswith('kubelet-arg:') for line in before.splitlines()), 'review existing kubelet arguments first'
         result += 'kubelet-arg:\n  - seccomp-default=true\n'
     return result

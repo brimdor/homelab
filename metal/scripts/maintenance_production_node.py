@@ -280,7 +280,7 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
- if expected_node=='charmander':
+ if expected_node in('charmander','cyndaquil'):
   pods=api.call('get','pods','-n','loki','--field-selector','spec.nodeName='+expected_node,'-o','json')['items']
   agents=[p for p in pods if any(c['name']=='alloy'for c in p['spec']['containers'])]
   assert len(agents)==1,'existing Alloy acceptance process absent or ambiguous'

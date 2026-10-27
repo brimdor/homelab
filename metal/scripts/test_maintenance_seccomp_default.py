@@ -9,8 +9,12 @@ class SeccompDefaultTests(unittest.TestCase):
         after = security.k3s_security_config(before, 'charmander')
         self.assertEqual(after, before + 'selinux: true\nkubelet-arg:\n  - seccomp-default=true\n')
 
+    def test_next_serial_node_uses_the_accepted_default(self):
+        self.assertEqual(security.k3s_security_config('snapshotter: stargz\n', 'cyndaquil'),
+                         'snapshotter: stargz\nselinux: true\nkubelet-arg:\n  - seccomp-default=true\n')
+
     def test_other_nodes_keep_existing_behavior(self):
-        for node in ('totodile', 'pikachu', 'squirtle', 'cyndaquil'):
+        for node in ('totodile', 'pikachu', 'squirtle'):
             with self.subTest(node=node):
                 self.assertEqual(security.k3s_security_config('snapshotter: stargz\n', node),
                                  'snapshotter: stargz\nselinux: true\n')
