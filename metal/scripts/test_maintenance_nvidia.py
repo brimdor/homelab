@@ -56,7 +56,8 @@ class NvidiaMaintenanceTests(unittest.TestCase):
                 with self.subTest(release=release, fault=fault), self.assertRaises(RuntimeError):
                     gpu.downloaded(bad, release)
 
-    def test_runtime_checks_loaded_original_gpu_and_exact_current_kernel_open_modules(self):
+    @patch.object(gpu, 'compute', return_value={'result': 42, 'owned_gpu_resources_released': True})
+    def test_runtime_checks_loaded_original_gpu_and_exact_current_kernel_open_modules(self, compute):
         for release, profile in gpu.PROFILES.items():
             version = profile['version']; kernel = 'synthetic-1.fc' + str(release) + '.x86_64'
             answers = {
@@ -71,7 +72,8 @@ class NvidiaMaintenanceTests(unittest.TestCase):
                     answers[('modinfo', '-k', kernel, '-F', field, name)] = answer
             result = gpu.runtime(lambda *args: answers[args], release)
             self.assertTrue(result['native_nvml'])
-            self.assertTrue(result['cuda_execution_untested'])
+            self.assertEqual(result['cuda_execution']['result'], 42)
+            self.assertTrue(result['cuda_execution']['owned_gpu_resources_released'])
             for command in (('dkms', 'status'), ('modinfo', '-k', kernel, '-F', 'version', 'nvidia'),
                             ('modinfo', '-k', kernel, '-F', 'license', 'nvidia'),
                             ('nvidia-smi', '--query-gpu=uuid,driver_version', '--format=csv,noheader')):

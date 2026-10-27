@@ -3,7 +3,7 @@
 <title>Issue 103: Arcanine maintenance</title>
 <style>body{color:#e6edf3;background:#0d1117;font:16px/1.55 system-ui;max-width:1000px;margin:40px auto;padding:0 24px}h1,h2{color:#79c0ff}code,pre{background:#161b22;padding:3px 6px;overflow:auto}a{color:#a5d6ff}li{margin:.5em 0}.open{color:#ffa657}</style>
 <h1>Issue 103: Arcanine maintenance</h1>
-<p class="open">INCOMPLETE. Read-only observations collected October 27, 2026. No Arcanine maintenance owner, drain, package transaction or reboot has been started.</p>
+<p class="open">IN PROGRESS, October 27, 2026 22:47 UTC. Arcanine owns the 39-to-41 maintenance interval, is cordoned, and its first Cilium operator Pod eviction was accepted. OSD disruption, package transactions and reboots have not started.</p>
 <h2>Objective and authority</h2>
 <p>Complete the approved serial Fedora maintenance on Arcanine, the first tainted node, before starting another node. The user approved maintenance actions, software fixes and repository publication. Existing NAS restrictions and separate application release gates remain binding. Fedora 44 is the selected final target; intermediate hops are 39 to 41, 41 to 43, and 43 to 44.</p>
 <h2>Observed identities and dependencies</h2>
@@ -32,6 +32,11 @@ pre-commit run --files metal/scripts/maintenance_osd_host.py metal/scripts/test_
 <p>Tests must exercise clean state, either and both owned OSDs down, foreign failures, insufficient survivors, missing or duplicate controllers, unsafe combined stop, expired protection, and unchanged single-OSD behavior. Read-only offline mapping must use only a temporary copied OSD map, preserve its hash and remove it afterward. Native embedded programs must compile before publication.</p>
 <pre>targets = {2, 8}
 require(not down or maintenance and down &lt;= targets, 'unowned or unrelated down OSD')</pre>
+<h2>Implementation evidence, October 27</h2>
+<p>The combined OSD controller (5b12ddfe) passed 21 tests and a fresh complete live gate. Cold monitor profiles (aa0beb0a) passed five tests. The production profile (afb903f5) passed 134 tests, scoped hooks, native disk/OSD identity, legitimate completed CUDA ownership, all controllers and all Argo applications. These are controller qualifications, not completed OS maintenance.</p>
+<p>NVIDIA repository keys and exact branch filters passed native metadata queries: 41 key fingerprint 610C7B14E068A878070DA4E99CD0A493D42D0685, candidate 570.211.01; 43 fingerprint 8033132AA30E535FF7F6059764E003B61940C73E, candidate 595.112.07; 44 fingerprint 129994480EC63D2789BC98E490DFED2F73CD9B30, candidate 615.71.10. Native pin queries excluded foreign branches and i686 packages. Kernel builds remain actual per-hop acceptance requirements.</p>
+<p>Post-upgrade GPU acceptance must execute an actual one-thread PTX kernel against the original RTX 3090, verify 41 becomes 42, and release its context, module and four-byte allocation even after failure. Its process owns a temporary native CUDA cache directory and removes it. NVML visibility alone is insufficient. This does not qualify an unrelated application or a container image release.</p>
+<p>Initial off-node configuration recovery: 324239360 bytes, SHA256 1962f466195fcb8b643ae7880ece49c619c0209df8cb7d361f65e070e6aad565, new private Charmander path arcanine-fedora39-config-20261027-a. Both OSD metadata directories verified; block devices were not archived.</p>
 <h2>Boundaries and rollback</h2>
 <ul>
 <li>Always: repository first, exact identities, fresh observations, exclusive ownership, retained protected recovery, one node at a time. Never replay uncertain package or drain intents.</li>

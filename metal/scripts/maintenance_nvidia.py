@@ -5,6 +5,7 @@ import re
 import urllib.request
 
 from maintenance_actor_hold import exclusive_file, require, safe
+from maintenance_cuda import compute
 
 
 PROFILES = {
@@ -90,4 +91,4 @@ def runtime(native, release):
     loaded = native('nvidia-smi', '--query-gpu=uuid,driver_version', '--format=csv,noheader')
     require(loaded == GPU + ', ' + version, 'GPU runtime changed during module verification')
     return {'gpu': GPU, 'driver': version, 'kernel': kernel, 'modules': modules,
-            'dkms_installed': True, 'native_nvml': True, 'cuda_execution_untested': True}
+            'dkms_installed': True, 'native_nvml': True, 'cuda_execution': compute()}
