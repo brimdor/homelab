@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Issue 103 — Sporecast SELinux recovery</title>
+<style>body{color:#e6edf3;background:#0d1117;font:17px/1.55 system-ui;max-width:960px;margin:3rem auto;padding:0 1rem}a{color:#79c0ff}code{color:#a5d6ff}h1,h2{line-height:1.2}</style>
+<h1>Issue 103 — Sporecast SELinux recovery</h1>
+<p>Status: planned repair; no application rollout accepted yet. Existing maintenance authority covers this software fault.</p>
+<h2>Evidence and objective</h2>
+<p>On October 27, Pikachu recorded 136,007 Sporecast file-lock AVCs. The current backend process uses <code>s0:c599,c776</code>; its RBD directory and SQLite database use <code>s0:c317,c677</code>. The historical actor that changed labels is UNKNOWN. Kubernetes readiness alone did not detect this failure.</p>
+<p>Preserve the original backend digest, single RWO writer, database and retained historical files. Give the backend and its ordinary backup pod the same explicit MCS level so they can share their volume under enforcing SELinux. Keep separate application labels isolated. The NAS backup destination, schedule and command remain unchanged; no manual NAS backup is permitted.</p>
+<h2>Recovery contract</h2>
+<p>Extend <code>metal/scripts/sporecast_recovery.py</code> with an explicitly selected October 27 production profile. Keep the historical profile as the default, preserving old recovery verification. Bind the current Pod UID, container ID, PID/start time, machine/root identity, image, PVC/PV and native CSI device/inode before any freeze. Recheck Kubernetes storage ownership immediately before capture.</p>
+<p>Reuse the existing pidfd freeze, independent resume watchdog, complete memory snapshot, framed protected transfer, WAL-aware isolated SQLite fingerprint and disconnected original-image restore. Read real data only from the identified Ceph mount. Store recovery on Pikachu's protected local ext4 recovery root, never on the NAS or workstation disposable storage.</p>
+<p>Docker on Pikachu now enforces SELinux. Apply Docker's private <code>:Z</code> bind labeling only to the disposable isolated restore copy. Never mount or relabel the original protected recovery point or production data in the restore container. Preserve no-network, nonroot, read-only root filesystem, dropped capabilities and mandatory cleanup.</p>
+<h2>Plan and commands</h2>
+<ol><li>Validate the new profile and framing/isolation refusals with <code>python3 -m unittest discover -s metal/scripts -p test_sporecast_recovery.py</code>, then scoped pre-commit and <code>git diff --check</code>.</li>
+<li>Commit/push only the recovery helper, its tests and this specification to Gitea master. Verify exact remote readback.</li>
+<li>After Totodile is GREEN, run the profile's send/receive and isolated restore, retaining protected original hashes and compact sanitized receipts.</li>
+<li>Declare the matched backend/ordinary-backup MCS level in the production chart. Render, lint, review, commit/push, refresh Argo, and prove the actual process/file labels and SQLite lock behavior. Do not trigger the NAS backup CronJob.</li></ol>
+<h2>Acceptance and rollback</h2>
+<p>Require recovery integrity, foreign keys, complete typed logical fingerprints, original-image native readiness and cleanup. Require unchanged PVC/PV identities, expected original image, actual <code>container_t</code> confinement with matched MCS labels, successful SQLite lock acquisition under that process label, no new related AVCs, healthy endpoints and Argo Synced/Healthy. Preserve the old label failure as historical evidence.</p>
+<p>Stop on changed identity, active backup writer, damaged framing, failed resume, restore discrepancy or unproven storage. Retain partial recovery material. Revert configuration through Git if needed; do not run an incompatible old database or delete data. A return to the mismatched random labels is not successful recovery.</p>
+<h2>Implementation boundaries</h2>
+<p>Use existing Python modules and explicit profiles; no new dependency or generic recovery framework. Example: <code>select_profile('pikachu-20261027')</code>. Keep historical defaults and refusal checks. No SELinux disablement, privileged production container, NAS operation, node upgrade, Strata promotion or image rebuild belongs to this patch.</p>
+<h2>Sources</h2>
+<p><a href="https://kubernetes.io/docs/tasks/configure-pod-container/security-context/">Kubernetes security contexts and SELinux volume labeling</a>; <a href="https://docs.docker.com/engine/storage/bind-mounts/#configure-the-selinux-label">Docker private bind labels</a>. Local evidence: <code>maintenance103-sporecast-lock-owner-readback-zo0z2aye</code> and <code>maintenance103-sporecast-recovery-current-identity-hf9plhgk</code>.</p>
+</html>

@@ -31,8 +31,25 @@ SOURCES = {
                         'pvc_uid': '05d72126-6a3f-465e-b117-adb26e47830a', 'pv_uid': 'a4fdbcb0-7cbb-4148-bb44-52b3ada37ea5',
                         'device': 64336, 'inode': 2},
 }
+HISTORICAL_SOURCES = SOURCES
+PIKACHU_20261027 = {
+    'sporecast': {'pod_uid': '4b540b38-14ca-459c-8961-f58534cb4c78', 'pid': 14078,
+                 'container_id': 'dc321fd9c7df9c7e916683e31b51de734300fbe3029b61466fd525f09ba8cf38',
+                 'pvc_uid': '683ae6bf-813c-49e5-aba5-ebadea1b18c5', 'pv_uid': '0c6012e9-40f1-4888-b949-f7a03f353aa0',
+                 'device': 64048, 'inode': 2, 'start_ticks': '353518',
+                 'node': 'pikachu', 'machine': '0a7daf8b33244d9d85f46223c3582da9',
+                 'root_uuid': '76e53a95-725a-4430-9d7b-a8db413f3997',
+                 'boot': '41d9cfe5-eb7a-4008-a0da-174712f52cec'},
+}
 ENVIRONMENT = {'DATA_DIR': '/data', 'BACKUP_DIR': '/data/backups', 'BACKUP_INTERVAL_HOURS': '24',
                'LISTEN_ADDR': '127.0.0.1:8080', 'LOG_LEVEL': 'error'}
+
+
+def select_profile(profile):
+    global SOURCES
+    if profile not in ('historical', 'pikachu-20261027'):
+        raise RuntimeError('unreviewed Sporecast recovery profile')
+    SOURCES = HISTORICAL_SOURCES if profile == 'historical' else PIKACHU_20261027
 
 
 def source_path(namespace):
@@ -41,7 +58,13 @@ def source_path(namespace):
 
 
 def source_identity(namespace):
-    common.require_host('bulbasaur'); expected = SOURCES[namespace]; cid = expected['container_id']
+    expected = SOURCES[namespace]; cid = expected['container_id']
+    common.require_host(expected.get('node', 'bulbasaur'))
+    if expected.get('machine') and (
+            Path('/etc/machine-id').read_text().strip() != expected['machine'] or
+            common.command(['findmnt', '-n', '-o', 'UUID', '/']).stdout.decode().strip() != expected['root_uuid'] or
+            Path('/proc/sys/kernel/random/boot_id').read_text().strip() != expected['boot']):
+        raise RuntimeError('reviewed Sporecast host identity changed')
     runtime = json.loads(common.command(['/usr/local/bin/k3s', 'crictl', 'inspect', cid]).stdout)
     status = runtime['status']; labels = status['labels']; pid = expected['pid']
     if (status['state'] != 'CONTAINER_RUNNING' or status['imageRef'].split('@')[-1] != IMAGE.split('@')[-1] or
@@ -52,6 +75,8 @@ def source_identity(namespace):
     identity = process.process_identity(pid)
     if identity['exe'] != '/sporecast-backend' or expected['pod_uid'].replace('-', '_') not in identity['cgroup']:
         raise RuntimeError('reviewed Sporecast process changed')
+    if expected.get('start_ticks') and identity['start_ticks'] != expected['start_ticks']:
+        raise RuntimeError('reviewed Sporecast PID was reused')
     tasks = common.command(['/usr/local/bin/k3s', 'ctr', '-n', 'k8s.io', 'tasks', 'ps', cid]).stdout.decode().splitlines()[1:]
     if [int(line.split()[0]) for line in tasks if line.strip()] != [pid]: raise RuntimeError('unreviewed additional writer process')
     path = source_path(namespace)
@@ -81,6 +106,7 @@ def validate_manifest(value, namespace):
             any(source.get(k) != v for k, v in expected.items()) or source.get('image') != IMAGE or
             source.get('namespace') != namespace or source.get('process', {}).get('pid') != expected['pid'] or
             source.get('process', {}).get('exe') != '/sporecast-backend' or
+            expected.get('start_ticks') is not None and source['process'].get('start_ticks') != expected['start_ticks'] or
             not 0 < value.get('pause', {}).get('stopped_seconds', 0) < 10 or
             value.get('original_process_resumed') is not True or
             not isinstance(value.get('tree'), dict) or set(value['tree']) != {'directories', 'files'} or
@@ -218,14 +244,16 @@ def require_container(value, scratch, run_id):
     host = value['HostConfig']; config = value['Config']; environment = dict(e.split('=', 1) for e in config.get('Env', []) if '=' in e)
     expected = {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'IpcMode': 'private', 'PidMode': '', 'UTSMode': '', 'UsernsMode': '',
-                'PidsLimit': 128, 'Memory': 536870912, 'NanoCpus': 1000000000, 'Tmpfs': {'/tmp': 'rw,nosuid,nodev'}}
+                'PidsLimit': 128, 'Memory': 536870912, 'NanoCpus': 1000000000, 'Tmpfs': {'/tmp': 'rw,nosuid,nodev'},
+                'Binds': [str(scratch / 'data') + ':/data:Z']}
     if (config['Image'] != IMAGE or config['User'] != '65532:65532' or config.get('Labels', {}).get(LABEL) != run_id or
             config.get('Entrypoint') != ['/sporecast-backend'] or config.get('Cmd') not in (None, []) or
             any(environment.get(k) != v for k, v in ENVIRONMENT.items()) or
             any(host.get(k) != v for k, v in expected.items()) or host.get('RestartPolicy', {}).get('Name') != 'no' or
             any(host.get(k) for k in ('CapAdd', 'Devices', 'DeviceRequests', 'PortBindings')) or len(value['Mounts']) != 1 or
             value['Mounts'][0].get('Type') != 'bind' or value['Mounts'][0].get('Source') != str(scratch / 'data') or
-            value['Mounts'][0].get('Destination') != '/data' or value['Mounts'][0].get('RW') is not True):
+            value['Mounts'][0].get('Destination') != '/data' or value['Mounts'][0].get('RW') is not True or
+            value['Mounts'][0].get('Mode') != 'Z'):
         raise RuntimeError('native Sporecast isolation changed')
 
 
@@ -250,7 +278,8 @@ def restore(namespace, run_id, checksum):
         args = ['create', '--network=none', '--read-only', '--cap-drop=ALL', '--user=65532:65532',
                 '--security-opt=no-new-privileges:true', '--ipc=private', '--pids-limit=128', '--memory=512m', '--cpus=1',
                 '--label=' + LABEL + '=' + run_id, '--tmpfs=/tmp:rw,nosuid,nodev', '--entrypoint=/sporecast-backend',
-                '--mount=type=bind,source=' + str(scratch / 'data') + ',target=/data']
+                # Relabel only the disposable copy for this isolated container.
+                '--volume=' + str(scratch / 'data') + ':/data:Z']
         for key, value in ENVIRONMENT.items(): args.extend(['--env', key + '=' + value])
         container = common.docker(*args, IMAGE).stdout.decode().strip()
         if not re.fullmatch('[a-f0-9]{64}', container): raise RuntimeError('invalid owned container')
@@ -303,8 +332,11 @@ def main():
     def cancel(_number, _frame): raise InterruptedError('owned Sporecast recovery interrupted')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP): signal.signal(number, cancel)
     parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('mode', choices=('send', 'receive', 'restore'))
-    parser.add_argument('--namespace', choices=sorted(SOURCES), required=True); parser.add_argument('--run-id', type=common.run_identifier, required=True)
+    parser.add_argument('--namespace', choices=sorted(HISTORICAL_SOURCES), required=True); parser.add_argument('--run-id', type=common.run_identifier, required=True)
+    parser.add_argument('--profile', choices=('historical', 'pikachu-20261027'), default='historical')
     parser.add_argument('--manifest'); args = parser.parse_args()
+    select_profile(args.profile)
+    if args.namespace not in SOURCES: parser.error('namespace is not included in the selected profile')
     if args.mode == 'send': send(args.namespace, sys.stdout.buffer)
     elif args.mode == 'receive': print(json.dumps(receive(sys.stdin.buffer, point_path(args.namespace, args.run_id), args.namespace)), flush=True)
     else:

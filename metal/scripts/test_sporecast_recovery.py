@@ -14,6 +14,8 @@ import sporecast_recovery as recovery
 
 class RecoveryGuards(unittest.TestCase):
     def setUp(self):
+        recovery.select_profile('historical')
+        self.addCleanup(recovery.select_profile, 'historical')
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
@@ -23,7 +25,9 @@ class RecoveryGuards(unittest.TestCase):
                    for name, data in self.payloads().items()}
         return {'format': 1, 'cluster_uid': recovery.common.CLUSTER_UID,
                 'source': {**recovery.SOURCES['sporecast'], 'namespace': 'sporecast', 'image': recovery.IMAGE,
-                           'process': {'pid': recovery.SOURCES['sporecast']['pid'], 'exe': '/sporecast-backend'}},
+                           'process': {'pid': recovery.SOURCES['sporecast']['pid'], 'exe': '/sporecast-backend',
+                                       **({'start_ticks': recovery.SOURCES['sporecast']['start_ticks']}
+                                          if 'start_ticks' in recovery.SOURCES['sporecast'] else {})}},
                 'tree': {'directories': ['empty'], 'files': records}, 'bytes': sum(r['bytes'] for r in records.values()),
                 'pause': {'stopped_seconds': 0.1}, 'original_process_resumed': True}
 
@@ -116,11 +120,11 @@ class RecoveryGuards(unittest.TestCase):
         host = {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'IpcMode': 'private', 'PidMode': '', 'UTSMode': '', 'UsernsMode': '',
                 'PidsLimit': 128, 'Memory': 536870912, 'NanoCpus': 1000000000, 'Tmpfs': {'/tmp': 'rw,nosuid,nodev'},
-                'RestartPolicy': {'Name': 'no'}}
+                'RestartPolicy': {'Name': 'no'}, 'Binds': [str(scratch / 'data') + ':/data:Z']}
         original = {'HostConfig': host, 'Config': {'Image': recovery.IMAGE, 'User': '65532:65532',
                     'Entrypoint': ['/sporecast-backend'], 'Cmd': None, 'Labels': {recovery.LABEL: 'fixture'},
                     'Env': [k + '=' + v for k, v in recovery.ENVIRONMENT.items()]},
-                    'Mounts': [{'Type': 'bind', 'Source': str(scratch / 'data'), 'Destination': '/data', 'RW': True}]}
+                    'Mounts': [{'Type': 'bind', 'Source': str(scratch / 'data'), 'Destination': '/data', 'RW': True, 'Mode': 'Z'}]}
         recovery.require_container(original, scratch, 'fixture')
         for section, key, value in [('HostConfig', 'NetworkMode', 'host'), ('HostConfig', 'Privileged', True),
                                     ('HostConfig', 'PidMode', 'host'), ('HostConfig', 'CapAdd', ['SYS_ADMIN']),
@@ -131,6 +135,25 @@ class RecoveryGuards(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(RuntimeError): recovery.require_container(changed, scratch, 'fixture')
         changed = copy.deepcopy(original); changed['Mounts'][0]['Source'] = '/production'
         with self.assertRaises(RuntimeError): recovery.require_container(changed, scratch, 'fixture')
+        for mode in ('', 'z', 'ro', 'rw'):
+            changed = copy.deepcopy(original); changed['HostConfig']['Binds'] = [str(scratch / 'data') + ':/data:' + mode]
+            changed['Mounts'][0]['Mode'] = mode
+            with self.subTest(mode=mode), self.assertRaises(RuntimeError): recovery.require_container(changed, scratch, 'fixture')
+
+    def test_current_profile_cannot_reinterpret_historical_point_or_reused_process(self):
+        historical = self.manifest()
+        recovery.select_profile('pikachu-20261027')
+        current = self.manifest(); recovery.validate_manifest(current, 'sporecast')
+        self.assertEqual(set(recovery.SOURCES), {'sporecast'})
+        with self.assertRaises(RuntimeError): recovery.validate_manifest(historical, 'sporecast')
+        for key in ('boot', 'machine', 'root_uuid', 'pv_uid', 'start_ticks'):
+            changed = copy.deepcopy(current); changed['source'][key] = 'changed'
+            with self.subTest(key=key), self.assertRaises(RuntimeError): recovery.validate_manifest(changed, 'sporecast')
+        changed = copy.deepcopy(current); changed['source']['process']['start_ticks'] = 'reused'
+        with self.assertRaises(RuntimeError): recovery.validate_manifest(changed, 'sporecast')
+        with self.assertRaises(RuntimeError): recovery.select_profile('unreviewed')
+        recovery.select_profile('historical'); recovery.validate_manifest(historical, 'sporecast')
+        with self.assertRaises(RuntimeError): recovery.validate_manifest(current, 'sporecast')
 
 
 if __name__ == '__main__': unittest.main()
