@@ -1,10 +1,15 @@
 """Exact signed NVIDIA repositories and native acceptance for Arcanine's OS hops."""
 
 import hashlib
+import os
+from pathlib import Path
+import stat
 import re
 import urllib.request
 
-from maintenance_actor_hold import exclusive_file, require, safe
+from maintenance_actor_hold import exclusive_file, fsync_directory, require, safe
+from maintenance_hop_journal import canonical, checksum
+from maintenance_node_drain import private_json
 from maintenance_cuda import compute
 
 
@@ -92,3 +97,103 @@ def runtime(native, release):
     require(loaded == GPU + ', ' + version, 'GPU runtime changed during module verification')
     return {'gpu': GPU, 'driver': version, 'kernel': kernel, 'modules': modules,
             'dkms_installed': True, 'native_nvml': True, 'cuda_execution': compute()}
+
+
+PERMANENT_REPOSITORY = Path('/etc/yum.repos.d/cuda-fedora.repo')
+PERMANENT_OLD_SHA256 = '8dadb9d9bd101737001b65006cc282872005e1da9f282436550a5a2c08a9ee16'
+PERMANENT_CONTENT = (b'[cuda-fedora44-x86_64]\nname=cuda-fedora44-x86_64\n'
+                     b'baseurl=https://developer.download.nvidia.com/compute/cuda/repos/fedora44/x86_64\n'
+                     b'enabled=1\ngpgcheck=1\n'
+                     b'gpgkey=https://developer.download.nvidia.com/compute/cuda/repos/fedora44/x86_64/73CD9B30.pub\n')
+PERMANENT_SHA256 = 'e1fdc2735f1d899e12be5bc8b6d1882b55053afc7a87d07dc6af982e730bf0dd'
+
+
+def regular_digest(path, mode):
+    safe(path)
+    info = path.stat()
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid() and
+            info.st_gid == os.getegid() and info.st_nlink == 1 and
+            stat.S_IMODE(info.st_mode) == mode and 0 < info.st_size < 65536,
+            'permanent NVIDIA repository input metadata differs')
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def permanent_inputs(journal, native):
+    owner = private_json(journal.path / '00000000.json')['owners']['global']
+    require(owner['owner'] == journal.token and owner['node_uid'] == '88aa2572-09df-40b9-8a00-960e9682917c' and
+            owner['node'] == 'arcanine' and (owner['source'], owner['target']) == (43, 44),
+            'permanent NVIDIA repository requires final Arcanine owner')
+    require(native('rpm', '-E', '%fedora') == '44', 'permanent NVIDIA repository requires Fedora 44')
+    key = journal.hold.state / ('fedora-repositories-44-' + owner['owner']) / PROFILES[44]['key']
+    require(regular_digest(key, 0o600) == PROFILES[44]['sha256'], 'retained NVIDIA 44 key differs')
+    require(native('rpm', '-q', '--qf', '%{VERSION}', 'gpg-pubkey-73cd9b30') == '73cd9b30',
+            'reviewed NVIDIA 44 signing key is not imported')
+    require(hashlib.sha256(PERMANENT_CONTENT).hexdigest() == PERMANENT_SHA256,
+            'official NVIDIA 44 repository definition differs')
+    return owner, journal.hold.state / ('nvidia-repository-' + owner['owner'] + '.json')
+
+
+def permanent_repository(journal, native):
+    """Read-only final gate: exact permanent provider and its original recovery binding."""
+    owner, intent = permanent_inputs(journal, native)
+    record = private_json(intent)
+    require(set(record) == {'owner', 'identity', 'recovery_sha256', 'original', 'desired_sha256', 'key_sha256'} and
+            record['owner'] == owner and record['identity'] == journal.hold.identity() and
+            checksum(record['recovery_sha256']) and
+            hashlib.sha256(record['original'].encode()).hexdigest() == PERMANENT_OLD_SHA256 and
+            record['desired_sha256'] == PERMANENT_SHA256 and record['key_sha256'] == PROFILES[44]['sha256'],
+            'permanent NVIDIA repository intent differs')
+    require(regular_digest(PERMANENT_REPOSITORY, 0o644) == PERMANENT_SHA256,
+            'permanent NVIDIA repository differs from Fedora 44')
+    expected = {'intent_sha256': hashlib.sha256(canonical(record)).hexdigest(),
+                'repository_sha256': PERMANENT_SHA256, 'key_sha256': PROFILES[44]['sha256']}
+    accepted = intent.with_name('nvidia-repository-accepted-' + owner['owner'] + '.json')
+    require(private_json(accepted) == expected, 'permanent NVIDIA repository acceptance differs')
+    return expected
+
+
+def persist_repository(journal, native, recovery):
+    """Replace only the exact old provider, once; interrupted intents permit observation."""
+    with journal.hold.serialized():
+        owner, intent = permanent_inputs(journal, native)
+        require(journal.owners(idle=True)['global'] == owner, 'current NVIDIA repository owner differs')
+        state = journal.read()
+        require(not state['pending'] and state['completed'] == [
+            'cordon', 'drain', 'prepare_source', 'download_release', 'offline_transaction',
+            'trusted_reconnect', 'verify_infrastructure'], 'permanent NVIDIA repository phase differs')
+        require(recovery['source_release'] == 44 and recovery['identity'] == journal.hold.identity() and
+                checksum(recovery['sha256']), 'fresh Fedora 44 recovery binding differs')
+        safe(intent)
+        if not intent.exists():
+            require(regular_digest(PERMANENT_REPOSITORY, 0o644) == PERMANENT_OLD_SHA256,
+                    'original Fedora 39 NVIDIA repository changed')
+            record = {'owner': owner, 'identity': journal.hold.identity(), 'recovery_sha256': recovery['sha256'],
+                      'original': PERMANENT_REPOSITORY.read_text(), 'desired_sha256': PERMANENT_SHA256,
+                      'key_sha256': PROFILES[44]['sha256']}
+            exclusive_file(intent, canonical(record), 0o600)
+            temporary = PERMANENT_REPOSITORY.with_name('.nvidia-repository-' + owner['owner'])
+            safe(temporary)
+            exclusive_file(temporary, PERMANENT_CONTENT, 0o644)
+            try:
+                journal.owners(idle=True)
+                require(regular_digest(PERMANENT_REPOSITORY, 0o644) == PERMANENT_OLD_SHA256,
+                        'original NVIDIA repository changed before atomic replacement')
+                os.replace(temporary, PERMANENT_REPOSITORY); fsync_directory(PERMANENT_REPOSITORY.parent)
+            finally:
+                if temporary.exists():temporary.unlink(); fsync_directory(temporary.parent)
+        record = private_json(intent)
+        require(set(record) == {'owner', 'identity', 'recovery_sha256', 'original', 'desired_sha256', 'key_sha256'} and
+                record['owner'] == owner and record['identity'] == journal.hold.identity() and
+                record['recovery_sha256'] == recovery['sha256'] and
+                hashlib.sha256(record['original'].encode()).hexdigest() == PERMANENT_OLD_SHA256 and
+                record['desired_sha256'] == PERMANENT_SHA256 and record['key_sha256'] == PROFILES[44]['sha256'],
+                'retained NVIDIA repository recovery differs')
+        require(regular_digest(PERMANENT_REPOSITORY, 0o644) == PERMANENT_SHA256,
+                'permanent NVIDIA replacement intent exists; observe only, never replay')
+        accepted = intent.with_name('nvidia-repository-accepted-' + owner['owner'] + '.json')
+        safe(accepted)
+        if not accepted.exists():
+            journal.owners(idle=True)
+            exclusive_file(accepted, canonical({'intent_sha256': hashlib.sha256(canonical(record)).hexdigest(),
+                'repository_sha256': PERMANENT_SHA256, 'key_sha256': PROFILES[44]['sha256']}), 0o600)
+        return permanent_repository(journal, native)

@@ -1,8 +1,10 @@
 """Pinned vendor keys, solver inputs and original GPU runtime remain exact."""
 
+import contextlib
 import hashlib
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -10,6 +12,77 @@ import maintenance_nvidia as gpu
 
 
 class NvidiaMaintenanceTests(unittest.TestCase):
+    def test_permanent_repository_is_bound_to_final_owner_and_observes_interruption(self):
+        original = ('[cuda-fedora39-x86_64]\nname=cuda-fedora39-x86_64\n'
+                    'baseurl=https://developer.download.nvidia.com/compute/cuda/repos/fedora39/x86_64\n'
+                    'enabled=1\ngpgcheck=1\n'
+                    'gpgkey=https://developer.download.nvidia.com/compute/cuda/repos/fedora39/x86_64/D42D0685.pub\n')
+        for fault in (None, 'foreign-owner', 'wrong-phase', 'foreign-repository', 'key', 'symlink',
+                      'interrupted-before-replace', 'interrupted-after-replace', 'tampered-intent', 'released-owner'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); repo = root / 'cuda-fedora.repo'; repo.write_text(original); repo.chmod(0o644)
+                owner = {'node': 'arcanine', 'source': 43, 'target': 44,
+                         'node_uid': '88aa2572-09df-40b9-8a00-960e9682917c',
+                         'owner': 'homelab-maintenance-103-00000000-0000-0000-0000-000000000000'}
+                identity = {'machine': 'synthetic', 'root_uuid': 'synthetic-root'}
+                recovery = {'source_release': 44, 'identity': identity, 'sha256': 'a' * 64}
+                hold = SimpleNamespace(state=root, identity=lambda: identity, serialized=contextlib.nullcontext)
+                completed = ['cordon', 'drain', 'prepare_source', 'download_release',
+                             'offline_transaction', 'trusted_reconnect', 'verify_infrastructure']
+                journal = SimpleNamespace(hold=hold, owners=lambda **kw: {'global': owner},
+                                          token=owner['owner'], path=root / 'journal',
+                                          read=lambda: {'pending': None, 'completed': completed})
+                key = b'synthetic public key'; profile = dict(gpu.PROFILES[44], sha256=hashlib.sha256(key).hexdigest())
+                keys = root / ('fedora-repositories-44-' + owner['owner']); keys.mkdir(mode=0o700)
+                (keys / profile['key']).write_bytes(key); (keys / profile['key']).chmod(0o600)
+                if fault == 'foreign-owner':owner['node'] = 'sprigatito'
+                if fault == 'wrong-phase':completed.pop()
+                if fault == 'foreign-repository':repo.write_text('foreign')
+                if fault == 'key':(keys / profile['key']).write_bytes(b'foreign')
+                if fault == 'symlink':repo.unlink(); repo.symlink_to(keys / profile['key'])
+                journal.path.mkdir(mode=0o700)
+                header = journal.path / '00000000.json'
+                header.write_bytes(gpu.canonical({'owners': {'global': owner}})); header.chmod(0o600)
+                def native(*argv):
+                    if argv == ('rpm', '-E', '%fedora'):return '44'
+                    if argv == ('rpm', '-q', '--qf', '%{VERSION}', 'gpg-pubkey-73cd9b30'):return '73cd9b30'
+                    raise AssertionError(argv)
+                with patch.object(gpu, 'PERMANENT_REPOSITORY', repo), patch.dict(gpu.PROFILES, {44: profile}):
+                    if fault in ('foreign-owner', 'wrong-phase', 'foreign-repository', 'key', 'symlink'):
+                        with self.assertRaises((RuntimeError, AssertionError)):
+                            gpu.persist_repository(journal, native, recovery)
+                        self.assertFalse(list(root.glob('nvidia-repository-*.json')))
+                    elif fault == 'interrupted-before-replace':
+                        with patch.object(gpu.os, 'replace', side_effect=OSError('interrupted')):
+                            with self.assertRaises(OSError):gpu.persist_repository(journal, native, recovery)
+                        self.assertEqual(repo.read_text(), original)
+                        with self.assertRaisesRegex(RuntimeError, 'observe only'):
+                            gpu.persist_repository(journal, native, recovery)
+                    else:
+                        accepted = gpu.persist_repository(journal, native, recovery)
+                        self.assertEqual(repo.read_bytes(), gpu.PERMANENT_CONTENT)
+                        if fault == 'tampered-intent':
+                            import json
+                            accepted_path = root / ('nvidia-repository-accepted-' + owner['owner'] + '.json')
+                            accepted_path.unlink()
+                            intent = root / ('nvidia-repository-' + owner['owner'] + '.json')
+                            record = json.loads(intent.read_bytes()); record['original'] = 'foreign'
+                            intent.write_bytes(gpu.canonical(record))
+                            with self.assertRaises(RuntimeError):gpu.persist_repository(journal, native, recovery)
+                            self.assertFalse(accepted_path.exists())
+                            continue
+                        if fault == 'interrupted-after-replace':
+                            (root / ('nvidia-repository-accepted-' + owner['owner'] + '.json')).unlink()
+                        with patch.object(gpu.os, 'replace', side_effect=AssertionError('never replay')):
+                            self.assertEqual(gpu.persist_repository(journal, native, recovery), accepted)
+                        self.assertEqual(gpu.permanent_repository(journal, native), accepted)
+                        if fault == 'released-owner':
+                            journal.owners = lambda **kw: (_ for _ in ()).throw(RuntimeError('owner released'))
+                            self.assertEqual(gpu.permanent_repository(journal, native), accepted)
+                            with self.assertRaises(RuntimeError):gpu.persist_repository(journal, native, recovery)
+                        repo.write_text('foreign')
+                        with self.assertRaises(RuntimeError):gpu.permanent_repository(journal, native)
+
     def test_owned_repository_retains_exact_key_and_branch_without_cuda_sdk_updates(self):
         key = b'synthetic public key'
         profile = dict(gpu.PROFILES[41], sha256=hashlib.sha256(key).hexdigest())

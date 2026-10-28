@@ -338,6 +338,7 @@ def final_security():
   assert not container.get('securityContext',{}).get('privileged',False),'privileged process cannot prove kubelet default'
   sys.modules['maintenance_host_security'].seccomp_default(native,agent['metadata']['uid'])
  journal=hops.Journal(controller,hold,owner['owner'])
+ if expected_node=='arcanine':sys.modules['maintenance_nvidia'].permanent_repository(journal,native)
  return sys.modules['maintenance_host_security'].acceptance(journal,native,identity)
 if operation in('restore-scheduling','accept-applications','release','resolve-release-precheck'):final_security()
 def offline_repository_override():
@@ -396,6 +397,15 @@ if operation in('release','resolve-release-precheck'):
  if status['state']['kinds']==list(sys.modules['maintenance_safe_release'].KINDS[:3]):
   status=release.release_global(digest,safe_release)
  print(json.dumps({'result':status}),flush=True)
+elif operation=='nvidia-repository':
+ assert expected_node=='arcanine'
+ current_node=api.call('get','node',expected_node,'-o','json')
+ assert current_node['spec'].get('unschedulable')is True
+ assert current_node['status']['nodeInfo']['bootID']==pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+ evidence()
+ journal=hops.Journal(controller,hold,owner['owner'])
+ result=sys.modules['maintenance_nvidia'].persist_repository(journal,native,recovery_manifest)
+ print(json.dumps({'result':result}),flush=True)
 elif operation in('security-tools', 'observe-security-tools', 'security-policy','observe-security-policy','security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
  current_node=api.call('get','node',expected_node,'-o','json')
  assert current_node['spec'].get('unschedulable')is True
@@ -1157,7 +1167,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
-                                             'repair-rpmfusion-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
+                                             'nvidia-repository', 'repair-rpmfusion-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
@@ -1267,7 +1277,7 @@ def main():
                                                 'download-release', 'offline-transaction', 'repair-rpmfusion-download'):
         from maintenance_monitor_recovery import verify
         verify(args, node=NODE)
-    if args.operation in ('security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
+    if args.operation in ('nvidia-repository', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
         recovery_manifest = recovery(args, 44, capture=False)
     if args.operation == 'security-backup':
         require(owner is not None and owner['source'] == 43 and owner['target'] == 44,
