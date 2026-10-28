@@ -274,6 +274,23 @@ def compare_reconstruction(actual, expected, destination_label):
             'destination_selinux_label_sha256': hashlib.sha256(bytes.fromhex(destination_label)).hexdigest()}
 
 
+def restore_arguments(root, label):
+    # Match the pinned image's service environment when bypassing its root s6 init.
+    environment = {'HOME': '/config', 'LD_LIBRARY_PATH': '/app/emby/lib:/app/emby/extra/lib',
+                   'FONTCONFIG_PATH': '/app/emby/etc/fonts', 'OCL_ICD_VENDORS': '/app/emby/etc/OpenCL/vendors',
+                   'AMDGPU_IDS_PATH': '/app/emby/share/libdrm/amdgpu.ids',
+                   'PCI_IDS_PATH': '/app/emby/share/hwdata/pci.ids',
+                   'LIBVA_DRIVERS_PATH': '/usr/lib/x86_64-linux-gnu/dri:/app/emby/lib/dri',
+                   'SSL_CERT_FILE': '/app/emby/etc/ssl/certs/ca-certificates.crt'}
+    return ['docker', 'create', '--log-driver=none', '--network=none', '--read-only', '--cap-drop=ALL', '--user=99:100',
+            '--security-opt=no-new-privileges:true', '--ipc=private', '--pids-limit=256', '--memory=4g', '--cpus=1',
+            '--label=' + label, '--tmpfs=/tmp:rw,nosuid,nodev,uid=99,gid=100,mode=1777',
+            '--workdir=/app/emby', *['--env=' + key + '=' + value for key, value in environment.items()],
+            '--volume=' + str(root) + ':/config:Z', '--entrypoint=/app/emby/system/EmbyServer', IMAGE,
+            '-programdata', '/config', '-ffdetect', '/app/emby/bin/ffdetect', '-ffmpeg', '/app/emby/bin/ffmpeg',
+            '-ffprobe', '/app/emby/bin/ffprobe', '-restartexitcode', '3']
+
+
 def restore():
     host('squirtle')
     def interrupted(signum, frame):
@@ -340,14 +357,7 @@ def restore():
         image_id = description['Id']
         label = 'homelab.eaglepass.io/emby-recovery=20261028-a'
         require(not command('docker', 'ps', '-aq', '--filter=label=' + label).stdout.strip(), 'owned restore already exists')
-        arguments = ['docker', 'create', '--log-driver=none', '--network=none', '--read-only', '--cap-drop=ALL', '--user=99:100',
-                     '--security-opt=no-new-privileges:true', '--ipc=private',
-                     '--pids-limit=256', '--memory=4g', '--cpus=1', '--label=' + label,
-                     '--tmpfs=/tmp:rw,nosuid,nodev,uid=99,gid=100,mode=1777', '--env=HOME=/tmp',
-                     '--volume=' + str(root) + ':/config:Z',
-                     '--entrypoint=/app/emby/system/EmbyServer', IMAGE, '-programdata', '/config',
-                     '-ffdetect', '/app/emby/bin/ffdetect', '-ffmpeg', '/app/emby/bin/ffmpeg',
-                     '-ffprobe', '/app/emby/bin/ffprobe', '-restartexitcode', '3']
+        arguments = restore_arguments(root, label)
         container = command(*arguments).stdout.decode().strip()
         inspected = json.loads(command('docker', 'inspect', container).stdout)[0]
         require(inspected['HostConfig']['NetworkMode'] == 'none' and
