@@ -478,13 +478,10 @@ def main():
     elif args.operation == 'backup':
         result = production.remote(args, source + '\nprint(json.dumps(backup(' + repr(context) + ')))', '10.0.20.13')
     else:
-        def bulk_ssh(address):
-            options = production.ssh(args, address)
-            return options[:1] + ['-C'] + options[1:]
-        sender = subprocess.Popen(bulk_ssh('10.0.20.13') +
+        sender = subprocess.Popen(production.ssh(args, '10.0.20.13') +
                                   ['python3 -B -c ' + shlex.quote(source + '\nsend()')],
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        receiver = subprocess.Popen(bulk_ssh('10.0.20.12') +
+        receiver = subprocess.Popen(production.ssh(args, '10.0.20.12') +
                                     ['python3 -B -c ' + shlex.quote(source + '\nprint(json.dumps(restore()))')],
                                     stdin=sender.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         sender.stdout.close()
