@@ -17,6 +17,8 @@
 app-template:
   controllers:
     main:
+      # Issue 103: cold protected recovery and Sprigatito evacuation.
+      replicas: 0
       # strategy: RollingUpdate
       pod:
         # Pod-level security context. The LSIO image runs s6 as root
@@ -171,6 +173,7 @@ app-template:
       type: cronjob
       enabled: true
       cronjob:
+        suspend: true
         schedule: "*/30 * * * *"
         concurrencyPolicy: Forbid
         successfulJobsHistory: 1
@@ -213,6 +216,7 @@ app-template:
       type: cronjob
       enabled: true
       cronjob:
+        suspend: true
         schedule: "*/15 * * * *"
         concurrencyPolicy: Forbid
         successfulJobsHistory: 1
@@ -440,3 +444,6 @@ app-template:
 # under app-template.controllers.stale-ffmpeg-watchdog.containers.watchdog.env
 # above. See templates/configmap.yaml -> stale-ffmpeg-watchdog.sh for defaults
 # and the rationale for 2h / 5min / 30s.)
+
+maintenance103Recovery:
+  enabled: true

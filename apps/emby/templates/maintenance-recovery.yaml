@@ -1,0 +1,60 @@
+{{- if .Values.maintenance103Recovery.enabled }}
+{{- $controllers := index .Values "app-template" "controllers" }}
+{{- $cleanup := index $controllers "transcode-temp-cleanup" }}
+{{- $watchdog := index $controllers "stale-ffmpeg-watchdog" }}
+{{- if or (not (hasKey $controllers.main "replicas")) (ne (int $controllers.main.replicas) 0) (not $cleanup.cronjob.suspend) (not $watchdog.cronjob.suspend) }}
+{{- fail "Issue 103 recovery requires main replicas zero, explicit hold and both CronJobs suspended" }}
+{{- end }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: emby-maintenance103-recovery
+  labels:
+    homelab.eaglepass.io/recovery: emby-maintenance103
+spec:
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: bulbasaur
+  restartPolicy: Always
+  containers:
+    - name: readonly-volume
+      image: docker.io/library/alpine@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+      command: ["/bin/sleep", "infinity"]
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 5m
+          memory: 8Mi
+        limits:
+          cpu: 50m
+          memory: 32Mi
+      volumeMounts:
+        - name: data
+          mountPath: /config
+          readOnly: true
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: emby-original-data
+        readOnly: true
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: emby-maintenance103-recovery
+spec:
+  podSelector:
+    matchLabels:
+      homelab.eaglepass.io/recovery: emby-maintenance103
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+{{- end }}
