@@ -21,6 +21,10 @@ class SeccompDefaultTests(unittest.TestCase):
                          'snapshotter: stargz\nselinux: true\nkubelet-arg:\n  - seccomp-default=true\n')
         with self.assertRaisesRegex(AssertionError, 'review existing kubelet arguments'):
             security.k3s_security_config('kubelet-arg:\n  - rotate-certificates=true\n', 'arcanine')
+        self.assertEqual(security.k3s_security_config('snapshotter: stargz\n', 'sprigatito'),
+                         'snapshotter: stargz\nselinux: true\nkubelet-arg:\n  - seccomp-default=true\n')
+        with self.assertRaisesRegex(AssertionError, 'review existing kubelet arguments'):
+            security.k3s_security_config('kubelet-arg:\n  - existing=true\n', 'sprigatito')
 
     def test_other_nodes_keep_existing_behavior(self):
         for node in ('totodile', 'pikachu', 'squirtle'):

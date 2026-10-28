@@ -10,6 +10,15 @@ import maintenance_host_security as security
 
 
 class FirmwareKernelTests(unittest.TestCase):
+    def test_sprigatito_source_is_bound_to_original_four_core_cpu(self):
+        block = 'vendor_id: GenuineIntel\ncpu family: 6\nmodel: 94\nstepping: 3\nmicrocode: 0x84'
+        cpuinfo = '\n\n'.join([block] * 4)
+        self.assertFalse(security.firmware_source('sprigatito', '0x84', cpuinfo)['already_loaded_target'])
+        self.assertTrue(security.firmware_source('sprigatito', '0xf0', cpuinfo.replace('0x84', '0xf0'))['already_loaded_target'])
+        for changed in ('', block, '\n\n'.join([block] * 8), cpuinfo.replace('94', '95', 1)):
+            with self.assertRaisesRegex(AssertionError, 'CPU identity changed'):
+                security.firmware_source('sprigatito', '0x84', changed)
+
     def test_already_loaded_target_requires_exact_arcanine_cpu(self):
         block = 'vendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 94\nstepping\t: 3\nmicrocode\t: 0xf0'
         cpuinfo = '\n\n'.join([block] * 8)

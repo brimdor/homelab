@@ -173,7 +173,8 @@ print(json.dumps({'configuration_sha256':digest.hexdigest(),'reconstruction_veri
 
 
 def record(args, name, value):
-    require(name in ('evacuation-intent.json', 'evacuation-out-observed.json', 'evacuation-complete.json'), 'unreviewed evacuation record')
+    require(name in ('evacuation-intent.json', 'evacuation-out-observed.json', 'evacuation-complete.json',
+                    'rejoin-intent.json', 'rejoin-observed.json', 'rejoin-complete.json'), 'unreviewed evacuation record')
     source = Path(emby.__file__).read_text().split('\ndef observe(')[0]
     return production.remote(args, source + '\nhost("bulbasaur")\nvalue=' + repr(value) + '\n'
         'write_json(POINT/' + repr(name) + ',value)\n'
@@ -215,9 +216,111 @@ print(json.dumps({'intent':json.loads(intent.read_bytes())if intent.exists()else
     return {'restores_accepted': True, 'evacuation_accepted': target['in'] == 0}
 
 
+def rejoin_state(value):
+    """Observe only the original returned OSD; preserve every unrelated finding."""
+    # All baseline identity/replica checks still apply once recovery is complete.
+    osds = value['map']['osds']
+    require(value['node']['metadata']['uid'] == recovery.UID and not value['node']['metadata'].get('deletionTimestamp') and
+            any(c['type'] == 'Ready' and c['status'] == 'True' for c in value['node']['status']['conditions']) and
+            value['deployment']['metadata']['uid'] == DEPLOYMENT_UID and value['deployment']['spec']['replicas'] == 1 and
+            value['deployment']['spec']['template']['spec']['nodeSelector'] == {'kubernetes.io/hostname': recovery.NODE},
+            'rejoin target identity or readiness changed')
+    require(value['cluster']['metadata']['uid'] == CLUSTER_UID and
+            value['cluster']['spec']['removeOSDsIfOutAndSafeToRemove'] is False and
+            value['cluster']['spec']['disruptionManagement'] == {'managePodBudgets': True, 'osdMaintenanceTimeout': 90} and
+            value['quorum']['monmap']['fsid'] == FSID and len(set(value['quorum']['quorum_names'])) == 3 and
+            set(value['quorum']['quorum_names']) == {m['name'] for m in value['quorum']['monmap']['mons']},
+            'rejoin retention or full monitor quorum changed')
+    require({o['osd']: o['uuid'] for o in osds} == OSDS and len(osds) == len(OSDS) and
+            all(o['up'] == o['in'] == 1 and o['weight'] == 1 for o in osds), 'rejoin OSD identity or availability differs')
+    require(value['map']['fsid'] == FSID and set(value['map']['flags_set']) == BASE_FLAGS and
+            not value['map']['crush_node_flags'] and not value['map']['device_class_flags'] and
+            not any(set(o.get('state', [])) & {'noout', 'noup', 'nodown', 'noin'} for o in osds), 'rejoin foreign flags')
+    checks = value['health'].get('checks', {})
+    require(value['health']['status'] in ('HEALTH_OK', 'HEALTH_WARN') and not value['health'].get('mutes') and
+            set(checks) <= {'PG_DEGRADED', 'OBJECT_MISPLACED', 'PG_AVAILABILITY'} and
+            all(c['severity'] == 'HEALTH_WARN' for c in checks.values()), 'unexpected rejoin health finding')
+    pools = {p['pool']: p for p in value['map']['pools']}
+    require(set(pools) == set(POOLS) and all(p['type'] == 1 and (p['pool_name'], p['size'], p['min_size'], p['crush_rule']) == POOLS[i]
+            for i, p in pools.items()), 'rejoin replication policy changed')
+    expected = {f'{i}.{n:x}' for i, p in pools.items() for n in range(p['pg_num'])}
+    pgs = value['pgs']['pg_stats']
+    require(value['pgs']['pg_ready'] and {p['pgid'] for p in pgs} == expected and len(pgs) == len(expected), 'rejoin PG evidence incomplete')
+    clean = True
+    for pg in pgs:
+        states = set(pg['state'].split('+'))
+        require('active' in states and states <= {'active', 'clean', 'scrubbing', 'deep', 'remapped', 'backfilling',
+                'backfill_wait', 'recovering', 'recovery_wait', 'degraded', 'undersized'} and
+                not pg['stat_sum']['num_objects_unfound'] and not pg['stat_sum']['num_scrub_errors'], 'unsafe rejoin PG finding')
+        size = pools[int(pg['pgid'].split('.')[0])]['size']
+        require('clean' in states or 7 in pg['up'] or 7 in pg['acting'], 'unrelated PG degraded during rejoin')
+        require(len(pg['up']) == len(set(pg['up'])) == size and set(pg['up']) <= set(OSDS) and
+                len({HOSTS[i] for i in pg['up']}) == size and
+                len(set(pg['acting'])) >= pools[int(pg['pgid'].split('.')[0])]['min_size'] and
+                set(pg['acting']) <= set(OSDS), 'rejoin lacks independent surviving replicas')
+        clean = clean and 'clean' in states and set(pg['up']) == set(pg['acting']) and len(pg['acting']) == size
+    for osd in value['df']['nodes']:
+        if osd['id'] in OSDS:
+            require(osd['utilization'] / 100 < value['map']['nearfull_ratio'], 'rejoin destination approached near-full')
+    complete = clean and value['health']['status'] == 'HEALTH_OK' and not checks
+    if complete:validate(value, baseline=True)
+    return {'epoch': value['map']['epoch'], 'pg_count': len(pgs), 'clean': bool(clean), 'complete': bool(complete),
+            'health': value['health']['status'], 'osd_uuid': OSDS[7]}
+
+
+def rejoin(args, api, value, revision, *, dispatch):
+    verify_software_recovery(args, api)
+    nodes = api.call('get', 'nodes', '-o', 'json')['items']
+    owner = json.loads(value['kured']['metadata']['annotations'][JOURNAL])
+    require(owner['node'] == recovery.NODE and owner['node_uid'] == recovery.UID and
+            (owner['source'], owner['target']) == (43, 44) and
+            Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes}).resume(owner['owner']) == owner,
+            'rejoin requires exact final software owner')
+    require(not value['node']['spec'].get('unschedulable'), 'rejoin requires recovered uncordoned host')
+    source = Path(emby.__file__).read_text().split('\ndef observe(')[0]
+    intent = production.remote(args, source + '\nhost("bulbasaur")\np=POINT/"rejoin-intent.json"\n'
+        'print(json.dumps(json.loads(p.read_bytes())if p.exists()else None))', '10.0.20.13')
+    if dispatch:
+        require(intent is None, 'rejoin intent exists; observe only, never replay')
+        gate = validate(value, stopped=True, require_cordon=False)
+        require(gate['complete'] and all(o['up'] == 1 for o in value['map']['osds']) and
+                not value['map']['crush_node_flags'], 'rejoin requires fully protected healthy source')
+        inspected = subprocess.run([sys.executable, '-B', 'metal/scripts/maintenance_production_node.py', 'inspect',
+            '--node', recovery.NODE, '--identity', args.identity, '--known-hosts', args.known_hosts,
+            '--kubectl', args.kubectl], capture_output=True)
+        require(inspected.returncode == 0, 'final software journal inspection failed')
+        native = json.loads(inspected.stdout)
+        require(native['owner'] == owner and native['release'] == '44' and
+                native['boot'] == value['node']['status']['nodeInfo']['bootID'] and
+                not native['journal']['pending'] and native['journal']['completed'] == [
+                    'cordon', 'drain', 'prepare_source', 'download_release', 'offline_transaction',
+                    'trusted_reconnect', 'verify_infrastructure', 'restore_scheduling'], 'final software acceptance phase differs')
+        latest = collect(api)
+        require(validate(latest, stopped=True, require_cordon=False)['complete'] and
+                latest['map']['epoch'] == gate['epoch'] and not latest['map']['crush_node_flags'] and
+                all(o['up'] == 1 for o in latest['map']['osds']), 'rejoin state changed before durable intent')
+        intent = {'owner': owner, 'revision': revision, 'osd_uuid': OSDS[7], 'epoch': gate['epoch'],
+                  'node_boot': native['boot'], 'journal_head': native['journal']['head_sha256'],
+                  'action': 'ceph osd in 7', 'no_purge_or_raw_device_write': True}
+        record(args, 'rejoin-intent.json', intent)
+        request = subprocess.run([args.kubectl, 'exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
+                                  'ceph', 'osd', 'in', '7'], capture_output=True)
+        result = {'owner': owner, 'request_returncode': request.returncode, **rejoin_state(collect(api))}
+        record(args, 'rejoin-observed.json', result)
+        return result
+    require(intent and intent['owner'] == owner and intent['osd_uuid'] == OSDS[7] and
+            intent['no_purge_or_raw_device_write'], 'rejoin observation lacks exact intent')
+    result = {'owner': owner, **rejoin_state(value)}
+    if result['complete']:
+        existing = production.remote(args, source + '\nhost("bulbasaur")\np=POINT/"rejoin-complete.json"\n'
+            'print(json.dumps(json.loads(p.read_bytes())if p.exists()else None))', '10.0.20.13')
+        if existing is None:record(args, 'rejoin-complete.json', result)
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['baseline', 'start', 'observe'])
+    parser.add_argument('operation', choices=['baseline', 'start', 'observe', 'rejoin', 'observe-rejoin'])
     for name in ('identity', 'known-hosts', 'kubectl'):
         parser.add_argument('--' + name, required=True)
     args = parser.parse_args()
@@ -233,7 +336,9 @@ def main():
         require(path.read_bytes() == emby.command('git', 'show', revision + ':' + str(path)).stdout, 'unpublished evacuation dependency')
     api = Kubectl(args.kubectl)
     value = collect(api)
-    if args.operation == 'baseline':
+    if args.operation in ('rejoin', 'observe-rejoin'):
+        result = rejoin(args, api, value, revision, dispatch=args.operation == 'rejoin')
+    elif args.operation == 'baseline':
         result = {'baseline': validate(value, baseline=True), 'capacity': model(api, value)}
     elif args.operation == 'start':
         baseline = validate(value, baseline=True)

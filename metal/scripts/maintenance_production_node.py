@@ -1055,6 +1055,10 @@ def infrastructure(api, applications=False, intermediate_pikachu=False):
     if applications:
         node = api.call('get', 'node', NODE, '-o', 'json')
         require(not node['spec'].get('unschedulable', False), 'target node remains cordoned')
+        if NODE == 'sprigatito' and node['status']['nodeInfo']['osImage'].startswith('Fedora Linux 44'):
+            mapping = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'osd', 'dump', '--format', 'json')
+            require(all(o['up'] == o['in'] == 1 and o['weight'] == 1 for o in mapping['osds']),
+                    'final Sprigatito acceptance requires original OSD7 returned and fully recovered')
         for kind in ('deployments', 'statefulsets'):
             for item in api.call('get', kind, '-A', '-o', 'json')['items']:
                 desired = item['spec'].get('replicas', 1)

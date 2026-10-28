@@ -22,6 +22,23 @@ def evacuated():
 
 
 class SoftwareTests(unittest.TestCase):
+    def test_rejoin_accepts_only_recovery_of_original_full_replica_map(self):
+        value = baseline()
+        self.assertTrue(evacuation.rejoin_state(value)['complete'])
+        value['pgs']['pg_stats'][0]['state'] = 'active+remapped+backfilling'
+        value['health'] = {'status': 'HEALTH_WARN', 'checks': {'OBJECT_MISPLACED': {'severity': 'HEALTH_WARN'}}}
+        self.assertFalse(evacuation.rejoin_state(value)['complete'])
+        for fault in ('quorum', 'osd', 'replication', 'full', 'unfound', 'inactive', 'same-host'):
+            bad = copy.deepcopy(value)
+            if fault == 'quorum':bad['quorum']['quorum_names'].pop()
+            if fault == 'osd':bad['map']['osds'][0]['uuid'] = 'replacement'
+            if fault == 'replication':bad['map']['pools'][0]['size'] = 1
+            if fault == 'full':bad['df']['nodes'][0]['utilization'] = 90
+            if fault == 'unfound':bad['pgs']['pg_stats'][0]['stat_sum']['num_objects_unfound'] = 1
+            if fault == 'inactive':bad['pgs']['pg_stats'][0]['state'] = 'peering'
+            if fault == 'same-host':bad['pgs']['pg_stats'][0]['up'] = [2, 8]
+            with self.subTest(fault=fault), self.assertRaises(RuntimeError):evacuation.rejoin_state(bad)
+
     def test_out_osd_requires_full_replicas_and_exact_owned_downtime(self):
         value = evacuated()
         with patch.object(evacuation, 'collect', return_value=value):

@@ -755,15 +755,15 @@ def early_intel_revision(path):
 
 def firmware_source(node, revision, cpuinfo):
     """Arcanine already loads f0; still prove its exact CPU before rebuilding early boot."""
-    if node == 'arcanine':
-        assert revision == '0xf0', 'Arcanine source microcode changed'
+    if node in ('arcanine', 'sprigatito'):
+        assert revision in (('0xf0',) if node == 'arcanine' else ('0x84', '0xf0')), 'GPU-node source microcode changed'
         expected = {'vendor_id': 'GenuineIntel', 'cpu family': '6', 'model': '94',
                     'stepping': '3', 'microcode': revision}
         processors = [{k.strip(): v.strip() for k, v in
                        (line.split(':', 1) for line in block.splitlines() if ':' in line)}
                       for block in cpuinfo.strip().split('\n\n')]
-        assert len(processors) == 8 and all(all(cpu.get(k) == v for k, v in expected.items())
-                                           for cpu in processors), 'Arcanine CPU identity changed'
+        assert len(processors) == (8 if node == 'arcanine' else 4) and all(
+            all(cpu.get(k) == v for k, v in expected.items()) for cpu in processors), 'GPU-node CPU identity changed'
     else:
         assert revision in ('0xea', '0xec'), 'review source microcode revision'
     return {'revision': revision, 'already_loaded_target': revision == '0xf0'}
