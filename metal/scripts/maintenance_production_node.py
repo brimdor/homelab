@@ -38,6 +38,7 @@ BACKUPS = {39: '/var/lib/homelab-recovery/maintenance-103/totodile-config-202610
            44: '/var/lib/homelab-recovery/maintenance-103/totodile-fedora44-config-20261026-a'}
 SECURITY_BACKUPS = {node: '/var/lib/homelab-recovery/maintenance-103/' + node +
                     '-fedora44-seccomp-config-20261027-a' for node in ('totodile', 'pikachu')}
+SECURITY_BACKUPS['squirtle'] = '/var/lib/homelab-recovery/maintenance-103/squirtle-fedora44-seccomp-config-20261028-a'
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release',
@@ -150,14 +151,17 @@ def recovery(args, source, capture=False):
     control_plane = None
     if NODE in ('squirtle', 'charmander', 'bulbasaur'):
         from maintenance_control_plane import recovery as control_plane_recovery
-        control_plane = control_plane_recovery(args, source, capture, node=NODE)
+        if NODE == 'squirtle' and source == 44 and backup == SECURITY_BACKUPS[NODE]:
+            control_plane = control_plane_recovery(args, source, capture, node=NODE, security_followup=True)
+        else:
+            control_plane = control_plane_recovery(args, source, capture, node=NODE)
     receiver_name, receiver_address, receiver_identity = RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if (NODE == 'pikachu' and source in (43, 44) or
             NODE == 'squirtle' and source in (41, 43, 44) or NODE in ('charmander', 'cyndaquil')):
         receiver_name, receiver_address = 'growlithe', '10.0.20.18'
         receiver_identity = {'machine': 'a26cbcc990c044dea41fbf4f957f453d',
                              'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612'}
-    if NODE == 'pikachu' and source == 44 and BACKUPS[44] == SECURITY_BACKUPS[NODE]:
+    if NODE in ('pikachu', 'squirtle') and source == 44 and BACKUPS[44] == SECURITY_BACKUPS[NODE]:
         receiver_name, receiver_address = 'cyndaquil', '10.0.20.16'
         receiver_identity = {'machine': '51140709f60f45c1bcd0edfa23dba2ef',
                              'root_uuid': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8'}
@@ -500,7 +504,7 @@ else:
    result={'accepted':False,'pending':journal.inspect()['pending'],'scheduling_patch_dispatched':True}
   else:result=worker.observe(plan,digest,verify)
  elif operation in('security-default','observe-security-default'):
-  assert owner['node']in('totodile','pikachu')and owner['source']==owner['target']==44
+  assert owner['node']in('totodile','pikachu','squirtle')and owner['source']==owner['target']==44
   assert api.call('get','node',expected_node,'-o','json')['spec'].get('unschedulable')is True
   value=evidence();digest=drain.hashed(value);verify=prerequisites(value)
   security=sys.modules['maintenance_host_security']
@@ -804,7 +808,7 @@ def pending_postgres_dependent(api, item, owner):
 
 
 def prerequisites(api):
-    if NODE == 'bulbasaur':
+    if NODE in ('bulbasaur', 'squirtle'):
         protected_registry(api)
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     require(len(nodes) == 9 and any(n['metadata']['uid'] == UID and n['metadata']['name'] == NODE for n in nodes),
@@ -831,7 +835,7 @@ def prerequisites(api):
         candidate = json.loads(raw_owner)
         if candidate.get('source') == candidate.get('target') == 44:
             verified_owner = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes}).resume(candidate['owner'])
-            security_followup = (NODE in ('totodile', 'pikachu') and verified_owner['node'] == NODE and
+            security_followup = (NODE in ('totodile', 'pikachu', 'squirtle') and verified_owner['node'] == NODE and
                                  next(n for n in nodes if n['metadata']['name'] == NODE)['spec'].get('unschedulable') is True)
     for kind in ('deployments', 'statefulsets'):
         for item in api.call('get', kind, '-A', '-o', 'json')['items']:
@@ -880,7 +884,7 @@ def prerequisites(api):
 
 
 def protected_registry(api):
-    """Bulbasaur maintenance must preserve the existing NAS-backed registry process."""
+    """Node maintenance must preserve the existing NAS-backed registry process."""
     pods = api.call('get', 'pods', '-n', 'zot', '-o', 'json')['items']
     require(len(pods) == 1, 'protected registry Pod membership changed')
     pod = pods[0]
@@ -1313,7 +1317,7 @@ def main():
             'intent_sha256': 'c6e261fbd338d54ea9314cf2cabeb650f76af3e1a2be6182127326498768a03b',
             'failure_sha256': expected_failure}
     api = ACTIVE_READER = Reader(args.kubectl)
-    if NODE == 'bulbasaur':
+    if NODE in ('bulbasaur', 'squirtle'):
         protected_registry(api)
     ds, _, nodes = api.snapshot()
     controller = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
@@ -1337,9 +1341,12 @@ def main():
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
     if args.operation == 'monitor-backup':
-        require(NODE in ('charmander', 'arcanine', 'bulbasaur') and owner is not None, 'exact owned monitor target required')
+        require(NODE in ('charmander', 'arcanine', 'bulbasaur', 'squirtle') and owner is not None, 'exact owned monitor target required')
         from maintenance_monitor_recovery import preserve
         print(encoded(preserve(args, api, controller, owner, node=NODE)));return
+    if NODE == 'squirtle' and args.operation == 'security-default':
+        from maintenance_monitor_recovery import verify
+        verify(args, node=NODE)
     if NODE == 'charmander' and args.operation in ('source-repositories', 'prepare-source',
                                                   'download-release', 'offline-transaction'):
         from maintenance_monitor_recovery import verify

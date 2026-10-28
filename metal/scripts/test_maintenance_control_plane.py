@@ -87,6 +87,29 @@ class ProductionProfileTests(unittest.TestCase):
                         self.assertIn('a26cbcc990c044dea41fbf4f957f453d', readback.call_args.args[1])
                         self.assertIn('710e2dca-691e-4123-a867-4994b9c6e612', readback.call_args.args[1])
 
+    def test_squirtle_security_recovery_is_fresh_and_never_writes_growlithe(self):
+        PRODUCTION.select_node('squirtle')
+        PRODUCTION.BACKUPS[44] = PRODUCTION.SECURITY_BACKUPS['squirtle']
+        point = {'manifest_sha256': 'a' * 64}
+        manifest = {'identity': PRODUCTION.IDENTITY, 'node_uid': PRODUCTION.UID,
+                    'source_release': 44, 'control_plane_recovery': point}
+        with patch.object(CP, 'recovery', return_value=point) as snapshot, \
+                patch.object(PRODUCTION, 'remote', return_value=manifest) as readback:
+            self.assertEqual(PRODUCTION.recovery(None, 44), manifest)
+        snapshot.assert_called_once_with(None, 44, False, node='squirtle', security_followup=True)
+        self.assertEqual(readback.call_args.args[2], '10.0.20.16')
+        self.assertIn('squirtle-fedora44-seccomp-config-20261028-a', readback.call_args.args[1])
+        self.assertIn('fc02c8c4-35c6-4efe-a88a-b03d7673c0c8', readback.call_args.args[1])
+        with patch.object(PRODUCTION, 'remote', side_effect=RuntimeError('stop before native read')) as readback:
+            with self.assertRaisesRegex(RuntimeError, 'stop before native'):
+                CP.recovery(None, 44, node='squirtle', security_followup=True)
+        self.assertIn('squirtle-fedora44-seccomp-20261028-a', readback.call_args.args[1])
+        for node, release in [('charmander', 44), ('squirtle', 43), ('bulbasaur', 44)]:
+            with self.subTest(node=node, release=release), patch.object(PRODUCTION, 'remote') as remote:
+                with self.assertRaisesRegex(AssertionError, 'unreviewed'):
+                    CP.recovery(None, release, node=node, security_followup=True)
+                remote.assert_not_called()
+
     def test_master_archive_excludes_live_etcd_and_binds_protected_snapshot(self):
         PRODUCTION.select_node('squirtle')
         point = {'manifest_sha256': 'a' * 64}

@@ -561,6 +561,11 @@ PIKACHU_DEFAULT_PROFILE = {
 
 def default_profile(node):
     if node == 'pikachu': return PIKACHU_DEFAULT_PROFILE
+    if node == 'squirtle':
+        return {'owner': 'homelab-maintenance-103-929029ce-3dc6-4f06-89cd-578a342f678e',
+                'proofs': {'host-enforce-': '863eb6fbd29b690d4d9f8b1b6c31187c0eefefd2f3275d6a4c753546f3d09bb0',
+                           'host-firmware-reboot-': '6b2a4d6256dbd6a1643c1a0620412c57bb8c1c32bd56383419e0200db8de6544'},
+                'release': 'ffda155e4a4c8acc91ce6cc20c48a61bd3c4189ad1bb52c68e86376eda39c312'}
     assert node == 'totodile', 'unreviewed security follow-up node'
     return {'owner': DEFAULT_PRIOR_OWNER, 'proofs': DEFAULT_PRIOR_PROOFS,
             'release': '23d81eb796d1b36f8532e46c4a31e0968db6060eded8ac88f367d6205fc26255'}
@@ -578,8 +583,11 @@ def default_audit_resolved(record, node):
             all(record.get(key) == value for key, value in expected.items()))
 
 
-def default_config(before):
-    assert hashlib.sha256(before.encode()).hexdigest() == DEFAULT_CONFIG_SHA256, 'review changed native K3s configuration'
+def default_config(before, node='totodile'):
+    default_profile(node)
+    expected = ('cd0edc84b0e2ab5ef75e0798229c3be6c13de434d14bfe1fcadb062fe45dddfc'
+                if node == 'squirtle' else DEFAULT_CONFIG_SHA256)
+    assert hashlib.sha256(before.encode()).hexdigest() == expected, 'review changed native K3s configuration'
     assert before.splitlines().count('selinux: true') == 1
     assert not any(line.lstrip().startswith('kubelet-arg:') for line in before.splitlines())
     return before.rstrip() + '\nkubelet-arg:\n  - seccomp-default=true\n'
@@ -595,7 +603,7 @@ def default_plan(journal, native, identity, recovery):
     assert recovery['source_release'] == 44 and recovery['identity'] == identity()
     assert not list(Path('/etc/rancher/k3s/config.yaml.d').glob('*'))
     before = Path('/etc/rancher/k3s/config.yaml').read_text()
-    after = default_config(before)
+    after = default_config(before, owner['node'])
     root = journal.hold.state
     for prefix, digest in profile['proofs'].items():
         path = root / (prefix + profile['owner'] + '.json')
@@ -636,7 +644,7 @@ def default_dispatch(journal, native, identity, recovery, proof):
         hold.exclusive_file(before, json.dumps({'identity': identity(), 'boot': proof['boot'],
             'source': 44, 'target': 44}, sort_keys=True).encode(), 0o600)
         config = Path('/etc/rancher/k3s/config.yaml')
-        replace(config, default_config(proof['before_configuration']))
+        replace(config, default_config(proof['before_configuration'], journal.owners()['global']['node']))
         native('restorecon', str(config))
         assert hashlib.sha256(config.read_bytes()).hexdigest() == proof['after_config_sha256']
         journal.owners(idle=True)

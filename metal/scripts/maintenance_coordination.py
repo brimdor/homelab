@@ -35,7 +35,7 @@ def require(condition, message):
 def reviewed_hop(node, source, target):
     return (type(source) is int and type(target) is int and
             ((source, target) in ((39, 41), (41, 43), (43, 44)) or
-             node in ('totodile', 'pikachu') and source == target == 44))
+             node in ('totodile', 'pikachu', 'squirtle') and source == target == 44))
 
 
 def rollout_ready(meta, status, expected):

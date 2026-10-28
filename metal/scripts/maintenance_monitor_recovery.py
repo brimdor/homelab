@@ -16,6 +16,15 @@ ROOT = '/var/lib/homelab-recovery/maintenance-103/charmander-mon-h-20261026-a'
 RECEIVER = '10.0.20.18'
 
 PROFILES = {
+    'squirtle': {'node_uid': '10951ffe-dd31-4c38-b854-67f3a011458c',
+                'pod_uid': '44328e4e-f55d-49ad-9c55-08879430a2ce',
+                'identity': {'machine': '90c7f1d7caea486d9dc9bdbb4ec5ae21',
+                             'root_uuid': 'eea5afa0-dbb6-43f5-abe6-f1be801fb03a'},
+                'root': '/var/lib/homelab-recovery/maintenance-103/squirtle-mon-o-20261028-a',
+                'address': '10.0.20.12', 'monitor': 'o', 'survivors': {'p', 'q'},
+                'receiver': '10.0.20.16', 'receiver_node': 'cyndaquil',
+                'receiver_identity': {'machine': '51140709f60f45c1bcd0edfa23dba2ef',
+                                      'root_uuid': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8'}},
     'bulbasaur': {'node_uid': 'b921073c-822a-4b74-80ed-563fec33d6ab',
                  'pod_uid': 'e50b3ade-b7c3-4a61-ab4d-d3a918530d0e',
                  'identity': {'machine': 'f61201c3e2ba4b8cbd31e09f77da2ad0',
@@ -63,7 +72,8 @@ def guard(node, pods, status, target='charmander'):
             set(health.get('checks', {})) <= {'MON_DOWN'} and
             health.get('status') == ('HEALTH_WARN' if health.get('checks') else 'HEALTH_OK') and
             osds.get('num_osds') == osds.get('num_up_osds') == osds.get('num_in_osds') == 5 and
-            groups and all(g['state_name'] == 'active+clean' for g in groups),
+            groups and all(set(g['state_name'].split('+')) <= {'active', 'clean', 'scrubbing', 'deep'} and
+                           {'active', 'clean'} <= set(g['state_name'].split('+')) for g in groups),
             'surviving monitor quorum, OSDs or PGs are unsafe')
 
 
@@ -165,8 +175,9 @@ def verify(args, node='charmander'):
 def preserve(args, api, controller, owner, node='charmander'):
     from maintenance_production_node import remote, ssh
     profile = profile_for(node)
+    expected_hop = (44, 44) if node == 'squirtle' else (39, 41)
     require(owner['node'] == node and owner['node_uid'] == profile['node_uid'] and
-            owner['source'] == 39 and owner['target'] == 41, 'cold recovery owner differs')
+            (owner['source'], owner['target']) == expected_hop, 'cold recovery owner differs')
     def current():
         require(controller.resume(owner['owner']) == owner, 'cold recovery global owner changed')
         guard(api.call('get', 'node', node, '-o', 'json'),

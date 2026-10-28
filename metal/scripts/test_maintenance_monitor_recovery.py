@@ -84,6 +84,28 @@ class MonitorRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'unreviewed'):
             subject.bindings('unknown')
 
+    def test_squirtle_exact_security_monitor_and_clean_scrub_never_admit_degraded_pg(self):
+        profile = subject.profile_for('squirtle')
+        node = {'metadata': {'name': 'squirtle', 'uid': profile['node_uid']},
+                'spec': {'unschedulable': True}}
+        status = copy.deepcopy(self.status)
+        status['quorum_names'] = ['p', 'q']
+        subject.guard(node, [], status, target='squirtle')
+        status['health'] = {'status': 'HEALTH_OK', 'checks': {}}
+        status['quorum_names'].append('r')
+        status['pgmap']['pgs_by_state'][0]['state_name'] = 'active+clean+scrubbing+deep'
+        subject.guard(node, [], status, target='squirtle')
+        status['pgmap']['pgs_by_state'][0]['state_name'] = 'active+degraded'
+        with self.assertRaises(RuntimeError): subject.guard(node, [], status, target='squirtle')
+        self.assertEqual(profile['monitor'], 'o')
+        self.assertEqual(profile['pod_uid'], '44328e4e-f55d-49ad-9c55-08879430a2ce')
+        self.assertEqual(profile['receiver_node'], 'cyndaquil')
+        for source in (subject.READBACK, subject.SOURCE, subject.RECEIVE):
+            compile(subject.bindings('squirtle') + source, 'squirtle-cold-monitor-native', 'exec')
+        with self.assertRaisesRegex(RuntimeError, 'owner differs'):
+            subject.preserve(None, None, None, {'node': 'squirtle', 'node_uid': profile['node_uid'],
+                'source': 39, 'target': 41}, node='squirtle')
+
 
 if __name__ == '__main__':
     unittest.main()

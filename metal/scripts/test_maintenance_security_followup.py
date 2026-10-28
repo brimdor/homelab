@@ -78,17 +78,19 @@ class SecurityFollowupTests(unittest.TestCase):
         self.assertEqual(len(result['state']['header']['hop_records']), 15)
 
     def test_only_reviewed_node_and_exact_integer_hops(self):
-        for node, source, target in [('growlithe', 44, 44), ('squirtle', 44, 44),
+        for node, source, target in [('growlithe', 44, 44), ('bulbasaur', 44, 44),
                                      ('totodile', 44, 45), ('totodile', True, 44)]:
             self.assertFalse(coordination.reviewed_hop(node, source, target))
         self.assertTrue(coordination.reviewed_hop('totodile', 44, 44))
         self.assertTrue(coordination.reviewed_hop('pikachu', 44, 44))
+        self.assertTrue(coordination.reviewed_hop('squirtle', 44, 44))
+        self.assertEqual(hops.steps({'node': 'squirtle', 'source': 44, 'target': 44}), hops.SECURITY_STEPS)
         self.assertEqual(hops.steps({'node': 'pikachu', 'source': 44, 'target': 44}), hops.SECURITY_STEPS)
         self.assertEqual(hops.steps({'node': 'fixture-a', 'source': 43, 'target': 44}), hops.STEPS)
 
     def test_pikachu_prior_receipts_and_historical_repair_are_exact(self):
         self.assertNotEqual(security.default_profile('pikachu')['owner'], security.default_profile('totodile')['owner'])
-        with self.assertRaises(AssertionError): security.default_profile('squirtle')
+        with self.assertRaises(AssertionError): security.default_profile('bulbasaur')
         record = {'type': 'AVC', 'comm': 'sporecast-backe', 'denied': ['lock'], 'permissive': '0',
                   'scontext': 'system_u:system_r:container_t:s0:c599,c776', 'tclass': 'file',
                   'tcontext': 'system_u:object_r:container_file_t:s0:c317,c677', 'timestamp': 1793131965.0}
@@ -111,6 +113,19 @@ class SecurityFollowupTests(unittest.TestCase):
         with patch.object(security, 'DEFAULT_CONFIG_SHA256', hashlib.sha256(before.encode()).hexdigest()):
             with self.assertRaises(AssertionError):
                 security.default_config(before)
+
+    def test_squirtle_config_cannot_use_a_worker_configuration_or_foreign_prior_receipts(self):
+        profile = security.default_profile('squirtle')
+        self.assertEqual(profile['owner'], 'homelab-maintenance-103-929029ce-3dc6-4f06-89cd-578a342f678e')
+        self.assertEqual(profile['proofs']['host-enforce-'], '863eb6fbd29b690d4d9f8b1b6c31187c0eefefd2f3275d6a4c753546f3d09bb0')
+        self.assertEqual(profile['release'], 'ffda155e4a4c8acc91ce6cc20c48a61bd3c4189ad1bb52c68e86376eda39c312')
+        worker = 'selinux: true\nsnapshotter: stargz\n'
+        with patch.object(security, 'DEFAULT_CONFIG_SHA256', hashlib.sha256(worker.encode()).hexdigest()):
+            self.assertIn('seccomp-default=true', security.default_config(worker, 'pikachu'))
+            with self.assertRaisesRegex(AssertionError, 'review changed'):
+                security.default_config(worker, 'squirtle')
+        with self.assertRaisesRegex(AssertionError, 'unreviewed'):
+            security.default_config(worker, 'unknown')
 
     def test_pending_allowance_requires_exact_owner_unscheduled_and_never_a_failed_runtime(self):
         item = {'kind': 'Deployment', 'metadata': {'namespace': 'test', 'name': 'main', 'uid': 'deployment'},
