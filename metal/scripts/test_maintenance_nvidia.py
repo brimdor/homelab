@@ -17,7 +17,7 @@ class NvidiaMaintenanceTests(unittest.TestCase):
                     'baseurl=https://developer.download.nvidia.com/compute/cuda/repos/fedora39/x86_64\n'
                     'enabled=1\ngpgcheck=1\n'
                     'gpgkey=https://developer.download.nvidia.com/compute/cuda/repos/fedora39/x86_64/D42D0685.pub\n')
-        for fault in (None, 'foreign-owner', 'wrong-phase', 'foreign-repository', 'key', 'symlink',
+        for fault in (None, 'foreign-owner', 'wrong-phase', 'foreign-repository', 'key', 'symlink', 'imported-key', 'short-key',
                       'interrupted-before-replace', 'interrupted-after-replace', 'tampered-intent', 'released-owner'):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory); repo = root / 'cuda-fedora.repo'; repo.write_text(original); repo.chmod(0o644)
@@ -45,10 +45,13 @@ class NvidiaMaintenanceTests(unittest.TestCase):
                 header.write_bytes(gpu.canonical({'owners': {'global': owner}})); header.chmod(0o600)
                 def native(*argv):
                     if argv == ('rpm', '-E', '%fedora'):return '44'
-                    if argv == ('rpm', '-q', '--qf', '%{VERSION}', 'gpg-pubkey-73cd9b30'):return '73cd9b30'
+                    if argv == ('rpmkeys', '--list'):
+                        fingerprint = ('0' * 40 if fault == 'imported-key' else
+                                       '73cd9b30' if fault == 'short-key' else profile['fingerprint'].lower())
+                        return fingerprint + ' NVIDIA synthetic public key'
                     raise AssertionError(argv)
                 with patch.object(gpu, 'PERMANENT_REPOSITORY', repo), patch.dict(gpu.PROFILES, {44: profile}):
-                    if fault in ('foreign-owner', 'wrong-phase', 'foreign-repository', 'key', 'symlink'):
+                    if fault in ('foreign-owner', 'wrong-phase', 'foreign-repository', 'key', 'symlink', 'imported-key', 'short-key'):
                         with self.assertRaises((RuntimeError, AssertionError)):
                             gpu.persist_repository(journal, native, recovery)
                         self.assertFalse(list(root.glob('nvidia-repository-*.json')))

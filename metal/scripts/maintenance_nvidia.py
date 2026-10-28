@@ -126,7 +126,8 @@ def permanent_inputs(journal, native):
     require(native('rpm', '-E', '%fedora') == '44', 'permanent NVIDIA repository requires Fedora 44')
     key = journal.hold.state / ('fedora-repositories-44-' + owner['owner']) / PROFILES[44]['key']
     require(regular_digest(key, 0o600) == PROFILES[44]['sha256'], 'retained NVIDIA 44 key differs')
-    require(native('rpm', '-q', '--qf', '%{VERSION}', 'gpg-pubkey-73cd9b30') == '73cd9b30',
+    fingerprints = {line.split()[0].lower() for line in native('rpmkeys', '--list').splitlines() if line.split()}
+    require(PROFILES[44]['fingerprint'].lower() in fingerprints,
             'reviewed NVIDIA 44 signing key is not imported')
     require(hashlib.sha256(PERMANENT_CONTENT).hexdigest() == PERMANENT_SHA256,
             'official NVIDIA 44 repository definition differs')
