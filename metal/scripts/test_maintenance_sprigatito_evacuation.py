@@ -37,6 +37,29 @@ def baseline():
 
 
 class EvacuationTests(unittest.TestCase):
+    def test_shutdown_accepts_only_evacuated_target_and_owned_protection(self):
+        value = baseline()
+        value['node']['spec']['unschedulable'] = True
+        next(o for o in value['map']['osds'] if o['osd'] == 7).update({'in': 0, 'weight': 0, 'up': 0})
+        for pg in value['pgs']['pg_stats']:
+            if pg['pgid'] != '4.0':
+                pg['up'] = pg['acting'] = [1, 2]
+        self.assertTrue(evacuation.validate(value, stopped=True)['complete'])
+        value['map']['crush_node_flags'] = {'sprigatito': ['noout']}
+        value['pdb_state']['data'] = {'draining-failure-domain': 'sprigatito', 'set-no-out': 'true'}
+        value['health'] = {'status': 'HEALTH_WARN', 'checks': {'OSD_FLAGS': {'severity': 'HEALTH_WARN'}}}
+        self.assertTrue(evacuation.validate(value, stopped=True)['clean'])
+        for change in ('foreign-down', 'foreign-flags', 'missing-replica'):
+            bad = copy.deepcopy(value)
+            if change == 'foreign-down':
+                bad['map']['osds'][0]['up'] = 0
+            elif change == 'foreign-flags':
+                bad['map']['crush_node_flags'] = {'arcanine': ['noout']}
+            else:
+                bad['pgs']['pg_stats'][0]['acting'] = [1]
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                evacuation.validate(bad, stopped=True)
+
     def test_completion_needs_full_clean_replicas_elsewhere(self):
         value = baseline()
         self.assertTrue(evacuation.validate(value, baseline=True)['clean'])

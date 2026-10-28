@@ -312,17 +312,23 @@ def restore():
         image_id = description['Id']
         label = 'homelab.eaglepass.io/emby-recovery=20261028-a'
         require(not command('docker', 'ps', '-aq', '--filter=label=' + label).stdout.strip(), 'owned restore already exists')
-        arguments = ['docker', 'create', '--network=none', '--read-only', '--cap-drop=ALL', '--user=99:100',
-                     '--security-opt=no-new-privileges:true', '--security-opt=label=disable', '--ipc=private',
+        arguments = ['docker', 'create', '--log-driver=none', '--network=none', '--read-only', '--cap-drop=ALL', '--user=99:100',
+                     '--security-opt=no-new-privileges:true', '--ipc=private',
                      '--pids-limit=256', '--memory=4g', '--cpus=1', '--label=' + label,
                      '--tmpfs=/tmp:rw,nosuid,nodev,uid=99,gid=100,mode=1777', '--env=HOME=/tmp',
-                     '--mount=type=bind,source=' + str(root) + ',target=/config',
+                     '--volume=' + str(root) + ':/config:Z',
                      '--entrypoint=/app/emby/system/EmbyServer', IMAGE, '-programdata', '/config',
                      '-ffdetect', '/app/emby/bin/ffdetect', '-ffmpeg', '/app/emby/bin/ffmpeg',
                      '-ffprobe', '/app/emby/bin/ffprobe', '-restartexitcode', '3']
         container = command(*arguments).stdout.decode().strip()
         inspected = json.loads(command('docker', 'inspect', container).stdout)[0]
-        require(inspected['HostConfig']['NetworkMode'] == 'none' and len(inspected['Mounts']) == 1 and
+        require(inspected['HostConfig']['NetworkMode'] == 'none' and
+                inspected['HostConfig']['LogConfig'] == {'Type': 'none', 'Config': {}} and
+                inspected['HostConfig']['SecurityOpt'] == ['no-new-privileges:true'] and
+                inspected['HostConfig']['ReadonlyRootfs'] is True and
+                inspected['HostConfig']['Privileged'] is False and
+                inspected['HostConfig']['CapDrop'] == ['ALL'] and inspected['Config']['User'] == '99:100' and
+                len(inspected['Mounts']) == 1 and inspected['Mounts'][0]['Type'] == 'bind' and
                 inspected['Mounts'][0]['Source'] == str(root) and inspected['Mounts'][0]['Destination'] == '/config',
                 'restore isolation changed')
         command('docker', 'start', container)

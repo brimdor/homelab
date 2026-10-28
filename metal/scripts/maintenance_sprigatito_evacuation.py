@@ -34,11 +34,16 @@ def collect(api):
             'metadata': ceph('osd', 'metadata', '7')}
 
 
-def validate(value, *, baseline=False):
+def validate(value, *, baseline=False, stopped=False):
     node, cluster, deployment = value['node'], value['cluster'], value['deployment']
+    require(not (baseline and stopped), 'baseline cannot accept a stopped OSD')
+    state = value['pdb_state']['data']
+    flags = value['map']['crush_node_flags']
+    own_protection = stopped and flags == {recovery.NODE: ['noout']} and \
+        state.get('draining-failure-domain') == recovery.NODE and state.get('set-no-out') == 'true'
     require(value['kured']['metadata']['uid'] == DS_UID and value['pdb_state']['metadata']['uid'] == STATE_UID and
-            not value['pdb_state']['data'].get('draining-failure-domain') and
-            not value['pdb_state']['data'].get('set-no-out'), 'foreign Rook or Kured disruption ownership')
+            (own_protection or not state.get('draining-failure-domain') and not state.get('set-no-out')),
+            'foreign Rook or Kured disruption ownership')
     require(node['metadata']['uid'] == recovery.UID and not node['metadata'].get('deletionTimestamp') and
             any(c['type'] == 'Ready' and c['status'] == 'True' for c in node['status']['conditions']), 'Sprigatito identity/readiness changed')
     require(cluster['metadata']['uid'] == CLUSTER_UID and
@@ -57,10 +62,11 @@ def validate(value, *, baseline=False):
             len(quorum['quorum_names']) == 3 and set(quorum['quorum_names']) == {m['name'] for m in quorum['monmap']['mons']},
             'full monitor quorum unavailable')
     osds = {o['osd']: o for o in mapping['osds']}
-    require(set(osds) == set(OSDS) and all(o['uuid'] == OSDS[i] and o['up'] == 1 and
+    require(set(osds) == set(OSDS) and all(o['uuid'] == OSDS[i] and
+            o['up'] in ((0, 1) if stopped and i == 7 else (1,)) and
             (o['in'], o['weight']) == ((1, 1) if baseline or i != 7 else (0, 0))
             for i, o in osds.items()), 'unexpected OSD identity, availability or membership')
-    require(set(mapping['flags_set']) == BASE_FLAGS and not mapping['crush_node_flags'] and
+    require(set(mapping['flags_set']) == BASE_FLAGS and (not flags or own_protection) and
             not mapping['device_class_flags'] and not any(set(o.get('state', [])) & {'noout', 'noup', 'nodown', 'noin'} for o in osds.values()),
             'foreign storage flags prevent evacuation')
     pools = {p['pool']: p for p in mapping['pools']}
@@ -83,8 +89,16 @@ def validate(value, *, baseline=False):
             require(len(pg['up']) == len(pg['acting']) == size and len(set(pg['acting'])) == size and
                     len({HOSTS[i] for i in pg['acting']}) == size, 'configured replicas/failure domains absent')
     health = value['health']
+    allowed_checks = {'OSD_DOWN', 'OSD_HOST_DOWN', 'OSD_FLAGS'} if stopped else {'PG_DEGRADED', 'PG_AVAILABILITY', 'OBJECT_MISPLACED'}
+    checks = health.get('checks', {})
     require(not health.get('mutes') and health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and
-            set(health.get('checks', {})) <= {'PG_DEGRADED', 'PG_AVAILABILITY', 'OBJECT_MISPLACED'}, 'unexpected Ceph health finding')
+            set(checks) <= allowed_checks and
+            all(c.get('severity') == 'HEALTH_WARN' for c in checks.values()), 'unexpected Ceph health finding')
+    require('OSD_FLAGS' not in checks or own_protection, 'storage flag finding lacks exact Rook ownership')
+    require(not set(checks) & {'OSD_DOWN', 'OSD_HOST_DOWN'} or osds[7]['up'] == 0,
+            'down warning lacks the exact stopped target')
+    if stopped:
+        require(clean and dependent == 0, 'stopped OSD still holds required replicas')
     if baseline:
         require(clean and health['status'] == 'HEALTH_OK' and not health.get('checks'), 'evacuation needs an initially clean cluster')
     else:
