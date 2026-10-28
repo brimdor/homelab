@@ -156,7 +156,7 @@ class OSDHostTests(unittest.TestCase):
     def test_uncordon_acceptance_waits_for_osd_recovery_without_replaying_patch(self):
         import types
         import maintenance_production_node as production
-        start = production.NATIVE.index("elif operation in('cordon','restore-scheduling'):")
+        start = production.NATIVE.index("elif operation in('cordon','restore-scheduling','resolve-scheduling-precheck'):")
         end = production.NATIVE.index('\n elif ', start)
         block = production.NATIVE[start:end].replace('elif operation', 'if operation', 1)
 

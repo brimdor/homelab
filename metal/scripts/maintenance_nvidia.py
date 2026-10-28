@@ -1,4 +1,4 @@
-"""Exact signed NVIDIA repositories and native acceptance for Arcanine's OS hops."""
+"""Exact signed NVIDIA repositories and native acceptance for the reviewed GPU nodes' OS hops."""
 
 import hashlib
 import os
@@ -25,6 +25,10 @@ PROFILES = {
          'fingerprint': '129994480EC63D2789BC98E490DFED2F73CD9B30'},
 }
 GPU = 'GPU-a45669eb-7817-bca9-6c78-d268e0750059'
+GPU_NODES = {
+    'arcanine': ('88aa2572-09df-40b9-8a00-960e9682917c', GPU, 'NVIDIA GeForce RTX 3090', '24576'),
+    'sprigatito': ('5d80125d-4228-47dd-b19c-ca86f7d4316c', 'GPU-d65b16cd-87c2-860c-a210-271e7d3a13d0', 'NVIDIA GeForce GTX 1650', '4096'),
+}
 
 
 def configure(directory, release, native):
@@ -70,8 +74,10 @@ def downloaded(metadata, release):
     return {'release': release, 'version': profile['version'], 'packages': sorted(selected)}
 
 
-def runtime(native, release):
+def runtime(native, release, node='arcanine'):
     """Require the real GPU, running kernel and installed open DKMS module to agree."""
+    require(node in GPU_NODES, 'unreviewed GPU node')
+    _, gpu, gpu_name, memory = GPU_NODES[node]
     version = PROFILES[release]['version']
     require(native('rpm', '-E', '%fedora') == str(release), 'NVIDIA runtime Fedora release differs')
     kernel = native('uname', '-r')
@@ -80,7 +86,7 @@ def runtime(native, release):
                   '--format=csv,noheader,nounits').splitlines()
     require(len(rows) == 1, 'GPU count changed')
     require([v.strip() for v in rows[0].split(',')] ==
-            [GPU, '00000000:01:00.0', 'NVIDIA GeForce RTX 3090', version, '24576'],
+            [gpu, '00000000:01:00.0', gpu_name, version, memory],
             'original GPU or loaded driver differs')
     status = native('dkms', 'status')
     require(any(re.fullmatch(r'nvidia(?:-open)?/' + re.escape(version) + ', ' +
@@ -94,9 +100,9 @@ def runtime(native, release):
                 fields['license'] == 'Dual MIT/GPL', 'NVIDIA module build differs')
         modules[name] = fields
     loaded = native('nvidia-smi', '--query-gpu=uuid,driver_version', '--format=csv,noheader')
-    require(loaded == GPU + ', ' + version, 'GPU runtime changed during module verification')
-    return {'gpu': GPU, 'driver': version, 'kernel': kernel, 'modules': modules,
-            'dkms_installed': True, 'native_nvml': True, 'cuda_execution': compute()}
+    require(loaded == gpu + ', ' + version, 'GPU runtime changed during module verification')
+    return {'gpu': gpu, 'driver': version, 'kernel': kernel, 'modules': modules,
+            'dkms_installed': True, 'native_nvml': True, 'cuda_execution': compute() if node == 'arcanine' else compute(node=node)}
 
 
 PERMANENT_REPOSITORY = Path('/etc/yum.repos.d/cuda-fedora.repo')
@@ -120,9 +126,8 @@ def regular_digest(path, mode):
 
 def permanent_inputs(journal, native):
     owner = private_json(journal.path / '00000000.json')['owners']['global']
-    require(owner['owner'] == journal.token and owner['node_uid'] == '88aa2572-09df-40b9-8a00-960e9682917c' and
-            owner['node'] == 'arcanine' and (owner['source'], owner['target']) == (43, 44),
-            'permanent NVIDIA repository requires final Arcanine owner')
+    require(owner['owner'] == journal.token and owner['node'] in GPU_NODES and owner['node_uid'] == GPU_NODES[owner['node']][0] and (owner['source'], owner['target']) == (43, 44),
+            'permanent NVIDIA repository requires the exact final GPU-node owner')
     require(native('rpm', '-E', '%fedora') == '44', 'permanent NVIDIA repository requires Fedora 44')
     key = journal.hold.state / ('fedora-repositories-44-' + owner['owner']) / PROFILES[44]['key']
     require(regular_digest(key, 0o600) == PROFILES[44]['sha256'], 'retained NVIDIA 44 key differs')

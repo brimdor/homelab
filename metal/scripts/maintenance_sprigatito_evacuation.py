@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 import emby_volume_recovery as emby
 from maintenance_coordination import JOURNAL, Kubectl, Ownership, require
@@ -34,7 +35,7 @@ def collect(api):
             'metadata': ceph('osd', 'metadata', '7')}
 
 
-def validate(value, *, baseline=False, stopped=False):
+def validate(value, *, baseline=False, stopped=False, require_cordon=True):
     node, cluster, deployment = value['node'], value['cluster'], value['deployment']
     require(not (baseline and stopped), 'baseline cannot accept a stopped OSD')
     state = value['pdb_state']['data']
@@ -101,7 +102,7 @@ def validate(value, *, baseline=False, stopped=False):
         require(clean and dependent == 0, 'stopped OSD still holds required replicas')
     if baseline:
         require(clean and health['status'] == 'HEALTH_OK' and not health.get('checks'), 'evacuation needs an initially clean cluster')
-    else:
+    elif require_cordon:
         require(node['spec'].get('unschedulable') is True, 'evacuation lost its cordon')
     for osd in value['df']['nodes']:
         if osd['id'] in OSDS and osd['id'] != 7:
@@ -181,6 +182,39 @@ def record(args, name, value):
         'print(json.dumps(value))', '10.0.20.13')
 
 
+def verify_software_recovery(args, api):
+    """Bind every OS operation to the actual protected restore receipts."""
+    emby.observe(args)
+    source = Path(emby.__file__).read_text().split('\ndef observe(')[0]
+    proof = production.remote(args, source + '''
+host('bulbasaur')
+accepted=json.loads((POINT/'restore-accepted.json').read_bytes())
+original=json.loads((POINT/'verified.json').read_bytes())
+require(accepted['accepted'] and accepted['manifest_sha256']==original['manifest_sha256'] and
+ accepted['archive_sha256']==original['archive_sha256'] and
+ (POINT/'volume.tar').stat().st_size==original['archive_bytes'] and
+ all(accepted['cleanup'].values()) and accepted['no_nas_mounts'], 'Emby protected restore proof differs')
+etcd=json.loads((POINT/'etcd-restore-accepted.json').read_bytes())
+require(etcd['accepted'] and etcd['manifest_sha256']=='a74d5b8665e4595d45e0ffad83ff93fc1c1b3ab55c449b3f0125f0d0d4ad5970' and
+ etcd['protected_point_unchanged'] and etcd['protected_point_labels_unchanged'] and
+ all(etcd['cleanup'].values()) and etcd['restored_nodes']==9, 'current etcd restore proof differs')
+intent=POINT/'evacuation-intent.json';complete=POINT/'evacuation-complete.json'
+print(json.dumps({'intent':json.loads(intent.read_bytes())if intent.exists()else None,
+ 'complete':json.loads(complete.read_bytes())if complete.exists()else None}))
+''', '10.0.20.13')
+    mapping = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'osd', 'dump', '--format', 'json')
+    require(mapping['fsid'] == FSID, 'software recovery cluster changed')
+    target = next(o for o in mapping['osds'] if o['osd'] == 7)
+    if target['in'] == 0:
+        intent, complete = proof['intent'], proof['complete']
+        require(intent and complete and intent['owner'] == complete['owner'] and
+                intent['owner']['node_uid'] == recovery.UID and intent['owner']['node'] == recovery.NODE and
+                intent['osd_uuid'] == target['uuid'] == OSDS[7] and intent['original_unschedulable'] is False and
+                intent['no_purge_or_raw_device_write'] and complete['complete'] and complete['clean'] and
+                complete['pgs_depending_on_osd7'] == 0, 'software experiment lacks full protected evacuation')
+    return {'restores_accepted': True, 'evacuation_accepted': target['in'] == 0}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['baseline', 'start', 'observe'])
@@ -212,18 +246,19 @@ def main():
         owner = ownership.acquire(recovery.NODE, 39, 41, revision)
         from maintenance_sprigatito_shutdown import actor_hold
         native_hold = actor_hold(args, api, owner, acquire=True)
-        node = api.call('get', 'node', recovery.NODE, '-o', 'json')
-        require(node['metadata']['uid'] == recovery.UID and not node['spec'].get('unschedulable'), 'unexpected preexisting node cordon')
-        patch = [{'op': 'test', 'path': '/metadata/uid', 'value': recovery.UID},
-                 {'op': 'test', 'path': '/metadata/resourceVersion', 'value': node['metadata']['resourceVersion']},
-                 {'op': 'add', 'path': '/spec/unschedulable', 'value': True}]
-        api.call('patch', 'node', recovery.NODE, '--type=json', '-p', json.dumps(patch), '-o', 'json')
+        # Use the normal hop journal before the first cordon, preserving its
+        # original scheduling state for the later in-place software recovery.
+        for operation in ('initialize', 'cordon'):
+            execution = subprocess.run([sys.executable, '-B', 'metal/scripts/maintenance_production_node.py',
+                operation, '--node', recovery.NODE, '--identity', args.identity,
+                '--known-hosts', args.known_hosts, '--kubectl', args.kubectl], capture_output=True)
+            require(execution.returncode == 0, 'journaled evacuation ' + operation + ' failed: ' + execution.stderr.decode()[-2000:])
         latest = collect(api)
         validate(latest, baseline=True)
         require(latest['map']['epoch'] == baseline['epoch'] and emby.observe(args) == context, 'pre-out state changed; observe before continuing')
         intent = {'owner': owner, 'native_actor_hold': native_hold, 'revision': revision, 'baseline': baseline, 'capacity': capacity,
                   'recovery': proof, 'created': datetime.now(timezone.utc).isoformat(), 'action': 'ceph osd out 7',
-                  'osd_uuid': OSDS[7], 'no_purge_or_raw_device_write': True}
+                  'osd_uuid': OSDS[7], 'original_unschedulable': False, 'no_purge_or_raw_device_write': True}
         record(args, 'evacuation-intent.json', intent)
         # One durable intent, one request. An uncertain result is observed, never replayed.
         request = subprocess.run([args.kubectl, 'exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',

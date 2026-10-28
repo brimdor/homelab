@@ -202,7 +202,7 @@ def security_tools(operation, journal, native, identity, recovery):
 def k3s_security_config(before, node):
     """Keep the default-seccomp rollout on the reviewed serial nodes."""
     result = before.rstrip() + '\nselinux: true\n'
-    if node in ('charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur'):
+    if node in ('charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur', 'sprigatito'):
         assert not any(line.lstrip().startswith('kubelet-arg:') for line in before.splitlines()), 'review existing kubelet arguments first'
         result += 'kubelet-arg:\n  - seccomp-default=true\n'
     return result
@@ -233,6 +233,7 @@ def relabel(journal, native, identity, recovery):
                 'growlithe': '8a55dc3a918f7b72ea343f2bda2fc4b41f155491368ef9e40bd07f2a13fd012a',
                 'arcanine': 'f573adf85121d61bc6a20e901f6f34fcff8e475b6c1047459be1b635d95fd3ac',
                 'bulbasaur': 'd984ee4d3bfcc79fb84bab1f33df77f99878de8a6059ba7489ac8a4d6af718c9',
+                'sprigatito': 'c45fb72ca4463cf402f3ad9a4355aeb006747230e26e815df5e5ca17efda810a',
             }[journal.owners()['global']['node']],
         }
         for name, digest in expected.items():

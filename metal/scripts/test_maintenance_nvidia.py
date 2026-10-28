@@ -132,6 +132,25 @@ class NvidiaMaintenanceTests(unittest.TestCase):
                 with self.subTest(release=release, fault=fault), self.assertRaises(RuntimeError):
                     gpu.downloaded(bad, release)
 
+    @patch.object(gpu, 'compute', return_value={'result': 42})
+    def test_sprigatito_rejects_arcanine_gpu_even_with_matching_driver(self, compute):
+        version = gpu.PROFILES[44]['version']; kernel = 'synthetic-1.fc44.x86_64'
+        answers = {
+            ('rpm', '-E', '%fedora'): '44', ('uname', '-r'): kernel,
+            ('dkms', 'status'): 'nvidia/' + version + ', ' + kernel + ', x86_64: installed',
+            ('nvidia-smi', '--query-gpu=uuid,pci.bus_id,name,driver_version,memory.total',
+             '--format=csv,noheader,nounits'): gpu.GPU_NODES['sprigatito'][1] + ', 00000000:01:00.0, NVIDIA GeForce GTX 1650, ' + version + ', 4096',
+            ('nvidia-smi', '--query-gpu=uuid,driver_version', '--format=csv,noheader'): gpu.GPU_NODES['sprigatito'][1] + ', ' + version,
+        }
+        for name in ('nvidia', 'nvidia-modeset', 'nvidia-drm', 'nvidia-uvm'):
+            for field, answer in {'version': version, 'vermagic': kernel + ' SMP', 'license': 'Dual MIT/GPL'}.items():
+                answers[('modinfo', '-k', kernel, '-F', field, name)] = answer
+        self.assertEqual(gpu.runtime(lambda *a: answers[a], 44, node='sprigatito')['gpu'], gpu.GPU_NODES['sprigatito'][1])
+        compute.assert_called_once_with(node='sprigatito')
+        answers[('nvidia-smi', '--query-gpu=uuid,pci.bus_id,name,driver_version,memory.total', '--format=csv,noheader,nounits')] = gpu.GPU + ', 00000000:01:00.0, NVIDIA GeForce RTX 3090, ' + version + ', 24576'
+        with self.assertRaisesRegex(RuntimeError, 'original GPU'):
+            gpu.runtime(lambda *a: answers[a], 44, node='sprigatito')
+
     @patch.object(gpu, 'compute', return_value={'result': 42, 'owned_gpu_resources_released': True})
     def test_runtime_checks_loaded_original_gpu_and_exact_current_kernel_open_modules(self, compute):
         for release, profile in gpu.PROFILES.items():

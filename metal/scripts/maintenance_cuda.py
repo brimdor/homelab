@@ -26,13 +26,15 @@ PTX = b'''.version 7.1
 '''
 
 
-def execute(driver):
+def execute(driver, capability=(8, 6)):
     """The caller owns this context, module and four-byte allocation, including failures."""
     def call(name, types, *args):
         function = getattr(driver, name)
         function.argtypes = types; function.restype = C.c_int
         result = function(*args)
         require(result == 0, name + ' failed with CUDA status ' + str(result))
+    require(capability in ((8, 6), (7, 5)), 'unreviewed CUDA target')
+    ptx = PTX if capability == (8, 6) else PTX.replace(b'.target sm_86', b'.target sm_75')
     pointer, size, integer = C.c_void_p, C.c_size_t, C.c_int
     context, module, device_pointer = pointer(), pointer(), C.c_uint64()
     output = C.c_uint32(41)
@@ -41,16 +43,16 @@ def execute(driver):
         count = integer(); call('cuDeviceGetCount', [C.POINTER(integer)], C.byref(count))
         require(count.value == 1, 'CUDA device count differs')
         device = integer(); call('cuDeviceGet', [C.POINTER(integer), integer], C.byref(device), 0)
-        capability = []
+        observed_capability = []
         for attribute in (75, 76):
             value = integer()
             call('cuDeviceGetAttribute', [C.POINTER(integer), integer, integer], C.byref(value), attribute, device)
-            capability.append(value.value)
-        require(capability == [8, 6], 'original RTX 3090 compute capability differs')
+            observed_capability.append(value.value)
+        require(observed_capability == list(capability), 'original GPU compute capability differs')
         call('cuCtxCreate_v2', [C.POINTER(pointer), C.c_uint, integer], C.byref(context), 0, device)
         call('cuMemAlloc_v2', [C.POINTER(C.c_uint64), size], C.byref(device_pointer), 4)
         call('cuMemcpyHtoD_v2', [C.c_uint64, pointer, size], device_pointer, C.byref(output), 4)
-        text = C.create_string_buffer(PTX)
+        text = C.create_string_buffer(ptx)
         call('cuModuleLoadData', [C.POINTER(pointer), pointer], C.byref(module), C.cast(text, pointer))
         kernel = pointer()
         call('cuModuleGetFunction', [C.POINTER(pointer), pointer, C.c_char_p], C.byref(kernel), module, b'increment')
@@ -70,19 +72,25 @@ def execute(driver):
                 except Exception as error:errors.append(str(error))
         require(not errors, 'CUDA owned resource cleanup failed: ' + '; '.join(errors))
     return {'input': 41, 'result': output.value, 'threads': 1, 'device_bytes': 4,
-            'ptx_sha256': hashlib.sha256(PTX).hexdigest(), 'owned_gpu_resources_released': True}
+            'ptx_sha256': hashlib.sha256(ptx).hexdigest(), 'owned_gpu_resources_released': True}
 
 
-def compute():
-    require(os.geteuid() == 0 and socket.gethostname() == 'arcanine' and
-            Path('/etc/machine-id').read_text().strip() == 'd877c676fcc2434f9a169f8dc0594676',
+def compute(node='arcanine'):
+    profiles = {
+        'arcanine': ('d877c676fcc2434f9a169f8dc0594676', (8, 6)),
+        'sprigatito': ('e5796c3018b6448eae0c69405926317e', (7, 5)),
+    }
+    require(node in profiles, 'unreviewed CUDA host')
+    machine, capability = profiles[node]
+    require(os.geteuid() == 0 and socket.gethostname() == node and
+            Path('/etc/machine-id').read_text().strip() == machine,
             'CUDA acceptance target identity differs')
     names = ('CUDA_CACHE_PATH', 'CUDA_CACHE_DISABLE')
     original = {name: os.environ.get(name) for name in names}
     try:
         with tempfile.TemporaryDirectory(prefix='maintenance103-cuda-', dir='/var/tmp') as directory:
             os.environ['CUDA_CACHE_PATH'] = directory; os.environ['CUDA_CACHE_DISABLE'] = '1'
-            result = execute(C.CDLL('libcuda.so.1'))
+            result = execute(C.CDLL('libcuda.so.1'), capability)
         require(not Path(directory).exists(), 'CUDA native cache cleanup failed')
         return {**result, 'native_scratch_removed': True}
     finally:

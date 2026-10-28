@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 from fedora_public_key import armor_public_key
-from maintenance_coordination import JOURNAL, Ownership, encoded, require
+from maintenance_coordination import JOURNAL, Kubectl, Ownership, encoded, require
 from maintenance_api_reader import Reader
 
 
@@ -49,6 +49,7 @@ OSD_RECOVERY = {
                  ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_38cfd0d6-ace5-4bc2-972a-0315835b3b92', '/dev/sdb')),
     'cyndaquil': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_1c69c51e-b0da-42ee-bd34-581361740a02', '/dev/sda3'),
     'growlithe': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_e7ccd0a2-4d7a-41bb-aac9-5464abe2ba85', '/dev/nvme0n1p1'),
+    'sprigatito': ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_ce0a1b10-f169-401b-801c-df3cc7748051', '/dev/sda3'),
 }
 ACTIVE_READER = None
 ACTIVE_ARGS = None
@@ -57,6 +58,17 @@ ACTIVE_ARGS = None
 def select_node(node):
     global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if node == 'totodile':
+        return
+    if node == 'sprigatito':
+        NODE, ADDRESS, UID, MAC = ('sprigatito', '10.0.20.20',
+            '5d80125d-4228-47dd-b19c-ca86f7d4316c', '4c:cc:6a:34:dc:6d')
+        IDENTITY = {'machine': 'e5796c3018b6448eae0c69405926317e',
+                    'root_uuid': 'c27f6613-788e-4d00-802c-5b84a730a631'}
+        RECEIVER, RECEIVER_ADDRESS = 'charmander', '10.0.20.11'
+        RECEIVER_IDENTITY = {'machine': '58d682ccab5a4269acedc3cdf53e46dc',
+                             'root_uuid': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2'}
+        BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/sprigatito-fedora' +
+                   str(release) + '-config-20261028-a' for release in (39, 41, 43, 44)}
         return
     if node == 'bulbasaur':
         NODE, ADDRESS, UID, MAC = ('bulbasaur', '10.0.20.13',
@@ -343,7 +355,7 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
- if expected_node in('charmander','cyndaquil','growlithe','arcanine','bulbasaur')or owner['source']==owner['target']==44:
+ if expected_node in('charmander','cyndaquil','growlithe','arcanine','bulbasaur','sprigatito')or owner['source']==owner['target']==44:
   pods=api.call('get','pods','-n','loki','--field-selector','spec.nodeName='+expected_node,'-o','json')['items']
   agents=[p for p in pods if any(c['name']=='alloy'for c in p['spec']['containers'])]
   assert len(agents)==1,'existing Alloy acceptance process absent or ambiguous'
@@ -353,7 +365,7 @@ def final_security():
   assert not container.get('securityContext',{}).get('privileged',False),'privileged process cannot prove kubelet default'
   sys.modules['maintenance_host_security'].seccomp_default(native,agent['metadata']['uid'])
  journal=hops.Journal(controller,hold,owner['owner'])
- if expected_node=='arcanine':sys.modules['maintenance_nvidia'].permanent_repository(journal,native)
+ if expected_node in('arcanine','sprigatito'):sys.modules['maintenance_nvidia'].permanent_repository(journal,native)
  return sys.modules['maintenance_host_security'].acceptance(journal,native,identity)
 if operation in('restore-scheduling','resolve-scheduling-precheck','accept-applications','release','resolve-release-precheck'):final_security()
 def offline_repository_override():
@@ -413,7 +425,7 @@ if operation in('release','resolve-release-precheck'):
   status=release.release_global(digest,safe_release)
  print(json.dumps({'result':status}),flush=True)
 elif operation=='nvidia-repository':
- assert expected_node=='arcanine'
+ assert expected_node in('arcanine','sprigatito')
  current_node=api.call('get','node',expected_node,'-o','json')
  assert current_node['spec'].get('unschedulable')is True
  assert current_node['status']['nodeInfo']['bootID']==pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
@@ -500,7 +512,7 @@ else:
    assert step==hops.steps(owner)[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
    dispatched=True
   # This OSD can return only after uncordon; accept its intent on a later healthy observation.
-  if dispatched and expected_node in('cyndaquil','growlithe','arcanine') and step=='restore_scheduling':
+  if dispatched and expected_node in('cyndaquil','growlithe','arcanine','sprigatito') and step=='restore_scheduling':
    result={'accepted':False,'pending':journal.inspect()['pending'],'scheduling_patch_dispatched':True}
   else:result=worker.observe(plan,digest,verify)
  elif operation in('security-default','observe-security-default'):
@@ -528,13 +540,13 @@ else:
   if step!='trusted_reconnect':
    assert not native('systemctl','--failed','--no-legend','--plain'),'failed native units remain'
    value['runtime']=rpc('applications'if step=='accept_applications'else'infrastructure')
-   if expected_node=='arcanine':value['gpu']=sys.modules['maintenance_nvidia'].runtime(native,owner['target'])
+   if expected_node in('arcanine','sprigatito'):value['gpu']=sys.modules['maintenance_nvidia'].runtime(native,owner['target'],node=expected_node)
   else:value['prerequisites']=evidence()
   digest=drain.hashed(value)
   def verified_observation(step_name,observed_digest):
    if step_name!=step or observed_digest!=digest or identity()!=value['identity']:return False
    if step=='trusted_reconnect':return evidence()==value['prerequisites']
-   return rpc('applications'if step=='accept_applications'else'infrastructure')==value['runtime']and(expected_node!='arcanine'or sys.modules['maintenance_nvidia'].runtime(native,owner['target'])==value['gpu'])
+   return rpc('applications'if step=='accept_applications'else'infrastructure')==value['runtime']and(expected_node not in('arcanine','sprigatito')or sys.modules['maintenance_nvidia'].runtime(native,owner['target'],node=expected_node)==value['gpu'])
   if state['pending'] is None:state=journal.begin(step,digest,digest,verified_observation)
   assert state['pending']['step']==step
   result={'receipt':value,'journal':journal.accept(state['pending']['sha256'],digest,verified_observation)}
@@ -550,7 +562,7 @@ else:
    removed=lambda ref:rpc('removed_versa_canary',ref=ref)
   result=worker.advance(digest,verify,removed)
   if result.get('queued')and expected_node in('cyndaquil','growlithe','arcanine'):
-   ref=result['queued'];osds={'cyndaquil':(1,),'growlithe':(6,),'arcanine':(2,8)}[expected_node]
+   ref=result['queued'];osds={'cyndaquil':(1,),'growlithe':(6,),'arcanine':(2,8),'sprigatito':(7,)}[expected_node]
    if ref['namespace']=='rook-ceph'and ref['controller']['kind']=='ReplicaSet'and any(ref['controller']['name'].startswith('rook-ceph-osd-'+str(osd)+'-')for osd in osds):
     result['owned_osd_protection']=rpc('await_osd_protection',ref=ref)
   if result.get('complete'):
@@ -584,7 +596,7 @@ else:
   if not path.exists():actors.exclusive_file(path,content.encode(),0o600)
   assert path.read_text()==content
   result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'release':release,'gpgcheck':True}
-  if expected_node=='arcanine'and int(release)>39:
+  if expected_node in('arcanine','sprigatito')and int(release)>39:
    result['nvidia']=sys.modules['maintenance_nvidia'].configure(directory,int(release),native)
    result['rpmfusion']=sys.modules['maintenance_rpmfusion'].configure(directory,int(release),native)
    result['openh264']=sys.modules['maintenance_rpmfusion'].configure_openh264(directory,int(release),native)
@@ -670,7 +682,7 @@ else:
        for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
       signed.append([path.name,digest.hexdigest()])
      assert target_release and target_kernel
-     if expected_node=='arcanine':
+     if expected_node in('arcanine','sprigatito'):
       receipt['nvidia']=sys.modules['maintenance_nvidia'].downloaded(package_metadata,owner['target'])
       receipt['download_recovery']=sys.modules['maintenance_rpmfusion'].accepted(journal,native)
      receipt['signed_rpms']={'count':len(signed),'sha256':drain.hashed(signed),'target_release_and_kernel':True}
@@ -1156,7 +1168,7 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
                         intermediate_pikachu=NODE == 'pikachu' and
                         (owner['source'], owner['target']) in ((39, 41), (41, 43)))
                 elif request['rpc'] == 'completed_cuda':
-                    require(args.operation == 'drain' and NODE == 'arcanine', 'unreviewed CUDA drain observer')
+                    require(args.operation == 'drain' and NODE in ('arcanine', 'sprigatito'), 'unreviewed CUDA drain observer')
                     ref = request['ref']
                     require(ref['namespace'] == 'gpu-operator', 'foreign CUDA namespace')
                     pod = api.call('get', 'pod', ref['name'], '-n', 'gpu-operator', '-o', 'json')
@@ -1236,7 +1248,7 @@ def main():
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling', 'resolve-scheduling-precheck',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'nvidia-repository', 'repair-rpmfusion-download', 'repair-openh264-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
-    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur'), default='totodile')
+    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur', 'sprigatito'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -1257,6 +1269,9 @@ def main():
     if NODE in OSD_RECOVERY:
         from maintenance_osd_host import native_identity
         native_identity(args, node=NODE)
+    if NODE == 'sprigatito':
+        from maintenance_sprigatito_evacuation import verify_software_recovery
+        verify_software_recovery(args, Kubectl(args.kubectl))
     core_path = 'scripts/homelab-health.py'
     require(Path(core_path).read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + core_path]),
             'unpublished CORE completion evidence parser')
@@ -1316,6 +1331,10 @@ def main():
             'pod_uid': 'a9c87317-b6df-414b-8357-454bd5361e49',
             'intent_sha256': 'c6e261fbd338d54ea9314cf2cabeb650f76af3e1a2be6182127326498768a03b',
             'failure_sha256': expected_failure}
+    if NODE == 'sprigatito':
+        for name in ('maintenance_sprigatito_evacuation', 'maintenance_sprigatito_recovery', 'emby_volume_recovery'):
+            path = 'metal/scripts/' + name + '.py'
+            require(Path(path).read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + path]), 'unpublished Sprigatito dependency')
     api = ACTIVE_READER = Reader(args.kubectl)
     if NODE in ('bulbasaur', 'squirtle'):
         protected_registry(api)

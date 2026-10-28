@@ -21,6 +21,8 @@ PROFILES = {
                           8: '2c6eb278-3ab2-4f6c-b694-64eeb4324648'}, 'address': '10.0.20.19'},
     'growlithe': {'node_uid': '50f95b8f-4117-4c1e-84bc-266c5b23bffb', 'osd': 6,
                   'deployment_uid': '2c29b0f2-06c1-4f67-8bc5-6dccee9c7970', 'address': '10.0.20.18'},
+    'sprigatito': {'node_uid': '5d80125d-4228-47dd-b19c-ca86f7d4316c', 'osd': 7,
+                  'deployment_uid': '42a28e8a-1390-4c03-9999-5156912beaca', 'address': '10.0.20.20'},
 }
 
 
@@ -217,6 +219,25 @@ def validate(value, now=None, node=NODE):
 
 def observe(api, node=NODE):
     """No mutations: gather complete native Ceph and controller evidence."""
+    if node == 'sprigatito':
+        from maintenance_sprigatito_evacuation import collect, validate as evacuation_validate
+        value = collect(api)
+        target = next(o for o in value['map']['osds'] if o['osd'] == 7)
+        if target['in'] == 0:
+            raw = value['kured']['metadata'].get('annotations', {}).get(JOURNAL)
+            owner = json.loads(raw) if raw else None
+            profile = profile_for(node)
+            require(not owner or owner['node'] == node and owner['node_uid'] == profile['node_uid'] and
+                    (owner['source'], owner['target']) in ((39, 41), (41, 43), (43, 44)),
+                    'foreign software evacuation owner')
+            cordoned = value['node']['spec'].get('unschedulable') is True
+            require(target['up'] == 1 or owner and cordoned, 'unowned stopped evacuated OSD')
+            require(owner or not value['map']['crush_node_flags'] and value['health']['status'] == 'HEALTH_OK',
+                    'unowned evacuation protection or finding')
+            evacuation_validate(value, stopped=True, require_cordon=cordoned)
+            return {'scope': 'EVACUATED_OSD7_FULL_REPLICAS', 'cluster_uid': CLUSTER_UID, 'fsid': FSID,
+                    'owner': owner['owner'] if owner else None, 'osd': 7, 'osd_uuid': OSDS[7],
+                    'managed_deployment_uid': profile['deployment_uid']}
     targets = targets_for(node)
     def ceph(*args):
         return api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
@@ -377,5 +398,24 @@ def native_identity(args, node=NODE):
     from maintenance_production_node import remote
     profile = profile_for(node)
     program = {'cyndaquil': NATIVE_IDENTITY, 'growlithe': GROWLITHE_NATIVE_IDENTITY,
-               'arcanine': ARCANINE_NATIVE_IDENTITY}[node]
+               'arcanine': ARCANINE_NATIVE_IDENTITY, 'sprigatito': SPRIGATITO_NATIVE_IDENTITY}[node]
     return remote(args, program, profile['address'])
+
+
+SPRIGATITO_NATIVE_IDENTITY = NATIVE_IDENTITY
+for before, after in (
+    ('cyndaquil', 'sprigatito'),
+    ('enp0s31f6', 'eno1'),
+    ('51140709f60f45c1bcd0edfa23dba2ef', 'e5796c3018b6448eae0c69405926317e'),
+    ('fc02c8c4-35c6-4efe-a88a-b03d7673c0c8', 'c27f6613-788e-4d00-802c-5b84a730a631'),
+    ('6c:4b:90:5f:8e:43', '4c:cc:6a:34:dc:6d'),
+    ('S1ZKNXAGB03370', 'DI0403Y002080'),
+    ('8CAE-C52C', '6972-C181'),
+    ('c32010c6-b680-4d44-9c1e-4e21384488b0', '7a137097-0224-47c7-94fd-07554b4b2ae6'),
+    ('3286e8ce-0da8-4e56-bb7c-42a957e8ca2c', '3318f778-614d-4a51-8598-854df4d1ae06'),
+    ('65459bd3-62d0-457c-8d50-d8629b78e787', '75944ab8-2af9-4622-af67-c41d61977f4f'),
+    ('1c69c51e-b0da-42ee-bd34-581361740a02', 'ce0a1b10-f169-401b-801c-df3cc7748051'),
+    ("('whoami','1')", "('whoami','7')"),
+):
+    assert before in SPRIGATITO_NATIVE_IDENTITY
+    SPRIGATITO_NATIVE_IDENTITY = SPRIGATITO_NATIVE_IDENTITY.replace(before, after)

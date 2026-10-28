@@ -12,7 +12,7 @@ class Function:
         self.driver.calls.append(self.name)
         if self.name == self.driver.failure:return 999
         if self.name in ('cuDeviceGetCount', 'cuDeviceGetAttribute'):
-            value = 1 if self.name == 'cuDeviceGetCount' else 8 if args[1] == 75 else 6
+            value = 1 if self.name == 'cuDeviceGetCount' else self.driver.capability[0 if args[1] == 75 else 1]
             C.cast(args[0], C.POINTER(C.c_int))[0] = value
         if self.name in ('cuCtxCreate_v2', 'cuModuleLoadData', 'cuModuleGetFunction'):
             C.cast(args[0], C.POINTER(C.c_void_p))[0] = 123
@@ -22,12 +22,22 @@ class Function:
 
 
 class Driver:
-    def __init__(self, failure=None, output=42):
+    def __init__(self, failure=None, output=42, capability=(8, 6)):
         self.failure, self.output, self.calls = failure, output, []
+        self.capability = capability
     def __getattr__(self, name):return Function(name, self)
 
 
 class CUDATests(unittest.TestCase):
+    def test_turing_requires_its_own_capability_and_ptx(self):
+        result = cuda.execute(Driver(capability=(7, 5)), (7, 5))
+        self.assertEqual(result['result'], 42)
+        self.assertNotEqual(result['ptx_sha256'], cuda.execute(Driver())['ptx_sha256'])
+        with self.assertRaisesRegex(RuntimeError, 'compute capability'):
+            cuda.execute(Driver(capability=(7, 5)))
+        with self.assertRaisesRegex(RuntimeError, 'unreviewed CUDA'):
+            cuda.execute(Driver(), (9, 0))
+
     def test_kernel_result_and_every_owned_resource_are_verified(self):
         driver = Driver(); result = cuda.execute(driver)
         self.assertEqual(result['result'], 42)
