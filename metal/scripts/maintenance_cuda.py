@@ -10,7 +10,8 @@ import tempfile
 from maintenance_coordination import require
 
 
-PTX = b'''.version 7.0
+# PTX ISA 7.1 introduced the original RTX 3090's sm_86 target.
+PTX = b'''.version 7.1
 .target sm_86
 .address_size 64
 .visible .entry increment(.param .u64 output) {
