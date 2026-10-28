@@ -41,6 +41,8 @@ app-template:
             # 4.9.5.0 is the latest Emby 4.9.x server; ls282 is the
             # corresponding LinuxServer.io image build number.
             tag: latest
+            # Issue 103: preserve the protected recovery image when the writer resumes.
+            digest: sha256:f3827243e5e7a54086714f3fa8a46192b8c81e3da7262443c83eb69b2a5d329a
             pullPolicy: Always
           env:
             PUID: "99"
