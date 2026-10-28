@@ -351,7 +351,7 @@ def final_security():
  journal=hops.Journal(controller,hold,owner['owner'])
  if expected_node=='arcanine':sys.modules['maintenance_nvidia'].permanent_repository(journal,native)
  return sys.modules['maintenance_host_security'].acceptance(journal,native,identity)
-if operation in('restore-scheduling','accept-applications','release','resolve-release-precheck'):final_security()
+if operation in('restore-scheduling','resolve-scheduling-precheck','accept-applications','release','resolve-release-precheck'):final_security()
 def offline_repository_override():
  assert owner['source']==39 and owner['target']==41
  directory=root/('fedora-repositories-41-'+owner['owner'])
@@ -481,15 +481,18 @@ else:
    'kernel':native('uname','-r')}
  elif operation=='repair-init-socket-policy':
   result=sys.modules['maintenance_init_socket'].execute(journal,native,identity,recovery_manifest)
- elif operation in('cordon','restore-scheduling'):
-  step=operation.replace('-','_')
+ elif operation in('cordon','restore-scheduling','resolve-scheduling-precheck'):
+  step='restore_scheduling'if operation=='resolve-scheduling-precheck'else operation.replace('-','_')
   path=root/(step+'-'+owner['owner']+'.json');worker=scheduling.Scheduling(journal,api)
   value=evidence();verify=prerequisites(value);digest=drain.hashed(value)
   original=json.loads((root/('cordon-'+owner['owner']+'.json')).read_bytes())if step=='restore_scheduling'else None
   if not path.exists():actors.exclusive_file(path,hops.canonical(worker.plan(step,original)),0o600)
   plan=json.loads(path.read_bytes())
   dispatched=False
-  if not state['pending']:
+  if operation=='resolve-scheduling-precheck':
+   worker.dispatch(plan,drain.hashed(plan),digest,verify,precheck_proof=precheck_proof)
+   dispatched=True
+  elif not state['pending']:
    assert step==hops.steps(owner)[len(state['completed'])];worker.dispatch(plan,drain.hashed(plan),digest,verify)
    dispatched=True
   # This OSD can return only after uncordon; accept its intent on a later healthy observation.
@@ -1201,13 +1204,32 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
             child.terminate();child.wait()
 
 
+def scheduling_precheck_failure(node, raw, prior_source):
+    """Accept only the captured Bulbasaur callback exit before its first API patch."""
+    require(node == 'bulbasaur' and hashlib.sha256(raw).hexdigest() ==
+            'a4287afe3e7c8650f852e0ee7bea6229e018cbd0e2f979400b9cf091f7b37684',
+            'scheduling pre-dispatch failure receipt differs')
+    failure = json.loads(raw)
+    require(failure['exit'] == 1 and failure['output'] == '' and
+            'maintenance_node_scheduling.py", line 89, in dispatch' in failure['error'] and
+            failure['error'].endswith('AssertionError: controller unready: strata/strata\n\n'),
+            'failure does not prove the reviewed scheduling pre-dispatch exit')
+    dispatch = prior_source[prior_source.index('    def dispatch('):prior_source.index('    def observe(')]
+    require(prior_source.splitlines()[88].strip().startswith('actors.require(verify_prerequisites(') and
+            dispatch.index('actors.require(verify_prerequisites(') < dispatch.index('result = self.api.call('),
+            'original scheduling failure does not precede its first API mutation')
+    return {'owner': 'homelab-maintenance-103-4b2620db-57a7-4630-b3c5-e1c5f036edfa',
+            'intent_sha256': 'ebac45bc6623f463f910ffa672e801bd02e10377acf2dbfe8bf99ea74a4748b8',
+            'failure_sha256': hashlib.sha256(raw).hexdigest()}
+
+
 def main():
     global ACTIVE_READER, ACTIVE_ARGS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['backup', 'monitor-backup', 'security-backup', 'initialize', 'inspect', 'cordon', 'drain', 'observe-package',
                                              'source-repositories', 'target-repositories', 'prepare-source',
                                              'download-release', 'offline-transaction', 'observe-offline',
-                                             'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
+                                             'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling', 'resolve-scheduling-precheck',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'nvidia-repository', 'repair-rpmfusion-download', 'repair-openh264-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur'), default='totodile')
@@ -1235,6 +1257,11 @@ def main():
     require(Path(core_path).read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + core_path]),
             'unpublished CORE completion evidence parser')
     precheck_proof = None
+    if args.operation == 'resolve-scheduling-precheck':
+        require(args.failure_receipt, 'exact captured scheduling pre-dispatch failure is required')
+        prior = subprocess.check_output(['git', 'show',
+            'cfabcc5a7e3e97c5bcff8241f43ac7dc35a858ba:metal/scripts/maintenance_node_scheduling.py'], text=True)
+        precheck_proof = scheduling_precheck_failure(NODE, Path(args.failure_receipt).read_bytes(), prior)
     if args.operation == 'resolve-release-precheck':
         require(args.failure_receipt, 'exact captured release pre-dispatch failure is required')
         raw = Path(args.failure_receipt).read_bytes()

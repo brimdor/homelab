@@ -223,6 +223,62 @@ class SchedulingTests(unittest.TestCase):
         changed = dict(plan, resource_version='99')
         with self.assertRaisesRegex(RuntimeError, 'pending scheduling plan differs'):self.observe(changed)
 
+    def refused_restore(self):
+        _, plan = self.restore_ready();calls = []
+        def changed(*_):calls.append(True);return len(calls) == 1
+        with self.assertRaisesRegex(RuntimeError, 'current scheduling prerequisites'):
+            self.dispatch(plan, changed)
+        state = self.journal.inspect()
+        proof = {'owner': self.token, 'intent_sha256': state['pending']['sha256'],
+                 'failure_sha256': 'f' * 64}
+        return plan, proof
+
+    def first_restore(self, plan, proof, verify=lambda *_: True):
+        return self.worker.dispatch(plan, hashed(plan), 'c' * 64, verify, precheck_proof=proof)
+
+    def test_proven_first_dispatch_uses_fresh_version_and_preserves_journal(self):
+        plan, proof = self.refused_restore();pending = self.journal.inspect()
+        self.nodes.node['metadata']['resourceVersion'] = '99'
+        self.first_restore(plan, proof)
+        self.assertEqual(self.journal.inspect(), pending)
+        self.assertEqual(self.nodes.patches[-1][1]['value'], '99')
+        self.assertEqual(len(self.nodes.patches), 2)
+        marker = self.hold.state / ('scheduling-first-dispatch-' + self.token + '.json')
+        self.assertEqual(json.loads(marker.read_bytes())['proof'], proof)
+        self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
+        self.assertTrue(self.observe(plan)['accepted'])
+
+    def test_first_dispatch_rejects_foreign_owner_intent_and_bad_failure(self):
+        plan, proof = self.refused_restore()
+        for key, value in [('owner', 'foreign'), ('intent_sha256', 'a' * 64),
+                           ('failure_sha256', 'invalid')]:
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, 'proof differs'):
+                self.first_restore(plan, dict(proof, **{key: value}))
+        self.assertEqual(len(self.nodes.patches), 1)
+
+    def test_first_dispatch_rechecks_prerequisites_before_arming(self):
+        plan, proof = self.refused_restore()
+        with self.assertRaisesRegex(RuntimeError, 'current scheduling prerequisites'):
+            self.first_restore(plan, proof, lambda *_: False)
+        marker = self.hold.state / ('scheduling-first-dispatch-' + self.token + '.json')
+        self.assertFalse(marker.exists());self.assertEqual(len(self.nodes.patches), 1)
+        self.first_restore(plan, proof)
+        self.assertTrue(self.observe(plan)['accepted'])
+
+    def test_first_dispatch_api_failure_never_permits_second_request(self):
+        plan, proof = self.refused_restore();self.nodes.reject = True
+        with self.assertRaisesRegex(RuntimeError, 'access refused'):self.first_restore(plan, proof)
+        self.assertFalse(self.observe(plan)['accepted'])
+        with self.assertRaisesRegex(RuntimeError, 'already armed'):self.first_restore(plan, proof)
+        self.assertEqual(len(self.nodes.patches), 2)
+
+    def test_first_dispatch_lost_response_observes_without_replay(self):
+        plan, proof = self.refused_restore();self.nodes.lose_response = True
+        with self.assertRaisesRegex(RuntimeError, 'lost scheduling response'):self.first_restore(plan, proof)
+        self.assertTrue(self.observe(plan)['accepted'])
+        with self.assertRaisesRegex(RuntimeError, 'proof differs'):self.first_restore(plan, proof)
+        self.assertEqual(len(self.nodes.patches), 2)
+
     def test_actor_becomes_busy_during_verification_refuses_before_patch(self):
         plan = self.worker.plan('cordon');calls = []
         original = self.native.idle
