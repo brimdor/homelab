@@ -41,7 +41,8 @@ SECURITY_BACKUPS = {node: '/var/lib/homelab-recovery/maintenance-103/' + node +
 MODULES = ('maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
            'maintenance_package_dispatch', 'maintenance_node_drain',
            'maintenance_node_scheduling', 'maintenance_kured_20261026', 'maintenance_safe_release',
-           'maintenance_host_security', 'maintenance_init_socket', 'maintenance_cuda', 'maintenance_nvidia')
+           'maintenance_host_security', 'maintenance_init_socket', 'maintenance_cuda', 'maintenance_nvidia',
+           'maintenance_rpmfusion')
 OSD_RECOVERY = {
     'arcanine': (('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_a527115d-9f22-48cc-a718-4f30bdb64399', '/dev/sda3'),
                  ('var/lib/rook/rook-ceph/13c20377-d801-43f9-aebd-59f62df5dad1_38cfd0d6-ace5-4bc2-972a-0315835b3b92', '/dev/sdb')),
@@ -557,6 +558,9 @@ else:
   result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'release':release,'gpgcheck':True}
   if expected_node=='arcanine'and int(release)>39:
    result['nvidia']=sys.modules['maintenance_nvidia'].configure(directory,int(release),native)
+   result['rpmfusion']=sys.modules['maintenance_rpmfusion'].configure(directory,int(release),native)
+ elif operation=='repair-rpmfusion-download':
+  result=sys.modules['maintenance_rpmfusion'].repair(journal,native,evidence)
  elif operation=='repair-offline-repositories':
   assert owner['owner']=='homelab-maintenance-103-c8345d91-1dfe-4e58-8c13-b7c7b7519d54'
   assert owner['source']==39 and owner['target']==41 and native('rpm','-E','%fedora')=='39'
@@ -636,7 +640,9 @@ else:
        for chunk in iter(lambda:source.read(1024*1024),b''):digest.update(chunk)
       signed.append([path.name,digest.hexdigest()])
      assert target_release and target_kernel
-     if expected_node=='arcanine':receipt['nvidia']=sys.modules['maintenance_nvidia'].downloaded(package_metadata,owner['target'])
+     if expected_node=='arcanine':
+      receipt['nvidia']=sys.modules['maintenance_nvidia'].downloaded(package_metadata,owner['target'])
+      receipt['download_recovery']=sys.modules['maintenance_rpmfusion'].accepted(journal,native)
      receipt['signed_rpms']={'count':len(signed),'sha256':drain.hashed(signed),'target_release_and_kernel':True}
     def verified(step_name,digest):return step_name==step and digest==drain.hashed(receipt) and evidence()==value
     result['journal']=journal.accept(state['pending']['sha256'],drain.hashed(receipt),verified);result['accepted']=True
@@ -1151,7 +1157,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
-                                             'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
+                                             'repair-rpmfusion-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
@@ -1258,7 +1264,7 @@ def main():
         from maintenance_monitor_recovery import verify
         verify(args)
     if NODE == 'arcanine' and args.operation in ('source-repositories', 'prepare-source',
-                                                'download-release', 'offline-transaction'):
+                                                'download-release', 'offline-transaction', 'repair-rpmfusion-download'):
         from maintenance_monitor_recovery import verify
         verify(args, node=NODE)
     if args.operation in ('security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):
