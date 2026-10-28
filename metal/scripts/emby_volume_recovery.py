@@ -256,6 +256,24 @@ def databases(root):
     return result
 
 
+def compare_reconstruction(actual, expected, destination_label):
+    """Preserve source metadata; account only for a verified new host label."""
+    require(bool(destination_label), 'missing enforcing destination label')
+    require(set(actual) == set(expected), 'reconstructed Emby entries differ')
+    added = 0
+    for name, original in expected.items():
+        restored = dict(actual[name])
+        attributes = dict(restored['xattrs'])
+        if 'security.selinux' not in original['xattrs']:
+            require(attributes.pop('security.selinux', None) == destination_label,
+                    'reconstructed destination SELinux label differs')
+            added += 1
+        restored['xattrs'] = attributes
+        require(restored == original, 'full reconstructed Emby content or source metadata differs')
+    return {'source_content_and_metadata_equal': True, 'destination_selinux_labels_added': added,
+            'destination_selinux_label_sha256': hashlib.sha256(bytes.fromhex(destination_label)).hexdigest()}
+
+
 def restore():
     host('squirtle')
     def interrupted(signum, frame):
@@ -279,6 +297,9 @@ def restore():
     old_images = set(command('docker', 'image', 'ls', '-q', '--no-trunc').stdout.decode().split())
     result = {'accepted': False, **summary(value)}
     try:
+        require(command('getenforce').stdout.strip() == b'Enforcing', 'restore host is not enforcing')
+        command('matchpathcon', '-V', str(root))
+        destination_label = os.getxattr(root, 'security.selinux', follow_symlinks=False).hex()
         # A trusted, validated source archive is streamed without a second disk copy.
         extraction_errors = (scratch / 'extract.stderr').open('xb')
         os.fchmod(extraction_errors.fileno(), 0o600)
@@ -305,7 +326,7 @@ def restore():
             child.wait()
             extraction_errors.close()
         # Compare all retained content and metadata before any application writes.
-        require(tree(root) == records, 'full reconstructed Emby tree differs')
+        metadata = compare_reconstruction(tree(root), records, destination_label)
         before = databases(root)
         command('docker', 'pull', IMAGE)
         description = json.loads(command('docker', 'image', 'inspect', IMAGE).stdout)[0]
@@ -363,7 +384,7 @@ def restore():
         require(not state['Running'] and not state['OOMKilled'] and state['ExitCode'] == 0, 'restored Emby did not stop cleanly')
         after = databases(root)
         require(before == after, 'restored Emby changed database schemas or protected record counts')
-        result.update(accepted=True, databases=after, native_api_status=200, authenticated_api_status=200, version=info['Version'],
+        result.update(accepted=True, reconstruction=metadata, databases=after, native_api_status=200, authenticated_api_status=200, version=info['Version'],
                       network='none', no_nas_mounts=True, clean_exit=0)
     finally:
         if container:
