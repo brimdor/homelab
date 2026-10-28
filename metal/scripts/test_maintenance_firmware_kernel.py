@@ -44,7 +44,7 @@ class FirmwareKernelTests(unittest.TestCase):
 
         return native, calls
 
-    def test_both_reviewed_kernels_require_exact_package_ownership(self):
+    def test_reviewed_kernels_require_exact_package_ownership(self):
         for kernel in security.FIRMWARE_KERNELS:
             with self.subTest(kernel=kernel):
                 native, calls = self.native(kernel)
@@ -52,7 +52,7 @@ class FirmwareKernelTests(unittest.TestCase):
                 self.assertEqual(len(calls), 2)
 
     def test_unreviewed_kernel_stops_before_package_or_dispatch(self):
-        for kernel in ('7.2.13-200.fc44.x86_64', '7.2.12-100.fc43.x86_64', '../other'):
+        for kernel in ('7.2.14-200.fc44.x86_64', '7.2.12-100.fc43.x86_64', '../other'):
             with self.subTest(kernel=kernel):
                 native, calls = self.native(kernel)
                 with self.assertRaisesRegex(AssertionError, 'review current Fedora 44 kernel'):

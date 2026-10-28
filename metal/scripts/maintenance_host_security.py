@@ -701,7 +701,7 @@ def acceptance(journal, native, identity):
 
 FIRMWARE_CONFIG = 'early_microcode="yes"\n'
 FIRMWARE_SHA256 = '15e96637a89012390e2c254effad092fc9535912b709ffa316069fc5606efb65'
-FIRMWARE_KERNELS = ('7.2.11-200.fc44.x86_64', '7.2.12-200.fc44.x86_64')
+FIRMWARE_KERNELS = ('7.2.11-200.fc44.x86_64', '7.2.12-200.fc44.x86_64', '7.2.13-200.fc44.x86_64')
 
 
 def firmware_kernel(native):
