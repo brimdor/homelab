@@ -98,6 +98,10 @@ spec:
         homelab.eaglepass.io/maintenance-loki-pause: "true"
       {{- end }}
       tolerations:
+        # Host logs must also be collected from dedicated workload nodes.
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
         - effect: NoSchedule
           key: node-role.kubernetes.io/master
           operator: Exists
