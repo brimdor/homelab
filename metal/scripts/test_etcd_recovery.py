@@ -209,6 +209,29 @@ class BundleTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             RECOVERY.verify_point(destination, expected)
 
+    def test_staged_copy_preserves_original_and_rejects_corruption(self):
+        import hashlib
+        import shutil
+        destination = self.root / 'protected-original'
+        manifest = RECOVERY.receive_bundle(io.BytesIO(self.encoded()), destination)
+        expected = hashlib.sha256(RECOVERY.canonical(manifest)).hexdigest()
+        before = {p.name: (p.read_bytes(), p.stat().st_ino) for p in destination.iterdir()}
+        with patch.object(RECOVERY, 'ROOT', self.root):
+            staged = RECOVERY.stage_restore_point(destination, expected)
+            try:
+                self.assertEqual(RECOVERY.verify_point(staged, expected), manifest)
+                self.assertNotEqual(staged, destination)
+                self.assertEqual({p.name: (p.read_bytes(), p.stat().st_ino) for p in destination.iterdir()}, before)
+            finally:
+                shutil.rmtree(staged)
+            native = RECOVERY.shutil.copyfileobj
+            def damage(source, target):
+                native(source, target)
+                target.write(b'corrupt')
+            with patch.object(RECOVERY.shutil, 'copyfileobj', side_effect=damage), self.assertRaises(RuntimeError):
+                RECOVERY.stage_restore_point(destination, expected)
+        self.assertFalse(list(self.root.glob('etcd-readonly-copy-*')))
+
 
 class LoggingBoundaryTests(unittest.TestCase):
     def test_creation_disables_logging_and_rejects_conflicting_settings(self):

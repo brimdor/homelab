@@ -174,6 +174,26 @@ def run_identifier(value):
     return value
 
 
+def stage_restore_point(point, expected_sha256):
+    """Relabel only disposable copies; never change protected original labels."""
+    manifest = verify_point(point, expected_sha256)
+    if shutil.disk_usage(ROOT).free <= sum(record['size'] for record in manifest['files']):
+        raise RuntimeError('insufficient capacity for isolated recovery copy')
+    staged = Path(tempfile.mkdtemp(prefix='etcd-readonly-copy-', dir=ROOT))
+    try:
+        staged.chmod(0o700)
+        for name in ('snapshot', 'token', 'encryption-config.json', 'verified.json'):
+            with (point / name).open('rb') as source, (staged / name).open('xb') as target:
+                os.fchmod(target.fileno(), 0o600)
+                shutil.copyfileobj(source, target)
+        if verify_point(staged, expected_sha256) != manifest:
+            raise RuntimeError('isolated recovery copy differs')
+        return staged
+    except BaseException:
+        shutil.rmtree(staged)
+        raise
+
+
 def require_isolation(container, scratch, run_id, point=None):
     labels = container["Config"].get("Labels", {})
     host = container["HostConfig"]
@@ -433,12 +453,17 @@ def qualify(run_id, point=None, manifest_sha256=None, synthetic_check=None):
     if docker("ps", "--all", "--quiet", "--filter=label=io.eaglepass.maintenance=103").stdout.strip():
         raise RuntimeError("an owned recovery test is already active; leave it alone")
     scratch = Path(tempfile.mkdtemp(prefix=run_id + "-qualify-", dir=ROOT))
-    container_id = image_id = None
+    container_id = image_id = recovery_copy = None
+    original_labels = None
     receipt = {"run_id": run_id, "phase": "full-restore" if manifest else "synthetic-qualification", "accepted": False}
     try:
         scratch.chmod(0o700)
+        if point is not None:
+            original_labels = {p.name: os.getxattr(p, 'security.selinux') for p in (point, *point.iterdir())}
         for name in IMAGE_VOLUMES.values():
             (scratch / name).mkdir(mode=0o700)
+        if point is not None:
+            recovery_copy = stage_restore_point(point, manifest_sha256)
         docker("pull", IMAGE)
         image = json.loads(docker("image", "inspect", IMAGE).stdout)[0]
         image_id = image["Id"]
@@ -449,22 +474,22 @@ def qualify(run_id, point=None, manifest_sha256=None, synthetic_check=None):
                      "--security-opt=no-new-privileges:true", "--ipc=private", "--pids-limit=256",
                      "--cpus=2", "--memory=2g", "--label=io.eaglepass.maintenance=103",
                      "--label=io.eaglepass.recovery-run=" + run_id,
-                     "--mount=type=bind,source=" + str(scratch) + ",target=/work",
+                     "--volume=" + str(scratch) + ":/work:Z",
                      "--tmpfs=/run:rw,nosuid,nodev", "--tmpfs=/tmp:rw,nosuid,nodev",
                      "--tmpfs=/etc/rancher:rw,nosuid,nodev",
                      "--entrypoint=/bin/sh"]
-        arguments += ["--mount=type=bind,source=" + str(scratch / name) + ",target=" + path
+        arguments += ["--volume=" + str(scratch / name) + ":" + path + ":Z"
                       for path, name in IMAGE_VOLUMES.items()]
-        if point is not None:
-            arguments.append("--mount=type=bind,source=" + str(point) + ",target=/recovery,readonly")
+        if recovery_copy is not None:
+            arguments.append("--volume=" + str(recovery_copy) + ":/recovery:ro,Z")
         arguments += [IMAGE, "-c", "exec sleep 2147483647"]
         container_id = docker(*arguments).stdout.decode().strip()
         if not re.fullmatch(r"[a-f0-9]{64}", container_id):
             raise RuntimeError("Docker returned an invalid owned container identity")
-        require_isolation(inspect(container_id), scratch, run_id, point)
+        require_isolation(inspect(container_id), scratch, run_id, recovery_copy)
         docker("start", container_id)
         state = inspect(container_id)
-        require_isolation(state, scratch, run_id, point)
+        require_isolation(state, scratch, run_id, recovery_copy)
         pid = str(state["State"]["Pid"])
         namespace = ["nsenter", "--target", pid, "--net", "--"]
         links = json.loads(command(namespace + ["ip", "-j", "address"]).stdout)
@@ -560,15 +585,20 @@ def qualify(run_id, point=None, manifest_sha256=None, synthetic_check=None):
             if docker("inspect", container_id, check=False).returncode == 0:
                 raise RuntimeError("owned recovery container cleanup failed")
         shutil.rmtree(scratch)
+        if recovery_copy is not None:
+            shutil.rmtree(recovery_copy)
         if image_id and image_id not in before_images:
             consumers = docker("ps", "--all", "--quiet", "--filter=ancestor=" + image_id).stdout.strip()
             if not consumers:
                 docker("image", "rm", IMAGE)
                 if docker("image", "inspect", image_id, check=False).returncode == 0:
                     raise RuntimeError("new test-only image remains after cleanup")
-        receipt["cleanup"] = {"container_absent": True, "scratch_absent": not scratch.exists()}
+        receipt["cleanup"] = {"container_absent": True, "scratch_absent": not scratch.exists(),
+                              "staged_copy_absent": recovery_copy is None or not recovery_copy.exists()}
         if manifest is not None:
             receipt["protected_point_unchanged"] = verify_point(point, manifest_sha256) == manifest
+            receipt["protected_point_labels_unchanged"] = original_labels == {
+                p.name: os.getxattr(p, 'security.selinux') for p in (point, *point.iterdir())}
     return receipt
 
 
