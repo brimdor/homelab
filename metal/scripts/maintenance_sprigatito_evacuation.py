@@ -193,7 +193,7 @@ def main():
             emby.command('git', 'remote', 'get-url', 'origin').stdout.decode().strip() == 'git@git.eaglepass.io:ops/homelab.git' and
             emby.command('git', 'ls-remote', 'origin', 'refs/heads/master').stdout.decode().split()[0] == revision,
             'publish exact evacuation candidate to canonical master')
-    for name in ('maintenance_sprigatito_evacuation', 'emby_volume_recovery', 'maintenance_coordination',
+    for name in ('maintenance_sprigatito_evacuation', 'maintenance_sprigatito_shutdown', 'maintenance_actor_hold', 'emby_volume_recovery', 'maintenance_coordination',
                  'maintenance_sprigatito_recovery', 'maintenance_osd_host', 'maintenance_production_node'):
         path = Path('metal/scripts') / (name + '.py')
         require(path.read_bytes() == emby.command('git', 'show', revision + ':' + str(path)).stdout, 'unpublished evacuation dependency')
@@ -210,6 +210,8 @@ def main():
         nodes = api.call('get', 'nodes', '-o', 'json')['items']
         ownership = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
         owner = ownership.acquire(recovery.NODE, 39, 41, revision)
+        from maintenance_sprigatito_shutdown import actor_hold
+        native_hold = actor_hold(args, api, owner, acquire=True)
         node = api.call('get', 'node', recovery.NODE, '-o', 'json')
         require(node['metadata']['uid'] == recovery.UID and not node['spec'].get('unschedulable'), 'unexpected preexisting node cordon')
         patch = [{'op': 'test', 'path': '/metadata/uid', 'value': recovery.UID},
@@ -219,7 +221,7 @@ def main():
         latest = collect(api)
         validate(latest, baseline=True)
         require(latest['map']['epoch'] == baseline['epoch'] and emby.observe(args) == context, 'pre-out state changed; observe before continuing')
-        intent = {'owner': owner, 'revision': revision, 'baseline': baseline, 'capacity': capacity,
+        intent = {'owner': owner, 'native_actor_hold': native_hold, 'revision': revision, 'baseline': baseline, 'capacity': capacity,
                   'recovery': proof, 'created': datetime.now(timezone.utc).isoformat(), 'action': 'ceph osd out 7',
                   'osd_uuid': OSDS[7], 'no_purge_or_device_write': True}
         record(args, 'evacuation-intent.json', intent)

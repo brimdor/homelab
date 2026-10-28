@@ -126,8 +126,7 @@ def verify(token):
  assert json.loads(sys.stdin.readline())=={'verified':True},'current global ownership refused'
  return True
 hold=m.Hold(m.Systemd(),identity,verify)
-''' + ('''assert not hold.marker.exists(),'existing native owner must be observed'
-result=hold.acquire(owner['owner'],identity(),owner['revision'])
+''' + ('''result=hold.resume(owner['owner'])if hold.marker.exists()else hold.acquire(owner['owner'],identity(),owner['revision'])
 ''' if acquire else "result=hold.resume(owner['owner'])\n") + '''print(json.dumps({'result':result}),flush=True)
 '''
     bootstrap = 'import json,sys;exec(compile(json.loads(sys.stdin.readline())["program"],"protected-actor-hold","exec"))'
