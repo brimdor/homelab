@@ -7,6 +7,8 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import shlex
+import subprocess
 
 import emby_volume_recovery as emby
 import maintenance_sprigatito_evacuation as evacuation
@@ -108,6 +110,49 @@ def prerequisites(args, api, *, stopped):
     return {'owner': owner, 'storage': result, 'inventory': inventory(api)}
 
 
+def actor_hold(args, api, owner, *, acquire=False):
+    """Reuse persistent updater guards with a fresh global-owner RPC for each check."""
+    source = Path('metal/scripts/maintenance_actor_hold.py').read_text()
+    program = '''import json,pathlib,socket,subprocess,sys,types
+m=types.ModuleType('actors');exec(''' + repr(source) + ''',m.__dict__)
+owner=''' + repr(owner) + '''
+def identity():
+ assert socket.gethostname()=='sprigatito'
+ value={'machine':pathlib.Path('/etc/machine-id').read_text().strip(),'root_uuid':subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()}
+ assert value==''' + repr(recovery.IDENTITY) + '''
+ return value
+def verify(token):
+ print(json.dumps({'rpc':'verify_owner','token':token}),flush=True)
+ assert json.loads(sys.stdin.readline())=={'verified':True},'current global ownership refused'
+ return True
+hold=m.Hold(m.Systemd(),identity,verify)
+''' + ('''assert not hold.marker.exists(),'existing native owner must be observed'
+result=hold.acquire(owner['owner'],identity(),owner['revision'])
+''' if acquire else "result=hold.resume(owner['owner'])\n") + '''print(json.dumps({'result':result}),flush=True)
+'''
+    bootstrap = 'import json,sys;exec(compile(json.loads(sys.stdin.readline())["program"],"protected-actor-hold","exec"))'
+    child = subprocess.Popen(production.ssh(args, recovery.ADDRESS) + ['python3 -u -c ' + shlex.quote(bootstrap)],
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        child.stdin.write(json.dumps({'program': program}) + '\n');child.stdin.flush()
+        result = None
+        for line in child.stdout:
+            request = json.loads(line)
+            if 'result' in request:
+                result = request['result'];continue
+            require(request == {'rpc': 'verify_owner', 'token': owner['owner']}, 'unreviewed hold RPC')
+            nodes = api.call('get', 'nodes', '-o', 'json')['items']
+            controller = Ownership(api, evacuation.DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
+            require(controller.resume(owner['owner']) == owner, 'native hold global owner changed')
+            child.stdin.write('{"verified":true}\n');child.stdin.flush()
+        child.wait()
+        require(child.returncode == 0 and result is not None, 'native hold failed; retain owner: ' + child.stderr.read()[-1500:])
+        return result
+    finally:
+        if child.poll() is None:
+            child.terminate();child.wait()
+
+
 def shutdown_native(owner, dispatch=False):
     return '''import json,os,pathlib,re,socket,subprocess
 P=pathlib.Path
@@ -135,7 +180,7 @@ assert subprocess.check_output(['systemctl','is-active',unit+'.timer'],text=True
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['observe', 'evict', 'shutdown'])
+    parser.add_argument('operation', choices=['observe', 'hold', 'evict', 'shutdown'])
     for name in ('identity', 'known-hosts', 'kubectl'):
         parser.add_argument('--' + name, required=True)
     args = parser.parse_args()
@@ -146,14 +191,19 @@ def main():
             emby.command('git', 'ls-remote', 'origin', 'refs/heads/master').stdout.decode().split()[0] == revision,
             'publish shutdown candidate to canonical master')
     for name in ('maintenance_sprigatito_shutdown', 'maintenance_sprigatito_evacuation', 'emby_volume_recovery',
-                 'maintenance_sprigatito_recovery', 'maintenance_coordination', 'maintenance_osd_host', 'maintenance_production_node'):
+                 'maintenance_sprigatito_recovery', 'maintenance_coordination', 'maintenance_actor_hold', 'maintenance_osd_host', 'maintenance_production_node'):
         path = Path('metal/scripts') / (name + '.py')
         require(path.read_bytes() == emby.command('git', 'show', revision + ':' + str(path)).stdout, 'unpublished shutdown dependency')
     health = Path('scripts/homelab-health.py')
     require(health.read_bytes() == emby.command('git', 'show', revision + ':' + str(health)).stdout, 'unpublished completion classifier')
     api = Kubectl(args.kubectl)
     value = prerequisites(args, api, stopped=True)
-    if args.operation == 'evict':
+    if args.operation == 'hold':
+        result = actor_hold(args, api, value['owner'], acquire=True)
+        proof(args, 'shutdown-actor-hold.json', result)
+        value = {'native_actor_hold': result, 'owner_retained': True}
+    elif args.operation == 'evict':
+        actor_hold(args, api, value['owner'])
         require(value['inventory']['targets'], 'no host daemon remains to evict; observe')
         target = value['inventory']['targets'][0]
         name = 'eviction-' + target['uid'] + '-intent.json'
@@ -167,6 +217,7 @@ def main():
         require(response.get('kind') == 'Status' and response.get('status') == 'Success', 'eviction result uncertain; observe')
         value = {'eviction_requested': target, 'owner_retained': True}
     elif args.operation == 'shutdown':
+        actor_hold(args, api, value['owner'])
         require(not value['inventory']['targets'], 'active host daemon remains')
         require(proof(args, 'shutdown-intent.json') is None, 'existing shutdown intent; observe, never repeat')
         native = production.remote(args, shutdown_native(value['owner']), recovery.ADDRESS)
