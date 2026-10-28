@@ -14,7 +14,10 @@ class ColdRecoveryTests(unittest.TestCase):
         arguments = recovery.restore_arguments(Path('/private/reconstruction'), 'owned-test')
         environment = dict(item[len('--env='):].split('=', 1) for item in arguments if item.startswith('--env='))
         self.assertEqual(environment['HOME'], '/config')
-        self.assertEqual(environment['LD_LIBRARY_PATH'], '/app/emby/lib:/app/emby/extra/lib')
+        self.assertNotIn('LD_LIBRARY_PATH', environment)
+        self.assertEqual(arguments[arguments.index(recovery.IMAGE) + 1:arguments.index(recovery.IMAGE) + 3],
+                         ['LD_LIBRARY_PATH=/app/emby/lib:/app/emby/extra/lib', '/app/emby/system/EmbyServer'])
+        self.assertIn('--entrypoint=/usr/bin/env', arguments)
         self.assertEqual(environment['SSL_CERT_FILE'], '/app/emby/etc/ssl/certs/ca-certificates.crt')
         self.assertIn('--workdir=/app/emby', arguments)
         for flag in ('--log-driver=none', '--network=none', '--read-only', '--cap-drop=ALL',
