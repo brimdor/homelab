@@ -569,8 +569,10 @@ else:
   if expected_node=='arcanine'and int(release)>39:
    result['nvidia']=sys.modules['maintenance_nvidia'].configure(directory,int(release),native)
    result['rpmfusion']=sys.modules['maintenance_rpmfusion'].configure(directory,int(release),native)
- elif operation=='repair-rpmfusion-download':
-  result=sys.modules['maintenance_rpmfusion'].repair(journal,native,evidence)
+   result['openh264']=sys.modules['maintenance_rpmfusion'].configure_openh264(directory,int(release),native)
+ elif operation in('repair-rpmfusion-download','repair-openh264-download'):
+  result=sys.modules['maintenance_rpmfusion'].repair(journal,native,evidence,
+   kind='openh264'if operation=='repair-openh264-download'else'rpmfusion')
  elif operation=='repair-offline-repositories':
   assert owner['owner']=='homelab-maintenance-103-c8345d91-1dfe-4e58-8c13-b7c7b7519d54'
   assert owner['source']==39 and owner['target']==41 and native('rpm','-E','%fedora')=='39'
@@ -1167,7 +1169,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
-                                             'nvidia-repository', 'repair-rpmfusion-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
+                                             'nvidia-repository', 'repair-rpmfusion-download', 'repair-openh264-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
@@ -1274,7 +1276,7 @@ def main():
         from maintenance_monitor_recovery import verify
         verify(args)
     if NODE == 'arcanine' and args.operation in ('source-repositories', 'prepare-source',
-                                                'download-release', 'offline-transaction', 'repair-rpmfusion-download'):
+                                                'download-release', 'offline-transaction', 'repair-rpmfusion-download', 'repair-openh264-download'):
         from maintenance_monitor_recovery import verify
         verify(args, node=NODE)
     if args.operation in ('nvidia-repository', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):

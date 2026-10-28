@@ -13,6 +13,25 @@ from maintenance_node_drain import private_json
 
 
 class RpmFusionTests(unittest.TestCase):
+    def test_codec_repository_uses_exact_fedora_key_and_only_official_codec_family(self):
+        for release in (41, 43, 44):
+            with self.subTest(release=release), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary); key = root / ('fedora' + str(release) + '.asc')
+                key.write_bytes(b'synthetic Fedora key'); key.chmod(0o600)
+                digest = hashlib.sha256(key.read_bytes()).hexdigest(); calls = []
+                with patch.dict(coverage.CODEC_KEYS, {release: digest}):
+                    result = coverage.configure_openh264(root, release, lambda *a: calls.append(a))
+                    content = (root / 'openh264.repo').read_text()
+                    self.assertIn('https://codecs.fedoraproject.org/openh264/' + str(release) + '/x86_64/', content)
+                    for setting in ('gpgcheck=1', 'sslverify=1', 'skip_if_unavailable=0', 'includepkgs=*openh264*'):
+                        self.assertIn(setting, content)
+                    self.assertEqual(coverage.configure_openh264(root, release, lambda *a: None), result)
+                    (root / 'openh264.repo').write_text('foreign')
+                    with self.assertRaises(RuntimeError):coverage.configure_openh264(root, release, lambda *a: None)
+                    key.write_bytes(b'foreign')
+                    with self.assertRaises(RuntimeError):coverage.configure_openh264(root, release, lambda *a: None)
+                self.assertEqual(calls, [('rpmkeys', '--import', str(key))])
+
     def test_private_repositories_preserve_trust_and_exclude_nonfree_driver_provider(self):
         for release in (41, 43, 44):
             with self.subTest(release=release), tempfile.TemporaryDirectory() as temporary:
@@ -55,27 +74,32 @@ class RpmFusionTests(unittest.TestCase):
                 coverage.configure(root, 41, lambda *a: None, keys)
 
     def test_repair_preserves_failure_chain_and_never_replays_dispatch(self):
+        for kind in ('rpmfusion', 'openh264'):
+            with self.subTest(kind=kind):self.repair_case(kind)
+
+    def repair_case(self, kind):
+        profile = coverage.recovery_profile(kind)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary); calls = []
-            owner = {'owner': coverage.OWNER}
-            state = {'pending': {'sha256': coverage.PENDING}}
+            owner = {'owner': profile['owner']}
+            state = {'pending': {'sha256': profile['pending']}}
             before = {'installed_sha256': 'original', 'pending': state['pending']}
             hold = SimpleNamespace(state=root, serialized=nullcontext)
             journal = SimpleNamespace(hold=hold, owners=lambda **kw: {'global': owner}, read=lambda: state)
             with patch.object(coverage, 'failed_download', return_value=before), \
-                    patch.object(coverage, 'configure', return_value={'signed': True}), \
+                    patch.object(coverage, 'configure' if kind == 'rpmfusion' else 'configure_openh264', return_value={'signed': True}), \
                     patch.object(coverage, 'repository_hashes', return_value={'rpmfusion.repo': 'signed'}), \
                     patch.object(coverage, 'installed', return_value='original'):
-                first = coverage.repair(journal, lambda *a: calls.append(a), lambda: {'fresh': True})
+                first = coverage.repair(journal, lambda *a: calls.append(a), lambda: {'fresh': True}, kind)
                 self.assertTrue(first['dispatched_recovery'])
-                second = coverage.repair(journal, lambda *a: calls.append(a), lambda: {'fresh': True})
+                second = coverage.repair(journal, lambda *a: calls.append(a), lambda: {'fresh': True}, kind)
                 self.assertTrue(second['observe_only'])
-                self.assertEqual(calls, [('systemctl', 'start', coverage.OWNER + '-download-release.service')])
-                self.assertEqual(private_json(root / ('rpmfusion-download-before-' + coverage.OWNER + '.json')), before)
+                self.assertEqual(calls, [('systemctl', 'start', profile['owner'] + '-download-release.service')])
+                self.assertEqual(private_json(root / (kind + '-download-before-' + profile['owner'] + '.json')), before)
                 with patch.object(coverage, 'status', return_value={'InvocationID': 'a' * 32}):
-                    journal.token = coverage.OWNER
+                    journal.token = profile['owner']
                     self.assertTrue(coverage.accepted(journal, lambda *a: '')['original_failed_download_retained'])
-                with patch.object(coverage, 'status', return_value={'InvocationID': coverage.INVOCATION}):
+                with patch.object(coverage, 'status', return_value={'InvocationID': profile['invocation']}):
                     with self.assertRaisesRegex(RuntimeError, 'invocation'):
                         coverage.accepted(journal, lambda *a: '')
                 with patch.object(coverage, 'installed', return_value='changed'):
@@ -113,33 +137,39 @@ class RpmFusionTests(unittest.TestCase):
                 coverage.failed_download(owner, bad, lambda *a: self.fail('native'), Path('/private'))
 
     def test_failed_download_requires_original_stopped_invocation_boot_log_and_empty_cache(self):
-        owner = {'owner': coverage.OWNER, 'node': 'arcanine',
-                 'node_uid': '88aa2572-09df-40b9-8a00-960e9682917c', 'source': 39, 'target': 41}
+        for kind in ('rpmfusion', 'openh264'):
+            with self.subTest(kind=kind):self.failed_download_case(kind)
+
+    def failed_download_case(self, kind):
+        profile = coverage.recovery_profile(kind)
+        owner = {'owner': profile['owner'], 'node': 'arcanine',
+                 'node_uid': '88aa2572-09df-40b9-8a00-960e9682917c', 'source': profile['source'], 'target': profile['target']}
         state = {'completed': ['cordon', 'drain', 'prepare_source'],
-                 'pending': {'sha256': coverage.PENDING, 'sequence': 7, 'step': 'download_release'}}
+                 'pending': {'sha256': profile['pending'], 'sequence': 7, 'step': 'download_release'}}
         for fault in (None, 'boot', 'release', 'cache', 'offline', 'invocation', 'actor', 'command', 'log'):
             with self.subTest(fault=fault):
-                boot = MagicMock(); boot.read_text.return_value = 'foreign' if fault == 'boot' else coverage.BOOT
+                boot = MagicMock(); boot.read_text.return_value = 'foreign' if fault == 'boot' else profile['boot']
                 cache = MagicMock(); cache.rglob.return_value = [Path('existing.rpm')] if fault == 'cache' else []
                 observed = {'LoadState': 'loaded', 'ActiveState': 'failed', 'Result': 'exit-code',
-                    'ExecMainStatus': '1', 'MainPID': '0', 'ControlPID': '0', 'InvocationID': coverage.INVOCATION,
-                    'ExecStart': '{ argv[]=/usr/bin/dnf --setopt=reposdir=/private --setopt=gpgcheck=True '
-                    '--setopt=localpkg_gpgcheck=True -y system-upgrade download --releasever=41 ; }'}
+                    'ExecMainStatus': '1', 'MainPID': '0', 'ControlPID': '0', 'InvocationID': profile['invocation'],
+                    'ExecStart': '{ argv[]=/usr/bin/' + ('dnf' if profile['source'] == 39 else 'dnf5') +
+                    ' --setopt=reposdir=/private --setopt=gpgcheck=True '
+                    '--setopt=localpkg_gpgcheck=True -y system-upgrade download --releasever=' + str(profile['target']) + ' ; }'}
                 if fault == 'invocation':observed['InvocationID'] = 'other'
                 if fault == 'actor':observed['MainPID'] = '123'
                 if fault == 'command':observed['ExecStart'] = '/usr/bin/dnf erase data'
                 def native(*args):
                     if args[0] == 'journalctl':return 'changed' if fault == 'log' else 'original failure'
-                    return '41' if fault == 'release' else '39'
+                    return '0' if fault == 'release' else str(profile['source'])
                 with patch.object(coverage, 'Path', side_effect=lambda value: boot if value.startswith('/proc/') else cache), \
                         patch.object(coverage.os.path, 'lexists', return_value=fault == 'offline'), \
                         patch.object(coverage, 'status', return_value=observed), \
                         patch.object(coverage, 'installed', return_value='unchanged'), \
-                        patch.object(coverage, 'FAILURE', hashlib.sha256(b'original failure').hexdigest()):
+                        patch.object(coverage, 'recovery_profile', return_value=dict(profile, failure=hashlib.sha256(b'original failure').hexdigest())):
                     if fault:
-                        with self.assertRaises(RuntimeError):coverage.failed_download(owner, state, native, Path('/private'))
+                        with self.assertRaises(RuntimeError):coverage.failed_download(owner, state, native, Path('/private'), kind)
                     else:
-                        self.assertEqual(coverage.failed_download(owner, state, native, Path('/private'))['installed_sha256'], 'unchanged')
+                        self.assertEqual(coverage.failed_download(owner, state, native, Path('/private'), kind)['installed_sha256'], 'unchanged')
 
 
 if __name__ == '__main__':

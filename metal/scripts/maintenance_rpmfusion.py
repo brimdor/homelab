@@ -19,6 +19,45 @@ KEYS = {
     'free': '10fc0a3e1a0307e8088357a31a9c5e4e3d9f9e0b01db2b03b5790d949a47f3b3',
     'nonfree': '7ac65a8dfeced70c8c335862b5f0696d57abac378deda34c4af78cd2220e3de6',
 }
+CODEC_OWNER = 'homelab-maintenance-103-d879ac6d-cd70-4925-a63d-fbd301d5ca3a'
+CODEC_KEYS = {
+    41: '5cd35342c292578d1a80ecf6c36c4f5a073cf9a1bbb858683882f071c0a529df',
+    43: '3d02eeded1380cdd081bc544d082e3e9e0debf09ad0e88c410bebd05ddeb2f58',
+    44: '2072ad5c9796d77baff2ff5eb7fe0dfd93f92f6719108c1ee137a73508cdb188',
+}
+
+
+def recovery_profile(kind):
+    require(kind in ('rpmfusion', 'openh264'), 'unreviewed download recovery kind')
+    if kind == 'rpmfusion':
+        return dict(owner=OWNER, pending=PENDING, boot=BOOT, failure=FAILURE,
+                    invocation=INVOCATION, source=39, target=41)
+    return dict(owner=CODEC_OWNER,
+                pending='62b4c27c0658f427f3677026b79a682da1d8891f30369701048e8a42a4f81bf2',
+                boot='eb1ea7bc-b7cf-4def-8318-9edcc4f28f6b',
+                failure='799d86b2b3435d65ca02bc96a76644c93c16ee77ca1edfa8d0e9dcb692b57ed8',
+                invocation='5b965a8893c84396996f59022af34fb7', source=41, target=43)
+
+
+def configure_openh264(directory, release, native):
+    require(release in CODEC_KEYS, 'unreviewed OpenH264 release')
+    private_directory(directory)
+    key = directory / ('fedora' + str(release) + '.asc'); safe(key)
+    info = key.stat()
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid() and
+            info.st_nlink == 1 and stat.S_IMODE(info.st_mode) == 0o600 and
+            hashlib.sha256(key.read_bytes()).hexdigest() == CODEC_KEYS[release],
+            'retained Fedora OpenH264 signing key differs')
+    native('rpmkeys', '--import', str(key))
+    content = ('[maintenance-openh264]\nname=Issue 103 signed Fedora OpenH264 ' + str(release) +
+               '\nbaseurl=https://codecs.fedoraproject.org/openh264/' + str(release) + '/x86_64/\n' +
+               'enabled=1\ngpgcheck=1\nsslverify=1\nskip_if_unavailable=0\ngpgkey=file://' + str(key) +
+               '\nincludepkgs=*openh264*\nexclude=*.i686\n')
+    path = directory / 'openh264.repo'; safe(path)
+    if not path.exists():exclusive_file(path, content.encode(), 0o600)
+    require(path.read_bytes() == content.encode(), 'retained OpenH264 repository differs')
+    return {'release': release, 'repos_sha256': hashlib.sha256(content.encode()).hexdigest(),
+            'key_sha256': CODEC_KEYS[release], 'gpgcheck': True}
 
 
 def configure(directory, release, native, key_directory=Path('/etc/pki/rpm-gpg')):
@@ -63,67 +102,73 @@ def installed(native):
     return hashed(sorted(row for row in rows.splitlines() if not row.startswith('gpg-pubkey ')))
 
 
-def failed_download(owner, state, native, directory):
-    require(owner['owner'] == OWNER and owner['node'] == 'arcanine' and
+def failed_download(owner, state, native, directory, kind='rpmfusion'):
+    profile = recovery_profile(kind)
+    require(owner['owner'] == profile['owner'] and owner['node'] == 'arcanine' and
             owner['node_uid'] == '88aa2572-09df-40b9-8a00-960e9682917c' and
-            owner['source'] == 39 and owner['target'] == 41, 'download repair owner differs')
+            owner['source'] == profile['source'] and owner['target'] == profile['target'], 'download repair owner differs')
     require(state['completed'] == ['cordon', 'drain', 'prepare_source'] and
-            state['pending']['sha256'] == PENDING and state['pending']['sequence'] == 7 and
+            state['pending']['sha256'] == profile['pending'] and state['pending']['sequence'] == 7 and
             state['pending']['step'] == 'download_release', 'download repair intent differs')
-    require(Path('/proc/sys/kernel/random/boot_id').read_text().strip() == BOOT and
-            native('rpm', '-E', '%fedora') == '39', 'download repair source boot differs')
+    require(Path('/proc/sys/kernel/random/boot_id').read_text().strip() == profile['boot'] and
+            native('rpm', '-E', '%fedora') == str(profile['source']), 'download repair source boot differs')
     require(not os.path.lexists('/system-update') and
-            not list(Path('/var/lib/dnf/system-upgrade').rglob('*.rpm')),
+            not list(Path('/var/lib/dnf/system-upgrade' if profile['source'] == 39 else
+                          '/usr/lib/sysimage/libdnf5/offline').rglob('*.rpm')),
             'offline work exists; do not retry download')
-    unit = OWNER + '-download-release.service'
+    unit = profile['owner'] + '-download-release.service'
     observed = status(native, unit)
     expected = {'LoadState': 'loaded', 'ActiveState': 'failed', 'Result': 'exit-code',
-                'ExecMainStatus': '1', 'MainPID': '0', 'ControlPID': '0', 'InvocationID': INVOCATION}
+                'ExecMainStatus': '1', 'MainPID': '0', 'ControlPID': '0', 'InvocationID': profile['invocation']}
     require(all(observed.get(k) == v for k, v in expected.items()), 'original failed unit differs')
-    command = ('/usr/bin/dnf --setopt=reposdir=' + str(directory) +
-               ' --setopt=gpgcheck=True --setopt=localpkg_gpgcheck=True -y system-upgrade download --releasever=41')
+    command = (('/usr/bin/dnf' if profile['source'] == 39 else '/usr/bin/dnf5') + ' --setopt=reposdir=' + str(directory) +
+               ' --setopt=gpgcheck=True --setopt=localpkg_gpgcheck=True -y system-upgrade download --releasever=' + str(profile['target']))
     require('argv[]=' + command + ' ;' in observed['ExecStart'], 'download unit command differs')
     failure = native('journalctl', '--no-pager', '-u', unit, '-n', '30', '-o', 'cat')
-    require(hashlib.sha256(failure.encode()).hexdigest() == FAILURE, 'unreviewed download failure')
-    return {'pending': state['pending'], 'boot': BOOT, 'status': observed, 'failure_log': failure,
+    require(hashlib.sha256(failure.encode()).hexdigest() == profile['failure'], 'unreviewed download failure')
+    return {'pending': state['pending'], 'boot': profile['boot'], 'status': observed, 'failure_log': failure,
             'installed_sha256': installed(native)}
 
 
-def repair(journal, native, evidence):
+def repair(journal, native, evidence, kind='rpmfusion'):
     """Retry only a proven pre-transaction failure; uncertain dispatch remains observe-only."""
+    profile = recovery_profile(kind)
     root = journal.hold.state
-    directory = root / ('fedora-repositories-41-' + OWNER)
-    before_path = root / ('rpmfusion-download-before-' + OWNER + '.json')
-    dispatch_path = root / ('rpmfusion-download-dispatch-' + OWNER + '.json')
+    directory = root / ('fedora-repositories-' + str(profile['target']) + '-' + profile['owner'])
+    before_path = root / (kind + '-download-before-' + profile['owner'] + '.json')
+    dispatch_path = root / (kind + '-download-dispatch-' + profile['owner'] + '.json')
     with journal.hold.serialized():
         owner = journal.owners(idle=True)['global']
-        require(owner['owner'] == OWNER, 'foreign RPM Fusion recovery owner')
+        require(owner['owner'] == profile['owner'], 'foreign signed repository recovery owner')
         if dispatch_path.exists():
             private_json(dispatch_path)
             return {'observe_only': True, 'dispatch_sha256': hashed(private_json(dispatch_path))}
         state = journal.read()
-        before = failed_download(owner, state, native, directory)
+        before = failed_download(owner, state, native, directory, kind)
         if not before_path.exists():
             exclusive_file(before_path, canonical(before), 0o600)
         require(private_json(before_path) == before, 'original download failure evidence changed')
-        coverage = configure(directory, 41, native)
+        coverage = (configure if kind == 'rpmfusion' else configure_openh264)(directory, profile['target'], native)
         require(installed(native) == before['installed_sha256'], 'repository preparation changed packages')
         value = evidence()
-        require(journal.read() == state and failed_download(owner, state, native, directory) == before,
+        require(journal.read() == state and failed_download(owner, state, native, directory, kind) == before,
                 'failed download changed during preparation')
         journal.owners(idle=True)
         require(evidence() == value, 'download retry prerequisites changed')
         record = {'version': 1, 'before_sha256': hashed(before), 'pending': state['pending'],
                   'repositories': repository_hashes(directory), 'coverage': coverage, 'prerequisites': value}
         exclusive_file(dispatch_path, canonical(record), 0o600)
-        native('systemctl', 'start', OWNER + '-download-release.service')
+        native('systemctl', 'start', profile['owner'] + '-download-release.service')
     return {'dispatched_recovery': True, 'original_pending_preserved': True, 'dispatch_sha256': hashed(record)}
 
 
 def repository_hashes(directory):
     result = {}
     private_directory(directory)
-    for name in ('maintenance.repo', 'nvidia.repo', 'rpmfusion.repo'):
+    names = {'maintenance.repo', 'nvidia.repo', 'rpmfusion.repo'}
+    if (directory / 'openh264.repo').exists():names.add('openh264.repo')
+    require({p.name for p in directory.glob('*.repo')} == names, 'unexpected private repository')
+    for name in sorted(names):
         path = directory / name
         safe(path)
         info = path.stat()
@@ -134,18 +179,20 @@ def repository_hashes(directory):
 
 
 def accepted(journal, native):
-    path = journal.hold.state / ('rpmfusion-download-dispatch-' + journal.token + '.json')
+    kind = 'openh264' if journal.token == CODEC_OWNER else 'rpmfusion'
+    profile = recovery_profile(kind)
+    path = journal.hold.state / (kind + '-download-dispatch-' + journal.token + '.json')
     if not path.exists():
         return None
     record = private_json(path)
-    before = private_json(journal.hold.state / ('rpmfusion-download-before-' + journal.token + '.json'))
-    require(journal.token == OWNER and record['before_sha256'] == hashed(before) and
+    before = private_json(journal.hold.state / (kind + '-download-before-' + journal.token + '.json'))
+    require(journal.token == profile['owner'] and record['before_sha256'] == hashed(before) and
             record['pending'] == journal.read()['pending'], 'download recovery chain differs')
-    directory = journal.hold.state / ('fedora-repositories-41-' + OWNER)
+    directory = journal.hold.state / ('fedora-repositories-' + str(profile['target']) + '-' + profile['owner'])
     require(repository_hashes(directory) == record['repositories'] and
             installed(native) == before['installed_sha256'], 'download recovery inputs changed')
-    current = status(native, OWNER + '-download-release.service')
-    require(current['InvocationID'] != INVOCATION and len(current['InvocationID']) == 32,
+    current = status(native, profile['owner'] + '-download-release.service')
+    require(current['InvocationID'] != profile['invocation'] and len(current['InvocationID']) == 32,
             'download retry invocation absent')
     return {'before_sha256': hashed(before), 'dispatch_sha256': hashed(record),
             'invocation_id': current['InvocationID'], 'original_failed_download_retained': True}
