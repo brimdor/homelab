@@ -16,6 +16,14 @@ ROOT = '/var/lib/homelab-recovery/maintenance-103/charmander-mon-h-20261026-a'
 RECEIVER = '10.0.20.18'
 
 PROFILES = {
+    'bulbasaur': {'node_uid': 'b921073c-822a-4b74-80ed-563fec33d6ab',
+                 'pod_uid': 'e50b3ade-b7c3-4a61-ab4d-d3a918530d0e',
+                 'identity': {'machine': 'f61201c3e2ba4b8cbd31e09f77da2ad0',
+                              'root_uuid': '2c59d1d1-d2d8-420e-b3a5-d87eb0437823'},
+                 'root': '/var/lib/homelab-recovery/maintenance-103/bulbasaur-mon-l-20261028-a',
+                 'address': '10.0.20.13', 'monitor': 'l', 'survivors': {'o', 'p'},
+                 'receiver': '10.0.20.11', 'receiver_node': 'charmander',
+                 'receiver_identity': IDENTITY},
     'charmander': {'node_uid': NODE_UID, 'pod_uid': POD_UID, 'identity': IDENTITY,
                   'root': ROOT, 'address': '10.0.20.11', 'monitor': 'h', 'survivors': {'l', 'n'},
                   'receiver': RECEIVER, 'receiver_node': 'growlithe',

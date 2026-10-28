@@ -57,6 +57,17 @@ def select_node(node):
     global NODE, ADDRESS, UID, MAC, IDENTITY, BACKUPS, RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
     if node == 'totodile':
         return
+    if node == 'bulbasaur':
+        NODE, ADDRESS, UID, MAC = ('bulbasaur', '10.0.20.13',
+            'b921073c-822a-4b74-80ed-563fec33d6ab', '00:23:24:e2:0d:ea')
+        IDENTITY = {'machine': 'f61201c3e2ba4b8cbd31e09f77da2ad0',
+                    'root_uuid': '2c59d1d1-d2d8-420e-b3a5-d87eb0437823'}
+        RECEIVER, RECEIVER_ADDRESS = 'charmander', '10.0.20.11'
+        RECEIVER_IDENTITY = {'machine': '58d682ccab5a4269acedc3cdf53e46dc',
+                             'root_uuid': '4a64a6d6-e982-4694-aa03-ad5f317b3ab2'}
+        BACKUPS = {release: '/var/lib/homelab-recovery/maintenance-103/bulbasaur-fedora' +
+                   str(release) + '-config-20261028-a' for release in (39, 41, 43, 44)}
+        return
     if node == 'arcanine':
         NODE, ADDRESS, UID, MAC = ('arcanine', '10.0.20.19',
             '88aa2572-09df-40b9-8a00-960e9682917c', '4c:cc:6a:3d:e5:3f')
@@ -137,7 +148,7 @@ def recovery(args, source, capture=False):
     osd_recovery = {node: entries if node == 'arcanine' else (entries,)
                     for node, entries in OSD_RECOVERY.items()}
     control_plane = None
-    if NODE in ('squirtle', 'charmander'):
+    if NODE in ('squirtle', 'charmander', 'bulbasaur'):
         from maintenance_control_plane import recovery as control_plane_recovery
         control_plane = control_plane_recovery(args, source, capture, node=NODE)
     receiver_name, receiver_address, receiver_identity = RECEIVER, RECEIVER_ADDRESS, RECEIVER_IDENTITY
@@ -219,7 +230,7 @@ if %r:
 for prefix,block in %r:
  command.append(prefix)
 sys.exit(subprocess.run(command).returncode)
-""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), NODE in ('squirtle', 'charmander'), osd_recovery.get(NODE, ()))
+""" % (NODE, IDENTITY['machine'], IDENTITY['root_uuid'], source, MAC, NODE in ('squirtle', 'charmander', 'bulbasaur'), NODE in ('squirtle', 'charmander', 'bulbasaur'), NODE in ('squirtle', 'charmander', 'bulbasaur'), osd_recovery.get(NODE, ()))
     receiver = """
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys
 assert os.geteuid()==0 and socket.gethostname()==%r
@@ -328,7 +339,7 @@ def final_security():
  assert native('getenforce')=='Enforcing'and pathlib.Path('/sys/fs/selinux/enforce').read_text().strip()=='1','final target requires actual SELinux enforcement'
  assert 'SELINUX=enforcing'in pathlib.Path('/etc/selinux/config').read_text().splitlines(),'SELinux enforcement is not persistent'
  assert not {'selinux=0','enforcing=0'}.intersection(pathlib.Path('/proc/cmdline').read_text().split()),'kernel overrides SELinux enforcement'
- if expected_node in('charmander','cyndaquil','growlithe','arcanine')or owner['source']==owner['target']==44:
+ if expected_node in('charmander','cyndaquil','growlithe','arcanine','bulbasaur')or owner['source']==owner['target']==44:
   pods=api.call('get','pods','-n','loki','--field-selector','spec.nodeName='+expected_node,'-o','json')['items']
   agents=[p for p in pods if any(c['name']=='alloy'for c in p['spec']['containers'])]
   assert len(agents)==1,'existing Alloy acceptance process absent or ambiguous'
@@ -790,6 +801,8 @@ def pending_postgres_dependent(api, item, owner):
 
 
 def prerequisites(api):
+    if NODE == 'bulbasaur':
+        protected_registry(api)
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     require(len(nodes) == 9 and any(n['metadata']['uid'] == UID and n['metadata']['name'] == NODE for n in nodes),
             'production node membership differs')
@@ -854,13 +867,40 @@ def prerequisites(api):
         result['expected_dependency_outages'] = sorted(dependency_outages, key=lambda p: p['deployment_uid'])
     if osd_gate is not None:
         result['osd_host'] = osd_gate
-    if NODE in ('squirtle', 'charmander'):
+    if NODE in ('squirtle', 'charmander', 'bulbasaur'):
         from maintenance_control_plane import observe
         quorum = observe(ACTIVE_ARGS)
         result['etcd'] = {'members': sorted(m['ID'] for m in quorum['members']['members']),
                           'cluster_id': quorum['status'][0]['Status']['header']['cluster_id'],
                           'leader': quorum['status'][0]['Status']['leader']}
     return result
+
+
+def protected_registry(api):
+    """Bulbasaur maintenance must preserve the existing NAS-backed registry process."""
+    pods = api.call('get', 'pods', '-n', 'zot', '-o', 'json')['items']
+    require(len(pods) == 1, 'protected registry Pod membership changed')
+    pod = pods[0]
+    require(pod['metadata']['uid'] == 'ee41a015-dec7-47d4-89ac-54ed8100d7fc' and
+            pod['spec'].get('nodeName') == 'charmander' and not pod['metadata'].get('deletionTimestamp') and
+            any(c['type'] == 'Ready' and c['status'] == 'True' for c in pod['status'].get('conditions', [])),
+            'protected registry moved, restarted or is unready')
+    containers = pod['status'].get('containerStatuses', [])
+    require(len(containers) == 1 and containers[0]['name'] == 'zot' and containers[0].get('ready') is True and
+            containers[0].get('restartCount') == 0 and containers[0].get('containerID') ==
+            'containerd://c64893596b9e9f4444cf89a84dfd0c8de029bad82f637a0a777f149092d42078',
+            'protected registry container identity changed')
+    claim = api.call('get', 'pvc', 'zot-nfs-pvc', '-n', 'zot', '-o', 'json')
+    volume = api.call('get', 'pv', 'pvc-0ce8a5c9-b53a-4b2d-920a-a9efcf82e7a6', '-o', 'json')
+    require(claim['metadata']['uid'] == '728fbc24-a589-483f-8833-855c863b4f04' and
+            claim['spec']['volumeName'] == volume['metadata']['name'] and claim['status']['phase'] == 'Bound' and
+            volume['metadata']['uid'] == '81d390a2-71fd-48ac-ac2f-49df07bda484' and
+            volume['spec']['claimRef']['uid'] == claim['metadata']['uid'] and
+            volume['spec']['persistentVolumeReclaimPolicy'] == 'Retain' and volume['spec'].get('nfs') == {
+                'server': '10.0.40.3',
+                'path': '/mnt/user/heartlib/zot-zot-nfs-pvc-pvc-0ce8a5c9-b53a-4b2d-920a-a9efcf82e7a6'},
+            'protected registry storage identity changed')
+    return {'pod_uid': pod['metadata']['uid'], 'node': 'charmander', 'restarts': 0}
 
 
 def completed_job_pod(api, pod):
@@ -1170,7 +1210,7 @@ def main():
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
                                              'nvidia-repository', 'repair-rpmfusion-download', 'repair-openh264-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
-    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine'), default='totodile')
+    parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)
     parser.add_argument('--known-hosts', required=True)
@@ -1246,6 +1286,8 @@ def main():
             'intent_sha256': 'c6e261fbd338d54ea9314cf2cabeb650f76af3e1a2be6182127326498768a03b',
             'failure_sha256': expected_failure}
     api = ACTIVE_READER = Reader(args.kubectl)
+    if NODE == 'bulbasaur':
+        protected_registry(api)
     ds, _, nodes = api.snapshot()
     controller = Ownership(api, DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
     annotations = ds['metadata'].get('annotations', {})
@@ -1268,7 +1310,7 @@ def main():
     recovery_manifest = recovery(args, owner['source'] if owner else source,
                                  capture=args.operation == 'backup')
     if args.operation == 'monitor-backup':
-        require(NODE in ('charmander', 'arcanine') and owner is not None, 'exact owned monitor target required')
+        require(NODE in ('charmander', 'arcanine', 'bulbasaur') and owner is not None, 'exact owned monitor target required')
         from maintenance_monitor_recovery import preserve
         print(encoded(preserve(args, api, controller, owner, node=NODE)));return
     if NODE == 'charmander' and args.operation in ('source-repositories', 'prepare-source',
@@ -1277,6 +1319,10 @@ def main():
         verify(args)
     if NODE == 'arcanine' and args.operation in ('source-repositories', 'prepare-source',
                                                 'download-release', 'offline-transaction', 'repair-rpmfusion-download', 'repair-openh264-download'):
+        from maintenance_monitor_recovery import verify
+        verify(args, node=NODE)
+    if NODE == 'bulbasaur' and args.operation in ('source-repositories', 'prepare-source',
+                                                'download-release', 'offline-transaction'):
         from maintenance_monitor_recovery import verify
         verify(args, node=NODE)
     if args.operation in ('nvidia-repository', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel','security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot','observe-host-security'):

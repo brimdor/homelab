@@ -202,7 +202,7 @@ def security_tools(operation, journal, native, identity, recovery):
 def k3s_security_config(before, node):
     """Keep the default-seccomp rollout on the reviewed serial nodes."""
     result = before.rstrip() + '\nselinux: true\n'
-    if node in ('charmander', 'cyndaquil', 'growlithe', 'arcanine'):
+    if node in ('charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur'):
         assert not any(line.lstrip().startswith('kubelet-arg:') for line in before.splitlines()), 'review existing kubelet arguments first'
         result += 'kubelet-arg:\n  - seccomp-default=true\n'
     return result
@@ -232,6 +232,7 @@ def relabel(journal, native, identity, recovery):
                 'cyndaquil': '3829334380af11ab3023b166d85cfb6b57ef0f9ec0a3d55817d1429b7ead1267',
                 'growlithe': '8a55dc3a918f7b72ea343f2bda2fc4b41f155491368ef9e40bd07f2a13fd012a',
                 'arcanine': 'f573adf85121d61bc6a20e901f6f34fcff8e475b6c1047459be1b635d95fd3ac',
+                'bulbasaur': 'd984ee4d3bfcc79fb84bab1f33df77f99878de8a6059ba7489ac8a4d6af718c9',
             }[journal.owners()['global']['node']],
         }
         for name, digest in expected.items():
@@ -253,7 +254,7 @@ def relabel(journal, native, identity, recovery):
             hold.safe(path)
         assert hashlib.sha256(config.read_bytes()).hexdigest() == '8f7613640d263143e3563c8f1a919358712cc368ad854e6edca3bd75487e9b13'
         expected_k3s = ('baff07e0022153096c784bb3e581ad5ff84f804521ee7cd3701cdfcb539456b4'
-                        if journal.owners()['global']['node'] == 'squirtle' else
+                        if journal.owners()['global']['node'] in ('squirtle', 'bulbasaur') else
                         '1b678085668cd358d5a1a4d22f9fd75c9a04f4b6503d9102c4f80c45d83aba20'
                         if journal.owners()['global']['node'] == 'charmander' else
                         'bc77fad02ca8d4251895857d3f04cb4bd510ca6b8074febebc9310fa51d713e8')

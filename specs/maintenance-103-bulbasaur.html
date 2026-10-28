@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>Issue 103 — Bulbasaur maintenance</title>
+<style>body{background:#10151d;color:#e1e8f0;font:17px/1.6 system-ui;max-width:1000px;margin:3rem auto;padding:1rem}a{color:#8cc8ff}code{overflow-wrap:anywhere}h1,h2{color:#c5ddff}.pending{color:#ffd58a}</style>
+<h1>Issue 103: Bulbasaur</h1>
+<p class="pending">INCOMPLETE. Execution plan, 2026-10-28 11:35 UTC. No upgrade claimed.</p>
+<h2>Current evidence</h2>
+<p>Native identity and Kubernetes agree: 10.0.20.13; Node UID b921073c-822a-4b74-80ed-563fec33d6ab; machine f61201c3e2ba4b8cbd31e09f77da2ad0; ext4 root UUID 2c59d1d1-d2d8-420e-b3a5-d87eb0437823. Fedora 39, SELinux disabled, Intel family 6/model 94/stepping 3, GDS vulnerable without mitigation. No running native QEMU process or failed systemd unit observed.</p>
+<p>At 11:30 UTC, Zot was healthy on Charmander, Pod ee41a015-dec7-47d4-89ac-54ed8100d7fc, container c64893596b9e9f4444cf89a84dfd0c8de029bad82f637a0a777f149092d42078, zero restarts. This supersedes the earlier Bulbasaur registry-placement blocker. Preserve this exact process and NAS PVC/PV; no Zot mutation or NAS change is authorized.</p>
+<p>At 11:31 UTC, all three exact etcd voters were healthy, Ceph HEALTH_OK with monitors l/o/p. Bulbasaur has mon-l and both CephFS MDS processes, but no active OSD. Historical /dev/sda3 Ceph signature and all partition identities remain protected. Charmander's native recovery filesystem has 19.3 GB available; enforce the existing receiver capacity guard.</p>
+<h2>Execution and rollback</h2>
+<ol>
+<li>Publish exact target profiles before execution. Capture a fresh consistent off-master etcd snapshot/token/encryption configuration on Pikachu, and off-node configuration archives on Charmander. Verify hashes and exact identities before each hop.</li>
+<li>Acquire the existing Kured-compatible global maintenance owner, hold competing host actors, cordon only Bulbasaur. Preserve normal Monday/Wednesday/Friday restart configuration.</li>
+<li>Drain through the UID-scoped eviction controller. Allow MDS and application replacements to become healthy between evictions. Preserve the cold original mon-l store on Charmander before package work; wait for supported Rook failover and HEALTH_OK. No forced eviction or disk operation.</li>
+<li>Apply reviewed Fedora 39→41→43→44 package hops, verifying signed packages, offline receipts, root identity, three-voter etcd, Ceph, scheduling and application recovery after each hop. Advance only when the current hop is accepted.</li>
+<li>Capture Fedora 44 recovery, apply the existing reviewed SELinux/RuntimeDefault/early microcode/GDS flow, including required reboots. Verify actual enforcement, process filters, AVCs, storage health, metrics, application behavior and preserved registry identity.</li>
+<li>Release ownership only after final acceptance. Keep every unresolved Issue 103 task open; Sprigatito remains last.</li>
+</ol>
+<p>On unexpected identity, recovery, package, quorum, storage or registry changes: retain ownership and evidence; observe the exact journal before any retry. Use protected consistent recovery for a failed hop, never install old binaries against changed data. Revert erroneous desired state through Gitea. Never wipe, repartition, erase historical Ceph data, restore NAS data, or hide findings.</p>
+<h2>Evidence records</h2>
+<ul><li>maintenance103-bulbasaur-dependencies-es2t32_5: current issue binding, node workloads, storage and Ceph.</li>
+<li>maintenance103-bulbasaur-native-facts-eci4oy7_: native identity, partitions, CPU and registry preservation baseline.</li>
+<li>maintenance103-bulbasaur-recovery-binding-i4cqy51j: refreshed canonical issue hash, exact etcd quorum, Ceph, receiver capacity and NAS-backed registry PV identity.</li></ul>
+</html>

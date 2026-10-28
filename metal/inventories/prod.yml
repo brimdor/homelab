@@ -32,6 +32,10 @@ metal:
           {
             ansible_host: 10.0.20.13,
             mac: "00:23:24:e2:0d:ea",
+            k3s_selinux: true,
+            k3s_seccomp_default: true,
+            host_microcode_early: true,
+            host_gds_force: true,
             disk: sda,
             network_interface: eno1,
           }

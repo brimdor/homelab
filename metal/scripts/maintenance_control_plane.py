@@ -85,8 +85,8 @@ def recovery(args, release, capture=False, node='squirtle'):
     import etcd_recovery
     from maintenance_production_node import remote
     assert release in (39, 41, 43, 44)
-    assert node in ('squirtle', 'charmander')
-    run_id = node + '-fedora' + str(release) + '-20261026-a'
+    assert node in ('squirtle', 'charmander', 'bulbasaur')
+    run_id = node + '-fedora' + str(release) + ('-20261028-a' if node == 'bulbasaur' else '-20261026-a')
     point = str(etcd_recovery.ROOT / run_id)
     read = ('from pathlib import Path\nimport json\npoint=Path(' + repr(point) + ')\n' +
             "print(json.dumps(json.loads((point/'verified.json').read_bytes())if(point/'verified.json').exists()else None))")
