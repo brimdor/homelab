@@ -305,7 +305,7 @@ def restore():
         os.fchmod(extraction_errors.fileno(), 0o600)
         child = subprocess.Popen(['tar', '--extract', '--file=-', '--directory=' + str(root),
                                   '--numeric-owner', '--same-owner', '--same-permissions', '--acls', '--xattrs',
-                                  '--xattrs-include=*', '--selinux'],
+                                  '--xattrs-include=*', '--no-selinux'],
                                  stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=extraction_errors)
         digest = hashlib.sha256()
         remaining = value['archive_bytes']
@@ -326,6 +326,13 @@ def restore():
             child.wait()
             extraction_errors.close()
         # Compare all retained content and metadata before any application writes.
+        # tar's RHT.security.selinux can describe a synthetic source mount label
+        # even when that inode has no security.selinux xattr. Restore only the
+        # actual source attributes recorded in the complete manifest.
+        for name, record in records.items():
+            if 'security.selinux' in record['xattrs']:
+                os.setxattr(root / name, 'security.selinux', bytes.fromhex(record['xattrs']['security.selinux']),
+                            follow_symlinks=False)
         metadata = compare_reconstruction(tree(root), records, destination_label)
         before = databases(root)
         command('docker', 'pull', IMAGE)
@@ -471,10 +478,13 @@ def main():
     elif args.operation == 'backup':
         result = production.remote(args, source + '\nprint(json.dumps(backup(' + repr(context) + ')))', '10.0.20.13')
     else:
-        sender = subprocess.Popen(production.ssh(args, '10.0.20.13') +
+        def bulk_ssh(address):
+            options = production.ssh(args, address)
+            return options[:1] + ['-C'] + options[1:]
+        sender = subprocess.Popen(bulk_ssh('10.0.20.13') +
                                   ['python3 -B -c ' + shlex.quote(source + '\nsend()')],
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        receiver = subprocess.Popen(production.ssh(args, '10.0.20.12') +
+        receiver = subprocess.Popen(bulk_ssh('10.0.20.12') +
                                     ['python3 -B -c ' + shlex.quote(source + '\nprint(json.dumps(restore()))')],
                                     stdin=sender.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         sender.stdout.close()
