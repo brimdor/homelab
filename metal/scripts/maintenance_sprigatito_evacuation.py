@@ -223,7 +223,7 @@ def main():
         require(latest['map']['epoch'] == baseline['epoch'] and emby.observe(args) == context, 'pre-out state changed; observe before continuing')
         intent = {'owner': owner, 'native_actor_hold': native_hold, 'revision': revision, 'baseline': baseline, 'capacity': capacity,
                   'recovery': proof, 'created': datetime.now(timezone.utc).isoformat(), 'action': 'ceph osd out 7',
-                  'osd_uuid': OSDS[7], 'no_purge_or_device_write': True}
+                  'osd_uuid': OSDS[7], 'no_purge_or_raw_device_write': True}
         record(args, 'evacuation-intent.json', intent)
         # One durable intent, one request. An uncertain result is observed, never replayed.
         request = subprocess.run([args.kubectl, 'exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',

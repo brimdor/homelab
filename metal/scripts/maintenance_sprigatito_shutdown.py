@@ -157,6 +157,7 @@ def shutdown_native(owner, dispatch=False):
 P=pathlib.Path
 assert os.geteuid()==0 and socket.gethostname()=='sprigatito'
 assert P('/etc/machine-id').read_text().strip()==''' + repr(recovery.IDENTITY['machine']) + '''
+assert ''' + repr(recovery.MAC) + ''' in{p.read_text().strip()for p in P('/sys/class/net').glob('*/address')}
 assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==''' + repr(recovery.IDENTITY['root_uuid']) + '''
 disks=json.loads(subprocess.check_output(['lsblk','-b','-J','-o','NAME,SIZE,SERIAL,PARTUUID'],text=True))
 disk=next(d for d in disks['blockdevices']if d['name']=='sda')
@@ -167,8 +168,12 @@ assert os.readlink(osd/'block')=='/dev/sda3'and(osd/'fsid').read_text().strip()=
 for path in P('/proc').glob('[0-9]*/comm'):
  try: name=path.read_text().strip()
  except FileNotFoundError: continue
- assert not re.fullmatch(r'(?:rpm|dnf.*|fwupd.*|qemu.*|libvirtd|virtqemud)',name),'active package, firmware or VM process'
+ assert not re.fullmatch(r'(?:rpm|dnf.*|fwupd.*|qemu.*|libvirtd|virtqemud|conmon|podman.*)',name),'active package, firmware, VM or Podman process'
 assert not subprocess.check_output(['docker','ps','-q'],text=True).strip(),'native Docker writer remains'
+assert not subprocess.check_output(['podman','ps','-q'],text=True).strip(),'native Podman writer remains'
+assert not list(P('/etc/libvirt/qemu').glob('*.xml')),'unreviewed VM definition remains'
+images=P('/var/lib/libvirt/images')
+assert not images.exists()or not any(images.iterdir()),'unprotected native VM data remains'
 boot=P('/proc/sys/kernel/random/boot_id').read_text().strip()
 unit=''' + repr(owner['owner'] + '-protected-poweroff') + '''
 ''' + ('''subprocess.run(['systemd-run','--unit='+unit,'--on-active=10s','--property=Restart=no','/usr/bin/systemctl','poweroff'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
