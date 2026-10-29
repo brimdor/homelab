@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import maintenance_rpmfusion as coverage
+import maintenance_nvidia as gpu
 from maintenance_node_drain import private_json
 
 
@@ -74,7 +75,7 @@ class RpmFusionTests(unittest.TestCase):
                 coverage.configure(root, 41, lambda *a: None, keys)
 
     def test_repair_preserves_failure_chain_and_never_replays_dispatch(self):
-        for kind in ('rpmfusion', 'openh264'):
+        for kind in ('rpmfusion', 'openh264', 'nvidia-local'):
             with self.subTest(kind=kind):self.repair_case(kind)
 
     def repair_case(self, kind):
@@ -87,7 +88,8 @@ class RpmFusionTests(unittest.TestCase):
             hold = SimpleNamespace(state=root, serialized=nullcontext)
             journal = SimpleNamespace(hold=hold, owners=lambda **kw: {'global': owner}, read=lambda: state)
             with patch.object(coverage, 'failed_download', return_value=before), \
-                    patch.object(coverage, 'configure' if kind == 'rpmfusion' else 'configure_openh264', return_value={'signed': True}), \
+                    patch.object(gpu if kind == 'nvidia-local' else coverage,
+                                 'configure_local43' if kind == 'nvidia-local' else 'configure' if kind == 'rpmfusion' else 'configure_openh264', return_value={'signed': True}), \
                     patch.object(coverage, 'repository_hashes', return_value={'rpmfusion.repo': 'signed'}), \
                     patch.object(coverage, 'installed', return_value='original'):
                 first = coverage.repair(journal, lambda *a: calls.append(a), lambda: {'fresh': True}, kind)
@@ -137,16 +139,16 @@ class RpmFusionTests(unittest.TestCase):
                 coverage.failed_download(owner, bad, lambda *a: self.fail('native'), Path('/private'))
 
     def test_failed_download_requires_original_stopped_invocation_boot_log_and_empty_cache(self):
-        for kind in ('rpmfusion', 'openh264'):
+        for kind in ('rpmfusion', 'openh264', 'nvidia-local'):
             with self.subTest(kind=kind):self.failed_download_case(kind)
 
     def failed_download_case(self, kind):
         profile = coverage.recovery_profile(kind)
-        owner = {'owner': profile['owner'], 'node': 'arcanine',
-                 'node_uid': '88aa2572-09df-40b9-8a00-960e9682917c', 'source': profile['source'], 'target': profile['target']}
+        owner = {'owner': profile['owner'], 'node': profile.get('node', 'arcanine'),
+                 'node_uid': profile.get('node_uid', '88aa2572-09df-40b9-8a00-960e9682917c'), 'source': profile['source'], 'target': profile['target']}
         state = {'completed': ['cordon', 'drain', 'prepare_source'],
                  'pending': {'sha256': profile['pending'], 'sequence': 7, 'step': 'download_release'}}
-        for fault in (None, 'boot', 'release', 'cache', 'offline', 'invocation', 'actor', 'command', 'log'):
+        for fault in (None, 'boot', 'release', 'cache', 'offline', 'invocation', 'actor', 'command', 'log', 'packages'):
             with self.subTest(fault=fault):
                 boot = MagicMock(); boot.read_text.return_value = 'foreign' if fault == 'boot' else profile['boot']
                 cache = MagicMock(); cache.rglob.return_value = [Path('existing.rpm')] if fault == 'cache' else []
@@ -165,7 +167,9 @@ class RpmFusionTests(unittest.TestCase):
                         patch.object(coverage.os.path, 'lexists', return_value=fault == 'offline'), \
                         patch.object(coverage, 'status', return_value=observed), \
                         patch.object(coverage, 'installed', return_value='unchanged'), \
-                        patch.object(coverage, 'recovery_profile', return_value=dict(profile, failure=hashlib.sha256(b'original failure').hexdigest())):
+                        patch.object(coverage, 'recovery_profile', return_value=dict(profile,
+                            failure=hashlib.sha256(b'original failure').hexdigest(),
+                            installed_sha256='changed' if fault == 'packages' else 'unchanged')):
                     if fault:
                         with self.assertRaises(RuntimeError):coverage.failed_download(owner, state, native, Path('/private'), kind)
                     else:

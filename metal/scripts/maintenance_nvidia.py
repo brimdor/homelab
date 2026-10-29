@@ -3,8 +3,11 @@
 import hashlib
 import os
 from pathlib import Path
+import shutil
 import stat
 import re
+import subprocess
+import tempfile
 import urllib.request
 
 from maintenance_actor_hold import exclusive_file, fsync_directory, require, safe
@@ -29,6 +32,113 @@ GPU_NODES = {
     'arcanine': ('88aa2572-09df-40b9-8a00-960e9682917c', GPU, 'NVIDIA GeForce RTX 3090', '24576'),
     'sprigatito': ('5d80125d-4228-47dd-b19c-ca86f7d4316c', 'GPU-d65b16cd-87c2-860c-a210-271e7d3a13d0', 'NVIDIA GeForce GTX 1650', '4096'),
 }
+
+
+LOCAL43 = {
+    'url': 'https://developer.download.nvidia.com/compute/nvidia-driver/595.112.07/local_installers/nvidia-driver-local-repo-fedora43-595.112.07-1.0-1.x86_64.rpm',
+    'bytes': 935774041,
+    'sha256': 'dd9ba420aa25dd990e2886b2bd5c2a9aa2330d6084c2abfcdcb8b3bc1d708cd9',
+    'key': '62B74421.pub',
+    'key_sha256': '181a5bb424d273d30d39f12497e2061d07e41a25db81fa1fc1ea0a892dcfa85e',
+    'fingerprint': 'A124E1E9FACE5FA754841F70443C092862B74421',
+    'repomd_sha256': '300a7a471f1e54818dc2295849ddf0551c827c44a4c37fee8f7418740efe7f8f',
+}
+
+
+def local_files(directory):
+    """The reviewed vendor capsule contains only directories and regular files."""
+    result = {}
+    for path in sorted(directory.rglob('*')):
+        safe(path)
+        info = path.lstat()
+        require(info.st_uid == os.geteuid() and not info.st_mode & 0o022 and
+                (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode) and info.st_nlink == 1),
+                'unsafe local NVIDIA repository member')
+        if path.is_file() and path != directory / 'verified.json':
+            digest = hashlib.sha256()
+            with path.open('rb') as source:
+                for block in iter(lambda: source.read(4 * 1024 * 1024), b''):digest.update(block)
+            result[str(path.relative_to(directory))] = digest.hexdigest()
+    return result
+
+
+def local43_cache(root, native):
+    """Extract the pinned official local repository without installing its wrapper or scripts."""
+    cache = root / 'nvidia-vendor-local-fedora43-595.112.07'
+    safe(root); safe(cache)
+    if not cache.exists():
+        require(shutil.disk_usage(root).free > LOCAL43['bytes'] * 2,
+                'insufficient space for vendor capsule and extraction')
+        with tempfile.TemporaryDirectory(prefix='nvidia-local43-', dir=root) as temporary:
+            temporary = Path(temporary)
+            capsule = temporary / 'repository.rpm'
+            digest, size = hashlib.sha256(), 0
+            with urllib.request.urlopen(LOCAL43['url'], timeout=90) as response, capsule.open('xb') as output:
+                require(response.status == 200 and response.geturl() == LOCAL43['url'], 'vendor capsule origin differs')
+                for block in iter(lambda: response.read(4 * 1024 * 1024), b''):
+                    output.write(block); digest.update(block); size += len(block)
+            require(size == LOCAL43['bytes'] and digest.hexdigest() == LOCAL43['sha256'], 'vendor capsule differs')
+            unpack = temporary / 'unpack'; unpack.mkdir(mode=0o700)
+            producer = subprocess.Popen(['/usr/bin/rpm2cpio', str(capsule)], stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE)
+            try:
+                consumer = subprocess.run(['/usr/bin/cpio', '-idm', '--quiet', '--no-absolute-filenames'],
+                                          stdin=producer.stdout, cwd=unpack, capture_output=True)
+                producer.stdout.close()
+                require(producer.wait() == consumer.returncode == 0, 'vendor capsule extraction failed')
+            finally:
+                producer.stdout.close()
+                if producer.poll() is None:producer.terminate(); producer.wait()
+                producer.stderr.close()
+            payload = unpack / 'var/nvidia-driver-local-repo-fedora43-595.112.07'
+            safe(payload)
+            files = local_files(payload)
+            require(files.get(LOCAL43['key']) == LOCAL43['key_sha256'] and
+                    files.get('repodata/repomd.xml') == LOCAL43['repomd_sha256'], 'vendor local trust or metadata differs')
+            native('rpmkeys', '--import', str(payload / LOCAL43['key']))
+            rpms = sorted(payload.glob('*.rpm'))
+            require(len(rpms) == 41, 'vendor capsule package set differs')
+            for rpm in rpms:
+                signature = native('rpmkeys', '--checksig', '--verbose', str(rpm))
+                require('signature' in signature.lower() and 'OK' in signature and
+                        not any(v in signature for v in ('NOKEY', 'NOT OK', 'BAD')), 'vendor local RPM signature failed')
+            exclusive_file(payload / 'verified.json', canonical({'capsule_sha256': LOCAL43['sha256'], 'files': files}), 0o600)
+            payload.chmod(0o700)
+            os.rename(payload, cache); fsync_directory(root)
+    require(cache.stat().st_uid == os.geteuid() and stat.S_IMODE(cache.stat().st_mode) == 0o700,
+            'unsafe retained vendor repository directory')
+    proof = private_json(cache / 'verified.json')
+    require(proof == {'capsule_sha256': LOCAL43['sha256'], 'files': local_files(cache)} and
+            proof['files'].get(LOCAL43['key']) == LOCAL43['key_sha256'] and
+            proof['files'].get('repodata/repomd.xml') == LOCAL43['repomd_sha256'], 'retained vendor local repository differs')
+    return cache, proof
+
+
+def configure_local43(directory, native):
+    """Use the complete vendor snapshot when its live CDN index references missing metadata."""
+    safe(directory)
+    cache, proof = local43_cache(directory.parent, native)
+    key = cache / LOCAL43['key']
+    native('rpmkeys', '--import', str(key))
+    profile = PROFILES[43]
+    original = ('[maintenance-nvidia]\nname=Issue 103 signed NVIDIA Fedora 43\n'
+                'baseurl=https://developer.download.nvidia.com/compute/cuda/repos/fedora43/x86_64/\n'
+                'enabled=1\ngpgcheck=1\nmodule_hotfixes=1\ngpgkey=file://' + str(directory / profile['key']) +
+                '\nincludepkgs=*-' + profile['version'] + '-* nvidia-driver-selinux\nexclude=*.i686\n')
+    content = ('[maintenance-nvidia]\nname=Issue 103 signed NVIDIA Fedora 43 local snapshot\nbaseurl=file://' +
+               str(cache) + '\nenabled=1\ngpgcheck=1\nrepo_gpgcheck=1\nsslverify=1\nskip_if_unavailable=0\n'
+               'module_hotfixes=1\ngpgkey=file://' + str(key) + '\nincludepkgs=*-' + profile['version'] +
+               '-* nvidia-driver-selinux\nexclude=*.i686\nobsoletes=0\n').encode()
+    repo = directory / 'nvidia.repo'; safe(repo)
+    if repo.exists():require(repo.read_bytes() in (original.encode(), content), 'foreign NVIDIA repository')
+    if not repo.exists() or repo.read_bytes() != content:
+        staged = directory / 'nvidia.repo.local43'; safe(staged)
+        if staged.exists():require(staged.read_bytes() == content, 'foreign staged local repository')
+        else:exclusive_file(staged, content, 0o600)
+        os.replace(staged, repo); fsync_directory(directory)
+    return {'release': 43, 'version': profile['version'], 'capsule_sha256': LOCAL43['sha256'],
+            'key_fingerprint': LOCAL43['fingerprint'], 'repos_sha256': hashlib.sha256(content).hexdigest(),
+            'local_files_sha256': hashlib.sha256(canonical(proof['files'])).hexdigest(), 'gpgcheck': True}
 
 
 def configure(directory, release, native):

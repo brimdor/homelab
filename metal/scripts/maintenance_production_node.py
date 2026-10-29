@@ -597,12 +597,14 @@ else:
   assert path.read_text()==content
   result={'repos_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'release':release,'gpgcheck':True}
   if expected_node in('arcanine','sprigatito')and int(release)>39:
-   result['nvidia']=sys.modules['maintenance_nvidia'].configure(directory,int(release),native)
+   result['nvidia']=(sys.modules['maintenance_nvidia'].configure_local43(directory,native)
+    if expected_node=='sprigatito'and int(release)==43 else
+    sys.modules['maintenance_nvidia'].configure(directory,int(release),native))
    result['rpmfusion']=sys.modules['maintenance_rpmfusion'].configure(directory,int(release),native)
    result['openh264']=sys.modules['maintenance_rpmfusion'].configure_openh264(directory,int(release),native)
- elif operation in('repair-rpmfusion-download','repair-openh264-download'):
+ elif operation in('repair-rpmfusion-download','repair-openh264-download','repair-nvidia-download'):
   result=sys.modules['maintenance_rpmfusion'].repair(journal,native,evidence,
-   kind='openh264'if operation=='repair-openh264-download'else'rpmfusion')
+   kind='nvidia-local'if operation=='repair-nvidia-download'else'openh264'if operation=='repair-openh264-download'else'rpmfusion')
  elif operation=='repair-offline-repositories':
   assert owner['owner']=='homelab-maintenance-103-c8345d91-1dfe-4e58-8c13-b7c7b7519d54'
   assert owner['source']==39 and owner['target']==41 and native('rpm','-E','%fedora')=='39'
@@ -1251,7 +1253,7 @@ def main():
                                              'download-release', 'offline-transaction', 'observe-offline',
                                              'trusted-reconnect', 'verify-infrastructure', 'restore-scheduling', 'resolve-scheduling-precheck',
                                              'accept-applications', 'release', 'resolve-release-precheck', 'resolve-drain-precheck', 'recover-pending-kanidm', 'recover-pending-outline',
-                                             'nvidia-repository', 'repair-rpmfusion-download', 'repair-openh264-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
+                                             'nvidia-repository', 'repair-rpmfusion-download', 'repair-openh264-download', 'repair-nvidia-download', 'repair-offline-repositories', 'repair-init-socket-policy', 'security-default', 'observe-security-default', 'security-tools', 'observe-security-tools', 'security-policy', 'observe-security-policy', 'security-relabel', 'security-enforce', 'security-gds', 'security-firmware', 'observe-security-firmware', 'security-firmware-reboot', 'observe-host-security'])
     parser.add_argument('--node', choices=('totodile', 'pikachu', 'squirtle', 'charmander', 'cyndaquil', 'growlithe', 'arcanine', 'bulbasaur', 'sprigatito'), default='totodile')
     parser.add_argument('--kubectl', required=True)
     parser.add_argument('--identity', required=True)

@@ -20,6 +20,7 @@ KEYS = {
     'nonfree': '7ac65a8dfeced70c8c335862b5f0696d57abac378deda34c4af78cd2220e3de6',
 }
 CODEC_OWNER = 'homelab-maintenance-103-d879ac6d-cd70-4925-a63d-fbd301d5ca3a'
+NVIDIA_LOCAL_OWNER = 'homelab-maintenance-103-33a732ef-e293-405b-8caa-464db800bf36'
 CODEC_KEYS = {
     41: '5cd35342c292578d1a80ecf6c36c4f5a073cf9a1bbb858683882f071c0a529df',
     43: '3d02eeded1380cdd081bc544d082e3e9e0debf09ad0e88c410bebd05ddeb2f58',
@@ -28,7 +29,15 @@ CODEC_KEYS = {
 
 
 def recovery_profile(kind):
-    require(kind in ('rpmfusion', 'openh264'), 'unreviewed download recovery kind')
+    require(kind in ('rpmfusion', 'openh264', 'nvidia-local'), 'unreviewed download recovery kind')
+    if kind == 'nvidia-local':
+        return dict(owner=NVIDIA_LOCAL_OWNER, node='sprigatito',
+                    node_uid='5d80125d-4228-47dd-b19c-ca86f7d4316c',
+                    pending='0a778262f15983169cc7743639212003a8bf7f6fa679a7a95df7ea513cbe1bc3',
+                    boot='d1c43edd-effc-4c4c-b422-5a34d8830d4e',
+                    failure='aa2d385014bc5c31e36e29473e2cc3d775e2341e04b68ddf5145d39269754a13',
+                    installed_sha256='cdac626d3e78db4a5d1ef6dfb934821a1ab9daacff516dabeb0352ed19961435',
+                    invocation='87b0a46854f74c0b99549125396db1e6', source=41, target=43)
     if kind == 'rpmfusion':
         return dict(owner=OWNER, pending=PENDING, boot=BOOT, failure=FAILURE,
                     invocation=INVOCATION, source=39, target=41)
@@ -104,8 +113,8 @@ def installed(native):
 
 def failed_download(owner, state, native, directory, kind='rpmfusion'):
     profile = recovery_profile(kind)
-    require(owner['owner'] == profile['owner'] and owner['node'] == 'arcanine' and
-            owner['node_uid'] == '88aa2572-09df-40b9-8a00-960e9682917c' and
+    require(owner['owner'] == profile['owner'] and owner['node'] == profile.get('node', 'arcanine') and
+            owner['node_uid'] == profile.get('node_uid', '88aa2572-09df-40b9-8a00-960e9682917c') and
             owner['source'] == profile['source'] and owner['target'] == profile['target'], 'download repair owner differs')
     require(state['completed'] == ['cordon', 'drain', 'prepare_source'] and
             state['pending']['sha256'] == profile['pending'] and state['pending']['sequence'] == 7 and
@@ -126,8 +135,11 @@ def failed_download(owner, state, native, directory, kind='rpmfusion'):
     require('argv[]=' + command + ' ;' in observed['ExecStart'], 'download unit command differs')
     failure = native('journalctl', '--no-pager', '-u', unit, '-n', '30', '-o', 'cat')
     require(hashlib.sha256(failure.encode()).hexdigest() == profile['failure'], 'unreviewed download failure')
+    packages = installed(native)
+    require('installed_sha256' not in profile or packages == profile['installed_sha256'],
+            'reviewed failed-download package inventory differs')
     return {'pending': state['pending'], 'boot': profile['boot'], 'status': observed, 'failure_log': failure,
-            'installed_sha256': installed(native)}
+            'installed_sha256': packages}
 
 
 def repair(journal, native, evidence, kind='rpmfusion'):
@@ -148,7 +160,10 @@ def repair(journal, native, evidence, kind='rpmfusion'):
         if not before_path.exists():
             exclusive_file(before_path, canonical(before), 0o600)
         require(private_json(before_path) == before, 'original download failure evidence changed')
-        coverage = (configure if kind == 'rpmfusion' else configure_openh264)(directory, profile['target'], native)
+        if kind == 'nvidia-local':
+            from maintenance_nvidia import configure_local43
+            coverage = configure_local43(directory, native)
+        else:coverage = (configure if kind == 'rpmfusion' else configure_openh264)(directory, profile['target'], native)
         require(installed(native) == before['installed_sha256'], 'repository preparation changed packages')
         value = evidence()
         require(journal.read() == state and failed_download(owner, state, native, directory, kind) == before,
@@ -179,7 +194,8 @@ def repository_hashes(directory):
 
 
 def accepted(journal, native):
-    kind = 'openh264' if journal.token == CODEC_OWNER else 'rpmfusion'
+    kind = ('nvidia-local' if journal.token == NVIDIA_LOCAL_OWNER else
+            'openh264' if journal.token == CODEC_OWNER else 'rpmfusion')
     profile = recovery_profile(kind)
     path = journal.hold.state / (kind + '-download-dispatch-' + journal.token + '.json')
     if not path.exists():

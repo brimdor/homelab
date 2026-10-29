@@ -2,6 +2,8 @@
 
 import contextlib
 import hashlib
+import io
+import os
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -12,6 +14,65 @@ import maintenance_nvidia as gpu
 
 
 class NvidiaMaintenanceTests(unittest.TestCase):
+    def test_retained_local_snapshot_rejects_changed_or_unsafe_members(self):
+        for fault in (None, 'content', 'symlink', 'hardlink', 'writable', 'cache-mode'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                cache = root / 'nvidia-vendor-local-fedora43-595.112.07'; cache.mkdir(mode=0o700)
+                (cache / 'repodata').mkdir()
+                key = cache / gpu.LOCAL43['key']; key.write_bytes(b'synthetic public key')
+                metadata = cache / 'repodata/repomd.xml'; metadata.write_bytes(b'synthetic metadata')
+                profile = dict(gpu.LOCAL43, key_sha256=hashlib.sha256(key.read_bytes()).hexdigest(),
+                               repomd_sha256=hashlib.sha256(metadata.read_bytes()).hexdigest())
+                files = gpu.local_files(cache)
+                proof = cache / 'verified.json'
+                proof.write_bytes(gpu.canonical({'capsule_sha256': profile['sha256'], 'files': files})); proof.chmod(0o600)
+                if fault == 'content':metadata.write_bytes(b'changed')
+                if fault == 'symlink':metadata.unlink(); metadata.symlink_to(key)
+                if fault == 'hardlink':os.link(key, cache / 'duplicate')
+                if fault == 'writable':metadata.chmod(0o666)
+                if fault == 'cache-mode':cache.chmod(0o755)
+                with patch.dict(gpu.LOCAL43, profile), patch.object(gpu.urllib.request, 'urlopen', side_effect=AssertionError('no download')):
+                    if fault:
+                        with self.assertRaises(RuntimeError):gpu.local43_cache(root, lambda *a: self.fail('native'))
+                    else:
+                        self.assertEqual(gpu.local43_cache(root, lambda *a: self.fail('native'))[0], cache)
+
+    def test_capsule_origin_or_checksum_failure_cleans_scratch_without_extraction(self):
+        for fault in ('origin', 'checksum'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                response = io.BytesIO(b'changed capsule'); response.status = 200
+                response.geturl = lambda: 'https://foreign.invalid/capsule' if fault == 'origin' else gpu.LOCAL43['url']
+                with patch.object(gpu.urllib.request, 'urlopen', return_value=response), \
+                        patch.object(gpu.subprocess, 'Popen', side_effect=AssertionError('no extraction')):
+                    with self.assertRaises(RuntimeError):gpu.local43_cache(root, lambda *a: self.fail('native'))
+                self.assertEqual(list(root.iterdir()), [])
+
+    def test_local_repository_preserves_signature_gates_and_atomic_interruption(self):
+        for fault in (None, 'foreign', 'interrupted'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary); directory = root / 'repos'; directory.mkdir(mode=0o700)
+                cache = root / 'cache'; cache.mkdir(mode=0o700)
+                proof = {'files': {'synthetic.rpm': 'a' * 64}}
+                repo = directory / 'nvidia.repo'
+                if fault == 'foreign':repo.write_text('foreign')
+                with patch.object(gpu, 'local43_cache', return_value=(cache, proof)):
+                    if fault == 'foreign':
+                        with self.assertRaisesRegex(RuntimeError, 'foreign'):gpu.configure_local43(directory, lambda *a: None)
+                        self.assertEqual(repo.read_text(), 'foreign')
+                        continue
+                    if fault == 'interrupted':
+                        with patch.object(gpu.os, 'replace', side_effect=RuntimeError('interruption')):
+                            with self.assertRaises(RuntimeError):gpu.configure_local43(directory, lambda *a: None)
+                        self.assertFalse(repo.exists())
+                    result = gpu.configure_local43(directory, lambda *a: None)
+                    for setting in ('baseurl=file://' + str(cache), 'gpgcheck=1', 'repo_gpgcheck=1',
+                                    'skip_if_unavailable=0', 'includepkgs=*-595.112.07-* nvidia-driver-selinux', 'exclude=*.i686'):
+                        self.assertIn(setting, repo.read_text())
+                    self.assertEqual(gpu.configure_local43(directory, lambda *a: None), result)
+                    self.assertFalse((directory / 'nvidia.repo.local43').exists())
+
     def test_permanent_repository_is_bound_to_final_owner_and_observes_interruption(self):
         original = ('[cuda-fedora39-x86_64]\nname=cuda-fedora39-x86_64\n'
                     'baseurl=https://developer.download.nvidia.com/compute/cuda/repos/fedora39/x86_64\n'
