@@ -729,6 +729,17 @@ else:
 '''
 
 
+def target_pinned(template, node):
+    """Accept the selector pin or one exact required hostname affinity term."""
+    selected = template.get('nodeSelector', {}).get('kubernetes.io/hostname')
+    if selected is not None:
+        return selected == node
+    required = template.get('affinity', {}).get('nodeAffinity', {}).get(
+        'requiredDuringSchedulingIgnoredDuringExecution')
+    return required == {'nodeSelectorTerms': [{'matchExpressions': [
+        {'key': 'kubernetes.io/hostname', 'operator': 'In', 'values': [node]}]}]}
+
+
 def pending_on_maintained_node(api, item, node):
     """Only an unscheduled replacement of this exact target-pinned controller."""
     meta, template = item['metadata'], item['spec']['template']['spec']
@@ -741,7 +752,7 @@ def pending_on_maintained_node(api, item, node):
     if (pod['status']['phase'] != 'Pending' or pod['metadata'].get('deletionTimestamp') or
             pod['status'].get('containerStatuses') or pod['status'].get('initContainerStatuses') or
             pod['spec'].get('nodeName') or pod['spec'].get('nodeSelector') != template.get('nodeSelector') or
-            template.get('nodeSelector', {}).get('kubernetes.io/hostname') != node):
+            pod['spec'].get('affinity') != template.get('affinity') or not target_pinned(template, node)):
         return False
     owners = [o for o in pod['metadata'].get('ownerReferences', []) if o.get('controller') is True]
     if len(owners) != 1 or not owners[0].get('uid'):

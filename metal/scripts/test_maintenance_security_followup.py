@@ -154,5 +154,44 @@ class SecurityFollowupTests(unittest.TestCase):
             pod.clear(); pod.update(original[0]); replica.clear(); replica.update(original[1])
 
 
+    def test_pending_required_affinity_is_exclusive_and_matches_the_replacement(self):
+        required = {'nodeSelectorTerms': [{'matchExpressions': [
+            {'key': 'kubernetes.io/hostname', 'operator': 'In', 'values': ['sprigatito']}]}]}
+        template = {'affinity': {'nodeAffinity': {'requiredDuringSchedulingIgnoredDuringExecution': required}}}
+        item = {'kind': 'Deployment', 'metadata': {'namespace': 'emby', 'name': 'main', 'uid': 'deployment'},
+                'spec': {'selector': {'matchLabels': {'app': 'main'}}, 'template': {'spec': template}}}
+        pod = {'metadata': {'labels': {'app': 'main'}, 'ownerReferences': [
+            {'controller': True, 'kind': 'ReplicaSet', 'name': 'main-rs', 'uid': 'replica'}]},
+            'spec': copy.deepcopy(template), 'status': {'phase': 'Pending'}}
+        replica = {'metadata': {'uid': 'replica', 'ownerReferences': [
+            {'controller': True, 'kind': 'Deployment', 'name': 'main', 'uid': 'deployment'}]}}
+        class PendingAPI:
+            def call(self, *argv):
+                return {'items': [pod]} if argv[1] == 'pods' else replica
+        api = PendingAPI()
+        self.assertTrue(production.target_pinned(template, 'sprigatito'))
+        self.assertTrue(production.pending_on_maintained_node(api, item, 'sprigatito'))
+        variants = []
+        changed = copy.deepcopy(template)
+        changed['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'].append('other')
+        variants.append(changed)
+        changed = copy.deepcopy(template)
+        changed['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'].append({'matchExpressions': [
+            {'key': 'kubernetes.io/hostname', 'operator': 'In', 'values': ['other']}]})
+        variants.append(changed)
+        variants.append({'affinity': {'nodeAffinity': {'preferredDuringSchedulingIgnoredDuringExecution': []}}})
+        variants.append({**copy.deepcopy(template), 'nodeSelector': {'kubernetes.io/hostname': 'other'}})
+        for changed in variants:
+            item['spec']['template']['spec'] = changed; pod['spec'] = copy.deepcopy(changed)
+            with self.subTest(template=changed):
+                self.assertFalse(production.target_pinned(changed, 'sprigatito'))
+                self.assertFalse(production.pending_on_maintained_node(api, item, 'sprigatito'))
+        item['spec']['template']['spec'] = template; pod['spec'] = copy.deepcopy(template)
+        pod['spec']['affinity']['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'][0]['matchExpressions'][0]['values'] = ['other']
+        self.assertFalse(production.pending_on_maintained_node(api, item, 'sprigatito'))
+        pod['spec'] = copy.deepcopy(template); pod['status']['initContainerStatuses'] = [{'ready': False}]
+        self.assertFalse(production.pending_on_maintained_node(api, item, 'sprigatito'))
+
+
 if __name__ == '__main__':
     unittest.main()
