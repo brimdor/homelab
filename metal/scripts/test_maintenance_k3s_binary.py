@@ -148,6 +148,14 @@ class K3sBinaryTests(unittest.TestCase):
                 binary.record(self.executable)
         self.assertEqual(self.restarts, 0)
 
+    def test_source_mode_change_refuses_before_preparation_intent(self):
+        self.executable.chmod(0o4755)
+        before = self.journal.inspect()
+        with self.assertRaisesRegex(RuntimeError, 'executable mode'):
+            self.prepare()
+        self.assertEqual(self.journal.inspect(), before)
+        self.assertEqual(self.restarts, 0)
+
     def test_native_linux_user_xattr_survives_backup_and_candidate(self):
         if not hasattr(os, 'uname') or os.uname().sysname != 'Linux':
             self.skipTest('Linux fd-xattr native acceptance runs separately before production')

@@ -13,6 +13,36 @@ CONTROLLERS = {'DaemonSet': 'daemonset', 'ReplicaSet': 'replicaset',
                'StatefulSet': 'statefulset', 'Job': 'job',
                'ReplicationController': 'replicationcontroller', 'Node': 'node'}
 
+# Owner-required exception: K3s service maintenance must retain this exact NAS process.
+ZOT = {'pod_uid': 'ee41a015-dec7-47d4-89ac-54ed8100d7fc',
+       'container_id': 'containerd://c64893596b9e9f4444cf89a84dfd0c8de029bad82f637a0a777f149092d42078',
+       'pid': 5467, 'start_ticks': '72848',
+       'boot_id': '61389f87-e3e6-47e6-b47b-feb59659a5c2',
+       'label': 'system_u:system_r:container_t:s0:c373,c432',
+       'pvc_uid': '728fbc24-a589-483f-8833-855c863b4f04',
+       'pv_uid': '81d390a2-71fd-48ac-ac2f-49df07bda484', 'storage_retained': True}
+
+
+def retain_registry(api, pod, owner):
+    if owner.get('component') != 'k3s' or pod['metadata']['namespace'] != 'zot':
+        return False
+    actor.require(owner['node'] == 'charmander' and pod['spec']['nodeName'] == 'charmander' and
+                  pod['metadata']['uid'] == ZOT['pod_uid'] and not pod['metadata'].get('deletionTimestamp'),
+                  'protected registry Pod identity differs')
+    statuses = pod.get('status', {}).get('containerStatuses', [])
+    actor.require(pod.get('status', {}).get('phase') == 'Running' and len(statuses) == 1 and
+                  statuses[0]['name'] == 'zot' and statuses[0].get('ready') is True and
+                  statuses[0].get('restartCount') == 0 and
+                  statuses[0].get('containerID') == ZOT['container_id'],
+                  'protected registry container identity differs')
+    observer = getattr(api, 'protected_registry', None)
+    ref = {'namespace': 'zot', 'name': pod['metadata']['name'], 'uid': ZOT['pod_uid'],
+           'spec_sha256': hashed(pod['spec'])}
+    actor.require(callable(observer), 'protected registry native observer missing')
+    actor.require(observer(ref) == dict(ZOT, spec_sha256=ref['spec_sha256']),
+                  'protected registry native process or storage identity differs')
+    return True
+
 
 def hashed(value):
     return hops.digest(hops.canonical(value))
@@ -106,9 +136,10 @@ class Drain:
             actor.require(kind != 'Node' or mirror and controller['uid'] == owner['node_uid'],
                           'foreign non-mirror Node-owned Pod')
             actor.require(not mirror or kind == 'Node', 'mirror Pod controller differs')
+            registry_kept = retain_registry(self.api, pod, owner)
             refs.append({'namespace': namespace, 'name': pod_name, 'uid': metadata['uid'],
                          'spec_sha256': hashed(pod['spec']), 'controller': controller,
-                         'keep': kind in ('DaemonSet', 'Node')})
+                         'keep': kind in ('DaemonSet', 'Node') or registry_kept})
         # Keep the bounded OSD protection window for host work, after other relocations.
         refs.sort(key=lambda ref: (ref['namespace'] == 'rook-ceph' and
                   ref['controller']['kind'] == 'ReplicaSet' and

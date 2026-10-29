@@ -41,6 +41,16 @@ KillMode=process service. Observe an interrupted activation without replacement 
 The local 89-test batch sbrn8tvh passed with one explicit Linux fd-xattr native check skipped
 on macOS; perform that Linux check before production. Local file/journal tests cannot prove
 SELinux labels, actual systemd/container preservation, source-version recovery or live upgrades.</p>
+<p>Published 60364efd then passed all seven Linux-native binary tests in kxml0zy8 under
+SELinux Enforcing, including actual fd-xattr preservation; no check was skipped and owned
+scratch was removed. Follow-up q_moykgm passed 91 local tests with the explicit Linux-only
+check skipped on macOS. The follow-up refuses changed executable modes and rechecks source
+bytes/service PID immediately before replacement. Repeat the affected native tests for this
+follow-up before production.</p>
+<p>The drain exception is limited to the existing Zot Pod/container on Charmander. Every
+inventory requires a fresh controller proof of its exact PID 5467, start tick 72848, boot,
+SELinux label, bound PVC/PV and retained NAS storage. Missing, replaced, restarted or mismatched
+objects refuse the drain; no namespace-wide exemption or registry restart is authorized.</p>
 <ol>
 <li>Bind current Issue 103 contract, published commit, exact node inventory/runtime versions and
 previous node acceptance. Verify clean PGs, existing application behavior, exact protected Zot

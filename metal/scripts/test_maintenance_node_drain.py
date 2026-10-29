@@ -133,6 +133,31 @@ class NodeDrainTests(unittest.TestCase):
             self.api.nodes, self.pod_api.pods, self.pod_api.controllers = nodes, pods, controllers
         self.assertFalse(self.pod_api.posts)
 
+    def test_registry_exception_requires_exact_component_container_native_and_storage_proof(self):
+        owner = {'node': 'charmander', 'component': 'k3s'}
+        pod = {'metadata': {'namespace': 'zot', 'name': 'retained-zot', 'uid': drain.ZOT['pod_uid']},
+               'spec': {'nodeName': 'charmander', 'containers': [{'name': 'zot', 'image': 'existing'}]},
+               'status': {'phase': 'Running', 'containerStatuses': [{'name': 'zot', 'ready': True,
+                          'restartCount': 0, 'containerID': drain.ZOT['container_id']}]}}
+        proof = dict(drain.ZOT, spec_sha256=drain.hashed(pod['spec']))
+        api = SimpleNamespace(protected_registry=lambda _: copy.deepcopy(proof))
+        self.assertTrue(drain.retain_registry(api, pod, owner))
+        self.assertFalse(drain.retain_registry(api, pod, dict(owner, component='fedora')))
+        for key in drain.ZOT:
+            changed = copy.deepcopy(proof);changed[key] = 'foreign'
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, 'native process or storage'):
+                drain.retain_registry(SimpleNamespace(protected_registry=lambda _: changed), pod, owner)
+        for key, value in (('uid', 'replacement'), ('deletionTimestamp', 'now')):
+            changed = copy.deepcopy(pod);changed['metadata'][key] = value
+            with self.assertRaisesRegex(RuntimeError, 'Pod identity'):
+                drain.retain_registry(api, changed, owner)
+        changed = copy.deepcopy(pod);changed['status']['containerStatuses'][0]['restartCount'] = 1
+        with self.assertRaisesRegex(RuntimeError, 'container identity'):
+            drain.retain_registry(api, changed, owner)
+        with self.assertRaisesRegex(RuntimeError, 'observer missing'):
+            drain.retain_registry(SimpleNamespace(), pod, owner)
+        self.assertFalse(self.pod_api.posts)
+
     def add_osd_fixture(self):
         pod = copy.deepcopy(self.pod_api.pods[2])
         controller = pod['metadata']['ownerReferences'][0]

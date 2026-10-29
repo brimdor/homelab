@@ -102,7 +102,8 @@ class Binary:
 
     def prepare(self, prerequisites_sha256, verify_prerequisites, fetch=download):
         owner = self.owner();original = record(self.executable)
-        actor.require(original['sha256'] == contract.SHA256[owner['source']], 'source K3s binary differs')
+        actor.require(original['sha256'] == contract.SHA256[owner['source']] and original['mode'] == 0o755,
+                      'source K3s binary or executable mode differs')
         plan = {'owner': owner, 'executable': str(self.executable), 'original': original,
                 'target_sha256': contract.SHA256[owner['target']]}
         state = self.journal.begin('prepare_binary', hashed(plan), prerequisites_sha256, verify_prerequisites)
@@ -148,6 +149,9 @@ class Binary:
             actor.require(record(self.stage) == value['candidate'], 'same-filesystem candidate differs')
             actor.require(verify_prerequisites('activate_binary', prerequisites_sha256) is True,
                           'K3s activation prerequisites changed')
+            actor.require(record(self.executable) == value['original'] and
+                          int(self.native('systemctl', 'show', 'k3s', '-p', 'MainPID', '--value')) == pid,
+                          'installed K3s source or service changed before replacement')
             os.replace(self.stage, self.executable);actor.fsync_directory(self.executable.parent)
             actor.require(record(self.executable) == value['candidate'], 'atomic replacement differs')
             # Existing unit only; KillMode=process preserves container shims and workloads.
