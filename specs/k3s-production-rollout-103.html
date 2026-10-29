@@ -143,6 +143,17 @@ existing authorized access. Binary rollback requires verified datastore format c
 a source-version protected restore is a separate recovery operation, never an automatic downgrade.
 New regressions stop only the affected transition while independent safe work continues.
 All-layer GREEN and actual maintenance evidence remain mandatory for Issue 103 closure.</p>
+<h2>Scheduled Strata recovery history, October 29</h2>
+<p>The existing maintenance-strata-job-history.py executor is extended only to failed Job
+strata-backup-29888310, UID 1b618858-1224-4d5d-a606-d35c24c5fbb7. Its Pod never started:
+the scheduler reported required affinity to the cordoned application node, and the Job
+reached DeadlineExceeded at 18:45:01 UTC. A later unchanged ordinary scheduled backup
+completed at 19:06:34 UTC. Cleanup requires successful recovery later than this latest
+failure, the original CronJob UID/specification and image, exact recovery Job/Pod UIDs,
+no remaining failed-Job Pods, and UID/resourceVersion-preconditioned deletion. It removes
+only investigated Kubernetes history records; no NAS operation or manual backup is involved.
+Failure evidence remains retained in qkewj9sh, aalx489j and xa9aa65c. Execution and final
+absence verification are pending. Strata's recurring SQLITE_PROTOCOL remains unresolved.</p>
 <h2>Primary references</h2>
 <p><a href="https://docs.k3s.io/upgrades/manual">K3s manual upgrades</a>,
 <a href="https://docs.k3s.io/datastore/backup-restore">K3s datastore backup/restore</a>,

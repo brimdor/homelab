@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Retire only Issue 103's three missed Strata backup Job records after recovery."""
+"""Retire only Issue 103's four missed Strata backup Job records after recovery."""
 
 import argparse
 import hashlib
@@ -14,10 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 CRON_UID = '71e995a6-ea65-4272-8a00-27eac21edfc5'
 CRON_SPEC = '938a0cd1a191542d475dceb068399330fa75b304c20791d00cdeaa727bbb8110'
 DIGEST = 'sha256:71f04326edf6e1defeabf2dc211abcf6bc6c7e14b0838c9e0704ab12253b08f0'
+RECOVERY_AFTER = '2026-10-29T18:45:01Z'
 TARGETS = {
     'strata-backup-29884200': '00e47580-2b04-49df-82d3-4edef6551ec5',
     'strata-backup-29884230': '85554a52-b73c-4ff6-843e-0b528ab873fe',
     'strata-backup-29884260': '2d869958-1c8b-4de8-aff9-37f89c302e66',
+    'strata-backup-29888310': '1b618858-1224-4d5d-a606-d35c24c5fbb7',
 }
 
 
@@ -53,7 +55,7 @@ def recovered(job, pod, cron, job_uid, pod_uid):
     owned(job)
     require(job['metadata']['uid'] == job_uid and not job['metadata'].get('deletionTimestamp')
             and not job['status'].get('active') and not job['status'].get('failed')
-            and job['status'].get('succeeded') == 1 and job['status'].get('completionTime', '') > '2026-10-26T23:15:00Z'
+            and job['status'].get('succeeded') == 1 and job['status'].get('completionTime', '') > RECOVERY_AFTER
             and any(c['type'] == 'Complete' and c['status'] == 'True' for c in job['status'].get('conditions', [])),
             'New ordinary backup has not completed successfully')
     require(cron['metadata']['uid'] == CRON_UID and not cron['metadata'].get('deletionTimestamp')
@@ -155,7 +157,7 @@ def main():
             observe_deleted(get, name, job['metadata']['uid'])
         results.append({'name': name, 'uid': job['metadata']['uid'], 'applied': args.apply})
     proof()
-    print(json.dumps({'source': head, 'results': results, 'scope': 'three resolved Kubernetes Job records only; no NAS access'}))
+    print(json.dumps({'source': head, 'results': results, 'scope': 'four resolved Kubernetes Job records only; no NAS access'}))
 
 
 if __name__ == '__main__':
