@@ -89,6 +89,13 @@ service accounts, so preserve storage driver identities while adopting those acc
 requires corrected Rook/Ceph releases and distinguishes core keys, client keys and service tickets. Determine actual
 generations instead of copying an example value. Kernel support alone does not prove migrated client behavior.</p>
 <h2>Data safety and rollback</h2>
+<p>Run <code>9asdena5</code> at 15:40 UTC verified all 12 Ceph daemons at 20.2.4 and
+core/admin/MDS generation 2. Toolbox native authentication and legacy-environment omission passed.
+Run <code>3bvg_i2d</code> at 15:47 UTC verified all 177 PGs clean, five OSDs up/in and the exact
+synthetic Job/PVC names absent. Existing client mount checks <code>8434jwa5</code> preserved all
+57 original Ceph PV identities and readable paths in 51 running containers. These are distinct
+from application data-semantic checks. Enable the isolated synthetic probe only after exact
+CSI 3.17.1 Pod-image and rollout acceptance; its cleanup remains mandatory.</p>
 <p>At 15:43 UTC, run <code>xtgj2yp6</code> found the image-set ConfigMap at CSI 3.17.1,
 while all four CSI workloads remained at 3.16.3. The tagged CSI operator 1.1.0 Driver controller
 watches Driver generation and OperatorConfig defaults, but does not watch the referenced image-set

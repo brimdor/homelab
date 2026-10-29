@@ -192,7 +192,7 @@ snapshot-controller:
 
 # Temporary synthetic volumes only; disable and prune after UID-bound acceptance.
 maintenanceCsiProbe:
-  enabled: false
+  enabled: true
 
 pvcHygiene:
   enabled: true
