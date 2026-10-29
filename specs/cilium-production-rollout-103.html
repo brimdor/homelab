@@ -97,4 +97,19 @@ Keep upgradeCompatibility 1.15, existing veth/IPAM/KPR/L2/API settings and one u
 Render and inspect the complete chart and preflight, including preserved Envoy behavior and no new
 storage identities. Require the same preflight, native cleanup and production acceptance gates before
 the next minor. No Cilium policy/LRP, encryption, clustermesh or Gateway API feature is being enabled.</p>
+<h2>1.16 acceptance and 1.17 target</h2>
+<p>Native prerequisite tlubbvo0 accepted all nine host-network tc inventories: only Cilium programs,
+no CNP/CCNP consumers, no installed LRP CRD and the original migrated/reserved pool.
+Published b91fec7d preceded official preflight nlq1kbn5 and production c7sh5cij. Independent
+3zii86e4 at 16:30 UTC accepted 1.16.19 on all nine agents with exact runtime digests, zero restarts,
+fresh complete native mesh, operator/Hubble, DNS, internal Gitea, TLS VIP, unchanged identities,
+177 clean PGs and exact protected Zot process. No application data or NAS mutation occurred.</p>
+<p>Next target is 1.17.18. The <a href="https://docs.cilium.io/en/v1.17/operations/upgrade/">official notes</a>
+remove the Kubernetes connectivity check from agent liveness by default; explicitly retain
+livenessProbe.requireK8sConnectivity=true. Preserve all other declared settings. No Consul, IPsec,
+LRP, proxy-visibility, lb-only or Cilium L7 policy consumer is being migrated or enabled.
+The disabled KVStore subsystem now reports Disabled instead of Ok; require that documented state,
+with all enabled subsystems healthy. Synchronous health probing is removed: wait for fresh native
+cached probe timestamps and complete successful mesh rather than treating the hidden probe option
+as proof of a new sample. Repeat official preflight, native cleanup and actual behavior acceptance.</p>
 </html>
