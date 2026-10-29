@@ -4,7 +4,8 @@
 <title>Issue 103: serial K3s production maintenance</title>
 <style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}code{overflow-wrap:anywhere}</style>
 <h1>Issue 103: serial K3s production maintenance</h1>
-<p>October 29, 2026. Implementation contract; no production K3s upgrade is accepted here.
+<p>October 29, 2026. Charmander's first production bridge is accepted and released;
+the other eight nodes and later version hops remain pending.
 This implements the already authorized K3S_CILIUM task, following accepted Cilium 1.20.4 and
 CSI compatibility. All nine Fedora 44 OS maintenance actions are complete and are not repeated.</p>
 <h2>Evidence and targets</h2>
@@ -164,7 +165,7 @@ Acceptance now inspects the completed drain read-only under that existing lock, 
 the exact pending parent, completed target UIDs, original plan, record hashes and current
 keep-set inventory. It neither reacquires the lock nor dispatches an eviction. Regression
 coverage uses the real native file lock and refuses changed inventory or receipt hashes.</p>
-<h2>Primary references</h2>
+<h2>Actual first-node bridge and retained failures</h2>
 <p>Native bridge activation fp8toe04 completed at 19:27:15 UTC. Initial observation refused
 before reaching the node because canonical Git SSH closed the connection; mzttbzmq then
 proved the same published master accessible and Charmander Ready on v1.33.10+k3s1.
@@ -178,6 +179,36 @@ controller evidence, although uncordoning releases pinned controller holds. The 
 returns the dispatched pending receipt first, then a separate invocation observes that same
 intent with fresh recovered-controller evidence. No pending patch is replayed. A real durable
 journal test models changed controller evidence and verifies exactly one uncordon patch.</p>
+<h2>Charmander accepted and released, 19:46 UTC</h2>
+<p>Controller e4a51c7e completed the first actual v1.33.6+k3s1 to v1.33.10+k3s1 bridge.
+All 24 drain targets were accounted for; native 0uzp37ej proved zero Ceph kernel mounts
+and RBD devices before activation. Fresh protected source recovery ibkczg6s passed a
+matching isolated restore and remained within one hour at activation. Original recovery
+material was preserved. Native binary acceptance lpl9ujpg proved the installed checksum,
+new PID, unchanged boot/configuration/unit, Enforcing and actual stargz task snapshotters.</p>
+<p>Infrastructure acceptance e43xy5mw passed. Its local wrapper then refused an incorrect
+assumption of two held controllers, before any scheduling patch. Native t0noz7qu identified
+the actual three exact controllers: Budget, Nibble Canary and Versa Canary. Recovery
+_exfp4pq issued one UID/resourceVersion-fenced uncordon, waited for all three unchanged
+controller UIDs/generations to roll out, then accepted the pending scheduling intent in a
+separate observation. Native extybsbj proved all three Ready with zero restarts and HTTP200;
+Versa Canary additionally returned healthy/ready JSON. Budget authenticated data/schema and
+Nibble inference remain outside this HTTP evidence.</p>
+<p>Final application acceptance and ordered host/global release a_uqaotm completed at
+19:44:47 UTC. Independent g3lip78f passed at 19:46:07 UTC: all nine nodes Ready, target
+version observed, no held controllers, all expected Argo applications Synced/Healthy except
+the explicitly tracked Rook auth migration state, 177 clean PGs, the exact protected Zot
+process/storage unchanged, host/global holds absent, and unchanged MWF Kured image/arguments.
+The first independent wrapper pgoszygw queried Kured in kube-system instead of its actual
+kured namespace; this was a diagnostic namespace error, retained without replaying release.</p>
+<p>Three Ceph auth migration findings remain: AUTH_INSECURE_CLIENT_KEY_TYPE,
+AUTH_INSECURE_KEYS_ALLOWED and AUTH_INSECURE_KEYS_CREATABLE. The rotating-service-key warning
+has cleared naturally. Post-bridge 7u57cg1v verified all 57 original PV UIDs still Bound with
+unchanged CSI backend, claim UID and reclaim policy. NAS restrictions, original Zot identity,
+owner-paused human gates and the owner's final PAT action remain unchanged. Strata's recurrent
+SQLITE_PROTOCOL and other Issue 103 findings remain open. This is component acceptance,
+not whole-homelab GREEN or Issue 103 closure. Squirtle is next; it has not started here.</p>
+<h2>Primary references</h2>
 <p><a href="https://docs.k3s.io/upgrades/manual">K3s manual upgrades</a>,
 <a href="https://docs.k3s.io/datastore/backup-restore">K3s datastore backup/restore</a>,
 <a href="https://update.k3s.io/v1-release/channels">official channels</a>,
