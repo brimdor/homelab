@@ -21,6 +21,67 @@ PVC_UID = "2b7b4f6f-d198-4bb1-adc0-65467a8840a6"
 PV_UID = "e83c623f-adf2-45ab-92b0-b568c37540f3"
 SYSTEM_ID = "7702033148198322214"
 IMAGE = "docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e"
+SOURCE_CONTAINER = "218b0fb30daefaf042b2e42b3f6e20cd3e063850e60c026565c266924f7dd865"
+
+
+def source_runtime(value):
+    """Reject a changed native container before reading its namespace files."""
+    status = value["status"]
+    if (status["id"] != SOURCE_CONTAINER or status["state"] != "CONTAINER_RUNNING" or
+            status["imageRef"] != IMAGE or
+            status["labels"].get("io.kubernetes.pod.uid") != SOURCE_UID or
+            status["labels"].get("io.kubernetes.pod.namespace") != "postgres" or
+            status["labels"].get("io.kubernetes.container.name") != "main" or
+            type(value["info"].get("pid")) is not int or value["info"]["pid"] <= 0):
+        raise RuntimeError("native PostgreSQL capture source changed")
+    return value["info"]["pid"]
+
+
+def capture_local(run_id):
+    """Materialize a verified backup before transporting bytes over the network."""
+    common.require_host("totodile")
+    common.private_root()
+    run_id = common.run_identifier(run_id)
+    point = common.ROOT / ("central-postgres-source-" + run_id)
+    point.mkdir(mode=0o700)
+
+    def runtime():
+        return source_runtime(json.loads(common.command(
+            ["/usr/local/bin/k3s", "crictl", "inspect", SOURCE_CONTAINER]).stdout))
+
+    pid = runtime()
+    temporary = "/tmp/maintenance103-postgres-" + run_id
+    script = ("umask 077; mkdir -m 0700 -- \"$1\"; "
+              "export PGUSER=\"$POSTGRES_USER\" PGPASSWORD=\"$POSTGRES_PASSWORD\" "
+              "PGHOST=127.0.0.1 PGPORT=5432; "
+              "pg_basebackup --no-password --pgdata=- --format=tar "
+              "--wal-method=fetch --checkpoint=fast --manifest-checksums=SHA256 > \"$1/base.tar\"")
+    common.command(["/usr/local/bin/k3s", "crictl", "exec", SOURCE_CONTAINER,
+                    "/bin/bash", "-ceu", script, "maintenance103-capture", temporary])
+    if runtime() != pid:
+        raise RuntimeError("capture source process changed; original files preserved")
+    directory = Path("/proc") / str(pid) / "root" / temporary.lstrip("/")
+    metadata = directory.lstat()
+    if (not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != 0 or
+            stat.S_IMODE(metadata.st_mode) != 0o700):
+        raise RuntimeError("native backup directory protection changed")
+    source = directory / "base.tar"
+    record, original = common.source_record("base.tar", source)
+    with source.open("rb") as incoming, (point / "base.tar").open("xb") as output:
+        os.fchmod(output.fileno(), 0o600)
+        shutil.copyfileobj(incoming, output)
+        output.flush()
+        os.fsync(output.fileno())
+    if (common.source_record("base.tar", source) != (record, original) or runtime() != pid or
+            protected.file_digest(point / "base.tar") !=
+            {"sha256": record["sha256"], "bytes": record["size"]}):
+        raise RuntimeError("materialized backup changed; originals preserved")
+    result = {"point": str(point), "archive": protected.file_digest(point / "base.tar"),
+              "identity": archive_identity(point / "base.tar"), "source_uid": SOURCE_UID}
+    protected.write_json(point / "complete.json", result)
+    shutil.rmtree(directory)
+    result["container_temporary_absent"] = not directory.exists()
+    return result
 
 
 def archive_identity(path, system_id=SYSTEM_ID):

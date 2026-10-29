@@ -45,6 +45,17 @@ class ArchiveIdentityTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unsafe"):
                 recovery.archive_identity(self.archive(directory, {"../outside": b"bad"}))
 
+    def test_changed_native_container_refused(self):
+        value = {"status": {"id": recovery.SOURCE_CONTAINER, "state": "CONTAINER_RUNNING",
+                           "imageRef": recovery.IMAGE,
+                           "labels": {"io.kubernetes.pod.uid": recovery.SOURCE_UID,
+                                      "io.kubernetes.pod.namespace": "postgres",
+                                      "io.kubernetes.container.name": "main"}}, "info": {"pid": 123}}
+        self.assertEqual(recovery.source_runtime(value), 123)
+        value["status"]["labels"]["io.kubernetes.pod.uid"] = "another-pod"
+        with self.assertRaisesRegex(RuntimeError, "source changed"):
+            recovery.source_runtime(value)
+
 
 if __name__ == "__main__":
     unittest.main()
