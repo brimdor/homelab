@@ -9,6 +9,8 @@ app-template:
       strategy: Recreate
       replicas: 1
       pod:
+        nodeSelector:
+          kubernetes.io/hostname: growlithe
         terminationGracePeriodSeconds: 30
         # Distroless backend image runs as uid 65532 (nonroot:nonroot).
         # The cluster's RWO RBD volume is mounted by kubelet as root:root,
@@ -17,13 +19,17 @@ app-template:
         securityContext:
           fsGroup: 65532
           fsGroupChangePolicy: OnRootMismatch
+          # Match the ordinary backup without relabeling another application's data.
+          seLinuxOptions:
+            level: s0:c643,c694
       containers:
         main:
           nameOverride: backend
           image:
             repository: 10.0.20.11:32309/sporecast-backend
             tag: a3fe7c8
-            pullPolicy: Always
+            digest: sha256:1eb8f84e6188481d0db009088b4b5d1a6ac3158dbc41a6f6db187bf787857063
+            pullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               name: http

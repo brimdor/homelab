@@ -24,7 +24,8 @@ Preserve historical profiles and recovery points. Publish helper and refusal tes
 <h2>Desired-state repair after accepted restore</h2>
 <p>Give the canary backend and ordinary backup template the existing data category <code>s0:c643,c694</code>,
 separate from production's category. Pin the backend's current immutable digest with IfNotPresent so the
-repair uses the protected cached artifact. Preserve every claim, image byte, replica count, frontend,
+repair uses the protected cached artifact. Keep the backend on its current Growlithe node, where the exact
+artifact is already cached, to avoid a registry dependency or volume migration. Preserve every claim, image byte, replica count, frontend,
 schedule, backup command, NAS destination and application configuration. Do not trigger or replay a backup.</p>
 <p>Render/lint the pinned chart, inspect the exact resource diff, commit/push to Gitea master and reconcile
 only the canary. Require native process/file label equality, unchanged original claim/PV, healthy native

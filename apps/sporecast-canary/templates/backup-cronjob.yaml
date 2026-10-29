@@ -29,6 +29,10 @@ spec:
             app.kubernetes.io/component: backup
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            # The same category keeps this intentional shared-volume consumer confined.
+            seLinuxOptions:
+              level: s0:c643,c694
           # The application data PVC is Ceph RBD (ReadWriteOnce). Keep the
           # backup pod on the application's node so the volume is never
           # multi-attached when the scheduler chooses a different worker.
