@@ -112,4 +112,18 @@ The disabled KVStore subsystem now reports Disabled instead of Ok; require that 
 with all enabled subsystems healthy. Synchronous health probing is removed: wait for fresh native
 cached probe timestamps and complete successful mesh rather than treating the hidden probe option
 as proof of a new sample. Repeat official preflight, native cleanup and actual behavior acceptance.</p>
+<h2>1.18 target and native prerequisites</h2>
+<p>Next adjacent target is 1.18.16. Official pinned release notes were read from upstream tag
+v1.18.16; native feature binding zdjsu_xu at 16:41 UTC found no BGP, CIDRGroup, NodeConfig,
+CNP/CCNP, LRP or external-workload consumers and no custom identity-relevant labels. Current
+Fedora 44 kernel 7.2.13 exceeds the new minimum 5.10. IPsec, WireGuard, ENI and ClusterMesh
+are not configured. The chart comparison s2linpqg showed neighbor discovery changing from true
+to false; retain l2NeighDiscovery.enabled=true explicitly. Keep Kubernetes API liveness, original
+veth/VXLAN/cluster-pool/KPR settings, upgradeCompatibility 1.15 and one unavailable agent.</p>
+<p>The removed arping refresh option is replaced upstream by base_reachable_time_ms neighbor
+refresh behavior. Removed runtime detection and terminating-endpoint options do not request new
+features. Default client exponential backoff has no conflicting extraEnv here. Retain the same
+official preflight, native cleanup, fresh complete mesh, actual DNS/TLS VIP/application behavior,
+identity, clean PG and exact Zot process acceptance before any following transition.
+<a href="https://docs.cilium.io/en/v1.18/operations/upgrade/">Primary 1.18 upgrade guide</a>.</p>
 </html>

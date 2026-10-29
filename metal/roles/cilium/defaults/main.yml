@@ -1,5 +1,5 @@
 cilium_repo_url: https://helm.cilium.io
-cilium_version: 1.17.18
+cilium_version: 1.18.16
 cilium_namespace: kube-system
 cilium_values:
   # Retain the original datapath compatibility during adjacent minor upgrades.
@@ -15,6 +15,9 @@ cilium_values:
     replicas: 1
   kubeProxyReplacement: true
   l2announcements:
+    enabled: true
+  # Preserve the existing neighbor discovery when the 1.18 default changes.
+  l2NeighDiscovery:
     enabled: true
   # TODO the host and port are k3s-specific, generic solution is in progress
   # https://github.com/cilium/cilium/issues/19038
