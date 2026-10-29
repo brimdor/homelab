@@ -18,7 +18,7 @@ app-template:
   controllers:
     main:
       # Issue 103: cold protected recovery and Sprigatito evacuation.
-      replicas: 0
+      replicas: 1
       # strategy: RollingUpdate
       pod:
         # Pod-level security context. The LSIO image runs s6 as root
@@ -385,6 +385,7 @@ app-template:
         main:
           main:
             - path: /backups
+              readOnly: true
     nfs-movies:
       type: nfs
       server: 10.0.40.3
@@ -393,6 +394,7 @@ app-template:
         main:
           main:
             - path: /data/movies
+              readOnly: true
     nfs-tv:
       type: nfs
       server: 10.0.40.3
@@ -401,6 +403,7 @@ app-template:
         main:
           main:
             - path: /data/tv
+              readOnly: true
     nfs-music:
       type: nfs
       server: 10.0.40.3
@@ -409,6 +412,7 @@ app-template:
         main:
           main:
             - path: /data/music
+              readOnly: true
     nfs-movies-custom:
       type: nfs
       server: 10.0.40.3
@@ -417,6 +421,7 @@ app-template:
         main:
           main:
             - path: /data/movies_custom
+              readOnly: true
     nfs-tv-custom:
       type: nfs
       server: 10.0.40.3
@@ -425,6 +430,7 @@ app-template:
         main:
           main:
             - path: /data/tv_custom
+              readOnly: true
   defaultPodOptions:
     runtimeClassName: nvidia
     affinity:
