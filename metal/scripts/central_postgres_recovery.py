@@ -9,6 +9,8 @@ import shutil
 import stat
 import struct
 import tarfile
+import tempfile
+import time
 
 import etcd_recovery as common
 import mariadb_recovery as protected
@@ -117,3 +119,91 @@ def verify(run_id, manifest_sha256):
             archive_identity(point / "base.tar") != manifest["backup"]["identity"]):
         raise RuntimeError("shared PostgreSQL backup changed")
     return manifest
+
+
+def restore_copy(run_id, manifest_sha256, role):
+    """Verify and start only a disposable copy, retaining the protected original."""
+    manifest = verify(run_id, manifest_sha256)
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", role):
+        raise RuntimeError("unreviewed recovery role identifier")
+    point = point_path(run_id)
+    if shutil.disk_usage(common.ROOT).free <= manifest["backup"]["identity"]["payload_bytes"]:
+        raise RuntimeError("insufficient actual capacity for the recovery copy")
+    scratch = Path(tempfile.mkdtemp(prefix="central-postgres-copy-", dir=common.ROOT))
+    data = scratch / "data"
+    data.mkdir(mode=0o700)
+    identity = None
+    before_images = set(common.docker("image", "ls", "--no-trunc", "-q").stdout.decode().splitlines())
+    image_id = None
+    result = {"accepted_restore": False}
+    label = "io.eaglepass.central-postgres-recovery=" + run_id
+    try:
+        with tarfile.open(point / "base.tar", "r:") as archive:
+            archive.extractall(data, filter="data")
+        for parent, directories, files in os.walk(data):
+            os.chown(parent, 999, 999)
+            for name in directories + files:
+                os.chown(Path(parent) / name, 999, 999, follow_symlinks=False)
+        os.chmod(data, 0o700)
+        common.docker("pull", IMAGE)
+        image_id = json.loads(common.docker("image", "inspect", IMAGE).stdout)[0]["Id"]
+        identity = common.docker("create", "--label", label, "--user", "999:999", "--network", "none",
+                                 "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                                 "--tmpfs", "/tmp:rw,mode=1777,size=268435456",
+                                 "-v", str(data) + ":/var/lib/postgresql/data:Z",
+                                 "--entrypoint", "/bin/bash", IMAGE, "-ceu", "exec sleep infinity").stdout.decode().strip()
+        common.docker("start", identity)
+
+        def isolated():
+            value = common.inspect(identity)
+            mounts = [m for m in value["Mounts"] if m["Type"] == "bind"]
+            if (value["Config"]["User"] != "999:999" or
+                    value["Config"]["Labels"].get("io.eaglepass.central-postgres-recovery") != run_id or
+                    value["HostConfig"]["NetworkMode"] != "none" or
+                    not value["HostConfig"]["ReadonlyRootfs"] or
+                    set(value["HostConfig"].get("CapDrop") or []) != {"ALL"} or
+                    "no-new-privileges" not in (value["HostConfig"].get("SecurityOpt") or []) or
+                    len(mounts) != 1 or mounts[0]["Source"] != str(data) or
+                    mounts[0]["Destination"] != "/var/lib/postgresql/data" or
+                    any(m["Type"] == "volume" for m in value["Mounts"])):
+                raise RuntimeError("physical recovery copy isolation changed")
+
+        def execute(*arguments):
+            isolated()
+            return common.docker("exec", "--user", "999:999", identity, *arguments).stdout
+
+        execute("pg_verifybackup", "--exit-on-error", "/var/lib/postgresql/data")
+        execute("pg_ctl", "-D", "/var/lib/postgresql/data", "-l", "/tmp/postgres.log", "-w", "-t", "60",
+                "-o", "-c listen_addresses= -c unix_socket_directories=/tmp -c unix_socket_permissions=0700 "
+                "-c shared_buffers=32MB -c max_connections=10 -c autovacuum=off", "start")
+        query = ("SELECT json_build_object('version',current_setting('server_version_num'),"
+                 "'system_identifier',(SELECT system_identifier::text FROM pg_control_system()),"
+                 "'in_recovery',pg_is_in_recovery(),"
+                 "'databases',(SELECT count(*) FROM pg_database WHERE NOT datistemplate),"
+                 "'roles',(SELECT count(*) FROM pg_roles))")
+        observed = json.loads(execute("psql", "-X", "-w", "-h", "/tmp", "-U", role, "-d", "postgres",
+                                      "-Atq", "-v", "ON_ERROR_STOP=1", "-c", query))
+        if observed != {"version": "170005", "system_identifier": SYSTEM_ID,
+                        "in_recovery": False, "databases": 6, "roles": 20}:
+            raise RuntimeError("physical recovery copy database identity differs")
+        execute("pg_ctl", "-D", "/var/lib/postgresql/data", "-w", "-m", "fast", "stop")
+        execute("test", "!", "-e", "/var/lib/postgresql/data/postmaster.pid")
+        verify(run_id, manifest_sha256)
+        result.update(accepted_restore=True, physical_manifest_verified=True,
+                      native_database=observed, clean_shutdown=True, original_unchanged=True,
+                      network_none=True, ordinary_copied_authentication=True)
+    finally:
+        if identity:
+            common.docker("rm", "-f", identity)
+        shutil.rmtree(scratch)
+        image_removed = False
+        if image_id and image_id not in before_images:
+            if not common.docker("ps", "-aq", "--filter=ancestor=" + image_id).stdout.strip():
+                common.docker("image", "rm", image_id)
+                image_removed = common.docker("image", "inspect", image_id, check=False).returncode != 0
+        result["cleanup"] = {"scratch_absent": not scratch.exists(), "new_unused_image_removed": image_removed,
+                             "owned_containers_absent": not common.docker("ps", "-aq", "--filter=label=" + label).stdout.strip()}
+        if not result["cleanup"]["scratch_absent"] or not result["cleanup"]["owned_containers_absent"]:
+            raise RuntimeError("physical recovery copy cleanup is incomplete")
+        protected.write_json(point / ("restore-" + str(time.time_ns()) + ".json"), result)
+    return result
