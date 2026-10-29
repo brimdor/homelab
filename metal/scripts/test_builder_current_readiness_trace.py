@@ -61,6 +61,21 @@ class CurrentIdentity(unittest.TestCase):
         self.assertEqual((slow[0]['started_ns'], slow[0]['finished_ns']), (100000000000, 100500000000))
         self.assertNotIn('slow_intervals', samples.result())
 
+    def test_october28_profile_refuses_prior_process_without_rebinding_recovery(self):
+        previous = copy.deepcopy(subject.CURRENT)
+        original = copy.deepcopy(subject.original.SOURCES)
+        expected = subject.OCTOBER28_CANARY
+        with self.assertRaises(RuntimeError):
+            subject.validate_runtime(self.runtime(), 'builder-canary', expected)
+        current = self.runtime()
+        current['status']['id'] = expected['container_id']
+        current['status']['labels']['io.kubernetes.pod.uid'] = expected['pod_uid']
+        current['info']['pid'] = expected['pid']
+        subject.validate_runtime(current, 'builder-canary', expected)
+        self.assertEqual(subject.CURRENT, previous)
+        self.assertEqual(subject.original.SOURCES, original)
+        self.assertIsNot(expected['stores'], subject.original.SOURCES['builder-canary']['stores'])
+
 
 if __name__ == '__main__':
     unittest.main()

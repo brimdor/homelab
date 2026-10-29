@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observe the October 24 Builder processes without rebinding recovery authority."""
+"""Observe reviewed Builder processes without rebinding recovery authority."""
 
 import argparse
 import copy
@@ -24,6 +24,15 @@ CURRENT['builder-canary'].update(
 CURRENT['builder-canary']['stores']['data']['device'] = 64432
 CURRENT['builder-canary']['stores']['recovery']['device'] = 64320
 
+# October 28 replacement: observation only; original recovery profiles stay frozen.
+OCTOBER28_CANARY = copy.deepcopy(original.SOURCES['builder-canary'])
+OCTOBER28_CANARY.update(
+    node='pikachu', pid=148089, start_ticks='1069913',
+    pod_uid='7ebe7de7-c9ee-42f6-8abc-0812901fcde7',
+    container_id='2cf269f8c21f7a1e14527f42777bbd9f8dbf13e33ed92a331b5353e7a042aa3a')
+OCTOBER28_CANARY['stores']['data']['device'] = 64128
+OCTOBER28_CANARY['stores']['recovery']['device'] = 64112
+
 
 def validate_runtime(runtime, namespace, expected):
     status = runtime['status']
@@ -47,8 +56,8 @@ def validate_release(release, bundle_hash, expected):
         raise RuntimeError('exact current clean Builder release changed')
 
 
-def source_identity(namespace):
-    expected = CURRENT[namespace]
+def source_identity(namespace, expected=None):
+    expected = CURRENT[namespace] if expected is None else expected
     original.common.require_host(expected['node'])
     cid = expected['container_id']
     runtime = json.loads(original.common.command(['/usr/local/bin/k3s', 'crictl', 'inspect', cid]).stdout)
@@ -79,8 +88,8 @@ def source_identity(namespace):
             'image': 'registry.eaglepass.io/pointsite-builder@sha256:' + expected['digest']}
 
 
-def observe(namespace, seconds):
-    return trace.observe(seconds, identity_provider=lambda: trace.descriptor_identity(source_identity(namespace)),
+def observe(namespace, seconds, expected=None):
+    return trace.observe(seconds, identity_provider=lambda: trace.descriptor_identity(source_identity(namespace, expected)),
                          include_intervals=True)
 
 
@@ -92,5 +101,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--namespace', choices=sorted(CURRENT), required=True)
     parser.add_argument('--seconds', type=int, required=True)
+    parser.add_argument('--october28-canary', action='store_true',
+                        help='Observe only the exact reviewed October 28 Canary process')
     args = parser.parse_args()
-    observe(args.namespace, args.seconds)
+    if args.october28_canary and args.namespace != 'builder-canary':
+        parser.error('--october28-canary requires --namespace builder-canary')
+    observe(args.namespace, args.seconds, OCTOBER28_CANARY if args.october28_canary else None)
