@@ -102,6 +102,8 @@ def native(context):
         intent = point / 'intent.json'
         require(not intent.exists(), 'interrupted preparation; inspect before resuming')
         actors.exclusive_file(intent, json.dumps({'context': context, 'before': before,
+            'before_labels': {name: os.getxattr(ROOT / name, 'security.selinux').decode().rstrip('\0')
+                              for name in before},
             'policy_existed': exists, 'desired_label': LABEL}, sort_keys=True).encode(), 0o600)
         if not exists:
             call('semanage', 'fcontext', '-a', '-t', 'container_file_t', '-r', 's0', PATTERN)
