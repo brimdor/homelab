@@ -150,6 +150,7 @@ def native(context):
                            'development headers contain unreviewed links')
             include = extracted / 'usr/include/python3.14'
             common = ['nice', '-n', '19', 'gcc', '-c', '-O2', '-fPIC', '-fexceptions',
+                      '-ffile-prefix-map=' + str(root) + '=/homelab-python-blake2',
                       '-fcf-protection', '-fstack-protector-strong', '-D_FORTIFY_SOURCE=3',
                       '-D_BSD_SOURCE', '-D_DEFAULT_SOURCE', '-I' + str(include),
                       '-I' + str(include / 'internal'), '-I' + str(source / 'Modules'),
@@ -157,6 +158,7 @@ def native(context):
                       '-I/usr/include/python3.14']
             units = [('blake2module.c', []), ('_hacl/Hacl_Hash_Blake2b.c', []),
                      ('_hacl/Hacl_Hash_Blake2s.c', []),
+                     ('_hacl/Lib_Memzero0.c', []),
                      ('_hacl/Hacl_Hash_Blake2s_Simd128.c',
                       ['-msse', '-msse2', '-msse3', '-msse4.1', '-msse4.2', '-DHACL_CAN_COMPILE_VEC128']),
                      ('_hacl/Hacl_Hash_Blake2b_Simd256.c', ['-mavx2', '-DHACL_CAN_COMPILE_VEC256'])]
