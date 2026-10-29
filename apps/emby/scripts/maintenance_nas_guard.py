@@ -123,6 +123,12 @@ def verify_media(context, request, inspect, pid, root):
               '/usr/bin/s6-setuidgid', 'abc']
     require(command(*prefix, 'id', '-u').strip() == b'99' and
             command(*prefix, 'id', '-g').strip() == b'100', 'media acceptance user differs from Emby')
+    require(command(*prefix, '/bin/sh', '-ec',
+            'umask 077; fixture=$(mktemp /emby/transcode/transcoding-temp/.maintenance103.XXXXXX); '
+            'trap \'rm -f -- "$fixture"\' 0; printf maintenance103 > "$fixture"; '
+            'test "$(cat "$fixture")" = maintenance103; rm -- "$fixture"; '
+            'test ! -e "$fixture"; trap - 0; printf transcode-write-cleaned').strip() ==
+            b'transcode-write-cleaned', 'local transcode write or cleanup failed')
     resolved = command(*prefix, 'readlink', '-f', '--', path).decode().strip()
     require(resolved == path, 'selected media path is not canonical inside the container')
     before = command(*prefix, 'stat', '-Lc', '%f:%d:%i:%s:%Y', '--', path)
@@ -144,6 +150,7 @@ def verify_media(context, request, inspect, pid, root):
     require(command(*prefix, 'stat', '-Lc', '%f:%d:%i:%s:%Y', '--', path) == before and
             runtime_contract(inspect(), context) == (pid, root), 'media source or Emby runtime changed')
     return {'accepted': True, 'cuda_decode': True, 'cuda_scale': True, 'nvenc_encode': True,
+            'local_transcode_write_and_cleanup': True,
             'null_output': True, 'uid': 99, 'gid': 100, 'working_directory': '/app/emby',
             'child_exit': result.returncode, 'source_metadata_unchanged': True,
             'source_path_sha256': hashlib.sha256(path.encode()).hexdigest(), **progress}

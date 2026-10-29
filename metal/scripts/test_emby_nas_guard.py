@@ -61,6 +61,10 @@ class NasGuardTests(unittest.TestCase):
                 return b'99\n'
             if argv[-2:] == ('id', '-g'):
                 return b'100\n'
+            if argv[6:8] == ('/bin/sh', '-ec'):
+                self.assertIn('mktemp /emby/transcode/transcoding-temp/.maintenance103.XXXXXX', argv[8])
+                self.assertIn('trap', argv[8])
+                return b'transcode-write-cleaned'
             if 'readlink' in argv:
                 return path.encode() + b'\n'
             if 'stat' in argv:
@@ -77,6 +81,7 @@ class NasGuardTests(unittest.TestCase):
             self.assertEqual(argv[4:6], ['/usr/bin/s6-setuidgid', 'abc'])
             self.assertEqual(accepted['uid'], 99)
             self.assertEqual(accepted['gid'], 100)
+            self.assertTrue(accepted['local_transcode_write_and_cleanup'])
             self.assertTrue(accepted['source_metadata_unchanged'])
         with patch.object(guard, 'command', return_value=b'0\n'), \
                 patch.object(guard.subprocess, 'run') as launch:
