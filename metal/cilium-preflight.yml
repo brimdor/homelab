@@ -1,0 +1,109 @@
+- name: Respect existing host maintenance ownership
+  hosts: metal
+  gather_facts: false
+  tasks:
+    - name: Require released maintenance ownership
+      ansible.builtin.import_tasks: tasks/maintenance-guard.yml
+
+- name: Qualify the declared Cilium target with the official preflight
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  vars_files:
+    - roles/cilium/defaults/main.yml
+  tasks:
+    - name: Inspect the preflight release before creating it
+      kubernetes.core.helm_info:
+        name: cilium-preflight
+        release_namespace: "{{ cilium_namespace }}"
+      register: cilium_preflight_existing
+
+    - name: Refuse an existing or uncertain preflight release
+      ansible.builtin.assert:
+        that:
+          - cilium_preflight_existing.status is not defined
+        fail_msg: Inspect and recover the existing preflight; do not overwrite it
+
+    - name: Run and remove only this preflight release
+      block:
+        - name: Install the official preflight without production agents or operator
+          kubernetes.core.helm:
+            name: cilium-preflight
+            chart_ref: cilium
+            chart_repo_url: "{{ cilium_repo_url }}"
+            chart_version: "{{ cilium_version }}"
+            release_namespace: "{{ cilium_namespace }}"
+            reset_values: true
+            wait: true
+            wait_timeout: 20m
+            values:
+              agent: false
+              operator:
+                enabled: false
+              preflight:
+                enabled: true
+                tolerations:
+                  - operator: Exists
+              k8sServiceHost: "{{ cilium_values.k8sServiceHost }}"
+              k8sServicePort: "{{ cilium_values.k8sServicePort }}"
+
+        - name: Read the preflight agents
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            kind: DaemonSet
+            namespace: "{{ cilium_namespace }}"
+            name: cilium-pre-flight-check
+          register: cilium_preflight_agents
+
+        - name: Read the preflight policy validator
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            kind: Deployment
+            namespace: "{{ cilium_namespace }}"
+            name: cilium-pre-flight-check
+          register: cilium_preflight_validator
+
+        - name: Require every active inventory node and the validator ready
+          ansible.builtin.assert:
+            that:
+              - cilium_preflight_agents.resources | length == 1
+              - cilium_preflight_validator.resources | length == 1
+              - cilium_preflight_agents.resources[0].status.desiredNumberScheduled == groups['metal'] | length
+              - cilium_preflight_agents.resources[0].status.numberReady == groups['metal'] | length
+              - cilium_preflight_agents.resources[0].status.updatedNumberScheduled == groups['metal'] | length
+              - cilium_preflight_validator.resources[0].status.readyReplicas == 1
+              - cilium_preflight_validator.resources[0].status.updatedReplicas == 1
+      always:
+        - name: Read the release before owned cleanup
+          kubernetes.core.helm_info:
+            name: cilium-preflight
+            release_namespace: "{{ cilium_namespace }}"
+          register: cilium_preflight_cleanup
+
+        - name: Bind cleanup to the selected chart
+          ansible.builtin.assert:
+            that:
+              - cilium_preflight_cleanup.status.chart == 'cilium-' + cilium_version
+          when: cilium_preflight_cleanup.status is defined
+
+        - name: Remove the owned preflight and wait for its resources
+          kubernetes.core.helm:
+            name: cilium-preflight
+            release_namespace: "{{ cilium_namespace }}"
+            state: absent
+            wait: true
+            wait_timeout: 20m
+          when: cilium_preflight_cleanup.status is defined
+
+        - name: Verify the preflight release is absent
+          kubernetes.core.helm_info:
+            name: cilium-preflight
+            release_namespace: "{{ cilium_namespace }}"
+          register: cilium_preflight_removed
+
+        - name: Require completed release cleanup
+          ansible.builtin.assert:
+            that:
+              - cilium_preflight_removed.status is not defined

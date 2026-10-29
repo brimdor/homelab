@@ -14,6 +14,14 @@ They match the repository: one operator, kube-proxy replacement, L2 announcement
 CiliumClusterwideNetworkPolicy resources and no deprecated L7 rule paths in those resources.
 The current rolling limit is two agents. The declared maintenance limit becomes one, with no surge.</p>
 <h2>Narrow owning workflow</h2>
+<p>Official chart-index read at 15:24 UTC on October 29 (run <code>eiq07tdj</code>) selects
+1.15.19, 1.16.19, 1.17.18, 1.18.16, 1.19.10 and 1.20.4 as consecutive latest patches.
+The updated 1.18/1.19 patches supersede the earlier prepared values. Start with 1.15.19 only.
+The new <code>metal/cilium-preflight.yml</code> uses the same inventory ownership guard and
+declared target/API endpoint, then installs the official isolated preflight release through
+Ansible. It refuses an existing release, requires all active inventory agents plus the policy
+validator Ready, and removes only the selected preflight chart in an always block. Verify the
+release and native resources are absent after cleanup; a failed preflight does not authorize upgrade.</p>
 <p>The existing metal/cluster.yml playbook can select only the cilium_install tag. Its always-tagged
 host ownership checks still run for all inventory nodes. K3s, package, PXE, provisioning, automatic
 upgrade and SSH-trust tasks must not be selected. Review the actual task list before execution.
