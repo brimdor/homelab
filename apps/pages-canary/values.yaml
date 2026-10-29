@@ -11,6 +11,7 @@ app-template:
           image:
             repository: busybox
             tag: latest
+            digest: sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e
             pullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -39,6 +40,7 @@ app-template:
           image:
             repository: 10.0.20.11:32309/pages
             tag: "2026-07-13-v1-canary"
+            digest: sha256:b2bc2a7eaaad23fb8b6a079a6dca521dd92555f4bd540c1b1d099400f4ac0eb3
             pullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -84,22 +86,14 @@ app-template:
           image:
             repository: alpine
             tag: latest
+            digest: sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
             pullPolicy: IfNotPresent
           command:
             - /bin/sh
             - -c
             - |
-              echo "[backup] Starting backup sidecar with BACKUP_INTERVAL=${BACKUP_INTERVAL:-86400}s"
-              while true; do
-                  if [ -d /html ] && [ -d /nfs-target ]; then
-                      echo "[backup] Starting rsync to NFS..."
-                      rsync -av --delete /html/ /nfs-target/ 2>&1 || echo "[backup] rsync failed or NFS unavailable"
-                  else
-                      echo "[backup] Directories not ready, skipping"
-                  fi
-                  echo "[backup] Sleeping for ${BACKUP_INTERVAL:-86400}s"
-                  sleep "${BACKUP_INTERVAL:-86400}"
-              done
+              echo "[backup] NAS backup paused by maintenance-103"
+              exec sleep infinity
           env:
             BACKUP_INTERVAL:
               value: "86400"
@@ -155,7 +149,7 @@ app-template:
           path: /mnt/user/pages
       globalMounts:
         - path: /nfs-target
-          readOnly: false
+          readOnly: true
   defaultPodOptions:
     securityContext:
       fsGroup: 1000

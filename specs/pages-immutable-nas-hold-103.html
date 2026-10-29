@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Issue 103: Pages immutable images and NAS hold</title>
+<style>body{background:#10151d;color:#e1e8f1;font:17px system-ui;max-width:1000px;margin:3rem auto;padding:1rem;line-height:1.6}a,code{color:#93c5fd}h1,h2{color:#f9fafb}</style>
+<h1>Pages immutable images and NAS hold</h1>
+<h2>Scope and evidence</h2>
+<p>The canonical maintenance issue 103, task IMMUTABLE_IMAGE_TAGS, requires immutable references for active workloads. Read-only run 9krd__z4 on October 29, 2026 at 09:45 UTC found both Pages backup containers have no /html directory and no rsync executable. Their existing commands therefore skip copying. This is a software defect, not proof of healthy backups or a reason to infer a NAS outage. The earlier blanket claim that every Pages replacement necessarily starts an NFS copy was incorrect for these actual containers.</p>
+<p>Native artifact readback dvma4s6n identifies the exact running Alpine manifest 294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6, Canary BusyBox fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e, and Canary main b2bc2a7eaaad23fb8b6a079a6dca521dd92555f4bd540c1b1d099400f4ac0eb3. Production main and init already have immutable original references. Preserve these bytes, original claims, application configuration, secrets, ingress and resource limits. No registry publication or cleanup is needed.</p>
+<h2>Desired state and rollout</h2>
+<ol>
+<li>Pin only the original observed artifacts. Replace each backup copy loop with an explicit maintenance hold that executes sleep infinity. Mark every /nfs-target mount read-only. Preserve the writable Ceph HTML mount and all PVC/PV identities.</li>
+<li>Render and lint disposable copies of both published charts. Require all rendered resources to match except these image references, backup command and NAS mount read-only flags. Run mab9lh1z passed those assertions for six Canary and five Production resources. Preserve unrelated unpublished working-tree drafts through exact index-only publication.</li>
+<li>Verify the protected original Pages recovery points remain intact, capture current retained-file fingerprints and application HTTP behavior, then commit and push Canary first to canonical Gitea master. Refresh Argo immediately, including the unchanged Emby comparison used by the active Sprigatito observer.</li>
+<li>Require the replacement to retain the original claim/PV and image configuration identities, all containers ready, HTTP behavior and retained-file fingerprints unchanged, and actual NAS mounts read-only. Only after accepted Canary, publish the corresponding Production change and repeat acceptance.</li>
+</ol>
+<h2>Recovery and limits</h2>
+<p>Protected points on Pikachu are pages-files-20261020-1620, manifest b9dfa482bb4deb2cce9fe646c2d6e899d2afa1b9b3de7ca3e7e728a8ea2440f5, and pages-canary-files-20261020-1619, manifest 507695362b635428a38610e185383b69bdc5a5e1d452db1b28f79d3173dc1f5b. Each previously passed two independent full file and metadata restores. This change runs identical application bytes and changes no data format; it is not a database migration or a new claim. Never delete or recreate storage.</p>
+<p>Rollback must preserve the explicit backup hold and read-only NAS protection while reverting any faulty image reference through Git. Do not blindly revert to writable NAS mounts. Protected original data remain untouched. The broken backup source path, absent copy executable, historical init sentinel path and public authenticated API acceptance remain separate findings. Repairing or resuming a real NAS backup requires the existing NAS write restriction to change; neither successful image pinning nor a healthy Pod authorizes that write.</p>
+<p>Status: candidate validated; live rollout and behavior acceptance remain pending. This document does not close IMMUTABLE_IMAGE_TAGS, RECOVERY_PROOF or issue 103.</p>
+</html>
