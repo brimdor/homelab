@@ -341,6 +341,16 @@ def native(context):
                                        context['reference_vectors'], 'installed stdlib acceptance failed')
                     parent = Path(context['recovery']).parent
                     actors.safe(parent)
+                    actors.require(call('findmnt', '-n', '-o', 'UUID', '-T', '/var/lib').decode().strip() ==
+                                   context['identity']['root_uuid'], 'recovery base must be on exact local root')
+                    for directory in (parent.parent, parent):
+                        if not directory.exists():
+                            directory.mkdir(mode=0o700)
+                            actors.fsync_directory(directory.parent)
+                        actors.safe(directory)
+                        actors.require(directory.is_dir() and directory.stat().st_uid == 0 and
+                                       not directory.stat().st_mode & 0o022,
+                                       'unsafe protected recovery directory')
                     actors.require(parent.stat().st_uid == 0 and not parent.stat().st_mode & 0o022 and
                                    call('findmnt', '-n', '-o', 'UUID', '-T', str(parent)).decode().strip() ==
                                    context['identity']['root_uuid'],
