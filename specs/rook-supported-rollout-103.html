@@ -70,6 +70,21 @@ service accounts, so preserve storage driver identities while adopting those acc
 requires corrected Rook/Ceph releases and distinguishes core keys, client keys and service tickets. Determine actual
 generations instead of copying an example value. Kernel support alone does not prove migrated client behavior.</p>
 <h2>Data safety and rollback</h2>
+<p>Fresh protected etcd point <code>storage-patch-20261029-a</code> on Pikachu passed full isolated
+matching-version restoration at 12:40:14 UTC on October 29. Manifest
+<code>ef9beab558d587f8c11087845e17b94ec32f998011ae9b0afea95413c9eb4334</code>;
+snapshot 78446624 bytes. Original point and SELinux labels remained unchanged; owned container,
+scratch and staged copy were removed. The temporary MON_DISK_LOW warning exposed Pikachu's small
+root free-space margin; HEALTH_OK returned at 12:44:12 UTC after cleanup. Keep the original warning.</p>
+<p>Before pulling storage-upgrade images, use the existing maintenance_completed_caches.py workflow
+with the newly reviewed Pikachu profile, only after Sprigatito releases the global owner. Native checks
+bind Pikachu's original machine/root, Enforcing Fedora 44 and exact completed final release hash chain.
+Refuse active package actors, offline transactions, foreign mounts or ownership. Native DNF5 and legacy
+DNF clean only their explicit /var/cache directories. Verify protected recovery metadata remains exact
+and report actual free bytes afterward. No recovery point, native container image, installed package,
+log, NAS data or configuration is selected. Cached metadata can be downloaded again; no data rollback
+is needed. References: <a href="https://dnf5.readthedocs.io/en/latest/commands/clean.8.html">DNF5 clean</a>
+and <a href="https://dnf.readthedocs.io/en/latest/command_ref.html#clean-command-label">DNF clean</a>.</p>
 <p>Publish every stage to canonical Gitea master before Argo applies it. Keep existing CephCluster, pool, filesystem,
 OSD, PVC/PV and snapshot identities; preserve replica counts, disruption budgets, retained storage and cleanup refusal.
 No NAS writes, registry publication/cleanup/restart, device removal, PG tuning, weakened SELinux, hidden findings or
