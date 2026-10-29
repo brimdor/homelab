@@ -20,13 +20,27 @@ from maintenance_node_drain import ZOT, hashed, private_json
 # The first production stage cannot cross the unresolved upstream etcd 3.6 gate.
 SOURCE, TARGET = contract.VERSIONS[:2]
 SERVERS = ('charmander', 'squirtle', 'bulbasaur')
+HOSTS = contract.ORDER
 AUTH_WARNINGS = {'AUTH_INSECURE_CLIENT_KEY_TYPE', 'AUTH_INSECURE_KEYS_ALLOWED',
                  'AUTH_INSECURE_KEYS_CREATABLE', 'AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE'}
+
+
+def configuration_receiver(node):
+    """Pikachu's own backup uses the other existing trusted off-node receiver."""
+    actors.require(node in HOSTS, 'unreviewed configuration source')
+    if node == 'pikachu':
+        return {'name': 'totodile', 'address': '10.0.20.17',
+                'machine': '0f1915a59a124d999d8d68b53f406af1',
+                'root_uuid': '489f1af8-5d55-4356-8d48-418fcb2069a2'}
+    return {'name': 'pikachu', 'address': '10.0.20.14',
+            'machine': '0a7daf8b33244d9d85f46223c3582da9',
+            'root_uuid': '76e53a95-725a-4430-9d7b-a8db413f3997'}
 
 
 def backup_node(args):
     """Stream only K3s executable/configuration to an existing trusted off-node receiver."""
     import maintenance_production_node as production
+    receiver_profile = configuration_receiver(args.node)
     point = '/var/lib/homelab-recovery/maintenance-103/k3s-config-' + args.node + '-' + uuid.uuid4().hex
     header = {'node': args.node, 'node_uid': production.UID, 'identity': production.IDENTITY, 'version': SOURCE}
     sender_program = r'''
@@ -54,9 +68,9 @@ assert all(hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==v['sha256']
 '''
     receiver_program = '''
 import hashlib,json,os,pathlib,socket,stat,subprocess,sys,tarfile
-assert os.geteuid()==0 and socket.gethostname()=='pikachu'
-assert pathlib.Path('/etc/machine-id').read_text().strip()=='0a7daf8b33244d9d85f46223c3582da9'
-assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='76e53a95-725a-4430-9d7b-a8db413f3997'
+assert os.geteuid()==0 and socket.gethostname()==RECEIVER['name']
+assert pathlib.Path('/etc/machine-id').read_text().strip()==RECEIVER['machine']
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==RECEIVER['root_uuid']
 point=pathlib.Path(POINT)
 assert not any(p.is_symlink()for p in(point,*point.parents))and not point.exists()
 assert point.parent.is_dir()and point.parent.stat().st_uid==0 and stat.S_IMODE(point.parent.stat().st_mode)==0o700
@@ -76,7 +90,7 @@ with tarfile.open(point/'config.tar')as archive:
   expected=value['files']['/'+member.name]
   assert member.isfile()and member.uid==0 and member.size==expected['size']
   assert hashlib.sha256(archive.extractfile(member).read()).hexdigest()==expected['sha256']
-value.update(point=POINT,receiver='pikachu',archive_sha256=digest.hexdigest(),bytes=total,accepted=True)
+value.update(point=POINT,receiver=RECEIVER['name'],archive_sha256=digest.hexdigest(),bytes=total,accepted=True)
 raw=json.dumps(value,sort_keys=True).encode()
 with(point/'verified.json').open('xb')as output:
  os.fchmod(output.fileno(),0o600);output.write(raw);output.flush();os.fsync(output.fileno())
@@ -87,10 +101,10 @@ print(raw.decode())
     sender = receiver = None
     try:
         sender_program = 'HEADER=' + repr(header) + '\nEXPECTED_SHA=' + repr(contract.SHA256[SOURCE]) + '\n' + sender_program
-        receiver_program = 'POINT=' + repr(point) + '\nHEADER=' + repr(header) + '\n' + receiver_program
+        receiver_program = 'RECEIVER=' + repr(receiver_profile) + '\nPOINT=' + repr(point) + '\nHEADER=' + repr(header) + '\n' + receiver_program
         sender = subprocess.Popen(production.ssh(args) + ['python3 -B -c ' + shlex.quote(sender_program)],
                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        receiver = subprocess.Popen(production.ssh(args, '10.0.20.14') +
+        receiver = subprocess.Popen(production.ssh(args, receiver_profile['address']) +
             ['python3 -B -c ' + shlex.quote(receiver_program)], stdin=sender.stdout,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         sender.stdout.close(); output, _ = receiver.communicate(); sender.wait()
@@ -109,36 +123,60 @@ def verify_recovery(args, nodes, fresh=False):
     """Re-read original protected data; a local success receipt alone cannot authorize activation."""
     import etcd_recovery
     import maintenance_production_node as production
+    actors.require(args.node in HOSTS, 'unreviewed recovery target')
+    versions = {n['metadata']['name']: n['status']['nodeInfo']['kubeletVersion'] for n in nodes}
+    actors.require(set(versions) == set(HOSTS) and len(nodes) == len(HOSTS), 'recovery inventory differs')
+    contract.next_node(nodes, SOURCE, TARGET)
+    snapshot_version = SOURCE if args.node in SERVERS else TARGET
+    actors.require(args.node in SERVERS or all(versions[n] == TARGET for n in SERVERS),
+                   'finish all servers before worker recovery')
     copied = json.loads(Path(args.recovery_copy).read_bytes())
     restored = json.loads(Path(args.recovery_receipt).read_bytes())
     config = json.loads(Path(args.node_recovery).read_bytes())
     actors.require(copied.get('accepted') is True and copied.get('phase') == 'protected-copy' and
                    restored.get('accepted') is True and restored.get('phase') == 'full-restore' and
-                   copied['manifest_sha256'] == restored['manifest_sha256'] and restored['version'] == SOURCE and
+                   copied['manifest_sha256'] == restored['manifest_sha256'] and
+                   restored['version'] == snapshot_version and
                    all(restored.get(k) is True for k in ('protected_point_unchanged',
                        'protected_point_labels_unchanged', 'protected_secret_readback_matches')) and
-                   all(restored['cleanup'].values()) and copied['metadata']['version'] == SOURCE and
+                   all(restored.get('cleanup', {}).get(k) is True for k in
+                       ('container_absent', 'scratch_absent', 'staged_copy_absent')) and
+                   copied['metadata']['version'] == snapshot_version and
+                   copied['metadata']['source_host'] in SERVERS and
+                   (args.node in SERVERS or versions[copied['metadata']['source_host']] == snapshot_version) and
                    copied['metadata']['nodes'] == {n['metadata']['name']: n['metadata']['uid'] for n in nodes},
                    'matching protected source restore evidence differs')
+    receiver = configuration_receiver(args.node)
     actors.require(config.get('accepted') is True and config['header'] == {
         'node': args.node, 'node_uid': production.UID, 'identity': production.IDENTITY, 'version': SOURCE} and
-        config['receiver'] == 'pikachu' and config['files']['/usr/local/bin/k3s']['sha256'] == contract.SHA256[SOURCE],
+        config['receiver'] == receiver['name'] and
+        config['files']['/usr/local/bin/k3s']['sha256'] == contract.SHA256[SOURCE],
         'off-node K3s executable/configuration recovery differs')
+    profile = etcd_recovery.recovery_profile(copied['metadata']['source_host'],
+                                            snapshot_version, versions['pikachu'])
     source = Path(etcd_recovery.__file__).read_text().rsplit('\nif __name__ == "__main__":', 1)[0]
-    program = source + '\n' + '''
-require_host('pikachu', VERSION)
+    program = source + '\nconfigure_profile(**PROFILE)\n' + """
+require_host('pikachu', RECEIVER_VERSION)
 point=Path(COPIED['point']);manifest=verify_point(point,COPIED['manifest_sha256'])
 assert manifest['metadata']==COPIED['metadata']
 if FRESH:assert 0<=time.time()-manifest['metadata']['snapshot_mtime_ns']/1e9<3600
+print(json.dumps({'protected_point_unchanged':True}))
+"""
+    production.remote(args, 'COPIED=' + repr(copied) + '\nPROFILE=' + repr(profile) +
+        '\nFRESH=' + repr(fresh) + '\n' + program, '10.0.20.14')
+    program = source + '\n' + """
+assert os.geteuid()==0 and socket.gethostname()==RECEIVER['name']
+assert Path('/etc/machine-id').read_text().strip()==RECEIVER['machine']
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==RECEIVER['root_uuid']
 private_root();root=Path(CONFIG['point'])
 assert root.parent==ROOT and not any(p.is_symlink()for p in(root,*root.parents))
 assert stat.S_IMODE(root.stat().st_mode)==0o700
 assert json.loads((root/'verified.json').read_bytes())==CONFIG
 assert source_record('config.tar',root/'config.tar')[0]['sha256']==CONFIG['archive_sha256']
-print(json.dumps({'protected_points_unchanged':True}))
-'''
-    production.remote(args, 'COPIED=' + repr(copied) + '\nCONFIG=' + repr(config) +
-        '\nFRESH=' + repr(fresh) + '\n' + program, '10.0.20.14')
+print(json.dumps({'protected_configuration_unchanged':True}))
+"""
+    production.remote(args, 'import socket\nCONFIG=' + repr(config) + '\nRECEIVER=' +
+                      repr(receiver) + '\n' + program, receiver['address'])
     return {'etcd': copied, 'restored': restored, 'configuration': config}
 
 
@@ -271,7 +309,7 @@ def native_operation(context):
         ('api', 'controller', 'hold', 'owner', 'native', 'identity', 'rpc'))
     operation, root = context['operation'], hold.state
     actors.require(owner.get('component') == 'k3s' and (owner['source'], owner['target']) == (SOURCE, TARGET)
-                   and owner['node'] in SERVERS, 'unreviewed production bridge stage')
+                   and owner['node'] in HOSTS, 'unreviewed production bridge stage')
     journal = hops.Journal(controller, hold, owner['owner'])
     before_path = root / ('k3s-before-' + owner['owner'] + '.json')
     def evidence(kind='prerequisites'):
@@ -339,6 +377,11 @@ def native_operation(context):
                 worker.attach(plan)
             removed = lambda ref: rpc('removed_completed_job', ref=ref)
             result = worker.advance(digest, verifier(value), verify_removed=removed)
+            ref = result.get('queued')
+            if (ref and ref['namespace'] == 'rook-ceph' and
+                    ref.get('controller', {}).get('kind') == 'ReplicaSet' and
+                    ref['controller']['name'].startswith('rook-ceph-osd-')):
+                result['owned_osd_protection'] = rpc('await_osd_protection', ref=ref)
             if result.get('complete'):
                 accepted = dict(result)
                 journal.accept(result['parent_intent']['sha256'], hashed(accepted),
@@ -418,7 +461,19 @@ def observe(args, api, owner, kind):
     cp = quorum(args, {name: versions[name] for name in SERVERS})
     health = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'health', '-f', 'json')
     warnings = set(health.get('checks', {}))
-    actors.require(health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and warnings <= AUTH_WARNINGS,
+    actors.require(not health.get('mutes') and
+                   all(c.get('severity') == 'HEALTH_WARN' for c in health.get('checks', {}).values()) and
+                   health['status'] == ('HEALTH_WARN' if warnings else 'HEALTH_OK'),
+                   'Ceph health severity, status or mute differs')
+    owned_osd = None
+    if owner['node'] in production.OSD_RECOVERY:
+        import maintenance_osd_host
+        maintenance_osd_host.native_identity(args, node=owner['node'])
+        owned_osd = maintenance_osd_host.observe(api, node=owner['node'], k3s_bridge=True)
+        actors.require(owned_osd['health'] == health['status'] and
+                       set(owned_osd['health_findings']) == warnings and
+                       owned_osd['checked_pgs'] == 177, 'OSD evidence changed during collection')
+    actors.require(owned_osd is not None or (health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and warnings <= AUTH_WARNINGS),
                    'new Ceph health finding')
     cluster = api.call('get', 'cephcluster', 'rook-ceph', '-n', 'rook-ceph', '-o', 'json')
     csi = cluster['status']['cephx']['csi']
@@ -428,11 +483,16 @@ def observe(args, api, owner, kind):
                    'staged CSI key migration identity differs')
     pg = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'pg', 'stat', '-f', 'json')['pg_summary']
     actors.require(pg['num_pgs'] == 177 and sum(s['num'] for s in pg['num_pg_by_state']) == 177 and
-                   all({'active', 'clean'} <= set(s['name'].split('+')) <=
-                   {'active', 'clean', 'scrubbing', 'deep'} for s in pg['num_pg_by_state']), 'PGs are not clean')
+                   (owned_osd is not None or all({'active', 'clean'} <= set(s['name'].split('+')) <=
+                   {'active', 'clean', 'scrubbing', 'deep'} for s in pg['num_pg_by_state'])), 'PGs are not clean')
     osds = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'osd', 'dump', '-f', 'json')
     actors.require({o['osd'] for o in osds['osds']} == {1, 2, 6, 7, 8} and
-                   all(o['up'] == o['in'] == 1 for o in osds['osds']), 'OSD membership or availability differs')
+                   (owned_osd is not None or all(o['up'] == o['in'] == 1 for o in osds['osds'])),
+                   'OSD membership or availability differs')
+    if owned_osd is not None:
+        actors.require(maintenance_osd_host.bridge_data_plane(osds) == owned_osd['data_plane'] and
+                       {s['name']: s['num'] for s in pg['num_pg_by_state']} == owned_osd['pg_states'],
+                       'OSD or PG state changed during collection')
     held = []
     for item in api.call('get', 'deployments,statefulsets', '-A', '-o', 'json')['items']:
         status, meta = item.get('status', {}), item['metadata']; desired = item['spec'].get('replicas', 1)
@@ -475,7 +535,9 @@ def observe(args, api, owner, kind):
             (a['status']['health']['status'] == 'Healthy' or
              a['metadata']['name'] == 'rook-ceph' and bool(warnings)) for a in applications), 'Argo recovery incomplete')
     return {'nodes': {name: n['metadata']['uid'] for name, n in current.items()}, 'versions': versions,
-            'ceph': health['status'], 'auth_migration_findings': sorted(warnings), 'clean_pgs': 177,
+            'ceph': health['status'], 'auth_migration_findings': sorted(warnings & AUTH_WARNINGS),
+            'owned_osd_findings': sorted(warnings - AUTH_WARNINGS) if owned_osd else [],
+            'clean_pgs': owned_osd['clean_pgs'] if owned_osd else 177,
             'held_target_controllers': sorted(held),
             'etcd_members': sorted(m['ID'] for m in cp['members']['members']), 'zot_preserved': True}
 
@@ -487,7 +549,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'prepare-binary',
         'activate-binary', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'accept-applications', 'release'))
-    parser.add_argument('--node', choices=SERVERS, required=True)
+    parser.add_argument('--node', choices=HOSTS, required=True)
     for name in ('kubectl', 'identity', 'known-hosts'):
         parser.add_argument('--' + name, required=True)
     for name in ('recovery-receipt', 'recovery-copy', 'node-recovery'):
@@ -498,7 +560,7 @@ def main():
                    revision, 'publish reviewed controller before execution')
     names = (*production.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary', 'maintenance_k3s_production')
     bundle = {}
-    for name in (*names, 'maintenance_production_node', 'maintenance_control_plane', 'maintenance_api_reader', 'etcd_recovery'):
+    for name in (*names, 'maintenance_production_node', 'maintenance_control_plane', 'maintenance_api_reader', 'etcd_recovery', 'maintenance_osd_host'):
         path = 'metal/scripts/' + name + '.py'; published = subprocess.check_output(['git', 'show', revision + ':' + path])
         actors.require(Path(path).read_bytes() == published, 'unpublished production dependency: ' + path)
         if name in names:

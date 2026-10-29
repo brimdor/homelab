@@ -46,7 +46,9 @@ class K3sContractTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             journal.steps({'component': 'k3s', 'source': 44, 'target': 44})
 
-    def test_servers_then_workers_and_last_two_tainted_nodes(self):
+    def test_servers_then_owner_prioritized_sprigatito_then_other_workers(self):
+        self.assertEqual(contract.ORDER, ('charmander', 'squirtle', 'bulbasaur', 'sprigatito',
+                         'pikachu', 'cyndaquil', 'totodile', 'growlithe', 'arcanine'))
         source, target = contract.VERSIONS[:2]
         nodes = [{'metadata': {'name': name, 'uid': name + '-uid'},
                   'status': {'nodeInfo': {'kubeletVersion': source}}} for name in contract.ORDER]

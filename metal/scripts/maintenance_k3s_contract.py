@@ -14,8 +14,9 @@ SHA256 = dict(zip(VERSIONS, (
 )))
 # Keep the last reviewed etcd 3.5 K3s release before the embedded 3.6 transition.
 ETCD = dict(zip(VERSIONS, ('3.5.21', '3.5.26', '3.6.14', '3.6.14', '3.6.14', '3.6.14')))
-ORDER = ('charmander', 'squirtle', 'bulbasaur', 'pikachu', 'cyndaquil',
-         'totodile', 'growlithe', 'arcanine', 'sprigatito')
+# Owner prioritized Sprigatito immediately after the active Bulbasaur transition.
+ORDER = ('charmander', 'squirtle', 'bulbasaur', 'sprigatito', 'pikachu',
+         'cyndaquil', 'totodile', 'growlithe', 'arcanine')
 STEPS = ('cordon', 'drain', 'prepare_binary', 'activate_binary',
          'verify_infrastructure', 'restore_scheduling', 'accept_applications')
 

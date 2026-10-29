@@ -31,11 +31,11 @@ class RuntimeTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(RuntimeError, 'protected host state'):
                 production.unchanged_runtime(self.before, changed)
 
-    def test_production_cannot_cross_etcd_36_gate_or_touch_an_osd_host(self):
+    def test_production_cannot_cross_etcd_36_gate_or_touch_unknown_host(self):
         class Hold:
             state = None
         for node, source, target in (('charmander', contract.VERSIONS[1], contract.VERSIONS[2]),
-                                     ('cyndaquil', production.SOURCE, production.TARGET)):
+                                     ('unknown', production.SOURCE, production.TARGET)):
             context = dict.fromkeys(('api', 'controller', 'native', 'identity', 'rpc'))
             context.update(hold=Hold(), operation='activate-binary', owner={
                 'component': 'k3s', 'node': node, 'source': source, 'target': target})
@@ -207,7 +207,7 @@ class SchedulingRecoveryTests(unittest.TestCase):
         context = {'api': nodes, 'controller': api.controller(), 'hold': hold, 'owner': owner,
                    'native': None, 'identity': lambda: dict(IDENTITY), 'rpc': evidence,
                    'operation': 'restore-scheduling'}
-        with patch.object(production, 'SERVERS', ('fixture-a',)), \
+        with patch.object(production, 'HOSTS', ('fixture-a',)), \
                 patch.object(hops, 'Journal', return_value=journal):
             output = io.StringIO()
             with redirect_stdout(output):

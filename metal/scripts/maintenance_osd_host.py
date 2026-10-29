@@ -69,7 +69,8 @@ def wait_for_protection(api, node, owner, ref):
     require(state['metadata']['uid'] == STATE_UID and
             state['data'].get('draining-failure-domain') == node and
             state['data'].get('set-no-out') == 'true', 'Rook protection wait did not match this host')
-    accepted = observe(api, node=node)
+    accepted = (observe(api, node=node, k3s_bridge=True)
+                if owner.get('component') == 'k3s' else observe(api, node=node))
     current = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
                        'ceph', 'osd', 'dump', '--format', 'json')
     require(accepted['owner'] == owner['owner'] and current['fsid'] == FSID and
@@ -86,11 +87,23 @@ POOLS = {1: ('standard-rwo', 2, 1, 1), 2: ('standard-rwx-metadata', 2, 1, 2),
          3: ('standard-rwx-data0', 2, 1, 3), 4: ('.mgr', 3, 2, 0)}
 BASE_FLAGS = {'pglog_hardlimit', 'purged_snapdirs', 'recovery_deletes', 'sortbitwise'}
 WARNING_CHECKS = {'OSD_DOWN', 'OSD_HOST_DOWN', 'PG_DEGRADED', 'OSD_FLAGS'}
+# Keep authentication migration findings visible; never allow them for Fedora work.
+K3S_AUTH_WARNINGS = {'AUTH_INSECURE_CLIENT_KEY_TYPE', 'AUTH_INSECURE_KEYS_ALLOWED',
+                     'AUTH_INSECURE_KEYS_CREATABLE', 'AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE'}
 CLEAN_STATES = {'active', 'clean', 'scrubbing', 'deep'}
 OWNED_STATES = CLEAN_STATES | {'undersized', 'degraded', 'recovering', 'recovery_wait'}
 
 
-def validate(value, now=None, node=NODE):
+
+def bridge_data_plane(osdmap):
+    return {'fsid': osdmap['fsid'],
+            'osds': sorted([{k: o.get(k) for k in ('osd', 'uuid', 'up', 'in', 'weight', 'state')}
+                            for o in osdmap['osds']], key=lambda o: o['osd']),
+            'flags_set': sorted(osdmap['flags_set']), 'crush_node_flags': osdmap['crush_node_flags'],
+            'device_class_flags': osdmap['device_class_flags']}
+
+
+def validate(value, now=None, node=NODE, *, k3s_bridge=False):
     """Reject any degradation outside the exact owned, cordoned failure domain."""
     profile = profile_for(node)
     node_name, node_uid = node, profile['node_uid']
@@ -116,10 +129,24 @@ def validate(value, now=None, node=NODE):
     owner = json.loads(raw) if raw else None
     owned = bool(owner and owner.get('node') == node_name)
     if owned:
+        versions = (owner.get('source'), owner.get('target'))
+        supported = (owner.get('component', 'fedora') == 'fedora' and
+                     versions in ((39, 41), (41, 43), (43, 44))) or (
+                     k3s_bridge and owner.get('component') == 'k3s' and
+                     versions == ('v1.33.6+k3s1', 'v1.33.10+k3s1'))
         require(owner.get('node_uid') == node_uid and re.fullmatch(
-            r'homelab-maintenance-103-[0-9a-f-]{36}', owner.get('owner', '')) and
-            (owner.get('source'), owner.get('target')) in ((39, 41), (41, 43), (43, 44)),
+            r'homelab-maintenance-103-[0-9a-f-]{36}', owner.get('owner', '')) and supported,
             'OSD maintenance owner differs')
+    if k3s_bridge:
+        from maintenance_k3s_contract import VERSIONS
+        require(owner is None or owned and owner.get('component') == 'k3s' and
+                (owner.get('source'), owner.get('target')) == VERSIONS[:2],
+                'foreign K3s OSD bridge owner')
+        csi = cluster.get('status', {}).get('cephx', {}).get('csi', {})
+        require(cluster.get('status', {}).get('phase') == 'Ready' and
+                csi.get('keyGeneration') == 1 and csi.get('keyType') == 'aes256k' and
+                csi.get('priorKeyCount') == 1 and csi.get('keyCephVersion') == '20.2.4-0',
+                'K3s OSD staged CSI migration differs')
     cordoned = node['spec'].get('unschedulable') is True
     maintenance = owned and cordoned
     osdmap, quorum, health, pgs = value['map'], value['quorum'], value['health'], value['pgs']
@@ -156,16 +183,23 @@ def validate(value, now=None, node=NODE):
                 'another failure domain owns Rook disruption protection')
     checks = health.get('checks', {})
     require(not health.get('mutes'), 'muted Ceph findings prevent maintenance acceptance')
+    auth_findings = set(checks) & K3S_AUTH_WARNINGS if k3s_bridge else set()
+    require(not auth_findings or health['status'] == 'HEALTH_WARN',
+            'authentication migration health status differs')
+    allowed_checks = WARNING_CHECKS | auth_findings
     if maintenance:
-        require(health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and set(checks) <= WARNING_CHECKS and
+        require(health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and set(checks) <= allowed_checks and
                 all(c.get('severity') == 'HEALTH_WARN' for c in checks.values()),
                 'unexpected Ceph health finding during owned OSD maintenance')
         require(not (set(checks) & {'OSD_DOWN', 'OSD_HOST_DOWN'}) or down and down <= set(targets),
                 'OSD health warning does not match observed down target')
         require('OSD_FLAGS' not in checks or flags == {node_name: ['noout']}, 'OSD flag warning is not owned')
     else:
-        require(health['status'] == 'HEALTH_OK' and not checks and not down and not flags,
-                'OSD host requires fully recovered HEALTH_OK')
+        require((health['status'] == 'HEALTH_OK' and not checks or
+                 k3s_bridge and health['status'] == 'HEALTH_WARN' and bool(auth_findings) and
+                 set(checks) == auth_findings and
+                 all(c.get('severity') == 'HEALTH_WARN' for c in checks.values())) and
+                not down and not flags, 'OSD host requires fully recovered data plane')
     pools = {str(p['pool']): p for p in osdmap['pools']}
     require(set(pools) == {str(i) for i in POOLS} and all(p['type'] == 1 and
             (p['pool_name'], p['size'], p['min_size'], p['crush_rule']) == POOLS[int(i)]
@@ -214,16 +248,26 @@ def validate(value, now=None, node=NODE):
     else:
         result.update(osds={str(i): OSDS[i] for i in targets},
                       managed_deployment_uids=sorted(targets.values()))
+    if k3s_bridge:
+        result.update(auth_migration_findings=sorted(auth_findings), health=health['status'],
+                      health_findings=sorted(checks), checked_pgs=len(pgs),
+                      data_plane=bridge_data_plane(osdmap),
+                      pg_states={name: sum(p['state'] == name for p in pgs)
+                                 for name in {p['state'] for p in pgs}},
+                      clean_pgs=sum('clean' in p['state'].split('+') for p in pgs))
+        if not owned and auth_findings:
+            result['scope'] = 'K3S_AUTH_MIGRATION'
     return result
 
 
-def observe(api, node=NODE):
+def observe(api, node=NODE, *, k3s_bridge=False):
     """No mutations: gather complete native Ceph and controller evidence."""
     if node == 'sprigatito':
         from maintenance_sprigatito_evacuation import collect, validate as evacuation_validate
         value = collect(api)
         target = next(o for o in value['map']['osds'] if o['osd'] == 7)
         if target['in'] == 0:
+            require(not k3s_bridge, 'K3s bridge requires original OSD7 up and in')
             raw = value['kured']['metadata'].get('annotations', {}).get(JOURNAL)
             owner = json.loads(raw) if raw else None
             profile = profile_for(node)
@@ -263,13 +307,13 @@ def observe(api, node=NODE):
         require(recovered['map'] == value['map'] and recovered['temporary_removed'],
                 'OSD map changed during offline attribution or native cleanup failed')
         value['restored_mapping'] = parse_mapping(recovered['mapping'])
-    return validate(value, node=node)
+    return validate(value, node=node, k3s_bridge=k3s_bridge)
 
 
 # Ceph's --mark-up changes only the copied map in memory; never use --save.
 OFFLINE_MAPPING = r'''
 import tempfile,subprocess,pathlib,json,hashlib,sys
-targets=sys.argv[1:];assert targets in (['1'],['6'],['2','8'])
+targets=sys.argv[1:];assert targets in (['1'],['6'],['2','8'],['7'])
 with tempfile.TemporaryDirectory(prefix='maintenance103-readonly-osdmap-') as directory:
  path=pathlib.Path(directory)/'map'
  subprocess.run(['ceph','osd','getmap','-o',str(path)],check=True,capture_output=True)

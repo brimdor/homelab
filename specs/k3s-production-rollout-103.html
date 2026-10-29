@@ -4,7 +4,7 @@
 <title>Issue 103: serial K3s production maintenance</title>
 <style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}code{overflow-wrap:anywhere}</style>
 <h1>Issue 103: serial K3s production maintenance</h1>
-<p>October 29, 2026. Charmander and Squirtle's first production bridge is accepted and released;
+<p>October 29, 2026. All three servers' first production bridge is accepted and released;
 the other seven nodes and later version hops remain pending.
 This implements the already authorized K3S_CILIUM task, following accepted Cilium 1.20.4 and
 CSI compatibility. All nine Fedora 44 OS maintenance actions are complete and are not repeated.</p>
@@ -38,22 +38,40 @@ intent/acceptance journal, exact Node UID scheduling, PDB-respecting UID/RV-boun
 and ordered safe release. The owner explicitly names component k3s and exact string versions.
 It cannot masquerade as a Fedora 44-to-44 operation or select package/offline-reboot steps.
 Host machine/root/MAC and strict SSH anchors remain bound to the reviewed production profiles.</p>
-<p>For each version: Charmander, Squirtle, Bulbasaur (all servers), then Pikachu, Cyndaquil,
-Totodile, Growlithe, Arcanine, Sprigatito. Finish acceptance and release of the current node
+<p>For each version: Charmander, Squirtle, Bulbasaur (all servers), then Sprigatito, Pikachu,
+Cyndaquil, Totodile, Growlithe, Arcanine. The owner explicitly prioritized Sprigatito next
+on October 29 while Bulbasaur was active; finish Bulbasaur acceptance and release first. Finish acceptance and release of the current node
 before another node. Preserve Mon/Wed/Fri Kured configuration. Any uncertain mutation remains
 pending for observation; never replay an activation, eviction, ownership or release blindly.</p>
 <h2>Per-node execution</h2>
-<p>The initial component controller is deliberately bounded to the three non-OSD servers
-and v1.33.6 to v1.33.10. It composes the existing ownership, scheduling, drain, binary and
-release journals. It cannot dispatch an OSD-host or etcd 3.6 transition. Before ownership,
-it checks the original protected snapshot and matching restore, an off-node archive of the
-current executable/configuration, native host identity and runtime. Fresh snapshot age is
-required before acquisition and activation. A new PID with unchanged boot, configuration,
-unit and SELinux enforcement is required after restart; packed and running executable
-hashes are distinct. Native stargz plugin and actual running task snapshotters are checked.</p>
+<p>The component controller remains bounded to v1.33.6 to v1.33.10; it cannot dispatch
+the unresolved etcd 3.6 transition. Its first deployment covered the three servers. The worker
+extension keeps the same ownership, scheduling, drain, binary and release journals across
+all nine exact inventory hosts. A worker cannot acquire ownership until all three servers
+report the target version and the preceding node's owner has been released.</p>
+<p>Before ownership and activation, re-read original protected recovery points. Server
+transitions require a matching source-version etcd restore. Worker transitions require
+a matching restore of the already-upgraded control plane, separately from the worker's
+source-version executable/configuration archive. Pikachu's archive goes to the existing
+trusted Totodile receiver; every other node's archive goes to Pikachu. Exact host machine/root
+identities, private non-NFS storage, archive member hashes and unchanged original point
+readback remain mandatory. Require all three explicit restore-cleanup receipts and a snapshot
+younger than one hour before acquisition and activation.</p>
+<p>After activation, require a new service PID with unchanged boot, configuration, unit and
+SELinux enforcement; packed and running executable hashes remain distinct. Native stargz
+plugin and actual running task snapshotters are checked.</p>
 <p>Four explicitly tracked Ceph authentication migration checks remain visible while CSI
-generation 1 retains its prior key. They do not excuse other Ceph warnings, unclean PGs,
-missing OSDs, or application failures. Target-only pinned controllers may wait during cordon;
+generation 1 retains its prior key. Non-OSD maintenance still requires all 177 PGs clean
+and all five original OSDs up/in. For an owned, cordoned OSD host only, the existing native
+OSD interval validator requires exact disk/partition/OSD identities, all PG mappings and
+surviving replicas at each pool's reviewed minimum. It permits only that host's expected
+temporary degradation under Rook's own timestamped 90-minute noout protection. The agent
+does not set flags. After each committed OSD eviction, wait for the matching Rook state
+and actual CRUSH flag before another operation. Recheck collected OSD and PG state for drift.
+No foreign warnings, mutes, lost quorum, unrelated OSD failure or unsafe replica mapping
+is accepted. Uncordoned acceptance requires all OSDs recovered, clean full replicas and
+all temporary protection cleared. Actual clean PG counts and temporary findings remain visible.
+Target-only pinned controllers may wait during cordon;
 all must return before release. Cilium HTTP/ICMP host and endpoint mesh, cluster DNS, internal
 Gitea health, TLS/L2 Gitea behavior, CSI registration and exact Zot native identity remain gates.</p>
 <p>Native read-only jggajt0k at 17:02 UTC on October 29 bound all nine installed source
@@ -269,4 +287,13 @@ their owned scratch. No production state was changed by either test.</p>
 <a href="https://update.k3s.io/v1-release/channels">official channels</a>,
 <a href="https://rook.io/docs/rook/v1.21/Storage-Configuration/Advanced/cephx-key-rotation/">Rook CephX rotation</a>,
 <a href="k3s-stargz-qualification-103.html">retained stargz qualification</a>.</p>
+<h2>Bulbasaur accepted; Sprigatito next</h2>
+<p>Bulbasaur completed the seven native steps and all five ordered ownership-release records. Independent acceptance finished at 2026-10-29T22:06:26.257877+00:00. Exact host machine/root identity, original boot, SELinux Enforcing, service configuration and unit remain unchanged. Installed official 1.33.10 binary SHA-256 is cc435a91072e90680ccea689d4f491ac254ce62f658445a1ccfc2244fce667e1; running executable SHA-256 is 1d77b598d36ad7233b269020ad66c668f5d63799ad04c08267842e7d8fe2e791. The release chain head is 7cb9c9437a1fdd1a0a7fdad7c917a078d5b34e1e28f619ce117c4461b079397c.</p>
+<p>The original drain accounted for 17 controller-owned relocations. Strata's recurring readiness failure interrupted prerequisites; the same drain journal resumed without replaying evictions. Fresh protected recovery ie7trnrn restored 9 Nodes and 72 Namespaces, matched protected-secret readback, retained original material and passed all three cleanup checks. Post-drain evidence found zero Ceph filesystem mounts and RBD devices before preparation.</p>
+<p>Activation ran once. Its first observer stopped before host acceptance because Kured temporarily reported eight Ready instances. Observation xogk8c5x proved nine Ready instances with original configuration and ownership, then accepted the target without replaying activation. Scheduling restoration dispatched once, then its observation paused during Strata's 22:00 readiness recurrence. Final run pztzc2z1 waited for all 126 expected controllers and observed the pending restoration without replaying it.</p>
+<p>Independent final checks preserve all 57 original bound PV/claim/backend identities, three healthy etcd members, all five original OSDs and 177 clean placement groups, protected Zot process/container/storage, and the original Monday/Wednesday/Friday Kured schedule with ownership absent. The three known Ceph authentication migration findings remain visible. This is not whole-homelab GREEN.</p>
+<p>Worker/OSD source fixture xh4dyue2 passed 104 tests with one existing Linux-only RAM-descriptor test skipped on macOS. Combined worker/OSD/Emby fixture 5vktg8gv passed 110 tests with that same skip. Its first fixture u1b_wbpg lacked the shared CORE parser; corrected fixtures include the actual parser. No native RAM-descriptor test is claimed from this Mac run.</p>
+<h2>Sprigatito completion scope</h2>
+<p>The owner placed Sprigatito immediately after Bulbasaur. No other worker may acquire ownership first. Current identity hkn1u66_ verifies the original root/disk/OSD7 identity, Fedora 44, SELinux Enforcing, no failed units and K3s 1.33.6. No matched SATA-reset or I/O-error signal appeared in the queried current boot; this does not establish a historical hardware cause. Earlier Fedora, protected Emby recovery, confined GPU access and Python repair are accepted actions.</p>
+<p>Complete protected K3s configuration and matching control-plane restore, cordon and serial drain, zero old Ceph clients, official binary activation and native infrastructure acceptance. Restore scheduling, original OSD7 and all clean replicas with no temporary flags. Accept returned Emby API, six actual read-only NAS mounts, idle paused backup task, SELinux/MCS/seccomp, NVML, CUDA/NVENC media, local transcode write/read/delete, and resumed ordinary CronJobs before accepting this node's local bridge. Preserve recovery material and every original PV identity. Later K3s/etcd hops and final Ceph key retirement retain their cluster-wide dependencies; a first bridge does not complete those tasks.</p>
 </html>
