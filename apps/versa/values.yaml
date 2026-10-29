@@ -11,7 +11,7 @@ app-template:
       forceRename: versa
       type: deployment
       strategy: Recreate
-      replicas: 1
+      replicas: 0
       initContainers:
         migrate:
           image:

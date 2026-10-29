@@ -1,3 +1,6 @@
+maintenanceRecovery:
+  enabled: true
+  receiver: false
 # https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
   controllers:
