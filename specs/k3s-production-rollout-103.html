@@ -42,6 +42,19 @@ Totodile, Growlithe, Arcanine, Sprigatito. Finish acceptance and release of the 
 before another node. Preserve Mon/Wed/Fri Kured configuration. Any uncertain mutation remains
 pending for observation; never replay an activation, eviction, ownership or release blindly.</p>
 <h2>Per-node execution</h2>
+<p>The initial component controller is deliberately bounded to the three non-OSD servers
+and v1.33.6 to v1.33.10. It composes the existing ownership, scheduling, drain, binary and
+release journals. It cannot dispatch an OSD-host or etcd 3.6 transition. Before ownership,
+it checks the original protected snapshot and matching restore, an off-node archive of the
+current executable/configuration, native host identity and runtime. Fresh snapshot age is
+required before acquisition and activation. A new PID with unchanged boot, configuration,
+unit and SELinux enforcement is required after restart; packed and running executable
+hashes are distinct. Native stargz plugin and actual running task snapshotters are checked.</p>
+<p>Four explicitly tracked Ceph authentication migration checks remain visible while CSI
+generation 1 retains its prior key. They do not excuse other Ceph warnings, unclean PGs,
+missing OSDs, or application failures. Target-only pinned controllers may wait during cordon;
+all must return before release. Cilium HTTP/ICMP host and endpoint mesh, cluster DNS, internal
+Gitea health, TLS/L2 Gitea behavior, CSI registration and exact Zot native identity remain gates.</p>
 <p>Native read-only jggajt0k at 17:02 UTC on October 29 bound all nine installed source
 binary SHA256 values, active service PIDs, unit/configuration hashes, boot IDs and working
 stargz plugins to the existing trusted machine, root and Node identities. Those bindings

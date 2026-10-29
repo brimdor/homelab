@@ -340,6 +340,7 @@ class API:
    self.call('get','pods','-n','kured','-o','json')['items'],self.call('get','nodes','-o','json')['items'])
  def patch(self,operations):return self.call('patch','daemonset','kured','-n','kured','--type=json','--patch',coord.encoded(operations),'-o','json')
  def completed_cuda(self,ref):return rpc('completed_cuda',ref=ref)
+ def protected_registry(self,ref):return rpc('protected_registry',ref=ref)
  def drain_controllers(self):
   return{(v['kind'],v['metadata']['namespace'],v['metadata']['name']):v for v in rpc('drain_controllers')}
 api=API();controller=coord.Ownership(api,expected_ds_uid,node_uids)
@@ -349,6 +350,9 @@ root=hold.state
 def evidence():return rpc('prerequisites')
 def prerequisites(value):
  return lambda step,digest:evidence()==value and digest==drain.hashed(value)
+if owner.get('component')=='k3s':
+ sys.modules['maintenance_k3s_production'].native_operation(globals())
+ raise SystemExit(0)
 def final_security():
  if owner['target']!=44:return None
  assert api.call('get','node',expected_node,'-o','json')['status']['nodeInfo']['bootID']==pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'Node readiness belongs to an earlier boot'
@@ -1128,7 +1132,8 @@ def removed_completed_job(api, ref):
                                        'cron_uid': cron['metadata']['uid'], 'cron_spec': profile['cron_spec']})}
 
 
-def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, precheck_proof=None):
+def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, precheck_proof=None,
+               component_observer=None):
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     program = ('bundle=' + repr(bundle) + '\nexpected_identity=' + repr(IDENTITY) +
                '\nexpected_node=' + repr(NODE) + '\nexpected_mac=' + repr(MAC) + '\nexpected_ds_uid=' + repr(DS_UID) + '\nowner=' + repr(owner) +
@@ -1147,7 +1152,11 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
             if 'result' in request:
                 result = request['result'];continue
             try:
-                if request['rpc'] == 'prerequisites':
+                if component_observer is not None and request['rpc'] in (
+                        'prerequisites', 'infrastructure', 'applications', 'protected_registry'):
+                    require(owner.get('component') == 'k3s', 'component observer requires K3s ownership')
+                    value = component_observer(request)
+                elif request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
                 elif request['rpc'] == 'await_osd_protection':
                     require(args.operation == 'drain' and NODE in OSD_RECOVERY,
