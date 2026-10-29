@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Ceph client key migration</title>
+<style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}</style>
+<h1>Issue 103: Ceph client key migration</h1>
+<p>Authorized maintenance contract, October 29, 2026. No client key migration or full storage
+completion is accepted by this preparation document. Finish Cilium 1.20.4 native acceptance
+before publishing or reconciling this change. Preserve NAS restrictions and exact Zot process.</p>
+<h2>Observed prerequisites and supported sequence</h2>
+<p>Native baseline 9cb1xjjn at 17:09 UTC found accepted core/admin/MDS generation 2 on Ceph
+20.2.4 and empty CSI/mirror generation status. Exactly four CSI entities and the unused
+client.rbd-mirror-peer still use AES. There are zero CephClient resources, no configured
+pool mirroring, and no observed external mirror consumer. Existing host/kernel acceptance
+places all nine nodes on Fedora 44 kernel 7.2.13. The supported EL9 CSI 3.17.1 runtime is
+accepted in ti5db9ze; synthetic RBD and kernel CephFS fsync/reopen/compare passed in g5mr_oxb.</p>
+<p>Follow the <a href="https://rook.io/docs/rook/v1.21/Storage-Configuration/Advanced/cephx-key-rotation/">versioned Rook rotation guide</a>.
+Generation 1 exceeds the observed absent generation 0. Request AES256K for CSI and the
+unused mirror peer. Retain one prior CSI generation while existing mounts remain active.
+Do not change core generation, images, storage identities, replication, transport or devices.</p>
+<ol>
+<li>Validate the exact desired-state render against published master. All resource identities
+remain; only the CSI and mirror peer security configuration changes. Publish to canonical
+Gitea master and refresh the owning rook-ceph Application. Require Synced at the exact
+commit, native generation 1/AES256K status and one retained prior CSI generation.</li>
+<li>Verify native key metadata without exporting key values. Existing AES prior keys remain
+temporarily valid. Verify the same 57 original Ceph PV/PVC identities, five OSDs, monitor
+quorum, 177 clean PGs and functional clients. Do not claim HEALTH_OK while visible security
+warnings remain.</li>
+<li>Enable the already repository-owned synthetic CSI Job in a separate commit only after
+new generation status is proven. Require fresh RBD and kernel CephFS mounts using the new
+credentials, successful fsync/reopen/compare/unlink/fsync-directory, complete Job/container
+evidence, then disable it through GitOps and verify all synthetic Job/Pod/PVC/PV cleanup.
+No original or NAS data is used by this synthetic check.</li>
+<li>Cordon and drain nodes serially using exact identities and PDBs, rehydrate existing
+CSI clients, restore scheduling and prove each node recovered before proceeding. Combine
+this with the reviewed K3s service maintenance where safe. Preserve the exact NAS-backed
+Zot process through the explicitly bound exception; it is not a Ceph client mount.</li>
+<li>Only after every original mounted client is proven rehydrated, publish a separate change
+to retain zero prior CSI keys. Require every native key type AES256K before restricting
+allowedCiphers to AES256K in another reviewed change. Allow old rotating service tickets
+to expire naturally; never mute findings or shorten authentication controls to pass.</li>
+</ol>
+<h2>Failure and rollback limits</h2>
+<p>Unexpected authentication errors, unclean PGs, identity changes or failed real clients stop
+the affected rotation step. Keep prior keys and diagnose software using authorized access.
+The supported fallback requests AES with enough prior generations retained; it is a new
+key rotation, not a Git revert of Ceph state. Do not reset keys manually, delete Secrets,
+purge images/OSDs, write NAS data, weaken SELinux or declare a warning-free result early.</p>
+</html>

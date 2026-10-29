@@ -76,18 +76,26 @@ rook-ceph-cluster:
       modules:
         - name: rook
           enabled: false
-    # Preserve the existing transport and client keys during chart adoption.
+    # Preserve the existing transport throughout the staged key migration.
     network:
       connections:
         requireMsgr2: false
     security:
       cephx:
-        # Current core/MDS generations are at most 1; rotate during this upgrade.
+        # Core and MDS generation 2 is accepted; do not rotate it again here.
         daemon:
           keyRotationPolicy: KeyGeneration
           keyGeneration: 2
         csi:
-          keyType: aes
+          keyRotationPolicy: KeyGeneration
+          keyGeneration: 1
+          # Keep mounted clients authenticated until serial rehydration completes.
+          keepPriorKeyCountMax: 1
+          keyType: aes256k
+        rbdMirrorPeer:
+          keyRotationPolicy: KeyGeneration
+          keyGeneration: 1
+          keyType: aes256k
     dashboard:
       ssl: false
     healthCheck:
