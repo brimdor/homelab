@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Cilium production rollout</title>
+<style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}code{overflow-wrap:anywhere}</style>
+<h1>Issue 103: Cilium production rollout</h1>
+<p>Preparation, October 29, 2026. No Cilium upgrade is accepted by this document. Finish Sprigatito's
+existing recovery, final acceptance and Emby return before starting a cluster component transition.</p>
+<h2>Observed contract</h2>
+<p>Read-only run h4ehadma at 12:23:41 UTC verified Cilium 1.15.1's nine ready agents, DaemonSet
+UID 5523ed6c-0a1d-406c-aa5b-706d1e2abef1, and the exact six user-supplied Helm values.
+They match the repository: one operator, kube-proxy replacement, L2 announcements, local K3s API
+127.0.0.1:6444 and both Hubble services. There are no CiliumNetworkPolicy or
+CiliumClusterwideNetworkPolicy resources and no deprecated L7 rule paths in those resources.
+The current rolling limit is two agents. The declared maintenance limit becomes one, with no surge.</p>
+<h2>Narrow owning workflow</h2>
+<p>The existing metal/cluster.yml playbook can select only the cilium_install tag. Its always-tagged
+host ownership checks still run for all inventory nodes. K3s, package, PXE, provisioning, automatic
+upgrade and SSH-trust tasks must not be selected. Review the actual task list before execution.
+Use existing pinned SSH identity and known-hosts with strict host-key checking; override the legacy
+Ansible configuration's disabled host-key check in this process only.</p>
+<p>Helm receives the complete reviewed values with reset_values=true and waits for readiness.
+Preserve upgradeCompatibility="1.15" throughout the adjacent transitions. The normal Kubernetes
+DaemonSet controller rolls at most one unavailable agent at a time. This component rollout does not
+replace the separately completed serial Fedora host acceptance or authorize another node OS action.</p>
+<h2>Execution and acceptance</h2>
+<ol>
+<li>Require the current node owner released, all nine nodes Ready without pressure, all 177 PGs clean,
+HEALTH_OK, healthy existing clients and unchanged protected Zot Pod, container and native process.
+Retain a consistent protected etcd recovery point and its exercised matching-version restore.
+Preserve existing Kured schedules and do not overlap an active scheduled reboot or another operator.</li>
+<li>Read current official chart/release metadata and version-specific notes. Start with the latest patch
+of the current minor, then advance one minor at a time using the accepted bridge. The earlier native
+proofs are recorded in cilium-l2-qualification-103.html and k3s-cilium-compatibility-audit.html;
+they do not establish a completed production upgrade.</li>
+<li>For each exact target, render the official mandatory preflight with the same API host/port,
+agent=false and operator.enabled=false. Publish its selected version and repository-owned execution
+state before application through the metal workflow. Require nine ready preflight agents and its
+ready validation Deployment. Remove only the exact owned preflight release after acceptance or
+failure; inspect an uncertain operation before retrying. Never skip a native refusal.</li>
+<li>Review the complete target values and rendered resource changes, including CRDs, BPF settings,
+security contexts, IPAM, L2 policy/pool identities and assigned Service IPs. Preserve the existing
+address range and reserved boundaries. The separate cilium_resources tag owns the guarded legacy
+CIDR field migration; do not combine it with unrelated cluster provisioning.</li>
+<li>Commit and push the selected target to canonical Gitea master before invoking only the reviewed
+Ansible tasks. Require all nine new agents, operator and Hubble components ready, native agent versions
+and health correct, retained pool/Service identities and addresses, L2 reachability, DNS and existing
+application behavior. Preserve original warning evidence and verify actual recovery before the next
+component version. Keep the exact Zot process, NAS restrictions and owner-paused outside-origin gates.</li>
+</ol>
+<h2>Failure and rollback</h2>
+<p>Stop the affected transition on uncertain dispatch, unready agents, changed identities, authentication
+or policy denial, data findings or unexpected network behavior. Continue independent authorized work.
+Rollback only to the supported adjacent release using published repository state and reviewed CRD/BPF
+compatibility; a Git revert alone cannot undo stored CRD changes. Do not wipe BPF state, weaken
+SELinux, reset networking, delete events, bypass denied access or rebuild through the NAS-backed registry.</p>
+<h2>Primary references</h2>
+<p><a href="https://docs.cilium.io/en/stable/operations/upgrade/">Official Cilium upgrade guide</a>
+requires current-minor patching, consecutive minor upgrades, native preflight, preservation of initial
+upgradeCompatibility and reviewed values without reuse-values across minor releases.</p>
+</html>

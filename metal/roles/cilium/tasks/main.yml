@@ -6,6 +6,10 @@
     chart_version: "{{ cilium_version }}"
     release_namespace: "{{ cilium_namespace }}"
     values: "{{ cilium_values }}"
+    reset_values: true
+    wait: true
+    wait_timeout: 20m
+  tags: cilium_install
 
 - name: Wait for Cilium CRDs
   kubernetes.core.k8s_info:
