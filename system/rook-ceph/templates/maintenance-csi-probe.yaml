@@ -49,6 +49,12 @@ spec:
               import hashlib, json, os
               results = []
               for directory in ("/rbd", "/cephfs"):
+                  with open("/proc/self/mountinfo") as source:
+                      mounts = [line.split(" - ", 1) for line in source]
+                  filesystems = [right.split()[0] for left, right in mounts
+                                 if left.split()[4] == directory]
+                  expected = "ext4" if directory == "/rbd" else "ceph"
+                  assert filesystems == [expected], (directory, filesystems)
                   path = directory + "/maintenance-103-synthetic"
                   data = os.urandom(4096)
                   with open(path, "xb") as target:
@@ -63,7 +69,7 @@ spec:
                       os.fsync(descriptor)
                   finally:
                       os.close(descriptor)
-                  results.append({"mount": directory, "bytes": len(data),
+                  results.append({"mount": directory, "fstype": expected, "bytes": len(data),
                                   "sha256": hashlib.sha256(data).hexdigest()})
               print(json.dumps({"result": "PASSED", "volumes": results}))
           securityContext:
