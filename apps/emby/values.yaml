@@ -180,7 +180,7 @@ app-template:
       type: cronjob
       enabled: true
       cronjob:
-        suspend: false
+        suspend: true
         schedule: "*/30 * * * *"
         concurrencyPolicy: Forbid
         successfulJobsHistory: 1
@@ -223,7 +223,7 @@ app-template:
       type: cronjob
       enabled: true
       cronjob:
-        suspend: false
+        suspend: true
         schedule: "*/15 * * * *"
         concurrencyPolicy: Forbid
         successfulJobsHistory: 1

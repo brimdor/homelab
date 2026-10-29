@@ -262,15 +262,16 @@ def main():
     require(kured['metadata']['uid'] == '4abc4fee-c3be-440e-8945-34bb3fb15ce1' and
             'homelab.eaglepass.io/maintenance-owner' not in kured['metadata'].get('annotations', {}),
             'node maintenance ownership must finish before the Emby return')
-    health = json.loads(command(args_kubectl, 'exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
-                                'ceph', 'health', '--format', 'json'))
-    mapping = json.loads(command(args_kubectl, 'exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
-                                 'ceph', 'osd', 'dump', '--format', 'json'))
-    require(health['status'] == 'HEALTH_OK' and not health.get('checks') and
-            mapping['fsid'] == '13c20377-d801-43f9-aebd-59f62df5dad1' and
-            {o['osd'] for o in mapping['osds']} == {1, 2, 6, 7, 8} and
-            all(o['up'] == o['in'] == 1 and o['weight'] == 1 for o in mapping['osds']),
-            'original OSD7 must finish its healthy return first')
+    # Reuse the full OSD/PG proof while the declared CSI key migration remains open.
+    from maintenance_api_reader import Reader
+    import maintenance_osd_host
+    api = Reader(args_kubectl)
+    try:
+        storage = maintenance_osd_host.observe(api, node='sprigatito', k3s_bridge=True)
+    finally:
+        api.close()
+    require(storage['clean_pgs'] == storage['checked_pgs'] == 177,
+            'original OSD7 data plane has not fully recovered')
     node = read('get', 'node', 'sprigatito')
     require(node['metadata']['uid'] == NODE_UID and node['status']['nodeInfo']['osImage'] == 'Fedora Linux 44 (Forty Four)' and
             any(c['type'] == 'Ready' and c['status'] == 'True' for c in node['status']['conditions']), 'Emby return node is not ready on Fedora 44')
@@ -308,6 +309,7 @@ def main():
     native_source = Path(__file__).read_text().split('\ndef main(')[0]
     result = production.remote(args, native_source + '\nprint(json.dumps(native(' + repr(context) +
                                ',media=' + repr(args.verify_media) + ')))', '10.0.20.20')
+    result['storage'] = storage
     print(json.dumps(result, sort_keys=True))
 
 
