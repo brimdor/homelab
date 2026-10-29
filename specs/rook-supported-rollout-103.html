@@ -89,6 +89,15 @@ service accounts, so preserve storage driver identities while adopting those acc
 requires corrected Rook/Ceph releases and distinguishes core keys, client keys and service tickets. Determine actual
 generations instead of copying an example value. Kernel support alone does not prove migrated client behavior.</p>
 <h2>Data safety and rollback</h2>
+<p>Exact CSI 3.17.1 acceptance <code>ti5db9ze</code> passed at 15:47:27 UTC: both two-replica
+controllers and both nine-node plugins use the selected digest. Run <code>g5mr_oxb</code> passed
+fresh RBD and kernel CephFS provisioning/mount/write/fsync/reopen/compare/unlink at 15:49:17 UTC
+on Cyndaquil, as unprivileged UID 2016 with RuntimeDefault. Successful Job UID
+<code>5632fe3f-98b8-4748-a12b-3979e02d65c5</code> owns the sole successful Pod.
+Its new PVCs <code>fd6e1f6c-3a3c-42bb-8afc-4088fed55edb</code> and
+<code>c6328aaf-f8da-4a5b-9ccf-0a7515a57def</code> have exact expected Ceph drivers and Delete reclaim.
+Disable the probe now; verify removal of only its Job/Pod/PVC/PV identities through Argo.
+This proves new storage operations with the current AES CSI keys; AES256K client migration remains separate.</p>
 <p>Run <code>9asdena5</code> at 15:40 UTC verified all 12 Ceph daemons at 20.2.4 and
 core/admin/MDS generation 2. Toolbox native authentication and legacy-environment omission passed.
 Run <code>3bvg_i2d</code> at 15:47 UTC verified all 177 PGs clean, five OSDs up/in and the exact
