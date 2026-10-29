@@ -1,19 +1,25 @@
 maintenanceRecovery:
   enabled: true
-  receiver: true
-  verifyOnly: true
-  archiveSha256: 22e0dd87c57166f5cfe7daa6cb5640406e1557fad3a0cfa03a8702ad7924a492
+  receiver: false
 # https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:
   controllers:
     main:
-      replicas: 0
+      replicas: 1
       pod:
         # Exact running image is retained on this prepared receiver during maintenance.
         nodeSelector:
           kubernetes.io/hostname: totodile
       containers:
         main:
+          command:
+            - /bin/bash
+            - -ceu
+            - |
+              test -s "$PGDATA/PG_VERSION"
+              test "$(cat "$PGDATA/PG_VERSION")" = 17
+              test -s "$PGDATA/global/pg_control"
+              exec /usr/local/bin/docker-entrypoint.sh postgres
           image:
             repository: docker.io/brimdor/postgres
             tag: "17.5-bookworm"
@@ -312,115 +318,10 @@ app-template:
             - -c
             - |
               set -e
-              echo "[INIT] Preparing initial DB restore script..."
-              mkdir -p /work
-              restore_count=0
-
-              latest_primary_dump=$(ls -t /mnt/backup/db/db-*.dump 2>/dev/null | head -n 1 || true)
-              if [ -n "$latest_primary_dump" ] && [ -s "$latest_primary_dump" ]; then
-                echo "[INIT] Using primary dump: $latest_primary_dump"
-                cp "$latest_primary_dump" /work/db.dump
-                cat <<'EOF' > /work/10-restore-main.sh
-              #!/bin/sh
-              echo "[INITDB] Restoring database from /docker-entrypoint-initdb.d/db.dump"
-              pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /docker-entrypoint-initdb.d/db.dump || echo "[INITDB] pg_restore completed with warnings (non-fatal)"
-              echo "[INITDB] Primary restore complete."
-              EOF
-                chmod +x /work/10-restore-main.sh
-                restore_count=$((restore_count + 1))
-              fi
-
-              latest_paperclip_dump=$(ls -t /mnt/backup/db/paperclip-*.dump 2>/dev/null | head -n 1 || true)
-              if [ -n "$latest_paperclip_dump" ] && [ -s "$latest_paperclip_dump" ]; then
-                echo "[INIT] Using Paperclip dump: $latest_paperclip_dump"
-                cp "$latest_paperclip_dump" /work/paperclip.dump
-                cat <<'EOF' > /work/20-restore-paperclip.sh
-              #!/bin/sh
-              set -e
-              echo "[INITDB] Ensuring Paperclip role and database exist before restore"
-              export PGPASSWORD="$POSTGRES_PASSWORD"
-              psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-                -v app_db="$PAPERCLIP_POSTGRES_DB" \
-                -v app_user="$PAPERCLIP_POSTGRES_USER" \
-                -v app_password="$PAPERCLIP_POSTGRES_PASSWORD" <<'SQL'
-              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
-              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
-              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
-              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
-              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
-              SELECT format('ALTER DATABASE %I OWNER TO %I', :'app_db', :'app_user') \gexec
-              SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', :'app_db', :'app_user') \gexec
-              SQL
-              echo "[INITDB] Restoring Paperclip database from /docker-entrypoint-initdb.d/paperclip.dump"
-              pg_restore -U "$POSTGRES_USER" -d "$PAPERCLIP_POSTGRES_DB" /docker-entrypoint-initdb.d/paperclip.dump || echo "[INITDB] Paperclip pg_restore completed with warnings (non-fatal)"
-              echo "[INITDB] Paperclip restore complete."
-              EOF
-                chmod +x /work/20-restore-paperclip.sh
-                restore_count=$((restore_count + 1))
-              fi
-
-              latest_versa_dump=$(ls -t /mnt/backup/db/versa-prod-*.dump 2>/dev/null | head -n 1 || true)
-              if [ -n "$latest_versa_dump" ] && [ -s "$latest_versa_dump" ]; then
-                echo "[INIT] Using Versa dump: $latest_versa_dump"
-                cp "$latest_versa_dump" /work/versa.dump
-                cat <<'EOF' > /work/30-restore-versa.sh
-              #!/bin/sh
-              set -e
-              echo "[INITDB] Ensuring Versa role and database exist before restore"
-              export PGPASSWORD="$POSTGRES_PASSWORD"
-              psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-                -v app_db="$VERSA_POSTGRES_DB" \
-                -v app_user="$VERSA_POSTGRES_USER" \
-                -v app_password="$VERSA_POSTGRES_PASSWORD" <<'SQL'
-              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
-              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
-              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
-              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
-              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
-              SQL
-              echo "[INITDB] Restoring Versa database from /docker-entrypoint-initdb.d/versa.dump"
-              pg_restore -U "$POSTGRES_USER" -d "$VERSA_POSTGRES_DB" /docker-entrypoint-initdb.d/versa.dump || echo "[INITDB] Versa pg_restore completed with warnings (non-fatal)"
-              echo "[INITDB] Versa restore complete."
-              EOF
-                chmod +x /work/30-restore-versa.sh
-                restore_count=$((restore_count + 1))
-              fi
-
-              latest_versa_canary_dump=$(ls -t /mnt/backup/db/versa-canary-*.dump 2>/dev/null | head -n 1 || true)
-              if [ -n "$latest_versa_canary_dump" ] && [ -s "$latest_versa_canary_dump" ]; then
-                echo "[INIT] Using Versa canary dump: $latest_versa_canary_dump"
-                cp "$latest_versa_canary_dump" /work/versa-canary.dump
-                cat <<'EOF' > /work/40-restore-versa-canary.sh
-              #!/bin/sh
-              set -e
-              echo "[INITDB] Ensuring Versa canary role and database exist before restore"
-              export PGPASSWORD="$POSTGRES_PASSWORD"
-              psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-                -v app_db="$VERSA_CANARY_POSTGRES_DB" \
-                -v app_user="$VERSA_CANARY_POSTGRES_USER" \
-                -v app_password="$VERSA_CANARY_POSTGRES_PASSWORD" <<'SQL'
-              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password')
-              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') \gexec
-              SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'app_user', :'app_password') \gexec
-              SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
-              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'app_db') \gexec
-              SQL
-              echo "[INITDB] Restoring Versa canary database from /docker-entrypoint-initdb.d/versa-canary.dump"
-              pg_restore -U "$POSTGRES_USER" -d "$VERSA_CANARY_POSTGRES_DB" /docker-entrypoint-initdb.d/versa-canary.dump || echo "[INITDB] Versa canary pg_restore completed with warnings (non-fatal)"
-              echo "[INITDB] Versa canary restore complete."
-              EOF
-                chmod +x /work/40-restore-versa-canary.sh
-                restore_count=$((restore_count + 1))
-              fi
-
-              if [ "$restore_count" -eq 0 ]; then
-                echo "[INIT] No valid DB dumps found. Creating no-op init script."
-                cat <<'EOF' > /work/99-noop.sh
-              #!/bin/sh
-              echo "[INITDB] No dump present; skipping database restore."
-              EOF
-                chmod +x /work/99-noop.sh
-              fi
+              test -s /persistent-data/PG_VERSION
+              test "$(cat /persistent-data/PG_VERSION)" = 17
+              test -s /persistent-data/global/pg_control
+              echo "[INIT] Existing PostgreSQL 17 data required; automatic dump restore is disabled."
   service:
     main:
       controller: main
@@ -435,7 +336,12 @@ app-template:
       advancedMounts:
         main:
           main:
-            - path: /var/lib/postgresql
+            - path: /var/lib/postgresql/data
+              subPath: data
+          db-restore:
+            - path: /persistent-data
+              subPath: data
+              readOnly: true
           db-backup:
             - path: /var/lib/postgresql
     db-init:
