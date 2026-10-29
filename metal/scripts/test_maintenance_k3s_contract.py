@@ -10,6 +10,11 @@ from test_maintenance_coordination import API
 
 
 class K3sContractTests(unittest.TestCase):
+    def test_etcd_35_bridge_is_mandatory_before_embedded_36(self):
+        self.assertEqual(contract.VERSIONS[:3], ('v1.33.6+k3s1', 'v1.33.10+k3s1', 'v1.33.13+k3s2'))
+        self.assertEqual(contract.ETCD[contract.VERSIONS[1]], '3.5.26')
+        self.assertFalse(contract.reviewed(contract.VERSIONS[0], contract.VERSIONS[2]))
+
     def test_only_reviewed_adjacent_artifacts(self):
         for source in contract.VERSIONS:
             for target in contract.VERSIONS:

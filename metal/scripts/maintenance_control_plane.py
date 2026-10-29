@@ -64,20 +64,35 @@ assert {m['clientURLs'][0]:m['ID']for m in members['members']}=={
  'https://10.0.20.13:2379':480346530818056711}
 assert len({v['Status']['leader']for v in status})==1 and status[0]['Status']['leader']in{m['ID']for m in members['members']}
 assert {v['Status']['header']['member_id']for v in status}=={m['ID']for m in members['members']}
-assert all(v['Status']['version']=='3.5.21'and not v['Status'].get('errors')for v in status)
+assert all(v['Status']['version']==EXPECTED_VERSIONS[v['Endpoint']]and not v['Status'].get('errors')for v in status)
 print(json.dumps({'members':members,'status':status,'health':health,'alarms':alarms}))
 '''
 
 
-def program(source):
+def expected_versions(versions=None):
+    names = ('charmander', 'squirtle', 'bulbasaur')
+    if versions is None:
+        return dict.fromkeys(('https://10.0.20.' + str(n) + ':2379' for n in (11, 12, 13)), '3.5.21')
+    import maintenance_k3s_contract as contract
+    if set(versions) != set(names) or any(v not in contract.ETCD for v in versions.values()):
+        raise RuntimeError('unreviewed control-plane K3s versions')
+    order = [contract.VERSIONS.index(versions[name]) for name in names]
+    if order != sorted(order, reverse=True) or max(order) - min(order) > 1:
+        raise RuntimeError('control-plane serial version order differs')
+    return {'https://10.0.20.' + str(n) + ':2379': contract.ETCD[versions[name]]
+            for n, name in zip((11, 12, 13), names)}
+
+
+def program(source, versions=None):
     return ('CLIENT=' + repr(CLIENT) + '\nIDENTITY=' + repr(IDENTITY) +
             '\nARCHIVE_URL=' + repr(ARCHIVE_URL) + '\nARCHIVE_SHA256=' + repr(ARCHIVE_SHA256) +
-            '\nBINARY_SHA256=' + repr(BINARY_SHA256) + '\n' + source)
+            '\nBINARY_SHA256=' + repr(BINARY_SHA256) +
+            '\nEXPECTED_VERSIONS=' + repr(expected_versions(versions)) + '\n' + source)
 
 
-def observe(args):
+def observe(args, versions=None):
     from maintenance_production_node import remote
-    return remote(args, program(OBSERVE), '10.0.20.12')
+    return remote(args, program(OBSERVE, versions), '10.0.20.12')
 
 
 def recovery(args, release, capture=False, node='squirtle', security_followup=False):
@@ -101,7 +116,7 @@ def recovery(args, release, capture=False, node='squirtle', security_followup=Fa
         assert receipt['accepted'] is True
         manifest = {key: receipt[key] for key in ('format', 'metadata', 'files')}
     digest = hashlib.sha256(etcd_recovery.canonical(manifest)).hexdigest()
-    source = Path(etcd_recovery.__file__).read_text().split('if __name__ == "__main__":')[0]
+    source = Path(etcd_recovery.__file__).read_text().rsplit('\nif __name__ == "__main__":', 1)[0]
     verified = remote(args, source + '\nrequire_host("pikachu")\nprint(json.dumps(verify_point(Path(' +
                       repr(point) + '),' + repr(digest) + ')))', '10.0.20.14')
     assert verified == manifest

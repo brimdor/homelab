@@ -20,6 +20,17 @@ import time
 
 IMAGE = "docker.io/rancher/k3s@sha256:d7119ab9e0054692a86a8eda454f2d3370dafc1c3a96b3ace5c5599f0c1e9f15"
 VERSION = "v1.33.6+k3s1"
+RECEIVER_VERSION = VERSION
+SOURCE_HOST = "charmander"
+SOURCE_ADDRESSES = {"charmander": "10.0.20.11", "squirtle": "10.0.20.12", "bulbasaur": "10.0.20.13"}
+RECOVERY_IMAGES = {
+    VERSION: IMAGE,
+    "v1.33.10+k3s1": "docker.io/rancher/k3s@sha256:6c1bde59c05c7ffe8e8fe812da995fe336e5a619d8c922b45d866184ef1a2ce9",
+    "v1.33.13+k3s2": "docker.io/rancher/k3s@sha256:ada5ff2e138120efe877f76d514dedda65b304122112b982eab532732c028c89",
+    "v1.34.12+k3s1": "docker.io/rancher/k3s@sha256:4ea0adb6b0ffedab0c58ffe5c99a49f2f7be871f38636c8baa2692899648d8c5",
+    "v1.35.9+k3s1": "docker.io/rancher/k3s@sha256:ec9868c6a38d4e8c1869832fb5fd1eb8473c39794a0b44d2b952e7ba911951bc",
+    "v1.36.5+k3s1": "docker.io/rancher/k3s@sha256:057cfd5a9d51b89f1f0ee139c28d5d5fdd5aa7ddeac2742a0ba90c6dbc0329bb",
+}
 CLUSTER_UID = "7ff226e0-565a-4610-8a3e-97e7e87355a3"
 ROOT = Path("/var/lib/homelab-recovery/maintenance-103")
 IMAGE_VOLUMES = {"/var/lib/rancher/k3s": "data", "/var/lib/cni": "cni",
@@ -28,6 +39,31 @@ SSH = ["ssh", "-i", str(Path.home() / ".ssh/homelab"), "-o", "IdentitiesOnly=yes
        "-o", "UserKnownHostsFile=" + str(Path.home() / ".ssh/homelab_known_hosts"),
        "-o", "StrictHostKeyChecking=yes", "-o", "UpdateHostKeys=no", "-o", "BatchMode=yes",
        "-o", "ConnectTimeout=15", "root@10.0.20.14"]
+
+
+def recovery_profile(source_host, source_version, receiver_version):
+    """The off-master receiver can trail a server by exactly one reviewed hop."""
+    versions = tuple(RECOVERY_IMAGES)
+    if (source_host not in SOURCE_ADDRESSES or source_version not in versions or
+            receiver_version not in versions or
+            versions.index(source_version) - versions.index(receiver_version) not in (0, 1)):
+        raise RuntimeError("unreviewed K3s recovery profile")
+    return {"source_host": source_host, "source_version": source_version,
+            "receiver_version": receiver_version}
+
+
+def configure_profile(source_host, source_version, receiver_version):
+    global SOURCE_HOST, VERSION, RECEIVER_VERSION, IMAGE
+    recovery_profile(source_host, source_version, receiver_version)
+    SOURCE_HOST, VERSION, RECEIVER_VERSION = source_host, source_version, receiver_version
+    IMAGE = RECOVERY_IMAGES[source_version]
+
+
+def profile_program(source, **profile):
+    """Stream the same published standalone script with an explicit bounded profile."""
+    selected = recovery_profile(**profile)
+    return (source.rsplit('\nif __name__ == "__main__":', 1)[0] +
+            '\nconfigure_profile(**' + repr(selected) + ')\nraise SystemExit(main())\n')
 
 
 def canonical(value):
@@ -330,11 +366,11 @@ def private_root():
             raise RuntimeError("recovery root is not a protected owned directory")
 
 
-def require_host(name):
+def require_host(name, version=None):
     if os.geteuid() != 0 or command(["hostname"]).stdout.strip().decode() != name:
         raise RuntimeError("recovery operation is on the wrong host or identity")
-    version = command(["/usr/local/bin/k3s", "--version"]).stdout.decode().splitlines()[0].split()
-    if version[:3] != ["k3s", "version", VERSION]:
+    installed = command(["/usr/local/bin/k3s", "--version"]).stdout.decode().splitlines()[0].split()
+    if installed[:3] != ["k3s", "version", VERSION if version is None else version]:
         raise RuntimeError("installed recovery version changed")
 
 
@@ -349,14 +385,14 @@ def source_identity():
             "charmander", "squirtle", "bulbasaur", "pikachu", "cyndaquil", "totodile", "growlithe", "arcanine", "sprigatito"} or
             secret["metadata"]["uid"] != "d2322fd9-358d-483e-b0aa-9f89c06ce197" or not secret.get("data")):
         raise RuntimeError("live source cluster or protected Secret identity changed")
-    return {"version": VERSION, "source_host": "charmander", "cluster_uid": CLUSTER_UID,
+    return {"version": VERSION, "source_host": SOURCE_HOST, "cluster_uid": CLUSTER_UID,
             "namespaces": namespace_uids, "nodes": node_uids,
             "protected_secret": {"namespace": "backlog", "name": "secrets", "uid": secret["metadata"]["uid"],
                                  "key_count": len(secret["data"]), "data_sha256": hashlib.sha256(canonical(secret["data"])).hexdigest()}}
 
 
 def produce_point(run_id):
-    require_host("charmander")
+    require_host(SOURCE_HOST)
     before = source_identity()
     encryption = command(["/usr/local/bin/k3s", "secrets-encrypt", "status"]).stdout.decode()
     if not re.search(r"(?m)^Encryption Status:\s+Enabled\s*$", encryption):
@@ -379,7 +415,7 @@ def produce_point(run_id):
 
 
 def preserve_point(run_id):
-    require_host("pikachu")
+    require_host("pikachu", RECEIVER_VERSION)
     private_root()
     point = ROOT / run_id
     manifest = receive_bundle(sys.stdin.buffer, point)
@@ -391,10 +427,15 @@ def remote_command(source, phase, run_id):
     return "python3 -B -c " + shlex.quote(source) + " " + phase + " --run-id " + shlex.quote(run_id)
 
 
-def copy_point(run_id, source):
+def copy_point(run_id, source, profile=None):
+    source_host = SOURCE_HOST
+    if profile is not None:
+        selected = recovery_profile(**profile)
+        source_host = selected['source_host']
+        source = profile_program(source, **selected)
     sender = receiver = None
     try:
-        sender = subprocess.Popen([*SSH[:-1], "root@10.0.20.11", remote_command(source, "internal-send", run_id)],
+        sender = subprocess.Popen([*SSH[:-1], "root@" + SOURCE_ADDRESSES[source_host], remote_command(source, "internal-send", run_id)],
                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         receiver = subprocess.Popen([*SSH, remote_command(source, "internal-receive", run_id)],
                                     stdin=sender.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -438,11 +479,10 @@ def qualify(run_id, point=None, manifest_sha256=None, synthetic_check=None):
         raise RuntimeError("component qualification cannot use production recovery material")
     if os.geteuid() != 0 or command(["hostname"]).stdout.strip() != b"pikachu":
         raise RuntimeError("qualification must run on the exact authorized off-master host")
-    if VERSION.encode() not in command(["/usr/local/bin/k3s", "--version"]).stdout:
-        raise RuntimeError("installed k3s version changed")
+    require_host("pikachu", RECEIVER_VERSION)
     private_root()
     manifest = verify_point(point, manifest_sha256) if point is not None else None
-    if manifest is not None and (manifest["metadata"].get("source_host") != "charmander" or
+    if manifest is not None and (manifest["metadata"].get("source_host") != SOURCE_HOST or
                                  manifest["metadata"].get("source_encryption_enabled") is not True):
         raise RuntimeError("real recovery point provenance is incomplete")
     def interrupted(_number, _frame):

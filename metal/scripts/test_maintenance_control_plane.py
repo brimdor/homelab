@@ -30,7 +30,7 @@ class QuorumTests(unittest.TestCase):
             ('alarm', 'list'): {},
         }
 
-    def observe(self, values):
+    def observe(self, values, versions=None):
         def run(argv, **kwargs):
             self.assertIn('--cacert=/var/lib/rancher/k3s/server/tls/etcd/server-ca.crt', argv)
             self.assertIn('--cert=/var/lib/rancher/k3s/server/tls/etcd/client.crt', argv)
@@ -42,10 +42,23 @@ class QuorumTests(unittest.TestCase):
                 patch('hashlib.sha256') as digest, \
                 contextlib.redirect_stdout(io.StringIO()):
             digest.return_value.hexdigest.return_value = CP.BINARY_SHA256
-            exec(compile(CP.program(CP.OBSERVE), 'native-etcd-observation', 'exec'), {})
+            exec(compile(CP.program(CP.OBSERVE, versions), 'native-etcd-observation', 'exec'), {})
 
     def test_exact_three_voting_members_are_accepted(self):
         self.observe(self.values)
+
+    def test_mixed_etcd_versions_are_bound_to_the_exact_serial_server(self):
+        versions = {'charmander': 'v1.33.10+k3s1', 'squirtle': 'v1.33.6+k3s1', 'bulbasaur': 'v1.33.6+k3s1'}
+        values = copy.deepcopy(self.values)
+        values[('endpoint', 'status')][0]['Status']['version'] = '3.5.26'
+        self.observe(values, versions)
+        with self.assertRaises(AssertionError):
+            self.observe(self.values, versions)
+        for changed in (dict(versions, squirtle='v1.36.5+k3s1'),
+                        dict(versions, bulbasaur='v1.33.10+k3s1'),
+                        dict(versions, charmander='v1.33.13+k3s2')):
+            with self.subTest(versions=changed), self.assertRaises(RuntimeError):
+                CP.expected_versions(changed)
 
     def test_learner_failed_member_changed_cluster_leader_and_alarm_are_refused(self):
         for fault in ('learner', 'health', 'cluster', 'leader', 'alarm'):

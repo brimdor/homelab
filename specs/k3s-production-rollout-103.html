@@ -11,10 +11,22 @@ CSI compatibility. All nine Fedora 44 OS maintenance actions are complete and ar
 <p>Official channels dnip5jak at 16:26 UTC report stable v1.36.5+k3s1 and latest v1.37.1+k3s1.
 Select stable 1.36, within Cilium 1.20's Kubernetes support matrix. Official release metadata
 thvxcrw7 and AMD64 checksum artifacts ium_91e6/6shm4b68 bind the exact consecutive chain:
-v1.33.6+k3s1, v1.33.13+k3s2, v1.34.12+k3s1, v1.35.9+k3s1, v1.36.5+k3s1.
+v1.33.6+k3s1, v1.33.10+k3s1, v1.33.13+k3s2, v1.34.12+k3s1, v1.35.9+k3s1, v1.36.5+k3s1.
 Patch the current minor before advancing; no skipped minor or 1.37 transition.
 The executable contract pins every binary SHA256. Release notes' Traefik changes do not apply
 because this cluster disables Traefik and the Helm controller. Retain those settings.</p>
+<p>Additional research iwehfj6h/3w8fik0p found that the original direct jump from embedded
+etcd 3.5.21 to 3.6.14 skipped the vendor's mandatory 3.5.26 bridge. The official K3s
+<a href="https://docs.k3s.io/release-notes-old/v1.33.X">1.33 upgrade warning</a> requires
+that bridge to avoid removed members reappearing. Pin the last reviewed 3.5 release,
+v1.33.10+k3s1; artifact 0i72pi_h binds its official AMD64 binary and container digests.
+All three servers must complete this bridge before any 3.6 transition. The current upstream
+<a href="https://etcd.io/docs/v3.6/upgrades/upgrade_3_6/">etcd guide</a> additionally requires
+3.5.32 or later and a v2store/WAL check. Resolve that newer requirement against the embedded
+K3s vendor path before dispatching 3.6; the 3.5 bridge alone does not prove it satisfied.</p>
+<p>Ceph CSI 3.17.1's tagged upstream README lists Kubernetes 1.34, 1.35 and 1.36 as tested;
+Rook 1.21 lists Kubernetes 1.32 through 1.37 as supported. Thus the EL9 CSI runtime does
+not force an unsupported EL10 image onto these GDS-mitigated hosts for the 1.36 target.</p>
 <p>The earlier stargz qualification qh2x61h3 accepted its complete 13 checkpoints, 40 serial
 upgrades and four matching restores. This is bounded fixture evidence; native AMD64 production
 must still prove actual containerd stargz plugin, workload snapshotter and retained configuration.
@@ -46,7 +58,8 @@ SELinux Enforcing, including actual fd-xattr preservation; no check was skipped 
 scratch was removed. Follow-up q_moykgm passed 91 local tests with the explicit Linux-only
 check skipped on macOS. The follow-up refuses changed executable modes and rechecks source
 bytes/service PID immediately before replacement. Repeat the affected native tests for this
-follow-up before production.</p>
+follow-up before production. Follow-up native run av65g617 passed all eight Linux tests
+without skips under SELinux Enforcing and verified owned scratch cleanup.</p>
 <p>The drain exception is limited to the existing Zot Pod/container on Charmander. Every
 inventory requires a fresh controller proof of its exact PID 5467, start tick 72848, boot,
 SELinux label, bound PVC/PV and retained NAS storage. Missing, replaced, restarted or mismatched
@@ -76,6 +89,12 @@ Restore original scheduling. Wait for the same OSDs, 177 clean PGs, all migrated
 behavior and the complete per-node security/storage/runtime acceptance. Then release host/global
 ownership through the existing ordered journal. No following node before acceptance.</li>
 </ol>
+<p>Recovery profiles select only exact reviewed versions, a source among the three masters,
+and Pikachu at the same version or one reviewed hop behind. Each restore uses the matching
+official immutable AMD64-capable K3s image, with unchanged isolation and protected original
+labels. The source can remain on Bulbasaur while earlier servers advance. The etcd observer
+binds each endpoint to its expected embedded version, including the reviewed mixed state;
+membership, voter, leader, cluster identity, TLS, alarm and health checks remain required.</p>
 <h2>Ceph client key migration and data safety</h2>
 <p>Stage CSI AES256K keys with the supported operator, keep one prior key, prove native key
 metadata and fresh synthetic RBD/CephFS fsync before remounting existing clients. Combine the

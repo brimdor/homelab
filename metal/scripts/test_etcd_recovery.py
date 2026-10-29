@@ -4,6 +4,7 @@
 import copy
 import contextlib
 import io
+import importlib
 import json
 from pathlib import Path
 import subprocess
@@ -12,6 +13,51 @@ import unittest
 from unittest.mock import patch
 
 import etcd_recovery as RECOVERY
+
+
+class RecoveryProfileTests(unittest.TestCase):
+    def setUp(self):
+        importlib.reload(RECOVERY)
+        self.addCleanup(importlib.reload, RECOVERY)
+
+    def test_explicit_source_and_lagging_receiver_select_matching_official_image(self):
+        import maintenance_k3s_contract as contract
+        self.assertEqual(tuple(RECOVERY.RECOVERY_IMAGES), contract.VERSIONS)
+        RECOVERY.configure_profile('bulbasaur', contract.VERSIONS[1], contract.VERSIONS[0])
+        self.assertEqual(RECOVERY.SOURCE_HOST, 'bulbasaur')
+        self.assertEqual(RECOVERY.VERSION, contract.VERSIONS[1])
+        self.assertEqual(RECOVERY.RECEIVER_VERSION, contract.VERSIONS[0])
+        self.assertEqual(RECOVERY.IMAGE, RECOVERY.RECOVERY_IMAGES[contract.VERSIONS[1]])
+        self.assertNotEqual(RECOVERY.IMAGE, RECOVERY.RECOVERY_IMAGES[contract.VERSIONS[0]])
+
+    def test_foreign_hosts_skipped_versions_and_newer_receivers_are_refused(self):
+        baseline = (RECOVERY.SOURCE_HOST, RECOVERY.VERSION, RECOVERY.RECEIVER_VERSION, RECOVERY.IMAGE)
+        for profile in (('pikachu', RECOVERY.VERSION, RECOVERY.VERSION),
+                        ('charmander', 'latest', RECOVERY.VERSION),
+                        ('charmander', 'v1.33.13+k3s2', RECOVERY.VERSION),
+                        ('charmander', RECOVERY.VERSION, 'v1.33.10+k3s1')):
+            with self.subTest(profile=profile), self.assertRaises(RuntimeError):
+                RECOVERY.configure_profile(*profile)
+            self.assertEqual((RECOVERY.SOURCE_HOST, RECOVERY.VERSION, RECOVERY.RECEIVER_VERSION, RECOVERY.IMAGE), baseline)
+
+    def test_streamed_profile_configures_both_phases_before_main(self):
+        program = RECOVERY.profile_program('def main():\n return 0\nif __name__ == "__main__":\n raise SystemExit(main())',
+                                           source_host='squirtle', source_version='v1.33.10+k3s1',
+                                           receiver_version='v1.33.6+k3s1')
+        calls = []
+        with self.assertRaises(SystemExit) as result:
+            exec(compile(program, 'profile', 'exec'), {'configure_profile': lambda **p: calls.append(p)})
+        self.assertEqual(result.exception.code, 0)
+        self.assertEqual(calls, [{'source_host': 'squirtle', 'source_version': 'v1.33.10+k3s1',
+                                 'receiver_version': 'v1.33.6+k3s1'}])
+
+    def test_real_profile_program_compiles_and_does_not_truncate_itself(self):
+        source = Path(RECOVERY.__file__).read_text()
+        program = RECOVERY.profile_program(source, source_host='bulbasaur',
+                                           source_version='v1.33.6+k3s1', receiver_version='v1.33.6+k3s1')
+        compile(program, 'real-standalone-profile', 'exec')
+        self.assertIn('def cancel_qualification(', program)
+        self.assertIn('def main(', program)
 
 
 class IsolationTests(unittest.TestCase):
