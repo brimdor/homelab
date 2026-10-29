@@ -324,8 +324,9 @@ def native_operation(context):
                 actors.exclusive_file(path, hops.canonical(worker.plan(step, original)), 0o600)
             plan = private_json(path)
             if not state['pending']:
-                worker.dispatch(plan, hashed(plan), digest, verifier(value))
-            result = worker.observe(plan, digest, verifier(value))
+                result = worker.dispatch(plan, hashed(plan), digest, verifier(value))
+            else:
+                result = worker.observe(plan, digest, verifier(value))
         elif operation == 'drain':
             worker = Drain(journal, api); value = evidence(); digest = hashed(value)
             path = root / ('drain-' + owner['owner'] + '.json')

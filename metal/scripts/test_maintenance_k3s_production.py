@@ -4,6 +4,8 @@ import copy
 import ast
 import hashlib
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
@@ -172,6 +174,54 @@ class DrainAcceptanceTests(unittest.TestCase):
                 self.assertFalse(production.verified_completed_drain(fixture.worker, dict(accepted, **{field: value})))
         fixture.pod_api.pods[0]['spec']['containers'][0]['image'] = 'changed'
         self.assertFalse(production.verified_completed_drain(fixture.worker, accepted))
+
+
+class SchedulingRecoveryTests(unittest.TestCase):
+    def test_uncordon_dispatch_once_then_accepts_fresh_recovered_controllers(self):
+        import maintenance_actor_hold as actors
+        import maintenance_hop_journal as hops
+        from maintenance_node_scheduling import Scheduling
+        from test_maintenance_actor_hold import IDENTITY, Systemd
+        from test_maintenance_coordination import API
+        from test_maintenance_node_scheduling import NodeAPI
+        temporary = tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name);units = root / 'units';units.mkdir()
+        api = API();api.nodes[0].update(apiVersion='v1', kind='Node', spec={})
+        api.nodes[0]['metadata']['resourceVersion'] = '10'
+        owner = api.controller().acquire('fixture-a', production.SOURCE, production.TARGET,
+                                        'a' * 40, component='k3s')
+        hold = actors.Hold(Systemd(), lambda: dict(IDENTITY),
+            lambda token: api.controller().resume(token) == owner, root / 'state', units)
+        hold.acquire(owner['owner'], IDENTITY, 'a' * 40)
+        journal = hops.Journal(api.controller(), hold, owner['owner']);journal.initialize()
+        nodes = NodeAPI(api);worker = Scheduling(journal, nodes);cordon = worker.plan('cordon')
+        worker.dispatch(cordon, production.hashed(cordon), 'c' * 64, lambda *_: True)
+        worker.observe(cordon, 'c' * 64, lambda *_: True)
+        actors.exclusive_file(hold.state / ('cordon-' + owner['owner'] + '.json'),
+                              hops.canonical(cordon), 0o600)
+        for step in hops.steps(owner)[1:hops.steps(owner).index('restore_scheduling')]:
+            state = journal.begin(step, 'c' * 64, 'd' * 64, lambda *_: True)
+            journal.accept(state['pending']['sha256'], 'e' * 64, lambda *_: True)
+        def evidence(_kind):
+            return {'held_controllers': ['pinned'] if nodes.node['spec'].get('unschedulable') else []}
+        context = {'api': nodes, 'controller': api.controller(), 'hold': hold, 'owner': owner,
+                   'native': None, 'identity': lambda: dict(IDENTITY), 'rpc': evidence,
+                   'operation': 'restore-scheduling'}
+        with patch.object(production, 'SERVERS', ('fixture-a',)), \
+                patch.object(hops, 'Journal', return_value=journal):
+            output = io.StringIO()
+            with redirect_stdout(output):
+                production.native_operation(context)
+            dispatched = json.loads(output.getvalue())['result']
+            self.assertFalse(dispatched['accepted'])
+            self.assertEqual(len(nodes.patches), 2)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                production.native_operation(context)
+            accepted = json.loads(output.getvalue())['result']
+            self.assertTrue(accepted['accepted'])
+            self.assertEqual(len(nodes.patches), 2)
+            self.assertEqual(accepted['journal']['completed'][-1], 'restore_scheduling')
 
 
 if __name__ == '__main__':
