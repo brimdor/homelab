@@ -19,12 +19,17 @@ app-template:
     main:
       # Issue 103: cold protected recovery and Sprigatito evacuation.
       replicas: 1
+      strategy: Recreate
       # strategy: RollingUpdate
       pod:
         # Pod-level security context. The LSIO image runs s6 as root
         # and drops to abc (PUID 99/PGID 100). fsGroup=100 lets the
         # PVC's GID be honored on RBD writes.
         securityContext:
+          seLinuxOptions:
+            level: s0:c195,c417
+          seccompProfile:
+            type: RuntimeDefault
           fsGroup: 100
           fsGroupChangePolicy: OnRootMismatch
         # Give Emby time to flush any in-flight HLS segment writes
@@ -433,6 +438,11 @@ app-template:
               readOnly: true
   defaultPodOptions:
     runtimeClassName: nvidia
+    securityContext:
+      seLinuxOptions:
+        level: s0:c195,c417
+      seccompProfile:
+        type: RuntimeDefault
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
