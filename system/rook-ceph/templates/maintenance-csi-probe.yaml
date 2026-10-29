@@ -1,0 +1,92 @@
+{{- if .Values.maintenanceCsiProbe.enabled }}
+{{- range $class := list "standard-rwo" "standard-rwx" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: maintenance-103-csi-{{ $class }}
+  labels:
+    homelab.eaglepass.io/maintenance: "103-csi-probe"
+spec:
+  accessModes:
+    - {{ if eq $class "standard-rwo" }}ReadWriteOnce{{ else }}ReadWriteMany{{ end }}
+  storageClassName: {{ $class }}
+  resources:
+    requests:
+      storage: 1Gi
+{{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: maintenance-103-csi-probe
+  labels:
+    homelab.eaglepass.io/maintenance: "103-csi-probe"
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        homelab.eaglepass.io/maintenance: "103-csi-probe"
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2016
+        runAsGroup: 2016
+        fsGroup: 2016
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: probe
+          image: {{ index .Values "rook-ceph-cluster" "toolbox" "image" | quote }}
+          command:
+            - python3
+            - -B
+            - -c
+            - |
+              import hashlib, json, os
+              results = []
+              for directory in ("/rbd", "/cephfs"):
+                  path = directory + "/maintenance-103-synthetic"
+                  data = os.urandom(4096)
+                  with open(path, "xb") as target:
+                      target.write(data)
+                      target.flush()
+                      os.fsync(target.fileno())
+                  with open(path, "rb") as source:
+                      assert source.read() == data
+                  os.unlink(path)
+                  descriptor = os.open(directory, os.O_DIRECTORY)
+                  try:
+                      os.fsync(descriptor)
+                  finally:
+                      os.close(descriptor)
+                  results.append({"mount": directory, "bytes": len(data),
+                                  "sha256": hashlib.sha256(data).hexdigest()})
+              print(json.dumps({"result": "PASSED", "volumes": results}))
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          volumeMounts:
+            - name: rbd
+              mountPath: /rbd
+            - name: cephfs
+              mountPath: /cephfs
+      volumes:
+        - name: rbd
+          persistentVolumeClaim:
+            claimName: maintenance-103-csi-standard-rwo
+        - name: cephfs
+          persistentVolumeClaim:
+            claimName: maintenance-103-csi-standard-rwx
+{{- end }}

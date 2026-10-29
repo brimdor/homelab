@@ -89,6 +89,35 @@ service accounts, so preserve storage driver identities while adopting those acc
 requires corrected Rook/Ceph releases and distinguishes core keys, client keys and service tickets. Determine actual
 generations instead of copying an example value. Kernel support alone does not prove migrated client behavior.</p>
 <h2>Data safety and rollback</h2>
+<p>Run <code>tryb1a4p</code> at 15:31 UTC found the toolbox's new upstream key watcher, but its live
+Deployment retained the legacy <code>ROOK_CEPH_SECRET</code> secretKeyRef environment variable.
+The watcher gives this launch-time value precedence over the refreshed mounted file, so admin rotation
+left toolbox authentication stale. Server-side dry-run <code>gh4l6oab</code> proved that empty-value/null
+declaration cannot remove this legacy field owned by another manager; no live mutation occurred.
+Use the chart's supported additionalEnv setting to select the deliberately absent optional
+<code>toolbox-legacy-env-disabled</code> key instead. Kubernetes omits optional missing-key environment
+variables, so the upstream watcher uses the mounted key file. Verify the key remains absent, the
+effective reference matches exactly, the actual process has no legacy variable, and native toolbox
+authentication works. This preserves the Deployment UID without replacement or a live-only edit.
+No credential value is exported or changed by this repair.</p>
+<p>Additional artifact verification at 15:26 UTC (run <code>f06a8d2v</code>) supersedes the
+temporary CSI 3.16.3 bridge: the actual official 3.17.1 amd64 image uses CentOS Stream 9,
+despite current general upstream documentation describing an earlier EL10 transition.
+Select <code>v3.17.1@sha256:0b62db8afc9b174619186c87084a8952157daa719415c598603be22b63cc1293</code>,
+amd64 manifest <code>sha256:e1122fc768ddb7bd5c5cdca9feab0a9eafd1d994d0edf9c204c89ef2707e2aa9</code>.
+This release is in the current CSI support window and explicitly meets Rook's AES256K prerequisite.
+The 3.18.0 artifact is Rocky 10. Keep the synthetic probe disabled until the selected CSI rollout
+and Ceph core rotation converge; enable it in a separate GitOps change.</p>
+<p>After the patch and core rotation converge, enable the repository-owned
+<code>maintenanceCsiProbe</code> through Argo. Its fixed Job provisions two new 1 GiB PVCs named
+<code>maintenance-103-csi-standard-rwo</code> and <code>maintenance-103-csi-standard-rwx</code>,
+mounts both as an unprivileged UID with RuntimeDefault seccomp, writes 4096 random synthetic bytes
+per volume, fsyncs, reopens and compares, then deletes each synthetic file. It uses no NAS path,
+existing data PVC or service-account token. Refuse preexisting names or unexpected identities.
+Record Job/Pod/PVC/PV UIDs and current driver/key generations. Before disabling the probe through
+Git, verify only its completed Job owns these consumers, both PVs use the expected Ceph drivers
+and Delete reclaim policy, and original storage identities remain intact. Confirm Argo removes the
+Job and both PVCs/PVs without removing any original storage. Do not retain synthetic test storage.</p>
 <p>At 15:19 UTC, cluster chart commit <code>94ed68c5ec20be921d59ed4abc8557d18c035adf</code>
 was Synced/Healthy. Stage 2 completed both nine-node plugin rollouts and both two-replica controllers
 (run <code>v01qr87_</code>). Run <code>tms9yi2p</code> preserved all 57 Ceph PV identities and relevant

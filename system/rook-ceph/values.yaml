@@ -5,10 +5,10 @@ rook-ceph:
     enabled: true
   csi:
     # The default EL10 image requires AVX unavailable under GDS mitigation.
-    # v3.16.3 retains EL9/Kubernetes 1.33 support and Ceph AES256K support.
+    # Verified v3.17.1 uses EL9 and supports Ceph AES256K keys.
     cephcsi:
       repository: quay.io/cephcsi/cephcsi
-      tag: v3.16.3@sha256:7da399829e5eb7911fe4a319b9d92eea447f9dbfc2652913f03c0977a69a9fb4
+      tag: v3.17.1@sha256:0b62db8afc9b174619186c87084a8952157daa719415c598603be22b63cc1293
     pluginTolerations:
       - key: dedicated
         operator: Exists
@@ -25,6 +25,14 @@ rook-ceph:
 rook-ceph-cluster:
   toolbox:
     enabled: true
+    # An absent optional key omits the legacy env var; the watcher uses its file.
+    additionalEnv:
+      - name: ROOK_CEPH_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: rook-ceph-mon
+            key: toolbox-legacy-env-disabled
+            optional: true
     # Match the Ceph daemon CLI, not the Rook operator version.
     image: quay.io/ceph/ceph:v20.2.4-20260818@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
   monitoring:
@@ -181,6 +189,10 @@ snapshot-controller:
         name: rook-ceph-snapshot-webhook
         kind: Issuer
         group: cert-manager.io
+
+# Temporary synthetic volumes only; disable and prune after UID-bound acceptance.
+maintenanceCsiProbe:
+  enabled: false
 
 pvcHygiene:
   enabled: true
