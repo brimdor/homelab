@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: serial K3s production maintenance</title>
+<style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}code{overflow-wrap:anywhere}</style>
+<h1>Issue 103: serial K3s production maintenance</h1>
+<p>October 29, 2026. Implementation contract; no production K3s upgrade is accepted here.
+This implements the already authorized K3S_CILIUM task, following accepted Cilium 1.20.4 and
+CSI compatibility. All nine Fedora 44 OS maintenance actions are complete and are not repeated.</p>
+<h2>Evidence and targets</h2>
+<p>Official channels dnip5jak at 16:26 UTC report stable v1.36.5+k3s1 and latest v1.37.1+k3s1.
+Select stable 1.36, within Cilium 1.20's Kubernetes support matrix. Official release metadata
+thvxcrw7 and AMD64 checksum artifacts ium_91e6/6shm4b68 bind the exact consecutive chain:
+v1.33.6+k3s1, v1.33.13+k3s2, v1.34.12+k3s1, v1.35.9+k3s1, v1.36.5+k3s1.
+Patch the current minor before advancing; no skipped minor or 1.37 transition.
+The executable contract pins every binary SHA256. Release notes' Traefik changes do not apply
+because this cluster disables Traefik and the Helm controller. Retain those settings.</p>
+<p>The earlier stargz qualification qh2x61h3 accepted its complete 13 checkpoints, 40 serial
+upgrades and four matching restores. This is bounded fixture evidence; native AMD64 production
+must still prove actual containerd stargz plugin, workload snapshotter and retained configuration.
+Do not repeat the fixture or call it production maintenance.</p>
+<h2>Ownership and order</h2>
+<p>Use the existing nonexpiring Kured-compatible owner, private host actor hold, hash-chained
+intent/acceptance journal, exact Node UID scheduling, PDB-respecting UID/RV-bound serial eviction
+and ordered safe release. The owner explicitly names component k3s and exact string versions.
+It cannot masquerade as a Fedora 44-to-44 operation or select package/offline-reboot steps.
+Host machine/root/MAC and strict SSH anchors remain bound to the reviewed production profiles.</p>
+<p>For each version: Charmander, Squirtle, Bulbasaur (all servers), then Pikachu, Cyndaquil,
+Totodile, Growlithe, Arcanine, Sprigatito. Finish acceptance and release of the current node
+before another node. Preserve Mon/Wed/Fri Kured configuration. Any uncertain mutation remains
+pending for observation; never replay an activation, eviction, ownership or release blindly.</p>
+<h2>Per-node execution</h2>
+<p>Native read-only jggajt0k at 17:02 UTC on October 29 bound all nine installed source
+binary SHA256 values, active service PIDs, unit/configuration hashes, boot IDs and working
+stargz plugins to the existing trusted machine, root and Node identities. Those bindings
+must be rechecked for each actual transition; they do not prove an upgrade.</p>
+<p>The component binary transaction preserves the original executable and its metadata in
+private host recovery state, verifies the pinned candidate, records intent, then replaces
+the executable atomically on the destination filesystem. It restarts only the existing
+KillMode=process service. Observe an interrupted activation without replacement or restart.
+The local 89-test batch sbrn8tvh passed with one explicit Linux fd-xattr native check skipped
+on macOS; perform that Linux check before production. Local file/journal tests cannot prove
+SELinux labels, actual systemd/container preservation, source-version recovery or live upgrades.</p>
+<ol>
+<li>Bind current Issue 103 contract, published commit, exact node inventory/runtime versions and
+previous node acceptance. Verify clean PGs, existing application behavior, exact protected Zot
+native process, strict access, source binary hash, OS/kernel/SELinux, systemd unit/configuration
+and absence of competing owners or package actors.</li>
+<li>Retain protected local recovery on a different trusted node, including original binary and
+metadata, service/configuration identity and a consistent three-voter etcd snapshot with token.
+Exercise the matching source version restore before a control-plane transition. Keep real recovery
+outside disposable testing storage and NAS.</li>
+<li>Acquire explicit component ownership and host hold. Cordon and serially drain the exact node.
+Retain DaemonSets, legitimate mirror/CUDA completion and only the exact protected Zot process.
+Zot's Pod/container/PID/start-time/boot/security label/storage identities must all remain unchanged.
+An identity mismatch refuses this exception. Rook OSD protection and expected target-only downtime
+must be proved by current native mappings, quorum, availability and PDB evidence.</li>
+<li>Prepare only the pinned official AMD64 binary in private verified local storage, preserving
+original bytes/metadata and recording immutable intent before activation. Atomically install the
+reviewed candidate and restart only the existing K3s service; preserve its unit, arguments, config,
+token, containerd storage and all NAS restrictions. Never run the broad provisioning role or
+installer, kill running containers, wipe data, reset the cluster or downgrade migrated etcd data.</li>
+<li>Verify trusted native service/API, exact installed/running version, three-voter etcd health,
+actual stargz plugin/snapshotters, Cilium mesh/DNS/L2/TLS and target-only expected controller holds.
+Restore original scheduling. Wait for the same OSDs, 177 clean PGs, all migrated clients, application
+behavior and the complete per-node security/storage/runtime acceptance. Then release host/global
+ownership through the existing ordered journal. No following node before acceptance.</li>
+</ol>
+<h2>Ceph client key migration and data safety</h2>
+<p>Stage CSI AES256K keys with the supported operator, keep one prior key, prove native key
+metadata and fresh synthetic RBD/CephFS fsync before remounting existing clients. Combine the
+required serial remount with K3s drains where safe. Do not remove old keys or restrict allowed
+ciphers until every original mounted client is rehydrated and proved on the new generation.
+No NAS writes, configuration changes, backup/restore, export edits or registry operations.</p>
+<h2>Failure and recovery</h2>
+<p>Keep exact durable ownership and pending intent after failures. Diagnose software using
+existing authorized access. Binary rollback requires verified datastore format compatibility;
+a source-version protected restore is a separate recovery operation, never an automatic downgrade.
+New regressions stop only the affected transition while independent safe work continues.
+All-layer GREEN and actual maintenance evidence remain mandatory for Issue 103 closure.</p>
+<h2>Primary references</h2>
+<p><a href="https://docs.k3s.io/upgrades/manual">K3s manual upgrades</a>,
+<a href="https://docs.k3s.io/datastore/backup-restore">K3s datastore backup/restore</a>,
+<a href="https://update.k3s.io/v1-release/channels">official channels</a>,
+<a href="https://rook.io/docs/rook/v1.21/Storage-Configuration/Advanced/cephx-key-rotation/">Rook CephX rotation</a>,
+<a href="k3s-stargz-qualification-103.html">retained stargz qualification</a>.</p>
+</html>

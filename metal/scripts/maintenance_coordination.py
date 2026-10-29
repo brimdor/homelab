@@ -32,7 +32,12 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-def reviewed_hop(node, source, target):
+def reviewed_hop(node, source, target, component='fedora'):
+    if component == 'k3s':
+        from maintenance_k3s_contract import reviewed
+        return reviewed(source, target)
+    if component != 'fedora':
+        return False
     return (type(source) is int and type(target) is int and
             ((source, target) in ((39, 41), (41, 43), (43, 44)) or
              node in ('totodile', 'pikachu', 'squirtle') and source == target == 44))
@@ -167,9 +172,9 @@ class Ownership:
         operations.append({'op': 'add', 'path': '/metadata/annotations', 'value': annotations})
         self.api.patch(operations)
 
-    def acquire(self, node, source, target, revision):
-        require(node in self.nodes and reviewed_hop(node, source, target),
-                'unreviewed node or Fedora hop')
+    def acquire(self, node, source, target, revision, *, component='fedora'):
+        require(node in self.nodes and reviewed_hop(node, source, target, component),
+                'unreviewed node or component transition')
         require(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision),
                 'missing exact published repository revision')
         ds = self.observed()
@@ -191,6 +196,8 @@ class Ownership:
         journal = {'version': 1, 'owner': token, 'node': node, 'node_uid': self.nodes[node],
                    'source': source, 'target': target, 'revision': revision, 'created': created,
                    'phase': 'OWNED_KURED_ONLY'}
+        if component != 'fedora':
+            journal['component'] = component
         if skip_lock is not None:
             journal['restore_window_lock'] = skip_lock
         lock = {'nodeID': token, 'metadata': {'unschedulable': True}, 'created': created, 'TTL': 0}
@@ -214,7 +221,8 @@ class Ownership:
                 journal.get('version') == 1 and journal.get('phase') == 'OWNED_KURED_ONLY' and
                 journal.get('node') in self.nodes and
                 journal.get('node_uid') == self.nodes[journal['node']] and
-                reviewed_hop(journal.get('node'), journal.get('source'), journal.get('target')) and
+                reviewed_hop(journal.get('node'), journal.get('source'), journal.get('target'),
+                             journal.get('component', 'fedora')) and
                 isinstance(journal.get('revision'), str) and
                 re.fullmatch('[0-9a-f]{40}', journal['revision']) and
                 lock.get('created') == journal.get('created') and
