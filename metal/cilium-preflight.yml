@@ -1,6 +1,7 @@
 - name: Respect existing host maintenance ownership
   hosts: metal
   gather_facts: false
+  any_errors_fatal: true
   tasks:
     - name: Require released maintenance ownership
       ansible.builtin.import_tasks: tasks/maintenance-guard.yml

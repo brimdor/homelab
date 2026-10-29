@@ -1,5 +1,6 @@
 - name: Setup Nodes
   hosts: metal
+  any_errors_fatal: true
   pre_tasks:
     - name: Respect persistent maintenance ownership
       ansible.builtin.import_tasks: tasks/maintenance-guard.yml

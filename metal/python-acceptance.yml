@@ -1,0 +1,10 @@
+- name: Verify host Python through ordinary Ansible facts
+  hosts: metal
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Respect persistent maintenance ownership
+      ansible.builtin.import_tasks: tasks/maintenance-guard.yml
+
+    - name: Gather facts without changing host configuration
+      ansible.builtin.setup:

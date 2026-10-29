@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualify the minimal CPython BLAKE2 CPU-dispatch repair on Sprigatito."""
+"""Qualify the exact CPython BLAKE2 repair on one reviewed production node."""
 
 import argparse
 import hashlib
@@ -13,7 +13,8 @@ HEADERS_SHA = '579237b12bf4416bc9f5b6733d24e3f93c583f1bc283ec2514b9d296a2bd13bf'
 MODULE_SHA = '7523638132c313eb5b8a5bca62bef4b5a403312718fc7585863230d231f70047'
 ORIGINAL_SHA = 'c7a10238137f151fb9e8fa5394167344c0db695ba15d2923dabc99785a7e0729'
 CANDIDATE_SHA = '920605c9fff6f3249aa0be069efdc44a0f14ea5e57688a3f5d5e89a6e654e872'
-RECOVERY = '/var/lib/homelab-recovery/maintenance-103/sprigatito-python-blake2-20261029-a'
+NODES = ('charmander', 'squirtle', 'bulbasaur', 'pikachu', 'cyndaquil',
+         'totodile', 'growlithe', 'arcanine', 'sprigatito')
 PATCH_FROM = '''    flags->avx = (ecx1 & ECX_AVX) != 0;
 
     flags->avx2 = (ebx7 & EBX_AVX2) != 0;'''
@@ -179,9 +180,10 @@ def native(context):
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, interrupted)
 
-    actors.require(os.geteuid() == 0 and socket.gethostname() == 'sprigatito' and
-        Path('/etc/machine-id').read_text().strip() == 'e5796c3018b6448eae0c69405926317e' and
-        call('findmnt', '-n', '-o', 'UUID', '/').strip() == b'c27f6613-788e-4d00-802c-5b84a730a631' and
+    actors.require(context['node'] in NODES and os.geteuid() == 0 and
+        socket.gethostname() == context['node'] and
+        Path('/etc/machine-id').read_text().strip() == context['identity']['machine'] and
+        call('findmnt', '-n', '-o', 'UUID', '/').decode().strip() == context['identity']['root_uuid'] and
         Path('/proc/sys/kernel/random/boot_id').read_text().strip() == context['boot'] and
         call('rpm', '-q', 'python3-libs').strip() == b'python3-libs-3.14.8-1.fc44.x86_64' and
         call('rpm', '-E', '%fedora').strip() == b'44' and
@@ -203,7 +205,7 @@ def native(context):
                            'unsafe RPM transaction lock')
             fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             actors.require(os.stat(lock_path).st_ino == info.st_ino, 'RPM lock inode changed')
-            recovery = Path(RECOVERY)
+            recovery = Path(context['recovery'])
             actors.safe(recovery)
             manifest = json.loads((recovery / 'manifest.json').read_bytes())
             backup = recovery / 'original.so'
@@ -321,15 +323,15 @@ def native(context):
                                  context['vectors_source'] + '\nprint(json.dumps(vectors()))\n')
                         actors.require(json.loads(call('/usr/bin/python3', '-I', '-B', '-c', probe)) ==
                                        context['reference_vectors'], 'installed stdlib acceptance failed')
-                    parent = Path(RECOVERY).parent
+                    parent = Path(context['recovery']).parent
                     actors.safe(parent)
                     actors.require(parent.stat().st_uid == 0 and not parent.stat().st_mode & 0o022 and
-                                   call('findmnt', '-n', '-o', 'UUID', '-T', str(parent)).strip() ==
-                                   b'c27f6613-788e-4d00-802c-5b84a730a631',
+                                   call('findmnt', '-n', '-o', 'UUID', '-T', str(parent)).decode().strip() ==
+                                   context['identity']['root_uuid'],
                                    'protected recovery must remain on exact local root')
-                    install(original, candidate, Path(RECOVERY), installed_vectors, context['revision'])
+                    install(original, candidate, Path(context['recovery']), installed_vectors, context['revision'])
                     result.update(installed=True, installed_extension_unchanged=False,
-                                  recovery=RECOVERY, rpm_posix_transaction_lock=True)
+                                  recovery=context['recovery'], rpm_posix_transaction_lock=True)
                 finally:
                     os.close(descriptor)
     finally:
@@ -344,12 +346,14 @@ def main():
     import maintenance_production_node as production
 
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--node', choices=NODES, default='sprigatito')
     for name in ('identity', 'known-hosts', 'kubectl'):
         parser.add_argument('--' + name, required=True)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--apply', action='store_true')
     mode.add_argument('--rollback', action='store_true')
     args = parser.parse_args()
+    production.select_node(args.node)
     require(Path.cwd() == Path('/Users/chris/Documents/Github/homelab'), 'canonical checkout required')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     require(subprocess.check_output(['git', 'branch', '--show-current'], text=True).strip() == 'master' and
@@ -358,26 +362,34 @@ def main():
                 'git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0] == revision,
             'publish the exact BLAKE2 qualification before execution')
     bundle = {}
-    for name in ('maintenance_actor_hold', 'maintenance_production_node', 'maintenance_python_blake2'):
+    for name in ('maintenance_actor_hold', 'maintenance_production_node', 'maintenance_coordination',
+                 'maintenance_python_blake2'):
         path = Path('metal/scripts') / (name + '.py')
         require(path.read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + str(path)]),
                 'unpublished BLAKE2 qualification dependency')
         if name == 'maintenance_actor_hold':
             bundle[name] = path.read_text()
+    for filename in ('metal/python-acceptance.yml', 'metal/tasks/maintenance-guard.yml'):
+        path = Path(filename)
+        require(path.read_bytes() == subprocess.check_output(['git', 'show', revision + ':' + filename]),
+                'unpublished Ansible acceptance dependency')
     api = production.Kubectl(args.kubectl)
-    node = api.call('get', 'node', 'sprigatito', '-o', 'json')
+    node = api.call('get', 'node', production.NODE, '-o', 'json')
     ds = api.call('get', 'daemonset', 'kured', '-n', 'kured', '-o', 'json')
-    require(node['metadata']['uid'] == '5d80125d-4228-47dd-b19c-ca86f7d4316c' and
+    require(node['metadata']['uid'] == production.UID and
             any(c['type'] == 'Ready' and c['status'] == 'True' for c in node['status']['conditions']) and
+            all(c['status'] == 'False' for c in node['status']['conditions'] if c['type'].endswith('Pressure')) and
             production.JOURNAL not in ds['metadata'].get('annotations', {}), 'node or maintenance identity differs')
     context = {'boot': node['status']['nodeInfo']['bootID'], 'reference_vectors': vectors(),
                'vectors_source': inspect.getsource(vectors), 'apply': args.apply,
-               'rollback': args.rollback, 'revision': revision}
+               'rollback': args.rollback, 'revision': revision, 'node': production.NODE,
+               'identity': dict(production.IDENTITY), 'recovery':
+               '/var/lib/homelab-recovery/maintenance-103/' + production.NODE + '-python-blake2-20261029-a'}
     source = Path(__file__).read_text().split('\ndef main(')[0]
     program = 'import sys,types\nbundle=' + repr(bundle) + '\n'
     program += 'for name,code in bundle.items():\n m=types.ModuleType(name);sys.modules[name]=m;exec(compile(code,name,"exec"),m.__dict__)\n'
     program += source + '\nprint(json.dumps(native(' + repr(context) + ')))'
-    result = production.remote(args, program, '10.0.20.20')
+    result = production.remote(args, program, production.ADDRESS)
     if args.apply:
         import os
         import re
@@ -391,21 +403,23 @@ def main():
                 ' -o IdentitiesOnly=yes -o ControlMaster=no'})
         try:
             accepted = subprocess.run(['/Users/chris/.local/bin/ansible-playbook', '-i',
-                'metal/inventories/prod.yml', 'metal/nodes.yml', '--limit', 'sprigatito',
-                '--tags', 'gpu_container_access'], env=environment, capture_output=True, text=True)
-            summary = re.search(r'^sprigatito\s+:\s+ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)',
+                'metal/inventories/prod.yml', 'metal/python-acceptance.yml', '--limit', production.NODE],
+                env=environment, capture_output=True, text=True)
+            summary = re.search(r'^' + re.escape(production.NODE) + r'\s+:\s+ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)',
                                 accepted.stdout, re.MULTILINE)
             require(accepted.returncode == 0 and summary is not None and int(summary[1]) >= 2 and
                     tuple(map(int, summary.groups()[1:])) == (0, 0, 0),
-                    'Ansible fact gathering or idempotent GPU acceptance failed: ' +
+                    'Ansible ownership or read-only fact acceptance failed: ' +
                     accepted.stdout[-2500:] + accepted.stderr[-1000:])
-            result['ansible_facts_and_gpu_idempotence'] = True
+            result['ansible_facts_and_ownership'] = True
         except BaseException:
             rollback_context = dict(context, apply=False, rollback=True)
             rollback_program = program[:program.rfind('\nprint(json.dumps(native(')]
             rollback_program += '\nprint(json.dumps(native(' + repr(rollback_context) + ')))'
-            production.remote(args, rollback_program, '10.0.20.20')
+            production.remote(args, rollback_program, production.ADDRESS)
             raise
+    result['node'] = production.NODE
+    result['boot'] = context['boot']
     print(json.dumps(result, sort_keys=True))
 
 
