@@ -126,4 +126,31 @@ features. Default client exponential backoff has no conflicting extraEnv here. R
 official preflight, native cleanup, fresh complete mesh, actual DNS/TLS VIP/application behavior,
 identity, clean PG and exact Zot process acceptance before any following transition.
 <a href="https://docs.cilium.io/en/v1.18/operations/upgrade/">Primary 1.18 upgrade guide</a>.</p>
+<h2>1.17 acceptance, 1.18 execution and required pool API migration</h2>
+<p>Published 16771a2e preceded 1.17.18 preflight vcu8cw6a and production k_f0a33i.
+Independent kgx3askq at 16:43 UTC accepted all nine exact runtime digests, zero restarts,
+fresh complete HTTP/ICMP host/endpoint mesh, operator/Hubble, DNS/Gitea/TLS VIP,
+unchanged identities, 177 clean PGs and exact protected Zot process. An earlier collector
+failed on an incomplete startup sample; it did not establish a network failure or acceptance.</p>
+<p>Published cb5d3f39 preceded 1.18.16 preflight x05nn8db and production 2860stzw, completed
+16:49 UTC. Full native acceptance remains required. The 1.18 health API adds per-protocol
+lastProbed timestamps and a native probeInterval (approximately three minutes here). An address
+without protocol results is incomplete. Pinned upstream prober.go (9ctzi062) publishes cached results
+at each cycle boundary before running the following rate-limited cycle. Require every successful
+HTTP/ICMP path timestamp after production completion and no older than two native intervals plus
+30 seconds of observation margin;
+require positive latency, empty failure status and a fresh complete nine-node sample. Do not treat
+missing paths, stale data or a collector exception as success.</p>
+<p>Native 4u2u56i8 at 16:50 UTC verified the pool CRD now serves and stores v2. The original
+default pool UID c54f68a2-1100-438b-b34e-3c5aad6d6109, blocks 10.0.20.224/27,
+allowFirstLastIPs No and disabled false are unchanged. Before 1.19, change only the pool manifest
+and owning role API references to cilium.io/v2, validate and publish, then select only
+cilium_resources. Guard the same pool UID/spec and all existing LoadBalancer Service UIDs,
+specifications and assigned addresses before and after; retain the existing L2 policy and exact
+Zot process. No pool/CRD deletion, range change, reservation change or address reassignment.</p>
+<p>The retained NodeConfig storedVersions include v2alpha1 despite zero NodeConfig consumers.
+Upstream incident <a href="https://github.com/cilium/cilium/issues/47774">47774</a> explains why
+the initial 1.20 removal failed for clusters created before 1.16. Pinned 1.20.4 source verification
+jart8252 confirms the supported fix retains served non-storage v2alpha1 beside storage v2.
+Use that upstream patch; do not delete the CRD or manually rewrite storedVersions.</p>
 </html>

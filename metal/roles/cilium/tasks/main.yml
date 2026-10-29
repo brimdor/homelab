@@ -26,7 +26,7 @@
 
 - name: Read existing Cilium load-balancer pool before field migration
   kubernetes.core.k8s_info:
-    api_version: cilium.io/v2alpha1
+    api_version: cilium.io/v2
     kind: CiliumLoadBalancerIPPool
     name: default
   register: cilium_existing_pool
@@ -48,7 +48,7 @@
 
 - name: Migrate the same pool without retaining duplicate legacy CIDRs
   kubernetes.core.k8s_json_patch:
-    api_version: cilium.io/v2alpha1
+    api_version: cilium.io/v2
     kind: CiliumLoadBalancerIPPool
     name: default
     patch:
