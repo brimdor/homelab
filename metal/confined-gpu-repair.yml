@@ -1,0 +1,40 @@
+---
+- name: Repair Sprigatito GPU policy while the system Python BLAKE2 fault is investigated
+  hosts: sprigatito
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Apply the published GPU boolean through native SELinux tools
+      ansible.builtin.raw: |
+        /usr/bin/python3 -B - <<'PY'
+        import base64, json, os, pathlib, socket, sys, types
+        context = json.loads(base64.b64decode('{{ gpu_repair_context | to_json | b64encode }}'))
+        actors = types.ModuleType('maintenance_actor_hold')
+        exec(compile(base64.b64decode('{{ lookup("file", "scripts/maintenance_actor_hold.py") | b64encode }}'), 'maintenance_actor_hold', 'exec'), actors.__dict__)
+        def call(*args):
+            return actors.Systemd.call(*args).decode().strip()
+        actors.require(os.geteuid() == 0 and socket.gethostname() == 'sprigatito' and
+            pathlib.Path('/etc/machine-id').read_text().strip() == 'e5796c3018b6448eae0c69405926317e' and
+            call('findmnt', '-n', '-o', 'UUID', '/') == 'c27f6613-788e-4d00-802c-5b84a730a631' and
+            call('rpm', '-E', '%fedora') == '44' and call('getenforce') == 'Enforcing' and
+            pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip() == context['boot'],
+            'GPU repair host identity differs')
+        hold = actors.Hold(actors.Systemd(), lambda: None, lambda owner: False)
+        with hold.serialized():
+            actors.require(not hold.marker.exists(), 'finish node maintenance before GPU repair')
+            runtime = json.loads(call('/usr/local/bin/k3s', 'crictl', 'inspect', context['container']))
+            actors.require(runtime['status']['state'] == 'CONTAINER_RUNNING' and
+                runtime['status']['labels']['io.kubernetes.pod.uid'] == context['pod_uid'] and
+                runtime['info']['pid'] == context['pid'], 'Emby runtime changed')
+            before = call('getsebool', 'container_use_xserver_devices')
+            actors.require(before in ('container_use_xserver_devices --> off',
+                'container_use_xserver_devices --> on'), 'unexpected GPU boolean state')
+            call('setsebool', '-P', 'container_use_xserver_devices', 'on')
+            actors.require(call('getsebool', 'container_use_xserver_devices') ==
+                'container_use_xserver_devices --> on' and call('getenforce') == 'Enforcing',
+                'GPU policy acceptance failed')
+            print(json.dumps({'changed': before.endswith(' off'), 'gpu_boolean': True,
+                'enforcing': True, 'container': context['container'], 'pid': context['pid']}))
+        PY
+      register: gpu_policy_repair
+      changed_when: "'\"changed\": true' in gpu_policy_repair.stdout"
