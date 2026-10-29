@@ -11,6 +11,8 @@ kind: CronJob
 metadata:
   name: {{ .Release.Name }}-threads-backup
 spec:
+  # NAS writes remain paused throughout maintenance-103.
+  suspend: true
   schedule: "*/10 * * * *"
   timeZone: Etc/UTC
   concurrencyPolicy: Forbid
@@ -90,6 +92,7 @@ spec:
                   readOnly: true
                 - name: backup
                   mountPath: /backup
+                  readOnly: true
                 - name: temporary
                   mountPath: /tmp
           volumes:

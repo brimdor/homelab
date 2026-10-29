@@ -135,71 +135,8 @@ app-template:
             - /bin/sh
             - -c
             - |
-              set -e
-              sleep 30
-              mkdir -p /mnt/backup/db
-
-              backup_database() {
-                database="$1"
-                prefix="$2"
-                ts="$3"
-                db_file="/mnt/backup/db/${prefix}-${ts}.dump"
-                tmp_db="${db_file}.tmp"
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Running pg_dump for ${database} to $db_file"
-                if pg_dump -Fc -d "$database" -f "$tmp_db"; then
-                  if [ -s "$tmp_db" ]; then
-                    mv -f "$tmp_db" "$db_file"
-                  else
-                    echo "[WARN] pg_dump for ${database} created empty file; skipping."
-                    rm -f "$tmp_db"
-                  fi
-                else
-                  echo "[WARN] pg_dump failed for ${database}."
-                  rm -f "$tmp_db"
-                fi
-              }
-
-              prune_backups() {
-                prefix="$1"
-                cnt=$(ls -1 "/mnt/backup/db/${prefix}-"*.dump 2>/dev/null | awk 'END {print NR + 0}')
-                if [ "$cnt" -gt "$MAX_BACKUPS" ]; then
-                  ls -t "/mnt/backup/db/${prefix}-"*.dump | tail -n +$((MAX_BACKUPS + 1)) | xargs -r rm -v
-                fi
-              }
-
-              while true; do
-                ts=$(date +%Y-%m-%d_%H-%M-%S)
-                echo "[$(date +%Y-%m-%d_%H-%M-%S)] Waiting for postgres to be ready..."
-                until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
-                  sleep 2
-                done
-
-                backup_database "$PGDATABASE" "db" "$ts"
-
-                if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Atqc "SELECT 1 FROM pg_database WHERE datname = '$PAPERCLIP_POSTGRES_DB'" | grep -q '^1$'; then
-                  backup_database "$PAPERCLIP_POSTGRES_DB" "paperclip" "$ts"
-                else
-                  echo "[WARN] Paperclip database ${PAPERCLIP_POSTGRES_DB} does not exist yet; skipping backup."
-                fi
-
-                if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Atqc "SELECT 1 FROM pg_database WHERE datname = '$VERSA_POSTGRES_DB'" | grep -q '^1$'; then
-                  backup_database "$VERSA_POSTGRES_DB" "versa-prod" "$ts"
-                else
-                  echo "[WARN] Versa database ${VERSA_POSTGRES_DB} does not exist yet; skipping backup."
-                fi
-
-                if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Atqc "SELECT 1 FROM pg_database WHERE datname = '$VERSA_CANARY_POSTGRES_DB'" | grep -q '^1$'; then
-                  backup_database "$VERSA_CANARY_POSTGRES_DB" "versa-canary" "$ts"
-                else
-                  echo "[WARN] Versa canary database ${VERSA_CANARY_POSTGRES_DB} does not exist yet; skipping backup."
-                fi
-
-                prune_backups db
-                prune_backups paperclip
-                prune_backups versa-prod
-                prune_backups versa-canary
-                sleep 600
-              done
+              echo "[backup] NAS backup paused by maintenance-103"
+              exec sleep infinity
         db-bootstrap:
           image:
             repository: postgres
@@ -363,6 +300,7 @@ app-template:
           image:
             repository: alpine
             tag: latest
+            digest: sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
           command:
             - /bin/sh
             - -c
@@ -510,8 +448,10 @@ app-template:
         main:
           db-backup:
             - path: /mnt/backup
+              readOnly: true
           db-restore:
             - path: /mnt/backup
+              readOnly: true
   defaultPodOptions:
     securityContext:
       fsGroup: 1000

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>Issue 103: PostgreSQL init pin and NAS backup hold</title>
+<style>body{background:#111827;color:#e5e7eb;font:16px/1.6 system-ui;max-width:960px;margin:3rem auto;padding:0 1.5rem}a{color:#93c5fd}code{overflow-wrap:anywhere}h1,h2{color:#fff}</style>
+<h1>PostgreSQL init pin and NAS backup hold</h1>
+<p>Issue <a href="https://git.eaglepass.io/ops/homelab/issues/103">103</a>, IMMUTABLE_IMAGE_TAGS. Prepared October 29, 2026. Rollout and live acceptance remain pending.</p>
+<h2>Exact scope</h2>
+<p>Pin the already completed Alpine init container to its observed digest <code>sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a</code>. Preserve PostgreSQL 17.5, both PostgreSQL 18.4 client containers, database configuration, credentials, Totodile placement, storage and Recreate strategy. This changes no database format.</p>
+<p>Replace the NAS-writing backup sidecar loop with sleep, suspend the Threads NAS backup CronJob, and make every PostgreSQL NAS mount read only. Keep the existing CronJob schedule. Backups remain paused until the owner permits NAS writes. A rollback must retain this hold and read-only mounts; do not blindly restore the previous writable configuration.</p>
+<h2>Evidence and storage</h2>
+<p>Native baseline omhgu3m3 passed at 2026-10-29T10:18:37Z: server version 170005, system identifier 7701641525365469222, six database identities and 20 roles. No backup Job was active. Source Pod UID 32161644-39d2-4bd0-b9f4-cb2d04ae20e6 will change during rollout. Preserve PVC UID 2b7b4f6f-d198-4bb1-adc0-65467a8840a6 and PV UID e83c623f-adf2-45ab-92b0-b568c37540f3, reclaim policy Delete.</p>
+<p>Read-only inspection 63us2vit verified the existing NAS recovery point, manifest 157ec5d8f173f16fe6ad5a10b6fc13c3d8766b19116282543998c72d1230b443. Retained isolated restore receipt: six databases, 303 relations, 288413 base-table rows equal to COPY rows, clean server shutdown and verified page checksums. Restored catalogs, authorization fingerprints and six schemas still match the protected original. This is the October 19 recovery point, not a new backup or proof of current full recovery coverage. No NAS files were created or changed.</p>
+<h2>Acceptance and rollback</h2>
+<p>Candidate 2ut2oc0w renders exactly six resources; only the Deployment and backup CronJob change. Require original main/client image identities, same PVC/PV, same database system identifier and six database OIDs, all containers ready, native backup PID sleeping, actual NAS mounts read only, CronJob suspended with no active Job, Argo Synced/Healthy and unchanged Versa production/Canary readiness and database behavior. Preserve the exact Zot container and process. Record actual rollout receipts before claiming completion.</p>
+<p>If acceptance fails, preserve evidence and data. Correct desired state through Git. Revert only the init digest if necessary while retaining the NAS hold. Do not execute restore scripts against live data or run an incompatible database image.</p>
+</html>
