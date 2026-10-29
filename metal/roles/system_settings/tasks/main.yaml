@@ -36,6 +36,16 @@
     state: present
   when: k3s_selinux | default(false)
 
+- name: Allow confined GPU containers to use assigned NVIDIA devices
+  ansible.posix.seboolean:
+    name: container_use_xserver_devices
+    state: true
+    persistent: true
+  when:
+    - k3s_selinux | default(false)
+    - gpu_type | default('') | length > 0
+  tags: gpu_container_access
+
 - name: Install node firmware and disk health packages
   ansible.builtin.package:
     name:
