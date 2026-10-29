@@ -166,4 +166,26 @@ fromRequires/toRequires, Kafka, BGPv1 or ClusterMesh policy consumer is being in
 Retain socket load balancing, original neighbor discovery, API liveness and one unavailable agent.
 Use the same official preflight and complete native acceptance before the following minor.
 <a href="https://docs.cilium.io/en/v1.19/operations/upgrade/">Primary 1.19 upgrade guide</a>.</p>
+<h2>1.19 acceptance and final 1.20 target</h2>
+<p>Published 45d72fd2 preceded official 1.19.10 preflight xzhbstcb and production q0_i_rbp,
+completed at 17:12 UTC. Independent _aej4ufs at 17:18 UTC accepted nine exact runtime
+digests, zero restarts, complete successful post-rollout protocol mesh, operator/Hubble,
+DNS/internal Gitea/TLS VIP, preserved Node/pool/Service identities, 177 clean PGs and exact
+protected Zot native process. Cached probes were allowed to finish naturally; missing or
+pre-rollout protocol results were not accepted.</p>
+<p>Final adjacent target is 1.20.4. Pinned release notes lbo_y74v and official chart comparison
+t9019hrx retain veth/VXLAN, socket load balancing, local K3s API, mesh authentication,
+neighbor discovery, liveness and the original upgrade compatibility. The new datapath plugin
+feature stays disabled, dynamic NodePort source lookup stays disabled and node-local Envoy
+locality stays disabled. CNI uses upstream standard 1.0; no custom configuration is supplied.
+Gateway API, ClusterMesh, encryption and removed Kafka/proxylib policy features are not enabled.</p>
+<p>The exact 1.20.4 upstream NodeConfig CRD fix jart8252 retains served non-storage v2alpha1
+alongside storage v2, so existing storedVersions are valid without a destructive CRD workaround.
+There are zero NodeConfig consumers. Preserve both served versions and the exact CRD UID after
+operator reconciliation. The already migrated pool uses v2. Render the preserved API environment,
+all resources and mandatory preflight, then require the full production acceptance before CSI
+key changes or K3s upgrades. Mutual authentication is deprecated upstream but remains explicitly
+enabled here; no replacement security feature is silently introduced.
+<a href="https://github.com/cilium/cilium/releases/tag/v1.20.4">Pinned release</a>,
+<a href="https://raw.githubusercontent.com/cilium/cilium/v1.20.4/Documentation/operations/upgrade-current.inc">pinned upgrade notes</a>.</p>
 </html>
