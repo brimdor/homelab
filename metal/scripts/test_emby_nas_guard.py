@@ -4,6 +4,8 @@ import copy
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
 
 spec = importlib.util.spec_from_file_location('emby_nas_guard',
@@ -43,6 +45,44 @@ class NasGuardTests(unittest.TestCase):
             changed[field] = value
             with self.assertRaises(RuntimeError):
                 guard.select_media({'Items': [{'MediaSources': [changed]}]})
+
+    def test_media_uses_service_working_directory_and_identity(self):
+        path = '/data/movies/fixture.mkv'
+        items = {'Items': [{'MediaSources': [{'Protocol': 'File', 'Path': path,
+                 'MediaStreams': [{'Type': 'Video', 'Codec': 'h264', 'PixelFormat': 'yuv420p'}]}]}]}
+        raw = guard.json.dumps(items).encode()
+        context = {'container_id': 'original-container'}
+        metadata = b'81a4:1:2:1000:1234\n'
+
+        def command(*argv):
+            self.assertEqual(list(argv[:6]), ['/usr/local/bin/k3s', 'crictl', 'exec',
+                                             'original-container', '/usr/bin/s6-setuidgid', 'abc'])
+            if argv[-2:] == ('id', '-u'):
+                return b'99\n'
+            if argv[-2:] == ('id', '-g'):
+                return b'100\n'
+            if 'readlink' in argv:
+                return path.encode() + b'\n'
+            if 'stat' in argv:
+                return metadata
+            self.fail('unexpected command')
+
+        result = SimpleNamespace(returncode=0, stdout=b'frame=48\nout_time_us=2000000\nprogress=end\n', stderr=b'')
+        with patch.object(guard, 'command', side_effect=command), \
+                patch.object(guard, 'runtime_contract', return_value=(1234, Path('/original'))), \
+                patch.object(guard.subprocess, 'run', return_value=result) as launch:
+            accepted = guard.verify_media(context, lambda _: raw, lambda: {}, 1234, Path('/original'))
+            argv = launch.call_args.args[0]
+            self.assertIn('cd /app/emby && exec timeout -k 5 -s TERM 90 "$@"', argv)
+            self.assertEqual(argv[4:6], ['/usr/bin/s6-setuidgid', 'abc'])
+            self.assertEqual(accepted['uid'], 99)
+            self.assertEqual(accepted['gid'], 100)
+            self.assertTrue(accepted['source_metadata_unchanged'])
+        with patch.object(guard, 'command', return_value=b'0\n'), \
+                patch.object(guard.subprocess, 'run') as launch:
+            with self.assertRaisesRegex(RuntimeError, 'user differs'):
+                guard.verify_media(context, lambda _: raw, lambda: {}, 1234, Path('/original'))
+            launch.assert_not_called()
 
     def test_media_progress_requires_completed_nonempty_meaningful_encode(self):
         self.assertEqual(guard.media_progress(b'frame= 48\nout_time_us=2000000\nprogress=end\n')['frames'], 48)

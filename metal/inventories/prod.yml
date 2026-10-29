@@ -114,6 +114,10 @@ metal:
           {
             ansible_host: 10.0.20.20,
             mac: "4c:cc:6a:34:dc:6d",
+            k3s_selinux: true,
+            k3s_seccomp_default: true,
+            host_microcode_early: true,
+            host_gds_force: true,
             disk: sda,
             network_interface: eno1,
             gpu_type: 'GeForce GTX 1650',

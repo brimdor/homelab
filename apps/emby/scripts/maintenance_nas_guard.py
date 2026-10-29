@@ -119,7 +119,10 @@ def media_progress(raw):
 def verify_media(context, request, inspect, pid, root):
     path = select_media(json.loads(request('Items?Recursive=true&IncludeItemTypes=Movie,Episode&'
                                           'Fields=MediaSources,MediaStreams&Limit=50&SortBy=SortName')))
-    prefix = ['/usr/local/bin/k3s', 'crictl', 'exec', context['container_id']]
+    prefix = ['/usr/local/bin/k3s', 'crictl', 'exec', context['container_id'],
+              '/usr/bin/s6-setuidgid', 'abc']
+    require(command(*prefix, 'id', '-u').strip() == b'99' and
+            command(*prefix, 'id', '-g').strip() == b'100', 'media acceptance user differs from Emby')
     resolved = command(*prefix, 'readlink', '-f', '--', path).decode().strip()
     require(resolved == path, 'selected media path is not canonical inside the container')
     before = command(*prefix, 'stat', '-Lc', '%f:%d:%i:%s:%Y', '--', path)
@@ -127,7 +130,8 @@ def verify_media(context, request, inspect, pid, root):
     require(len(fields) == 5 and stat.S_ISREG(int(fields[0], 16)) and int(fields[3]) > 0,
             'selected media is not a nonempty regular file')
     require(runtime_contract(inspect(), context) == (pid, root), 'Emby runtime changed before media acceptance')
-    argv = [*prefix, '/bin/sh', '-c', 'exec timeout -k 5 -s TERM 90 "$@"', 'maintenance103-media',
+    # Emby's FFmpeg ELF interpreter is relative to the service working directory.
+    argv = [*prefix, '/bin/sh', '-c', 'cd /app/emby && exec timeout -k 5 -s TERM 90 "$@"', 'maintenance103-media',
             'env', 'LD_LIBRARY_PATH=/app/emby/lib:/app/emby/extra/lib',
             '/app/emby/bin/ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-loglevel', 'error',
             '-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda', '-threads', '1', '-i', path,
@@ -140,7 +144,8 @@ def verify_media(context, request, inspect, pid, root):
     require(command(*prefix, 'stat', '-Lc', '%f:%d:%i:%s:%Y', '--', path) == before and
             runtime_contract(inspect(), context) == (pid, root), 'media source or Emby runtime changed')
     return {'accepted': True, 'cuda_decode': True, 'cuda_scale': True, 'nvenc_encode': True,
-            'null_output': True, 'child_exit': result.returncode, 'source_metadata_unchanged': True,
+            'null_output': True, 'uid': 99, 'gid': 100, 'working_directory': '/app/emby',
+            'child_exit': result.returncode, 'source_metadata_unchanged': True,
             'source_path_sha256': hashlib.sha256(path.encode()).hexdigest(), **progress}
 
 
