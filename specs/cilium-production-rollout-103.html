@@ -34,7 +34,9 @@ replace the separately completed serial Fedora host acceptance or authorize anot
 <h2>Execution and acceptance</h2>
 <ol>
 <li>Require the current node owner released, all nine nodes Ready without pressure, all 177 PGs clean,
-HEALTH_OK, healthy existing clients and unchanged protected Zot Pod, container and native process.
+healthy existing clients and unchanged protected Zot Pod, container and native process.
+Require HEALTH_OK except the explicitly observed CephX migration warnings described below; any other
+Ceph check, unclean PG, unavailable OSD/quorum or failed client operation blocks the affected transition.
 Retain a consistent protected etcd recovery point and its exercised matching-version restore.
 Preserve existing Kured schedules and do not overlap an active scheduled reboot or another operator.</li>
 <li>Read current official chart/release metadata and version-specific notes. Start with the latest patch
@@ -57,6 +59,18 @@ application behavior. Preserve original warning evidence and verify actual recov
 component version. Keep the exact Zot process, NAS restrictions and owner-paused outside-origin gates.</li>
 </ol>
 <h2>Failure and rollback</h2>
+<p>Storage gate refinement, October 29 at 15:50 UTC: native core/admin/MDS generation 2 and all
+12 Ceph 20.2.4 daemons passed in <code>9asdena5</code>. All 177 PGs returned clean in
+<code>3bvg_i2d</code>; exact supported CSI 3.17.1 rollout passed in <code>ti5db9ze</code> and
+fresh RBD/CephFS provisioning plus fsync/reopen/compare passed in <code>g5mr_oxb</code>.
+Current visible checks are AUTH_INSECURE_CLIENT_KEY_TYPE, AUTH_INSECURE_KEYS_ALLOWED,
+AUTH_INSECURE_KEYS_CREATABLE and AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE. The first three remain
+until the separately staged CSI client rehydration and cipher restriction; old service tickets expire
+naturally in two to three hours. These known warnings and Argo's corresponding aggregate Degraded
+state do not imply a failed data path or justify stopping independent CNI maintenance. Keep them
+visible and require their resolution for storage/issue completion. Do not overlap active Ceph/CSI
+rollouts or key mutations with CNI application. This follows the foundational task-dependency rule;
+it does not waive native preflight, clean PGs, exact identities, client behavior or regression gates.</p>
 <p>Stop the affected transition on uncertain dispatch, unready agents, changed identities, authentication
 or policy denial, data findings or unexpected network behavior. Continue independent authorized work.
 Rollback only to the supported adjacent release using published repository state and reviewed CRD/BPF
