@@ -41,7 +41,10 @@ class Samples:
             payload = '(fd: ' + native[6][6:] + ')' if entering else ' -> ' + native[6]
             match = LINE.fullmatch(f' native-{native[1]} [0] .... {native[2]}.{native[3]}: sys_{native[5]}{payload}')
         if not match or int(match[1]) not in self.tids:
-            raise RuntimeError('lost, foreign or unrecognized native trace event')
+            shape = re.sub(r'[^\[\]():.<> /=\-]+', '?', line)[:240]
+            events = re.findall(r'\bsys_(?:enter_|exit_)?(?:fsync|fdatasync)\b', line)
+            raise RuntimeError('lost, foreign or unrecognized native trace event: ' +
+                               json.dumps({'shape': shape, 'events': events, 'hex_prefix': '0x' in line}))
         tid = int(match[1])
         timestamp = int(match[2]) * 10**9 + int(match[3].ljust(9, '0'))
         call, payload = match[4], match[5]

@@ -53,6 +53,13 @@ class TraceSamples(unittest.TestCase):
         self.assertEqual(result['groups']['recovery/fsync']['at_least_5s'], 1)
         self.assertEqual(result['groups']['unattributed/fdatasync']['errors'], 1)
 
+    def test_rejected_line_diagnostic_excludes_names_and_numbers(self):
+        with self.assertRaises(RuntimeError) as caught:
+            self.samples().add(' private-name-12345 [002] .... 100.000000: unknown-secret: 0xabc')
+        self.assertNotIn('private', str(caught.exception))
+        self.assertNotIn('secret', str(caught.exception))
+        self.assertNotIn('12345', str(caught.exception))
+
     def test_loss_foreign_pid_format_duplicate_and_clock_refusals(self):
         for line in ('CPU:2 [LOST 10 EVENTS]', event('enter', tid=200),
                      event('enter', payload='(fd: 0xb)'), event('exit', payload='ret=0'),
