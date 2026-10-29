@@ -1,6 +1,7 @@
 maintenanceRecovery:
   enabled: true
   receiver: true
+  verifyOnly: true
   archiveSha256: 22e0dd87c57166f5cfe7daa6cb5640406e1557fad3a0cfa03a8702ad7924a492
 # https://github.com/bjw-s-labs/helm-charts/blob/main/charts/library/common/values.yaml
 app-template:

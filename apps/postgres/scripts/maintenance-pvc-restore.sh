@@ -29,6 +29,8 @@ pg_verifybackup --exit-on-error "$data"
 identifier=$(LC_ALL=C pg_controldata "$data" | awk -F ': *' '/^Database system identifier:/ {print $2}')
 [[ "$identifier" == 7702033148198322214 ]] || fail 'Restored database system identifier differs.'
 [[ ! -e "$data/postmaster.pid" ]] || fail 'Unexpected database writer; preserve evidence.'
-printf '%s\n' "$expected" > "$point/accepted.sha256"
 sync -f "$root"
 printf '%s\n' 'Original PVC physical restore verified; database remains stopped.'
+printf '%s\n' "$expected" > "$point/accepted.tmp"
+sync -f "$point/accepted.tmp"
+mv -- "$point/accepted.tmp" "$point/accepted.sha256"

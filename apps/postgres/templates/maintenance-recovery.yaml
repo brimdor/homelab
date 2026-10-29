@@ -12,6 +12,7 @@ spec:
   ingress: []
   egress: []
 {{- if $recovery.receiver }}
+{{- $verifyOnly := $recovery.verifyOnly | default false }}
 {{- $checksum := required "maintenanceRecovery.archiveSha256 is required" $recovery.archiveSha256 }}
 {{- if not (regexMatch "^[0-9a-f]{64}$" $checksum) }}
 {{- fail "maintenanceRecovery.archiveSha256 must be an exact SHA256" }}
@@ -32,14 +33,14 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-maintenance103-recovery
+  name: {{ .Release.Name }}-maintenance103-{{ ternary "verification" "recovery" $verifyOnly }}
 spec:
   backoffLimit: 0
   template:
     metadata:
       labels:
         app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/component: maintenance103-recovery
+        app.kubernetes.io/component: maintenance103-{{ ternary "verification" "recovery" $verifyOnly }}
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
@@ -57,9 +58,23 @@ spec:
             - /bin/bash
             - -ceu
             - |
+              {{- if $verifyOnly }}
+              sync -f /restore
+              marker=/restore/.maintenance103-physical-restore/accepted.sha256
+              test "$(cat "$marker")" = "$SOURCE_ARCHIVE_SHA256"
+              line=$(sha256sum /restore/.maintenance103-physical-restore/base.tar)
+              test "${line%% *}" = "$SOURCE_ARCHIVE_SHA256"
+              test "$(stat -c '%d:%i' /restore/data)" = "$(stat -c '%d:%i' /var/lib/postgresql/data)"
+              pg_verifybackup --exit-on-error /var/lib/postgresql/data
+              identifier=$(LC_ALL=C pg_controldata /var/lib/postgresql/data | awk -F ': *' '/^Database system identifier:/ {print $2}')
+              test "$identifier" = 7702033148198322214
+              test ! -e /var/lib/postgresql/data/postmaster.pid
+              printf '%s\n' 'Original PVC verified independently; database remains stopped.'
+              {{- else }}
               marker=/restore/.maintenance103-physical-restore/accepted.sha256
               while [ ! -f "$marker" ]; do sleep 2; done
               test "$(cat "$marker")" = "$SOURCE_ARCHIVE_SHA256"
+              {{- end }}
           env:
             - name: SOURCE_ARCHIVE_SHA256
               value: {{ $checksum | quote }}
@@ -77,9 +92,11 @@ spec:
           volumeMounts:
             - name: db-data
               mountPath: /restore
+              readOnly: {{ $verifyOnly }}
             - name: db-data
               mountPath: /var/lib/postgresql/data
               subPath: data
+              readOnly: {{ $verifyOnly }}
             - name: script
               mountPath: /workflow
               readOnly: true
