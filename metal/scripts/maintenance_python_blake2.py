@@ -35,6 +35,17 @@ def patched(source):
     return source.replace(PATCH_FROM.encode(), PATCH_TO.encode())
 
 
+def transferred_candidate(encoded, target):
+    """Materialize only the previously qualified artifact in owned scratch."""
+    import base64
+
+    candidate = base64.b64decode(encoded, validate=True)
+    if hashlib.sha256(candidate).hexdigest() != CANDIDATE_SHA:
+        raise RuntimeError('transferred qualified candidate identity differs')
+    target.write_bytes(candidate)
+    return target
+
+
 def vectors():
     """Compare independent installed implementations, including streaming and tree parameters."""
     result = []
@@ -225,64 +236,69 @@ def native(context):
     try:
         with hold.serialized():
             actors.require(not hold.marker.exists(), 'another native maintenance owner exists')
-            archive = root / 'Python-3.14.8.tar.xz'
-            with urllib.request.urlopen('https://www.python.org/ftp/python/3.14.8/Python-3.14.8.tar.xz',
-                                        timeout=60) as response, archive.open('wb') as output:
-                shutil.copyfileobj(response, output)
-            actors.require(hashlib.sha256(archive.read_bytes()).hexdigest() == ARCHIVE_SHA,
-                           'official source archive checksum differs')
-            source = root / 'source'
-            source.mkdir()
-            with tarfile.open(archive, 'r:xz') as contents:
-                for member in contents.getmembers():
-                    path = Path(member.name)
-                    actors.require(path.parts[0] == 'Python-3.14.8' and '..' not in path.parts,
-                                   'unsafe source archive path')
-                    if member.isfile() and path.parts[1] in ('Include', 'Modules'):
-                        target = source.joinpath(*path.parts[1:])
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(contents.extractfile(member).read())
-            module = source / 'Modules/blake2module.c'
-            module.write_bytes(patched(module.read_bytes()))
-            call('dnf', '--setopt=cachedir=' + str(root / 'cache'), '--setopt=logdir=' + str(root / 'log'),
-                 '--setopt=persistdir=' + str(root / 'state'), '--disable-repo=*',
-                 '--enable-repo=fedora', '--enable-repo=updates', 'download', '--destdir=' + str(root),
-                 'python3-devel-3.14.8-1.fc44.x86_64')
-            headers = root / 'python3-devel-3.14.8-1.fc44.x86_64.rpm'
-            actors.require(hashlib.sha256(headers.read_bytes()).hexdigest() == HEADERS_SHA,
-                           'signed development headers differ')
-            signature = call('rpmkeys', '--checksig', str(headers)).decode()
-            actors.require('digests signatures OK' in signature, 'header package signature not verified')
-            payload = call('rpm2cpio', str(headers))
-            names = call('cpio', '-t', input=payload).decode().splitlines()
-            actors.require(all(not Path(name).is_absolute() and '..' not in Path(name).parts
-                               for name in names), 'unsafe development header path')
-            extracted = root / 'headers'
-            extracted.mkdir()
-            call('cpio', '-id', '--no-absolute-filenames', './usr/include/*', input=payload, cwd=extracted)
-            actors.require(not any(p.is_symlink() for p in extracted.rglob('*')),
-                           'development headers contain unreviewed links')
-            include = extracted / 'usr/include/python3.14'
-            common = ['nice', '-n', '19', 'gcc', '-c', '-O2', '-fPIC', '-fexceptions',
-                      '-ffile-prefix-map=' + str(root) + '=/homelab-python-blake2',
-                      '-fcf-protection', '-fstack-protector-strong', '-D_FORTIFY_SOURCE=3',
-                      '-D_BSD_SOURCE', '-D_DEFAULT_SOURCE', '-I' + str(include),
-                      '-I' + str(include / 'internal'), '-I' + str(source / 'Modules'),
-                      '-I' + str(source / 'Modules/_hacl'), '-I' + str(source / 'Modules/_hacl/include'),
-                      '-I/usr/include/python3.14']
-            units = [('blake2module.c', []), ('_hacl/Hacl_Hash_Blake2b.c', []),
-                     ('_hacl/Hacl_Hash_Blake2s.c', []),
-                     ('_hacl/Lib_Memzero0.c', []),
-                     ('_hacl/Hacl_Hash_Blake2s_Simd128.c',
-                      ['-msse', '-msse2', '-msse3', '-msse4.1', '-msse4.2', '-DHACL_CAN_COMPILE_VEC128']),
-                     ('_hacl/Hacl_Hash_Blake2b_Simd256.c', ['-mavx2', '-DHACL_CAN_COMPILE_VEC256'])]
-            objects = []
-            for index, (name, flags) in enumerate(units):
-                obj = root / (str(index) + '.o')
-                call(*common, *flags, str(source / 'Modules' / name), '-o', str(obj))
-                objects.append(str(obj))
-            candidate = root / original.name
-            call('gcc', '-shared', '-Wl,-z,relro,-z,now,-z,noexecstack', *objects, '-o', str(candidate))
+            patched_source = context.get('patched_source', '').encode()
+            if context.get('candidate'):
+                candidate = transferred_candidate(context['candidate'], root / original.name)
+            else:
+                archive = root / 'Python-3.14.8.tar.xz'
+                with urllib.request.urlopen('https://www.python.org/ftp/python/3.14.8/Python-3.14.8.tar.xz',
+                                            timeout=60) as response, archive.open('wb') as output:
+                    shutil.copyfileobj(response, output)
+                actors.require(hashlib.sha256(archive.read_bytes()).hexdigest() == ARCHIVE_SHA,
+                               'official source archive checksum differs')
+                source = root / 'source'
+                source.mkdir()
+                with tarfile.open(archive, 'r:xz') as contents:
+                    for member in contents.getmembers():
+                        path = Path(member.name)
+                        actors.require(path.parts[0] == 'Python-3.14.8' and '..' not in path.parts,
+                                       'unsafe source archive path')
+                        if member.isfile() and path.parts[1] in ('Include', 'Modules'):
+                            target = source.joinpath(*path.parts[1:])
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            target.write_bytes(contents.extractfile(member).read())
+                module = source / 'Modules/blake2module.c'
+                patched_source = patched(module.read_bytes())
+                module.write_bytes(patched_source)
+                call('dnf', '--setopt=cachedir=' + str(root / 'cache'), '--setopt=logdir=' + str(root / 'log'),
+                     '--setopt=persistdir=' + str(root / 'state'), '--disable-repo=*',
+                     '--enable-repo=fedora', '--enable-repo=updates', 'download', '--destdir=' + str(root),
+                     'python3-devel-3.14.8-1.fc44.x86_64')
+                headers = root / 'python3-devel-3.14.8-1.fc44.x86_64.rpm'
+                actors.require(hashlib.sha256(headers.read_bytes()).hexdigest() == HEADERS_SHA,
+                               'signed development headers differ')
+                signature = call('rpmkeys', '--checksig', str(headers)).decode()
+                actors.require('digests signatures OK' in signature, 'header package signature not verified')
+                payload = call('rpm2cpio', str(headers))
+                names = call('cpio', '-t', input=payload).decode().splitlines()
+                actors.require(all(not Path(name).is_absolute() and '..' not in Path(name).parts
+                                   for name in names), 'unsafe development header path')
+                extracted = root / 'headers'
+                extracted.mkdir()
+                call('cpio', '-id', '--no-absolute-filenames', './usr/include/*', input=payload, cwd=extracted)
+                actors.require(not any(p.is_symlink() for p in extracted.rglob('*')),
+                               'development headers contain unreviewed links')
+                include = extracted / 'usr/include/python3.14'
+                common = ['nice', '-n', '19', 'gcc', '-c', '-O2', '-fPIC', '-fexceptions',
+                          '-ffile-prefix-map=' + str(root) + '=/homelab-python-blake2',
+                          '-fcf-protection', '-fstack-protector-strong', '-D_FORTIFY_SOURCE=3',
+                          '-D_BSD_SOURCE', '-D_DEFAULT_SOURCE', '-I' + str(include),
+                          '-I' + str(include / 'internal'), '-I' + str(source / 'Modules'),
+                          '-I' + str(source / 'Modules/_hacl'), '-I' + str(source / 'Modules/_hacl/include'),
+                          '-I/usr/include/python3.14']
+                units = [('blake2module.c', []), ('_hacl/Hacl_Hash_Blake2b.c', []),
+                         ('_hacl/Hacl_Hash_Blake2s.c', []),
+                         ('_hacl/Lib_Memzero0.c', []),
+                         ('_hacl/Hacl_Hash_Blake2s_Simd128.c',
+                          ['-msse', '-msse2', '-msse3', '-msse4.1', '-msse4.2', '-DHACL_CAN_COMPILE_VEC128']),
+                         ('_hacl/Hacl_Hash_Blake2b_Simd256.c', ['-mavx2', '-DHACL_CAN_COMPILE_VEC256'])]
+                objects = []
+                for index, (name, flags) in enumerate(units):
+                    obj = root / (str(index) + '.o')
+                    call(*common, *flags, str(source / 'Modules' / name), '-o', str(obj))
+                    objects.append(str(obj))
+                candidate = root / original.name
+                call('gcc', '-shared', '-Wl,-z,relro,-z,now,-z,noexecstack', *objects, '-o', str(candidate))
             # A fresh child loads only the candidate extension, never the installed one.
             probe = ('import resource,importlib.util,sys,json\n'
                      'resource.setrlimit(resource.RLIMIT_CORE,(0,0))\n'
@@ -297,7 +313,7 @@ def native(context):
             result = {'qualified': True, 'vectors': len(actual), 'installed_extension_unchanged': True,
                       'original_sha256': before, 'candidate_sha256': hashlib.sha256(candidate.read_bytes()).hexdigest(),
                       'source_sha256': ARCHIVE_SHA, 'headers_sha256': HEADERS_SHA,
-                      'patch_sha256': hashlib.sha256(module.read_bytes()).hexdigest(),
+                      'patch_sha256': hashlib.sha256(patched_source).hexdigest(),
                       'gds_avx_disabled_retained': True, 'installed': False}
             if context['apply']:
                 lock_path = Path('/usr/lib/sysimage/rpm/.rpm.lock')
@@ -347,6 +363,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--node', choices=NODES, default='sprigatito')
+    parser.add_argument('--qualified-source', choices=('sprigatito',))
     for name in ('identity', 'known-hosts', 'kubectl'):
         parser.add_argument('--' + name, required=True)
     mode = parser.add_mutually_exclusive_group()
@@ -389,6 +406,41 @@ def main():
     program = 'import sys,types\nbundle=' + repr(bundle) + '\n'
     program += 'for name,code in bundle.items():\n m=types.ModuleType(name);sys.modules[name]=m;exec(compile(code,name,"exec"),m.__dict__)\n'
     program += source + '\nprint(json.dumps(native(' + repr(context) + ')))'
+    if args.qualified_source:
+        require(not args.rollback and production.NODE != 'sprigatito', 'qualified-source mode requires a recipient')
+        source_node = api.call('get', 'node', 'sprigatito', '-o', 'json')
+        require(source_node['metadata']['uid'] == '5d80125d-4228-47dd-b19c-ca86f7d4316c',
+                'qualified source Node identity differs')
+        export = source.split('\ndef native(')[0] + '\n' + '''
+import base64,os,socket
+assert os.geteuid()==0 and socket.gethostname()=='sprigatito'
+assert Path('/etc/machine-id').read_text().strip()=='e5796c3018b6448eae0c69405926317e'
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/']).strip()==b'c27f6613-788e-4d00-802c-5b84a730a631'
+assert Path('/proc/sys/kernel/random/boot_id').read_text().strip()==EXPECTED_BOOT
+assert not Path('/var/lib/homelab-maintenance/owner.json').exists()
+assert not Path('/var/lib/homelab-maintenance/owner.json').is_symlink()
+import _blake2
+installed=Path(_blake2.__file__)
+recovery=Path('/var/lib/homelab-recovery/maintenance-103/sprigatito-python-blake2-20261029-a')
+assert not any(p.is_symlink() for p in (installed,*installed.parents,recovery,*recovery.parents))
+manifest=json.loads((recovery/'manifest.json').read_bytes())
+assert manifest['target']==str(installed)
+assert metadata(installed)==metadata(recovery/'original.so')==manifest['metadata']
+assert hashlib.sha256((recovery/'original.so').read_bytes()).hexdigest()==ORIGINAL_SHA
+artifact=installed.read_bytes()
+assert hashlib.sha256(artifact).hexdigest()==CANDIDATE_SHA
+assert json.loads((recovery/'vectors-accepted.json').read_bytes())=={'vectors':72}
+print(json.dumps({'artifact':base64.b64encode(artifact).decode()}))
+'''
+        export = export.replace('EXPECTED_BOOT', repr(source_node['status']['nodeInfo']['bootID']))
+        context['candidate'] = production.remote(args, export, '10.0.20.20')['artifact']
+        # The exact artifact is pinned independently; source text records the original patch identity.
+        import urllib.request
+        with urllib.request.urlopen('https://raw.githubusercontent.com/python/cpython/v3.14.8/Modules/blake2module.c',
+                                    timeout=60) as response:
+            context['patched_source'] = patched(response.read()).decode()
+        program = program[:program.rfind('\nprint(json.dumps(native(')]
+        program += '\nprint(json.dumps(native(' + repr(context) + ')))'
     result = production.remote(args, program, production.ADDRESS)
     if args.apply:
         import os

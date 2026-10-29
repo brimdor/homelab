@@ -1,6 +1,7 @@
 """Reject source drift and retain independent BLAKE2 behavior coverage."""
 
 import hashlib
+import base64
 from contextlib import nullcontext
 import os
 from pathlib import Path
@@ -12,6 +13,18 @@ import maintenance_python_blake2 as repair
 
 
 class Blake2RepairTests(unittest.TestCase):
+    def test_transfer_refuses_corrupt_or_unqualified_artifact_before_writing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'candidate.so'
+            artifact = b'exact qualified artifact'
+            with patch.object(repair, 'CANDIDATE_SHA', hashlib.sha256(artifact).hexdigest()):
+                for encoded in ('invalid!', base64.b64encode(artifact + b'drift')):
+                    with self.assertRaises((ValueError, RuntimeError)):
+                        repair.transferred_candidate(encoded, target)
+                    self.assertFalse(target.exists())
+                self.assertEqual(repair.transferred_candidate(base64.b64encode(artifact), target), target)
+                self.assertEqual(target.read_bytes(), artifact)
+
     def test_atomic_install_and_failed_acceptance_restore_bytes_and_metadata(self):
         for accepted in (True, False):
             # macOS Python lacks os xattr calls; Linux repeats this test with real xattrs.
