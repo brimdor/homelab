@@ -17,6 +17,7 @@ import builder_recovery as source
 ROOT = Path('/sys/kernel/tracing')
 EVENTS = tuple('sys_' + edge + '_' + call for call in ('fsync', 'fdatasync') for edge in ('enter', 'exit'))
 LINE = re.compile(r'^\s*.+-(\d+)\s+\[\d+\]\s+\S+\s+(\d+)\.(\d{1,9}):\s+sys_(fsync|fdatasync)(\(fd: [0-9a-fA-F]+\)| -> 0x[0-9a-fA-F]+)$')
+NATIVE_LINE = re.compile(r'^\s*.+-(\d+)\s+\[\d+\]\s+\S+\s+(\d+)\.(\d{1,9}):\s+sys_(enter|exit)_(fsync|fdatasync): (fd: 0x[0-9a-fA-F]+|0x[0-9a-fA-F]+)$')
 
 
 class Samples:
@@ -32,6 +33,13 @@ class Samples:
         if not line.strip() or line.lstrip().startswith('#'):
             return
         match = LINE.fullmatch(line)
+        native = NATIVE_LINE.fullmatch(line)
+        if native:
+            entering = native[4] == 'enter'
+            if native[6].startswith('fd: ') != entering:
+                raise RuntimeError('native syscall edge or payload differs')
+            payload = '(fd: ' + native[6][6:] + ')' if entering else ' -> ' + native[6]
+            match = LINE.fullmatch(f' native-{native[1]} [0] .... {native[2]}.{native[3]}: sys_{native[5]}{payload}')
         if not match or int(match[1]) not in self.tids:
             raise RuntimeError('lost, foreign or unrecognized native trace event')
         tid = int(match[1])

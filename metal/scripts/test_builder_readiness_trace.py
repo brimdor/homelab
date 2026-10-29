@@ -42,10 +42,25 @@ class TraceSamples(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             value.add(event('exit'))
 
+    def test_native_kernel_format_preserves_duration_descriptor_and_errors(self):
+        value = self.samples()
+        value.add(' node-7894 [002] .... 100.000000001: sys_enter_fsync: fd: 0x0000000b')
+        value.add(' node-7894 [002] .... 105.000000001: sys_exit_fsync: 0x0')
+        value.add(' node-7895 [002] .... 106.000000001: sys_enter_fdatasync: fd: 0x0000000c')
+        value.add(' node-7895 [002] .... 106.000000002: sys_exit_fdatasync: 0xfffffffffffffffB')
+        result = value.result()
+        self.assertEqual(result['groups']['recovery/fsync']['max_ns'], 5000000000)
+        self.assertEqual(result['groups']['recovery/fsync']['at_least_5s'], 1)
+        self.assertEqual(result['groups']['unattributed/fdatasync']['errors'], 1)
+
     def test_loss_foreign_pid_format_duplicate_and_clock_refusals(self):
         for line in ('CPU:2 [LOST 10 EVENTS]', event('enter', tid=200),
                      event('enter', payload='(fd: 0xb)'), event('exit', payload='ret=0'),
-                     ' node-7894 [002] .... 100.000000: sys_enter_fsync: fd: 0x0000000b'):
+                     ' node-200 [002] .... 100.000000: sys_enter_fsync: fd: 0x0000000b',
+                     ' node-7894 [002] .... 100.000000: sys_enter_fsync: 0x0',
+                     ' node-7894 [002] .... 100.000000: sys_exit_fsync: fd: 0x0000000b',
+                     ' node-7894 [002] .... 100.000000: sys_enter_fsync: fd: 0000000b',
+                     ' node-7894 [002] .... 100.000000: sys_exit_fsync: 0x0 extra'):
             with self.assertRaises(RuntimeError):
                 self.samples().add(line)
         for bad in (event('enter'), event('exit', timestamp='99.999999'), event('exit', 'fdatasync')):
