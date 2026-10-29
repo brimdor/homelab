@@ -153,4 +153,17 @@ Upstream incident <a href="https://github.com/cilium/cilium/issues/47774">47774<
 the initial 1.20 removal failed for clusters created before 1.16. Pinned 1.20.4 source verification
 jart8252 confirms the supported fix retains served non-storage v2alpha1 beside storage v2.
 Use that upstream patch; do not delete the CRD or manually rewrite storedVersions.</p>
+<h2>1.18 acceptance, retained pool v2 and 1.19 target</h2>
+<p>Independent srpbg0sp at 16:57 UTC accepted all nine 1.18.16 runtime digests and zero restarts,
+complete successful post-rollout per-protocol native mesh, operator/Hubble, DNS/Gitea/TLS VIP,
+177 clean PGs, preserved identities and exact protected Zot process. Published efca770e then
+applied only cilium_resources in iohk7z91 at 16:59 UTC. Both resources were already equivalent:
+Ansible reported zero changes. Native pool v2, original pool/L2 policy UIDs and entire specifications,
+all LoadBalancer Service identities/specifications/addresses, TLS VIP and exact Zot process passed.</p>
+<p>Next target is 1.19.10 only. Preserve authentication.enabled=true explicitly because 1.19
+changes the existing enabled mesh-auth default to false. No authentication, DNS-wildcard,
+fromRequires/toRequires, Kafka, BGPv1 or ClusterMesh policy consumer is being introduced.
+Retain socket load balancing, original neighbor discovery, API liveness and one unavailable agent.
+Use the same official preflight and complete native acceptance before the following minor.
+<a href="https://docs.cilium.io/en/v1.19/operations/upgrade/">Primary 1.19 upgrade guide</a>.</p>
 </html>

@@ -1,5 +1,5 @@
 cilium_repo_url: https://helm.cilium.io
-cilium_version: 1.18.16
+cilium_version: 1.19.10
 cilium_namespace: kube-system
 cilium_values:
   # Retain the original datapath compatibility during adjacent minor upgrades.
@@ -14,6 +14,9 @@ cilium_values:
   operator:
     replicas: 1
   kubeProxyReplacement: true
+  # Retain the existing mesh-auth setting across the 1.19 default change.
+  authentication:
+    enabled: true
   l2announcements:
     enabled: true
   # Preserve the existing neighbor discovery when the 1.18 default changes.
