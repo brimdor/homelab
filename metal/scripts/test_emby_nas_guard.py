@@ -13,6 +13,28 @@ spec.loader.exec_module(guard)
 
 
 class NasGuardTests(unittest.TestCase):
+    def test_media_selection_excludes_remote_backup_traversal_and_unsupported_sources(self):
+        source = {'Protocol': 'File', 'Path': '/data/movies/fixture.mkv',
+                  'MediaStreams': [{'Type': 'Video', 'Codec': 'h264', 'PixelFormat': 'yuv420p'}]}
+        self.assertEqual(guard.select_media({'Items': [{'MediaSources': [source]}]}), source['Path'])
+        for field, value in [('Protocol', 'Http'), ('Path', '/backups/file.mkv'),
+                             ('Path', '/data/movies/../private.mkv'), ('Path', '/data/movies-other/file.mkv'),
+                             ('MediaStreams', [{'Type': 'Video', 'Codec': 'av1', 'PixelFormat': 'yuv420p'}]),
+                             ('MediaStreams', [{'Type': 'Video', 'Codec': 'h264', 'PixelFormat': 'yuv420p10le'}])]:
+            changed = copy.deepcopy(source)
+            changed[field] = value
+            with self.assertRaises(RuntimeError):
+                guard.select_media({'Items': [{'MediaSources': [changed]}]})
+
+    def test_media_progress_requires_completed_nonempty_meaningful_encode(self):
+        self.assertEqual(guard.media_progress(b'frame= 48\nout_time_us=2000000\nprogress=end\n')['frames'], 48)
+        for raw in (b'frame=0\nout_time_us=2000000\nprogress=end',
+                    b'frame=48\nout_time_us=1000\nprogress=end',
+                    b'frame=48\nout_time_us=2000000\nprogress=continue',
+                    b'frame=48\nout_time_us=private\nprogress=end'):
+            with self.assertRaises(RuntimeError):
+                guard.media_progress(raw)
+
     def test_only_idle_exact_backup_task_can_change(self):
         task = {'Key': 'EmbyServerBackup', 'Name': 'Emby Server Backup', 'Id': 'a1e4a796-2c72-ac5e-4914-97598d1ee479',
                 'State': 'Idle', 'Triggers': [{'Type': 'DailyTrigger', 'TimeOfDayTicks': 72000000000}]}

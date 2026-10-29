@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import socket
 import sqlite3
+import stat
 import subprocess
 import sys
 
@@ -73,7 +74,59 @@ def exclusive_json(path, value):
         os.close(fd)
 
 
-def native(context):
+def select_media(items):
+    """Keep private library paths in memory and select only supported local video."""
+    for item in items['Items']:
+        for source in item.get('MediaSources', []):
+            path = source.get('Path', '')
+            if (source.get('Protocol') != 'File' or not isinstance(path, str) or
+                    '\0' in path or '..' in Path(path).parts or
+                    not any(path.startswith(root + '/') for root in NAS_PATHS - {'/backups'})):
+                continue
+            video = [s for s in source.get('MediaStreams', []) if s.get('Type') == 'Video']
+            if video and video[0].get('Codec') == 'h264' and video[0].get('PixelFormat') == 'yuv420p':
+                return path
+    raise RuntimeError('no supported local video in the bounded library response')
+
+
+def media_progress(raw):
+    values = dict(line.split('=', 1) for line in raw.decode().splitlines() if '=' in line)
+    require(values.get('progress') == 'end' and re.fullmatch(r'\s*[0-9]+', values.get('frame', '')) and
+            re.fullmatch(r'[0-9]+', values.get('out_time_us', '')), 'media progress is incomplete')
+    frames, duration = int(values['frame']), int(values['out_time_us'])
+    require(frames >= 20 and duration >= 1500000, 'media encode did not produce enough frames or duration')
+    return {'frames': frames, 'output_microseconds': duration, 'progress': 'end'}
+
+
+def verify_media(context, request, inspect, pid, root):
+    path = select_media(json.loads(request('Items?Recursive=true&IncludeItemTypes=Movie,Episode&'
+                                          'Fields=MediaSources,MediaStreams&Limit=50&SortBy=SortName')))
+    prefix = ['/usr/local/bin/k3s', 'crictl', 'exec', context['container_id']]
+    resolved = command(*prefix, 'readlink', '-f', '--', path).decode().strip()
+    require(resolved == path, 'selected media path is not canonical inside the container')
+    before = command(*prefix, 'stat', '-Lc', '%f:%d:%i:%s:%Y', '--', path)
+    fields = before.decode().strip().split(':')
+    require(len(fields) == 5 and stat.S_ISREG(int(fields[0], 16)) and int(fields[3]) > 0,
+            'selected media is not a nonempty regular file')
+    require(runtime_contract(inspect(), context) == (pid, root), 'Emby runtime changed before media acceptance')
+    argv = [*prefix, '/bin/sh', '-c', 'exec timeout -k 5 -s TERM 90 "$@"', 'maintenance103-media',
+            'env', 'LD_LIBRARY_PATH=/app/emby/lib:/app/emby/extra/lib',
+            '/app/emby/bin/ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-loglevel', 'error',
+            '-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda', '-threads', '1', '-i', path,
+            '-map', '0:v:0', '-t', '2', '-an', '-sn', '-dn', '-vf', 'scale_cuda=1280:720:format=nv12',
+            '-c:v', 'h264_nvenc', '-progress', 'pipe:1', '-f', 'null', '-']
+    result = subprocess.run(argv, capture_output=True)
+    require(result.returncode == 0, 'owned media encode failed; exit ' + str(result.returncode) +
+            ', stderr SHA256 ' + hashlib.sha256(result.stderr).hexdigest())
+    progress = media_progress(result.stdout)
+    require(command(*prefix, 'stat', '-Lc', '%f:%d:%i:%s:%Y', '--', path) == before and
+            runtime_contract(inspect(), context) == (pid, root), 'media source or Emby runtime changed')
+    return {'accepted': True, 'cuda_decode': True, 'cuda_scale': True, 'nvenc_encode': True,
+            'null_output': True, 'child_exit': result.returncode, 'source_metadata_unchanged': True,
+            'source_path_sha256': hashlib.sha256(path.encode()).hexdigest(), **progress}
+
+
+def native(context, *, media=False):
     require(os.geteuid() == 0 and socket.gethostname() == 'sprigatito' and
             Path('/etc/machine-id').read_text().strip() == MACHINE and
             command('findmnt', '-n', '-o', 'UUID', '/').decode().strip() == ROOT_UUID and
@@ -136,6 +189,9 @@ def native(context):
     if not accepted.exists():
         exclusive_json(accepted, result)
     require(not accepted.is_symlink() and json.loads(accepted.read_bytes()) == result, 'NAS guard acceptance differs')
+    if media:
+        result['media'] = verify_media(context, request, inspect, pid, root)
+        task_contract(json.loads(request('ScheduledTasks/' + before['id'])), accepted=True)
     return result
 
 
@@ -143,6 +199,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('identity', 'known-hosts', 'kubectl'):
         parser.add_argument('--' + name, required=True)
+    parser.add_argument('--verify-media', action='store_true', help='Verify existing media using CUDA/NVENC and null output')
     args = parser.parse_args()
     repository = Path('/Users/chris/Documents/Github/homelab')
     require(Path.cwd() == repository and command('git', 'branch', '--show-current').strip() == b'master' and
@@ -217,7 +274,8 @@ def main():
     context = {'pod_uid': pod['metadata']['uid'], 'container_id': states[0]['containerID'].split('://')[1],
                'pv': recovery.PV, 'recovery_manifest_sha256': proof['manifest_sha256']}
     native_source = Path(__file__).read_text().split('\ndef main(')[0]
-    result = production.remote(args, native_source + '\nprint(json.dumps(native(' + repr(context) + ')))', '10.0.20.20')
+    result = production.remote(args, native_source + '\nprint(json.dumps(native(' + repr(context) +
+                               ',media=' + repr(args.verify_media) + ')))', '10.0.20.20')
     print(json.dumps(result, sort_keys=True))
 
 
