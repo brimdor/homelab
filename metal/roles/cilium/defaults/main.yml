@@ -1,5 +1,5 @@
 cilium_repo_url: https://helm.cilium.io
-cilium_version: 1.15.19
+cilium_version: 1.16.19
 cilium_namespace: kube-system
 cilium_values:
   # Retain the original datapath compatibility during adjacent minor upgrades.

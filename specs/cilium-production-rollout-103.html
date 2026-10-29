@@ -80,4 +80,21 @@ SELinux, reset networking, delete events, bypass denied access or rebuild throug
 <p><a href="https://docs.cilium.io/en/stable/operations/upgrade/">Official Cilium upgrade guide</a>
 requires current-minor patching, consecutive minor upgrades, native preflight, preservation of initial
 upgradeCompatibility and reviewed values without reuse-values across minor releases.</p>
+<h2>Production patch acceptance and next adjacent target</h2>
+<p>Cilium 1.15.19 was applied through the narrow owning Ansible workflow in rirzvjog at
+16:17 UTC on October 29. All nine host facts and ownership guards passed. Independent u4o6if5e
+at 16:19 UTC accepted nine exact agent runtime digests with zero restarts, fresh complete HTTP/ICMP
+host and health-endpoint mesh probes, operator/Hubble readiness and flow observation, in-cluster DNS
+and Gitea health, TLS-verified Gitea through VIP 10.0.20.226, unchanged Node/pool/Service identities,
+177 clean PGs and the exact protected Zot process. The earlier failed acceptance collector expected
+an optional aggregate field during startup; cached health samples still described the rollout.
+Acceptance used explicit fresh native probes rather than treating those earlier samples as green.</p>
+<p>Next target: 1.16.19 only. The <a href="https://docs.cilium.io/en/v1.16/operations/upgrade/">1.16 upgrade notes</a>
+require the already accepted latest 1.15 patch, the completed pool blocks/boundary migration, and
+review of the new TCX attachment default on recent kernels. Verify native filters from all nine
+host-network agents before application; third-party legacy tc programs require separate handling.
+Keep upgradeCompatibility 1.15, existing veth/IPAM/KPR/L2/API settings and one unavailable agent.
+Render and inspect the complete chart and preflight, including preserved Envoy behavior and no new
+storage identities. Require the same preflight, native cleanup and production acceptance gates before
+the next minor. No Cilium policy/LRP, encryption, clustermesh or Gateway API feature is being enabled.</p>
 </html>
