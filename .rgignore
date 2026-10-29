@@ -1,0 +1,2 @@
+# Device exports contain private keys, credentials, and encoded configuration backups.
+/network/configs/

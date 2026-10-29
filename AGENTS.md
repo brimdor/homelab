@@ -196,6 +196,8 @@ Changes to Strata follow the canary-first workflow in `docs/how-to-guides/releas
 
 ### Secrets
 
+Device exports under `network/configs/` contain private keys, credentials, and encoded backups. Never print them through raw file reads, content searches, Git diffs, or decoded backup output. Use filename-only discovery and structured extraction of explicitly allowlisted public metadata. Preserve the default `.rgignore` exclusion; it reduces accidental search exposure but is not a security boundary. Rotate exposed active credentials or keys through independently trusted access, and record the incident without repeating secret values.
+
 New application secrets use the 1Password Connect Operator pattern documented in `.agent/workflows/build_charts.md`:
 
 - Authorized vault identifier is recorded in that workflow; item references may be committed, secret values may not.
