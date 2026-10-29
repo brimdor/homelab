@@ -4,8 +4,8 @@
 <title>Issue 103: serial K3s production maintenance</title>
 <style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}code{overflow-wrap:anywhere}</style>
 <h1>Issue 103: serial K3s production maintenance</h1>
-<p>October 29, 2026. Charmander's first production bridge is accepted and released;
-the other eight nodes and later version hops remain pending.
+<p>October 29, 2026. Charmander and Squirtle's first production bridge is accepted and released;
+the other seven nodes and later version hops remain pending.
 This implements the already authorized K3S_CILIUM task, following accepted Cilium 1.20.4 and
 CSI compatibility. All nine Fedora 44 OS maintenance actions are complete and are not repeated.</p>
 <h2>Evidence and targets</h2>
@@ -207,7 +207,62 @@ has cleared naturally. Post-bridge 7u57cg1v verified all 57 original PV UIDs sti
 unchanged CSI backend, claim UID and reclaim policy. NAS restrictions, original Zot identity,
 owner-paused human gates and the owner's final PAT action remain unchanged. Strata's recurrent
 SQLITE_PROTOCOL and other Issue 103 findings remain open. This is component acceptance,
-not whole-homelab GREEN or Issue 103 closure. Squirtle is next; it has not started here.</p>
+not whole-homelab GREEN or Issue 103 closure. At that checkpoint Squirtle was next and had not started.</p>
+<h2>Squirtle accepted and released, 20:56 UTC</h2>
+<p>Squirtle's owner 6a4592a2-7fed-4b54-a822-e265f7dfbac9 acquired the host hold and
+completed cordon in 77pte8yt at 19:55 UTC. Its 15 drain targets were accounted for once.
+Gitea's six Valkey replicas and internal health recovered before advancing; Pages Canary
+relocated to Charmander with Ready containers, zero restarts and HTTPS200 in j8z7nxn8.
+An initial RWO multi-attach warning cleared through normal attachment, without forced
+detach or storage changes. The retained completed-Job proof tr8wl6gu binds the exact
+Renovate and PVC hygiene Job/Pod identities before their eviction.</p>
+<p>Rook operator replacement temporarily changed CephCluster phase to Progressing while
+configuring OSDs. The native gate refused before another eviction. Read-only tgxmcpyf and
+xvf7v3r3 verified the unchanged cluster UID, generation 13, specification and CSI
+AES256K generation 1 with one prior key, then actual Ready. Continuation 5vnsbzvm observed
+the pending operator removal without replaying it, recovered both CSI controllers and
+accepted the complete drain at 20:40:28 UTC. Native itmzmmjr proved zero Ceph filesystem
+mounts and zero RBD devices on the exact owned Squirtle host before binary activation.</p>
+<p>The off-node executable/configuration archive _afstr28 remains protected on Pikachu.
+Fresh source recovery f4b15l6m captured Bulbasaur's original 1.33.6 datastore and passed a
+matching isolated restore of nine Nodes and 72 Namespaces, including protected secret
+readback and unchanged original labels. Its temporary restore container and scratch were
+removed. Preparation ezu_4700 preserved executable metadata and original bytes. One
+activation lzu_fhhq completed at 20:43:40 UTC; 9v0c6ux8 accepted the actual 1.33.10 runtime
+at 20:44:55 UTC. The installed official checksum is cc435a91072e90680ccea689d4f491ac254ce62f658445a1ccfc2244fce667e1;
+service PID 368260 is new, while boot, configuration, unit, SELinux Enforcing and native
+stargz workload snapshotters remained valid.</p>
+<p>Infrastructure r4zv3pxq passed. Scheduling lm5t7txg issued one uncordon. Observation
+wrcbt37b first proved all 126 controllers Ready, then refused the Rook phase gate during
+another reconciliation. Read-only oqlg2ta5 retained the Progressing message and unchanged
+CSI/specification, then verified Ready. Observation h_h0d_ke accepted that existing
+scheduling intent without another patch. Rook placement rj96mj44 showed no remaining
+Ceph daemons on Squirtle; its collector/exporter deployments were consequently absent.
+Independent 0apl229x verified all seven collector/exporter pairs match the seven current
+Ceph daemon hosts and both Squirtle CSI node plugins are Ready. This follows the
+<a href="https://rook.io/docs/rook/v1.21/CRDs/Cluster/ceph-cluster-crd/">Rook daemon placement contract</a>;
+no controller was manually recreated to reproduce an obsolete count.</p>
+<p>Application acceptance xpc2qbsb passed at 20:52:28 UTC. Ordered release 22j8z2tu
+completed at 20:55:32 UTC. Independent 0apl229x passed at 20:56:11 UTC: the original
+seven accepted hop steps and five release records remain hash-bound, host/global holds
+are absent, all nine Nodes are Ready, no controller is held, three etcd voters are healthy,
+all five original OSDs are up/in, and 177 PGs are clean. All 57 original PV UIDs remain
+Bound with unchanged claim UID, CSI backend where present and reclaim policy. Native
+Zot process/storage identity and normal MWF Kured image/arguments remain unchanged.</p>
+<p>Squirtle's bridge is accepted. Bulbasaur is next. The three Ceph authentication migration
+warnings, recurring Strata SQLITE_PROTOCOL, PostgreSQL recovery gap, later K3s hops and
+other Issue 103 findings remain open. NAS restrictions, owner-paused gates and the owner's
+final PAT action remain in force. This does not certify whole-homelab GREEN.</p>
+<h2>Completed-Job ordering for following nodes</h2>
+<p>Completed Job-owned Pods now precede ordinary workload relocations in new drain plans,
+reducing exposure to automatic CronJob history cleanup during a long drain. OSDs remain
+last. Exact controller/Pod identity, specification hashes, existing completion requirements,
+UID/resourceVersion eviction fencing and pending-action observation remain unchanged.
+Existing recorded plans retain their original order. Candidate 6554ov7j passed all 55
+drain, production bridge and scheduling tests with no skips. Its first disposable test
+layout v4nj02j_ omitted the existing CORE helper path; that harness error was retained,
+the repository layout was restored in the next isolated run, and both batches cleaned
+their owned scratch. No production state was changed by either test.</p>
 <h2>Primary references</h2>
 <p><a href="https://docs.k3s.io/upgrades/manual">K3s manual upgrades</a>,
 <a href="https://docs.k3s.io/datastore/backup-restore">K3s datastore backup/restore</a>,

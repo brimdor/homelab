@@ -202,6 +202,21 @@ class NodeDrainTests(unittest.TestCase):
         self.assertEqual({p['uid'] for p in plan['pods']}, {p['metadata']['uid'] for p in self.pod_api.pods})
         self.assertFalse(self.pod_api.posts)
 
+    def test_completed_job_precedes_workloads_without_moving_osds_forward(self):
+        self.add_osd_fixture()
+        job = next(p for p in self.pod_api.pods if p['metadata']['name'] == 'workload-b')
+        job['status'] = {'phase': 'Succeeded'}
+        job['metadata']['namespace'] = 'zzz-history'
+        plan = self.worker.inventory()
+        targets = [ref for ref in plan['pods'] if not ref['keep']]
+        self.assertEqual([ref['uid'] for ref in targets],
+                         ['workload-b-uid', 'workload-a-uid', 'osd-pod-uid'])
+        self.assertEqual(targets[0]['controller'], job['metadata']['ownerReferences'][0])
+        self.assertEqual(targets[0]['spec_sha256'], drain.hashed(job['spec']))
+        self.assertEqual({p['uid'] for p in plan['pods']},
+                         {p['metadata']['uid'] for p in self.pod_api.pods})
+        self.assertFalse(self.pod_api.posts)
+
     def test_prior_lexical_plan_resumes_without_reordering_or_replay(self):
         self.add_osd_fixture()
         plan = self.worker.inventory()

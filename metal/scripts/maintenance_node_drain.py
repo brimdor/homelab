@@ -91,6 +91,7 @@ class Drain:
         batch = getattr(self.api, 'drain_controllers', None)
         controllers_by_identity = batch() if batch is not None else None
         refs = []
+        completed_jobs = set()
         for pod in pods:
             metadata = pod['metadata']
             namespace, pod_name = name(metadata['namespace']), name(metadata['name'])
@@ -140,10 +141,14 @@ class Drain:
             refs.append({'namespace': namespace, 'name': pod_name, 'uid': metadata['uid'],
                          'spec_sha256': hashed(pod['spec']), 'controller': controller,
                          'keep': kind in ('DaemonSet', 'Node') or registry_kept})
+            if kind == 'Job' and pod.get('status', {}).get('phase') == 'Succeeded':
+                completed_jobs.add(metadata['uid'])
+        # Account for completed Jobs before CronJob history cleanup can remove them.
         # Keep the bounded OSD protection window for host work, after other relocations.
         refs.sort(key=lambda ref: (ref['namespace'] == 'rook-ceph' and
                   ref['controller']['kind'] == 'ReplicaSet' and
                   re.fullmatch(r'rook-ceph-osd-[0-9]+-[a-z0-9]+', ref['controller']['name']) is not None,
+                  ref['controller']['kind'] != 'Job' or ref['uid'] not in completed_jobs,
                   ref['namespace'], ref['name'], ref['uid']))
         actor.require(len({ref['uid'] for ref in refs}) == len(refs) and
                       len({(ref['namespace'], ref['name']) for ref in refs}) == len(refs),
