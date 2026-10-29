@@ -217,6 +217,17 @@ def completed_removal(api, owner, ref):
         Path('metal/maintenance/k3s-charmander-completed-job-removal.json'))
 
 
+def verified_completed_drain(worker, accepted):
+    """Journal acceptance holds the native lock; inspect without advancing or reacquiring it."""
+    state = worker.read()
+    current = worker.inventory()
+    return (state['pending'] is None and state['header']['intent'] == accepted['parent_intent'] and
+            state['completed'] == accepted['completed'] == [ref['uid'] for ref in state['targets']] and
+            hashed(state['header']['plan']) == accepted['plan_sha256'] and
+            state['records_sha256'] == accepted['records_sha256'] and
+            hashed(current) == accepted['inventory_sha256'] and worker.read() == state)
+
+
 def behavior(args, api, pods):
     """Read existing data paths only; no synthetic Pods, application writes or NAS writes."""
     import datetime
@@ -331,7 +342,7 @@ def native_operation(context):
                 accepted = dict(result)
                 journal.accept(result['parent_intent']['sha256'], hashed(accepted),
                     lambda step, observed: step == 'drain' and observed == hashed(accepted) and
-                    evidence() == value and worker.advance(digest, verifier(value), verify_removed=removed) == accepted)
+                    evidence() == value and verified_completed_drain(worker, accepted))
         elif operation in ('prepare-binary', 'activate-binary', 'observe-binary'):
             worker = Binary(journal, native)
             if operation == 'observe-binary':

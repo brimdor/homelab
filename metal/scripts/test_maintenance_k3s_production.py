@@ -140,5 +140,39 @@ class CompletedRemovalTests(unittest.TestCase):
                     shared.removed_completed_job(API(), dict(ref, uid='foreign'), path)
 
 
+class DrainAcceptanceTests(unittest.TestCase):
+    def test_final_acceptance_uses_real_lock_without_reentry_or_dispatch(self):
+        from test_maintenance_node_drain import NodeDrainTests
+        fixture = NodeDrainTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        fixture.start()
+        while True:
+            accepted = fixture.advance()
+            if accepted.get('complete'):
+                break
+        posts = copy.deepcopy(fixture.pod_api.posts)
+        journal = fixture.journal
+        result = journal.accept(accepted['parent_intent']['sha256'], production.hashed(accepted),
+            lambda step, digest: step == 'drain' and digest == production.hashed(accepted) and
+            production.verified_completed_drain(fixture.worker, accepted))
+        self.assertEqual(result['completed'], ['cordon', 'drain'])
+        self.assertEqual(fixture.pod_api.posts, posts)
+
+    def test_final_acceptance_refuses_changed_inventory_or_completion_receipt(self):
+        from test_maintenance_node_drain import NodeDrainTests
+        fixture = NodeDrainTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        fixture.start()
+        while True:
+            accepted = fixture.advance()
+            if accepted.get('complete'):
+                break
+        self.assertTrue(production.verified_completed_drain(fixture.worker, accepted))
+        for field, value in [('records_sha256', 'f' * 64), ('completed', []),
+                             ('inventory_sha256', 'f' * 64), ('plan_sha256', 'f' * 64)]:
+            with self.subTest(field=field):
+                self.assertFalse(production.verified_completed_drain(fixture.worker, dict(accepted, **{field: value})))
+        fixture.pod_api.pods[0]['spec']['containers'][0]['image'] = 'changed'
+        self.assertFalse(production.verified_completed_drain(fixture.worker, accepted))
+
+
 if __name__ == '__main__':
     unittest.main()

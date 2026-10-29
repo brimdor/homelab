@@ -152,8 +152,18 @@ completed at 19:06:34 UTC. Cleanup requires successful recovery later than this 
 failure, the original CronJob UID/specification and image, exact recovery Job/Pod UIDs,
 no remaining failed-Job Pods, and UID/resourceVersion-preconditioned deletion. It removes
 only investigated Kubernetes history records; no NAS operation or manual backup is involved.
-Failure evidence remains retained in qkewj9sh, aalx489j and xa9aa65c. Execution and final
-absence verification are pending. Strata's recurring SQLITE_PROTOCOL remains unresolved.</p>
+Failure evidence remains retained in qkewj9sh, aalx489j and xa9aa65c. Published executor
+8d467956 removed that exact failed Job at 19:17 UTC; f093tez3 verified all four reviewed
+targets absent and the same ordinary scheduled recovery successful. No NAS access occurred.
+Strata's recurring SQLITE_PROTOCOL remains unresolved.</p>
+<h2>Final drain acceptance lock correction</h2>
+<p>At 19:19 UTC the final drain acceptance refused with BlockingIOError: its callback called
+advance while journal acceptance already held the nonblocking native controller lock. All
+24 targets were already accounted for, and no binary preparation or activation occurred.
+Acceptance now inspects the completed drain read-only under that existing lock, comparing
+the exact pending parent, completed target UIDs, original plan, record hashes and current
+keep-set inventory. It neither reacquires the lock nor dispatches an eviction. Regression
+coverage uses the real native file lock and refuses changed inventory or receipt hashes.</p>
 <h2>Primary references</h2>
 <p><a href="https://docs.k3s.io/upgrades/manual">K3s manual upgrades</a>,
 <a href="https://docs.k3s.io/datastore/backup-restore">K3s datastore backup/restore</a>,
