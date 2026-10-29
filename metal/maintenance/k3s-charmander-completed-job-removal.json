@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "maintenance_owner": "homelab-maintenance-103-841116fb-5b65-4d37-b2d4-e189e54e25c7",
+  "ref": {
+    "namespace": "strata",
+    "name": "strata-backup-29888220-qfldd",
+    "uid": "4fb89540-c5e3-4fce-87b9-dce875d38b52",
+    "spec_sha256": "eeb33f3b36b904fba0349b5bd13cc90eb788122e8ae26ddc8d78ce93be2c6475",
+    "controller": {
+      "apiVersion": "batch/v1",
+      "kind": "Job",
+      "name": "strata-backup-29888220",
+      "uid": "329e1375-5442-47c5-b479-0f8a095e1624",
+      "controller": true,
+      "blockOwnerDeletion": true
+    },
+    "keep": false
+  },
+  "prior_success": {
+    "observed_at": "2026-10-29T18:28:07Z",
+    "source_run": "maintenance103-k3s-drain-prior-job-completion-np5spoil",
+    "evidence_sha256": "2fc2407ac9b8c507eeb339bb20a775514d9fd4ffc12b947a2aeb51c3020ba080",
+    "completion": {
+      "namespace": "strata",
+      "name": "strata-backup-29888220-qfldd",
+      "pod_uid": "4fb89540-c5e3-4fce-87b9-dce875d38b52",
+      "proof": {
+        "pod_uid": "4fb89540-c5e3-4fce-87b9-dce875d38b52",
+        "job_uid": "329e1375-5442-47c5-b479-0f8a095e1624"
+      },
+      "pod_spec_sha256": "eeb33f3b36b904fba0349b5bd13cc90eb788122e8ae26ddc8d78ce93be2c6475",
+      "pod_evidence": {
+        "metadata": {
+          "name": "strata-backup-29888220-qfldd",
+          "namespace": "strata",
+          "uid": "4fb89540-c5e3-4fce-87b9-dce875d38b52",
+          "ownerReferences": [
+            {
+              "apiVersion": "batch/v1",
+              "kind": "Job",
+              "name": "strata-backup-29888220",
+              "uid": "329e1375-5442-47c5-b479-0f8a095e1624",
+              "controller": true,
+              "blockOwnerDeletion": true
+            }
+          ],
+          "deletionTimestamp": null
+        },
+        "restartPolicy": "OnFailure",
+        "phase": "Succeeded",
+        "containers": [
+          {
+            "name": "sqlite-backup",
+            "restartCount": 0,
+            "state": {
+              "terminated": {
+                "exitCode": 0,
+                "reason": "Completed",
+                "startedAt": "2026-10-29T17:00:01Z",
+                "finishedAt": "2026-10-29T17:00:44Z"
+              }
+            }
+          }
+        ],
+        "initializers": []
+      },
+      "job_evidence": {
+        "metadata": {
+          "name": "strata-backup-29888220",
+          "namespace": "strata",
+          "uid": "329e1375-5442-47c5-b479-0f8a095e1624",
+          "ownerReferences": [
+            {
+              "apiVersion": "batch/v1",
+              "kind": "CronJob",
+              "name": "strata-backup",
+              "uid": "71e995a6-ea65-4272-8a00-27eac21edfc5",
+              "controller": true,
+              "blockOwnerDeletion": true
+            }
+          ],
+          "deletionTimestamp": null
+        },
+        "spec_sha256": "c420f1938ca49b5c6456a9e31706db056cfefba521119fb34e7f011d14640b70",
+        "status": {
+          "active": null,
+          "failed": null,
+          "succeeded": 1,
+          "completionTime": "2026-10-29T17:00:46Z",
+          "startTime": "2026-10-29T17:00:00Z"
+        },
+        "conditions": [
+          {
+            "type": "SuccessCriteriaMet",
+            "status": "True",
+            "reason": "CompletionsReached",
+            "lastTransitionTime": "2026-10-29T17:00:46Z"
+          },
+          {
+            "type": "Complete",
+            "status": "True",
+            "reason": "CompletionsReached",
+            "lastTransitionTime": "2026-10-29T17:00:46Z"
+          }
+        ]
+      }
+    }
+  },
+  "cron_uid": "71e995a6-ea65-4272-8a00-27eac21edfc5",
+  "cron_spec": "938a0cd1a191542d475dceb068399330fa75b304c20791d00cdeaa727bbb8110",
+  "recovery": {
+    "job_uid": "cd312da4-0dca-4618-82c0-67a8abeee849",
+    "pod_uid": "0da26beb-1fd6-4c2c-a58c-3ecf96463ad1",
+    "completion_time": "2026-10-29T19:06:34Z",
+    "image_digest": "sha256:71f04326edf6e1defeabf2dc211abcf6bc6c7e14b0838c9e0704ab12253b08f0"
+  }
+}

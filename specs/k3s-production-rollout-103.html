@@ -115,6 +115,21 @@ required serial remount with K3s drains where safe. Do not remove old keys or re
 ciphers until every original mounted client is rehydrated and proved on the new generation.
 No NAS writes, configuration changes, backup/restore, export edits or registry operations.</p>
 <h2>Failure and recovery</h2>
+<p>At 19:07 UTC on October 29, Strata recovered on Cyndaquil and its unchanged scheduled
+19:00 backup completed at 19:06:34 UTC. The three-success CronJob history policy then
+removed the original 17:00 Job/Pod before its drain turn. Prior run np5spoil proved that
+exact Pod and Job legitimately complete at 18:28 UTC; xa9aa65c proved the current successor
+with the same immutable image and unchanged CronJob UID/specification. The bridge now uses
+the existing external-completion contract for this one exact owner, Pod, Job and published
+profile. It still requires absence without name reuse, current matching successful recovery,
+and ordinary init/main-container success. No absent unknown Pod receives an exception.</p>
+<p>The 18:30 backup Job 1b618858-1224-4d5d-a606-d35c24c5fbb7 failed its deadline after
+its affinity required the cordoned node; qkewj9sh retained scheduler/deadline evidence.
+That failure remains a finding despite the later successful automatic backup. No manual
+backup, NAS write, CronJob change, application release or historical-finding suppression is
+part of this completion accounting. Strata's replacement exited 1 at 19:05:49 UTC with
+SQLITE_PROTOCOL in the classified previous log, then became ready after one restart.
+That recurring finding remains separate from readiness; its cause is not proven.</p>
 <p>Charmander's first bridge drain began October 29 at 18:12 UTC. Gitea and its PostgreSQL
 replacement recovered on Bulbasaur and Cyndaquil respectively; source access was rechecked
 after each expected relocation. A later invocation refused at 18:31:38 UTC before dispatch:

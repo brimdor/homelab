@@ -1088,10 +1088,9 @@ def infrastructure(api, applications=False, intermediate_pikachu=False):
     return result
 
 
-def removed_completed_job(api, ref):
+def removed_completed_job(api, ref, path=Path('metal/maintenance/charmander-completed-job-removal.json')):
     """Observe only the reviewed successful Strata Job retired by CronJob history."""
     from maintenance_node_drain import hashed
-    path = Path('metal/maintenance/charmander-completed-job-removal.json')
     require(path.read_bytes() == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
             'completed removal profile must be published')
     profile = json.loads(path.read_bytes())
@@ -1153,7 +1152,7 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
                 result = request['result'];continue
             try:
                 if component_observer is not None and request['rpc'] in (
-                        'prerequisites', 'infrastructure', 'applications', 'protected_registry'):
+                        'prerequisites', 'infrastructure', 'applications', 'protected_registry', 'removed_completed_job'):
                     require(owner.get('component') == 'k3s', 'component observer requires K3s ownership')
                     value = component_observer(request)
                 elif request['rpc'] == 'prerequisites':

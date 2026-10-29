@@ -205,6 +205,18 @@ def unchanged_runtime(before, after):
     actors.require(before['pid'] != after['pid'], 'K3s service restart not observed')
 
 
+def completed_removal(api, owner, ref):
+    """Only this bridge's previously proven completed Pod may disappear through history cleanup."""
+    import maintenance_production_node as production
+    actors.require(owner.get('owner') == 'homelab-maintenance-103-841116fb-5b65-4d37-b2d4-e189e54e25c7' and
+                   owner.get('component') == 'k3s' and owner.get('node') == 'charmander' and
+                   owner.get('node_uid') == '9108f105-f73d-41bb-891f-ac2db6658714' and
+                   (owner.get('source'), owner.get('target')) == (SOURCE, TARGET),
+                   'unreviewed completed removal owner')
+    return production.removed_completed_job(api, ref,
+        Path('metal/maintenance/k3s-charmander-completed-job-removal.json'))
+
+
 def behavior(args, api, pods):
     """Read existing data paths only; no synthetic Pods, application writes or NAS writes."""
     import datetime
@@ -313,12 +325,13 @@ def native_operation(context):
                 worker.start(plan, hashed(plan), digest, verifier(value))
             elif not worker.path.exists():
                 worker.attach(plan)
-            result = worker.advance(digest, verifier(value))
+            removed = lambda ref: rpc('removed_completed_job', ref=ref)
+            result = worker.advance(digest, verifier(value), verify_removed=removed)
             if result.get('complete'):
                 accepted = dict(result)
                 journal.accept(result['parent_intent']['sha256'], hashed(accepted),
                     lambda step, observed: step == 'drain' and observed == hashed(accepted) and
-                    evidence() == value and worker.advance(digest, verifier(value)) == accepted)
+                    evidence() == value and worker.advance(digest, verifier(value), verify_removed=removed) == accepted)
         elif operation in ('prepare-binary', 'activate-binary', 'observe-binary'):
             worker = Binary(journal, native)
             if operation == 'observe-binary':
@@ -514,6 +527,9 @@ print(json.dumps(result))
                 '\nSOURCE=' + repr(SOURCE) + '\nCONFIG=' + repr(recovery['configuration']) + '\n' + program)
             owner = controller.acquire(args.node, SOURCE, TARGET, revision, component='k3s')
         def observer(request):
+            if request['rpc'] == 'removed_completed_job':
+                actors.require(args.operation == 'drain', 'unreviewed completed removal operation')
+                return completed_removal(api, owner, request['ref'])
             return registry(args, api, request['ref']) if request['rpc'] == 'protected_registry' else observe(
                 args, api, owner, request['rpc'])
         print(json.dumps(production.run_worker(args, api, owner, {}, recovery, bundle,
