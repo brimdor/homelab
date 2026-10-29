@@ -115,6 +115,14 @@ required serial remount with K3s drains where safe. Do not remove old keys or re
 ciphers until every original mounted client is rehydrated and proved on the new generation.
 No NAS writes, configuration changes, backup/restore, export edits or registry operations.</p>
 <h2>Failure and recovery</h2>
+<p>Charmander's first bridge drain began October 29 at 18:12 UTC. Gitea and its PostgreSQL
+replacement recovered on Bulbasaur and Cyndaquil respectively; source access was rechecked
+after each expected relocation. A later invocation refused at 18:31:38 UTC before dispatch:
+the local GET-only proxy had bound its socket pathname but was not listening yet. Startup
+now requires a successful connection to that exact private socket, retaining the existing
+30-second startup bound and process/temporary-directory cleanup. Only connection refusal
+during startup is retried; API reads, authentication failures and mutations are not replayed.
+This correction does not accept a K3s upgrade or weaken the durable pending drain intent.</p>
 <p>Keep exact durable ownership and pending intent after failures. Diagnose software using
 existing authorized access. Binary rollback requires verified datastore format compatibility;
 a source-version protected restore is a separate recovery operation, never an automatic downgrade.

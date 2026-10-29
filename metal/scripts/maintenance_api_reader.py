@@ -64,11 +64,18 @@ class Reader(Kubectl):
                 '--reject-methods=^(POST|PUT|PATCH|DELETE|CONNECT|HEAD|OPTIONS)$'],
                 cwd=self.directory, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             started = time.monotonic()
-            while not (self.directory / 'api.sock').exists():
+            self.connection = Connection(self.directory)
+            while True:
                 require(self.process.poll() is None and time.monotonic() - started < 30,
                         'private kubectl reader did not start')
+                if (self.directory / 'api.sock').exists():
+                    try:
+                        self.connection.connect()
+                        break
+                    except ConnectionRefusedError:
+                        # bind creates the pathname before the proxy starts listening.
+                        self.connection.close()
                 time.sleep(0.1)
-            self.connection = Connection(self.directory)
         except BaseException:
             self.close()
             raise
