@@ -131,7 +131,8 @@ def native(context):
             module = source / 'Modules/blake2module.c'
             module.write_bytes(patched(module.read_bytes()))
             call('dnf', '--setopt=cachedir=' + str(root / 'cache'), '--setopt=logdir=' + str(root / 'log'),
-                 '--setopt=persistdir=' + str(root / 'state'), 'download', '--destdir=' + str(root),
+                 '--setopt=persistdir=' + str(root / 'state'), '--disable-repo=*',
+                 '--enable-repo=fedora', '--enable-repo=updates', 'download', '--destdir=' + str(root),
                  'python3-devel-3.14.8-1.fc44.x86_64')
             headers = root / 'python3-devel-3.14.8-1.fc44.x86_64.rpm'
             actors.require(hashlib.sha256(headers.read_bytes()).hexdigest() == HEADERS_SHA,
@@ -152,7 +153,8 @@ def native(context):
                       '-fcf-protection', '-fstack-protector-strong', '-D_FORTIFY_SOURCE=3',
                       '-D_BSD_SOURCE', '-D_DEFAULT_SOURCE', '-I' + str(include),
                       '-I' + str(include / 'internal'), '-I' + str(source / 'Modules'),
-                      '-I' + str(source / 'Modules/_hacl'), '-I' + str(source / 'Modules/_hacl/include')]
+                      '-I' + str(source / 'Modules/_hacl'), '-I' + str(source / 'Modules/_hacl/include'),
+                      '-I/usr/include/python3.14']
             units = [('blake2module.c', []), ('_hacl/Hacl_Hash_Blake2b.c', []),
                      ('_hacl/Hacl_Hash_Blake2s.c', []),
                      ('_hacl/Hacl_Hash_Blake2s_Simd128.c',
