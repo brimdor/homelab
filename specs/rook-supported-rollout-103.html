@@ -28,6 +28,25 @@ the old compatible CSI secret references. Consequently this candidate requires n
 The first render's chart-version lookup failed before rollout; the official release index establishes
 <code>1.1.0</code>, despite a different version in the tagged source Chart.yaml.</p>
 <h2>Execution order</h2>
+<p>October 29 execution: Sprigatito final acceptance, protected Python repair, Emby GPU behavior,
+ordinary CronJobs and six read-only NAS mounts passed at 14:56 UTC. Pikachu's reviewed native DNF cache
+cleanup reclaimed 1,076,416,512 bytes while preserving 100,430 protected recovery entries.
+Operator commit <code>40707d5e3ae15c69b972cde897658f5aa3cc5e9f</code> deployed Rook 1.21.1 and CSI operator 1.1.0.
+The default CSI 3.18.1 EL10 image failed with <code>Fatal glibc error: CPU does not support x86-64-v3</code>
+on GDS-mitigated nodes. No security mitigation was weakened.</p>
+<p>CSI adoption commit <code>501d7f9677308923221d8e70e862b80ba0ae3d47</code> pins official
+<code>quay.io/cephcsi/cephcsi:v3.16.3@sha256:7da399829e5eb7911fe4a319b9d92eea447f9dbfc2652913f03c0977a69a9fb4</code>.
+Quay's verified amd64 configuration identifies CentOS Stream 9. This release is tested upstream with
+Kubernetes 1.33 and includes Ceph 20.2.4 AES256K support; it is a compatibility bridge, not a claim
+that the current CSI support window includes 3.16. The current upstream README describes Rocky 9
+alternative tags, but Quay returned HTTP 404 for v3.18.1-rocky9, v3.18.0-rocky9, v3.17.1-rocky9 and
+canary-rocky9 at 15:12 UTC. Do not infer published availability from that documentation. Revisit the
+CSI version after the Kubernetes transition, retaining the CPU/security contract.
+Sources: <a href="https://github.com/ceph/ceph-csi/releases/tag/v3.16.3">3.16.3 release</a>,
+<a href="https://github.com/ceph/ceph-csi/blob/v3.18.1/README.md">versioned Kubernetes matrix</a>,
+<a href="https://github.com/ceph/ceph-csi/blob/devel/README.md">current alternative-image documentation</a>.
+Runs <code>dnnpv65b</code> and <code>61zng6oq</code> retain artifact and render evidence. No storage
+objects changed or resources were deleted. Live rollout acceptance remains separate.</p>
 <table>
 <thead><tr><th>Stage</th><th>Repository change</th><th>Required acceptance</th></tr></thead>
 <tbody>

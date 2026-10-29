@@ -64,6 +64,18 @@ rook-ceph-cluster:
       count: 3
     mgr:
       count: 2
+      # Rook recommends disabling this optional module for Tentacle stability.
+      modules:
+        - name: rook
+          enabled: false
+    # Preserve the existing transport and client keys during chart adoption.
+    network:
+      connections:
+        requireMsgr2: false
+    security:
+      cephx:
+        csi:
+          keyType: aes
     dashboard:
       ssl: false
     healthCheck:
