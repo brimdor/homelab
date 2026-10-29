@@ -16,7 +16,7 @@ import builder_recovery as source
 
 ROOT = Path('/sys/kernel/tracing')
 EVENTS = tuple('sys_' + edge + '_' + call for call in ('fsync', 'fdatasync') for edge in ('enter', 'exit'))
-LINE = re.compile(r'^\s*.+-(\d+)\s+\[\d+\]\s+\S+\s+(\d+)\.(\d{1,9}):\s+sys_(fsync|fdatasync)(\(fd: [0-9a-fA-F]+\)| -> 0x[0-9a-fA-F]+)$')
+LINE = re.compile(r'^\s*.+-(\d+)\s+\[\d+\]\s+\S+\s+(\d+)\.(\d{1,9}):\s+sys_(fsync|fdatasync)(\(fd: (?:0x)?[0-9a-fA-F]+\)| -> 0x[0-9a-fA-F]+)$')
 NATIVE_LINE = re.compile(r'^\s*.+-(\d+)\s+\[\d+\]\s+\S+\s+(\d+)\.(\d{1,9}):\s+sys_(enter|exit)_(fsync|fdatasync): (fd: 0x[0-9a-fA-F]+|0x[0-9a-fA-F]+)$')
 
 
@@ -50,7 +50,7 @@ class Samples:
         call, payload = match[4], match[5]
         edge = 'enter' if payload.startswith('(') else 'exit'
         if edge == 'enter':
-            value = re.fullmatch(r'\(fd: ([0-9a-fA-F]+)\)', payload)
+            value = re.fullmatch(r'\(fd: ((?:0x)?[0-9a-fA-F]+)\)', payload)
             if not value or tid in self.pending:
                 raise RuntimeError('native syscall enter sequence differs')
             fd = int(value[1], 16)
