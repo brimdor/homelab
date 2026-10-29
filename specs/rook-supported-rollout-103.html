@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Issue 103 — supported Rook and Ceph rollout</title>
+<style>
+body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1100px;margin:3rem auto;padding:1rem}
+a,code{color:#93c5fd}h1,h2{color:#f9fafb}code{overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #475569;padding:.7rem;text-align:left;vertical-align:top}
+@media(max-width:700px){table{display:block;overflow-x:auto}}
+</style>
+<h1>Issue 103: supported storage rollout</h1>
+<p>Prepared 2026-10-29. Authorized maintenance continues. This document selects the production path;
+the candidate renders below are preparation, not completed maintenance.</p>
+<h2>Current evidence</h2>
+<p>Run <code>5lykf0tw</code> at 11:26:57 UTC binds Rook operator Deployment
+<code>9dfe1d30-5931-474e-b932-16683da0d897</code>, CSI operator Deployment
+<code>7a672266-309c-4a66-9f77-beeadbb3a25e</code>, existing Driver and OperatorConfig UIDs,
+controller networking, service accounts, resources and node-plugin strategies. Controllers use Pod networking;
+node plugins use host networking. Preserve both contracts, both controller replicas, dedicated-node tolerations,
+kernel CephFS, RBD snapshots and CephFS group snapshots. Keep CSI log rotation disabled under enforcing SELinux.</p>
+<p>Run <code>xjo0kk75</code> at 11:24:29 UTC renders the published operator/cluster charts
+<code>1.21.1</code> and published CSI drivers chart <code>1.1.0</code> against Kubernetes 1.33.6.
+The current 123 identities become 151. New resources include CSI driver ownership and service-account/RBAC
+resources. Both existing StorageClasses retain their exact parameters: the repository explicitly supplies
+the old compatible CSI secret references. Consequently this candidate requires no StorageClass deletion.
+The first render's chart-version lookup failed before rollout; the official release index establishes
+<code>1.1.0</code>, despite a different version in the tagged source Chart.yaml.</p>
+<h2>Execution order</h2>
+<table>
+<thead><tr><th>Stage</th><th>Repository change</th><th>Required acceptance</th></tr></thead>
+<tbody>
+<tr><td>0 — finish current node</td><td>Complete Sprigatito's existing recovery and return Emby through its protected read-only plan.</td>
+<td>177/177 PGs clean, HEALTH_OK, original OSD identities, final host/application acceptance, released existing owner,
+Emby original PVC and six read-only NAS mounts, native GPU media behavior, no registry process change.</td></tr>
+<tr><td>1 — operator</td><td>Change only the Rook operator dependency to 1.21.1. Its subchart updates CSI operator and CRDs.
+Keep the cluster chart and Ceph images unchanged.</td><td>Refresh Argo; require the new operator and CSI operator Ready.
+Proceed directly to the mandatory driver adoption in stage 2. Do not mistake a partial CSI migration for final acceptance.</td></tr>
+<tr><td>2 — CSI adoption</td><td>Add official ceph-csi-drivers 1.1.0 to the same umbrella release. Declare the existing
+Driver names and OperatorConfig name, preserving effective runtime settings from the UID-bound inventory.</td>
+<td>Same Driver/CSIDriver/OperatorConfig UIDs; matching new service accounts and RBAC; nine ready node plugins per driver;
+two ready controllers per driver; existing RBD and CephFS consumers functional; no unexpected policy or SELinux errors.</td></tr>
+<tr><td>3 — cluster chart</td><td>Update rook-ceph-cluster to 1.21.1, keep Ceph 20.2.1 temporarily,
+explicitly preserve requireMsgr2=false and CSI keyType=aes, disable only the optional rook manager module.</td>
+<td>Converged Rook daemon labels, healthy quorum/PGs, unchanged data identities and StorageClasses,
+snapshot webhook trust, monitoring, mounted clients and affected applications.</td></tr>
+<tr><td>4 — Ceph patch</td><td>Pin the same verified supported 20.2.4 artifact for CephCluster and toolbox.
+Preserve native upgrade checks and OSD retention.</td><td>Every daemon at the selected image/build;
+HEALTH_OK and clean PGs; current clients and monitoring function; no forced unsafe upgrade or raw-device action.</td></tr>
+<tr><td>5 — CephX remediation</td><td>Observe current core/MDS key generations, then request greater generations
+through the owning CR desired state. Keep CSI client-key migration separate.</td><td>Core/admin/MDS key-type and generation
+status plus actual client behavior; observe natural old-ticket expiry. A version bump alone does not close CEPH_SECURITY.</td></tr>
+</tbody>
+</table>
+<h2>Supported fix for the earlier manager gate</h2>
+<p><a href="https://rook.io/docs/rook/v1.21/Upgrade/ceph-upgrade/">Rook's Ceph upgrade guide</a>
+recommends Ceph 20.2.4 and disabling its optional rook manager module because of manager stability defects.
+The module serves selected dashboard orchestration pages; Rook's Kubernetes operator remains the storage reconciler.
+Use <code>mgr.modules: [{name: rook, enabled: false}]</code>, record the dashboard limitation and verify all required
+storage functions. Do not force-enable the defective module or wait indefinitely for an unreleased version.
+This replaces the earlier enabled-module preservation assumption in the historical qualification documents.</p>
+<h2>Sources and limits</h2>
+<p><a href="https://rook.io/docs/rook/v1.21/Upgrade/rook-upgrade/">Rook's versioned upgrade guide</a>
+supports the adjacent 1.20-to-1.21 transition, requires Kubernetes 1.32 or newer, and orders operator, drivers,
+then cluster charts. <a href="https://rook.io/docs/rook/v1.21/Helm-Charts/csi-drivers-chart/">The drivers guide</a>
+requires Rook-compatible names and image-set configuration. The new chart explicitly assigns normalized driver-name
+service accounts, so preserve storage driver identities while adopting those accounts.</p>
+<p><a href="https://rook.io/docs/rook/v1.21/Storage-Configuration/Advanced/cephx-key-rotation/">Versioned CephX guidance</a>
+requires corrected Rook/Ceph releases and distinguishes core keys, client keys and service tickets. Determine actual
+generations instead of copying an example value. Kernel support alone does not prove migrated client behavior.</p>
+<h2>Data safety and rollback</h2>
+<p>Publish every stage to canonical Gitea master before Argo applies it. Keep existing CephCluster, pool, filesystem,
+OSD, PVC/PV and snapshot identities; preserve replica counts, disruption budgets, retained storage and cleanup refusal.
+No NAS writes, registry publication/cleanup/restart, device removal, PG tuning, weakened SELinux, hidden findings or
+unrelated workload changes. Stop the affected transition on unexpected faults and continue independent work.</p>
+<p>Retain exact prior charts, images and protected recovery receipts. A Git revert cannot undo changed CRD storage,
+Ceph formats or rotated keys. Do not delete CRDs, roll incompatible daemons back onto changed data, restore obsolete
+authentication state or replay uncertain operations. Final acceptance requires actual storage/client/application behavior;
+the earlier isolated fixtures and current renders remain evidence with their original limited scopes.</p>
+</html>
