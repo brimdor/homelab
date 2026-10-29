@@ -13,6 +13,24 @@ spec.loader.exec_module(guard)
 
 
 class NasGuardTests(unittest.TestCase):
+    def test_replacement_pod_observes_only_the_same_accepted_paused_task(self):
+        context = {'pod_uid': 'old-pod', 'container_id': 'old-container',
+                   'pv': 'original-volume', 'recovery_manifest_sha256': 'original-recovery'}
+        task = {'id': 'original-task', 'key': 'EmbyServerBackup', 'triggers': []}
+        saved = {'context': context, 'original': task, 'desired_triggers': []}
+        changed = {**context, 'pod_uid': 'new-pod', 'container_id': 'new-container'}
+        guard.intent_contract(saved, context, task, False)
+        guard.intent_contract(saved, changed, task, True)
+        with self.assertRaises(RuntimeError):
+            guard.intent_contract(saved, changed, task, False)
+        with self.assertRaises(RuntimeError):
+            guard.intent_contract(saved, changed, {**task, 'triggers': [{'Type': 'DailyTrigger'}]}, True)
+        for key in ('pv', 'recovery_manifest_sha256'):
+            with self.assertRaises(RuntimeError):
+                guard.intent_contract(saved, {**changed, key: 'foreign'}, task, True)
+        with self.assertRaises(RuntimeError):
+            guard.intent_contract(saved, changed, {**task, 'id': 'foreign-task'}, True)
+
     def test_media_selection_excludes_remote_backup_traversal_and_unsupported_sources(self):
         source = {'Protocol': 'File', 'Path': '/data/movies/fixture.mkv',
                   'MediaStreams': [{'Type': 'Video', 'Codec': 'h264', 'PixelFormat': 'yuv420p'}]}

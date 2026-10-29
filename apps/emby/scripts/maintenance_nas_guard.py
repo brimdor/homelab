@@ -42,6 +42,24 @@ def task_contract(task, *, accepted=False):
     return {'id': task['Id'], 'key': task['Key'], 'triggers': task['Triggers']}
 
 
+def intent_contract(saved, context, task, accepted):
+    """A replacement Pod may only observe a previously accepted paused task."""
+    require(set(saved['context']) == set(context) == {
+                'pod_uid', 'container_id', 'pv', 'recovery_manifest_sha256'} and
+            all(saved['context'][key] == context[key] for key in ('pv', 'recovery_manifest_sha256')) and
+            saved['original']['id'] == task['id'] and saved['original']['key'] == task['key'] and
+            saved['desired_triggers'] == [], 'NAS guard intent differs; observe only')
+    if saved['context'] != context:
+        require(accepted is True and task['triggers'] == [],
+                'replacement Pod requires prior accepted pause and empty triggers')
+
+
+def acceptance(task, intent):
+    return {'accepted': True, 'task_id': task['id'], 'task_key': task['key'], 'triggers': [],
+            'nas_mounts_readonly': len(NAS_PATHS), 'nas_write_or_backup_test': False,
+            'intent_sha256': hashlib.sha256(intent.read_bytes()).hexdigest()}
+
+
 def runtime_contract(runtime, context):
     status = runtime['status']
     labels = status['labels']
@@ -170,7 +188,13 @@ def native(context, *, media=False):
         require(path.is_dir() and path.stat().st_uid == 0 and not path.stat().st_mode & 0o022,
                 'unsafe NAS guard receipt owner or permissions')
     intent = POINT / 'intent.json'
+    accepted = POINT / 'accepted.json'
+    if accepted.exists():
+        require(not accepted.is_symlink() and accepted.stat().st_uid == 0 and
+                accepted.stat().st_nlink == 1 and accepted.stat().st_mode & 0o777 == 0o600,
+                'unsafe NAS guard acceptance')
     if not intent.exists():
+        require(not accepted.exists(), 'NAS guard acceptance has no original intent')
         exclusive_json(intent, {'context': context, 'original': before, 'desired_triggers': []})
         if before['triggers']:
             request('ScheduledTasks/' + before['id'] + '/Triggers', update=True)
@@ -178,14 +202,10 @@ def native(context, *, media=False):
         require(not intent.is_symlink() and intent.stat().st_uid == 0 and
                 intent.stat().st_nlink == 1 and intent.stat().st_mode & 0o777 == 0o600, 'unsafe NAS guard intent')
         saved = json.loads(intent.read_bytes())
-        require(saved['context'] == context and saved['original']['id'] == before['id'] and
-                saved['original']['key'] == before['key'] and saved['desired_triggers'] == [],
-                'NAS guard intent differs; observe only')
+        prior_accepted = accepted.exists() and json.loads(accepted.read_bytes()) == acceptance(before, intent)
+        intent_contract(saved, context, before, prior_accepted)
     after = task_contract(json.loads(request('ScheduledTasks/' + before['id'])), accepted=True)
-    result = {'accepted': True, 'task_id': after['id'], 'task_key': after['key'], 'triggers': [],
-              'nas_mounts_readonly': len(NAS_PATHS), 'nas_write_or_backup_test': False,
-              'intent_sha256': hashlib.sha256(intent.read_bytes()).hexdigest()}
-    accepted = POINT / 'accepted.json'
+    result = acceptance(after, intent)
     if not accepted.exists():
         exclusive_json(accepted, result)
     require(not accepted.is_symlink() and json.loads(accepted.read_bytes()) == result, 'NAS guard acceptance differs')
