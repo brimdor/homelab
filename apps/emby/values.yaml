@@ -448,4 +448,4 @@ app-template:
 # and the rationale for 2h / 5min / 30s.)
 
 maintenance103Recovery:
-  enabled: true
+  enabled: false
