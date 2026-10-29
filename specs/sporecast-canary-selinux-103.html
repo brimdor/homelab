@@ -32,6 +32,20 @@ only the canary. Require native process/file label equality, unchanged original 
 readiness, no recurring locking errors and stable restarts. Keep broader provider/webhook, ordinary NAS
 backup and outside-origin acceptance limits visible. The same production repair is documented separately
 in <a href="sporecast-selinux-recovery-103.html">its accepted recovery record</a>.</p>
+<h2>Protected recovery and repair accepted</h2>
+<p>Run <code>fc6fom8e</code> accepted the protected Pikachu point
+<code>/var/lib/homelab-recovery/maintenance-103/sporecast-canary-selinux-canary-20261029-a</code>
+at 11:51:52 UTC: four files, 398496 bytes, a 1.499-second writer pause and manifest
+<code>eafb9394a85820ec013d778f880af365bb8809cf87409e26aa04d612c987c889</code>.
+The disconnected original-image restore retained four tables and 161 rows with identical complete schema/data/metadata
+fingerprints, readiness 200 and native exit zero. Protected hashes stayed unchanged. Owned scratch, container and new
+unused image were removed; 29724672 allocated scratch bytes were reclaimed.</p>
+<p>Configuration <code>8d282dfec59310f172abbfc263211a0d10782a92</code> reconciled Synced/Healthy.
+Native acceptance <code>s079en6f</code> at 11:55:05 UTC binds replacement Pod
+<code>ab58b0ce-65a2-4e79-8189-2e6fae3600b2</code> and PID 3000867 to matching confined process/file category
+<code>s0:c643,c694</code>, two native SQLite locks, readiness/liveness 200, zero restarts and zero locking-protocol
+errors. The original claim/PV and frontend are preserved. This proves repaired current access, not the historical
+relabel actor, future ordinary NAS backup or outside-origin/provider behavior.</p>
 <h2>Rollback and limits</h2>
 <p>Stop on changed identity, active backup writer, inconsistent capture, failed resume or restore discrepancy.
 Keep protected partial material and report the failed gate. Remove only owned restore scratch/container/new
