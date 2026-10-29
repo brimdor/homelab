@@ -237,7 +237,8 @@ ceph-csi-drivers:
       fsGroupPolicy: File
       generateOMapInfo: false
       imageSet:
-        name: rook-csi-operator-image-set-configmap
+        # Change this digest-bound reference with the plugin pin; CSI does not watch its ConfigMap.
+        name: rook-csi-images-0b62db8afc9b
       log:
         rotation:
           enabled: false
@@ -311,7 +312,7 @@ ceph-csi-drivers:
       fsGroupPolicy: File
       generateOMapInfo: false
       imageSet:
-        name: rook-csi-operator-image-set-configmap
+        name: rook-csi-images-0b62db8afc9b
       log:
         rotation:
           enabled: false
@@ -396,7 +397,7 @@ ceph-csi-drivers:
       fsGroupPolicy: File
       generateOMapInfo: false
       imageSet:
-        name: rook-csi-operator-image-set-configmap
+        name: rook-csi-images-0b62db8afc9b
       log:
         rotation:
           enabled: false

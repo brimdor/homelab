@@ -1,0 +1,12 @@
+{{- $drivers := index .Values "ceph-csi-drivers" -}}
+{{- $name := $drivers.operatorConfig.driverSpecDefaults.imageSet.name -}}
+{{- $digest := regexFind "[a-f0-9]{64}$" (index .Values "rook-ceph" "csi" "cephcsi" "tag") -}}
+{{- if or (eq $digest "") (ne $name (printf "rook-csi-images-%s" (trunc 12 $digest))) (ne $name $drivers.drivers.rbd.imageSet.name) (ne $name $drivers.drivers.cephfs.imageSet.name) -}}
+{{- fail "CSI image-set references must all match rook-csi-images-<first 12 digest characters>" -}}
+{{- end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+data:
+  plugin: {{ printf "%s:%s" (index .Values "rook-ceph" "csi" "cephcsi" "repository") (index .Values "rook-ceph" "csi" "cephcsi" "tag") | quote }}

@@ -89,6 +89,18 @@ service accounts, so preserve storage driver identities while adopting those acc
 requires corrected Rook/Ceph releases and distinguishes core keys, client keys and service tickets. Determine actual
 generations instead of copying an example value. Kernel support alone does not prove migrated client behavior.</p>
 <h2>Data safety and rollback</h2>
+<p>At 15:43 UTC, run <code>xtgj2yp6</code> found the image-set ConfigMap at CSI 3.17.1,
+while all four CSI workloads remained at 3.16.3. The tagged CSI operator 1.1.0 Driver controller
+watches Driver generation and OperatorConfig defaults, but does not watch the referenced image-set
+ConfigMap. Source inspection <code>hlkdi_rf</code> confirms it loads images only during reconciliation.
+Use a repository-owned, digest-named ConfigMap and change all three supported imageSet references
+(OperatorConfig defaults and both Drivers) together. Populate its plugin from the single existing
+image pin; leave sidecars on unchanged operator defaults. A new image pin must also change this
+reference name. Render and assert the exact references/plugin, preserve Driver/OperatorConfig UIDs,
+publish, then require actual new Pod image IDs and all four rollouts. Do not restart the operator or
+accept an unchanged ready rollout as image acceptance.
+Sources: <a href="https://raw.githubusercontent.com/ceph/ceph-csi-operator/v1.1.0/internal/controller/driver_controller.go">tagged controller</a>,
+<a href="https://ceph.github.io/ceph-csi-operator/custom-images/">supported image-set references</a>.</p>
 <p>Run <code>tryb1a4p</code> at 15:31 UTC found the toolbox's new upstream key watcher, but its live
 Deployment retained the legacy <code>ROOK_CEPH_SECRET</code> secretKeyRef environment variable.
 The watcher gives this launch-time value precedence over the refreshed mounted file, so admin rotation
