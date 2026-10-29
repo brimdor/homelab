@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>Issue 103 — Sporecast canary recovery</title>
+<style>body{background:#10151d;color:#e1e8f1;font:17px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#f9fafb}</style>
+<h1>Sporecast canary: restore confined SQLite access</h1>
+<h2>Observed fault</h2>
+<p>At 2026-10-29 11:48:33 UTC, native evidence <code>o6_7fy1x</code> bound ready, zero-restart
+Pod <code>f8832123-f4ba-4440-9f57-3e4caecdb9ea</code> on Growlithe to PID 7513.
+Its process category is <code>s0:c140,c420</code>; database, WAL and shared-memory files have
+<code>s0:c643,c694</code>. The preceding two hours contain 242 SQLite locking-protocol errors, code 15.
+Readiness warnings recur despite the Running phase. Native audit collection is enabled with zero lost events;
+the sampled kernel journal contains no AVCs, so it does not independently prove the historical relabel actor.</p>
+<h2>Protect current data first</h2>
+<p>Extend only the existing recovery helper with the explicitly selected <code>growlithe-canary-20261029</code>
+profile. Evidence <code>8t4cm229</code> binds process start ticks 76769, original image digest
+<code>1eb8f84e6188481d0db009088b4b5d1a6ac3158dbc41a6f6db187bf787857063</code>, machine/root/boot,
+PVC <code>05d72126-6a3f-465e-b117-adb26e47830a</code>, PV
+<code>a4fdbcb0-7cbb-4148-bb44-52b3ada37ea5</code>, device 64000/inode 2 and sole live consumer.</p>
+<p>Reuse the bounded all-thread pause, independent resume watchdog, complete in-memory file capture,
+protected strict-SSH transfer to Pikachu, WAL-aware copied-data fingerprints and disconnected original-image
+restore. Export the same already cached digest from Pikachu's existing K3s store into owned restore scratch;
+preserve its existing host/image/config/layer checks. No registry request, publication or NAS operation.
+Preserve historical profiles and recovery points. Publish helper and refusal tests before capture.</p>
+<h2>Desired-state repair after accepted restore</h2>
+<p>Give the canary backend and ordinary backup template the existing data category <code>s0:c643,c694</code>,
+separate from production's category. Pin the backend's current immutable digest with IfNotPresent so the
+repair uses the protected cached artifact. Preserve every claim, image byte, replica count, frontend,
+schedule, backup command, NAS destination and application configuration. Do not trigger or replay a backup.</p>
+<p>Render/lint the pinned chart, inspect the exact resource diff, commit/push to Gitea master and reconcile
+only the canary. Require native process/file label equality, unchanged original claim/PV, healthy native
+readiness, no recurring locking errors and stable restarts. Keep broader provider/webhook, ordinary NAS
+backup and outside-origin acceptance limits visible. The same production repair is documented separately
+in <a href="sporecast-selinux-recovery-103.html">its accepted recovery record</a>.</p>
+<h2>Rollback and limits</h2>
+<p>Stop on changed identity, active backup writer, inconsistent capture, failed resume or restore discrepancy.
+Keep protected partial material and report the failed gate. Remove only owned restore scratch/container/new
+unused image. A Git revert preserves data but a return to mismatched labels is not a successful repair.
+This is canary maintenance, not Strata approval, NAS qualification or completed Issue 103.</p>
+</html>

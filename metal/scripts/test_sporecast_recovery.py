@@ -157,6 +157,24 @@ class RecoveryGuards(unittest.TestCase):
         recovery.select_profile('historical'); recovery.validate_manifest(historical, 'sporecast')
         with self.assertRaises(RuntimeError): recovery.validate_manifest(current, 'sporecast')
 
+    def test_canary_profile_binds_current_host_process_and_storage(self):
+        historical = self.manifest()
+        recovery.select_profile('growlithe-canary-20261029')
+        self.assertEqual(set(recovery.SOURCES), {'sporecast-canary'})
+        source = recovery.SOURCES['sporecast-canary']
+        current = copy.deepcopy(historical)
+        current['source'] = {**source, 'namespace': 'sporecast-canary', 'image': recovery.IMAGE,
+                             'process': {'pid': source['pid'], 'exe': '/sporecast-backend',
+                                         'start_ticks': source['start_ticks']}}
+        recovery.validate_manifest(current, 'sporecast-canary')
+        for key in ('boot', 'machine', 'root_uuid', 'pv_uid', 'container_id', 'start_ticks'):
+            changed = copy.deepcopy(current); changed['source'][key] = 'changed'
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                recovery.validate_manifest(changed, 'sporecast-canary')
+        with self.assertRaises(RuntimeError): recovery.validate_manifest(historical, 'sporecast-canary')
+        recovery.select_profile('historical')
+        with self.assertRaises(RuntimeError): recovery.validate_manifest(current, 'sporecast-canary')
+
     def test_cached_archive_binds_all_blobs_and_refuses_load_mapping_drift(self):
         def blob(data): return 'sha256:' + hashlib.sha256(data).hexdigest()
         config = json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + 'a' * 64]}}).encode()

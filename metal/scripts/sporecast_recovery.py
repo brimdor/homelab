@@ -45,15 +45,26 @@ PIKACHU_20261027 = {
                  'root_uuid': '76e53a95-725a-4430-9d7b-a8db413f3997',
                  'boot': '41d9cfe5-eb7a-4008-a0da-174712f52cec'},
 }
+GROWLITHE_CANARY_20261029 = {
+    'sporecast-canary': {'pod_uid': 'f8832123-f4ba-4440-9f57-3e4caecdb9ea', 'pid': 7513,
+                        'container_id': '0a4f77af9010626d305c2f47c5319f5f7f31d9b4ac1e41053f34c11cd6039339',
+                        'pvc_uid': '05d72126-6a3f-465e-b117-adb26e47830a', 'pv_uid': 'a4fdbcb0-7cbb-4148-bb44-52b3ada37ea5',
+                        'device': 64000, 'inode': 2, 'start_ticks': '76769',
+                        'node': 'growlithe', 'machine': 'a26cbcc990c044dea41fbf4f957f453d',
+                        'root_uuid': '710e2dca-691e-4123-a867-4994b9c6e612',
+                        'boot': '9abbec7b-5f12-4d96-b833-9d76890eb23b'},
+}
+PROFILES = {'historical': HISTORICAL_SOURCES, 'pikachu-20261027': PIKACHU_20261027,
+            'growlithe-canary-20261029': GROWLITHE_CANARY_20261029}
 ENVIRONMENT = {'DATA_DIR': '/data', 'BACKUP_DIR': '/data/backups', 'BACKUP_INTERVAL_HOURS': '24',
                'LISTEN_ADDR': '127.0.0.1:8080', 'LOG_LEVEL': 'error'}
 
 
 def select_profile(profile):
     global SOURCES
-    if profile not in ('historical', 'pikachu-20261027'):
+    if profile not in PROFILES:
         raise RuntimeError('unreviewed Sporecast recovery profile')
-    SOURCES = HISTORICAL_SOURCES if profile == 'historical' else PIKACHU_20261027
+    SOURCES = PROFILES[profile]
 
 
 def source_path(namespace):
@@ -300,7 +311,7 @@ def require_container(value, scratch, run_id):
                 'SecurityOpt': ['no-new-privileges:true'], 'IpcMode': 'private', 'PidMode': '', 'UTSMode': '', 'UsernsMode': '',
                 'PidsLimit': 128, 'Memory': 536870912, 'NanoCpus': 1000000000, 'Tmpfs': {'/tmp': 'rw,nosuid,nodev'},
                 'Binds': [str(scratch / 'data') + ':/data:Z']}
-    expected_image = CACHED_CONFIG if SOURCES is PIKACHU_20261027 else IMAGE
+    expected_image = IMAGE if SOURCES is HISTORICAL_SOURCES else CACHED_CONFIG
     if (config['Image'] != expected_image or config['User'] != '65532:65532' or config.get('Labels', {}).get(LABEL) != run_id or
             config.get('Entrypoint') != ['/sporecast-backend'] or config.get('Cmd') not in (None, []) or
             any(environment.get(k) != v for k, v in ENVIRONMENT.items()) or
@@ -341,8 +352,9 @@ def restore(namespace, run_id, checksum):
         snapshot = wal_fingerprint(scratch / 'reader', scratch / 'canonical.db')
         if files.tree(scratch / 'data') != manifest['tree']: raise RuntimeError('untouched raw restore copy differs')
         image_reference = IMAGE; cached = None
-        if SOURCES is PIKACHU_20261027:
-            expected = SOURCES[namespace]; common.require_host(expected['node'])
+        if SOURCES is not HISTORICAL_SOURCES:
+            # Both current profiles restore on the same protected Pikachu receiver.
+            expected = PIKACHU_20261027['sporecast']; common.require_host(expected['node'])
             if (Path('/etc/machine-id').read_text().strip() != expected['machine'] or
                     common.command(['findmnt', '-n', '-o', 'UUID', '/']).stdout.decode().strip() != expected['root_uuid']):
                 raise RuntimeError('cached image source host changed')
@@ -421,7 +433,7 @@ def main():
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP): signal.signal(number, cancel)
     parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('mode', choices=('send', 'receive', 'restore'))
     parser.add_argument('--namespace', choices=sorted(HISTORICAL_SOURCES), required=True); parser.add_argument('--run-id', type=common.run_identifier, required=True)
-    parser.add_argument('--profile', choices=('historical', 'pikachu-20261027'), default='historical')
+    parser.add_argument('--profile', choices=sorted(PROFILES), default='historical')
     parser.add_argument('--manifest'); args = parser.parse_args()
     select_profile(args.profile)
     if args.namespace not in SOURCES: parser.error('namespace is not included in the selected profile')
