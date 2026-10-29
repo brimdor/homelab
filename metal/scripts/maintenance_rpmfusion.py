@@ -35,7 +35,7 @@ def recovery_profile(kind):
                     node_uid='5d80125d-4228-47dd-b19c-ca86f7d4316c',
                     pending='0a778262f15983169cc7743639212003a8bf7f6fa679a7a95df7ea513cbe1bc3',
                     boot='d1c43edd-effc-4c4c-b422-5a34d8830d4e',
-                    failure='aa2d385014bc5c31e36e29473e2cc3d775e2341e04b68ddf5145d39269754a13',
+                    failure='50eadbdef2e50bd3febf68586ae416e5845ce7510a6b977fb0e20496707eb5a2',
                     installed_sha256='cdac626d3e78db4a5d1ef6dfb934821a1ab9daacff516dabeb0352ed19961435',
                     invocation='87b0a46854f74c0b99549125396db1e6', source=41, target=43)
     if kind == 'rpmfusion':
