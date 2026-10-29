@@ -43,4 +43,19 @@
 <p>Never overwrite a nonempty partial or an accepted point. Transfer or restore failure preserves original recovery material and stops dependent mutation. No root filesystem, bootloader or active data restore is included. No new packages, kernel changes, firmware, LPM tuning, self-tests, stress, disk/partition writes or Ceph pool/CRUSH changes occur in the configuration phase. Evacuation rollback returns only the original OSD7 in after exact identity and health review; Git revert does not reverse storage state. Actual evacuation, node maintenance and final acceptance remain incomplete until independently observed.</p>
 <h2>Final vendor-cache disposal</h2>
 <p>After final Fedora 44 application acceptance and ordered host/global owner release, maintenance_sprigatito_cache_cleanup.py may remove only the private Fedora 43 NVIDIA vendor snapshot. It requires the exact Sprigatito machine/root/boot identity, Enforcing mode, the permanent signed Fedora 44 repository, the complete original hop and release hash chains, no active maintenance or package actor, no process reference to the cache, clean Ceph replication and an unchanged Kured specification. Recheck every regular file against the original private manifest; reject changed, extra, linked or unsafe objects before deletion. Persist the exact manifest and release head before disposal, then retain an accepted absence receipt. An interrupted deletion requires inspection rather than blind replay. Original recovery archives, journals, installed packages, repository trust keys, NAS and all unrelated files remain protected. The focused fixture covers successful removal and refusal of changed content, extra files, symbolic links, hard links, unsafe directory permissions and a foreign directory name.</p>
+<h2>Rejoin observation: remapped is not degraded</h2>
+<p>At 2026-10-29 11:57:54 UTC, <code>an__gdz_</code> observed PG <code>1.16</code> in
+<code>active+remapped+backfill_wait</code>, desired OSDs [2,1], acting OSDs [2,6], HEALTH_OK,
+zero missing/degraded/unfound objects and zero scrub errors. Both acting replicas occupy distinct healthy hosts.
+Neither set includes OSD7. The previous observer <code>abk9hfhg</code> stopped because its guard classified every
+unrelated non-clean PG as degraded. The originating map-change actor remains unproven; active balancer status alone
+does not establish that cause. Preserve both original observations.</p>
+<p>Correct only progress classification: an unrelated active remap may remain an explicit incomplete wait when
+its full configured acting replicas occupy distinct known hosts and its missing/degraded counters are present and
+zero. Reject undersized, degraded, recovery-only, unknown, duplicated or single-host replicas. Report every admitted
+PG's ID, state and up/acting sets. Keep all existing health, identity, flag, quorum, capacity and replica checks.
+Final completion still requires every PG clean with equal full up/acting sets and HEALTH_OK. No balancer setting,
+placement, flag, recovery rate or Ceph data is changed. Publish focused refusal tests before observe-only resumption.</p>
+<p><a href="https://docs.ceph.com/en/tentacle/rados/operations/pg-states/">Ceph's PG state definitions</a>
+distinguish remapped placement from degraded replication. A progress report is not final node acceptance.</p>
 </body></html>

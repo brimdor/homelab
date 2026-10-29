@@ -247,13 +247,24 @@ def rejoin_state(value):
     pgs = value['pgs']['pg_stats']
     require(value['pgs']['pg_ready'] and {p['pgid'] for p in pgs} == expected and len(pgs) == len(expected), 'rejoin PG evidence incomplete')
     clean = True
+    unrelated_remaps = []
     for pg in pgs:
         states = set(pg['state'].split('+'))
         require('active' in states and states <= {'active', 'clean', 'scrubbing', 'deep', 'remapped', 'backfilling',
                 'backfill_wait', 'recovering', 'recovery_wait', 'degraded', 'undersized'} and
                 not pg['stat_sum']['num_objects_unfound'] and not pg['stat_sum']['num_scrub_errors'], 'unsafe rejoin PG finding')
         size = pools[int(pg['pgid'].split('.')[0])]['size']
-        require('clean' in states or 7 in pg['up'] or 7 in pg['acting'], 'unrelated PG degraded during rejoin')
+        if 'clean' not in states and 7 not in pg['up'] and 7 not in pg['acting']:
+            # Remapped does not mean degraded; retain full replicas and expose the wait.
+            require('remapped' in states and states <= {
+                'active', 'remapped', 'backfilling', 'backfill_wait', 'scrubbing', 'deep'} and
+                len(pg['acting']) == len(set(pg['acting'])) == size and
+                set(pg['acting']) <= set(OSDS) and len({HOSTS[i] for i in pg['acting']}) == size and
+                all(pg['stat_sum'].get(k) == 0 for k in (
+                    'num_objects_missing', 'num_objects_missing_on_primary', 'num_objects_degraded')),
+                'unrelated PG degraded during rejoin')
+            unrelated_remaps.append({'pgid': pg['pgid'], 'state': pg['state'],
+                                    'up': pg['up'], 'acting': pg['acting']})
         require(len(pg['up']) == len(set(pg['up'])) == size and set(pg['up']) <= set(OSDS) and
                 len({HOSTS[i] for i in pg['up']}) == size and
                 len(set(pg['acting'])) >= pools[int(pg['pgid'].split('.')[0])]['min_size'] and
@@ -265,7 +276,8 @@ def rejoin_state(value):
     complete = clean and value['health']['status'] == 'HEALTH_OK' and not checks
     if complete:validate(value, baseline=True)
     return {'epoch': value['map']['epoch'], 'pg_count': len(pgs), 'clean': bool(clean), 'complete': bool(complete),
-            'health': value['health']['status'], 'osd_uuid': OSDS[7]}
+            'health': value['health']['status'], 'osd_uuid': OSDS[7],
+            'unrelated_fully_replicated_remaps': unrelated_remaps}
 
 
 def rejoin(args, api, value, revision, *, dispatch):

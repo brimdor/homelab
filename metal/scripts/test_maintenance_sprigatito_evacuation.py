@@ -91,3 +91,28 @@ class EvacuationTests(unittest.TestCase):
         result['mapping'] = result['mapping'].replace('up ([1,2], p1)', 'up ([2,8], p2)', 1)
         with self.assertRaisesRegex(RuntimeError, 'independent replicas'):
             evacuation.model(API(), value)
+
+    def test_rejoin_reports_full_replica_remap_without_accepting_completion(self):
+        value = baseline()
+        pg = value['pgs']['pg_stats'][0]
+        pg.update(state='active+remapped+backfill_wait', up=[2, 1], acting=[2, 6])
+        pg['stat_sum'].update(num_objects_missing=0, num_objects_missing_on_primary=0,
+                              num_objects_degraded=0)
+        result = evacuation.rejoin_state(value)
+        self.assertFalse(result['complete'])
+        self.assertFalse(result['clean'])
+        self.assertEqual(result['unrelated_fully_replicated_remaps'], [
+            {'pgid': pg['pgid'], 'state': pg['state'], 'up': [2, 1], 'acting': [2, 6]}])
+        for field in ('num_objects_missing', 'num_objects_missing_on_primary', 'num_objects_degraded'):
+            bad = copy.deepcopy(value); bad['pgs']['pg_stats'][0]['stat_sum'][field] = 1
+            with self.subTest(field=field), self.assertRaises(RuntimeError): evacuation.rejoin_state(bad)
+            del bad['pgs']['pg_stats'][0]['stat_sum'][field]
+            with self.subTest(missing=field), self.assertRaises(RuntimeError): evacuation.rejoin_state(bad)
+        for state, acting in [('active+undersized', [2]), ('active+degraded+remapped', [2, 6]),
+                              ('active+remapped+backfill_wait', [2, 8]),
+                              ('active+remapped+backfill_wait', [2, 2])]:
+            bad = copy.deepcopy(value); bad['pgs']['pg_stats'][0].update(state=state, acting=acting)
+            with self.subTest(state=state, acting=acting), self.assertRaises(RuntimeError):
+                evacuation.rejoin_state(bad)
+        pg.update(state='active+clean', acting=[2, 1])
+        self.assertTrue(evacuation.rejoin_state(value)['complete'])
