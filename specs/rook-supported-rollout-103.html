@@ -89,6 +89,18 @@ service accounts, so preserve storage driver identities while adopting those acc
 requires corrected Rook/Ceph releases and distinguishes core keys, client keys and service tickets. Determine actual
 generations instead of copying an example value. Kernel support alone does not prove migrated client behavior.</p>
 <h2>Data safety and rollback</h2>
+<p>At 15:19 UTC, cluster chart commit <code>94ed68c5ec20be921d59ed4abc8557d18c035adf</code>
+was Synced/Healthy. Stage 2 completed both nine-node plugin rollouts and both two-replica controllers
+(run <code>v01qr87_</code>). Run <code>tms9yi2p</code> preserved all 57 Ceph PV identities and relevant
+PVC bindings and checked readable mounted Ceph paths in 51 running containers under Enforcing SELinux.
+These read-only checks do not establish application data semantics or fresh provisioning.</p>
+<p>For the Ceph patch, combine stages 4 and the core-daemon part of stage 5, as allowed by the
+upstream quick resolution guide. Run <code>uuuqcxbk</code> observes no core generation above 1 and
+MDS generation 1; request daemon generation 2 while upgrading to the verified 20.2.4 artifact.
+This rotates core/admin/MDS keys during the native upgrade instead of repeating a daemon rollout.
+Keep CSI keys AES until independent compatibility and new-mount evidence permits migration.
+Expected authentication warnings and old service tickets remain visible; do not mute or force
+upgrade checks. Verify all core generations, key types and natural ticket expiry before security closeout.</p>
 <p>Fresh protected etcd point <code>storage-patch-20261029-a</code> on Pikachu passed full isolated
 matching-version restoration at 12:40:14 UTC on October 29. Manifest
 <code>ef9beab558d587f8c11087845e17b94ec32f998011ae9b0afea95413c9eb4334</code>;

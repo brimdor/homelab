@@ -26,7 +26,7 @@ rook-ceph-cluster:
   toolbox:
     enabled: true
     # Match the Ceph daemon CLI, not the Rook operator version.
-    image: quay.io/ceph/ceph:v20.2.1
+    image: quay.io/ceph/ceph:v20.2.4-20260818@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
   monitoring:
     # Ceph v20.2.1 contains the Rook prometheus-module fix that blocked this
     # integration on v20.2.0.
@@ -40,7 +40,7 @@ rook-ceph-cluster:
         disabled: true
   cephClusterSpec:
     cephVersion:
-      image: quay.io/ceph/ceph:v20.2.1
+      image: quay.io/ceph/ceph:v20.2.4-20260818@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
       imagePullPolicy: IfNotPresent
     storage:
       useAllNodes: false
@@ -74,6 +74,10 @@ rook-ceph-cluster:
         requireMsgr2: false
     security:
       cephx:
+        # Current core/MDS generations are at most 1; rotate during this upgrade.
+        daemon:
+          keyRotationPolicy: KeyGeneration
+          keyGeneration: 2
         csi:
           keyType: aes
     dashboard:
