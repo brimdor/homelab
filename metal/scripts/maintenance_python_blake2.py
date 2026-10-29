@@ -11,6 +11,9 @@ import subprocess
 ARCHIVE_SHA = 'c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73'
 HEADERS_SHA = '579237b12bf4416bc9f5b6733d24e3f93c583f1bc283ec2514b9d296a2bd13bf'
 MODULE_SHA = '7523638132c313eb5b8a5bca62bef4b5a403312718fc7585863230d231f70047'
+ORIGINAL_SHA = 'c7a10238137f151fb9e8fa5394167344c0db695ba15d2923dabc99785a7e0729'
+CANDIDATE_SHA = '920605c9fff6f3249aa0be069efdc44a0f14ea5e57688a3f5d5e89a6e654e872'
+RECOVERY = '/var/lib/homelab-recovery/maintenance-103/sprigatito-python-blake2-20261029-a'
 PATCH_FROM = '''    flags->avx = (ecx1 & ECX_AVX) != 0;
 
     flags->avx2 = (ebx7 & EBX_AVX2) != 0;'''
@@ -54,11 +57,94 @@ def vectors():
     return result
 
 
+def metadata(path):
+    import os
+    import stat
+
+    info = path.stat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise RuntimeError('single regular extension required')
+    return {'uid': info.st_uid, 'gid': info.st_gid, 'mode': stat.S_IMODE(info.st_mode),
+            'mtime_ns': info.st_mtime_ns,
+            'xattrs': {key: os.getxattr(path, key).hex() for key in os.listxattr(path)}}
+
+
+def atomic_copy(source, target, attributes):
+    import os
+    import tempfile
+
+    descriptor, name = tempfile.mkstemp(prefix='.maintenance103-blake2-', dir=target.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, 'wb') as output:
+            output.write(source.read_bytes())
+            output.flush()
+            os.fchown(output.fileno(), attributes['uid'], attributes['gid'])
+            os.fchmod(output.fileno(), attributes['mode'])
+            for key in os.listxattr(temporary):
+                if key not in attributes['xattrs']:
+                    os.removexattr(temporary, key)
+            for key, value in attributes['xattrs'].items():
+                os.setxattr(temporary, key, bytes.fromhex(value))
+            os.utime(temporary, ns=(attributes['mtime_ns'], attributes['mtime_ns']))
+            os.fsync(output.fileno())
+        if metadata(temporary) != attributes:
+            raise RuntimeError('replacement metadata differs')
+        os.replace(temporary, target)
+        directory = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def install(target, candidate, recovery, verify, revision):
+    """Caller holds controller and RPM POSIX transaction locks throughout."""
+    import os
+    import maintenance_actor_hold as actors
+
+    actors.safe(target)
+    actors.safe(recovery)
+    actors.require(hashlib.sha256(target.read_bytes()).hexdigest() == ORIGINAL_SHA and
+                   hashlib.sha256(candidate.read_bytes()).hexdigest() == CANDIDATE_SHA,
+                   'qualified original or candidate identity differs')
+    attributes = metadata(target)
+    actors.require(attributes['uid'] == os.geteuid() and not attributes['mode'] & 0o022,
+                   'extension ownership is unsafe')
+    recovery.mkdir(mode=0o700)
+    original = recovery / 'original.so'
+    atomic_copy(target, original, attributes)
+    actors.require(hashlib.sha256(original.read_bytes()).hexdigest() == ORIGINAL_SHA and
+                   metadata(original) == attributes, 'protected original differs')
+    manifest = {'version': 1, 'target': str(target), 'metadata': attributes,
+                'original_sha256': ORIGINAL_SHA, 'candidate_sha256': CANDIDATE_SHA,
+                'source_sha256': ARCHIVE_SHA, 'revision': revision}
+    actors.exclusive_file(recovery / 'manifest.json', json.dumps(manifest, sort_keys=True).encode(), 0o600)
+    try:
+        atomic_copy(candidate, target, attributes)
+        actors.require(hashlib.sha256(target.read_bytes()).hexdigest() == CANDIDATE_SHA and
+                       metadata(target) == attributes, 'installed candidate differs')
+        verify()
+        actors.exclusive_file(recovery / 'vectors-accepted.json', b'{"vectors":72}', 0o600)
+    except BaseException:
+        atomic_copy(original, target, attributes)
+        actors.require(hashlib.sha256(target.read_bytes()).hexdigest() == ORIGINAL_SHA and
+                       metadata(target) == attributes, 'automatic rollback verification failed')
+        actors.exclusive_file(recovery / 'rolled-back.json', b'{"original_restored":true}', 0o600)
+        raise
+    return manifest
+
+
 def native(context):
+    import fcntl
     import os
     import signal
     import shutil
     import socket
+    import stat
     import tarfile
     import tempfile
     import urllib.request
@@ -98,6 +184,7 @@ def native(context):
         call('findmnt', '-n', '-o', 'UUID', '/').strip() == b'c27f6613-788e-4d00-802c-5b84a730a631' and
         Path('/proc/sys/kernel/random/boot_id').read_text().strip() == context['boot'] and
         call('rpm', '-q', 'python3-libs').strip() == b'python3-libs-3.14.8-1.fc44.x86_64' and
+        call('rpm', '-E', '%fedora').strip() == b'44' and
         call('getenforce').strip() == b'Enforcing' and
         Path('/sys/devices/system/cpu/vulnerabilities/gather_data_sampling').read_text().strip() ==
         'Mitigation: AVX disabled, no microcode', 'exact mitigated host and Python required')
@@ -105,6 +192,31 @@ def native(context):
     original = Path(_blake2.__file__)
     actors.safe(original)
     before = hashlib.sha256(original.read_bytes()).hexdigest()
+    if context['rollback']:
+        hold = actors.Hold(actors.Systemd(), lambda: None, lambda owner: False)
+        lock_path = Path('/usr/lib/sysimage/rpm/.rpm.lock')
+        actors.safe(lock_path)
+        with hold.serialized(), os.fdopen(os.open(lock_path, os.O_RDWR | os.O_NOFOLLOW), 'r+b') as lock:
+            actors.require(not hold.marker.exists(), 'another maintenance owner exists')
+            info = os.fstat(lock.fileno())
+            actors.require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1,
+                           'unsafe RPM transaction lock')
+            fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            actors.require(os.stat(lock_path).st_ino == info.st_ino, 'RPM lock inode changed')
+            recovery = Path(RECOVERY)
+            actors.safe(recovery)
+            manifest = json.loads((recovery / 'manifest.json').read_bytes())
+            backup = recovery / 'original.so'
+            actors.safe(backup)
+            actors.require(manifest['target'] == str(original) and
+                           hashlib.sha256(original.read_bytes()).hexdigest() == CANDIDATE_SHA and
+                           hashlib.sha256(backup.read_bytes()).hexdigest() == ORIGINAL_SHA and
+                           metadata(backup) == manifest['metadata'], 'exact rollback identity differs')
+            atomic_copy(backup, original, manifest['metadata'])
+            actors.require(hashlib.sha256(original.read_bytes()).hexdigest() == ORIGINAL_SHA and
+                           metadata(original) == manifest['metadata'], 'rollback acceptance failed')
+            actors.exclusive_file(recovery / 'ansible-rolled-back.json', b'{"original_restored":true}', 0o600)
+        return {'rolled_back': True, 'original_sha256': ORIGINAL_SHA}
     call('rpm', '-V', 'python3-libs')
     hold = actors.Hold(actors.Systemd(), lambda: None, lambda owner: False)
     root = Path(tempfile.mkdtemp(prefix='maintenance103-blake2-', dir='/var/tmp'))
@@ -185,6 +297,41 @@ def native(context):
                       'source_sha256': ARCHIVE_SHA, 'headers_sha256': HEADERS_SHA,
                       'patch_sha256': hashlib.sha256(module.read_bytes()).hexdigest(),
                       'gds_avx_disabled_retained': True, 'installed': False}
+            if context['apply']:
+                lock_path = Path('/usr/lib/sysimage/rpm/.rpm.lock')
+                actors.safe(lock_path)
+                descriptor = os.open(lock_path, os.O_RDWR | os.O_NOFOLLOW)
+                try:
+                    info = os.fstat(descriptor)
+                    actors.require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and
+                                   info.st_nlink == 1, 'unsafe RPM transaction lock')
+                    # RPM 6 uses whole-file POSIX F_SETLK, not BSD flock.
+                    fcntl.lockf(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    actors.require(os.stat(lock_path).st_ino == info.st_ino and not hold.marker.exists(),
+                                   'transaction lock or maintenance owner changed')
+                    contender = ('import os,fcntl\nf=open("/usr/lib/sysimage/rpm/.rpm.lock","r+b")\n'
+                                 'try: fcntl.lockf(f,fcntl.LOCK_EX|fcntl.LOCK_NB)\n'
+                                 'except BlockingIOError: print("blocked")\n'
+                                 'else: raise RuntimeError("RPM transaction exclusion failed")\n')
+                    actors.require(call('/usr/bin/python3', '-I', '-B', '-c', contender).strip() == b'blocked',
+                                   'RPM POSIX lock contention was not proven')
+                    def installed_vectors():
+                        probe = ('import resource,json,hashlib,selinux\n'
+                                 'resource.setrlimit(resource.RLIMIT_CORE,(0,0))\n' +
+                                 context['vectors_source'] + '\nprint(json.dumps(vectors()))\n')
+                        actors.require(json.loads(call('/usr/bin/python3', '-I', '-B', '-c', probe)) ==
+                                       context['reference_vectors'], 'installed stdlib acceptance failed')
+                    parent = Path(RECOVERY).parent
+                    actors.safe(parent)
+                    actors.require(parent.stat().st_uid == 0 and not parent.stat().st_mode & 0o022 and
+                                   call('findmnt', '-n', '-o', 'UUID', '-T', str(parent)).strip() ==
+                                   b'c27f6613-788e-4d00-802c-5b84a730a631',
+                                   'protected recovery must remain on exact local root')
+                    install(original, candidate, Path(RECOVERY), installed_vectors, context['revision'])
+                    result.update(installed=True, installed_extension_unchanged=False,
+                                  recovery=RECOVERY, rpm_posix_transaction_lock=True)
+                finally:
+                    os.close(descriptor)
     finally:
         shutil.rmtree(root)
     result['scratch_removed'] = not root.exists()
@@ -199,6 +346,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('identity', 'known-hosts', 'kubectl'):
         parser.add_argument('--' + name, required=True)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--apply', action='store_true')
+    mode.add_argument('--rollback', action='store_true')
     args = parser.parse_args()
     require(Path.cwd() == Path('/Users/chris/Documents/Github/homelab'), 'canonical checkout required')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
@@ -221,12 +371,42 @@ def main():
             any(c['type'] == 'Ready' and c['status'] == 'True' for c in node['status']['conditions']) and
             production.JOURNAL not in ds['metadata'].get('annotations', {}), 'node or maintenance identity differs')
     context = {'boot': node['status']['nodeInfo']['bootID'], 'reference_vectors': vectors(),
-               'vectors_source': inspect.getsource(vectors)}
+               'vectors_source': inspect.getsource(vectors), 'apply': args.apply,
+               'rollback': args.rollback, 'revision': revision}
     source = Path(__file__).read_text().split('\ndef main(')[0]
     program = 'import sys,types\nbundle=' + repr(bundle) + '\n'
     program += 'for name,code in bundle.items():\n m=types.ModuleType(name);sys.modules[name]=m;exec(compile(code,name,"exec"),m.__dict__)\n'
     program += source + '\nprint(json.dumps(native(' + repr(context) + ')))'
-    print(json.dumps(production.remote(args, program, '10.0.20.20'), sort_keys=True))
+    result = production.remote(args, program, '10.0.20.20')
+    if args.apply:
+        import os
+        import re
+
+        environment = os.environ.copy()
+        environment.update({'ANSIBLE_CONFIG': str(Path('metal/maintenance/ansible.cfg').resolve()),
+            'ANSIBLE_HOST_KEY_CHECKING': 'True', 'ANSIBLE_REMOTE_USER': 'root',
+            'ANSIBLE_PRIVATE_KEY_FILE': args.identity,
+            'ANSIBLE_SSH_ARGS': '-o UserKnownHostsFile=' + args.known_hosts +
+                ' -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o BatchMode=yes'
+                ' -o IdentitiesOnly=yes -o ControlMaster=no'})
+        try:
+            accepted = subprocess.run(['/Users/chris/.local/bin/ansible-playbook', '-i',
+                'metal/inventories/prod.yml', 'metal/nodes.yml', '--limit', 'sprigatito',
+                '--tags', 'gpu_container_access'], env=environment, capture_output=True, text=True)
+            summary = re.search(r'^sprigatito\s+:\s+ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)',
+                                accepted.stdout, re.MULTILINE)
+            require(accepted.returncode == 0 and summary is not None and int(summary[1]) >= 2 and
+                    tuple(map(int, summary.groups()[1:])) == (0, 0, 0),
+                    'Ansible fact gathering or idempotent GPU acceptance failed: ' +
+                    accepted.stdout[-2500:] + accepted.stderr[-1000:])
+            result['ansible_facts_and_gpu_idempotence'] = True
+        except BaseException:
+            rollback_context = dict(context, apply=False, rollback=True)
+            rollback_program = program[:program.rfind('\nprint(json.dumps(native(')]
+            rollback_program += '\nprint(json.dumps(native(' + repr(rollback_context) + ')))'
+            production.remote(args, rollback_program, '10.0.20.20')
+            raise
+    print(json.dumps(result, sort_keys=True))
 
 
 if __name__ == '__main__':

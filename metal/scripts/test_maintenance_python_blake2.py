@@ -1,6 +1,10 @@
 """Reject source drift and retain independent BLAKE2 behavior coverage."""
 
 import hashlib
+from contextlib import nullcontext
+import os
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -8,6 +12,40 @@ import maintenance_python_blake2 as repair
 
 
 class Blake2RepairTests(unittest.TestCase):
+    def test_atomic_install_and_failed_acceptance_restore_bytes_and_metadata(self):
+        for accepted in (True, False):
+            # macOS Python lacks os xattr calls; Linux repeats this test with real xattrs.
+            attributes = nullcontext() if hasattr(os, 'listxattr') else patch.object(
+                os, 'listxattr', return_value=[], create=True)
+            with self.subTest(accepted=accepted), attributes, tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                target, candidate = root / 'installed.so', root / 'candidate.so'
+                target.write_bytes(b'original vendor extension')
+                candidate.write_bytes(b'qualified repaired extension')
+                target.chmod(0o644)
+                if hasattr(os, 'setxattr'):
+                    os.setxattr(target, 'user.maintenance103', b'preserved')
+                original_metadata = repair.metadata(target)
+                original_sha = hashlib.sha256(target.read_bytes()).hexdigest()
+                candidate_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+                def verify():
+                    self.assertEqual(target.read_bytes(), candidate.read_bytes())
+                    if not accepted:
+                        raise RuntimeError('injected acceptance failure')
+                with patch.object(repair, 'ORIGINAL_SHA', original_sha), patch.object(
+                        repair, 'CANDIDATE_SHA', candidate_sha):
+                    if accepted:
+                        repair.install(target, candidate, root / 'recovery', verify, 'a' * 40)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'injected acceptance failure'):
+                            repair.install(target, candidate, root / 'recovery', verify, 'a' * 40)
+                self.assertEqual(repair.metadata(target), original_metadata)
+                self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),
+                                 candidate_sha if accepted else original_sha)
+                self.assertEqual(repair.metadata(root / 'recovery/original.so'), original_metadata)
+                self.assertEqual(hashlib.sha256((root / 'recovery/original.so').read_bytes()).hexdigest(), original_sha)
+                self.assertEqual(list(root.glob('.maintenance103-blake2-*')), [])
+
     def test_patch_requires_exact_source_and_one_dispatch_block(self):
         source = ('prefix\n' + repair.PATCH_FROM + '\nsuffix\n').encode()
         with patch.object(repair, 'MODULE_SHA', hashlib.sha256(source).hexdigest()):
