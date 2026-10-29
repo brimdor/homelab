@@ -183,7 +183,7 @@ def main():
             all(o['up'] == o['in'] == 1 and o['weight'] == 1 for o in mapping['osds']),
             'original OSD7 must finish its healthy return first')
     node = read('get', 'node', 'sprigatito')
-    require(node['metadata']['uid'] == NODE_UID and node['status']['nodeInfo']['osImage'] == 'Fedora Linux 44 (Server Edition)' and
+    require(node['metadata']['uid'] == NODE_UID and node['status']['nodeInfo']['osImage'] == 'Fedora Linux 44 (Forty Four)' and
             any(c['type'] == 'Ready' and c['status'] == 'True' for c in node['status']['conditions']), 'Emby return node is not ready on Fedora 44')
     deployment = read('get', 'deployment', 'emby-main', '-n', 'emby')
     require(deployment['spec']['replicas'] == 1 and deployment['status'].get('readyReplicas') == 1 and
