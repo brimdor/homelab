@@ -34,7 +34,7 @@ class ChartTests(unittest.TestCase):
         self.assertEqual([o["kind"] for o in render("stage=namespace")], ["Namespace"])
         objects = render("stage=foundation")
         kinds = [o["kind"] for o in objects]
-        self.assertEqual(sorted(kinds), sorted(["Namespace", "Certificate", "Service", "NetworkPolicy", "ConfigMap"] + ["PersistentVolumeClaim"] * 3))
+        self.assertEqual(sorted(kinds), sorted(["Namespace", "Certificate", "Service", "NetworkPolicy", "CiliumNetworkPolicy", "ConfigMap"] + ["PersistentVolumeClaim"] * 3))
         for obj in objects:
             self.assertNotIn(obj["kind"], ["Ingress", "Deployment", "Pod", "Job", "Secret"])
             self.assertNotIn("production", obj["metadata"]["name"])
@@ -45,6 +45,11 @@ class ChartTests(unittest.TestCase):
         policy = next(o for o in objects if o["kind"] == "NetworkPolicy")["spec"]
         self.assertEqual(policy["egress"], [])
         self.assertEqual(policy["ingress"][0]["from"], [{"ipBlock": {"cidr": "10.0.0.0/16"}}])
+        forwarding = next(o for o in objects if o["kind"] == "CiliumNetworkPolicy")["spec"]
+        self.assertEqual(forwarding, {"endpointSelector": {"matchLabels": {
+            "app.kubernetes.io/name": "tsurreal", "app.kubernetes.io/instance": "tsurreal-canary"}},
+            "ingress": [{"fromEntities": ["host", "remote-node"],
+                         "toPorts": [{"ports": [{"port": "8443", "protocol": "TCP"}]}]}]})
         config = json.loads(next(o for o in objects if o["kind"] == "ConfigMap")["data"]["hq.json"])
         self.assertEqual(config["access_mode"], "lan")
         self.assertEqual(config["origin"], "https://tsurreal-canary.eaglepass.io")
@@ -83,6 +88,7 @@ class ChartTests(unittest.TestCase):
                 render(*overrides, good=False)
         render("stage=candidate", "image=public.example/tsurreal/hq@sha256:" + "a" * 64, "sourceCommit=" + "b" * 40, "sourceTree=" + "c" * 40, good=False)
         render("imagePullSecret=unnecessary-credential", good=False)
+        render("identityImage=python:latest", good=False)
         render(namespace="tsurreal-production", good=False)
         render("stage=foundation", "privateSources[0]=0.0.0.0/0", good=False)
 

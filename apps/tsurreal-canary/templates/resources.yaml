@@ -84,6 +84,24 @@ spec:
           port: 8443
   egress: []
 ---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: tsurreal-private-forwarding
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: tsurreal
+      app.kubernetes.io/instance: tsurreal-canary
+  ingress:
+    # Private LoadBalancer forwarding can replace the original LAN source with a node address.
+    - fromEntities: [host, remote-node]
+      toPorts:
+        - ports:
+            - port: "8443"
+              protocol: TCP
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -3,9 +3,9 @@ stage: candidate
 hostname: tsurreal-canary.eaglepass.io
 issuer: letsencrypt-prod
 tlsSecret: tsurreal-canary-tls
-image: 10.0.20.11:32309/tsurreal/hq@sha256:ac0c00a90418e9165b078f1389151e6293ac33a76ab23de2210088f664f9b015
-sourceCommit: 207c733a8d292fc504bf8d59dd94922cd6e97398
-sourceTree: b1916a920878d2db1b4871c848203539826232bc
+image: 10.0.20.11:32309/tsurreal/hq@sha256:9ea33f09d051aedc7a5069d11c09e81ab5652b0be5cef476583f600feab05620
+sourceCommit: 9d7fe0457f5caaad1b19476ca91f5da9ae826c4e
+sourceTree: 6542ce723bb1a6cf6ae01411dffc6316214f49ee
 storageClass: standard-rwo
 storage:
   state: 4Gi
@@ -13,4 +13,4 @@ storage:
   packages: 8Gi
 privateSources:
   - 10.0.0.0/16
-identityImage: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+identityImage: docker.io/library/python:3.13.18-alpine3.24@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
