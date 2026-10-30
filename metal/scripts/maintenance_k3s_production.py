@@ -17,12 +17,62 @@ import maintenance_k3s_contract as contract
 from maintenance_node_drain import ZOT, hashed, private_json
 
 
-# The first production stage cannot cross the unresolved upstream etcd 3.6 gate.
+# Later stages remain disabled until their production integration is qualified.
 SOURCE, TARGET = contract.VERSIONS[:2]
 SERVERS = ('charmander', 'squirtle', 'bulbasaur')
 HOSTS = contract.ORDER
 AUTH_WARNINGS = {'AUTH_INSECURE_CLIENT_KEY_TYPE', 'AUTH_INSECURE_KEYS_ALLOWED',
                  'AUTH_INSECURE_KEYS_CREATABLE', 'AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE'}
+
+
+def configure_stage(source, target):
+    global SOURCE, TARGET
+    actors.require((source, target) in (contract.VERSIONS[:2], contract.VERSIONS[1:3]),
+                   'unreviewed production bridge stage')
+    SOURCE, TARGET = source, target
+
+
+def first_bridge_releases(args, nodes):
+    """Re-read every original completed release before entering the next pair."""
+    import maintenance_production_node as production
+    path = Path('metal/maintenance/k3s-first-bridge-releases.json');raw = path.read_bytes()
+    actors.require(raw == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
+                   'unpublished first-bridge release bindings')
+    profile = json.loads(raw)
+    actors.require(profile['version'] == 1 and (profile['source'], profile['target']) == contract.VERSIONS[:2] and
+                   set(profile['nodes']) == set(HOSTS) and
+                   {n['metadata']['name']: n['metadata']['uid'] for n in nodes} ==
+                   {name: value['node_uid'] for name, value in profile['nodes'].items()},
+                   'original first-bridge inventory differs')
+    source = '''
+import hashlib,json,os,pathlib,socket,subprocess
+assert os.geteuid()==0 and socket.gethostname()==NODE
+assert pathlib.Path('/etc/machine-id').read_text().strip()==REF['identity']['machine']
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==REF['identity']['root_uuid']
+def read(path):
+ assert not any(p.is_symlink()for p in(path,*path.parents))
+ info=path.stat();assert info.st_uid==0 and info.st_nlink==1 and info.st_mode&0o777==0o600
+ raw=path.read_bytes();value=json.loads(raw);assert raw==json.dumps(value,sort_keys=True,separators=(',',':')).encode()
+ return value,hashlib.sha256(raw).hexdigest()
+root=pathlib.Path('/var/lib/homelab-maintenance');release=root/'releases'/REF['owner']
+assert sorted(p.name for p in release.iterdir())==[str(i).zfill(8)+'.json'for i in range(5)]
+previous=None
+for index,kind in enumerate(('header','host-intent','host-accepted','global-intent','global-accepted')):
+ value,digest=read(release/(str(index).zfill(8)+'.json'))
+ assert value['sequence']==index and value['kind']==kind and value['previous']==previous
+ if index==0:header=value
+ previous=digest
+assert previous==REF['release_head']
+owner=header['owners']['global'];assert owner['owner']==REF['owner']and owner['node']==NODE and owner['node_uid']==REF['node_uid']
+assert owner['component']=='k3s'and(owner['source'],owner['target'])==('v1.33.6+k3s1','v1.33.10+k3s1')
+hop=root/'transactions'/REF['owner']
+assert len(header['hop_records'])==15 and set(p.name for p in hop.iterdir())==set(header['hop_records'])
+for name,digest in header['hop_records'].items():assert read(hop/name)[1]==digest
+assert read(hop/'00000014.json')[1]==header['hop_head_sha256']
+print(json.dumps({'node':NODE,'release_head':previous,'original_release_and_fifteen_hops_preserved':True}))
+'''
+    return [production.remote(args, 'NODE=' + repr(name) + '\nREF=' + repr(ref) + '\n' + source, ref['address'])
+            for name, ref in profile['nodes'].items()]
 
 
 def configuration_receiver(node):
@@ -308,6 +358,7 @@ def native_operation(context):
     api, controller, hold, owner, native, identity, rpc = (context[key] for key in
         ('api', 'controller', 'hold', 'owner', 'native', 'identity', 'rpc'))
     operation, root = context['operation'], hold.state
+    configure_stage(owner['source'], owner['target'])
     actors.require(owner.get('component') == 'k3s' and (owner['source'], owner['target']) == (SOURCE, TARGET)
                    and owner['node'] in HOSTS, 'unreviewed production bridge stage')
     journal = hops.Journal(controller, hold, owner['owner'])
@@ -387,6 +438,15 @@ def native_operation(context):
                 journal.accept(result['parent_intent']['sha256'], hashed(accepted),
                     lambda step, observed: step == 'drain' and observed == hashed(accepted) and
                     evidence() == value and verified_completed_drain(worker, accepted))
+        elif operation == 'begin-legacy-check':
+            actors.require(owner['node'] in SERVERS and (SOURCE, TARGET) == contract.VERSIONS[1:3],
+                           'legacy check is only the reviewed server boundary')
+            value = evidence(); digest = hashed(value)
+            if state['pending'] is None:
+                state = journal.begin('check_legacy_etcd', digest, digest, verifier(value))
+            actors.require(state['completed'] == ['cordon', 'drain'] and
+                           state['pending']['step'] == 'check_legacy_etcd', 'legacy check hop differs')
+            result = state
         elif operation in ('prepare-binary', 'activate-binary', 'observe-binary'):
             worker = Binary(journal, native)
             if operation == 'observe-binary':
@@ -399,7 +459,11 @@ def native_operation(context):
             else:
                 value = evidence(); digest = hashed(value)
                 def source_verified(step, observed):
-                    return verifier(value)(step, observed) and runtime(native, SOURCE) == private_json(before_path)
+                    before = private_json(before_path)
+                    if 'check_legacy_etcd' in hops.steps(owner):
+                        from maintenance_etcd_production import source_baseline
+                        before = source_baseline(hold, owner, before)
+                    return verifier(value)(step, observed) and runtime(native, SOURCE) == before
                 result = (worker.prepare(digest, source_verified) if operation == 'prepare-binary'
                           else worker.activate(digest, source_verified))
         elif operation in ('verify-infrastructure', 'accept-applications'):
@@ -675,17 +739,17 @@ def _observe_once(args, api, owner, kind):
     if owner['node'] in production.OSD_RECOVERY:
         import maintenance_osd_host
         maintenance_osd_host.native_identity(args, node=owner['node'])
-        owned_osd = maintenance_osd_host.observe(api, node=owner['node'], k3s_bridge=True)
+        owned_osd = maintenance_osd_host.observe(api, node=owner['node'], k3s_bridge=(SOURCE, TARGET))
         _coherent_snapshot(owned_osd['health'] == health['status'] and
                        set(owned_osd['health_findings']) == warnings and
                        owned_osd['checked_pgs'] == 177, 'OSD evidence changed during collection')
-    actors.require(owned_osd is not None or (health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and warnings <= AUTH_WARNINGS),
+    permitted_auth = AUTH_WARNINGS if (SOURCE, TARGET) == contract.VERSIONS[:2] else set()
+    actors.require((owned_osd is not None or warnings <= permitted_auth) and not (warnings & AUTH_WARNINGS - permitted_auth),
                    'new Ceph health finding')
     cluster = api.call('get', 'cephcluster', 'rook-ceph', '-n', 'rook-ceph', '-o', 'json')
     csi = cluster['status']['cephx']['csi']
     actors.require(cluster['metadata']['uid'] == '901ad331-70b6-40cf-8654-2c6ed97a06b2' and
-                   cluster['status']['phase'] == 'Ready' and
-                   csi['keyGeneration'] == 1 and csi['keyType'] == 'aes256k' and csi['priorKeyCount'] == 1,
+                   contract.ceph_policy(cluster, (SOURCE, TARGET)),
                    'staged CSI key migration identity differs')
     pg = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'pg', 'stat', '-f', 'json')['pg_summary']
     actors.require(pg['num_pgs'] == 177 and sum(s['num'] for s in pg['num_pg_by_state']) == 177 and
@@ -791,18 +855,21 @@ def main():
     from maintenance_api_reader import Reader
     from maintenance_coordination import JOURNAL, Ownership
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'prepare-binary',
+    parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'begin-legacy-check', 'legacy-check', 'prepare-binary',
         'activate-binary', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'accept-applications', 'release'))
     parser.add_argument('--node', choices=HOSTS, required=True)
+    parser.add_argument('--target', choices=contract.VERSIONS[1:3], default=contract.VERSIONS[1])
     for name in ('kubectl', 'identity', 'known-hosts'):
         parser.add_argument('--' + name, required=True)
     for name in ('recovery-receipt', 'recovery-copy', 'node-recovery'):
         parser.add_argument('--' + name)
     args = parser.parse_args(); production.select_node(args.node)
+    configure_stage(contract.VERSIONS[contract.VERSIONS.index(args.target) - 1], args.target)
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     actors.require(subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0] ==
                    revision, 'publish reviewed controller before execution')
-    names = (*production.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary', 'maintenance_k3s_production')
+    from maintenance_etcd_production import MODULES as ETCD_MODULES
+    names = (*production.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary', 'maintenance_k3s_production', *ETCD_MODULES)
     bundle = {}
     for name in (*names, 'maintenance_production_node', 'maintenance_control_plane', 'maintenance_api_reader', 'etcd_recovery', 'maintenance_osd_host', 'maintenance_k3s_pending'):
         path = 'metal/scripts/' + name + '.py'; published = subprocess.check_output(['git', 'show', revision + ':' + path])
@@ -812,20 +879,27 @@ def main():
     if args.operation == 'backup':
         print(json.dumps(backup_node(args))); return
     actors.require(all((args.recovery_receipt, args.recovery_copy, args.node_recovery)), 'recovery receipts required')
-    api = Reader(args.kubectl)
+    # Keep the workstation on a surviving endpoint during a resumed server cycle.
+    survivor = next(name for name in SERVERS if name != args.node)
+    from maintenance_etcd_native_api import ENDPOINTS
+    api = Reader(args.kubectl, ENDPOINTS[survivor])
     try:
         ds, _, nodes = api.snapshot()
         recovery = verify_recovery(args, nodes, fresh=args.operation in ('initialize', 'activate-binary'))
         controller = Ownership(api, production.DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
         raw = ds['metadata'].get('annotations', {}).get(JOURNAL)
         if raw:
-            owner = controller.resume(json.loads(raw)['owner'])
+            original_owner = json.loads(raw)
+            owner = (controller.ownership(ds, original_owner['owner']) if args.operation == 'legacy-check'
+                     else controller.resume(original_owner['owner']))
             actors.require(owner.get('component') == 'k3s' and owner['node'] == args.node and
                            owner['node_uid'] == production.UID and (owner['source'], owner['target']) == (SOURCE, TARGET),
                            'another transition owns maintenance')
         else:
             actors.require(args.operation == 'initialize' and contract.next_node(nodes, SOURCE, TARGET) == args.node,
                            'finish preceding node before acquiring next')
+            if args.node == 'charmander' and (SOURCE, TARGET) == contract.VERSIONS[1:3]:
+                first_bridge_releases(args, nodes)
             prospective = {'node': args.node}
             observe(args, api, prospective, 'prerequisites')
             program = '''
@@ -844,6 +918,17 @@ print(json.dumps(result))
                 '\nIDENTITY=' + repr(production.IDENTITY) + '\nMAC=' + repr(production.MAC) +
                 '\nSOURCE=' + repr(SOURCE) + '\nCONFIG=' + repr(recovery['configuration']) + '\n' + program)
             owner = controller.acquire(args.node, SOURCE, TARGET, revision, component='k3s')
+        if args.operation == 'legacy-check':
+            from maintenance_etcd_production import run, program
+            actors.require(args.node in SERVERS and (SOURCE, TARGET) == contract.VERSIONS[1:3],
+                           'legacy cycle requires the reviewed server boundary')
+            identities = {n['metadata']['name']: n['metadata']['uid'] for n in nodes}
+            proof = run(args, owner, identities, bundle)
+            if 'original_before' in proof:
+                print(json.dumps({'proof': proof, 'already_accepted': True})); return
+            accepted = production.remote(args, program(bundle, owner, identities, production.IDENTITY,
+                                                      production.MAC, 'accept-check', expected=proof))
+            print(json.dumps({'proof': proof, 'journal': accepted})); return
         def observer(request):
             if request['rpc'] == 'removed_completed_job':
                 actors.require(args.operation == 'drain', 'unreviewed completed removal operation')

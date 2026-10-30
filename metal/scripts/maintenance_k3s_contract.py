@@ -35,6 +35,23 @@ def steps(owner):
     return STEPS
 
 
+def ceph_policy(cluster, stage):
+    """Preserve the historical first-stage gate; later stages require retired prior keys."""
+    if not reviewed(*stage):
+        raise RuntimeError('unreviewed K3s Ceph stage')
+    csi = cluster.get('status', {}).get('cephx', {}).get('csi', {})
+    common = (cluster.get('status', {}).get('phase') == 'Ready' and
+              csi.get('keyGeneration') == 1 and csi.get('keyType') == 'aes256k' and
+              csi.get('keyCephVersion') == '20.2.4-0')
+    if stage == VERSIONS[:2]:
+        return common and csi.get('priorKeyCount') == 1
+    return (common and csi.get('priorKeyCount', 0) == 0 and
+            cluster.get('spec', {}).get('security', {}).get('cephx', {}).get('csi') ==
+            {'keyRotationPolicy': 'KeyGeneration', 'keyGeneration': 1,
+             'keepPriorKeyCountMax': 0, 'keyType': 'aes256k'} and
+            cluster['spec']['security']['cephx'].get('allowedCiphers') == ['aes256k'])
+
+
 def next_node(nodes, source, target):
     """Refuse skipped hosts, unreviewed versions and foreign inventory."""
     if not reviewed(source, target):

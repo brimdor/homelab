@@ -69,7 +69,7 @@ def wait_for_protection(api, node, owner, ref):
     require(state['metadata']['uid'] == STATE_UID and
             state['data'].get('draining-failure-domain') == node and
             state['data'].get('set-no-out') == 'true', 'Rook protection wait did not match this host')
-    accepted = (observe(api, node=node, k3s_bridge=True)
+    accepted = (observe(api, node=node, k3s_bridge=(owner['source'], owner['target']))
                 if owner.get('component') == 'k3s' else observe(api, node=node))
     current = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--',
                        'ceph', 'osd', 'dump', '--format', 'json')
@@ -106,6 +106,9 @@ def bridge_data_plane(osdmap):
 def validate(value, now=None, node=NODE, *, k3s_bridge=False):
     """Reject any degradation outside the exact owned, cordoned failure domain."""
     profile = profile_for(node)
+    from maintenance_k3s_contract import VERSIONS, reviewed, ceph_policy
+    stage = VERSIONS[:2] if k3s_bridge is True else k3s_bridge
+    require(not stage or type(stage) is tuple and reviewed(*stage), 'unreviewed OSD K3s stage')
     node_name, node_uid = node, profile['node_uid']
     targets = targets_for(node)
     deployments = value['deployments'] if len(targets) > 1 else {next(iter(targets)): value['deployment']}
@@ -133,19 +136,15 @@ def validate(value, now=None, node=NODE, *, k3s_bridge=False):
         supported = (owner.get('component', 'fedora') == 'fedora' and
                      versions in ((39, 41), (41, 43), (43, 44))) or (
                      k3s_bridge and owner.get('component') == 'k3s' and
-                     versions == ('v1.33.6+k3s1', 'v1.33.10+k3s1'))
+                     versions == stage)
         require(owner.get('node_uid') == node_uid and re.fullmatch(
             r'homelab-maintenance-103-[0-9a-f-]{36}', owner.get('owner', '')) and supported,
             'OSD maintenance owner differs')
     if k3s_bridge:
-        from maintenance_k3s_contract import VERSIONS
         require(owner is None or owned and owner.get('component') == 'k3s' and
-                (owner.get('source'), owner.get('target')) == VERSIONS[:2],
+                (owner.get('source'), owner.get('target')) == stage,
                 'foreign K3s OSD bridge owner')
-        csi = cluster.get('status', {}).get('cephx', {}).get('csi', {})
-        require(cluster.get('status', {}).get('phase') == 'Ready' and
-                csi.get('keyGeneration') == 1 and csi.get('keyType') == 'aes256k' and
-                csi.get('priorKeyCount') == 1 and csi.get('keyCephVersion') == '20.2.4-0',
+        require(ceph_policy(cluster, stage),
                 'K3s OSD staged CSI migration differs')
     cordoned = node['spec'].get('unschedulable') is True
     maintenance = owned and cordoned
@@ -183,7 +182,7 @@ def validate(value, now=None, node=NODE, *, k3s_bridge=False):
                 'another failure domain owns Rook disruption protection')
     checks = health.get('checks', {})
     require(not health.get('mutes'), 'muted Ceph findings prevent maintenance acceptance')
-    auth_findings = set(checks) & K3S_AUTH_WARNINGS if k3s_bridge else set()
+    auth_findings = set(checks) & K3S_AUTH_WARNINGS if stage == VERSIONS[:2] else set()
     require(not auth_findings or health['status'] == 'HEALTH_WARN',
             'authentication migration health status differs')
     allowed_checks = WARNING_CHECKS | auth_findings

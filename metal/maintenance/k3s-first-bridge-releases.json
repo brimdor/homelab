@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "source": "v1.33.6+k3s1",
+  "target": "v1.33.10+k3s1",
+  "nodes": {
+    "charmander": {
+      "node_uid": "9108f105-f73d-41bb-891f-ac2db6658714",
+      "owner": "homelab-maintenance-103-841116fb-5b65-4d37-b2d4-e189e54e25c7",
+      "release_head": "c0724bd8b056601459d9d7f0f9895f5d4c400b76a871b1a4a04811f54e15681e",
+      "identity": {
+        "machine": "58d682ccab5a4269acedc3cdf53e46dc",
+        "root_uuid": "4a64a6d6-e982-4694-aa03-ad5f317b3ab2"
+      },
+      "address": "10.0.20.11"
+    },
+    "squirtle": {
+      "node_uid": "10951ffe-dd31-4c38-b854-67f3a011458c",
+      "owner": "homelab-maintenance-103-6a4592a2-7fed-4b54-a822-e265f7dfbac9",
+      "release_head": "46728a3a19d0b6664101501809404b40b60c4033081534b19def2847c813de77",
+      "identity": {
+        "machine": "90c7f1d7caea486d9dc9bdbb4ec5ae21",
+        "root_uuid": "eea5afa0-dbb6-43f5-abe6-f1be801fb03a"
+      },
+      "address": "10.0.20.12"
+    },
+    "bulbasaur": {
+      "node_uid": "b921073c-822a-4b74-80ed-563fec33d6ab",
+      "owner": "homelab-maintenance-103-1032f1af-c405-4f37-bfde-36b4c59d1c1f",
+      "release_head": "7cb9c9437a1fdd1a0a7fdad7c917a078d5b34e1e28f619ce117c4461b079397c",
+      "identity": {
+        "machine": "f61201c3e2ba4b8cbd31e09f77da2ad0",
+        "root_uuid": "2c59d1d1-d2d8-420e-b3a5-d87eb0437823"
+      },
+      "address": "10.0.20.13"
+    },
+    "sprigatito": {
+      "node_uid": "5d80125d-4228-47dd-b19c-ca86f7d4316c",
+      "owner": "homelab-maintenance-103-5b30207f-d9d2-4f22-968c-20fc5b498b95",
+      "release_head": "ed7de7de31a0f39daa63280995f565f8fff0852ea3bad6aa7283cd497d2e511e",
+      "identity": {
+        "machine": "e5796c3018b6448eae0c69405926317e",
+        "root_uuid": "c27f6613-788e-4d00-802c-5b84a730a631"
+      },
+      "address": "10.0.20.20"
+    },
+    "pikachu": {
+      "node_uid": "7ec4e786-0b5d-416d-9284-8eac993635bf",
+      "owner": "homelab-maintenance-103-cde170c2-ae01-4525-8686-58f1e7f99649",
+      "release_head": "26fe89c7b2567aed0814be4eea9bcca571b88c2ae711e123d80f4d4471f41437",
+      "identity": {
+        "machine": "0a7daf8b33244d9d85f46223c3582da9",
+        "root_uuid": "76e53a95-725a-4430-9d7b-a8db413f3997"
+      },
+      "address": "10.0.20.14"
+    },
+    "cyndaquil": {
+      "node_uid": "6a26f4ed-68e6-4681-baf9-47660549c4fb",
+      "owner": "homelab-maintenance-103-6d13f310-5902-455f-a197-fed6f15183c5",
+      "release_head": "619df4a0162d906d0922888ffe30f7c760e4138db57f42820fb78bc451aac6ae",
+      "identity": {
+        "machine": "51140709f60f45c1bcd0edfa23dba2ef",
+        "root_uuid": "fc02c8c4-35c6-4efe-a88a-b03d7673c0c8"
+      },
+      "address": "10.0.20.16"
+    },
+    "totodile": {
+      "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
+      "owner": "homelab-maintenance-103-d5f869ec-1b3a-49fb-9754-a21ef28e6d67",
+      "release_head": "66a8c1502eb27e128d80ee21ad610ef95fceda4bae3625c1425370e73313584c",
+      "identity": {
+        "machine": "0f1915a59a124d999d8d68b53f406af1",
+        "root_uuid": "489f1af8-5d55-4356-8d48-418fcb2069a2"
+      },
+      "address": "10.0.20.17"
+    },
+    "growlithe": {
+      "node_uid": "50f95b8f-4117-4c1e-84bc-266c5b23bffb",
+      "owner": "homelab-maintenance-103-97a88314-4ad1-4fad-86e3-47e0adcbe84c",
+      "release_head": "48e514c7af463665838abc42314ff3eeba21573c8323d3e6cfc7d13207fac99c",
+      "identity": {
+        "machine": "a26cbcc990c044dea41fbf4f957f453d",
+        "root_uuid": "710e2dca-691e-4123-a867-4994b9c6e612"
+      },
+      "address": "10.0.20.18"
+    },
+    "arcanine": {
+      "node_uid": "88aa2572-09df-40b9-8a00-960e9682917c",
+      "owner": "homelab-maintenance-103-64c2c8f3-94fb-4973-8b2f-d84935ec9763",
+      "release_head": "fdec9e36077d71894460f36044558bea22031481696d6301067ff4103626e655",
+      "identity": {
+        "machine": "d877c676fcc2434f9a169f8dc0594676",
+        "root_uuid": "d5ffa207-0e76-47a7-a941-1829732d3bc6"
+      },
+      "address": "10.0.20.19"
+    }
+  }
+}

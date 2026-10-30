@@ -124,6 +124,23 @@ when copying fails; uncertain stop/start actions are observed, never replayed. F
 v3 snapshot and full isolated restore remain required after SOURCE returns and before TARGET
 activation. Do not downgrade an already migrated datastore.</p>
 <h2>Pinned checker and safety boundaries</h2>
+<p>The composition module <code>maintenance_etcd_production.py</code> uses the published
+native ownership, stopped-source, quorum, transfer and isolated-checker modules. Persist
+the original ownership and pending-hop snapshots before stop, and the exact unique cold-copy
+plan before streaming. On resume, inspect existing stop/start intents; never repeat either
+service command. A tracked finally path restores the proven stopped SOURCE after copy failure.
+If SOURCE already returned, inspect only the original committed off-node point. Never create
+a replacement cold copy from a live member. Run the checker once behind its own exclusive
+intent. Accept the hop only after all original voters and SOURCE runtime return, exact transfer
+and checker receipts agree, and original host state remains unchanged. Preserve the original
+SOURCE baseline; the proven returned PID is a separate downstream preparation baseline.</p>
+<p>Production stage selection remains restricted to the first two reviewed version pairs.
+The second pair requires the completed all-nine first-bridge releases and the accepted
+AES256K-only, zero-prior-key Ceph policy. It does not inherit the first pair's temporary
+authentication-warning exception. Workers cannot bypass the completed three-server boundary.
+Focused tests cover composition failure paths and decoded native programs before publication;
+production acceptance still requires the actual cold copy and checker, matching fresh v3
+recovery, target runtime and full application return.</p>
 <p>Official etcdutl v3.5.35 AMD64 archive SHA256
 <code>ca9f94cdc80be66923ef571d82b128819d0f5f3aa9f01522bafd991618ee29d1</code>;
 binary SHA256 <code>187249c118c209ad485e7d343aee50751c637329a6051e94e2b2ea3bd5076ac5</code>;

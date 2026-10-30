@@ -31,10 +31,10 @@ class RuntimeTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(RuntimeError, 'protected host state'):
                 production.unchanged_runtime(self.before, changed)
 
-    def test_production_cannot_cross_etcd_36_gate_or_touch_unknown_host(self):
+    def test_production_cannot_select_unintegrated_stage_or_touch_unknown_host(self):
         class Hold:
             state = None
-        for node, source, target in (('charmander', contract.VERSIONS[1], contract.VERSIONS[2]),
+        for node, source, target in (('charmander', contract.VERSIONS[2], contract.VERSIONS[3]),
                                      ('unknown', production.SOURCE, production.TARGET)):
             context = dict.fromkeys(('api', 'controller', 'native', 'identity', 'rpc'))
             context.update(hold=Hold(), operation='activate-binary', owner={
