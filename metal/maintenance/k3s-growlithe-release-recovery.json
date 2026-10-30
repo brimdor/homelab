@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "node": "growlithe",
+  "owner": {
+    "component": "k3s",
+    "created": "2026-10-30T06:18:14.206568Z",
+    "node": "growlithe",
+    "node_uid": "50f95b8f-4117-4c1e-84bc-266c5b23bffb",
+    "owner": "homelab-maintenance-103-97a88314-4ad1-4fad-86e3-47e0adcbe84c",
+    "phase": "OWNED_KURED_ONLY",
+    "revision": "74b7af96518b8ba24b72a1bbfd49e0d7feeb2a3f",
+    "source": "v1.33.6+k3s1",
+    "target": "v1.33.10+k3s1",
+    "version": 1
+  },
+  "release_records": {
+    "00000000.json": "3e7ad5d799d1a1326573ac979f082702e5c34d37158eff71b1cc80029ebe6221",
+    "00000001.json": "204e2ac7e81a09a54fc813b9127628fd5bfd4a4e3672c286ff38651a43bfe594",
+    "00000002.json": "f0ffae85d7b76cafdea6a8885305d88144280123e16ebf8b9e62cff9f8e5ed72",
+    "00000003.json": "430aa289f33044b80f0e83148572aedb5997c12ee8dbdcb5f79ce6e410be79d4"
+  },
+  "nodes": {
+    "arcanine": {
+      "uid": "88aa2572-09df-40b9-8a00-960e9682917c",
+      "boot": "8a4e736b-8ea6-45fb-b507-869f1d768115",
+      "queued_reboot": "2026-10-30T07:00:56Z"
+    },
+    "bulbasaur": {
+      "uid": "b921073c-822a-4b74-80ed-563fec33d6ab",
+      "boot": "9f55da1f-098c-41ed-849b-9e3feedb1a4b",
+      "queued_reboot": "2026-10-30T07:02:08Z"
+    },
+    "charmander": {
+      "uid": "9108f105-f73d-41bb-891f-ac2db6658714",
+      "boot": "61389f87-e3e6-47e6-b47b-feb59659a5c2",
+      "queued_reboot": "2026-10-30T07:04:41Z"
+    },
+    "cyndaquil": {
+      "uid": "6a26f4ed-68e6-4681-baf9-47660549c4fb",
+      "boot": "52f33fa2-6b51-4b33-a06c-77a3dc2648d0",
+      "queued_reboot": "2026-10-30T07:01:52Z"
+    },
+    "growlithe": {
+      "uid": "50f95b8f-4117-4c1e-84bc-266c5b23bffb",
+      "boot": "9abbec7b-5f12-4d96-b833-9d76890eb23b",
+      "queued_reboot": "2026-10-30T07:00:47Z"
+    },
+    "pikachu": {
+      "uid": "7ec4e786-0b5d-416d-9284-8eac993635bf",
+      "boot": "bdfd043d-858d-4ec0-a092-5aaf8f67f831",
+      "queued_reboot": "2026-10-30T07:01:31Z"
+    },
+    "sprigatito": {
+      "uid": "5d80125d-4228-47dd-b19c-ca86f7d4316c",
+      "boot": "9d776668-aa8d-46f3-82f1-1ec37af2384a",
+      "queued_reboot": "2026-10-30T07:04:57Z"
+    },
+    "squirtle": {
+      "uid": "10951ffe-dd31-4c38-b854-67f3a011458c",
+      "boot": "7c2084ed-9e9e-4c2a-92d7-53391c171519",
+      "queued_reboot": "2026-10-30T07:02:26Z"
+    },
+    "totodile": {
+      "uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
+      "boot": "3b3780a6-2c02-4aab-9ecd-08c9839ac336",
+      "queued_reboot": "2026-10-30T07:00:39Z"
+    }
+  },
+  "identity": {
+    "machine": "a26cbcc990c044dea41fbf4f957f453d",
+    "root_uuid": "710e2dca-691e-4123-a867-4994b9c6e612"
+  },
+  "pid": 972107,
+  "boot": "9abbec7b-5f12-4d96-b833-9d76890eb23b",
+  "audit_time": "2026-10-30T14:39:49.408993+00:00"
+}

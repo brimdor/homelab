@@ -5,6 +5,8 @@ import copy
 import json
 import threading
 import unittest
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import maintenance_coordination as owner
 
@@ -34,6 +36,30 @@ class API:
                 'name': 'kured', 'ready': True, 'imageID': owner.IMAGE.replace(':1.21.0', '')}]}}
                      for name in ['fixture-a', 'fixture-b']]
         self.writes = 0
+        self.node_writes = []
+
+    def call(self, *argv):
+        if argv[:2] == ('get', 'nodes'):
+            return {'items': copy.deepcopy(self.nodes)}
+        node = next(n for n in self.nodes if n['metadata']['name'] == argv[2])
+        if argv[0] == 'get':
+            return copy.deepcopy(node)
+        operations = json.loads(argv[5])
+        pointer = '/metadata/annotations/weave.works~1kured-reboot-in-progress'
+        self.assert_node_patch(node, operations, pointer)
+        del node['metadata']['annotations']['weave.works/kured-reboot-in-progress']
+        node['metadata']['resourceVersion'] = str(int(node['metadata']['resourceVersion']) + 1)
+        self.node_writes.append(operations)
+        return copy.deepcopy(node)
+
+    @staticmethod
+    def assert_node_patch(node, operations, pointer):
+        assert operations == [
+            {'op': 'test', 'path': '/metadata/uid', 'value': node['metadata']['uid']},
+            {'op': 'test', 'path': '/metadata/resourceVersion', 'value': node['metadata']['resourceVersion']},
+            {'op': 'test', 'path': pointer, 'value': node['metadata']['annotations']['weave.works/kured-reboot-in-progress']},
+            {'op': 'remove', 'path': pointer},
+        ]
 
     def snapshot(self):
         with self.mutex:
@@ -94,6 +120,32 @@ class CoordinationTests(unittest.TestCase):
         self.assertEqual(api.ds['spec'], original['spec'])
         self.assertEqual(api.ds['metadata']['annotations'], original['metadata']['annotations'])
         self.assertEqual(api.writes, 2)
+
+    def test_normal_owner_clears_only_queued_requests_before_global_removal(self):
+        api = API();journal = self.acquire(api)
+        key = 'weave.works/kured-reboot-in-progress'
+        for node in api.nodes:
+            node['metadata'].update(resourceVersion='1', annotations={key: datetime.now(timezone.utc).isoformat(), 'keep': 'original'})
+        original = copy.deepcopy(api.ds['spec'])
+        original_patch = api.patch
+        def checked_patch(operations):
+            self.assertTrue(all(key not in n['metadata']['annotations'] for n in api.nodes))
+            return original_patch(operations)
+        with patch.object(api, 'patch', side_effect=checked_patch):
+            api.controller().release(journal['owner'], lambda _: True)
+        self.assertEqual(len(api.node_writes), 2)
+        self.assertEqual(api.writes, 2)
+        self.assertEqual(api.ds['spec'], original)
+        self.assertTrue(all(n['metadata']['annotations'] == {'keep': 'original'} for n in api.nodes))
+
+    def test_release_refuses_request_older_than_owner_without_mutation(self):
+        api = API();journal = self.acquire(api)
+        requested = datetime.fromisoformat(journal['created'].replace('Z', '+00:00')) - timedelta(seconds=1)
+        api.nodes[0]['metadata'].update(resourceVersion='1', annotations={
+            'weave.works/kured-reboot-in-progress': requested.isoformat()})
+        with self.assertRaisesRegex(RuntimeError, 'predates verified'):
+            api.controller().release(journal['owner'], lambda _: True)
+        self.assertEqual(api.writes, 1);self.assertFalse(api.node_writes)
 
     def test_simultaneous_controllers_only_one_can_claim(self):
         api = API()

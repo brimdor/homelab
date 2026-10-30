@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import uuid
+from zoneinfo import ZoneInfo
 
 
 LOCK = 'weave.works/kured-node-lock'
@@ -93,9 +94,15 @@ class Ownership:
         require('chikorita' not in node_uids, 'retired node is not an active target')
         self.api, self.uid, self.nodes = api, daemonset_uid, dict(node_uids)
 
-    def observed(self):
+    def observed(self, *, released_requests=None):
         ds, pods, nodes = self.api.snapshot()
         meta = ds['metadata']
+        if released_requests is not None:
+            # Only the separately verified completed-release recovery supplies this map.
+            local = datetime.now(timezone.utc).astimezone(ZoneInfo('America/Chicago'))
+            require(isinstance(released_requests, dict) and set(released_requests) <= set(self.nodes) and
+                    not {LOCK, JOURNAL}.intersection(meta.get('annotations', {})) and
+                    local.hour >= 7, 'released-request recovery requires absent owners and closed reboot window')
         require(meta['uid'] == self.uid and meta['name'] == 'kured' and
                 meta['namespace'] == 'kured' and not meta.get('deletionTimestamp'),
                 'Kured controller identity changed')
@@ -114,6 +121,10 @@ class Ownership:
             pending = node['metadata'].get('annotations', {}).get(
                 'weave.works/kured-reboot-in-progress', 'false')
             if pending != 'false':
+                if released_requests is not None:
+                    require(released_requests.get(node['metadata']['name']) == pending,
+                            'released reboot request differs from verified recovery')
+                    continue
                 # Kured 1.21 annotates before Acquire: a request queued behind our
                 # continuously held lock is not an active reboot. Older requests
                 # and any unrecognized/expired lock still fail closed.
@@ -267,7 +278,9 @@ class Ownership:
         """Clear proven requests blocked by this owner, before releasing its lock."""
         key = 'weave.works/kured-reboot-in-progress'
         pointer = '/metadata/annotations/' + key.replace('/', '~1')
-        for node in self.api.call('get', 'nodes', '-o', 'json')['items']:
+        for node in self.api.snapshot()[2]:
+            if node['metadata'].get('annotations', {}).get(key, 'false') == 'false':
+                continue
             ds = self.observed()
             require(self.ownership(ds, token) == journal, 'owner changed before queued-request cleanup')
             node = self.api.call('get', 'node', node['metadata']['name'], '-o', 'json')
@@ -314,9 +327,10 @@ class Ownership:
                     'saved one-night lock changed; retain maintenance ownership')
             if datetime.now(timezone.utc) >= EXPIRES:
                 restore = None
-                self.clear_queued_requests(token, journal)
-                ds = self.observed()
-                require(self.ownership(ds, token) == journal, 'owner changed during queued-request cleanup')
+        if restore is None:
+            self.clear_queued_requests(token, journal)
+            ds = self.observed()
+            require(self.ownership(ds, token) == journal, 'owner changed during queued-request cleanup')
         self.patch(ds, {LOCK: encoded(restore) if restore is not None else None, JOURNAL: None})
         after = self.observed()['metadata'].get('annotations', {})
         require(JOURNAL not in after and (after.get(LOCK) == encoded(restore)

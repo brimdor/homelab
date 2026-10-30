@@ -4,6 +4,34 @@
 <title>Issue 103: serial K3s production maintenance</title>
 <style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}code{overflow-wrap:anywhere}</style>
 <h1>Issue 103: serial K3s production maintenance</h1>
+<section><h2>Growlithe release recovery — October 30, 2026</h2>
+<p>Read-only audit fu3yi9xz proves the original Growlithe transaction accepted all seven steps,
+the target PID remains 972107, the original boot and Enforcing state remain intact,
+the host owner and global lock/owner are absent, and the native release journal contains
+exactly header, host-intent, host-accepted and global-intent. The global API patch committed;
+its readback failed because nine requests queued at 07:00–07:05 UTC behind the continuously
+held 06:18 UTC owner were not cleared. No release, activation or eviction may be replayed.</p>
+<p>The root fix clears proven queued requests before every ordinary maintenance lock removal,
+using the existing exact UID/resourceVersion/value tests. Previously cleanup ran only for
+an expired saved one-night lock. Preserve the Kured image, arguments, MWF schedule, sentinel,
+unrelated annotations, node scheduling, application desired state, NAS and Zot.</p>
+<p>For this already committed release, use a published exact recovery profile containing the
+four original release hashes, original owner, all nine node UIDs/boots and exact queued timestamps.
+The recovery must verify private native release and hop files, unchanged target runtime and original
+host state, no host/global owner, and current application acceptance. Only after the configured
+America/Chicago reboot window closes may it remove an exact matching queued annotation.
+Recheck the native journal and absent owners before each UID/resourceVersion/value-tested removal.
+A changed request, boot, owner, runtime, journal or open reboot window refuses the action.
+Then observe the original global intent and append its acceptance through the existing Release
+observer. Partial cleanup resumes by observing absent annotations; it never repeats a global patch.</p>
+<p>Focused synthetic tests must reproduce normal-owner queued requests, prove cleanup precedes
+global removal and preserve schedule/specification, reject changed requests and open windows,
+and prove no second global patch during interrupted-release recovery. Native recovery and direct
+Growlithe application return remain incomplete until separate live receipts pass.</p>
+<p>Upstream evidence: <a href="https://github.com/kubereboot/kured/blob/1.21.0/cmd/kured/main.go#L589-L643">Kured 1.21.0 main loop</a>
+checks the time window before acquiring a lock and annotates before acquisition. A queued annotation
+alone does not establish that a reboot occurred. The audit retains bounded lock-refusal logs for all
+nine existing Kured processes; historical causes beyond these observations are not inferred.</p></section>
 <p>October 30, 2026 04:28 UTC. All three servers, Sprigatito, Pikachu and Cyndaquil completed their first production bridge and ownership release. Cyndaquil also passed its actual application return checks.
 Six of nine nodes are accepted at v1.33.10+k3s1; Totodile, Growlithe, Arcanine and later version hops remain pending.
 This implements the already authorized K3S_CILIUM task, following accepted Cilium 1.20.4 and
