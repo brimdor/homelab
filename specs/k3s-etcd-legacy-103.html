@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: protected etcd legacy-data check</title>
+<style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1000px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}</style>
+<h1>Issue 103: protected etcd legacy-data check</h1>
+<p>Implementation contract, October 30, 2026. This is approved K3S_CILIUM maintenance scope.
+The active first bridge remains unchanged. Finish Growlithe, then Arcanine, including actual
+application return, before enabling another version pair. A local helper or passing unit test
+is not production acceptance.</p>
+<h2>Evidence and objective</h2>
+<p>The <a href="https://etcd.io/docs/v3.6/upgrades/upgrade_3_6/">etcd 3.6 upgrade guide</a>
+requires a prior 3.5 update and a legacy-data check. The
+<a href="https://github.com/k3s-io/k3s/discussions/14908#discussioncomment-19227188">K3s maintainer clarification</a>
+describes the packaged 3.5.26 transition and unchanged-member upgrades; it does not prove
+this cluster's complete membership history. The
+<a href="https://raw.githubusercontent.com/etcd-io/etcd/v3.5.35/etcdutl/etcdutl/check_command.go">official checker source</a>
+checks WAL and legacy snapshots, can return without reading WAL when its directory is absent,
+and can rename invalid snapshot files. Require complete nonempty WAL and snap/db, and run
+the pinned checker only on an isolated disposable copy.</p>
+<h2>Small implementation slices</h2>
+<ol>
+<li>Implement filesystem manifests and isolated checking in
+<code>metal/scripts/maintenance_etcd_legacy.py</code>. Bind every regular file under the full
+member tree, including preallocation files. Reject symlinks, hardlinks, special files,
+foreign ownership, writable-by-other metadata, empty WAL and missing or empty snap/db.
+Recheck original bytes and metadata after copying and after checking. Hash-only receipts
+must not contain datastore bytes, key names or checker logs.</li>
+<li>Add focused standard-library tests in
+<code>metal/scripts/test_maintenance_etcd_legacy.py</code>. Prove missing/empty WAL refusal,
+original immutability, changed-source refusal, exact checker identity, cleanup after checker
+failure, and rejection of unsafe entries. Execute with
+<code>python3 -B -m unittest discover -s metal/scripts -p test_maintenance_etcd_legacy.py</code>.
+Remote Linux acceptance must separately prove private ext4, SELinux and native tool behavior.</li>
+<li>Integrate a server-only <code>check_legacy_etcd</code> journal step between drain and
+binary preparation for the exact 1.33.10 to 1.33.13 pair. Preserve the first pair's seven steps.
+Publish and verify source before production dispatch. A downstream runtime baseline changes
+only after a proven SOURCE restart; original boot, configuration and unit remain protected.</li>
+</ol>
+<h2>Production stop, recovery and acceptance</h2>
+<p>Use the existing host/global owner, strict SSH anchors and exact machine/root/boot identities.
+Before stopping one server, bind a scoped authenticated API reader to a healthy surviving
+server, retaining the canonical CA and credentials. Observe the exact two surviving voters
+only during the owned stopped interval; ordinary acceptance still requires all three original
+member IDs, their existing cluster ID, healthy endpoints and no alarms.</p>
+<p>Record a one-shot stop intent; stop only the existing SOURCE K3s unit with KillMode=process.
+Prove inactive unit, MainPID zero, no 2379 listener and no independent etcd process. Stream
+the complete stable member tree to a new protected private ext4 point on an existing trusted
+different host. Verify the source before and after transfer and fsync the receiver. Preserve
+partial recovery points on failure. No NAS or disposable workstation recovery storage.</p>
+<p>Record a separate one-shot SOURCE start intent and observe its new PID and all three original
+voters before running the isolated checker. Restore SOURCE through this tracked path even
+when copying fails; uncertain stop/start actions are observed, never replayed. Fresh matching
+v3 snapshot and full isolated restore remain required after SOURCE returns and before TARGET
+activation. Do not downgrade an already migrated datastore.</p>
+<h2>Pinned checker and safety boundaries</h2>
+<p>Official etcdutl v3.5.35 AMD64 archive SHA256
+<code>ca9f94cdc80be66923ef571d82b128819d0f5f3aa9f01522bafd991618ee29d1</code>;
+binary SHA256 <code>187249c118c209ad485e7d343aee50751c637329a6051e94e2b2ea3bd5076ac5</code>;
+17,268,898 bytes. Identity was recorded in jd7buayd; this specification does not claim installation.</p>
+<p>Never reset membership, edit datastore buckets, replace embedded etcd independently, use
+skip-check flags, mute warnings, change NAS access, or restart/publish/delete/collect Zot.
+Keep the normal MWF Kured schedule and protected original recovery material. This helper
+does not authorize a production stop or replace the parent transaction and recovery gates.</p>
+</html>
