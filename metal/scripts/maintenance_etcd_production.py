@@ -31,6 +31,62 @@ MODULES = ('maintenance_control_plane', 'maintenance_etcd_stopped', 'maintenance
 SOURCE, TARGET = 'v1.33.10+k3s1', 'v1.33.13+k3s2'
 DATA = Path('/var/lib/rancher/k3s/server/db/etcd')
 ROOT = Path('/var/lib/homelab-recovery/maintenance-103')
+# Native cycles do not use Fedora, GPU, package or ordinary release controllers.
+NATIVE_MODULES = {'maintenance_coordination', 'maintenance_actor_hold', 'maintenance_hop_journal',
+                  'maintenance_node_drain', 'maintenance_k3s_contract', 'maintenance_k3s_binary',
+                  'maintenance_k3s_production', *MODULES}
+RETRY_SUFFIX = '-copy-recovery-1'
+
+
+def native_bundle(bundle):
+    return {name: source for name, source in bundle.items() if name in NATIVE_MODULES}
+
+
+def command(value):
+    compressed = base64.b64encode(zlib.compress(value.encode())).decode()
+    bootstrap = 'import base64,zlib;exec(compile(zlib.decompress(base64.b64decode(' + repr(compressed) + ')),"native-etcd-cycle","exec"))'
+    actors.require(len(bootstrap) < 100000, 'native cycle bootstrap exceeds reviewed argument bound')
+    return 'python3 -B -c ' + shlex.quote(bootstrap)
+
+
+def point_status(point):
+    probe = '''
+import json,os,pathlib,socket,subprocess
+assert os.geteuid()==0 and socket.gethostname()=='pikachu'
+assert pathlib.Path('/etc/machine-id').read_text().strip()=='0a7daf8b33244d9d85f46223c3582da9'
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='76e53a95-725a-4430-9d7b-a8db413f3997'
+point=pathlib.Path(POINT)
+assert point.parent==pathlib.Path('/var/lib/homelab-recovery/maintenance-103')
+assert not any(p.is_symlink()for p in(point,*point.parents))
+if point.exists():
+ assert point.is_dir()and point.stat().st_uid==0 and point.stat().st_mode&0o777==0o700
+ assert (point/'verified.json').is_file(),'partial original point requires diagnosis; no new stop'
+print(json.dumps({'point':POINT,'absent':not point.exists()}))
+'''
+    return 'POINT=' + repr(point) + '\n' + probe
+
+
+def files(path):
+    hops.private_directory(path)
+    return {p.name: hashlib.sha256(hops.canonical(private_json(p))).hexdigest() for p in path.iterdir()}
+
+
+def recovery_retry(hold, owner, cycle, plan_path):
+    """Only the original, fully returned cycle can bind the single distinct recovery cycle."""
+    path = hold.state / ('legacy-copy-retry-' + owner['owner'] + '.json')
+    value = private_json(path)
+    state = cycle.read()
+    plan = private_json(plan_path)
+    actors.require(set(state) == {'header.json', 'stop-intent.json', 'stopped.json',
+                                 'start-intent.json', 'source-returned.json'} and
+                   value['owner'] == owner and value['original_cycle_files'] == files(cycle.path) and
+                   plan['binding']['owner'] == owner and
+                   plan['binding']['hop_sha256'] == cycle.header['pending']['sha256'] and
+                   value['original_plan_sha256'] == hops.digest(hops.canonical(plan)) and
+                   value['returned_source'] == state['source-returned.json'] and
+                   value['receiver_absence'] == {'point': plan['point'], 'absent': True},
+                   'original failed cycle or recovery retry binding changed')
+    return value
 
 
 def source_baseline(hold, owner, before):
@@ -39,6 +95,17 @@ def source_baseline(hold, owner, before):
     actors.require(receipt['owner'] == owner and receipt['original_before'] == before and
                    receipt['accepted'] is True, 'accepted legacy owner or original runtime differs')
     path = hold.state / 'etcd-cycles' / owner['owner']
+    if 'retry_sha256' in receipt:
+        retry_path = hold.state / ('legacy-copy-retry-' + owner['owner'] + '.json')
+        retry = private_json(retry_path)
+        actors.require(hops.digest(hops.canonical(retry)) == receipt['retry_sha256'] and
+                       retry['owner'] == owner and retry['original_cycle_files'] == files(path) and
+                       retry['original_plan_sha256'] == hops.digest(hops.canonical(private_json(
+                           hold.state / ('legacy-copy-' + owner['owner'] + '.json')))) and
+                       retry['returned_source'] == private_json(path / 'source-returned.json') and
+                       private_json(path / 'header.json')['before'] == before,
+                       'original failed cycle changed after recovery acceptance')
+        path = path.parent / (owner['owner'] + RETRY_SUFFIX)
     hops.private_directory(path)
     actors.require(set(p.name for p in path.iterdir()) == set(receipt['cycle_files']) and
                    all(hashlib.sha256((path / name).read_bytes()).hexdigest() == digest
@@ -81,8 +148,24 @@ class Context:
             self.baseline = private_json(self.baseline_path)
             header = private_json(self.hop_path)
             before = private_json(self.hold.state / ('k3s-before-' + owner['owner'] + '.json'))
+            self.original_before = before
             self.cycle = cycles.Cycle(self.hold, owner, header, before, native,
                                       lambda: self.owned(owner['owner']))
+            self.plan_path = self.hold.state / ('legacy-copy-' + owner['owner'] + '.json')
+            self.retry = None
+            retry_path = self.hold.state / ('legacy-copy-retry-' + owner['owner'] + '.json')
+            if retry_path.exists():
+                accepted = self.hold.state / ('legacy-accepted-' + owner['owner'] + '.json')
+                hop = self.hold.state / 'transactions' / owner['owner'] / '00000006.json'
+                if accepted.exists() and hop.exists():
+                    source_baseline(self.hold, owner, before)
+                    self.retry = private_json(retry_path)
+                else:
+                    self.retry = recovery_retry(self.hold, owner, self.cycle, self.plan_path)
+                self.cycle = cycles.Cycle(self.hold, owner, header, self.retry['returned_source']['runtime'],
+                                          native, lambda: self.owned(owner['owner']))
+                self.cycle.path = self.cycle.parent / (owner['owner'] + RETRY_SUFFIX)
+                self.plan_path = self.hold.state / ('legacy-copy-' + owner['owner'] + RETRY_SUFFIX + '.json')
             self.runtime = lambda: runtime(native, SOURCE)
         except BaseException:
             self.api.close()
@@ -111,18 +194,39 @@ def native_operation(owner, identities, identity, native, operation, binding=Non
     context = Context(owner, identities, identity, native, initialize=initialize)
     try:
         cycle = context.cycle
-        plan_path = context.hold.state / ('legacy-copy-' + owner['owner'] + '.json')
+        plan_path = context.plan_path
         if operation in ('initialize', 'resume'):
             if initialize: quorum.native_install(owner['node'])
             receipt = context.hold.state / ('legacy-accepted-' + owner['owner'] + '.json')
             if receipt.exists() and (context.hold.state / 'transactions' / owner['owner'] / '00000006.json').exists():
-                baseline = source_baseline(context.hold, owner, cycle.before)
+                baseline = source_baseline(context.hold, owner, context.original_before)
                 actors.require(context.runtime() == baseline and context.voters(), 'accepted SOURCE has changed')
                 result = {'legacy_already_accepted': private_json(receipt)}
             else:
                 result = cycle.read() if cycle.path.exists() else cycle.initialize()
         elif operation == 'plan':
             result = private_json(plan_path)
+        elif operation == 'prepare-retry':
+            actors.require(context.retry is None, 'recovery cycle already selected; observe only')
+            with context.hold.serialized():
+                state = cycle.read();plan = private_json(plan_path)
+                retry_path = context.hold.state / ('legacy-copy-retry-' + owner['owner'] + '.json')
+                actors.require(not retry_path.exists(), 'recovery cycle already selected; observe only')
+                actors.require(set(state) == {'header.json', 'stop-intent.json', 'stopped.json',
+                                             'start-intent.json', 'source-returned.json'} and
+                               plan['binding']['owner'] == owner and
+                               plan['binding']['hop_sha256'] == cycle.header['pending']['sha256'] and
+                               context.runtime() == state['source-returned.json']['runtime'] and
+                               context.voters() is True and
+                               expected == {'point': plan['point'], 'absent': True},
+                               'verified SOURCE return and exact receiver absence required')
+                value = {'owner': owner, 'original_cycle_files': files(cycle.path),
+                         'original_plan_sha256': hops.digest(hops.canonical(plan)),
+                         'returned_source': state['source-returned.json'], 'receiver_absence': expected}
+                actors.exclusive_file(retry_path, hops.canonical(value), 0o600)
+                actors.require(recovery_retry(context.hold, owner, cycle, plan_path) == value,
+                               'new recovery retry differs')
+                result = value
         elif operation == 'stop':
             result = cycle.dispatch_stop(context.voters, context.runtime)
         elif operation == 'observe-stopped':
@@ -144,7 +248,10 @@ def native_operation(owner, identities, identity, native, operation, binding=Non
         elif operation == 'send':
             actors.require(binding['owner'] == owner and binding['hop_sha256'] ==
                            cycle.header['pending']['sha256'], 'cold-copy binding differs')
-            transfer.send(DATA, sys.stdout.buffer, binding, expected,
+            plan = private_json(plan_path)
+            actors.require(plan['binding'] == binding and plan['sha256'] == expected ==
+                           legacy.manifest_sha256(plan['manifest']), 'original cold manifest differs')
+            transfer.send(DATA, sys.stdout.buffer, binding, plan['manifest'],
                           lambda: cycle.observe_stopped()['accepted'])
             return
         elif operation == 'start':
@@ -166,8 +273,9 @@ def native_operation(owner, identities, identity, native, operation, binding=Non
                            expected['SOURCE_returned'] == state['source-returned.json'] and
                            context.runtime() == state['source-returned.json']['runtime'] and context.voters(),
                            'legacy native check or returned SOURCE proof differs')
-            value = dict(expected, original_before=cycle.before,
-                cycle_files={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in cycle.path.iterdir()})
+            value = dict(expected, original_before=context.original_before, cycle_files=files(cycle.path))
+            if context.retry is not None:
+                value['retry_sha256'] = hops.digest(hops.canonical(context.retry))
             receipt = context.hold.state / ('legacy-accepted-' + owner['owner'] + '.json')
             if not receipt.exists(): actors.exclusive_file(receipt, hops.canonical(value), 0o600)
             actors.require(private_json(receipt) == value, 'original legacy acceptance changed')
@@ -197,38 +305,13 @@ def identity():
 identity()
 sys.modules['maintenance_etcd_production'].native_operation(OWNER,IDENTITIES,identity,native,OPERATION,BINDING,EXPECTED)
 '''
-    return ('BUNDLE=' + repr(bundle) + '\nOWNER=' + repr(owner) + '\nIDENTITIES=' + repr(identities) +
+    return ('BUNDLE=' + repr(native_bundle(bundle)) + '\nOWNER=' + repr(owner) + '\nIDENTITIES=' + repr(identities) +
             '\nIDENTITY=' + repr(identity) + '\nMAC=' + repr(mac) + '\nOPERATION=' + repr(operation) +
             '\nBINDING=' + repr(binding) + '\nEXPECTED=' + repr(expected) + '\n' + source)
 
 
-def run(args, owner, identities, bundle):
-    """Resume uncertain service returns by observing; SOURCE start survives copy failure."""
-    import maintenance_production_node as production
-    def command(value):
-        compressed = base64.b64encode(zlib.compress(value.encode())).decode()
-        bootstrap = 'import base64,zlib;exec(compile(zlib.decompress(base64.b64decode(' + repr(compressed) + ')),"native-etcd-cycle","exec"))'
-        actors.require(len(bootstrap) < 100000, 'native cycle bootstrap exceeds reviewed argument bound')
-        return 'python3 -B -c ' + shlex.quote(bootstrap)
-    def source(operation, binding=None, expected=None):
-        return program(bundle, owner, identities, production.IDENTITY, production.MAC,
-                       operation, binding, expected)
-    state = production.remote(args, source('resume'))
-    if 'legacy_already_accepted' in state:
-        return state['legacy_already_accepted']
-    returned = state.get('source-returned.json')
-    manifest = None
-    copied = None
-    try:
-        if 'start-intent.json' not in state:
-            if 'stop-intent.json' not in state:
-                production.remote(args, source('stop'))
-            production.remote(args, source('observe-stopped'))
-            manifest = production.remote(args, source('manifest'))
-        else:
-            manifest = production.remote(args, source('plan'))
-        binding, point = manifest['binding'], manifest['point']
-        receive = '''
+def receiver_program(bundle, point, binding, digest, may_receive):
+    receive = '''
 import json,os,pathlib,socket,subprocess,sys,types
 for name,source in BUNDLE.items():
  module=types.ModuleType(name);sys.modules[name]=module;exec(compile(source,name+'.py','exec'),module.__dict__)
@@ -248,13 +331,49 @@ else:
  result=sys.modules['maintenance_etcd_transfer'].receive(sys.stdin.buffer,point,BINDING,DIGEST,native)
 print(json.dumps(result),flush=True)
 '''
-        receive = ('BUNDLE=' + repr(bundle) + '\nPOINT=' + repr(point) + '\nBINDING=' + repr(binding) +
-                   '\nDIGEST=' + repr(manifest['sha256']) + '\nMAY_RECEIVE=' +
-                   repr('start-intent.json' not in state) + '\n' + receive)
+    receive = ('BUNDLE=' + repr(bundle) + '\nPOINT=' + repr(point) + '\nBINDING=' + repr(binding) +
+               '\nDIGEST=' + repr(digest) + '\nMAY_RECEIVE=' +
+               repr(may_receive) + '\n' + receive)
+    return receive
+
+
+def run(args, owner, identities, bundle):
+    """Resume uncertain service returns by observing; SOURCE start survives copy failure."""
+    import maintenance_production_node as production
+    bundle = native_bundle(bundle)
+    def source(operation, binding=None, expected=None):
+        return program(bundle, owner, identities, production.IDENTITY, production.MAC,
+                       operation, binding, expected)
+    state = production.remote(args, source('resume'))
+    if 'legacy_already_accepted' in state:
+        return state['legacy_already_accepted']
+    if 'source-returned.json' in state:
+        plan = production.remote(args, source('plan'))
+        absence = production.remote(args, point_status(plan['point']), '10.0.20.14')
+        if absence['absent']:
+            production.remote(args, source('prepare-retry', expected=absence))
+            state = production.remote(args, source('resume'))
+    returned = state.get('source-returned.json')
+    manifest = None
+    copied = None
+    try:
+        # Preflight before a new stop; finally also protects an already stopped SOURCE.
+        command(source('send', {}, '0' * 64))
+        command(receiver_program(bundle, str(ROOT / ('legacy-' + owner['node'] + '-' + '0' * 32)),
+                                 {'owner': owner, 'hop_sha256': '0' * 64}, '0' * 64, True))
+        if 'start-intent.json' not in state:
+            if 'stop-intent.json' not in state:
+                production.remote(args, source('stop'))
+            production.remote(args, source('observe-stopped'))
+            manifest = production.remote(args, source('manifest'))
+        else:
+            manifest = production.remote(args, source('plan'))
+        binding, point = manifest['binding'], manifest['point']
+        receive = receiver_program(bundle, point, binding, manifest['sha256'], 'start-intent.json' not in state)
         sender = receiver = None
         try:
             if 'start-intent.json' not in state:
-                sender = subprocess.Popen(production.ssh(args) + [command(source('send', binding, manifest['manifest']))],
+                sender = subprocess.Popen(production.ssh(args) + [command(source('send', binding, manifest['sha256']))],
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             receiver = subprocess.Popen(production.ssh(args, '10.0.20.14') + [command(receive)],
                 stdin=sender.stdout if sender else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

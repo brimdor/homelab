@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import maintenance_etcd_production as production
@@ -14,6 +15,44 @@ import maintenance_production_node as shared
 
 
 class CompositionTests(unittest.TestCase):
+    def test_real_bundle_is_small_and_imports_without_repository_fallback(self):
+        import subprocess
+        names = (*shared.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary',
+                 'maintenance_k3s_production', *production.MODULES)
+        bundle = {name: Path(shared.__file__).with_name(name + '.py').read_text() for name in names}
+        owner = {'node': 'charmander', 'owner': 'maintenance-owner'}
+        source = production.program(bundle, owner, {}, {}, '', 'send', {}, 'a' * 64)
+        self.assertNotIn('maintenance_host_security', production.native_bundle(bundle))
+        self.assertLess(len(production.command(source)), 90000)
+        self.assertLess(len(production.command(production.receiver_program(production.native_bundle(bundle),
+            '/protected/point', {'owner': owner}, 'a' * 64, True))), 90000)
+        load = ('import sys,types\n' + 'BUNDLE=' + repr(production.native_bundle(bundle)) + '\n' +
+                'for name,source in BUNDLE.items():\n module=types.ModuleType(name);sys.modules[name]=module;'
+                'exec(compile(source,name+".py","exec"),module.__dict__)\n')
+        subprocess.run([production.sys.executable, '-I', '-B', '-'], input=load.encode(),
+                       check=True, capture_output=True)
+
+    def test_payload_preflight_failure_never_dispatches_a_stop(self):
+        with patch.object(shared, 'remote', return_value={'header.json': {}}) as remote, \
+                patch.object(production, 'command', side_effect=RuntimeError('oversized')):
+            with self.assertRaisesRegex(RuntimeError, 'oversized'):
+                production.run(None, {'node': 'charmander'}, {}, {})
+        self.assertEqual(remote.call_count, 2)  # Initial read and finally's original-intent observation.
+
+    def test_payload_preflight_failure_still_recovers_an_already_stopped_source(self):
+        operations = []
+        def remote(_args, source):
+            operation = next(ast.literal_eval(n.value) for n in ast.parse(source).body
+                if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id == 'OPERATION')
+            operations.append(operation)
+            return ({'header.json': {}, 'stop-intent.json': {}, 'stopped.json': {}}
+                    if operation == 'resume' else {'accepted': True})
+        with patch.object(shared, 'remote', side_effect=remote), \
+                patch.object(production, 'command', side_effect=RuntimeError('oversized')):
+            with self.assertRaisesRegex(RuntimeError, 'oversized'):
+                production.run(None, {'node': 'charmander'}, {}, {})
+        self.assertEqual(operations, ['resume', 'resume', 'observe-stopped', 'start'])
+
     def test_completed_native_acceptance_is_returned_without_any_new_command(self):
         receipt = {'original_before': {'pid': 1}, 'accepted': True}
         with patch.object(shared, 'remote', return_value={'legacy_already_accepted': receipt}) as remote:
@@ -112,6 +151,94 @@ class CompositionTests(unittest.TestCase):
             (path / 'source-returned.json').write_bytes(canonical({'runtime': dict(before, pid=12)}))
             with self.assertRaisesRegex(RuntimeError, 'native cycle changed'):
                 production.source_baseline(hold, owner, before)
+
+
+class RecoveryRetryTests(unittest.TestCase):
+    def setUp(self):
+        from test_maintenance_etcd_cycle import SourceCycleTests
+        self.fixture = SourceCycleTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
+        f = self.fixture;f.stop();f.start()
+        self.returned = f.worker().observe_returned(lambda: dict(f.before, pid=456), lambda: True)
+        self.original = production.files(f.worker().path)
+        self.plan_path = f.hold.state / ('legacy-copy-' + f.owner['owner'] + '.json')
+        plan = {'point': '/protected/original-point', 'binding': {'owner': f.owner,
+                'hop_sha256': f.header['pending']['sha256']}}
+        production.actors.exclusive_file(self.plan_path, production.hops.canonical(plan), 0o600)
+        self.context = SimpleNamespace(hold=f.hold, owner=f.owner, cycle=f.worker(), retry=None,
+            plan_path=self.plan_path, runtime=lambda: self.returned['runtime'], voters=lambda: True, close=lambda: None)
+
+    def prepare(self, expected=None):
+        from contextlib import redirect_stdout
+        import io
+        if expected is None:expected = {'point': '/protected/original-point', 'absent': True}
+        with patch.object(production, 'Context', return_value=self.context), redirect_stdout(io.StringIO()):
+            production.native_operation(self.fixture.owner, {}, None, None, 'prepare-retry', expected=expected)
+
+    def test_new_cycle_keeps_original_records_and_uses_distinct_intents(self):
+        self.prepare();f = self.fixture
+        retry = production.recovery_retry(f.hold, f.owner, f.worker(), self.plan_path)
+        self.assertEqual(retry['original_cycle_files'], self.original)
+        from maintenance_etcd_cycle import Cycle
+        worker = Cycle(f.hold, f.owner, f.header, retry['returned_source']['runtime'], f.native, f.owned)
+        worker.path = worker.parent / (f.owner['owner'] + production.RETRY_SUFFIX)
+        worker.initialize()
+        worker.dispatch_stop(lambda: True, lambda: self.returned['runtime'])
+        with self.assertRaisesRegex(RuntimeError, 'observe only'):
+            worker.dispatch_stop(lambda: True, lambda: self.returned['runtime'])
+        self.assertEqual(production.files(f.worker().path), self.original)
+        self.assertEqual(f.native.call_count, 3)  # Original stop/start plus one distinct stop.
+        with self.assertRaises(RuntimeError):self.prepare()
+
+    def test_committed_partial_foreign_or_unreturned_source_never_creates_retry(self):
+        for expected in ({'point': '/protected/original-point', 'absent': False},
+                         {'point': '/foreign', 'absent': True}):
+            with self.subTest(expected=expected), self.assertRaises(RuntimeError):self.prepare(expected)
+        self.context.runtime = lambda: dict(self.returned['runtime'], boot='changed')
+        with self.assertRaises(RuntimeError):self.prepare()
+        self.assertFalse((self.fixture.hold.state / ('legacy-copy-retry-' + self.fixture.owner['owner'] + '.json')).exists())
+
+    def test_changed_original_cycle_refuses_before_another_service_action(self):
+        self.prepare();f = self.fixture
+        path = f.worker().path / 'source-returned.json'
+        changed = copy.deepcopy(self.returned);changed['runtime']['pid'] = 789
+        path.write_bytes(production.hops.canonical(changed))
+        with self.assertRaisesRegex(RuntimeError, 'retry binding changed'):
+            production.recovery_retry(f.hold, f.owner, f.worker(), self.plan_path)
+        self.assertEqual(f.native.call_count, 2)
+
+    def test_final_source_pid_requires_both_unchanged_cycles_and_original_runtime(self):
+        self.prepare();f = self.fixture
+        retry = production.recovery_retry(f.hold, f.owner, f.worker(), self.plan_path)
+        from maintenance_etcd_cycle import Cycle
+        worker = Cycle(f.hold, f.owner, f.header, self.returned['runtime'], f.native, f.owned)
+        worker.path = worker.parent / (f.owner['owner'] + production.RETRY_SUFFIX)
+        worker.initialize();worker.dispatch_stop(lambda: True, lambda: self.returned['runtime'])
+        with patch.object(production.cycles.stopped, 'observe', return_value=f.proof):
+            worker.observe_stopped();worker.dispatch_start(lambda: True)
+        returned = worker.observe_returned(lambda: dict(f.before, pid=789), lambda: True)
+        receipt = {'owner': f.owner, 'original_before': f.before, 'accepted': True,
+                   'SOURCE_returned': returned, 'cycle_files': production.files(worker.path),
+                   'retry_sha256': production.hops.digest(production.hops.canonical(retry))}
+        production.actors.exclusive_file(f.hold.state / ('legacy-accepted-' + f.owner['owner'] + '.json'),
+                                        production.hops.canonical(receipt), 0o600)
+        production.actors.exclusive_file(f.hop / '00000006.json', production.hops.canonical({
+            'kind': 'accepted', 'step': 'check_legacy_etcd',
+            'receipt_sha256': production.hops.digest(production.hops.canonical(receipt))}), 0o600)
+        self.assertEqual(production.source_baseline(f.hold, f.owner, f.before), returned['runtime'])
+        for name, value in (('legacy-ownership-', {}), ('legacy-hop-', f.header), ('k3s-before-', f.before)):
+            production.actors.exclusive_file(f.hold.state / (name + f.owner['owner'] + '.json'),
+                                            production.hops.canonical(value), 0o600)
+        with patch.object(production, 'Reader', return_value=SimpleNamespace(close=lambda: None)), \
+                patch('maintenance_coordination.Ownership', return_value=SimpleNamespace()), \
+                patch.object(production.actors, 'Hold', return_value=f.hold):
+            context = production.Context(f.owner, {}, lambda: {}, f.native)
+            self.assertEqual(context.cycle.path, worker.path)
+            self.assertEqual(context.original_before, f.before)
+            context.close()
+        path = f.worker().path / 'source-returned.json'
+        path.write_bytes(production.hops.canonical({'runtime': dict(f.before, pid=999)}))
+        with self.assertRaisesRegex(RuntimeError, 'original failed cycle changed'):
+            production.source_baseline(f.hold, f.owner, f.before)
 
 
 class CephPolicyTests(unittest.TestCase):
