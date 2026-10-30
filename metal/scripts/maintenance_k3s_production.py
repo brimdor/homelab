@@ -441,6 +441,212 @@ print(json.dumps(result))
     return dict(ZOT, spec_sha256=hashed(pod['spec']))
 
 
+
+def database_dependency_profile():
+    """Use only the exact dependency identity published for this bridge."""
+    import maintenance_production_node as shared
+    path = Path('metal/maintenance/k3s-totodile-database-dependencies.json')
+    raw = path.read_bytes()
+    actors.require(raw == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
+                   'unpublished database dependency profile')
+    profile = json.loads(raw)
+    actors.require(profile['version'] == 1 and profile['node'] == 'totodile' and
+                   profile['node_uid'] == shared.UID and
+                   (profile['source'], profile['target']) == (SOURCE, TARGET) and
+                   set(profile['dependents']) == {'versa', 'versa-canary'},
+                   'database dependency profile differs')
+    return profile
+
+
+
+def pending_postgres_bridge(api, item, owner, profile):
+    """Recognize only the published Versa pair's expected, owned database outage."""
+    import datetime
+    import re
+    import maintenance_production_node as shared
+    meta = item['metadata']
+    if (owner.get('component') != 'k3s' or owner.get('node') != 'totodile' or
+            owner.get('node_uid') != profile['node_uid'] or
+            (owner.get('source'), owner.get('target')) != (SOURCE, TARGET) or
+            item['kind'] != 'Deployment' or meta['namespace'] not in profile['dependents'] or
+            meta['name'] != meta['namespace']):
+        return None
+    actors.require(owner.get('phase') == 'OWNED_KURED_ONLY' and
+                   re.fullmatch(r'homelab-maintenance-103-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', owner.get('owner', '')),
+                   'database maintenance owner differs')
+    node = api.call('get', 'node', 'totodile', '-o', 'json')
+    actors.require(node['metadata']['uid'] == owner['node_uid'] and
+                   node['spec'].get('unschedulable') is True and
+                   not node['metadata'].get('deletionTimestamp'), 'database node is not owned and cordoned')
+
+    def deployment_matches(actual, expected):
+        metadata = actual['metadata']
+        actors.require(actual['kind'] == 'Deployment' and not metadata.get('deletionTimestamp') and
+                       (metadata['namespace'], metadata['name'], metadata['uid'], metadata['generation']) ==
+                       tuple(expected[k] for k in ('namespace', 'name', 'uid', 'generation')) and
+                       actual['spec'].get('replicas', 1) == 1 and
+                       hashlib.sha256(shared.encoded(actual['spec']['template']).encode()).hexdigest() ==
+                       expected['template_sha256'], 'published database dependency deployment changed')
+
+    expected = profile['dependents'][meta['namespace']]
+    deployment_matches(item, expected)
+    database = api.call('get', 'deployment', 'postgres', '-n', 'postgres', '-o', 'json')
+    deployment_matches(database, profile['database'])
+    actors.require(shared.pending_on_maintained_node(api, database, 'totodile'),
+                   'database outage is not an exact pending pinned replacement')
+    database_pods = api.call('get', 'pods', '-n', 'postgres', '-o', 'json')['items']
+    actors.require(len(database_pods) == 1, 'database replacement membership differs')
+    replacement = database_pods[0]
+    created = datetime.datetime.fromisoformat(replacement['metadata']['creationTimestamp'].replace('Z', '+00:00'))
+    started = datetime.datetime.fromisoformat(owner['created'].replace('Z', '+00:00'))
+    actors.require(replacement['metadata']['uid'] != profile['database']['original_pod_uid'] and created >= started,
+                   'database replacement predates maintenance or reuses original identity')
+    expected_claims = [v['persistentVolumeClaim']['claimName'] for v in
+                       database['spec']['template']['spec'].get('volumes', []) if 'persistentVolumeClaim' in v]
+    actual_claims = [v['persistentVolumeClaim']['claimName'] for v in
+                     replacement['spec'].get('volumes', []) if 'persistentVolumeClaim' in v]
+    actors.require(expected_claims == actual_claims == [b['claim'] for b in profile['database']['bindings']] and
+                   len(expected_claims) == 1 and
+                   {c['name']: c['image'] for c in replacement['spec']['containers']} ==
+                   {c['name']: c['image'] for c in database['spec']['template']['spec']['containers']},
+                   'database replacement changed image or persistence ownership')
+    for binding in profile['database']['bindings']:
+        claim = api.call('get', 'pvc', binding['claim'], '-n', 'postgres', '-o', 'json')
+        volume = api.call('get', 'pv', binding['volume'], '-o', 'json')
+        actors.require(claim['metadata']['uid'] == binding['claim_uid'] and
+                       claim['status']['phase'] == 'Bound' and claim['spec']['volumeName'] == binding['volume'] and
+                       volume['metadata']['uid'] == binding['volume_uid'] and
+                       volume['spec']['claimRef']['uid'] == binding['claim_uid'] and
+                       not claim['metadata'].get('deletionTimestamp') and
+                       not volume['metadata'].get('deletionTimestamp'), 'database persistence binding changed')
+
+    pods = api.call('get', 'pods', '-n', meta['namespace'], '-o', 'json')['items']
+    actors.require(len(pods) == 1, 'dependent Pod membership changed')
+    pod = pods[0]
+    parents = [ref for ref in pod['metadata'].get('ownerReferences', []) if ref.get('controller')]
+    actors.require(pod['metadata']['uid'] == expected['pod_uid'] and
+                   pod['spec'].get('nodeName') == expected['node'] and
+                   pod['status']['phase'] == 'Running' and not pod['metadata'].get('deletionTimestamp') and
+                   len(parents) == 1 and parents[0]['kind'] == 'ReplicaSet' and
+                   (parents[0]['uid'], parents[0]['name']) == (expected['replica_uid'], expected['replica_name']),
+                   'dependent Pod or owner changed')
+    replica = api.call('get', 'replicaset', expected['replica_name'], '-n', meta['namespace'], '-o', 'json')
+    parents = [ref for ref in replica['metadata'].get('ownerReferences', []) if ref.get('controller')]
+    actors.require(replica['metadata']['uid'] == expected['replica_uid'] and
+                   not replica['metadata'].get('deletionTimestamp') and len(parents) == 1 and
+                   parents[0]['kind'] == 'Deployment' and parents[0]['uid'] == meta['uid'],
+                   'dependent ReplicaSet ownership changed')
+    states = pod['status'].get('containerStatuses', [])
+    init = pod['status'].get('initContainerStatuses', [])
+    actors.require(len(states) == 2 and {c['name'] for c in states} == {'web', 'worker'} and
+                   len(init) == 1 and init[0]['name'] == 'migrate' and
+                   init[0]['state'].get('terminated', {}).get('exitCode') == 0 and
+                   all(c.get('started') and 'running' in c['state'] and
+                       c.get('ready') == (c['name'] == 'worker') for c in states),
+                   'dependent has unexpected process, migration or readiness failure')
+    for status in states + init:
+        original = expected['containers'][status['name']]
+        actors.require(all(status.get(key) == original[key] for key in
+                       ('containerID', 'imageID', 'restartCount')) and
+                       (status['state']['running']['startedAt'] if status in states else
+                        status['state']['terminated']['finishedAt']) == original['time'],
+                       'dependent process restarted or changed candidate')
+    program = ('const h=await fetch(`http://${process.env.HOSTNAME}:3000/healthz`,{signal:AbortSignal.timeout(10000)});'
+               'const hj=await h.json();const r=await fetch(`http://${process.env.HOSTNAME}:3000/readyz`,{signal:AbortSignal.timeout(10000)});'
+               'const rj=await r.json();console.log(JSON.stringify({'
+               'host:new URL(process.env.DATABASE_URL).hostname,health:h.status,ok:hj.ok,'
+               'readiness:r.status,ready:rj.ready}));')
+    proof = api.call('exec', '-n', meta['namespace'], pod['metadata']['name'], '-c', 'web',
+                     '--', 'node', '--input-type=module', '-e', program)
+    actors.require(proof == {'host': 'postgres.postgres.svc.cluster.local', 'health': 200, 'ok': True,
+                            'readiness': 503, 'ready': False}, 'dependent is not the expected database outage')
+    return {'deployment_uid': meta['uid'], 'pod_uid': pod['metadata']['uid'],
+            'database_pending_uid': replacement['metadata']['uid'], 'proof': proof}
+
+
+
+
+def healthy_database_dependencies(api, owner, profile):
+    """Bind live runtimes and storage before the original PostgreSQL eviction."""
+    import re
+    import maintenance_production_node as shared
+    actors.require(owner.get('component') == 'k3s' and owner.get('node') == 'totodile' and
+                   owner.get('node_uid') == profile['node_uid'] and owner.get('phase') == 'OWNED_KURED_ONLY' and
+                   (owner.get('source'), owner.get('target')) == (SOURCE, TARGET) and
+                   re.fullmatch(r'homelab-maintenance-103-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', owner.get('owner', '')),
+                   'healthy database owner differs')
+    node = api.call('get', 'node', 'totodile', '-o', 'json')
+    actors.require(node['metadata']['uid'] == owner['node_uid'] and node['spec'].get('unschedulable') is True and
+                   not node['metadata'].get('deletionTimestamp'), 'healthy database node differs')
+    proofs = []
+    for namespace, expected in {'postgres': profile['database'], **profile['dependents']}.items():
+        deployment = api.call('get', 'deployment', namespace, '-n', namespace, '-o', 'json')
+        meta, status = deployment['metadata'], deployment.get('status', {})
+        actors.require(not meta.get('deletionTimestamp') and
+                       tuple(meta[k] for k in ('namespace', 'name', 'uid', 'generation')) ==
+                       tuple(expected[k] for k in ('namespace', 'name', 'uid', 'generation')) and
+                       deployment['spec'].get('replicas', 1) == 1 and
+                       status.get('observedGeneration') == meta['generation'] and
+                       status.get('readyReplicas', 0) == status.get('updatedReplicas', 0) == 1 and
+                       hashlib.sha256(shared.encoded(deployment['spec']['template']).encode()).hexdigest() ==
+                       expected['template_sha256'], 'healthy database deployment changed')
+        pods = api.call('get', 'pods', '-n', namespace, '-o', 'json')['items']
+        actors.require(len(pods) == 1, 'healthy database Pod membership changed')
+        pod = pods[0]
+        uid = expected['original_pod_uid'] if namespace == 'postgres' else expected['pod_uid']
+        actors.require(pod['metadata']['uid'] == uid and not pod['metadata'].get('deletionTimestamp') and
+                       pod['status']['phase'] == 'Running' and
+                       pod['spec'].get('nodeName') == ('totodile' if namespace == 'postgres' else expected['node']) and
+                       {c['name']: c['image'] for c in pod['spec']['containers']} ==
+                       {c['name']: c['image'] for c in deployment['spec']['template']['spec']['containers']},
+                       'healthy database Pod or image changed')
+        parents = [p for p in pod['metadata'].get('ownerReferences', []) if p.get('controller')]
+        actors.require(len(parents) == 1 and parents[0]['kind'] == 'ReplicaSet' and
+                       (parents[0]['uid'], parents[0]['name']) == (expected['replica_uid'], expected['replica_name']),
+                       'healthy database ReplicaSet differs')
+        replica = api.call('get', 'replicaset', expected['replica_name'], '-n', namespace, '-o', 'json')
+        parents = [p for p in replica['metadata'].get('ownerReferences', []) if p.get('controller')]
+        actors.require(replica['metadata']['uid'] == expected['replica_uid'] and
+                       not replica['metadata'].get('deletionTimestamp') and len(parents) == 1 and
+                       parents[0]['kind'] == 'Deployment' and parents[0]['uid'] == meta['uid'],
+                       'healthy database parent changed')
+        states = pod['status'].get('containerStatuses', [])
+        init = pod['status'].get('initContainerStatuses', [])
+        actors.require(len(states) == len(pod['spec']['containers']) and
+                       all(c.get('ready') and 'running' in c['state'] for c in states) and
+                       all(c['state'].get('terminated', {}).get('exitCode') == 0 for c in init) and
+                       {c['name'] for c in states + init} == set(expected['containers']),
+                       'healthy database runtime is not ready')
+        for state in states + init:
+            original = expected['containers'][state['name']]
+            actors.require(all(state.get(k) == original[k] for k in ('containerID', 'imageID', 'restartCount')) and
+                           (state['state']['running']['startedAt'] if state in states else
+                            state['state']['terminated']['finishedAt']) == original['time'],
+                           'healthy database runtime changed')
+        if namespace != 'postgres':
+            program = ("const base='http://'+process.env.HOSTNAME+':3000';"
+                       "const h=await fetch(base+'/healthz',{signal:AbortSignal.timeout(10000)});"
+                       "const hj=await h.json();const r=await fetch(base+'/readyz',{signal:AbortSignal.timeout(10000)});"
+                       "const rj=await r.json();console.log(JSON.stringify({host:new URL(process.env.DATABASE_URL).hostname,"
+                       "health:h.status,ok:hj.ok,readiness:r.status,ready:rj.ready}));")
+            proof = api.call('exec', '-n', namespace, pod['metadata']['name'], '-c', 'web',
+                             '--', 'node', '--input-type=module', '-e', program)
+            actors.require(proof == {'host': 'postgres.postgres.svc.cluster.local', 'health': 200,
+                                    'ok': True, 'readiness': 200, 'ready': True},
+                           'healthy database dependent probe failed')
+        proofs.append({'namespace': namespace, 'pod_uid': uid, 'replica_uid': replica['metadata']['uid']})
+    for binding in profile['database']['bindings']:
+        claim = api.call('get', 'pvc', binding['claim'], '-n', 'postgres', '-o', 'json')
+        volume = api.call('get', 'pv', binding['volume'], '-o', 'json')
+        actors.require(claim['metadata']['uid'] == binding['claim_uid'] and
+                       not claim['metadata'].get('deletionTimestamp') and claim['status']['phase'] == 'Bound' and
+                       claim['spec']['volumeName'] == binding['volume'] and volume['metadata']['uid'] == binding['volume_uid'] and
+                       not volume['metadata'].get('deletionTimestamp') and volume['spec']['claimRef']['uid'] == binding['claim_uid'],
+                       'healthy database persistence changed')
+    return proofs
+
+
+
 def _observe_once(args, api, owner, kind):
     """Known key-migration warnings stay visible; all data-plane gates remain strict."""
     import maintenance_production_node as production
@@ -494,16 +700,33 @@ def _observe_once(args, api, owner, kind):
                        {s['name']: s['num'] for s in pg['num_pg_by_state']} == owned_osd['pg_states'],
                        'OSD or PG state changed during collection')
     held = []
+    dependency_proofs = []
+    if (kind != 'applications' and owner.get('component') == 'k3s' and owner.get('node') == 'totodile' and
+            current[owner['node']]['spec'].get('unschedulable') is True):
+        profile = database_dependency_profile()
+        original = api.call('get', 'pods', '-n', 'postgres', '-o', 'json')['items']
+        if any(p['metadata']['uid'] == profile['database']['original_pod_uid'] and
+               not p['metadata'].get('deletionTimestamp') for p in original):
+            dependency_proofs.extend(healthy_database_dependencies(api, owner, profile))
     for item in api.call('get', 'deployments,statefulsets', '-A', '-o', 'json')['items']:
         status, meta = item.get('status', {}), item['metadata']; desired = item['spec'].get('replicas', 1)
         if (status.get('observedGeneration') == meta['generation'] and
                 status.get('readyReplicas', 0) == status.get('updatedReplicas', 0) == desired):
             continue
         from maintenance_k3s_pending import pending_rook_rollout
-        actors.require(kind != 'applications' and current[owner['node']]['spec'].get('unschedulable') is True and
-                       (production.pending_on_maintained_node(api, item, owner['node']) or
-                        pending_rook_rollout(api, item, owner)),
+        can_hold = (kind != 'applications' and
+                    current[owner['node']]['spec'].get('unschedulable') is True)
+        pinned = can_hold and (production.pending_on_maintained_node(api, item, owner['node']) or
+                               pending_rook_rollout(api, item, owner))
+        dependent = None
+        if (can_hold and not pinned and owner.get('component') == 'k3s' and
+                owner.get('node') == 'totodile' and item['kind'] == 'Deployment' and
+                meta['namespace'] in ('versa', 'versa-canary') and meta['name'] == meta['namespace']):
+            dependent = pending_postgres_bridge(api, item, owner, database_dependency_profile())
+        actors.require(pinned or dependent,
                        'controller recovery incomplete: ' + meta['namespace'] + '/' + meta['name'])
+        if dependent:
+            dependency_proofs.append(dependent)
         held.append(meta['uid'])
     registry(args, api)
     if kind in ('infrastructure', 'applications'):
@@ -541,6 +764,7 @@ def _observe_once(args, api, owner, kind):
             'owned_osd_findings': sorted(warnings - AUTH_WARNINGS) if owned_osd else [],
             'clean_pgs': owned_osd['clean_pgs'] if owned_osd else 177,
             'held_target_controllers': sorted(held),
+            'database_dependency_proofs': dependency_proofs,
             'etcd_members': sorted(m['ID'] for m in cp['members']['members']), 'zot_preserved': True}
 
 

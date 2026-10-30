@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "node": "totodile",
+  "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
+  "source": "v1.33.6+k3s1",
+  "target": "v1.33.10+k3s1",
+  "captured_at": "2026-10-30T04:27:54.001885+00:00",
+  "dependents": {
+    "versa": {
+      "namespace": "versa",
+      "name": "versa",
+      "uid": "c7202fda-0426-463e-b426-5b14f6743a4b",
+      "generation": 44,
+      "template_sha256": "91bb775bcccc5360d8909d0253ad971bb91fc3731d17e0c9f812db73a8ed653e",
+      "pod_uid": "e6f60ba5-fe02-4366-bdaf-7b4f7277d9c7",
+      "node": "cyndaquil",
+      "replica_uid": "06d0d8fd-4fd8-4979-8528-1b31c64e127a",
+      "replica_name": "versa-c4cd76876",
+      "containers": {
+        "web": {
+          "containerID": "containerd://bb664e633972911c47bcecfe5e566898ecba21f6f0c3331f65e6bb99b80ed703",
+          "imageID": "10.0.20.11:32309/versa@sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d",
+          "restartCount": 0,
+          "time": "2026-10-30T04:13:31Z"
+        },
+        "worker": {
+          "containerID": "containerd://4fc97d72ff5142f006bedefbde13475baceccd8292de5fc0ea50bd127b1b17d6",
+          "imageID": "10.0.20.11:32309/versa@sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d",
+          "restartCount": 0,
+          "time": "2026-10-30T04:13:32Z"
+        },
+        "migrate": {
+          "containerID": "containerd://e72c90432ef984fffbbeeaddaf089d2a25b6e5c8da0681e7022eed23a8a17544",
+          "imageID": "10.0.20.11:32309/versa@sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d",
+          "restartCount": 0,
+          "time": "2026-10-30T04:13:30Z"
+        }
+      }
+    },
+    "versa-canary": {
+      "namespace": "versa-canary",
+      "name": "versa-canary",
+      "uid": "72b69cae-fea1-4b99-ae0c-c515851cfac0",
+      "generation": 135,
+      "template_sha256": "5eb96799098b8897aedc0b952165ef63fc790bb0d06108c8cb8dd2d308490cfa",
+      "pod_uid": "60502905-f7f3-4e49-a66f-476f029dbc65",
+      "node": "charmander",
+      "replica_uid": "8dd8c9a1-17bc-4b5b-9904-916252dd12fd",
+      "replica_name": "versa-canary-78fd57f97",
+      "containers": {
+        "web": {
+          "containerID": "containerd://029c8a9cf3152b02120a07e6c40960d3b954dfcd8f1e0b5da7dd3e05c8f24c49",
+          "imageID": "10.0.20.11:32309/versa@sha256:e0c779da75753f60e6a6647c63235e59956c68561540f027e416dbcc0a7c5bab",
+          "restartCount": 0,
+          "time": "2026-10-29T23:47:51Z"
+        },
+        "worker": {
+          "containerID": "containerd://96dfb492cc65013892e154ef1deb4c6048396b2e96ec97f05b5259a066cdc79a",
+          "imageID": "10.0.20.11:32309/versa@sha256:e0c779da75753f60e6a6647c63235e59956c68561540f027e416dbcc0a7c5bab",
+          "restartCount": 0,
+          "time": "2026-10-29T23:47:51Z"
+        },
+        "migrate": {
+          "containerID": "containerd://8bbe5e7e084d014cb35b82be8cbc15340ad6c2734c2f92cbdcce886b62509a9b",
+          "imageID": "10.0.20.11:32309/versa@sha256:e0c779da75753f60e6a6647c63235e59956c68561540f027e416dbcc0a7c5bab",
+          "restartCount": 0,
+          "time": "2026-10-29T23:47:49Z"
+        }
+      }
+    }
+  },
+  "database": {
+    "namespace": "postgres",
+    "name": "postgres",
+    "uid": "9a7e7dcd-2302-401e-be49-af545ac06f9b",
+    "generation": 18,
+    "template_sha256": "866875d884006d7eb1eee7dd868074ff8be09bc6adcc8564d39e64eaed721fb9",
+    "original_pod_uid": "0236dc79-43fc-484e-8126-a8d7edad3d12",
+    "bindings": [
+      {
+        "claim": "postgres",
+        "claim_uid": "2b7b4f6f-d198-4bb1-adc0-65467a8840a6",
+        "volume": "pvc-2b7b4f6f-d198-4bb1-adc0-65467a8840a6",
+        "volume_uid": "e83c623f-adf2-45ab-92b0-b568c37540f3"
+      }
+    ],
+    "replica_uid": "d7bd2756-2825-4041-94fc-fed76f3e69e2",
+    "replica_name": "postgres-89f994576",
+    "containers": {
+      "db-backup": {
+        "containerID": "containerd://601484c21d19f1685e5956e9531f0795abc55d2fc3dabe02d074890c513d82f0",
+        "imageID": "docker.io/library/postgres@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+        "restartCount": 0,
+        "time": "2026-10-29T11:08:55Z"
+      },
+      "db-bootstrap": {
+        "containerID": "containerd://8232a921e2319a9bb186a21869e41220c2fc38a16b5586588a14e845fe834de7",
+        "imageID": "docker.io/library/postgres@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+        "restartCount": 0,
+        "time": "2026-10-29T11:08:55Z"
+      },
+      "main": {
+        "containerID": "containerd://916509c9d83ce8bcb7822b092058587ebed5c761c0fb93b21e2859fcfadadd72",
+        "imageID": "docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e",
+        "restartCount": 0,
+        "time": "2026-10-29T11:08:55Z"
+      },
+      "db-restore": {
+        "containerID": "containerd://c9cd04c8309cde51e5726fa1d8ac63a4ed803bbaa23ccfd9ae334eb0fd5cdddd",
+        "imageID": "docker.io/library/alpine@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a",
+        "restartCount": 0,
+        "time": "2026-10-29T11:08:55Z"
+      }
+    }
+  }
+}

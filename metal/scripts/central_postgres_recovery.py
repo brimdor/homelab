@@ -24,6 +24,34 @@ IMAGE = "docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb
 SOURCE_CONTAINER = "218b0fb30daefaf042b2e42b3f6e20cd3e063850e60c026565c266924f7dd865"
 
 
+
+CAPTURE_VERSION = common.VERSION
+RESTORE_VERSION = common.VERSION
+
+
+def configure_profile(profile):
+    """Bind a fresh Pod to the original protected database and first K3s bridge."""
+    global SOURCE_UID, SOURCE_CONTAINER, CAPTURE_VERSION, RESTORE_VERSION
+    fixed = {
+        "format": 1, "node": "totodile",
+        "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
+        "source_version": "v1.33.6+k3s1", "receiver_version": "v1.33.10+k3s1",
+        "pvc_uid": PVC_UID, "pv_uid": PV_UID,
+        "system_identifier": SYSTEM_ID, "image": IMAGE,
+    }
+    if (not isinstance(profile, dict) or
+            set(profile) != set(fixed) | {"pod_uid", "container_id"} or
+            type(profile["format"]) is not int or
+            any(profile[key] != value for key, value in fixed.items()) or
+            not isinstance(profile["pod_uid"], str) or
+            not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", profile["pod_uid"]) or
+            not isinstance(profile["container_id"], str) or
+            not re.fullmatch(r"[0-9a-f]{64}", profile["container_id"])):
+        raise RuntimeError("unreviewed protected PostgreSQL bridge profile")
+    SOURCE_UID, SOURCE_CONTAINER = profile["pod_uid"], profile["container_id"]
+    CAPTURE_VERSION, RESTORE_VERSION = profile["source_version"], profile["receiver_version"]
+
+
 def source_runtime(value):
     """Reject a changed native container before reading its namespace files."""
     status = value["status"]
@@ -39,7 +67,7 @@ def source_runtime(value):
 
 def capture_local(run_id):
     """Materialize a verified backup before transporting bytes over the network."""
-    common.require_host("totodile")
+    common.require_host("totodile", CAPTURE_VERSION)
     common.private_root()
     run_id = common.run_identifier(run_id)
     point = common.ROOT / ("central-postgres-source-" + run_id)
@@ -125,7 +153,7 @@ def archive_identity(path, system_id=SYSTEM_ID):
 
 
 def point_path(run_id, create=False):
-    common.require_host("pikachu")
+    common.require_host("pikachu", RESTORE_VERSION)
     common.private_root()
     point = common.ROOT / ("central-postgres-" + common.run_identifier(run_id))
     if create:
