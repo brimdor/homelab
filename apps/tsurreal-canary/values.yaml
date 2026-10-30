@@ -1,11 +1,11 @@
-# Foundation only; the HQ workload remains disabled until a private qualified image is supplied.
-stage: foundation
+# Exact committed Canary artifact; Production promotion requires full-batch approval.
+stage: candidate
 hostname: tsurreal-canary.eaglepass.io
 issuer: letsencrypt-prod
 tlsSecret: tsurreal-canary-tls
-image: ""
-sourceCommit: ""
-sourceTree: ""
+image: 10.0.20.11:32309/tsurreal/hq@sha256:ac0c00a90418e9165b078f1389151e6293ac33a76ab23de2210088f664f9b015
+sourceCommit: 207c733a8d292fc504bf8d59dd94922cd6e97398
+sourceTree: b1916a920878d2db1b4871c848203539826232bc
 storageClass: standard-rwo
 storage:
   state: 4Gi

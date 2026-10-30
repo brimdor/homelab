@@ -72,7 +72,7 @@ class ChartTests(unittest.TestCase):
         self.assertNotIn("hostPID", pod)
 
     def test_invalid_candidate_or_target_refused(self):
-        for overrides in [("stage=invalid",), ("stage=candidate",), ("hostname=public.example",), ("stage=candidate", "image=private.example/tsurreal:latest")]:
+        for overrides in [("stage=invalid",), ("stage=candidate", "image="), ("stage=candidate", "sourceCommit="), ("stage=candidate", "sourceTree=invalid"), ("hostname=public.example",), ("stage=candidate", "image=private.example/tsurreal:latest")]:
             with self.subTest(overrides=overrides):
                 render(*overrides, good=False)
         render("stage=candidate", "image=public.example/tsurreal/hq@sha256:" + "a" * 64, "sourceCommit=" + "b" * 40, "sourceTree=" + "c" * 40, good=False)
