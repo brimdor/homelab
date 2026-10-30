@@ -60,6 +60,31 @@ OSD and manager service keys AES256K, or wait for their natural expiry. Keep the
 explicitly excludes those authentication tickets from the insecure rotating-service check
 to preserve global-ID reclaim. Do not wipe them. This upstream distinction does not excuse
 any reported health warning, entity key or unrelated failed check.</p>
+<h2>AES256K-only candidate acceptance</h2>
+<p>All nine original seven-step hop and five-record release chains, absent original evicted
+Pods, unchanged native target/configuration/boot/SELinux, and current kernel client entities
+were re-read in 9xmxu5qq. Every mounted CephFS and RBD entity uses AES256K. The separate
+zero-prior change f5996c38a8d7e4f79eaa0bf669ff24a8c23281fa is accepted in wfig9ztp:
+all entity keys AES256K, Rook Ready, original 57 bindings, five OSDs, three monitors and
+177 clean PGs. The first observer dy8ni8w8 stopped on an omitted status field; no mutation
+was replayed. Rook 1.21.1 declares PriorKeyCount as uint8 with JSON omitempty, so zero is
+absent on the wire. The two remaining cipher-policy warnings stay visible.</p>
+<p>The next candidate adds only <code>security.cephx.allowedCiphers: [aes256k]</code>.
+Require a semantic Helm diff with unchanged resource identities and a fresh native types-only
+read before publication. The
+<a href="https://raw.githubusercontent.com/ceph/ceph/v20.2.4/src/auth/cephx/CephxServiceHandler.cc">exact Ceph authentication implementation</a>
+checks the entity's key type against allowed ciphers before independently verifying the
+old global-ID ticket and retrieving the AUTH service secret. Together with the explicit
+AuthMonitor exclusion above, this supports preserving the old auth.* tickets while every
+entity key and every mon/MDS/OSD/manager rotating key is AES256K. This is a source-based
+compatibility inference; verify actual authenticated Ceph clients after reconciliation.
+Never wipe tickets or mute health warnings to satisfy acceptance.</p>
+<p>Refresh Argo after the separate commit. Require the exact applied revision, Rook Ready,
+native monmap allowed-cipher names exactly aes256k, all non-AUTH rotating and all entity
+keys AES256K, no mutes, Ceph HEALTH_OK, original binding identities, all controllers and
+actual mounted clients returned. Preserve NAS restrictions and the original Zot process.
+If authentication fails, restore the prior allowed-cipher declaration through Git and
+Argo, retain all data, and resolve the identified client before another restriction.</p>
 <p>Unexpected authentication errors, unclean PGs, identity changes or failed real clients stop
 the affected rotation step. Keep prior keys and diagnose software using authorized access.
 The supported fallback requests AES with enough prior generations retained; it is a new

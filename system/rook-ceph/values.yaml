@@ -82,6 +82,8 @@ rook-ceph-cluster:
         requireMsgr2: false
     security:
       cephx:
+        allowedCiphers:
+          - aes256k
         # Core and MDS generation 2 is accepted; do not rotate it again here.
         daemon:
           keyRotationPolicy: KeyGeneration
