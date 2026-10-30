@@ -43,6 +43,23 @@ allowedCiphers to AES256K in another reviewed change. Allow old rotating service
 to expire naturally; never mute findings or shorten authentication controls to pass.</li>
 </ol>
 <h2>Failure and rollback limits</h2>
+<p>The zero-prior candidate changes only <code>keepPriorKeyCountMax</code> from 1 to 0.
+Do not publish it until Arcanine completes its original serial drain, matching protected
+restore, first K3s bridge, release and native GPU/application acceptance, and all nine nodes
+are Ready at 1.33.10. Re-read all nine accepted rehydration records and the 57 original
+bindings before rollout. Keep generation 1, AES256K, daemon generation 2 and allowed ciphers
+unchanged. Require the owning Application Synced at the exact commit, Rook Ready with
+<code>priorKeyCount: 0</code>, every native non-service key AES256K, three monitors, five
+original OSDs and 177 clean PGs. Preserve visible warnings and original binding identities.
+Only this acceptance may authorize the separate AES256K-only cipher candidate.</p>
+<p>Capture entity key types and rotating service key types separately, without key values.
+Require every entity key AES256K before cipher restriction. Require all rotating mon, MDS,
+OSD and manager service keys AES256K, or wait for their natural expiry. Keep the observed
+<code>auth.*</code> values visible: the
+<a href="https://raw.githubusercontent.com/ceph/ceph/v20.2.4/src/mon/AuthMonitor.cc">Ceph 20.2.4 health implementation</a>
+explicitly excludes those authentication tickets from the insecure rotating-service check
+to preserve global-ID reclaim. Do not wipe them. This upstream distinction does not excuse
+any reported health warning, entity key or unrelated failed check.</p>
 <p>Unexpected authentication errors, unclean PGs, identity changes or failed real clients stop
 the affected rotation step. Keep prior keys and diagnose software using authorized access.
 The supported fallback requests AES with enough prior generations retained; it is a new

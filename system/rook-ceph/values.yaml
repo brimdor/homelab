@@ -89,8 +89,8 @@ rook-ceph-cluster:
         csi:
           keyRotationPolicy: KeyGeneration
           keyGeneration: 1
-          # Keep mounted clients authenticated until serial rehydration completes.
-          keepPriorKeyCountMax: 1
+          # All nine nodes must finish serial client rehydration before rollout.
+          keepPriorKeyCountMax: 0
           keyType: aes256k
         rbdMirrorPeer:
           keyRotationPolicy: KeyGeneration
