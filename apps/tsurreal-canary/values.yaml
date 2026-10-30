@@ -1,5 +1,5 @@
-# Bootstrap only the retained namespace before exact-target API validation.
-stage: namespace
+# Foundation only; the HQ workload remains disabled until a private qualified image is supplied.
+stage: foundation
 hostname: tsurreal-canary.eaglepass.io
 issuer: letsencrypt-prod
 tlsSecret: tsurreal-canary-tls

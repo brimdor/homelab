@@ -31,13 +31,14 @@ def render(*overrides, namespace="tsurreal-canary", good=True):
 
 class ChartTests(unittest.TestCase):
     def test_namespace_and_foundation_are_inert(self):
-        self.assertEqual([o["kind"] for o in render()], ["Namespace"])
+        self.assertEqual([o["kind"] for o in render("stage=namespace")], ["Namespace"])
         objects = render("stage=foundation")
         kinds = [o["kind"] for o in objects]
         self.assertEqual(sorted(kinds), sorted(["Namespace", "Certificate", "Service", "NetworkPolicy", "ConfigMap"] + ["PersistentVolumeClaim"] * 3))
         for obj in objects:
             self.assertNotIn(obj["kind"], ["Ingress", "Deployment", "Pod", "Job", "Secret"])
             self.assertNotIn("production", obj["metadata"]["name"])
+            if obj["kind"] != "Namespace": self.assertEqual(obj["metadata"]["namespace"], "tsurreal-canary")
         service = next(o for o in objects if o["kind"] == "Service")
         self.assertFalse(service["spec"]["allocateLoadBalancerNodePorts"])
         self.assertEqual(service["metadata"]["annotations"]["external-dns.alpha.kubernetes.io/cloudflare-proxied"], "false")
