@@ -5,6 +5,11 @@ import hashlib
 import json
 
 
+def expected_http_status(namespace, path):
+    """Woodpecker's documented healthy response has no body."""
+    return 204 if namespace == 'woodpecker' and path == '/healthz' else 200
+
+
 def returned_pod(reference, pods, deployment, replica_set, baseline_time):
     """Verify every configured replica, then identify the unique replacement."""
     owner = next(o for o in reference['owners'] if o.get('controller'))

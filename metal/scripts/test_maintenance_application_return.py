@@ -4,10 +4,15 @@ import copy
 import hashlib
 import unittest
 
-from maintenance_application_return import returned_pod
+from maintenance_application_return import expected_http_status, returned_pod
 
 
 class ApplicationReturnTests(unittest.TestCase):
+    def test_woodpecker_health_is_204_without_weakening_other_endpoints(self):
+        self.assertEqual(expected_http_status('woodpecker', '/healthz'), 204)
+        self.assertEqual(expected_http_status('woodpecker', '/'), 200)
+        self.assertEqual(expected_http_status('argocd', '/healthz'), 200)
+
     def setUp(self):
         self.after = '2026-10-30T06:14:22+00:00'
         self.reference = {'name': 'original', 'uid': 'original-uid', 'claims': [],

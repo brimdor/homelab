@@ -371,4 +371,13 @@ Checks must reject missing, unready, changed or ambiguous replicas. No controlle
 Pod, network, storage, application candidate or NAS state is changed by this fix.
 Re-run the original actual behavior and connection checks after this predicate
 passes. Growlithe remains ahead of Arcanine until full acceptance.</p></section>
+<section><h2>Woodpecker health response contract</h2>
+<p>Read-only Growlithe probe audit 09qtuz_k at 2026-10-30 15:01:40 UTC accepted
+24 transports. Exactly one response was not 200: Woodpecker server /healthz returned
+204 with an empty body. The <a href="https://woodpecker-ci.org/api">official
+Woodpecker API contract</a> specifies 204 for healthy and 500 for unhealthy.
+The acceptance helper therefore requires exactly 204 for Woodpecker /healthz,
+including its TLS ingress check. Other application endpoints still require their
+recorded 200 or explicit authentication-redirect contract. Record actual statuses;
+do not label a 204 response as 200. No runtime change is necessary.</p></section>
 </html>
