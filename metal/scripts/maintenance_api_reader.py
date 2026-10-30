@@ -49,8 +49,8 @@ class Connection(http.client.HTTPConnection):
 
 
 class Reader(Kubectl):
-    def __init__(self, executable):
-        super().__init__(executable)
+    def __init__(self, executable, server=None):
+        super().__init__(executable, server)
         runtime = Path(os.environ['XDG_RUNTIME_DIR'])
         require(runtime.is_absolute() and runtime.is_dir() and
                 stat.S_IMODE(runtime.stat().st_mode) == 0o700 and
@@ -60,7 +60,7 @@ class Reader(Kubectl):
         self.process = None
         self.connection = None
         try:
-            self.process = subprocess.Popen([executable, 'proxy', '--unix-socket=api.sock',
+            self.process = subprocess.Popen([executable, *self.connection_args, 'proxy', '--unix-socket=api.sock',
                 '--reject-methods=^(POST|PUT|PATCH|DELETE|CONNECT|HEAD|OPTIONS)$'],
                 cwd=self.directory, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             started = time.monotonic()

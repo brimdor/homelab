@@ -19,9 +19,8 @@ SECURITY_STEPS = ('cordon', 'drain', 'security_default', 'trusted_reconnect',
 
 def steps(owner):
     if owner.get('component') == 'k3s':
-        from maintenance_k3s_contract import STEPS as K3S_STEPS, reviewed
-        actor.require(reviewed(owner['source'], owner['target']), 'unreviewed K3s journal transition')
-        return K3S_STEPS
+        from maintenance_k3s_contract import steps as k3s_steps
+        return k3s_steps(owner)
     actor.require(owner.get('component', 'fedora') == 'fedora', 'unreviewed journal component')
     if owner['source'] == owner['target'] == 44:
         actor.require(owner['node'] in ('totodile', 'pikachu', 'squirtle'), 'unreviewed security follow-up node')

@@ -59,12 +59,15 @@ def encoded(value):
 class Kubectl:
     """Use the caller's existing secure context and process-local cache routing."""
 
-    def __init__(self, executable):
+    def __init__(self, executable, server=None):
         require(executable.startswith('/'), 'kubectl must be an absolute compatible executable')
+        require(server is None or server in tuple('https://10.0.20.' + str(n) + ':6443'
+                for n in (11, 12, 13)), 'unreviewed Kubernetes API endpoint')
         self.executable = executable
+        self.connection_args = [] if server is None else ['--server=' + server]
 
     def call(self, *args, data=None):
-        result = subprocess.run([self.executable, *args], input=data, capture_output=True, check=False)
+        result = subprocess.run([self.executable, *self.connection_args, *args], input=data, capture_output=True, check=False)
         # Only fixed nonsecret resources enter this adapter. Do not retain arbitrary stderr.
         require(result.returncode == 0, 'kubectl failed; observe ownership before retrying')
         return json.loads(result.stdout)

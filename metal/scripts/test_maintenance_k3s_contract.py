@@ -37,6 +37,17 @@ class K3sContractTests(unittest.TestCase):
         self.assertEqual(api.controller().release(owner['owner'], lambda _: True), owner)
         self.assertEqual(api.ds['metadata']['annotations'], {'unrelated': 'preserve'})
 
+    def test_legacy_check_is_mandatory_only_for_the_three_servers_at_the_etcd_boundary(self):
+        for source, target in zip(contract.VERSIONS, contract.VERSIONS[1:]):
+            for node in contract.ORDER:
+                owner = {'component': 'k3s', 'node': node, 'source': source, 'target': target}
+                expected = contract.STEPS
+                if (source, target) == ('v1.33.10+k3s1', 'v1.33.13+k3s2') and node in ('charmander', 'squirtle', 'bulbasaur'):
+                    expected = ('cordon', 'drain', 'check_legacy_etcd', 'prepare_binary', 'activate_binary',
+                                'verify_infrastructure', 'restore_scheduling', 'accept_applications')
+                with self.subTest(node=node, source=source, target=target):
+                    self.assertEqual(journal.steps(owner), expected)
+
     def test_versions_cannot_disguise_a_fedora_transition(self):
         for component in ('k3s', 'unknown'):
             api = API()

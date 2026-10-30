@@ -30,11 +30,13 @@ class QuorumTests(unittest.TestCase):
             ('alarm', 'list'): {},
         }
 
-    def observe(self, values, versions=None):
+    def observe(self, values, versions=None, active_endpoints=None):
         def run(argv, **kwargs):
             self.assertIn('--cacert=/var/lib/rancher/k3s/server/tls/etcd/server-ca.crt', argv)
             self.assertIn('--cert=/var/lib/rancher/k3s/server/tls/etcd/client.crt', argv)
             self.assertNotIn('--insecure-skip-tls-verify', argv)
+            endpoints = active_endpoints or self.urls
+            self.assertIn('--endpoints=' + ','.join(endpoints), argv)
             return subprocess.CompletedProcess(argv, 0, json.dumps(values[tuple(argv[-2:])]).encode(), b'')
         with patch('os.geteuid', return_value=0), patch('socket.gethostname', return_value='squirtle'), \
                 patch.object(Path, 'read_text', return_value=CP.IDENTITY), patch('subprocess.run', side_effect=run), \
@@ -42,7 +44,7 @@ class QuorumTests(unittest.TestCase):
                 patch('hashlib.sha256') as digest, \
                 contextlib.redirect_stdout(io.StringIO()):
             digest.return_value.hexdigest.return_value = CP.BINARY_SHA256
-            exec(compile(CP.program(CP.OBSERVE, versions), 'native-etcd-observation', 'exec'), {})
+            exec(compile(CP.program(CP.OBSERVE, versions, active_endpoints), 'native-etcd-observation', 'exec'), {})
 
     def test_exact_three_voting_members_are_accepted(self):
         self.observe(self.values)
@@ -70,6 +72,104 @@ class QuorumTests(unittest.TestCase):
             if fault == 'alarm': values[('alarm', 'list')]['alarms'] = [{'alarm': 1}]
             with self.subTest(fault=fault), self.assertRaises(AssertionError):
                 self.observe(values)
+
+    def test_exact_two_survivors_keep_all_three_original_members(self):
+        versions = dict.fromkeys(('charmander', 'squirtle', 'bulbasaur'), 'v1.33.10+k3s1')
+        for stopped in range(3):
+            for index, name in enumerate(('charmander', 'squirtle', 'bulbasaur')):
+                versions[name] = 'v1.33.13+k3s2' if index < stopped else 'v1.33.10+k3s1'
+            values = copy.deepcopy(self.values)
+            active = [url for i, url in enumerate(self.urls) if i != stopped]
+            for key in (('endpoint', 'status'), ('endpoint', 'health')):
+                values[key].pop(stopped)
+            for entry in values[('endpoint', 'status')]:
+                entry['Status']['version'] = CP.expected_versions(versions)[entry['Endpoint']]
+                entry['Status']['leader'] = next(n for i, n in enumerate(self.ids) if i != stopped)
+            with self.subTest(stopped=stopped):
+                self.observe(values, versions, active)
+                with self.assertRaises(AssertionError):
+                    self.observe(values, versions)
+            for fault in ('membership', 'swapped', 'leader', 'health', 'duplicate', 'version', 'alarm', 'cluster'):
+                changed = copy.deepcopy(values)
+                if fault == 'membership': changed[('member', 'list')]['members'].pop(stopped)
+                if fault == 'swapped':
+                    rows = changed[('endpoint', 'status')]
+                    rows[0]['Status']['header']['member_id'], rows[1]['Status']['header']['member_id'] = (
+                        rows[1]['Status']['header']['member_id'], rows[0]['Status']['header']['member_id'])
+                if fault == 'leader':
+                    for entry in changed[('endpoint', 'status')]: entry['Status']['leader'] = self.ids[stopped]
+                if fault == 'health': changed[('endpoint', 'health')][0]['endpoint'] = self.urls[stopped]
+                if fault == 'duplicate': changed[('endpoint', 'status')][1] = changed[('endpoint', 'status')][0]
+                if fault == 'version': changed[('endpoint', 'status')][0]['Status']['version'] = '0.0.0'
+                if fault == 'alarm': changed[('alarm', 'list')]['alarms'] = [{'alarm': 1}]
+                if fault == 'cluster': changed[('endpoint', 'status')][0]['Status']['header']['cluster_id'] = 1
+                with self.subTest(stopped=stopped, fault=fault), self.assertRaises((AssertionError, KeyError)):
+                    self.observe(changed, versions, active)
+
+    def test_stopped_observer_requires_reviewed_stage_and_two_parent_proofs(self):
+        from unittest.mock import Mock
+        versions = dict.fromkeys(('charmander', 'squirtle', 'bulbasaur'), 'v1.33.10+k3s1')
+        proof = Mock(side_effect=[True, True])
+        with patch.object(PRODUCTION, 'remote', return_value={'verified': True}) as remote:
+            self.assertEqual(CP.observe_stopped(None, versions, 'squirtle', proof), {'verified': True})
+            self.assertEqual(proof.call_count, 2)
+            self.assertEqual(remote.call_args.args[2], '10.0.20.12')
+            self.assertIn("ACTIVE_ENDPOINTS=('https://10.0.20.11:2379', 'https://10.0.20.13:2379')", remote.call_args.args[1])
+        for proof in (None, Mock(return_value=False), Mock(return_value=1)):
+            with patch.object(PRODUCTION, 'remote') as remote, self.assertRaises(RuntimeError):
+                CP.observe_stopped(None, versions, 'squirtle', proof)
+            remote.assert_not_called()
+        with patch.object(PRODUCTION, 'remote', return_value={}) as remote, self.assertRaisesRegex(RuntimeError, 'changed'):
+            CP.observe_stopped(None, versions, 'squirtle', Mock(side_effect=[True, False]))
+        self.assertEqual(remote.call_count, 1)
+        for node, changed in (('growlithe', versions), ('squirtle', dict(versions, squirtle='v1.33.6+k3s1')),
+                              ('squirtle', dict(versions, charmander='v1.34.12+k3s1'))):
+            with self.subTest(node=node, versions=changed), patch.object(PRODUCTION, 'remote') as remote, self.assertRaises(RuntimeError):
+                CP.observe_stopped(None, changed, node, Mock(return_value=True))
+            remote.assert_not_called()
+
+
+class NativeVoterTests(unittest.TestCase):
+    def test_original_host_profiles_preserve_pinned_client_and_compile(self):
+        for host, identity in CP.IDENTITIES.items():
+            source = CP.program(CP.OBSERVE, host=host)
+            self.assertIn('HOST=' + repr(host), source)
+            self.assertIn('IDENTITY=' + repr(identity), source)
+            self.assertIn('BINARY_SHA256=' + repr(CP.BINARY_SHA256), source)
+            compile(source, 'native-voter-observation', 'exec')
+            compile(CP.program(CP.INSTALL, host=host), 'native-voter-installation', 'exec')
+        with self.assertRaisesRegex(RuntimeError, 'unreviewed native'):
+            CP.program(CP.OBSERVE, host='foreign')
+
+    def test_native_result_captures_only_structured_output_and_install_is_explicit(self):
+        self.assertEqual(CP.native_result("print('{\"verified\":true}')", 'squirtle'), {'verified': True})
+        with patch.object(CP, 'native_result', return_value={'installed': True}) as result:
+            self.assertEqual(CP.native_install('charmander'), {'installed': True})
+            result.assert_called_once_with(CP.INSTALL, 'charmander')
+
+    def test_native_stopped_mode_requires_exact_stage_and_pre_post_source_proof(self):
+        from unittest.mock import Mock
+        versions = dict.fromkeys(CP.IDENTITIES, 'v1.33.10+k3s1')
+        for host in CP.IDENTITIES:
+            proof = Mock(side_effect=[True, True])
+            with patch.object(CP, 'native_result', return_value={'verified': True}) as result:
+                self.assertEqual(CP.native_observe(host, versions, confirm_stopped=proof), {'verified': True})
+                active = tuple('https://10.0.20.' + str(n) + ':2379' for n, name in
+                               zip((11, 12, 13), CP.IDENTITIES) if name != host)
+                result.assert_called_once_with(CP.OBSERVE, host, versions, active)
+                self.assertEqual(proof.call_count, 2)
+        for proof in (Mock(return_value=False), Mock(return_value=1)):
+            with patch.object(CP, 'native_result') as result, self.assertRaises(RuntimeError):
+                CP.native_observe('charmander', versions, confirm_stopped=proof)
+            result.assert_not_called()
+        with patch.object(CP, 'native_result', return_value={}), self.assertRaisesRegex(RuntimeError, 'changed'):
+            CP.native_observe('squirtle', versions, confirm_stopped=Mock(side_effect=[True, False]))
+        with patch.object(CP, 'native_result') as result, self.assertRaisesRegex(RuntimeError, 'transition'):
+            CP.native_observe('bulbasaur', dict(versions, bulbasaur='v1.33.6+k3s1'), confirm_stopped=Mock(return_value=True))
+        result.assert_not_called()
+        with patch.object(CP, 'native_result', return_value={}) as result:
+            CP.native_observe('squirtle', versions)
+            result.assert_called_once_with(CP.OBSERVE, 'squirtle', versions, None)
 
 
 class ProductionProfileTests(unittest.TestCase):

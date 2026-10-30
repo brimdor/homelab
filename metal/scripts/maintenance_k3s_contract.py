@@ -25,6 +25,16 @@ def reviewed(source, target):
     return (source, target) in tuple(zip(VERSIONS, VERSIONS[1:]))
 
 
+def steps(owner):
+    """The embedded etcd 3.6 boundary adds a server-only protected legacy check."""
+    if not reviewed(owner['source'], owner['target']):
+        raise RuntimeError('unreviewed K3s journal transition')
+    if ((owner['source'], owner['target']) == VERSIONS[1:3] and
+            owner['node'] in ('charmander', 'squirtle', 'bulbasaur')):
+        return STEPS[:2] + ('check_legacy_etcd',) + STEPS[2:]
+    return STEPS
+
+
 def next_node(nodes, source, target):
     """Refuse skipped hosts, unreviewed versions and foreign inventory."""
     if not reviewed(source, target):
