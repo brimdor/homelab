@@ -6,6 +6,7 @@ SOURCE restart and original voter recovery. This module never stops a service.
 
 import base64
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,9 @@ import re
 import shutil
 import stat
 import subprocess
+import tarfile
 import tempfile
+import urllib.request
 
 import maintenance_actor_hold as actors
 
@@ -25,6 +28,43 @@ ARCHIVE_SHA256 = 'ca9f94cdc80be66923ef571d82b128819d0f5f3aa9f01522bafd991618ee29
 BINARY_SHA256 = '187249c118c209ad485e7d343aee50751c637329a6051e94e2b2ea3bd5076ac5'
 BINARY_BYTES = 17268898
 SUCCESS = b'No custom content found in both v2store and WAL records.\n'
+
+
+def install_tool(parent, native, fetch=urllib.request.urlopen):
+    """Install the exact checker in an existing trusted private ext4 tools directory."""
+    parent = Path(parent)
+    actors.require(parent.is_absolute() and directory_record(parent)['mode'] == 0o700 and
+                   native('findmnt', '-n', '-o', 'FSTYPE', '-T', str(parent)) == 'ext4',
+                   'private ext4 tools directory required')
+    directory = parent / ('etcd-v' + VERSION)
+    tool = directory / 'etcdutl'
+    actors.safe(directory);actors.safe(tool)
+    if directory.exists():
+        actors.require(directory_record(directory)['mode'] == 0o700 and
+                       {p.name for p in directory.iterdir()} == {'etcdutl'},
+                       'existing checker directory differs; preserve it')
+    else:
+        with fetch(ARCHIVE_URL, timeout=60) as response:
+            archive = response.read(64 * 1024 * 1024 + 1)
+        actors.require(hashlib.sha256(archive).hexdigest() == ARCHIVE_SHA256,
+                       'official etcdutl archive checksum differs')
+        with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
+            member = package.getmember('etcd-v' + VERSION + '-linux-amd64/etcdutl')
+            actors.require(member.isfile() and member.size == BINARY_BYTES,
+                           'official etcdutl archive member differs')
+            content = package.extractfile(member).read()
+        actors.require(len(content) == BINARY_BYTES and hashlib.sha256(content).hexdigest() == BINARY_SHA256,
+                       'official etcdutl executable checksum differs')
+        directory.mkdir(mode=0o700);actors.fsync_directory(parent)
+        actors.exclusive_file(tool, content, 0o500)
+    before = file_record(tool)
+    actors.require(before['sha256'] == BINARY_SHA256 and before['size'] == BINARY_BYTES and
+                   before['mode'] == 0o500, 'installed etcdutl identity differs')
+    version = native(str(tool), 'version')
+    actors.require(('etcdutl version: ' + VERSION) in version.splitlines() and
+                   file_record(tool) == before, 'native etcdutl version or identity differs')
+    return {'tool': str(tool), 'sha256': BINARY_SHA256, 'version': VERSION,
+            'native_version_verified': True}
 
 
 def identity(info):

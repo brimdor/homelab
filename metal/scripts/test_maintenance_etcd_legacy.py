@@ -1,7 +1,9 @@
 import hashlib
+import io
 import os
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from unittest import mock
@@ -173,6 +175,58 @@ class LegacyCopyTests(unittest.TestCase):
                               self.tool, self.source / 'nested', lambda *args: 'ext4', run)
         run.assert_not_called()
         self.assertEqual(list(self.scratch.iterdir()), [])
+
+    def installer_fixture(self):
+        parent = self.root / 'tools';parent.mkdir(mode=0o700)
+        content = b'synthetic-native-checker'
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode='w:gz') as package:
+            member = tarfile.TarInfo('etcd-v3.5.35-linux-amd64/etcdutl')
+            member.size = len(content);package.addfile(member, io.BytesIO(content))
+        archive = output.getvalue()
+        for name, value in (('BINARY_BYTES', len(content)),
+                            ('BINARY_SHA256', hashlib.sha256(content).hexdigest()),
+                            ('ARCHIVE_SHA256', hashlib.sha256(archive).hexdigest())):
+            patcher = mock.patch.object(legacy, name, value)
+            patcher.start();self.addCleanup(patcher.stop)
+        fetch = mock.Mock(side_effect=lambda *args, **kwargs: io.BytesIO(archive))
+        native = mock.Mock(side_effect=lambda *args: 'ext4' if args[0] == 'findmnt'
+                           else 'etcdutl version: 3.5.35\nAPI version: 3.5')
+        return parent, content, fetch, native
+
+    def test_installer_verifies_archive_and_reuses_exact_binary(self):
+        parent, content, fetch, native = self.installer_fixture()
+        first = legacy.install_tool(parent, native, fetch)
+        second = legacy.install_tool(parent, native, fetch)
+        self.assertEqual(first, second)
+        self.assertEqual(Path(first['tool']).read_bytes(), content)
+        self.assertEqual(Path(first['tool']).stat().st_mode & 0o777, 0o500)
+        fetch.assert_called_once_with(legacy.ARCHIVE_URL, timeout=60)
+
+    def test_installer_bad_archive_refuses_before_creating_directory(self):
+        parent, _, fetch, native = self.installer_fixture()
+        with mock.patch.object(legacy, 'ARCHIVE_SHA256', '0' * 64):
+            with self.assertRaisesRegex(RuntimeError, 'archive checksum'):
+                legacy.install_tool(parent, native, fetch)
+        self.assertEqual(list(parent.iterdir()), [])
+
+    def test_installer_preserves_existing_unknown_binary(self):
+        parent, _, fetch, native = self.installer_fixture()
+        directory = parent / ('etcd-v' + legacy.VERSION);directory.mkdir(mode=0o700)
+        tool = directory / 'etcdutl';tool.write_bytes(b'unknown');tool.chmod(0o500)
+        with self.assertRaisesRegex(RuntimeError, 'installed etcdutl identity'):
+            legacy.install_tool(parent, native, fetch)
+        self.assertEqual(tool.read_bytes(), b'unknown')
+        fetch.assert_not_called()
+        self.assertEqual(native.call_count, 1)
+
+    def test_installer_native_version_mismatch_is_not_acceptance(self):
+        parent, content, fetch, _ = self.installer_fixture()
+        native = lambda *args: 'ext4' if args[0] == 'findmnt' else 'etcdutl version: 0.0.0'
+        with self.assertRaisesRegex(RuntimeError, 'native etcdutl version'):
+            legacy.install_tool(parent, native, fetch)
+        # The installer preserves installed tools when native acceptance fails.
+        self.assertEqual((parent / ('etcd-v' + legacy.VERSION) / 'etcdutl').read_bytes(), content)
 
 
 if __name__ == '__main__':

@@ -60,6 +60,11 @@ activation. Do not downgrade an already migrated datastore.</p>
 <code>ca9f94cdc80be66923ef571d82b128819d0f5f3aa9f01522bafd991618ee29d1</code>;
 binary SHA256 <code>187249c118c209ad485e7d343aee50751c637329a6051e94e2b2ea3bd5076ac5</code>;
 17,268,898 bytes. Identity was recorded in jd7buayd; this specification does not claim installation.</p>
+<p>The installer accepts only an existing trusted private ext4 tools directory. Verify both
+the archive and its single requested regular-file member before exclusive installation;
+preserve any unknown existing file. Reuse an exact installed binary without another download,
+and require its native version output before accepting installation. Synthetic installer
+tests do not prove the real AMD64 executable ran or that production data passed its check.</p>
 <p>Never reset membership, edit datastore buckets, replace embedded etcd independently, use
 skip-check flags, mute warnings, change NAS access, or restart/publish/delete/collect Zot.
 Keep the normal MWF Kured schedule and protected original recovery material. This helper
