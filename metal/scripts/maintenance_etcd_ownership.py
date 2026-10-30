@@ -49,13 +49,22 @@ def observe(controller, baseline):
             (owner['source'], owner['target']) == ('v1.33.10+k3s1', 'v1.33.13+k3s2') and
             controller.ownership(ds, owner['owner']) == owner, 'owned SOURCE cycle lock changed')
     meta, status = ds['metadata'], ds['status']
+    owned_unknown = [n for n in nodes if n['metadata']['name'] == target and
+                     any(c['type'] == 'Ready' and c['status'] == 'Unknown' for c in n['status']['conditions']) and
+                     any(t.get('key') == 'node.kubernetes.io/unreachable' and t.get('effect') == 'NoSchedule'
+                         for t in n.get('spec', {}).get('taints', []))]
+    scheduling = tuple(status.get(k, 0) for k in
+                       ('desiredNumberScheduled', 'currentNumberScheduled', 'updatedNumberScheduled', 'numberMisscheduled'))
+    # A stopped kubelet can make its still-running original daemon ineligible for scheduling.
+    scoped_scheduling = scheduling == (8, 8, 8, 1) and len(owned_unknown) == 1
     require(meta['uid'] == baseline['daemonset_uid'] == controller.uid and meta['name'] == 'kured' and
             meta['namespace'] == 'kured' and not meta.get('deletionTimestamp') and
             meta['generation'] == status.get('observedGeneration') == baseline['generation'] and
             hashed(ds['spec']) == baseline['spec_sha256'] and
-            all(status.get(k) == 9 for k in ('desiredNumberScheduled', 'currentNumberScheduled', 'updatedNumberScheduled')) and
+            (scheduling == (9, 9, 9, 0) or scoped_scheduling) and
             all(status.get(k) in (8, 9) for k in ('numberReady', 'numberAvailable')) and
-            status.get('numberMisscheduled', 0) == 0 and status.get('numberUnavailable', 0) in (0, 1),
+            (not scoped_scheduling or all(status.get(k) == 8 for k in ('numberReady', 'numberAvailable'))) and
+            status.get('numberUnavailable', 0) in (0, 1),
             'Kured deployment changed during SOURCE cycle')
     require(len(nodes) == 9 and set(baseline['nodes']) == set(ORDER) and
             {n['metadata']['name']: n['metadata']['uid'] for n in nodes} ==

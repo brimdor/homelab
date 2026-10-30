@@ -11,6 +11,7 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
+import tempfile
 import uuid
 import zlib
 
@@ -328,7 +329,7 @@ if (point/'verified.json').exists():
  result={'accepted':True,'point':POINT,'source_manifest_sha256':DIGEST,'received_manifest_sha256':legacy.manifest_sha256(actual),'binding_sha256':__import__('hashlib').sha256(sys.modules['maintenance_etcd_transfer'].canonical(BINDING)).hexdigest(),'complete_WAL_and_database':True,'original_recovery_point_preserved':True}
 else:
  assert MAY_RECEIVE,'SOURCE has returned but original cold-copy commit is absent; preserve the point'
- result=sys.modules['maintenance_etcd_transfer'].receive(sys.stdin.buffer,point,BINDING,DIGEST,native)
+ result=sys.modules['maintenance_etcd_transfer'].receive(sys.stdin.buffer,point,BINDING,DIGEST,native,resume_complete=True)
 print(json.dumps(result),flush=True)
 '''
     receive = ('BUNDLE=' + repr(bundle) + '\nPOINT=' + repr(point) + '\nBINDING=' + repr(binding) +
@@ -371,23 +372,30 @@ def run(args, owner, identities, bundle):
         binding, point = manifest['binding'], manifest['point']
         receive = receiver_program(bundle, point, binding, manifest['sha256'], 'start-intent.json' not in state)
         sender = receiver = None
+        sender_errors = tempfile.TemporaryFile();receiver_errors = tempfile.TemporaryFile()
         try:
             if 'start-intent.json' not in state:
                 sender = subprocess.Popen(production.ssh(args) + [command(source('send', binding, manifest['sha256']))],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    stdout=subprocess.PIPE, stderr=sender_errors)
             receiver = subprocess.Popen(production.ssh(args, '10.0.20.14') + [command(receive)],
-                stdin=sender.stdout if sender else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdin=sender.stdout if sender else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=receiver_errors)
             if sender: sender.stdout.close()
             output, _ = receiver.communicate()
             if sender: sender.wait()
+            messages = []
+            for error in (sender_errors, receiver_errors):
+                error.seek(max(0, error.tell() - 4096))
+                lines = error.read().decode(errors='replace').splitlines()
+                messages.extend(line[:1000] for line in lines if line.startswith(('RuntimeError:', 'AssertionError:', 'OSError:')))
             actors.require(receiver.returncode == 0 and (sender is None or sender.returncode == 0),
-                           'cold etcd copy incomplete; retain partial protected point and restore SOURCE')
+                           'cold etcd copy incomplete; retain partial protected point and restore SOURCE; ' + '; '.join(messages))
             copied = json.loads(output)
             actors.require(copied['accepted'] is True and copied['source_manifest_sha256'] == manifest['sha256'],
                            'cold-copy receipt differs')
         finally:
             for child in (sender, receiver):
                 if child is not None and child.poll() is None: child.terminate();child.wait()
+            sender_errors.close();receiver_errors.close()
     finally:
         # Re-read the persisted one-shot intents. Never repeat an uncertain start.
         state = production.remote(args, source('resume'))

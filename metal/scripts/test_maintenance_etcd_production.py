@@ -53,6 +53,27 @@ class CompositionTests(unittest.TestCase):
                 production.run(None, {'node': 'charmander'}, {}, {})
         self.assertEqual(operations, ['resume', 'resume', 'observe-stopped', 'start'])
 
+    def test_large_sender_stderr_cannot_block_receiver_eof_or_source_recovery(self):
+        sender = "import sys;sys.stderr.write('x'*200000+'\\nRuntimeError: synthetic failure\\n');sys.stderr.flush();sys.stdout.write('payload');sys.stdout.flush();sys.exit(1)"
+        receiver = "import sys,json;sys.stdin.buffer.read();print(json.dumps({'accepted':True,'source_manifest_sha256':'" + 'a' * 64 + "'}))"
+        operations = [];reads = []
+        def remote(_args, source):
+            operation = next(ast.literal_eval(n.value) for n in ast.parse(source).body
+                if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id == 'OPERATION')
+            operations.append(operation)
+            if operation == 'resume':
+                reads.append(True)
+                return {'header.json': {}} if len(reads) == 1 else {'stop-intent.json': {}, 'stopped.json': {}}
+            if operation == 'manifest':return {'binding': {}, 'point': '/synthetic', 'sha256': 'a' * 64}
+            return {'accepted': True}
+        def ssh(_args, address=None):
+            return [production.sys.executable, '-B', '-c', receiver if address else sender]
+        with patch.object(shared, 'remote', side_effect=remote), patch.object(shared, 'ssh', side_effect=ssh):
+            with self.assertRaisesRegex(RuntimeError, 'synthetic failure'):
+                production.run(None, {'node': 'charmander'}, {}, {})
+        self.assertEqual(operations.count('start'), 1)
+        self.assertEqual(operations[-2:], ['observe-stopped', 'start'])
+
     def test_completed_native_acceptance_is_returned_without_any_new_command(self):
         receipt = {'original_before': {'pid': 1}, 'accepted': True}
         with patch.object(shared, 'remote', return_value={'legacy_already_accepted': receipt}) as remote:

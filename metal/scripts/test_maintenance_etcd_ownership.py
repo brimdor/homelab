@@ -50,6 +50,24 @@ class OwnedCycleTests(unittest.TestCase):
             if fault == 'source_pressure':self.api.nodes[0]['status']['conditions'][1]['status'] = 'True'
             with self.subTest(fault=fault), self.assertRaises(RuntimeError):scoped.observe(self.controller, self.baseline)
 
+    def test_owned_unknown_scheduling_exclusion_retains_every_original_daemon(self):
+        self.lost_source_heartbeat()
+        self.api.nodes[0]['spec']['taints'] = [{'key': 'node.kubernetes.io/unreachable', 'effect': 'NoSchedule'}]
+        self.api.ds['status'].update(desiredNumberScheduled=8, currentNumberScheduled=8,
+                                    updatedNumberScheduled=8, numberMisscheduled=1, numberUnavailable=0)
+        snapshot = copy.deepcopy(self.api.snapshot());writes = self.api.writes
+        self.assertTrue(scoped.observe(self.controller, self.baseline))
+        self.assertEqual(self.api.snapshot(), snapshot);self.assertEqual(self.api.writes, writes)
+        for fault in ('taint', 'ready', 'pod_uid', 'other_node', 'count'):
+            self.api.ds, self.api.pods, self.api.nodes = copy.deepcopy(snapshot)
+            if fault == 'taint':self.api.nodes[0]['spec']['taints'] = []
+            if fault == 'ready':
+                for c in self.api.nodes[0]['status']['conditions']:c['status'] = 'True' if c['type'] == 'Ready' else 'False'
+            if fault == 'pod_uid':self.api.pods[0]['metadata']['uid'] = 'changed'
+            if fault == 'other_node':self.api.pods[1]['status']['containerStatuses'][0]['ready'] = False
+            if fault == 'count':self.api.ds['status']['numberMisscheduled'] = 2
+            with self.subTest(fault=fault), self.assertRaises(RuntimeError):scoped.observe(self.controller, self.baseline)
+
     def test_changed_lock_uid_generation_spec_or_original_process_is_refused(self):
         for fault in ('lock', 'node_uid', 'pod_uid', 'generation', 'spec', 'container', 'restart', 'started', 'source_cordon'):
             self.api.ds, self.api.pods, self.api.nodes = copy.deepcopy(self.original)

@@ -96,7 +96,7 @@ def validate_manifest(value):
                    'complete nonempty etcd database and WAL required')
 
 
-def receive(stream, point, binding, expected_manifest_sha256, native):
+def receive(stream, point, binding, expected_manifest_sha256, native, *, resume_complete=False):
     """Retain partial points on any failure; verified.json is written only at the end."""
     point = Path(point)
     actors.require(point.is_absolute() and legacy.directory_record(point.parent)['mode'] == 0o700 and
@@ -114,17 +114,34 @@ def receive(stream, point, binding, expected_manifest_sha256, native):
     manifest = header['manifest'];validate_manifest(manifest)
     actors.require(sum(v.get('size', 0) for v in manifest['entries'].values()) <
                    shutil.disk_usage(point.parent).free, 'insufficient actual recovery capacity')
-    point.mkdir(mode=0o700);actors.fsync_directory(point.parent)
-    data = point / 'data';data.mkdir(mode=0o700)
-    for name in sorted(manifest['entries'], key=lambda n: (len(Path(n).parts), n)):
-        entry = manifest['entries'][name]
-        if entry['kind'] == 'directory':
-            (data / name).mkdir(mode=0o700)
+    existing = point.exists() and resume_complete
+    data = point / 'data'
+    if existing:
+        actors.require(legacy.directory_record(point)['mode'] == 0o700 and
+                       {p.name for p in point.iterdir()} == {'data'}, 'foreign or committed existing point')
+        original = legacy.member_manifest(data)
+        actors.require(legacy.contents(original) == legacy.contents(manifest),
+                       'existing point is incomplete or differs; preserve original data')
+    else:
+        point.mkdir(mode=0o700);actors.fsync_directory(point.parent)
+        data.mkdir(mode=0o700)
+        for name in sorted(manifest['entries'], key=lambda n: (len(Path(n).parts), n)):
+            entry = manifest['entries'][name]
+            if entry['kind'] == 'directory':
+                (data / name).mkdir(mode=0o700)
     # JSON framing sorts keys; stream file order must match that canonical order.
     for name, entry in sorted(manifest['entries'].items()):
         if entry['kind'] != 'file':
             continue
         digest = hashlib.sha256();remaining = entry['size']
+        if existing:
+            # Consume a fresh stopped-source stream; never rewrite the retained complete copy.
+            while remaining:
+                chunk = stream.read(min(1048576, remaining))
+                actors.require(chunk, 'truncated repeated etcd member transfer')
+                remaining -= len(chunk);digest.update(chunk)
+            actors.require(digest.hexdigest() == entry['sha256'], 'repeated etcd file checksum differs')
+            continue
         with (data / name).open('xb') as target:
             os.fchmod(target.fileno(), 0o600)
             while remaining:
@@ -138,7 +155,7 @@ def receive(stream, point, binding, expected_manifest_sha256, native):
     actors.require(frame(stream) == {'commit': hashlib.sha256(canonical(header)).hexdigest()} and
                    not stream.read(1), 'etcd transfer final commit missing or trailing bytes')
     for name, entry in sorted(manifest['entries'].items(), key=lambda row: len(Path(row[0]).parts), reverse=True):
-        if entry['kind'] == 'directory':
+        if entry['kind'] == 'directory' and not existing:
             path = data / name
             if path.stat().st_gid != entry['gid']:
                 os.chown(path, entry['uid'], entry['gid'])
@@ -146,6 +163,7 @@ def receive(stream, point, binding, expected_manifest_sha256, native):
     actors.fsync_directory(data)
     received = legacy.member_manifest(data)
     actors.require(legacy.contents(received) == legacy.contents(manifest), 'received etcd member contents differ')
+    actors.require(not existing or received == original, 'retained complete point changed during revalidation')
     actors.exclusive_file(point / 'verified.json', canonical(header), 0o600)
     actors.fsync_directory(point)
     return {'accepted': True, 'point': str(point), 'source_manifest_sha256': expected_manifest_sha256,

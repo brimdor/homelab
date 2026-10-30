@@ -108,6 +108,33 @@ class MemberTransferTests(unittest.TestCase):
         self.assertEqual(sentinel.read_bytes(), b'protected original')
         self.assertEqual(list(point.iterdir()), [sentinel])
 
+    def test_complete_uncommitted_copy_requires_a_fresh_full_stream_and_final_commit(self):
+        stream, expected = self.stream();raw = stream.getvalue()
+        point = self.root / 'received'
+        without_commit = raw[:raw.rfind(b'{"commit":')]
+        with self.assertRaises(RuntimeError):self.receive(io.BytesIO(without_commit), expected)
+        before = legacy.member_manifest(point / 'data')
+        result = transfer.receive(io.BytesIO(raw), point, {'owner': 'synthetic-only'},
+            legacy.manifest_sha256(expected), lambda *args: 'ext4', resume_complete=True)
+        self.assertTrue(result['accepted'])
+        self.assertEqual(legacy.member_manifest(point / 'data'), before)
+
+    def test_complete_point_resume_refuses_missing_changed_foreign_or_uncommitted_stream(self):
+        for fault in ('changed', 'foreign', 'missing_commit'):
+            stream, expected = self.stream();raw = stream.getvalue()
+            point = self.root / fault
+            with self.assertRaises(RuntimeError):
+                self.receive(io.BytesIO(raw[:raw.rfind(b'{"commit":')]), expected, point)
+            if fault == 'changed':(point / 'data/member/snap/db').write_bytes(b'changed')
+            if fault == 'foreign':(point / 'keep').write_bytes(b'original')
+            before = legacy.member_manifest(point / 'data')
+            with self.subTest(fault=fault), self.assertRaises(RuntimeError):
+                transfer.receive(io.BytesIO(raw if fault != 'missing_commit' else raw[:raw.rfind(b'{"commit":')]),
+                    point, {'owner': 'synthetic-only'}, legacy.manifest_sha256(expected),
+                    lambda *args: 'ext4', resume_complete=True)
+            self.assertEqual(legacy.member_manifest(point / 'data'), before)
+            self.assertFalse((point / 'verified.json').exists())
+
     def test_non_ext4_refuses_without_reading_stream(self):
         stream = mock.Mock()
         with self.assertRaisesRegex(RuntimeError, 'private ext4'):
