@@ -441,7 +441,7 @@ print(json.dumps(result))
     return dict(ZOT, spec_sha256=hashed(pod['spec']))
 
 
-def observe(args, api, owner, kind):
+def _observe_once(args, api, owner, kind):
     """Known key-migration warnings stay visible; all data-plane gates remain strict."""
     import maintenance_production_node as production
     from maintenance_control_plane import observe as quorum
@@ -470,7 +470,7 @@ def observe(args, api, owner, kind):
         import maintenance_osd_host
         maintenance_osd_host.native_identity(args, node=owner['node'])
         owned_osd = maintenance_osd_host.observe(api, node=owner['node'], k3s_bridge=True)
-        actors.require(owned_osd['health'] == health['status'] and
+        _coherent_snapshot(owned_osd['health'] == health['status'] and
                        set(owned_osd['health_findings']) == warnings and
                        owned_osd['checked_pgs'] == 177, 'OSD evidence changed during collection')
     actors.require(owned_osd is not None or (health['status'] in ('HEALTH_OK', 'HEALTH_WARN') and warnings <= AUTH_WARNINGS),
@@ -490,7 +490,7 @@ def observe(args, api, owner, kind):
                    (owned_osd is not None or all(o['up'] == o['in'] == 1 for o in osds['osds'])),
                    'OSD membership or availability differs')
     if owned_osd is not None:
-        actors.require(maintenance_osd_host.bridge_data_plane(osds) == owned_osd['data_plane'] and
+        _coherent_snapshot(maintenance_osd_host.bridge_data_plane(osds) == owned_osd['data_plane'] and
                        {s['name']: s['num'] for s in pg['num_pg_by_state']} == owned_osd['pg_states'],
                        'OSD or PG state changed during collection')
     held = []
@@ -499,8 +499,10 @@ def observe(args, api, owner, kind):
         if (status.get('observedGeneration') == meta['generation'] and
                 status.get('readyReplicas', 0) == status.get('updatedReplicas', 0) == desired):
             continue
+        from maintenance_k3s_pending import pending_rook_rollout
         actors.require(kind != 'applications' and current[owner['node']]['spec'].get('unschedulable') is True and
-                       production.pending_on_maintained_node(api, item, owner['node']),
+                       (production.pending_on_maintained_node(api, item, owner['node']) or
+                        pending_rook_rollout(api, item, owner)),
                        'controller recovery incomplete: ' + meta['namespace'] + '/' + meta['name'])
         held.append(meta['uid'])
     registry(args, api)
@@ -542,6 +544,24 @@ def observe(args, api, owner, kind):
             'etcd_members': sorted(m['ID'] for m in cp['members']['members']), 'zot_preserved': True}
 
 
+class SnapshotChanged(RuntimeError):
+    """Two individually validated Ceph reads crossed a state change."""
+
+
+def _coherent_snapshot(condition, message):
+    if not condition:
+        raise SnapshotChanged(message)
+
+
+def observe(args, api, owner, kind):
+    for attempt in range(3):
+        try:
+            return _observe_once(args, api, owner, kind)
+        except SnapshotChanged:
+            if attempt == 2:
+                raise
+
+
 def main():
     import maintenance_production_node as production
     from maintenance_api_reader import Reader
@@ -560,7 +580,7 @@ def main():
                    revision, 'publish reviewed controller before execution')
     names = (*production.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary', 'maintenance_k3s_production')
     bundle = {}
-    for name in (*names, 'maintenance_production_node', 'maintenance_control_plane', 'maintenance_api_reader', 'etcd_recovery', 'maintenance_osd_host'):
+    for name in (*names, 'maintenance_production_node', 'maintenance_control_plane', 'maintenance_api_reader', 'etcd_recovery', 'maintenance_osd_host', 'maintenance_k3s_pending'):
         path = 'metal/scripts/' + name + '.py'; published = subprocess.check_output(['git', 'show', revision + ':' + path])
         actors.require(Path(path).read_bytes() == published, 'unpublished production dependency: ' + path)
         if name in names:
@@ -603,6 +623,9 @@ print(json.dumps(result))
         def observer(request):
             if request['rpc'] == 'removed_completed_job':
                 actors.require(args.operation == 'drain', 'unreviewed completed removal operation')
+                if owner['node'] == 'cyndaquil' and request['ref']['namespace'] == 'versa':
+                    from maintenance_k3s_pending import pending_versa_replacement
+                    return pending_versa_replacement(api, owner, request['ref'])
                 return completed_removal(api, owner, request['ref'])
             return registry(args, api, request['ref']) if request['rpc'] == 'protected_registry' else observe(
                 args, api, owner, request['rpc'])

@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "owner": {
+    "component": "k3s",
+    "created": "2026-10-30T01:58:48.669643Z",
+    "node": "cyndaquil",
+    "node_uid": "6a26f4ed-68e6-4681-baf9-47660549c4fb",
+    "owner": "homelab-maintenance-103-6d13f310-5902-455f-a197-fed6f15183c5",
+    "phase": "OWNED_KURED_ONLY",
+    "revision": "b483e336f0b4befd3be9de0bea78ffc42f8ec889",
+    "source": "v1.33.6+k3s1",
+    "target": "v1.33.10+k3s1",
+    "version": 1
+  },
+  "ref": {
+    "controller": {
+      "apiVersion": "apps/v1",
+      "blockOwnerDeletion": true,
+      "controller": true,
+      "kind": "ReplicaSet",
+      "name": "versa-c4cd76876",
+      "uid": "06d0d8fd-4fd8-4979-8528-1b31c64e127a"
+    },
+    "keep": false,
+    "name": "versa-c4cd76876-kqvwc",
+    "namespace": "versa",
+    "spec_sha256": "7c0acc77edd8d987012fbb779f56b0c4eb590a1268d6f3cb692a50f91d8a8ab9",
+    "uid": "ff92516e-8119-4355-a255-29e7f6001f6b"
+  },
+  "replacement_uid": "e6f60ba5-fe02-4366-bdaf-7b4f7277d9c7",
+  "replacement_created": "2026-10-30T02:30:17Z",
+  "deployment_uid": "c7202fda-0426-463e-b426-5b14f6743a4b",
+  "generation": 44,
+  "template_sha256": "91bb775bcccc5360d8909d0253ad971bb91fc3731d17e0c9f812db73a8ed653e",
+  "images": {
+    "web": "10.0.20.11:32309/versa:3c876f6@sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d",
+    "worker": "10.0.20.11:32309/versa:3c876f6@sha256:a2b42b994c1e2a65373cdcdda7556a6a801c517c4bd56d3693f89f4c073be33d"
+  },
+  "bindings": [],
+  "application_uid": "04a8e3f4-d30c-4dd1-977c-da9d7853f47a",
+  "configuration_commit": "b483e336f0b4befd3be9de0bea78ffc42f8ec889",
+  "original_removal_cause": "UNKNOWN",
+  "purpose": "drain acceptance of exact unstarted target-pinned replacement, never application acceptance"
+}
