@@ -34,8 +34,6 @@ spec:
         checksum/identity-preparation: {{ .Files.Get "files/prepare-identity.py" | sha256sum }}
     spec:
       automountServiceAccountToken: false
-      imagePullSecrets:
-        - name: {{ .Values.imagePullSecret }}
       terminationGracePeriodSeconds: 25
       securityContext:
         runAsNonRoot: true

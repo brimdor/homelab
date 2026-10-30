@@ -4,7 +4,6 @@ hostname: tsurreal-canary.eaglepass.io
 issuer: letsencrypt-prod
 tlsSecret: tsurreal-canary-tls
 image: ""
-imagePullSecret: ""
 sourceCommit: ""
 sourceTree: ""
 storageClass: standard-rwo

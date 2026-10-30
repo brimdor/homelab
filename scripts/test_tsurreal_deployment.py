@@ -54,14 +54,14 @@ class ChartTests(unittest.TestCase):
                 self.assertIn("Prune=false", obj["metadata"]["annotations"]["argocd.argoproj.io/sync-options"])
 
     def test_candidate_is_restricted(self):
-        objects = render("stage=candidate", "image=private.example/tsurreal@sha256:" + "a" * 64, "imagePullSecret=tsurreal-pull", "sourceCommit=" + "b" * 40, "sourceTree=" + "c" * 40)
+        objects = render("stage=candidate", "image=10.0.20.11:32309/tsurreal/hq@sha256:" + "a" * 64, "sourceCommit=" + "b" * 40, "sourceTree=" + "c" * 40)
         spec = next(o for o in objects if o["kind"] == "Deployment")["spec"]
         self.assertEqual((spec["replicas"], spec["strategy"]["type"]), (1, "Recreate"))
         pod = spec["template"]["spec"]
         self.assertFalse(pod["automountServiceAccountToken"])
         self.assertEqual(pod["securityContext"]["runAsUser"], 65532)
         self.assertEqual(pod["securityContext"]["seccompProfile"]["type"], "RuntimeDefault")
-        self.assertEqual(pod["imagePullSecrets"], [{"name": "tsurreal-pull"}])
+        self.assertNotIn("imagePullSecrets", pod)
         for container in pod["containers"] + pod["initContainers"]:
             security = container["securityContext"]
             self.assertTrue(security["readOnlyRootFilesystem"])
@@ -75,6 +75,8 @@ class ChartTests(unittest.TestCase):
         for overrides in [("stage=invalid",), ("stage=candidate",), ("hostname=public.example",), ("stage=candidate", "image=private.example/tsurreal:latest")]:
             with self.subTest(overrides=overrides):
                 render(*overrides, good=False)
+        render("stage=candidate", "image=public.example/tsurreal/hq@sha256:" + "a" * 64, "sourceCommit=" + "b" * 40, "sourceTree=" + "c" * 40, good=False)
+        render("imagePullSecret=unnecessary-credential", good=False)
         render(namespace="tsurreal-production", good=False)
         render("stage=foundation", "privateSources[0]=0.0.0.0/0", good=False)
 
