@@ -45,6 +45,17 @@ class NativeReaderTests(unittest.TestCase):
         finally:reader.close()
         self.assertFalse(reader.scratch.exists());self.assertTrue(self.credential.exists())
 
+    def test_fixed_registry_read_does_not_expand_ownership_snapshot_or_allow_other_reads(self):
+        reader = self.reader()
+        try:
+            self.assertEqual(reader.query('get', '--raw', api.REGISTRY_PODS), {'items': [api.REGISTRY_PODS]})
+            self.assertEqual(len(reader.snapshot()), 3)
+            for path in ('/api/v1/pods', '/api/v1/namespaces/zot/secrets', api.REGISTRY_PODS + '?watch=true'):
+                with self.subTest(path=path), self.assertRaisesRegex(RuntimeError, 'only original ownership'):
+                    reader.query('get', '--raw', path)
+        finally:reader.close()
+        self.assertFalse(reader.scratch.exists())
+
     def test_foreign_insecure_or_own_endpoint_refuses_before_process_and_scratch(self):
         native = Mock()
         for endpoint in ('http://10.0.20.12:6443', 'https://10.0.20.11:6443',

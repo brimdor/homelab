@@ -15,6 +15,38 @@ import maintenance_production_node as shared
 
 
 class CompositionTests(unittest.TestCase):
+    def test_cold_stop_refuses_source_registry_and_failed_evidence_before_intent(self):
+        from test_maintenance_etcd_cycle import SourceCycleTests
+        fixture = SourceCycleTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        context = production.Context.__new__(production.Context)
+        context.owner = fixture.owner;context.cycle = fixture.worker();context.plan_path = None
+        context.runtime = lambda: fixture.before;context.close = lambda: None
+        context.voters = patch_voters = unittest.mock.Mock(return_value=True)
+        context.api = SimpleNamespace(query=unittest.mock.Mock())
+        for value in (None, {}, {'items': []}, {'items': [None]},
+                      {'items': [{'metadata': {'namespace': 'zot'}, 'spec': {}}]},
+                      {'items': [{'metadata': {'namespace': 'zot', 'deletionTimestamp': 'now'},
+                                  'spec': {'nodeName': 'charmander'}}]}):
+            context.api.query.return_value = value
+            with self.subTest(value=value), patch.object(production, 'Context', return_value=context), \
+                    self.assertRaises(RuntimeError):
+                production.native_operation(fixture.owner, {}, None, None, 'stop')
+            self.assertNotIn('stop-intent.json', fixture.worker().read())
+            fixture.native.assert_not_called()
+        context.api.query.side_effect = RuntimeError('native registry read failed')
+        with patch.object(production, 'Context', return_value=context), self.assertRaisesRegex(RuntimeError, 'registry read failed'):
+            production.native_operation(fixture.owner, {}, None, None, 'stop')
+        self.assertNotIn('stop-intent.json', fixture.worker().read());fixture.native.assert_not_called()
+        self.assertTrue(patch_voters.called)
+        context.api.query.side_effect = None
+        context.api.query.return_value = {'items': [{'metadata': {'namespace': 'zot'}, 'spec': {'nodeName': 'cyndaquil'}}]}
+        from contextlib import redirect_stdout
+        import io
+        with patch.object(production, 'Context', return_value=context), redirect_stdout(io.StringIO()):
+            production.native_operation(fixture.owner, {}, None, None, 'stop')
+        self.assertIn('stop-intent.json', fixture.worker().read())
+        self.assertEqual([call.args for call in fixture.native.call_args_list], [('systemctl', 'stop', 'k3s')])
+
     def test_real_bundle_is_small_and_imports_without_repository_fallback(self):
         import subprocess
         names = (*shared.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary',

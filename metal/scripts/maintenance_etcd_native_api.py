@@ -18,6 +18,7 @@ ENDPOINTS = {'charmander': 'https://10.0.20.11:6443',
              'bulbasaur': 'https://10.0.20.13:6443'}
 RESOURCES = ('/apis/apps/v1/namespaces/kured/daemonsets/kured',
              '/api/v1/namespaces/kured/pods', '/api/v1/nodes')
+REGISTRY_PODS = '/api/v1/namespaces/zot/pods'
 
 
 class Reader:
@@ -61,7 +62,7 @@ class Reader:
 
     def query(self, *args):
         require(args == ('config', 'view', '--minify', '-o', 'json') or
-                len(args) == 3 and args[:2] == ('get', '--raw') and args[2] in RESOURCES,
+                len(args) == 3 and args[:2] == ('get', '--raw') and args[2] in (*RESOURCES, REGISTRY_PODS),
                 'native cycle API permits only original ownership reads')
         require(self.credential_record() == self.original, 'original native kubeconfig changed')
         value = json.loads(self.native(str(self.executable), 'kubectl', '--kubeconfig=' + str(self.credential),

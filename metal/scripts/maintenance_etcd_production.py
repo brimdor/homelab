@@ -22,7 +22,8 @@ import maintenance_etcd_legacy as legacy
 import maintenance_etcd_ownership as ownership
 import maintenance_etcd_transfer as transfer
 import maintenance_hop_journal as hops
-from maintenance_etcd_native_api import Reader, ENDPOINTS
+from maintenance_etcd_native_api import Reader, ENDPOINTS, REGISTRY_PODS
+from maintenance_k3s_contract import ORDER
 from maintenance_node_drain import private_json
 
 
@@ -185,6 +186,20 @@ class Context:
         quorum.native_observe(self.owner['node'], versions, confirm_stopped=confirm)
         return True
 
+    def stop_prerequisites(self):
+        actors.require(self.voters() is True, 'three SOURCE voters required before stop')
+        value = self.api.query('get', '--raw', REGISTRY_PODS)
+        actors.require(isinstance(value, dict) and isinstance(value.get('items'), list) and
+                       len(value['items']) == 1, 'protected registry Pod membership incomplete')
+        pod = value['items'][0]
+        # A surviving container still gets evicted when the kubelet heartbeat expires.
+        actors.require(isinstance(pod, dict) and isinstance(pod.get('metadata'), dict) and
+                       isinstance(pod.get('spec'), dict) and pod['metadata'].get('namespace') == 'zot' and
+                       pod['spec'].get('nodeName') in ORDER and
+                       pod['spec']['nodeName'] != self.owner['node'],
+                       'cold SOURCE stop cannot retain a protected registry Pod on that node')
+        return True
+
     def close(self):
         self.api.close()
 
@@ -229,7 +244,7 @@ def native_operation(owner, identities, identity, native, operation, binding=Non
                                'new recovery retry differs')
                 result = value
         elif operation == 'stop':
-            result = cycle.dispatch_stop(context.voters, context.runtime)
+            result = cycle.dispatch_stop(context.stop_prerequisites, context.runtime)
         elif operation == 'observe-stopped':
             result = cycle.observe_stopped()
         elif operation == 'manifest':
