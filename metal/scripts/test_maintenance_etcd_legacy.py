@@ -203,6 +203,24 @@ class LegacyCopyTests(unittest.TestCase):
         self.assertEqual(Path(first['tool']).stat().st_mode & 0o777, 0o500)
         fetch.assert_called_once_with(legacy.ARCHIVE_URL, timeout=60)
 
+    def test_installer_creates_only_missing_private_ext4_tools_directory(self):
+        parent, content, fetch, native = self.installer_fixture();parent.rmdir()
+        result = legacy.install_tool(parent, native, fetch)
+        self.assertEqual(parent.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(Path(result['tool']).read_bytes(), content)
+
+    def test_missing_tools_parent_refuses_network_storage_and_insecure_ancestor(self):
+        parent, _, fetch, native = self.installer_fixture();parent.rmdir()
+        with self.assertRaisesRegex(RuntimeError, 'tools parent'):
+            legacy.install_tool(parent, lambda *args: 'nfs4', fetch)
+        self.assertFalse(parent.exists());fetch.assert_not_called()
+        self.root.chmod(0o755)
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'tools parent'):
+                legacy.install_tool(parent, native, fetch)
+            self.assertFalse(parent.exists());fetch.assert_not_called()
+        finally:self.root.chmod(0o700)
+
     def test_installer_bad_archive_refuses_before_creating_directory(self):
         parent, _, fetch, native = self.installer_fixture()
         with mock.patch.object(legacy, 'ARCHIVE_SHA256', '0' * 64):

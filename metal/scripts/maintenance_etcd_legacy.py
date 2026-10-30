@@ -31,8 +31,14 @@ SUCCESS = b'No custom content found in both v2store and WAL records.\n'
 
 
 def install_tool(parent, native, fetch=urllib.request.urlopen):
-    """Install the exact checker in an existing trusted private ext4 tools directory."""
+    """Install the exact checker beneath an existing trusted private ext4 directory."""
     parent = Path(parent)
+    actors.safe(parent)
+    if not parent.exists():
+        actors.require(parent.is_absolute() and directory_record(parent.parent)['mode'] == 0o700 and
+                       native('findmnt', '-n', '-o', 'FSTYPE', '-T', str(parent.parent)) == 'ext4',
+                       'private ext4 tools parent required')
+        parent.mkdir(mode=0o700);actors.fsync_directory(parent.parent)
     actors.require(parent.is_absolute() and directory_record(parent)['mode'] == 0o700 and
                    native('findmnt', '-n', '-o', 'FSTYPE', '-T', str(parent)) == 'ext4',
                    'private ext4 tools directory required')
