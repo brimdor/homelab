@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stage",
+    "hostname",
+    "issuer",
+    "tlsSecret",
+    "image",
+    "sourceCommit",
+    "sourceTree",
+    "storageClass",
+    "storage",
+    "privateSources",
+    "identityImage",
+    "imagePullSecret"
+  ],
+  "properties": {
+    "stage": {
+      "enum": [
+        "namespace",
+        "foundation",
+        "candidate"
+      ]
+    },
+    "hostname": {
+      "const": "tsurreal-canary.eaglepass.io"
+    },
+    "issuer": {
+      "const": "letsencrypt-prod"
+    },
+    "tlsSecret": {
+      "const": "tsurreal-canary-tls"
+    },
+    "image": {
+      "type": "string"
+    },
+    "sourceCommit": {
+      "type": "string"
+    },
+    "sourceTree": {
+      "type": "string"
+    },
+    "storageClass": {
+      "const": "standard-rwo"
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "recovery",
+        "packages"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*Gi$"
+        },
+        "recovery": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*Gi$"
+        },
+        "packages": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*Gi$"
+        }
+      }
+    },
+    "privateSources": {
+      "const": [
+        "10.0.0.0/16"
+      ]
+    },
+    "identityImage": {
+      "const": "docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1"
+    },
+    "imagePullSecret": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "candidate"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "image": {
+            "pattern": "^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$"
+          },
+          "sourceCommit": {
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "sourceTree": {
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "imagePullSecret": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "maxLength": 63
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# Bootstrap only the retained namespace before exact-target API validation.
+stage: namespace
+hostname: tsurreal-canary.eaglepass.io
+issuer: letsencrypt-prod
+tlsSecret: tsurreal-canary-tls
+image: ""
+imagePullSecret: ""
+sourceCommit: ""
+sourceTree: ""
+storageClass: standard-rwo
+storage:
+  state: 4Gi
+  recovery: 16Gi
+  packages: 8Gi
+privateSources:
+  - 10.0.0.0/16
+identityImage: docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1

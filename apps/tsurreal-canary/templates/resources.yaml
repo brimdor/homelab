@@ -1,0 +1,90 @@
+{{- if ne .Release.Namespace "tsurreal-canary" }}
+{{- fail "This chart owns only namespace tsurreal-canary" }}
+{{- end }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tsurreal-canary
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.33
+{{- if ne .Values.stage "namespace" }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tsurreal-canary
+spec:
+  secretName: {{ .Values.tlsSecret }}
+  issuerRef:
+    name: {{ .Values.issuer }}
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ .Values.hostname }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tsurreal-canary
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.hostname }}
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+spec:
+  type: LoadBalancer
+  allocateLoadBalancerNodePorts: false
+  selector:
+    app.kubernetes.io/name: tsurreal
+    app.kubernetes.io/instance: tsurreal-canary
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+{{- range $name, $size := .Values.storage }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tsurreal-{{ $name }}
+  annotations:
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ $.Values.storageClass }}
+  resources:
+    requests:
+      storage: {{ $size }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tsurreal-private
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+{{- range .Values.privateSources }}
+        - ipBlock:
+            cidr: {{ . }}
+{{- end }}
+      ports:
+        - protocol: TCP
+          port: 8443
+  egress: []
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tsurreal-configuration
+data:
+  hq.json: |
+    {"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://{{ .Values.hostname }}","state_dir":"/var/lib/tsurreal/state","tls_cert":"/var/run/tsurreal/identity/tls.crt","tls_key":"/var/run/tsurreal/identity/tls.key"}
+{{- end }}
