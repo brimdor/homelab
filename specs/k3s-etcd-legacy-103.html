@@ -34,6 +34,13 @@ original immutability, changed-source refusal, exact checker identity, cleanup a
 failure, and rejection of unsafe entries. Execute with
 <code>python3 -B -m unittest discover -s metal/scripts -p test_maintenance_etcd_legacy.py</code>.
 Remote Linux acceptance must separately prove private ext4, SELinux and native tool behavior.</li>
+<li>Implement the stopped-member stream in <code>metal/scripts/maintenance_etcd_transfer.py</code>.
+Reuse the complete filesystem manifest. Check the parent's stopped-source predicate before
+reading and again before the final commit frame. The receiver requires the exact externally
+bound manifest digest and transaction identity, an existing private ext4 parent, sufficient
+actual space, safe relative paths, exclusive files, and matching contents. Preserve incomplete
+points without a verified marker; never store datastore bytes on the workstation. Test truncation,
+changed source, unsafe paths, mismatched bindings, existing destinations, and successful full transfer.</li>
 <li>Integrate a server-only <code>check_legacy_etcd</code> journal step between drain and
 binary preparation for the exact 1.33.10 to 1.33.13 pair. Preserve the first pair's seven steps.
 Publish and verify source before production dispatch. A downstream runtime baseline changes
