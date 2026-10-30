@@ -14,11 +14,15 @@ CONTROLLERS = {'DaemonSet': 'daemonset', 'ReplicaSet': 'replicaset',
                'ReplicationController': 'replicationcontroller', 'Node': 'node'}
 
 # Owner-required exception: K3s service maintenance must retain this exact NAS process.
-ZOT = {'pod_uid': 'ee41a015-dec7-47d4-89ac-54ed8100d7fc',
-       'container_id': 'containerd://c64893596b9e9f4444cf89a84dfd0c8de029bad82f637a0a777f149092d42078',
-       'pid': 5467, 'start_ticks': '72848',
-       'boot_id': '61389f87-e3e6-47e6-b47b-feb59659a5c2',
-       'label': 'system_u:system_r:container_t:s0:c373,c432',
+# Owner accepted this running replacement on October 30; the original loss remains recorded.
+ZOT = {'pod_uid': '5f1fc88b-f064-42ed-96a7-9a31b2ba1c20',
+       'container_id': 'containerd://7e265301d85265cd4e5020e5895491c865ff4bb7e42d56c7f9f12235e82807e9',
+       'node': 'cyndaquil', 'address': '10.0.20.16',
+       'machine': '51140709f60f45c1bcd0edfa23dba2ef',
+       'root_uuid': 'fc02c8c4-35c6-4efe-a88a-b03d7673c0c8',
+       'pid': 4117952, 'start_ticks': '21359061',
+       'boot_id': '52f33fa2-6b51-4b33-a06c-77a3dc2648d0',
+       'label': 'system_u:system_r:container_t:s0:c99,c398',
        'pvc_uid': '728fbc24-a589-483f-8833-855c863b4f04',
        'pv_uid': '81d390a2-71fd-48ac-ac2f-49df07bda484', 'storage_retained': True}
 
@@ -26,7 +30,7 @@ ZOT = {'pod_uid': 'ee41a015-dec7-47d4-89ac-54ed8100d7fc',
 def retain_registry(api, pod, owner):
     if owner.get('component') != 'k3s' or pod['metadata']['namespace'] != 'zot':
         return False
-    actor.require(owner['node'] == 'charmander' and pod['spec']['nodeName'] == 'charmander' and
+    actor.require(owner['node'] == ZOT['node'] and pod['spec']['nodeName'] == ZOT['node'] and
                   pod['metadata']['uid'] == ZOT['pod_uid'] and not pod['metadata'].get('deletionTimestamp'),
                   'protected registry Pod identity differs')
     statuses = pod.get('status', {}).get('containerStatuses', [])

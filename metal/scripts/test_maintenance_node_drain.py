@@ -134,9 +134,9 @@ class NodeDrainTests(unittest.TestCase):
         self.assertFalse(self.pod_api.posts)
 
     def test_registry_exception_requires_exact_component_container_native_and_storage_proof(self):
-        owner = {'node': 'charmander', 'component': 'k3s'}
+        owner = {'node': drain.ZOT['node'], 'component': 'k3s'}
         pod = {'metadata': {'namespace': 'zot', 'name': 'retained-zot', 'uid': drain.ZOT['pod_uid']},
-               'spec': {'nodeName': 'charmander', 'containers': [{'name': 'zot', 'image': 'existing'}]},
+               'spec': {'nodeName': drain.ZOT['node'], 'containers': [{'name': 'zot', 'image': 'existing'}]},
                'status': {'phase': 'Running', 'containerStatuses': [{'name': 'zot', 'ready': True,
                           'restartCount': 0, 'containerID': drain.ZOT['container_id']}]}}
         proof = dict(drain.ZOT, spec_sha256=drain.hashed(pod['spec']))

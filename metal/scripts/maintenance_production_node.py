@@ -20,6 +20,7 @@ import sys
 from fedora_public_key import armor_public_key
 from maintenance_coordination import JOURNAL, Kubectl, Ownership, encoded, require
 from maintenance_api_reader import Reader
+from maintenance_node_drain import ZOT
 
 
 NODE = 'totodile'
@@ -917,26 +918,25 @@ def protected_registry(api):
     pods = api.call('get', 'pods', '-n', 'zot', '-o', 'json')['items']
     require(len(pods) == 1, 'protected registry Pod membership changed')
     pod = pods[0]
-    require(pod['metadata']['uid'] == 'ee41a015-dec7-47d4-89ac-54ed8100d7fc' and
-            pod['spec'].get('nodeName') == 'charmander' and not pod['metadata'].get('deletionTimestamp') and
+    require(pod['metadata']['uid'] == ZOT['pod_uid'] and
+            pod['spec'].get('nodeName') == ZOT['node'] and not pod['metadata'].get('deletionTimestamp') and
             any(c['type'] == 'Ready' and c['status'] == 'True' for c in pod['status'].get('conditions', [])),
             'protected registry moved, restarted or is unready')
     containers = pod['status'].get('containerStatuses', [])
     require(len(containers) == 1 and containers[0]['name'] == 'zot' and containers[0].get('ready') is True and
-            containers[0].get('restartCount') == 0 and containers[0].get('containerID') ==
-            'containerd://c64893596b9e9f4444cf89a84dfd0c8de029bad82f637a0a777f149092d42078',
+            containers[0].get('restartCount') == 0 and containers[0].get('containerID') == ZOT['container_id'],
             'protected registry container identity changed')
     claim = api.call('get', 'pvc', 'zot-nfs-pvc', '-n', 'zot', '-o', 'json')
     volume = api.call('get', 'pv', 'pvc-0ce8a5c9-b53a-4b2d-920a-a9efcf82e7a6', '-o', 'json')
-    require(claim['metadata']['uid'] == '728fbc24-a589-483f-8833-855c863b4f04' and
+    require(claim['metadata']['uid'] == ZOT['pvc_uid'] and
             claim['spec']['volumeName'] == volume['metadata']['name'] and claim['status']['phase'] == 'Bound' and
-            volume['metadata']['uid'] == '81d390a2-71fd-48ac-ac2f-49df07bda484' and
+            volume['metadata']['uid'] == ZOT['pv_uid'] and
             volume['spec']['claimRef']['uid'] == claim['metadata']['uid'] and
             volume['spec']['persistentVolumeReclaimPolicy'] == 'Retain' and volume['spec'].get('nfs') == {
                 'server': '10.0.40.3',
                 'path': '/mnt/user/heartlib/zot-zot-nfs-pvc-pvc-0ce8a5c9-b53a-4b2d-920a-a9efcf82e7a6'},
             'protected registry storage identity changed')
-    return {'pod_uid': pod['metadata']['uid'], 'node': 'charmander', 'restarts': 0}
+    return {'pod_uid': pod['metadata']['uid'], 'node': ZOT['node'], 'restarts': 0}
 
 
 def completed_job_pod(api, pod):

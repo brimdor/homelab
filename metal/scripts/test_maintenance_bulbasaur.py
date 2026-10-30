@@ -56,10 +56,10 @@ class BulbasaurTests(unittest.TestCase):
             compile(monitor.bindings('bulbasaur') + source, 'bulbasaur-monitor', 'exec')
 
     def test_registry_guard_rejects_movement_restarts_identity_and_storage_changes(self):
-        pod = {'metadata': {'uid': 'ee41a015-dec7-47d4-89ac-54ed8100d7fc'},
-               'spec': {'nodeName': 'charmander'}, 'status': {'conditions': [{'type': 'Ready', 'status': 'True'}],
+        pod = {'metadata': {'uid': production.ZOT['pod_uid']},
+               'spec': {'nodeName': production.ZOT['node']}, 'status': {'conditions': [{'type': 'Ready', 'status': 'True'}],
                'containerStatuses': [{'name': 'zot', 'ready': True, 'restartCount': 0,
-               'containerID': 'containerd://c64893596b9e9f4444cf89a84dfd0c8de029bad82f637a0a777f149092d42078'}]}}
+               'containerID': production.ZOT['container_id']}]}}
         claim = {'metadata': {'uid': '728fbc24-a589-483f-8833-855c863b4f04'}, 'status': {'phase': 'Bound'},
                  'spec': {'volumeName': 'pvc-0ce8a5c9-b53a-4b2d-920a-a9efcf82e7a6'}}
         volume = {'metadata': {'uid': '81d390a2-71fd-48ac-ac2f-49df07bda484', 'name': claim['spec']['volumeName']},

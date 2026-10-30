@@ -489,7 +489,10 @@ def registry(args, api, ref=None):
         actors.require(ref == {'namespace': 'zot', 'name': pod['metadata']['name'], 'uid': ZOT['pod_uid'],
                                'spec_sha256': hashed(pod['spec'])}, 'registry drain reference differs')
     program = '''
-import json,pathlib,subprocess
+import json,pathlib,subprocess,socket
+assert socket.gethostname()==EXPECTED['node']
+assert pathlib.Path('/etc/machine-id').read_text().strip()==EXPECTED['machine']
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==EXPECTED['root_uuid']
 cid=EXPECTED['container_id'].removeprefix('containerd://')
 item=json.loads(subprocess.check_output(['/usr/local/bin/k3s','crictl','inspect',cid]))
 assert item['status']['id']==cid and item['status']['state']=='CONTAINER_RUNNING'
@@ -501,7 +504,7 @@ result={'pid':pid,'start_ticks':value[value.rfind(')')+2:].split()[19],
 assert all(result[key]==EXPECTED[key]for key in result)
 print(json.dumps(result))
 '''
-    production.remote(args, 'EXPECTED=' + repr(ZOT) + '\n' + program, '10.0.20.11')
+    production.remote(args, 'EXPECTED=' + repr(ZOT) + '\n' + program, ZOT['address'])
     return dict(ZOT, spec_sha256=hashed(pod['spec']))
 
 
