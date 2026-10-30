@@ -91,5 +91,5 @@ metadata:
   name: tsurreal-configuration
 data:
   hq.json: |
-    {"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://{{ .Values.hostname }}","state_dir":"/var/lib/tsurreal/state","tls_cert":"/var/run/tsurreal/identity/tls.crt","tls_key":"/var/run/tsurreal/identity/tls.key"}
+    {"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://{{ .Values.hostname }}","state_dir":"/var/lib/tsurreal/state","tls_cert":"/run/tsurreal/identity/tls.crt","tls_key":"/run/tsurreal/identity/tls.key"}
 {{- end }}

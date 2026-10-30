@@ -44,4 +44,4 @@ def stage(source, destination):
 
 
 if __name__ == "__main__":
-    stage("/projected-tls", "/var/run/tsurreal/identity")
+    stage("/projected-tls", "/run/tsurreal/identity")

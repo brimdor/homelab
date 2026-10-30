@@ -62,6 +62,12 @@ class ChartTests(unittest.TestCase):
         self.assertEqual(pod["securityContext"]["runAsUser"], 65532)
         self.assertEqual(pod["securityContext"]["seccompProfile"]["type"], "RuntimeDefault")
         self.assertNotIn("imagePullSecrets", pod)
+        config = json.loads(next(o for o in objects if o["metadata"]["name"] == "tsurreal-configuration")["data"]["hq.json"])
+        identity_mount = next(m["mountPath"] for m in pod["initContainers"][0]["volumeMounts"] if m["name"] == "identity")
+        self.assertEqual(identity_mount, "/run/tsurreal")
+        self.assertEqual(config["tls_cert"], identity_mount + "/identity/tls.crt")
+        self.assertEqual(config["tls_key"], identity_mount + "/identity/tls.key")
+        self.assertEqual(next(m["mountPath"] for m in pod["containers"][0]["volumeMounts"] if m["name"] == "identity"), identity_mount)
         for container in pod["containers"] + pod["initContainers"]:
             security = container["securityContext"]
             self.assertTrue(security["readOnlyRootFilesystem"])

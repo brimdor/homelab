@@ -57,7 +57,7 @@ spec:
             limits: {memory: 64Mi}
           volumeMounts:
             - {name: projected-tls, mountPath: /projected-tls, readOnly: true}
-            - {name: identity, mountPath: /var/run/tsurreal}
+            - {name: identity, mountPath: /run/tsurreal}
             - {name: identity-script, mountPath: /scripts, readOnly: true}
       containers:
         - name: hq
@@ -87,7 +87,7 @@ spec:
             limits: {memory: 1Gi}
           volumeMounts:
             - {name: configuration, mountPath: /etc/tsurreal, readOnly: true}
-            - {name: identity, mountPath: /var/run/tsurreal, readOnly: true}
+            - {name: identity, mountPath: /run/tsurreal, readOnly: true}
             - {name: state, mountPath: /var/lib/tsurreal}
             - {name: recovery, mountPath: /var/lib/tsurreal-recovery}
             - {name: packages, mountPath: /var/lib/tsurreal-packages}
