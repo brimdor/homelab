@@ -12,7 +12,8 @@ before publishing or reconciling this change. Preserve NAS restrictions and exac
 20.2.4 and empty CSI/mirror generation status. Exactly four CSI entities and the unused
 client.rbd-mirror-peer still use AES. There are zero CephClient resources, no configured
 pool mirroring, and no observed external mirror consumer. Existing host/kernel acceptance
-places all nine nodes on Fedora 44 kernel 7.2.13. The supported EL9 CSI 3.17.1 runtime is
+places all nine nodes on Fedora 44; kernel versions are recorded separately in each node's
+native acceptance evidence. The supported EL9 CSI 3.17.1 runtime is
 accepted in ti5db9ze; synthetic RBD and kernel CephFS fsync/reopen/compare passed in g5mr_oxb.</p>
 <p>Follow the <a href="https://rook.io/docs/rook/v1.21/Storage-Configuration/Advanced/cephx-key-rotation/">versioned Rook rotation guide</a>.
 Generation 1 exceeds the observed absent generation 0. Request AES256K for CSI and the
