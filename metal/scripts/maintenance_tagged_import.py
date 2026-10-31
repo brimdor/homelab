@@ -1,4 +1,4 @@
-"""Copy a verified digest-only OCI import with its existing declared tag.
+"""Repair verified local OCI imports with their existing declared tags.
 
 The caller owns host, recovery-receipt, staging-entry and deployment checks.
 This converter never changes the source or invokes a runtime or registry.
@@ -240,7 +240,11 @@ def native_host(inputs):
     pid = int(subprocess.check_output(['systemctl', 'show', 'k3s', '-p', 'MainPID', '--value'], text=True))
     require(pid > 1 and subprocess.check_output(['systemctl', 'is-active', 'k3s'], text=True).strip() == 'active',
             'tagged import runtime is not active')
-    return {'pid': pid, 'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
+    process = Path('/proc') / str(pid)
+    require((process / 'exe').samefile(executable), 'native importer uses another executable')
+    ticks = (process / 'stat').read_text()
+    return {'pid': pid, 'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+            'start_ticks': ticks[ticks.rfind(')') + 2:].split()[19]}
 
 
 def write_private(path, value):
@@ -304,6 +308,9 @@ def repair(operation, key, inputs, profile):
             'unsafe tagged import recovery directory')
     import fcntl
     with os.fdopen(os.open(point / 'controller.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), 'r+b') as lock:
+        info = os.fstat(lock.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid() and
+                info.st_mode & 0o777 == 0o600 and info.st_nlink == 1, 'unsafe native import lock')
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         candidate, record = point / 'image.tar', point / 'prepared.json'
         if operation == 'prepare' and not record.exists():

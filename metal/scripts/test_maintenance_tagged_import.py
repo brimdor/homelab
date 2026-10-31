@@ -155,6 +155,31 @@ class TaggedImportTests(unittest.TestCase):
         with patch.object(tagged.subprocess, 'check_output', return_value='REF TYPE DIGEST SIZE PLATFORMS LABELS\n'):
             with self.assertRaisesRegex(RuntimeError, 'disappeared'): tagged.native_aliases(profile)
 
+    def test_native_host_requires_original_machine_runtime_and_idle_owner(self):
+        original = json.loads(Path('metal/maintenance/tagged-image-import-inputs-103.json').read_text())
+        def output(arguments, **kwargs):
+            if arguments[0] == 'findmnt': return original['identity']['root_uuid'] + '\n'
+            if arguments[-1] == '--version': return 'k3s version v1.33.13+k3s2 (reviewed)\n'
+            if arguments[1] == 'show': return '123\n'
+            return 'active\n'
+        values = {'/etc/machine-id': original['identity']['machine'],
+                  '/proc/sys/kernel/random/boot_id': '11111111-2222-3333-4444-555555555555',
+                  '/proc/123/stat': '123 (k3s server) ' + ' '.join(['0'] * 19 + ['9876'])}
+        for case in ('valid', 'hash', 'foreign-executable', 'held-owner'):
+            with self.subTest(case=case):
+                inputs = {**original, 'runtime_sha256': '0' * 64} if case == 'hash' else original
+                with patch.object(tagged.os, 'geteuid', return_value=0), \
+                        patch.object(tagged.socket, 'gethostname', return_value='pikachu'), \
+                        patch.object(Path, 'read_text', lambda path: values[str(path)]), \
+                        patch.object(Path, 'exists', return_value=case == 'held-owner'), \
+                        patch.object(Path, 'samefile', return_value=case != 'foreign-executable'), \
+                        patch.object(tagged, 'checked_file'), \
+                        patch.object(tagged.subprocess, 'check_output', side_effect=output):
+                    if case == 'valid':
+                        self.assertEqual(tagged.native_host(inputs)['start_ticks'], '9876')
+                    else:
+                        with self.assertRaises(RuntimeError): tagged.native_host(inputs)
+
     def test_native_workflow_requires_new_success_and_preserves_original(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
