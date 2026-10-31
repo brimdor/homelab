@@ -308,7 +308,7 @@ class Ownership:
                     key not in after['metadata'].get('annotations', {}),
                     'queued-request cleanup uncertain; observe before another action')
 
-    def release(self, token, verify_safe_release):
+    def release(self, token, verify_safe_release, *, before_patch=None):
         # No CLI exposes this: the future controller must supply real acceptance gates.
         journal = self.resume(token)
         require(verify_safe_release(copy.deepcopy(journal)) is True,
@@ -334,6 +334,8 @@ class Ownership:
             self.clear_queued_requests(token, journal)
             ds = self.observed()
             require(self.ownership(ds, token) == journal, 'owner changed during queued-request cleanup')
+        if before_patch is not None:
+            require(before_patch(copy.deepcopy(journal)) is True, 'release dispatch intent refused')
         self.patch(ds, {LOCK: encoded(restore) if restore is not None else None, JOURNAL: None})
         after = self.observed()['metadata'].get('annotations', {})
         require(JOURNAL not in after and (after.get(LOCK) == encoded(restore)

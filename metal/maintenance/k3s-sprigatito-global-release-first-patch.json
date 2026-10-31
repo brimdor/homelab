@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "kind": "unsubmitted-global",
+  "node": "sprigatito",
+  "owner": {
+    "component": "k3s",
+    "created": "2026-10-30T23:08:28.434495Z",
+    "node": "sprigatito",
+    "node_uid": "5d80125d-4228-47dd-b19c-ca86f7d4316c",
+    "owner": "homelab-maintenance-103-456825a9-bcbd-4e40-805a-7dc504974f52",
+    "phase": "OWNED_KURED_ONLY",
+    "revision": "120e8132c355a16237746d9655c82cf524744cb1",
+    "source": "v1.33.10+k3s1",
+    "target": "v1.33.13+k3s2",
+    "version": 1
+  },
+  "release_records": {
+    "00000000.json": "a21907f3c4290fd2714024f2228940cf2e10184d65b44e854ab90777b2f21e25",
+    "00000001.json": "fc8285a3d2bf3f4030a3df148cde448329991fc921558faca724502f863d5bb0",
+    "00000002.json": "b56003567118d8549cd201f17b1dd01f11abb74f4e1435015d284519e99bbccd",
+    "00000003.json": "6bed3599a79efe72946d3071798172db548d39fe59475856479028c1e207c637"
+  },
+  "identity": {
+    "machine": "e5796c3018b6448eae0c69405926317e",
+    "root_uuid": "c27f6613-788e-4d00-802c-5b84a730a631"
+  },
+  "pid": 520951,
+  "boot": "9d776668-aa8d-46f3-82f1-1ec37af2384a",
+  "nodes": {
+    "arcanine": {
+      "uid": "88aa2572-09df-40b9-8a00-960e9682917c"
+    },
+    "bulbasaur": {
+      "uid": "b921073c-822a-4b74-80ed-563fec33d6ab"
+    },
+    "charmander": {
+      "uid": "9108f105-f73d-41bb-891f-ac2db6658714"
+    },
+    "cyndaquil": {
+      "uid": "6a26f4ed-68e6-4681-baf9-47660549c4fb"
+    },
+    "growlithe": {
+      "uid": "50f95b8f-4117-4c1e-84bc-266c5b23bffb"
+    },
+    "pikachu": {
+      "uid": "7ec4e786-0b5d-416d-9284-8eac993635bf"
+    },
+    "sprigatito": {
+      "uid": "5d80125d-4228-47dd-b19c-ca86f7d4316c"
+    },
+    "squirtle": {
+      "uid": "10951ffe-dd31-4c38-b854-67f3a011458c"
+    },
+    "totodile": {
+      "uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7"
+    }
+  },
+  "audit_time": "2026-10-31T00:15:33.413020+00:00",
+  "failure_sha256": "7ef775bc3718516210e99d5aa1e58a50e1b1869f5ce52c8f48253c5eaa62206b",
+  "failure_disposition": "Initial final-safety callback refused before release mutation; transient Pod identity and historical cause UNKNOWN."
+}

@@ -143,6 +143,16 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(self.worker.read()['kinds'], list(release.KINDS[:4]))
         self.assertEqual(self.api.writes, 1)
 
+    def test_final_safety_refusal_does_not_create_dispatch_intent(self):
+        self.prepare();self.host()
+        observations = iter([True, False])
+        with self.assertRaisesRegex(RuntimeError, 'safe release evidence'):
+            self.global_release(lambda *_: next(observations))
+        self.assertEqual(self.worker.read()['kinds'], list(release.KINDS[:3]))
+        self.assertEqual(self.api.writes, 1)
+        self.assertTrue(self.global_release()['complete'])
+        self.assertEqual(self.api.writes, 2)
+
     def test_refused_fresh_safety_never_releases_owners_or_accepts_observation(self):
         self.prepare()
         with self.assertRaisesRegex(RuntimeError, 'safe release evidence'):self.host(lambda *_: False)

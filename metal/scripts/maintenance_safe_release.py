@@ -135,12 +135,16 @@ class Release:
                            self.global_held(header), 'global release requires accepted host release; observe only')
             self.verified(state, evidence_sha256, verify_safe)
             actors.require(not self.host_held(header) and self.global_held(header), 'release ownership changed')
-            self.append(state, 'global-intent', evidence_sha256)
             def verify(value):
                 pending = self.read()
-                return (value == header['owners']['global'] and pending['kinds'] == list(KINDS[:4]) and
+                return (value == header['owners']['global'] and pending == state and
                         self.verified(pending, evidence_sha256, verify_safe) and not self.host_held(header))
-            self.ownership.release(self.journal.token, verify)
+            def before_patch(value):
+                actors.require(value == header['owners']['global'] and self.read() == state and
+                               not self.host_held(header), 'global release changed before dispatch intent')
+                self.append(state, 'global-intent', evidence_sha256)
+                return True
+            self.ownership.release(self.journal.token, verify, before_patch=before_patch)
         return self.observe(evidence_sha256, verify_safe)
 
     def observe(self, evidence_sha256, verify_safe):

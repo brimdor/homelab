@@ -95,5 +95,92 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(self.api.writes, 2)
 
 
+class FirstPatchTests(unittest.TestCase):
+    setUp = RecoveryTests.setUp
+    fresh_hold = RecoveryTests.fresh_hold
+    fresh_journal = RecoveryTests.fresh_journal
+    complete = RecoveryTests.complete
+    prepare = RecoveryTests.prepare
+    host = RecoveryTests.host
+
+    def fixture(self):
+        self.prepare();self.host()
+        self.worker.append(self.worker.read(), 'global-intent', 'a' * 64)
+        return {'kind': 'unsubmitted-global', 'owner': self.owner, 'identity': self.hold.identity(),
+                'release_records': {p.name: hashed(recovery.json.loads(p.read_bytes()))
+                                    for p in self.worker.path.iterdir()},
+                'nodes': {n['metadata']['name']: {'uid': n['metadata']['uid']} for n in self.api.nodes}}
+
+    def recover(self, profile, verify=lambda *_: True, runtime=lambda: True):
+        return recovery.recover_unsubmitted(self.worker, profile, verify, runtime)
+
+    def test_fresh_refusal_then_success_preserves_original_records(self):
+        profile = self.fixture()
+        original = {p: p.read_bytes() for p in self.worker.path.iterdir()}
+        with self.assertRaisesRegex(RuntimeError, 'safe release evidence'):
+            self.recover(profile, verify=lambda *_: False)
+        self.assertFalse(list(self.hold.state.glob('release-first-patch-*')))
+        self.assertEqual(self.api.writes, 1)
+        self.assertTrue(self.recover(profile)['complete'])
+        self.assertEqual(self.api.writes, 2)
+        self.assertEqual({p: p.read_bytes() for p in original}, original)
+        self.assertTrue(self.recover(profile)['complete'])
+        self.assertEqual(self.api.writes, 2)
+
+    def test_rejected_patch_marker_prevents_another_dispatch(self):
+        profile = self.fixture()
+        with patch.object(self.api, 'patch', side_effect=RuntimeError('API refused')) as dispatch:
+            with self.assertRaisesRegex(RuntimeError, 'API refused'):self.recover(profile)
+            with self.assertRaisesRegex(RuntimeError, 'uncertain; observe only'):self.recover(profile)
+            self.assertEqual(dispatch.call_count, 1)
+        self.assertEqual(self.api.writes, 1)
+        self.assertEqual(self.worker.read()['kinds'], list(KINDS[:4]))
+
+    def test_lost_committed_response_only_observes_original_intent(self):
+        profile = self.fixture();self.api.uncertain = True
+        with self.assertRaisesRegex(RuntimeError, 'transport lost'):self.recover(profile)
+        self.api.uncertain = False
+        self.assertTrue(self.recover(profile)['complete'])
+        self.assertEqual(self.api.writes, 2)
+
+    def test_final_safety_refusal_leaves_no_marker(self):
+        profile = self.fixture();checks = iter([True, False])
+        with self.assertRaisesRegex(RuntimeError, 'safe release evidence'):
+            self.recover(profile, verify=lambda *_: next(checks))
+        self.assertFalse(list(self.hold.state.glob('release-first-patch-*')))
+        self.assertEqual(self.api.writes, 1)
+
+    def test_changed_runtime_record_identity_or_actor_refuses(self):
+        for change in ('runtime', 'record', 'identity', 'actor'):
+            self.setUp();profile = self.fixture()
+            if change == 'record':profile['release_records']['00000003.json'] = 'b' * 64
+            if change == 'identity':profile['identity'] = {'machine': 'foreign', 'root_uuid': 'foreign'}
+            if change == 'actor':self.native.active = True
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                self.recover(profile, runtime=lambda: change != 'runtime')
+            self.assertEqual(self.api.writes, 1)
+
+    def test_rpc_only_removes_exact_original_owner(self):
+        profile = self.fixture();before = copy.deepcopy(self.api.ds)
+        annotations = dict(before['metadata']['annotations'])
+        del annotations[coordination.LOCK];del annotations[coordination.JOURNAL]
+        operations = [
+            {'op': 'test', 'path': '/metadata/uid', 'value': before['metadata']['uid']},
+            {'op': 'test', 'path': '/metadata/resourceVersion', 'value': before['metadata']['resourceVersion']},
+            {'op': 'add', 'path': '/metadata/annotations', 'value': annotations}]
+        for change in ('uid', 'version', 'unrelated', 'spec'):
+            wrong = copy.deepcopy(operations)
+            if change == 'uid':wrong[0]['value'] = 'foreign'
+            if change == 'version':wrong[1]['value'] = 'stale'
+            if change == 'unrelated':wrong[2]['value'] = {}
+            if change == 'spec':wrong.append({'op': 'remove', 'path': '/spec'})
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                recovery.global_patch(self.api, profile, before['metadata']['uid'], wrong)
+        with patch.object(self.api, 'call') as call:
+            recovery.global_patch(self.api, profile, before['metadata']['uid'], operations)
+            self.assertEqual(call.call_args.args[:5], ('patch', 'daemonset', 'kured', '-n', 'kured'))
+        self.assertEqual(self.api.ds, before)
+
+
 if __name__ == '__main__':
     unittest.main()

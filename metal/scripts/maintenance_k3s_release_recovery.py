@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observe one published interrupted release; never dispatch a release or restart."""
+"""Recover exact published release interruptions; never repeat an uncertain patch."""
 
 import argparse
 from datetime import datetime
@@ -9,13 +9,81 @@ import shlex
 import subprocess
 import sys
 
+import maintenance_actor_hold as actors
 import maintenance_coordination as coordination
-from maintenance_node_drain import hashed
+import maintenance_hop_journal as hops
+from maintenance_node_drain import hashed, private_json
 from maintenance_safe_release import KINDS
 
 
 PROFILE = Path('metal/maintenance/k3s-growlithe-release-recovery.json')
 REQUEST = 'weave.works/kured-reboot-in-progress'
+
+
+def global_patch(api, profile, daemonset_uid, operations):
+    """Only remove this original owner, preserving every other annotation and spec."""
+    require = coordination.require
+    require(profile.get('kind') == 'unsubmitted-global', 'unreviewed global recovery patch')
+    controller = coordination.Ownership(api, daemonset_uid,
+                                       {n: v['uid'] for n, v in profile['nodes'].items()})
+    ds = controller.observed()
+    require(controller.ownership(ds, profile['owner']['owner']) == profile['owner'] and
+            'restore_window_lock' not in profile['owner'], 'original global ownership differs')
+    annotations = dict(ds['metadata']['annotations'])
+    del annotations[coordination.LOCK]
+    del annotations[coordination.JOURNAL]
+    require(operations == [
+        {'op': 'test', 'path': '/metadata/uid', 'value': daemonset_uid},
+        {'op': 'test', 'path': '/metadata/resourceVersion', 'value': ds['metadata']['resourceVersion']},
+        {'op': 'add', 'path': '/metadata/annotations', 'value': annotations}],
+        'global recovery patch differs')
+    return api.call('patch', 'daemonset', 'kured', '-n', 'kured', '--type=json',
+                    '--patch', coordination.encoded(operations), '-o', 'json')
+
+
+def recover_unsubmitted(worker, profile, verify_safe, verify_runtime):
+    """One profiled first patch after a proven old pre-dispatch safety refusal."""
+    require = coordination.require
+    require(profile.get('kind') == 'unsubmitted-global', 'unreviewed first-patch recovery')
+    digest = hashed(profile)
+
+    def verified():
+        require(verify_runtime() is True, 'release recovery runtime changed')
+        state = worker.read()
+        require(state['kinds'] in (list(KINDS[:4]), list(KINDS)), 'original global intent missing')
+        require(state['header']['owners']['global'] == profile['owner'] and
+                state['header']['owners']['host']['identity'] == profile['identity'] and
+                not worker.host_held(state['header']), 'original first-patch ownership differs')
+        require(set(profile['release_records']) == {str(i).zfill(8) + '.json' for i in range(4)} and
+                all(hashed(private_json(worker.path / name)) == value
+                    for name, value in profile['release_records'].items()), 'original release record differs')
+        return state
+
+    state = verified()
+    marker = worker.hold.state / ('release-first-patch-' + worker.journal.token + '.json')
+    expected = {'version': 1, 'profile_sha256': digest,
+                'release_head_sha256': profile['release_records']['00000003.json']}
+    actors.safe(marker)
+    if marker.exists():
+        require(private_json(marker) == expected, 'first-patch dispatch marker differs')
+    if not worker.global_held(state['header']):
+        return worker.observe(digest, verify_safe)
+    require(not marker.exists(), 'global release dispatch uncertain; observe only')
+    require(worker.verified(state, digest, verify_safe), 'current first-patch safety refused')
+
+    def verify(value):
+        current = verified()
+        return (value == profile['owner'] and current == state and
+                worker.verified(current, digest, verify_safe))
+
+    def before_patch(value):
+        require(value == profile['owner'] and verified() == state and not marker.exists(),
+                'first-patch state changed before dispatch')
+        actors.exclusive_file(marker, hops.canonical(expected), 0o600)
+        return True
+
+    worker.ownership.release(worker.journal.token, verify, before_patch=before_patch)
+    return worker.observe(digest, verify_safe)
 
 
 def recover(worker, profile, verify_safe, verify_runtime):
@@ -80,6 +148,7 @@ for name,source in BUNDLE.items():
 coord=sys.modules['maintenance_coordination'];actors=sys.modules['maintenance_actor_hold']
 hops=sys.modules['maintenance_hop_journal'];release=sys.modules['maintenance_safe_release']
 bridge=sys.modules['maintenance_k3s_production'];recovery=sys.modules['maintenance_k3s_release_recovery']
+bridge.configure_stage(PROFILE['owner']['source'],PROFILE['owner']['target'])
 def native(*argv):return actors.Systemd.call(*argv).decode().strip()
 def identity():
  value={'machine':pathlib.Path('/etc/machine-id').read_text().strip(),'root_uuid':native('findmnt','-n','-o','UUID','/')}
@@ -92,6 +161,7 @@ def rpc(kind,**payload):
  return reply['result']
 class API:
  def call(self,*argv):return rpc('api',argv=list(argv))
+ def patch(self,operations):return rpc('global_patch',operations=operations)
  def snapshot(self):return(self.call('get','daemonset','kured','-n','kured','-o','json'),self.call('get','pods','-n','kured','-o','json')['items'],self.call('get','nodes','-o','json')['items'])
 api=API();controller=coord.Ownership(api,DS_UID,{n:v['uid']for n,v in PROFILE['nodes'].items()})
 hold=actors.Hold(actors.Systemd(),identity,lambda _:False)
@@ -102,7 +172,8 @@ assert after['pid']==PROFILE['pid']and after['boot']==PROFILE['boot']
 health=rpc('applications')
 def safe(header,digest):
  return(header['owners']['global']==PROFILE['owner']and digest==recovery.hashed(PROFILE)and bridge.runtime(native,bridge.TARGET)==after and rpc('applications')==health)
-result=recovery.recover(worker,PROFILE,safe,lambda:identity()==PROFILE['identity']and bridge.runtime(native,bridge.TARGET)==after)
+action=recovery.recover_unsubmitted if PROFILE.get('kind')=='unsubmitted-global' else recovery.recover
+result=action(worker,PROFILE,safe,lambda:identity()==PROFILE['identity']and bridge.runtime(native,bridge.TARGET)==after)
 print(json.dumps({'result':result}),flush=True)
 '''
 
@@ -112,6 +183,8 @@ def main():
     import maintenance_k3s_production as bridge
     from maintenance_api_reader import Reader
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--node', choices=('growlithe', 'sprigatito'), default='growlithe')
+    parser.add_argument('--failure-receipt')
     for name in ('kubectl', 'identity', 'known-hosts'):
         parser.add_argument('--' + name, required=True)
     args = parser.parse_args()
@@ -123,14 +196,37 @@ def main():
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     require(subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0] ==
             revision, 'publish recovery before execution')
-    raw = PROFILE.read_bytes()
-    require(raw == subprocess.check_output(['git', 'show', revision + ':' + str(PROFILE)]), 'unpublished release profile')
+    profile_path = (PROFILE if args.node == 'growlithe' else
+                    PROFILE.parent / 'k3s-sprigatito-global-release-first-patch.json')
+    raw = profile_path.read_bytes()
+    require(raw == subprocess.check_output(['git', 'show', revision + ':' + str(profile_path)]), 'unpublished release profile')
     profile = json.loads(raw)
-    require(profile['version'] == 1 and profile['node'] == 'growlithe' and
-            profile['owner']['owner'] == 'homelab-maintenance-103-97a88314-4ad1-4fad-86e3-47e0adcbe84c' and
+    owners = {'growlithe': 'homelab-maintenance-103-97a88314-4ad1-4fad-86e3-47e0adcbe84c',
+              'sprigatito': 'homelab-maintenance-103-456825a9-bcbd-4e40-805a-7dc504974f52'}
+    require(profile['version'] == 1 and profile['node'] == args.node and
+            profile['owner']['owner'] == owners[args.node] and
+            (args.node != 'sprigatito' or profile.get('kind') == 'unsubmitted-global') and
             set(profile['release_records']) == {str(i).zfill(8) + '.json' for i in range(4)}, 'unreviewed recovery profile')
     production.select_node(profile['node'])
-    require(profile['identity'] == production.IDENTITY, 'recovery host identity differs')
+    require(profile['identity'] == production.IDENTITY and profile['owner']['node_uid'] == production.UID,
+            'recovery host identity differs')
+    bridge.configure_stage(profile['owner']['source'], profile['owner']['target'])
+    if profile.get('kind') == 'unsubmitted-global':
+        import hashlib
+        require(args.failure_receipt, 'original pre-dispatch failure receipt required')
+        failure_raw = Path(args.failure_receipt).read_bytes()
+        require(hashlib.sha256(failure_raw).hexdigest() == profile['failure_sha256'],
+                'original pre-dispatch failure differs')
+        failure = json.loads(failure_raw)
+        prior = subprocess.check_output(['git', 'show', profile['owner']['revision'] +
+                                        ':metal/scripts/maintenance_coordination.py'], text=True)
+        release_source = prior[prior.index('    def release('):prior.index('\n\ndef main():')]
+        require(failure['exit'] == 1 and failure['stderr'].endswith('AssertionError: target Pod unready\n\n') and
+                'maintenance_coordination.py\", line 314, in release' in failure['stderr'] and
+                prior.splitlines()[313].strip().startswith('require(verify_safe_release(') and
+                release_source.index('require(verify_safe_release(') <
+                min(release_source.index('self.clear_queued_requests('), release_source.index('self.patch(ds, {LOCK:')),
+                'failure does not prove refusal before the first release mutation')
     names = (*production.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary',
              'maintenance_k3s_production', 'maintenance_k3s_release_recovery')
     bundle = {}
@@ -155,6 +251,8 @@ def main():
             try:
                 if request['rpc'] == 'applications':
                     value = bridge.observe(args, api, profile['owner'], 'applications')
+                elif request['rpc'] == 'global_patch':
+                    value = global_patch(api, profile, production.DS_UID, request['operations'])
                 else:
                     require(request['rpc'] == 'api', 'unreviewed recovery request')
                     argv = request['argv']
@@ -172,8 +270,21 @@ def main():
                             require(node['uid'] == profile['nodes'][argv[2]]['uid'] and json.loads(argv[5]) == [
                                 {'op': 'test', 'path': '/metadata/uid', 'value': node['uid']},
                                 {'op': 'test', 'path': '/metadata/resourceVersion', 'value': node['resourceVersion']},
-                                {'op': 'test', 'path': pointer, 'value': profile['nodes'][argv[2]]['queued_reboot']},
+                                {'op': 'test', 'path': pointer, 'value': node.get('annotations', {}).get(REQUEST)},
                                 {'op': 'remove', 'path': pointer}], 'queued-request patch differs')
+                            requested = node.get('annotations', {}).get(REQUEST)
+                            if profile.get('kind') == 'unsubmitted-global':
+                                require(coordination.Ownership(api, production.DS_UID,
+                                    {n: v['uid'] for n, v in profile['nodes'].items()}).resume(
+                                        profile['owner']['owner']) == profile['owner'],
+                                    'original owner changed before request cleanup')
+                            require(isinstance(requested, str) and
+                                    ((profile.get('kind') == 'unsubmitted-global' and
+                                      datetime.fromisoformat(profile['owner']['created'].replace('Z', '+00:00')) <=
+                                      datetime.fromisoformat(requested.replace('Z', '+00:00')) <=
+                                      datetime.now().astimezone()) or
+                                     requested == profile['nodes'][argv[2]].get('queued_reboot')),
+                                    'unproven queued reboot request')
                     value = api.call(*argv)
                 reply = {'ok': True, 'result': value}
             except Exception as error:
