@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "kind": "unsubmitted-host",
+  "node": "charmander",
+  "owner": {
+    "component": "k3s",
+    "created": "2026-10-31T10:43:09.733603Z",
+    "node": "charmander",
+    "node_uid": "9108f105-f73d-41bb-891f-ac2db6658714",
+    "owner": "homelab-maintenance-103-24f83540-7143-44cb-a1a7-4b9c4520fb2d",
+    "phase": "OWNED_KURED_ONLY",
+    "revision": "880c67e565e9f4973419aae157133cdd536ace4d",
+    "source": "v1.33.13+k3s2",
+    "target": "v1.34.12+k3s1",
+    "version": 1
+  },
+  "release_records": {
+    "00000000.json": "c4d1aa0281f1fff7d6870a890f65b8024d49e73fb1f0b488b6fb1ce594ed18f7",
+    "00000001.json": "447fa9c6b1cb2f7821e7e8f69f0dd709bc602c899136d9c8c7e3e7c6c286b5c0"
+  },
+  "identity": {
+    "machine": "58d682ccab5a4269acedc3cdf53e46dc",
+    "root_uuid": "4a64a6d6-e982-4694-aa03-ad5f317b3ab2"
+  },
+  "pid": 2178950,
+  "boot": "61389f87-e3e6-47e6-b47b-feb59659a5c2",
+  "nodes": {
+    "arcanine": {
+      "uid": "88aa2572-09df-40b9-8a00-960e9682917c",
+      "boot": "8a4e736b-8ea6-45fb-b507-869f1d768115"
+    },
+    "bulbasaur": {
+      "uid": "b921073c-822a-4b74-80ed-563fec33d6ab",
+      "boot": "9f55da1f-098c-41ed-849b-9e3feedb1a4b"
+    },
+    "charmander": {
+      "uid": "9108f105-f73d-41bb-891f-ac2db6658714",
+      "boot": "61389f87-e3e6-47e6-b47b-feb59659a5c2"
+    },
+    "cyndaquil": {
+      "uid": "6a26f4ed-68e6-4681-baf9-47660549c4fb",
+      "boot": "52f33fa2-6b51-4b33-a06c-77a3dc2648d0"
+    },
+    "growlithe": {
+      "uid": "50f95b8f-4117-4c1e-84bc-266c5b23bffb",
+      "boot": "9abbec7b-5f12-4d96-b833-9d76890eb23b"
+    },
+    "pikachu": {
+      "uid": "7ec4e786-0b5d-416d-9284-8eac993635bf",
+      "boot": "bdfd043d-858d-4ec0-a092-5aaf8f67f831"
+    },
+    "sprigatito": {
+      "uid": "5d80125d-4228-47dd-b19c-ca86f7d4316c",
+      "boot": "9d776668-aa8d-46f3-82f1-1ec37af2384a"
+    },
+    "squirtle": {
+      "uid": "10951ffe-dd31-4c38-b854-67f3a011458c",
+      "boot": "7c2084ed-9e9e-4c2a-92d7-53391c171519"
+    },
+    "totodile": {
+      "uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
+      "boot": "3b3780a6-2c02-4aab-9ecd-08c9839ac336"
+    }
+  },
+  "failure_sha256": "0d9b3eae5f4dee983bdc7843fdf4bf140bdf60e64115f5b6499a44dbf9498178",
+  "audit_time": "2026-10-31T12:31:50.718099+00:00"
+}

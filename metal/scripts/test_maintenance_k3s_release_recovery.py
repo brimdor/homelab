@@ -182,5 +182,67 @@ class FirstPatchTests(unittest.TestCase):
         self.assertEqual(self.api.ds, before)
 
 
+class FirstUnlinkTests(unittest.TestCase):
+    setUp = RecoveryTests.setUp
+    fresh_hold = RecoveryTests.fresh_hold
+    fresh_journal = RecoveryTests.fresh_journal
+    complete = RecoveryTests.complete
+    prepare = RecoveryTests.prepare
+
+    def fixture(self):
+        self.prepare();self.worker.append(self.worker.read(), 'host-intent', 'a' * 64)
+        return {'kind': 'unsubmitted-host', 'owner': self.owner, 'identity': self.hold.identity(),
+                'release_records': {p.name: hashed(recovery.json.loads(p.read_bytes()))
+                                    for p in self.worker.path.iterdir()}}
+
+    def recover(self, profile, verify=lambda *_: True, runtime=lambda: True):
+        return recovery.recover_unsubmitted_host(self.worker, profile, verify, runtime)
+
+    def test_final_refusal_then_first_unlink_preserves_original_records(self):
+        profile = self.fixture();original = {p: p.read_bytes() for p in self.worker.path.iterdir()}
+        checks = iter([True, False])
+        with self.assertRaisesRegex(RuntimeError, 'safe release evidence'):
+            self.recover(profile, verify=lambda *_: next(checks))
+        self.assertFalse(list(self.hold.state.glob('release-first-unlink-*')))
+        self.assertTrue(self.hold.marker.exists())
+        self.assertFalse(self.recover(profile)['complete'])
+        self.assertFalse(self.hold.marker.exists())
+        self.assertEqual(self.worker.read()['kinds'], list(KINDS[:3]))
+        self.assertEqual({p: p.read_bytes() for p in original}, original)
+        self.assertFalse(self.recover(profile)['complete']);self.assertEqual(self.api.writes, 1)
+        self.assertTrue(self.worker.release_global('b' * 64, lambda *_: True)['complete'])
+
+    def test_uncertain_unlink_marker_forbids_another_dispatch(self):
+        profile = self.fixture()
+        with patch.object(type(self.hold.marker), 'unlink', side_effect=RuntimeError('unlink interrupted')) as unlink:
+            with self.assertRaisesRegex(RuntimeError, 'unlink interrupted'):self.recover(profile)
+            with self.assertRaisesRegex(RuntimeError, 'uncertain; observe only'):self.recover(profile)
+            self.assertEqual(unlink.call_count, 1)
+        self.assertTrue(self.hold.marker.exists());self.assertEqual(self.api.writes, 1)
+
+    def test_lost_committed_response_observes_without_another_unlink(self):
+        profile = self.fixture();original = self.hold.release
+        def lost(*args):
+            original(*args);raise RuntimeError('lost committed unlink')
+        with patch.object(self.hold, 'release', side_effect=lost) as dispatch:
+            with self.assertRaisesRegex(RuntimeError, 'lost committed unlink'):self.recover(profile)
+            self.assertFalse(self.recover(profile)['complete'])
+            self.assertEqual(dispatch.call_count, 1)
+        self.assertFalse(self.hold.marker.exists());self.assertEqual(self.api.writes, 1)
+
+    def test_changed_original_binding_runtime_owner_or_actor_refuses(self):
+        for change in ('runtime', 'record', 'identity', 'owner', 'actor'):
+            self.setUp();profile = self.fixture()
+            if change == 'record':profile['release_records']['00000001.json'] = 'b' * 64
+            if change == 'identity':profile['identity'] = {'machine': 'foreign', 'root_uuid': 'foreign'}
+            if change == 'owner':profile['owner'] = dict(self.owner, owner='foreign')
+            if change == 'actor':self.native.active = True
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                self.recover(profile, runtime=lambda: change != 'runtime')
+            self.assertTrue(self.hold.marker.exists())
+            self.assertFalse(list(self.hold.state.glob('release-first-unlink-*')))
+            self.assertEqual(self.api.writes, 1)
+
+
 if __name__ == '__main__':
     unittest.main()

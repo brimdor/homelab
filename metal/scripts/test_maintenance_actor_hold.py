@@ -56,6 +56,24 @@ class ActorHold(unittest.TestCase):
             self.assertEqual(guards, {s: (root / 'units' / (s + '.d') / actors.GUARD).read_bytes() for s in actors.SERVICES})
             self.assertTrue(set(native.calls) <= {'reload', 'idle'})
 
+    def test_final_callback_runs_after_safety_and_idle_before_unlink(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            owner, native = self.fixture(Path(temporary))
+            expected = owner.acquire(TOKEN, IDENTITY, 'a' * 40)
+            events = []
+            def verify(value):
+                self.assertEqual(value, expected);events.append('verified');return True
+            def before(value):
+                self.assertEqual(value, expected)
+                self.assertTrue(owner.marker.exists());self.assertEqual(native.calls[-1], 'idle')
+                events.append('before');return False
+            with self.assertRaisesRegex(RuntimeError, 'dispatch refused'):
+                owner.release(TOKEN, verify, before)
+            self.assertTrue(owner.marker.exists());self.assertEqual(events, ['verified', 'before'])
+            events.clear()
+            owner.release(TOKEN, verify, lambda value: before(value) is False)
+            self.assertFalse(owner.marker.exists());self.assertEqual(events, ['verified', 'before'])
+
     def test_partial_hold_resumes_without_overwriting_foreign_state(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

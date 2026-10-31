@@ -86,6 +86,57 @@ def recover_unsubmitted(worker, profile, verify_safe, verify_runtime):
     return worker.observe(digest, verify_safe)
 
 
+def recover_unsubmitted_host(worker, profile, verify_safe, verify_runtime):
+    """One profiled first unlink after a proven old pre-removal safety refusal."""
+    require = coordination.require
+    require(profile.get('kind') == 'unsubmitted-host', 'unreviewed first-unlink recovery')
+    digest = hashed(profile)
+
+    def verified():
+        require(verify_runtime() is True, 'release recovery runtime changed')
+        state = worker.read()
+        require(state['kinds'] in (list(KINDS[:2]), list(KINDS[:3]), list(KINDS)),
+                'original host intent missing')
+        require(state['header']['owners']['global'] == profile['owner'] and
+                state['header']['owners']['host']['identity'] == profile['identity'],
+                'original first-unlink ownership differs')
+        require(set(profile['release_records']) == {'00000000.json', '00000001.json'} and
+                all(hashed(private_json(worker.path / name)) == value
+                    for name, value in profile['release_records'].items()),
+                'original release record differs')
+        return state
+
+    state = verified()
+    marker = worker.hold.state / ('release-first-unlink-' + worker.journal.token + '.json')
+    expected = {'version': 1, 'profile_sha256': digest,
+                'release_head_sha256': profile['release_records']['00000001.json']}
+    actors.safe(marker)
+    if marker.exists():
+        require(private_json(marker) == expected, 'first-unlink dispatch marker differs')
+    if not worker.host_held(state['header']):
+        require(marker.exists(), 'host removal has no first-unlink dispatch marker')
+        return worker.observe(digest, verify_safe)
+    require(state['kinds'] == list(KINDS[:2]) and worker.global_held(state['header']),
+            'original pending host ownership differs')
+    require(not marker.exists(), 'host release dispatch uncertain; observe only')
+    worker.verified(state, digest, verify_safe)
+
+    def verify(value):
+        current = verified()
+        return (value == state['header']['owners']['host'] and current == state and
+                worker.verified(current, digest, verify_safe) and worker.global_held(current['header']))
+
+    def before_unlink(value):
+        require(value == state['header']['owners']['host'] and worker.read() == state and
+                worker.global_held(state['header']) and not marker.exists(),
+                'first-unlink state changed before dispatch')
+        actors.exclusive_file(marker, hops.canonical(expected), 0o600)
+        return True
+
+    worker.hold.release(worker.journal.token, verify, before_unlink)
+    return worker.observe(digest, verify_safe)
+
+
 def recover(worker, profile, verify_safe, verify_runtime):
     """Exact historical request cleanup after a proven committed global removal."""
     require = coordination.require
@@ -172,7 +223,7 @@ assert after['pid']==PROFILE['pid']and after['boot']==PROFILE['boot']
 health=rpc('applications')
 def safe(header,digest):
  return(header['owners']['global']==PROFILE['owner']and digest==recovery.hashed(PROFILE)and bridge.runtime(native,bridge.TARGET)==after and rpc('applications')==health)
-action=recovery.recover_unsubmitted if PROFILE.get('kind')=='unsubmitted-global' else recovery.recover
+action=(recovery.recover_unsubmitted_host if PROFILE.get('kind')=='unsubmitted-host' else recovery.recover_unsubmitted if PROFILE.get('kind')=='unsubmitted-global' else recovery.recover)
 result=action(worker,PROFILE,safe,lambda:identity()==PROFILE['identity']and bridge.runtime(native,bridge.TARGET)==after)
 print(json.dumps({'result':result}),flush=True)
 '''
@@ -183,7 +234,7 @@ def main():
     import maintenance_k3s_production as bridge
     from maintenance_api_reader import Reader
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--node', choices=('growlithe', 'sprigatito'), default='growlithe')
+    parser.add_argument('--node', choices=('growlithe', 'sprigatito', 'charmander'), default='growlithe')
     parser.add_argument('--failure-receipt')
     for name in ('kubectl', 'identity', 'known-hosts'):
         parser.add_argument('--' + name, required=True)
@@ -196,21 +247,41 @@ def main():
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     require(subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0] ==
             revision, 'publish recovery before execution')
-    profile_path = (PROFILE if args.node == 'growlithe' else
-                    PROFILE.parent / 'k3s-sprigatito-global-release-first-patch.json')
+    profile_path = (PROFILE if args.node == 'growlithe' else PROFILE.parent /
+                    ('k3s-charmander-host-release-first-unlink.json' if args.node == 'charmander' else
+                     'k3s-sprigatito-global-release-first-patch.json'))
     raw = profile_path.read_bytes()
     require(raw == subprocess.check_output(['git', 'show', revision + ':' + str(profile_path)]), 'unpublished release profile')
     profile = json.loads(raw)
     owners = {'growlithe': 'homelab-maintenance-103-97a88314-4ad1-4fad-86e3-47e0adcbe84c',
-              'sprigatito': 'homelab-maintenance-103-456825a9-bcbd-4e40-805a-7dc504974f52'}
+              'sprigatito': 'homelab-maintenance-103-456825a9-bcbd-4e40-805a-7dc504974f52',
+              'charmander': 'homelab-maintenance-103-24f83540-7143-44cb-a1a7-4b9c4520fb2d'}
     require(profile['version'] == 1 and profile['node'] == args.node and
             profile['owner']['owner'] == owners[args.node] and
             (args.node != 'sprigatito' or profile.get('kind') == 'unsubmitted-global') and
-            set(profile['release_records']) == {str(i).zfill(8) + '.json' for i in range(4)}, 'unreviewed recovery profile')
+            (args.node != 'charmander' or profile.get('kind') == 'unsubmitted-host') and
+            set(profile['release_records']) == {str(i).zfill(8) + '.json'
+                for i in range(2 if args.node == 'charmander' else 4)}, 'unreviewed recovery profile')
     production.select_node(profile['node'])
     require(profile['identity'] == production.IDENTITY and profile['owner']['node_uid'] == production.UID,
             'recovery host identity differs')
     bridge.configure_stage(profile['owner']['source'], profile['owner']['target'])
+    if profile.get('kind') == 'unsubmitted-host':
+        import hashlib
+        require(args.failure_receipt, 'original pre-unlink failure receipt required')
+        failure_raw = Path(args.failure_receipt).read_bytes()
+        require(hashlib.sha256(failure_raw).hexdigest() == profile['failure_sha256'],
+                'original pre-unlink failure differs')
+        failure = json.loads(failure_raw)
+        prior = subprocess.check_output(['git', 'show', profile['owner']['revision'] +
+                                        ':metal/scripts/maintenance_actor_hold.py'], text=True)
+        release_source = prior[prior.index('    def release(self, token, verify_release):'):]
+        require(failure['exit'] == 1 and failure['stderr'].rstrip().endswith(
+                    'AssertionError: controller recovery incomplete: strata/strata') and
+                'maintenance_actor_hold.py", line 233, in release' in failure['stderr'] and
+                prior.splitlines()[232].strip().startswith('require(verify_release(') and
+                release_source.index('require(verify_release(') < release_source.index('self.marker.unlink()'),
+                'failure does not prove refusal before the first host removal')
     if profile.get('kind') == 'unsubmitted-global':
         import hashlib
         require(args.failure_receipt, 'original pre-dispatch failure receipt required')

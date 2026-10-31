@@ -225,7 +225,7 @@ class Hold:
         with self.serialized():
             return self._resume(token)
 
-    def release(self, token, verify_release):
+    def release(self, token, verify_release, before_unlink=None):
         with self.serialized():
             value = self.observed(token)
             self.guards(install=False)
@@ -233,6 +233,9 @@ class Hold:
             require(verify_release(json.loads(json.dumps(value))) is True, 'actor release gates failed')
             require(self.observed(token) == value, 'actor owner changed during release verification')
             self.systemd.idle(self.marker)
+            if before_unlink is not None:
+                require(before_unlink(json.loads(json.dumps(value))) is True,
+                        'actor release dispatch refused')
             self.marker.unlink()
             fsync_directory(self.state)
             require(not self.marker.exists(), 'actor release uncertain')

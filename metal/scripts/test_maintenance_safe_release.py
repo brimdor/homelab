@@ -123,7 +123,11 @@ class ReleaseTests(unittest.TestCase):
         self.prepare();pid = os.fork()
         if pid == 0:
             try:
-                with patch.object(self.hold, 'release', side_effect=lambda *_: os._exit(73)):self.host()
+                def interrupted(token, verify, before_unlink):
+                    value = self.hold.observed(token)
+                    assert verify(value) and before_unlink(value)
+                    os._exit(73)
+                with patch.object(self.hold, 'release', side_effect=interrupted):self.host()
             except BaseException:os._exit(91)
             os._exit(92)
         self.assertEqual(self.wait_child(pid), 73)
@@ -133,6 +137,15 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(self.worker.read(), before)
         with self.assertRaisesRegex(RuntimeError, 'observe only'):self.host()
         self.assertTrue(self.hold.marker.exists());self.assertEqual(self.api.writes, 1)
+
+    def test_final_host_safety_refusal_leaves_no_dispatch_intent(self):
+        self.prepare();observations = iter([True, False])
+        with self.assertRaisesRegex(RuntimeError, 'safe release evidence'):
+            self.host(lambda *_: next(observations))
+        self.assertEqual(self.worker.read()['kinds'], ['header'])
+        self.assertTrue(self.hold.marker.exists());self.assertEqual(self.api.writes, 1)
+        self.assertFalse(self.host()['complete'])
+        self.assertTrue(self.global_release()['complete'])
 
     def test_rejected_global_patch_stays_pending_without_replay(self):
         self.prepare();self.host()

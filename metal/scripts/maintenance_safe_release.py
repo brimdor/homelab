@@ -120,12 +120,17 @@ class Release:
                            'host release is pending, completed or ownership differs; observe only')
             self.verified(state, evidence_sha256, verify_safe)
             actors.require(self.global_held(header) and self.host_held(header), 'release ownership changed')
-            self.append(state, 'host-intent', evidence_sha256)
         def verify(value):
             pending = self.read()
-            return (value == header['owners']['host'] and pending['kinds'] == list(KINDS[:2]) and
+            return (value == header['owners']['host'] and pending == state and
                     self.verified(pending, evidence_sha256, verify_safe) and self.global_held(header))
-        self.hold.release(self.journal.token, verify)
+        def before_unlink(value):
+            actors.require(value == header['owners']['host'] and self.read() == state and
+                           self.global_held(header) and self.host_held(header),
+                           'host release changed before dispatch intent')
+            self.append(state, 'host-intent', evidence_sha256)
+            return True
+        self.hold.release(self.journal.token, verify, before_unlink)
         return self.observe(evidence_sha256, verify_safe)
 
     def release_global(self, evidence_sha256, verify_safe):
