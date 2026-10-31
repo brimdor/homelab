@@ -36,22 +36,36 @@ class ChartTests(unittest.TestCase):
         dependency = yaml.safe_load((CHART / "Chart.yaml").read_text())["dependencies"]
         self.assertEqual(dependency, [{"name": "app-template", "version": "5.3.0", "repository": "https://bjw-s-labs.github.io/helm-charts/"}])
         objects = render()
-        self.assertEqual(len(objects), 10)
-        self.assertFalse(any(o["kind"] in ["Ingress", "Secret", "Job"] for o in objects))
+        self.assertEqual(len(objects), 11)
+        self.assertFalse(any(o["kind"] in ["Secret", "Job"] for o in objects))
         for obj in objects:
             self.assertNotIn("production", obj["metadata"]["name"])
             if obj["kind"] != "Namespace": self.assertEqual(obj["metadata"]["namespace"], "tsurreal-canary")
         service = next(o for o in objects if o["kind"] == "Service")
         self.assertEqual(service["metadata"]["name"], "tsurreal-canary")
-        self.assertFalse(service["spec"]["allocateLoadBalancerNodePorts"])
-        self.assertEqual(service["spec"]["loadBalancerSourceRanges"], ["10.0.0.0/16"])
-        self.assertEqual(service["spec"]["externalTrafficPolicy"], "Cluster")
-        self.assertEqual(service["metadata"]["annotations"]["external-dns.alpha.kubernetes.io/cloudflare-proxied"], "false")
+        self.assertEqual(service["spec"]["type"], "ClusterIP")
+        for field in ["allocateLoadBalancerNodePorts", "loadBalancerSourceRanges", "externalTrafficPolicy", "externalIPs"]:
+            self.assertNotIn(field, service["spec"])
+        self.assertEqual(service["spec"]["ports"], [{"name":"https", "port":443, "targetPort":8443, "protocol":"TCP"}])
+        self.assertFalse(any(k.startswith("external-dns.") for k in service["metadata"].get("annotations", {})))
+        ingress = next(o for o in objects if o["kind"] == "Ingress")
+        self.assertEqual(ingress["spec"]["ingressClassName"], "nginx")
+        self.assertEqual(ingress["spec"]["rules"], [{"host":"tsurreal-canary.eaglepass.io", "http":{"paths":[{"path":"/", "pathType":"Prefix", "backend":{"service":{"name":"tsurreal-canary", "port":{"number":443}}}}]}}])
+        self.assertEqual(ingress["spec"]["tls"], [{"hosts":["tsurreal-canary.eaglepass.io"], "secretName":"tsurreal-canary-tls"}])
+        annotations = ingress["metadata"]["annotations"]
+        self.assertEqual(annotations["nginx.ingress.kubernetes.io/ssl-passthrough"], "true")
+        self.assertEqual(annotations["nginx.ingress.kubernetes.io/backend-protocol"], "HTTPS")
+        self.assertEqual(annotations["nginx.ingress.kubernetes.io/whitelist-source-range"], "127.0.0.1/32,::1/128")
+        self.assertFalse(any(k.startswith("cert-manager.io/") for k in annotations))
+        certificate = next(o for o in objects if o["kind"] == "Certificate")
+        self.assertEqual(certificate["metadata"]["name"], "tsurreal-canary")
+        self.assertEqual(certificate["spec"]["secretName"], "tsurreal-canary-tls")
+        self.assertEqual(certificate["spec"]["issuerRef"], {"name":"letsencrypt-prod", "kind":"ClusterIssuer"})
         policy = next(o for o in objects if o["kind"] == "NetworkPolicy")["spec"]
         self.assertFalse(policy.get("egress"))
         self.assertEqual(policy["policyTypes"], ["Ingress", "Egress"])
         self.assertEqual(policy["ingress"][0]["ports"], [{"protocol":"TCP", "port":8443}])
-        self.assertEqual(policy["ingress"][0]["from"], [{"ipBlock":{"cidr":"0.0.0.0/0"}}])
+        self.assertEqual(policy["ingress"][0]["from"], [{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ingress-nginx"}}, "podSelector":{"matchLabels":{"app.kubernetes.io/name":"traefik", "app.kubernetes.io/instance":"ingress-nginx-ingress-nginx"}}}])
         claims = {o["metadata"]["name"]:o for o in objects if o["kind"] == "PersistentVolumeClaim"}
         self.assertEqual(set(claims), {"tsurreal-state", "tsurreal-recovery", "tsurreal-packages"})
         for obj in [*claims.values(), next(o for o in objects if o["kind"] == "Namespace")]:

@@ -113,19 +113,35 @@ app-template:
       forceRename: tsurreal-canary
       primary: true
       controller: main
-      type: LoadBalancer
-      allocateLoadBalancerNodePorts: false
-      externalTrafficPolicy: Cluster
-      loadBalancerSourceRanges:
-      - 10.0.0.0/16
-      annotations:
-        external-dns.alpha.kubernetes.io/hostname: tsurreal-canary.eaglepass.io
-        external-dns.alpha.kubernetes.io/cloudflare-proxied: 'false'
+      type: ClusterIP
       ports:
         https:
           port: 443
           targetPort: 8443
           protocol: TCP
+  ingress:
+    main:
+      enabled: true
+      forceRename: tsurreal-canary
+      className: nginx
+      annotations:
+        # Preserve the end-to-end Node client certificate checked by HQ.
+        nginx.ingress.kubernetes.io/ssl-passthrough: 'true'
+        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+        # HTTP middleware does not filter TCP passthrough; the existing firewall does.
+        nginx.ingress.kubernetes.io/whitelist-source-range: 127.0.0.1/32,::1/128
+      hosts:
+      - host: &host tsurreal-canary.eaglepass.io
+        paths:
+        - path: /
+          pathType: Prefix
+          service:
+            identifier: main
+            port: 443
+      tls:
+      - hosts:
+        - *host
+        secretName: tsurreal-canary-tls
   persistence:
     data:
       type: persistentVolumeClaim
@@ -282,8 +298,13 @@ app-template:
       rules:
         ingress:
         - from:
-          - ipBlock:
-              cidr: 0.0.0.0/0
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: ingress-nginx
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+                app.kubernetes.io/instance: ingress-nginx-ingress-nginx
           ports:
           - protocol: TCP
             port: 8443
