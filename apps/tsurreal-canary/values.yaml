@@ -180,7 +180,7 @@ app-template:
         hq:
           image:
             repository: 10.0.20.11:32309/tsurreal/hq
-            digest: sha256:8c0201a2beaf4865c2bd632981eebed6c3637b74bdce5df97d2332cfa9d1a3ec
+            digest: sha256:0be4e4ea953284166f40c619d08cc2500447b5f028d757e80fc9727041e303ed
             pullPolicy: IfNotPresent
           args:
           - --config
