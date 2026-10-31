@@ -9,6 +9,7 @@
   },
   "runtime_version": "v1.33.13+k3s2",
   "runtime_sha256": "1572f0f23bd5a844bd405b71875877aacacc7ab79e279d3d73735654c37c7735",
+  "running_sha256": "7a4488683077222138b8bb46a9549697c6cd035924eaf1db7c44204503dcc681",
   "images": {
     "pointsite-builder": {
       "original": "/var/lib/homelab-recovery/maintenance-103/squirtle-image-pointsite-builder-39ef6b0c/image.tar",

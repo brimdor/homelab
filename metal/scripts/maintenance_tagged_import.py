@@ -241,10 +241,19 @@ def native_host(inputs):
     require(pid > 1 and subprocess.check_output(['systemctl', 'is-active', 'k3s'], text=True).strip() == 'active',
             'tagged import runtime is not active')
     process = Path('/proc') / str(pid)
-    require((process / 'exe').samefile(executable), 'native importer uses another executable')
     ticks = (process / 'stat').read_text()
+    start_ticks = ticks[ticks.rfind(')') + 2:].split()[19]
+    running_hash = '7a4488683077222138b8bb46a9549697c6cd035924eaf1db7c44204503dcc681'
+    # K3s executes its unpacked multicall binary, not the downloaded launcher.
+    require(inputs['running_sha256'] == running_hash and
+            subprocess.check_output(['sha256sum', str(process / 'exe')], text=True).split()[0] == running_hash and
+            subprocess.check_output([str(process / 'exe'), '--version'], text=True).splitlines()[0].split()[:3] ==
+            ['exe', 'version', inputs['runtime_version']],
+            'native importer uses another executable or process')
+    after = (process / 'stat').read_text()
+    require(after[after.rfind(')') + 2:].split()[19] == start_ticks, 'native importer process changed')
     return {'pid': pid, 'boot': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
-            'start_ticks': ticks[ticks.rfind(')') + 2:].split()[19]}
+            'start_ticks': start_ticks, 'running_sha256': running_hash}
 
 
 def write_private(path, value):

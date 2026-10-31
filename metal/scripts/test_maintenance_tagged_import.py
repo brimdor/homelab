@@ -159,23 +159,34 @@ class TaggedImportTests(unittest.TestCase):
         original = json.loads(Path('metal/maintenance/tagged-image-import-inputs-103.json').read_text())
         def output(arguments, **kwargs):
             if arguments[0] == 'findmnt': return original['identity']['root_uuid'] + '\n'
+            if arguments[0] == 'sha256sum':
+                return ('0' * 64 if case == 'foreign-executable' else original['running_sha256']) + '  /proc/123/exe\n'
+            if arguments[0] == '/proc/123/exe': return 'exe version v1.33.13+k3s2 (reviewed)\n'
             if arguments[-1] == '--version': return 'k3s version v1.33.13+k3s2 (reviewed)\n'
             if arguments[1] == 'show': return '123\n'
             return 'active\n'
         values = {'/etc/machine-id': original['identity']['machine'],
                   '/proc/sys/kernel/random/boot_id': '11111111-2222-3333-4444-555555555555',
                   '/proc/123/stat': '123 (k3s server) ' + ' '.join(['0'] * 19 + ['9876'])}
-        for case in ('valid', 'hash', 'foreign-executable', 'held-owner'):
+        for case in ('valid', 'cpu-changed', 'hash', 'foreign-executable', 'held-owner', 'reused-process'):
             with self.subTest(case=case):
+                reads = []
+                def read(path):
+                    value = values[str(path)]
+                    if str(path) == '/proc/123/stat':
+                        reads.append(True)
+                        if len(reads) > 1 and case == 'cpu-changed':
+                            value = '123 (k3s server) ' + ' '.join(['0'] * 11 + ['1'] + ['0'] * 7 + ['9876'])
+                        if len(reads) > 1 and case == 'reused-process': value = value.replace('9876', '9999')
+                    return value
                 inputs = {**original, 'runtime_sha256': '0' * 64} if case == 'hash' else original
                 with patch.object(tagged.os, 'geteuid', return_value=0), \
                         patch.object(tagged.socket, 'gethostname', return_value='pikachu'), \
-                        patch.object(Path, 'read_text', lambda path: values[str(path)]), \
+                        patch.object(Path, 'read_text', read), \
                         patch.object(Path, 'exists', return_value=case == 'held-owner'), \
-                        patch.object(Path, 'samefile', return_value=case != 'foreign-executable'), \
                         patch.object(tagged, 'checked_file'), \
                         patch.object(tagged.subprocess, 'check_output', side_effect=output):
-                    if case == 'valid':
+                    if case in ('valid', 'cpu-changed'):
                         self.assertEqual(tagged.native_host(inputs)['start_ticks'], '9876')
                     else:
                         with self.assertRaises(RuntimeError): tagged.native_host(inputs)
