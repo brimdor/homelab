@@ -1,5 +1,5 @@
 # Exact committed Canary artifact; Production promotion requires full-batch approval.
-stage: candidate
+stage: foundation
 hostname: tsurreal-canary.eaglepass.io
 issuer: letsencrypt-prod
 tlsSecret: tsurreal-canary-tls
