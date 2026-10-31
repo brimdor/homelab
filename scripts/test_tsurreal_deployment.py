@@ -36,7 +36,7 @@ class ChartTests(unittest.TestCase):
         dependency = yaml.safe_load((CHART / "Chart.yaml").read_text())["dependencies"]
         self.assertEqual(dependency, [{"name": "app-template", "version": "5.3.0", "repository": "https://bjw-s-labs.github.io/helm-charts/"}])
         objects = render()
-        self.assertEqual(len(objects), 11 + (1 if "preupgrade" in values["rawResources"] else 0) + (3 if "migration-proof" in values["controllers"] else 0))
+        self.assertEqual(len(objects), 12)
         self.assertFalse(any(o["kind"] in ["Secret", "Job"] for o in objects))
         for obj in objects:
             self.assertNotIn("production", obj["metadata"]["name"])
@@ -67,8 +67,8 @@ class ChartTests(unittest.TestCase):
         self.assertEqual(policy["ingress"][0]["ports"], [{"protocol":"TCP", "port":8443}])
         self.assertEqual(policy["ingress"][0]["from"], [{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ingress-nginx"}}, "podSelector":{"matchLabels":{"app.kubernetes.io/name":"traefik", "app.kubernetes.io/instance":"ingress-nginx-ingress-nginx"}}}])
         claims = {o["metadata"]["name"]:o for o in objects if o["kind"] == "PersistentVolumeClaim"}
-        self.assertEqual(set(claims), {"tsurreal-state", "tsurreal-recovery", "tsurreal-packages"} | ({"tsurreal-migration-proof"} if "migration-proof" in values["controllers"] else set()))
-        for obj in [*[o for name,o in claims.items() if name != "tsurreal-migration-proof"], next(o for o in objects if o["kind"] == "Namespace")]:
+        self.assertEqual(set(claims), {"tsurreal-state", "tsurreal-recovery", "tsurreal-packages"})
+        for obj in [*claims.values(), next(o for o in objects if o["kind"] == "Namespace")]:
             self.assertIn("Prune=false", obj["metadata"]["annotations"]["argocd.argoproj.io/sync-options"])
         config = json.loads(next(o for o in objects if o["metadata"]["name"] == "tsurreal-configuration")["data"]["hq.json"])
         self.assertEqual(config["tls_client_cidrs"], ["10.0.0.0/16", "127.0.0.1/32", "::1/128"])
@@ -77,10 +77,8 @@ class ChartTests(unittest.TestCase):
 
     def test_candidate_is_restricted(self):
         objects=render()
-        deployment=next(o for o in objects if o["kind"]=="Deployment" and o["metadata"]["name"]=="tsurreal-canary")["spec"]
-        phase = values["controllers"]["main"].get("annotations", {}).get("tsurreal.zuriel-labs.io/migration-phase")
-        self.assertIn(phase, [None, "paused-v35"])
-        self.assertEqual((deployment["replicas"],deployment["strategy"]["type"]),(0 if phase == "paused-v35" else 1,"Recreate"))
+        deployment=next(o for o in objects if o["kind"]=="Deployment")["spec"]
+        self.assertEqual((deployment["replicas"],deployment["strategy"]["type"]),(1,"Recreate"))
         pod=deployment["template"]["spec"]
         self.assertFalse(pod["automountServiceAccountToken"])
         self.assertEqual(pod["securityContext"]["runAsUser"],65532)
@@ -103,65 +101,18 @@ class ChartTests(unittest.TestCase):
             mounts=pod["containers"][0]["volumeMounts"]
             self.assertTrue(any(m["name"]==name and m["mountPath"]==path and m["readOnly"] for m in mounts))
 
-    def test_retained_snapshot_and_isolated_proof(self):
+    def test_preupgrade_snapshot_retained_and_proof_removed(self):
         objects = render()
-        snapshots = [o for o in objects if o["kind"] == "VolumeSnapshot"]
-        if "preupgrade" not in values["rawResources"]:
-            self.assertEqual(snapshots, [])
-            return
-        self.assertEqual(len(snapshots), 1)
-        snapshot = snapshots[0]
+        snapshot = next(o for o in objects if o["kind"] == "VolumeSnapshot")
         self.assertEqual(snapshot["metadata"]["name"], "tsurreal-v35-pre-0d9e030a")
         self.assertEqual(snapshot["spec"], {"volumeSnapshotClassName":"ceph-block", "source":{"persistentVolumeClaimName":"tsurreal-state"}})
-        self.assertEqual(snapshot["metadata"]["annotations"]["argocd.argoproj.io/sync-options"], "Prune=false,Delete=false")
-        self.assertEqual(snapshot["metadata"]["annotations"]["helm.sh/resource-policy"], "keep")
-        if "migration-proof" not in values["controllers"]:
-            return
-        proof = next(o for o in objects if o["kind"] == "Deployment" and o["metadata"]["name"] == "tsurreal-migration-proof")["spec"]
-        self.assertEqual((proof["replicas"], proof["strategy"]["type"]), (1, "Recreate"))
-        pod = proof["template"]["spec"]
-        self.assertEqual(pod["securityContext"]["runAsUser"], 65532)
-        self.assertFalse(pod["automountServiceAccountToken"])
-        self.assertEqual({c["name"] for c in pod["containers"]}, {"hq", "inspector"})
-        claims = [vol["persistentVolumeClaim"]["claimName"] for vol in pod["volumes"] if "persistentVolumeClaim" in vol]
-        self.assertEqual(claims, ["tsurreal-migration-proof"])
-        for container in pod["containers"] + pod["initContainers"]:
-            self.assertFalse(container.get("ports"))
-            self.assertTrue(container["securityContext"]["readOnlyRootFilesystem"])
-            self.assertFalse(container["securityContext"]["allowPrivilegeEscalation"])
-            self.assertEqual(container["securityContext"]["capabilities"]["drop"], ["ALL"])
-        for name in ["inspector"]:
-            container = next(c for c in pod["containers"] + pod["initContainers"] if c["name"] == name)
-            self.assertTrue(all(m["readOnly"] for m in container["volumeMounts"]))
-        verifier = next(c for c in pod["initContainers"] if c["name"] == "verify-state")
-        self.assertTrue(next(m for m in verifier["volumeMounts"] if m["mountPath"] == "/migration")["readOnly"])
-        self.assertFalse(next(m for m in verifier["volumeMounts"] if m["mountPath"] == "/var/lib/tsurreal").get("readOnly", False))
-        proof_config = json.loads(next(o for o in objects if o["metadata"]["name"] == "tsurreal-migration-configuration")["data"]["hq.json"])
-        self.assertEqual(proof_config["listen"], "127.0.0.1:9443")
-        self.assertFalse(set(proof_config).intersection(["native_file", "execution_file", "backup_file", "push_file", "email_file"]))
-
-    def test_restored_database_verifier(self):
-        if "migration-configuration" not in values["configMaps"]:
-            return
-        import sqlite3
-        module = types.ModuleType("verify_migration")
-        source = values["configMaps"]["migration-configuration"]["data"]["verify.py"]
-        exec(compile(source, "verify.py", "exec"), module.__dict__)
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "hq.sqlite"
-            connection = sqlite3.connect(path)
-            connection.execute("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, digest TEXT NOT NULL)")
-            connection.executemany("INSERT INTO schema_migrations VALUES (?,?)", [(m["version"],m["sha256"]) for m in module.SCHEMA[:35]])
-            connection.commit()
-            self.assertEqual(len(module.verify(path, 35)["schema"]), 35)
-            with self.assertRaises(ValueError): module.verify(path, 38)
-            connection.execute("UPDATE schema_migrations SET digest='changed' WHERE version=35")
-            connection.commit()
-            with self.assertRaises(ValueError): module.verify(path, 35)
-            connection.close()
-            linked = Path(temporary) / "linked.sqlite"
-            linked.symlink_to(path)
-            with self.assertRaises(ValueError): module.verify(linked, 35)
+        annotations = snapshot["metadata"]["annotations"]
+        self.assertEqual(annotations["argocd.argoproj.io/sync-options"], "Prune=false,Delete=false")
+        self.assertEqual(annotations["helm.sh/resource-policy"], "keep")
+        self.assertEqual(annotations["tsurreal.zuriel-labs.io/source-pvc-uid"], "bbd5ca78-93b1-4a0e-9062-35a79b8103ce")
+        self.assertEqual(len([o for o in objects if o["kind"] == "Deployment"]), 1)
+        self.assertFalse(any(o["metadata"]["name"] == "tsurreal-migration-proof" for o in objects))
+        self.assertFalse(any("migration-proof" in vol.get("persistentVolumeClaim", {}).get("claimName", "") for o in objects if o["kind"] == "Deployment" for vol in o["spec"]["template"]["spec"]["volumes"]))
 
     def test_invalid_identity_or_target_refused(self):
         render(namespace="tsurreal-production",good=False)
