@@ -91,10 +91,10 @@
         "root_uuid": "eea5afa0-dbb6-43f5-abe6-f1be801fb03a"
       },
       "node_uid": "10951ffe-dd31-4c38-b854-67f3a011458c",
-      "owner": "homelab-maintenance-103-038af3a2-a1a9-4a4f-9e0b-8a8e564b628a",
-      "release_head": "41a0ae163b0ccf46a41574f2b40e7ea27bd35fa0091d7ffb6302e45b2aef45e4",
-      "source": "v1.33.13+k3s2",
-      "target": "v1.34.12+k3s1"
+      "owner": "homelab-maintenance-103-8756fb2e-f637-42db-98e7-8a1aca21f8d2",
+      "release_head": "f9972a4d91fd401803f76fa0f26be828e74f96a8a8e1898adc88a0e9d5e374e6",
+      "source": "v1.34.12+k3s1",
+      "target": "v1.35.9+k3s1"
     },
     "totodile": {
       "address": "10.0.20.17",
