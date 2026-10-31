@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Squirtle completion, then Sprigatito priority</title>
+<style>body{background:#111820;color:#e5edf5;font:16px/1.6 system-ui;max-width:950px;margin:3rem auto;padding:0 1.5rem}a{color:#8ac7ff}code{color:#b6dfbf}h1,h2{line-height:1.2}td,th{padding:.5rem;border-bottom:1px solid #415366;text-align:left}table{border-collapse:collapse}</style>
+<h1>Issue 103: Squirtle completion, then Sprigatito priority</h1>
+<p>Owner decision, October31,2026: finish Squirtle to the approved final K3s version and GREEN, then finish Sprigatito and Emby before other workers. Continue one worker to its final version before moving to another; Growlithe precedes Arcanine. Existing Fedora44 completions remain accepted.</p>
+<h2>Supported dependencies</h2>
+<p><a href="https://docs.k3s.io/upgrades/manual">K3s requires consecutive minor versions and servers before agents.</a> <a href="https://kubernetes.io/releases/version-skew-policy/">HA API servers must remain within one minor version; kubelets cannot be newer than an API server they use and may be up to three minors older.</a> Therefore Squirtle cannot reach1.36 while Bulbasaur remains1.33. Sprigatito cannot complete1.36 until all servers reach1.36. These are dependency steps, not permission to begin another worker early.</p>
+<h2>Exact remaining sequence</h2>
+<table><thead><tr><th>Order</th><th>Action and acceptance</th></tr></thead><tbody>
+<tr><td>1</td><td>Finish Squirtle's original1.34.12 application acceptance and ordered release without replay.</td></tr>
+<tr><td>2</td><td>Bulbasaur1.33.13 to1.34.12; full per-hop acceptance and release.</td></tr>
+<tr><td>3–5</td><td>Squirtle, Charmander, Bulbasaur to1.35.9, one server at a time.</td></tr>
+<tr><td>6</td><td>Squirtle to1.36.5 and full final acceptance.</td></tr>
+<tr><td>7–8</td><td>Charmander, then Bulbasaur to1.36.5, enabling worker completion.</td></tr>
+<tr><td>9</td><td>Sprigatito through1.34.12,1.35.9,1.36.5 consecutively. Complete Emby API, actual NAS mount protections, CUDA/NVENC and application return before moving to another worker.</td></tr>
+<tr><td>10–14</td><td>Pikachu, Cyndaquil, Totodile, Growlithe, Arcanine. Finish all remaining adjacent hops and full acceptance on each before starting the next.</td></tr>
+</tbody></table>
+<h2>Implementation plan</h2>
+<ol><li>Define the exact permitted runtime-state prefixes in <code>maintenance_k3s_contract.py</code>; retain historical first and second bridge behavior. Permit only the next scheduled node/hop or observation of its original in-flight hop.</li><li>Replace the old alphabetical server-version assumption with the reviewed server-state prefixes and the one-minor skew bound in <code>maintenance_control_plane.py</code>.</li><li>Publish a UID-scoped current-release ledger under <code>metal/maintenance/</code>. Bind every node to its latest original owner, source, target, release head, original address and machine/root identity. Validate each native immutable release/hop chain before a new acquisition. Preserve historical all-node bridge anchors.</li><li>Integrate the ledger at initialization and match worker recovery to the actual final control-plane version, while backing up the worker's exact source executable/configuration. Preserve full isolated restore and fresh protected-point checks.</li><li>Validate and publish each coherent change before running it. Finish each actual node/hop with native runtime, infrastructure, original workload/storage return and ordered owner release. Update the ledger only after independent acceptance.</li></ol>
+<h2>Commands and testing</h2>
+<p>Use existing Python unittest tests for contract, control plane, production, workers and ownership. Run <code>PYTHONPATH=metal/scripts python3 -B -m unittest metal/scripts/test_maintenance_k3s_contract.py metal/scripts/test_maintenance_control_plane.py metal/scripts/test_maintenance_k3s_production.py metal/scripts/test_maintenance_k3s_workers.py</code>, then scoped pre-commit hooks and <code>git diff --check</code>. New schedule tests must enumerate every permitted prefix, reject skipped/reordered workers and unsupported server/kubelet skew, preserve original owner observation and reject changed UIDs, divergent ledgers and unverified native releases. Follow existing standard-library and fail-closed patterns; no new dependencies.</p>
+<h2>Boundaries and success criteria</h2>
+<p>Always preserve exact artifacts, fresh protected recovery, original journal records, host identities, Enforcing SELinux, workload ownership and storage identities. Never skip a minor version, replay uncertain actions, alter NAS data/configuration/export/backup/restore/cleanup, restart or mutate protected Zot, add Tsurreal maintenance, or change the normal MWF Kured schedule. Existing exact application release approvals remain separate. No new general maintenance approval is required.</p>
+<p>Squirtle is fully complete only at the approved final1.36.5 with actual acceptance and owner release. Sprigatito is the first worker subsequently maintained and remains the active worker until all its required hops and Emby acceptance pass. Installation or a passing static test alone is not completion. Final Issue103 closure retains its six-layer gate.</p>
+</html>

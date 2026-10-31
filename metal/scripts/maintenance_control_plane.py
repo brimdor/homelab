@@ -81,8 +81,7 @@ def expected_versions(versions=None):
     import maintenance_k3s_contract as contract
     if set(versions) != set(names) or any(v not in contract.ETCD for v in versions.values()):
         raise RuntimeError('unreviewed control-plane K3s versions')
-    order = [contract.VERSIONS.index(versions[name]) for name in names]
-    if order != sorted(order, reverse=True) or max(order) - min(order) > 1:
+    if not contract.reviewed_server_versions(versions):
         raise RuntimeError('control-plane serial version order differs')
     return {'https://10.0.20.' + str(n) + ':2379': contract.ETCD[versions[name]]
             for n, name in zip((11, 12, 13), names)}

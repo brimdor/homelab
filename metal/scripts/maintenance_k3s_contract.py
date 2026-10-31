@@ -17,12 +17,57 @@ ETCD = dict(zip(VERSIONS, ('3.5.21', '3.5.26', '3.6.14', '3.6.14', '3.6.14', '3.
 # Owner prioritized Sprigatito immediately after the active Bulbasaur transition.
 ORDER = ('charmander', 'squirtle', 'bulbasaur', 'sprigatito', 'pikachu',
          'cyndaquil', 'totodile', 'growlithe', 'arcanine')
+# Finish Squirtle first within HA skew, then finish each worker before the next.
+COMPLETION_ORDER = (
+    *((node, VERSIONS[2], VERSIONS[3]) for node in ORDER[:3]),
+    *((node, source, target) for source, target in zip(VERSIONS[3:], VERSIONS[4:])
+      for node in ('squirtle', 'charmander', 'bulbasaur')),
+    *((node, source, target) for node in ORDER[3:]
+      for source, target in zip(VERSIONS[2:], VERSIONS[3:])),
+)
 STEPS = ('cordon', 'drain', 'prepare_binary', 'activate_binary',
          'verify_infrastructure', 'restore_scheduling', 'accept_applications')
 
 
 def reviewed(source, target):
     return (source, target) in tuple(zip(VERSIONS, VERSIONS[1:]))
+
+
+def completion_states():
+    """Exact runtime prefixes; completed-owner evidence is verified separately."""
+    states = [dict.fromkeys(ORDER, VERSIONS[2])]
+    for node, source, target in COMPLETION_ORDER:
+        assert states[-1][node] == source and reviewed(source, target)
+        states.append(dict(states[-1], **{node: target}))
+    return states
+
+
+def next_transition(nodes):
+    """Refuse a reordered, skipped or foreign node before selecting another hop."""
+    by_name = {node['metadata']['name']: node for node in nodes}
+    if len(nodes) != len(ORDER) or set(by_name) != set(ORDER):
+        raise RuntimeError('K3s active inventory differs')
+    uids = [n['metadata'].get('uid') for n in nodes]
+    if (not all(uids) or len(set(uids)) != len(ORDER) or
+            any(n['metadata'].get('deletionTimestamp') for n in nodes)):
+        raise RuntimeError('K3s node identity unavailable')
+    versions = {name: n['status']['nodeInfo']['kubeletVersion'] for name, n in by_name.items()}
+    states = completion_states()
+    if versions not in states:
+        raise RuntimeError('K3s node completion order or runtime version differs')
+    index = states.index(versions)
+    return COMPLETION_ORDER[index] if index < len(COMPLETION_ORDER) else None
+
+
+def reviewed_server_versions(versions):
+    """Keep historical patch order and the new owner-prioritized server prefixes."""
+    if set(versions) != set(ORDER[:3]) or any(v not in VERSIONS for v in versions.values()):
+        return False
+    indices = [VERSIONS.index(versions[name]) for name in ORDER[:3]]
+    if max(indices) <= 2:
+        return indices == sorted(indices, reverse=True) and max(indices) - min(indices) <= 1
+    return any(versions == {name: state[name] for name in ORDER[:3]}
+               for state in completion_states())
 
 
 def steps(owner):
@@ -56,6 +101,9 @@ def next_node(nodes, source, target):
     """Refuse skipped hosts, unreviewed versions and foreign inventory."""
     if not reviewed(source, target):
         raise RuntimeError('unreviewed K3s transition')
+    if VERSIONS.index(source) >= 2:
+        next_hop = next_transition(nodes)
+        return next_hop[0] if next_hop and next_hop[1:] == (source, target) else None
     by_name = {node['metadata']['name']: node for node in nodes}
     if len(nodes) != len(ORDER) or set(by_name) != set(ORDER):
         raise RuntimeError('K3s active inventory differs')
