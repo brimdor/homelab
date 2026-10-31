@@ -929,7 +929,8 @@ def published_revision():
         paths = git('diff', '--no-renames', '--name-only', '-z', revision, remote, '--').split(b'\0')
         actors.require(paths[-1] == b'' and len(paths) > 1 and all(
             path.startswith((b'apps/tsurreal/', b'apps/tsurreal-canary/')) or path in (
-                b'plans/tsurreal-deployment.html', b'tools/tsurreal-initial-director.yaml')
+                b'plans/tsurreal-deployment.html', b'tools/tsurreal-initial-director.yaml',
+                b'scripts/test_tsurreal_deployment.py')
             for path in paths[:-1]), 'published changes exceed owner-excluded application')
     return revision
 

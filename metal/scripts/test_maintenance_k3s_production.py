@@ -54,7 +54,7 @@ class PublishedRevisionTests(unittest.TestCase):
     def test_only_exact_excluded_paths_allow_published_ancestor(self):
         self.assertEqual(self.verify(paths=b'apps/tsurreal/values.yaml\0'
             b'apps/tsurreal-canary/values.yaml\0plans/tsurreal-deployment.html\0'
-            b'tools/tsurreal-initial-director.yaml\0'), 'a' * 40)
+            b'tools/tsurreal-initial-director.yaml\0scripts/test_tsurreal_deployment.py\0'), 'a' * 40)
 
     def test_changed_metal_divergence_and_unpublished_commit_refuse(self):
         for kwargs in ({'metal': b'changed\n'}, {'ancestor': 1}, {'ancestor': 128}):
@@ -63,6 +63,7 @@ class PublishedRevisionTests(unittest.TestCase):
 
     def test_unrelated_or_renamed_outside_path_is_not_hidden(self):
         for paths in (b'apps/emby/values.yaml\0', b'apps/tsurreal-other/values.yaml\0',
+                      b'scripts/test_tsurreal_other.py\0',
                       b'apps/tsurreal/old\0metal/scripts/new.py\0', b'',
                       b'apps/tsurreal/values.yaml', b'apps/tsurreal/values.yaml\0\0'):
             with self.subTest(paths=paths), self.assertRaises(RuntimeError):
