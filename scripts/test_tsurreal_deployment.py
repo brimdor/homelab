@@ -36,7 +36,7 @@ class ChartTests(unittest.TestCase):
         dependency = yaml.safe_load((CHART / "Chart.yaml").read_text())["dependencies"]
         self.assertEqual(dependency, [{"name": "app-template", "version": "5.3.0", "repository": "https://bjw-s-labs.github.io/helm-charts/"}])
         objects = render()
-        self.assertEqual(len(objects), 11)
+        self.assertEqual(len(objects), 11 + (1 if "preupgrade" in values["rawResources"] else 0) + (3 if "migration-proof" in values["controllers"] else 0))
         self.assertFalse(any(o["kind"] in ["Secret", "Job"] for o in objects))
         for obj in objects:
             self.assertNotIn("production", obj["metadata"]["name"])
@@ -77,8 +77,10 @@ class ChartTests(unittest.TestCase):
 
     def test_candidate_is_restricted(self):
         objects=render()
-        deployment=next(o for o in objects if o["kind"]=="Deployment")["spec"]
-        self.assertEqual((deployment["replicas"],deployment["strategy"]["type"]),(1,"Recreate"))
+        deployment=next(o for o in objects if o["kind"]=="Deployment" and o["metadata"]["name"]=="tsurreal-canary")["spec"]
+        phase = values["controllers"]["main"].get("annotations", {}).get("tsurreal.zuriel-labs.io/migration-phase")
+        self.assertIn(phase, [None, "paused-v35"])
+        self.assertEqual((deployment["replicas"],deployment["strategy"]["type"]),(0 if phase == "paused-v35" else 1,"Recreate"))
         pod=deployment["template"]["spec"]
         self.assertFalse(pod["automountServiceAccountToken"])
         self.assertEqual(pod["securityContext"]["runAsUser"],65532)
