@@ -8,7 +8,7 @@ app-template:
       forceRename: tsurreal-canary
       type: deployment
       strategy: Recreate
-      replicas: 1
+      replicas: 0
       annotations:
         tsurreal.zuriel-labs.io/source-commit: 5860b3431aaa767f2676c6f3dc40abf8fc66ae55
         tsurreal.zuriel-labs.io/source-tree: c70d5414d9fd77a45c531ff4e96e2984065b970f
