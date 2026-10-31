@@ -125,13 +125,11 @@ app-template:
       forceRename: tsurreal-canary
       className: nginx
       annotations:
-        # Preserve the end-to-end Node client certificate checked by HQ.
         nginx.ingress.kubernetes.io/ssl-passthrough: 'true'
         nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-        # HTTP middleware does not filter TCP passthrough; the existing firewall does.
         nginx.ingress.kubernetes.io/whitelist-source-range: 127.0.0.1/32,::1/128
       hosts:
-      - host: &host tsurreal-canary.eaglepass.io
+      - host: tsurreal-canary.eaglepass.io
         paths:
         - path: /
           pathType: Prefix
@@ -140,7 +138,7 @@ app-template:
             port: 443
       tls:
       - hosts:
-        - *host
+        - tsurreal-canary.eaglepass.io
         secretName: tsurreal-canary-tls
   persistence:
     data:
@@ -233,60 +231,50 @@ app-template:
       forceRename: tsurreal-configuration
       includeInChecksum: true
       data:
-        hq.json: |
-          {{ if ne .Release.Namespace "tsurreal-canary" }}{{ fail "This chart owns only namespace tsurreal-canary" }}{{ end }}{{ if not (regexMatch "^10\\.0\\.20\\.11:32309/tsurreal/hq$" .Values.controllers.main.containers.hq.image.repository) }}{{ fail "Tsurreal requires its selected private registry" }}{{ end }}{{ if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.controllers.main.containers.hq.image.digest) }}{{ fail "Tsurreal requires an immutable image digest" }}{{ end }}{{ range $key := list "tsurreal.zuriel-labs.io/source-commit" "tsurreal.zuriel-labs.io/source-tree" }}{{ if not (regexMatch "^[a-f0-9]{40}$" (index $.Values.controllers.main.annotations $key)) }}{{ fail "Tsurreal requires exact source identities" }}{{ end }}{{ end }}{"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://tsurreal-canary.eaglepass.io","state_dir":"/var/lib/tsurreal/state","tls_cert":"/run/tsurreal/identity/tls.crt","tls_key":"/run/tsurreal/identity/tls.key","tls_client_cidrs":["10.0.0.0/16","127.0.0.1/32","::1/128"]}
+        hq.json: '{{ if ne .Release.Namespace "tsurreal-canary" }}{{ fail "This chart
+          owns only namespace tsurreal-canary" }}{{ end }}{{ if not (regexMatch "^10\\.0\\.20\\.11:32309/tsurreal/hq$"
+          .Values.controllers.main.containers.hq.image.repository) }}{{ fail "Tsurreal
+          requires its selected private registry" }}{{ end }}{{ if not (regexMatch
+          "^sha256:[a-f0-9]{64}$" .Values.controllers.main.containers.hq.image.digest)
+          }}{{ fail "Tsurreal requires an immutable image digest" }}{{ end }}{{ range
+          $key := list "tsurreal.zuriel-labs.io/source-commit" "tsurreal.zuriel-labs.io/source-tree"
+          }}{{ if not (regexMatch "^[a-f0-9]{40}$" (index $.Values.controllers.main.annotations
+          $key)) }}{{ fail "Tsurreal requires exact source identities" }}{{ end }}{{
+          end }}{"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://tsurreal-canary.eaglepass.io","state_dir":"/var/lib/tsurreal/state","tls_cert":"/run/tsurreal/identity/tls.crt","tls_key":"/run/tsurreal/identity/tls.key","tls_client_cidrs":["10.0.0.0/16","127.0.0.1/32","::1/128"]}
+
+          '
     identity:
       forceRename: tsurreal-identity-preparation
       includeInChecksum: true
       data:
-        prepare-identity.py: |
-          """Copy one projected TLS generation into new private regular files; never log keys."""
-          import os
-          from pathlib import Path
-          import stat
-
-
-          def stage(source, destination):
-              parent = Path(destination).parent
-              for path in [parent, *parent.parents]:
-                  if path.is_symlink() or not path.is_dir():
-                      raise ValueError("Identity output requires existing non-symlink parents")
-              # Pin the Kubernetes atomic writer generation before opening either file.
-              generation = os.open(Path(source) / "..data", os.O_RDONLY | os.O_DIRECTORY)
-              values = {}
-              try:
-                  for name in ["tls.crt", "tls.key"]:
-                      fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=generation)
-                      try:
-                          info = os.fstat(fd)
-                          if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 1024 * 1024:
-                              raise ValueError("Invalid projected TLS input")
-                          with os.fdopen(fd, "rb", closefd=False) as stream:
-                              values[name] = stream.read(1024 * 1024 + 1)
-                          if len(values[name]) != info.st_size:
-                              raise ValueError("Projected TLS input changed")
-                      finally:
-                          os.close(fd)
-              finally:
-                  os.close(generation)
-              # Refuse existing output, including dangling symlinks; no key overwrite.
-              os.mkdir(destination, 0o700)
-              try:
-                  for name, value in values.items():
-                      fd = os.open(Path(destination) / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-                      with os.fdopen(fd, "wb") as stream:
-                          stream.write(value)
-                          stream.flush()
-                          os.fsync(stream.fileno())
-              except BaseException:
-                  for name in values:
-                      (Path(destination) / name).unlink(missing_ok=True)
-                  os.rmdir(destination)
-                  raise
-
-
-          if __name__ == "__main__":
-              stage("/projected-tls", "/run/tsurreal/identity")
+        prepare-identity.py: "\"\"\"Copy one projected TLS generation into new private\
+          \ regular files; never log keys.\"\"\"\nimport os\nfrom pathlib import Path\n\
+          import stat\n\n\ndef stage(source, destination):\n    parent = Path(destination).parent\n\
+          \    for path in [parent, *parent.parents]:\n        if path.is_symlink()\
+          \ or not path.is_dir():\n            raise ValueError(\"Identity output\
+          \ requires existing non-symlink parents\")\n    # Pin the Kubernetes atomic\
+          \ writer generation before opening either file.\n    generation = os.open(Path(source)\
+          \ / \"..data\", os.O_RDONLY | os.O_DIRECTORY)\n    values = {}\n    try:\n\
+          \        for name in [\"tls.crt\", \"tls.key\"]:\n            fd = os.open(name,\
+          \ os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=generation)\n    \
+          \        try:\n                info = os.fstat(fd)\n                if not\
+          \ stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 1024 * 1024:\n \
+          \                   raise ValueError(\"Invalid projected TLS input\")\n\
+          \                with os.fdopen(fd, \"rb\", closefd=False) as stream:\n\
+          \                    values[name] = stream.read(1024 * 1024 + 1)\n     \
+          \           if len(values[name]) != info.st_size:\n                    raise\
+          \ ValueError(\"Projected TLS input changed\")\n            finally:\n  \
+          \              os.close(fd)\n    finally:\n        os.close(generation)\n\
+          \    # Refuse existing output, including dangling symlinks; no key overwrite.\n\
+          \    os.mkdir(destination, 0o700)\n    try:\n        for name, value in\
+          \ values.items():\n            fd = os.open(Path(destination) / name, os.O_WRONLY\
+          \ | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)\n            with os.fdopen(fd,\
+          \ \"wb\") as stream:\n                stream.write(value)\n            \
+          \    stream.flush()\n                os.fsync(stream.fileno())\n    except\
+          \ BaseException:\n        for name in values:\n            (Path(destination)\
+          \ / name).unlink(missing_ok=True)\n        os.rmdir(destination)\n     \
+          \   raise\n\n\nif __name__ == \"__main__\":\n    stage(\"/projected-tls\"\
+          , \"/run/tsurreal/identity\")\n"
   networkpolicies:
     main:
       forceRename: tsurreal-private
@@ -355,6 +343,139 @@ app-template:
           volumeSnapshotClassName: ceph-block
           source:
             persistentVolumeClaimName: tsurreal-state
+    initial-director:
+      forceRename: tsurreal-initial-director-3
+      manifest:
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: tsurreal-initial-director-3
+          namespace: tsurreal-canary
+        spec:
+          backoffLimit: 0
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/name: tsurreal-initial-director
+                app.kubernetes.io/instance: tsurreal-initial-director
+            spec:
+              automountServiceAccountToken: false
+              restartPolicy: Never
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+                fsGroup: 65532
+                seccompProfile:
+                  type: RuntimeDefault
+                fsGroupChangePolicy: OnRootMismatch
+              initContainers:
+              - name: prepare
+                image: docker.io/library/python:3.13.18-alpine3.24@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+                imagePullPolicy: IfNotPresent
+                command:
+                - python3
+                - -B
+                - -c
+                - "import os,sqlite3\nimport stat,json\nfrom pathlib import Path\n\
+                  root=Path('/var/lib/tsurreal/state')\npaths=[root,*root.rglob('*')]\n\
+                  # Restore this application's private custody after the operator\
+                  \ Pod's default fsGroup recursion.\nfor path in paths:\n    info=path.lstat()\n\
+                  \    assert info.st_uid==65532 and not path.is_symlink() and (stat.S_ISDIR(info.st_mode)\
+                  \ or stat.S_ISREG(info.st_mode))\n    assert stat.S_ISDIR(info.st_mode)\
+                  \ or info.st_nlink==1\nprint(json.dumps({'private_custody_before':[{'path':str(path.relative_to(root)),'mode':oct(stat.S_IMODE(path.lstat().st_mode))}\
+                  \ for path in paths]}),flush=True)\nfor path in paths:\n    os.chmod(path,0o700\
+                  \ if path.is_dir() else 0o600)\nconnection=sqlite3.connect('file:/var/lib/tsurreal/state/hq.sqlite?mode=ro',uri=True)\n\
+                  assert connection.execute('SELECT count(*) FROM accounts').fetchone()[0]==0,'An\
+                  \ account already exists; initial setup refused'\nrows=connection.execute('SELECT\
+                  \ hq_name FROM installations').fetchall()\nassert not rows or rows==[('Canary\
+                  \ HQ',)],'Existing HQ name requires explicit preservation'\nconnection.close()\n\
+                  os.mkdir('/handoff/private',0o700)\nprint('Initial account precondition\
+                  \ verified; private handoff prepared',flush=True)\n"
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                    - ALL
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    memory: 256Mi
+                volumeMounts:
+                - name: state
+                  mountPath: /var/lib/tsurreal
+                - &id001
+                  name: handoff
+                  mountPath: /handoff
+              - name: mint
+                image: 10.0.20.11:32309/tsurreal/hq@sha256:36a8edafc852708f74f2dc746db35ca21d546b3de10559b8351fbf41c95febb4
+                imagePullPolicy: IfNotPresent
+                command:
+                - /opt/tsurreal/package/hq
+                - --config
+                - /etc/tsurreal/hq.json
+                - --hq-name
+                - Canary HQ
+                - --setup-secret-file
+                - /handoff/private/setup.json
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                    - ALL
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    memory: 256Mi
+                volumeMounts:
+                - name: state
+                  mountPath: /var/lib/tsurreal
+                - *id001
+                - name: configuration
+                  mountPath: /etc/tsurreal
+                  readOnly: true
+              containers:
+              - name: handoff
+                image: docker.io/library/python:3.13.18-alpine3.24@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+                imagePullPolicy: IfNotPresent
+                command:
+                - python3
+                - -B
+                - -c
+                - "from pathlib import Path\nimport time\nwhile not Path('/handoff/private/delivered').exists():\n\
+                  \    time.sleep(1)\nassert not Path('/handoff/private/setup.json').exists()\n\
+                  print('Private handoff removed; operator Job completed',flush=True)\n"
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                    - ALL
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    memory: 256Mi
+                volumeMounts:
+                - *id001
+              volumes:
+              - name: state
+                persistentVolumeClaim:
+                  claimName: tsurreal-state
+              - name: configuration
+                configMap:
+                  name: tsurreal-configuration
+              - name: handoff
+                emptyDir:
+                  medium: Memory
+                  sizeLimit: 1Mi
   serviceAccount:
     main:
       enabled: false
