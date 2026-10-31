@@ -117,7 +117,7 @@ app-template:
       allocateLoadBalancerNodePorts: false
       externalTrafficPolicy: Cluster
       loadBalancerSourceRanges:
-      - 10.0.255.254/32
+      - 10.0.0.0/16
       annotations:
         external-dns.alpha.kubernetes.io/hostname: tsurreal-canary.eaglepass.io
         external-dns.alpha.kubernetes.io/cloudflare-proxied: 'false'
