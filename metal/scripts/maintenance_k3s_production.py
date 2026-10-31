@@ -32,32 +32,41 @@ def configure_stage(source, target):
     SOURCE, TARGET = source, target
 
 
-def previous_bridge_releases(args, nodes):
-    """Re-read every original completed release before entering the next pair."""
+def previous_bridge_releases(args, nodes, *, node_completion=False):
+    """Re-read original completed releases before a stage or a node's next hop."""
     import maintenance_production_node as production
     index = contract.VERSIONS.index(SOURCE)
     actors.require(index > 0 and contract.reviewed(SOURCE, TARGET), 'no preceding reviewed bridge')
     stage = contract.VERSIONS[index - 1:index + 1]
     anchor_path = Path('metal/maintenance/k3s-first-bridge-releases.json')
-    path = anchor_path if index == 1 else Path('metal/maintenance/k3s-bridge-' + str(index) + '-releases.json')
+    path = (Path('metal/maintenance/k3s-node-releases.json') if node_completion else
+            anchor_path if index == 1 else Path('metal/maintenance/k3s-bridge-' + str(index) + '-releases.json'))
     actors.require(path.is_file(), 'complete preceding-bridge release bindings are missing')
     raw = path.read_bytes()
     actors.require(raw == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
                    'unpublished preceding-bridge release bindings')
     profile = json.loads(raw)
     anchor = json.loads(subprocess.check_output(['git', 'show', 'HEAD:' + str(anchor_path)]))
-    actors.require(set(profile) == {'version', 'source', 'target', 'nodes'} and
-                   type(profile['version']) is int and profile['version'] == 1 and
-                   (profile['source'], profile['target']) == stage and
+    actors.require(set(profile) == ({'version', 'nodes'} if node_completion else
+                                   {'version', 'source', 'target', 'nodes'}) and
+                   type(profile['version']) is int and profile['version'] == (2 if node_completion else 1) and
+                   (node_completion or (profile['source'], profile['target']) == stage) and
                    set(profile['nodes']) == set(HOSTS) and
                    len(nodes) == len(HOSTS) and
                    {n['metadata']['name']: n['metadata']['uid'] for n in nodes} ==
                    {name: value['node_uid'] for name, value in profile['nodes'].items()} and
-                   all(n['status']['nodeInfo']['kubeletVersion'] == SOURCE for n in nodes),
+                   all(n['status']['nodeInfo']['kubeletVersion'] ==
+                       (profile['nodes'][n['metadata']['name']]['target'] if node_completion else SOURCE)
+                       for n in nodes),
                    'original preceding-bridge inventory or stage differs')
+    if node_completion:
+        actors.require(contract.next_transition(nodes) == (args.node, SOURCE, TARGET),
+                       'finish preceding node completion before acquiring next')
     import re
     for name, ref in profile['nodes'].items():
-        actors.require(set(ref) == {'node_uid', 'owner', 'release_head', 'identity', 'address'} and
+        actors.require(set(ref) == {'node_uid', 'owner', 'release_head', 'identity', 'address'} |
+                       ({'source', 'target'} if node_completion else set()) and
+                       (not node_completion or contract.reviewed(ref['source'], ref['target'])) and
                        all(ref[key] == anchor['nodes'][name][key] for key in ('node_uid', 'identity', 'address')) and
                        re.fullmatch(r'homelab-maintenance-103-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', ref['owner']) and
                        re.fullmatch('[0-9a-f]{64}', ref['release_head']),
@@ -75,6 +84,7 @@ def read(path):
  raw=path.read_bytes();value=json.loads(raw);assert raw==json.dumps(value,sort_keys=True,separators=(',',':')).encode()
  return value,hashlib.sha256(raw).hexdigest()
 root=pathlib.Path('/var/lib/homelab-maintenance');release=root/'releases'/REF['owner']
+assert not (root/'owner.json').exists()
 assert sorted(p.name for p in release.iterdir())==[str(i).zfill(8)+'.json'for i in range(5)]
 previous=None
 for index,kind in enumerate(('header','host-intent','host-accepted','global-intent','global-accepted')):
@@ -93,8 +103,11 @@ assert read(hop/expected[-1])[1]==header['hop_head_sha256']
 assert read(hop/expected[0])[0]['owners']==header['owners']
 print(json.dumps({'node':NODE,'release_head':previous,'original_release_and_hops_preserved':True,'hop_records':len(expected)}))
 '''
-    return [production.remote(args, 'NODE=' + repr(name) + '\nREF=' + repr(ref) + '\nSTAGE=' + repr(stage) +
-            '\nSTEPS=' + repr(contract.steps({'node': name, 'source': stage[0], 'target': stage[1]})) + '\n' + source, ref['address'])
+    return [production.remote(args, 'NODE=' + repr(name) + '\nREF=' + repr(ref) + '\nSTAGE=' +
+            repr((ref['source'], ref['target']) if node_completion else stage) +
+            '\nSTEPS=' + repr(contract.steps({'node': name,
+                'source': ref['source'] if node_completion else stage[0],
+                'target': ref['target'] if node_completion else stage[1]})) + '\n' + source, ref['address'])
             for name, ref in profile['nodes'].items()]
 
 
@@ -200,8 +213,9 @@ def verify_recovery(args, nodes, fresh=False):
     versions = {n['metadata']['name']: n['status']['nodeInfo']['kubeletVersion'] for n in nodes}
     actors.require(set(versions) == set(HOSTS) and len(nodes) == len(HOSTS), 'recovery inventory differs')
     contract.next_node(nodes, SOURCE, TARGET)
-    snapshot_version = SOURCE if args.node in SERVERS else TARGET
-    actors.require(args.node in SERVERS or all(versions[n] == TARGET for n in SERVERS),
+    worker_control_plane = contract.VERSIONS[-1] if contract.VERSIONS.index(SOURCE) >= 2 else TARGET
+    snapshot_version = SOURCE if args.node in SERVERS else worker_control_plane
+    actors.require(args.node in SERVERS or all(versions[n] == worker_control_plane for n in SERVERS),
                    'finish all servers before worker recovery')
     copied = json.loads(Path(args.recovery_copy).read_bytes())
     restored = json.loads(Path(args.recovery_receipt).read_bytes())
@@ -951,7 +965,9 @@ def main():
         else:
             actors.require(args.operation == 'initialize' and contract.next_node(nodes, SOURCE, TARGET) == args.node,
                            'finish preceding node before acquiring next')
-            if args.node == 'charmander' and SOURCE != contract.VERSIONS[0]:
+            if contract.VERSIONS.index(SOURCE) >= 2:
+                previous_bridge_releases(args, nodes, node_completion=True)
+            elif args.node == 'charmander' and SOURCE != contract.VERSIONS[0]:
                 previous_bridge_releases(args, nodes)
             prospective = {'node': args.node}
             observe(args, api, prospective, 'prerequisites')

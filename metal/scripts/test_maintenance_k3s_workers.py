@@ -72,6 +72,30 @@ class WorkerRecoveryTests(unittest.TestCase):
         for node in self.nodes[2:]:node['status']['nodeInfo']['kubeletVersion']=bridge.SOURCE
         with self.assertRaisesRegex(RuntimeError,'finish all servers'):self.verify()
         self.remote.assert_not_called()
+    def test_worker_consecutive_hops_use_final_control_plane_restore_and_source_config(self):
+        original=bridge.SOURCE,bridge.TARGET
+        self.addCleanup(bridge.configure_stage,*original)
+        bridge.configure_stage(*contract.VERSIONS[2:4])
+        versions=next(state for state in contract.completion_states()
+            if all(state[n]==contract.VERSIONS[-1]for n in contract.ORDER[:3])and
+               all(state[n]==contract.VERSIONS[2]for n in contract.ORDER[3:]))
+        self.nodes=[{'metadata':{'name':n,'uid':'uid-'+n},
+                     'status':{'nodeInfo':{'kubeletVersion':versions[n]}}}for n in contract.ORDER]
+        self.args.node='sprigatito'
+        self.config.update(receiver='pikachu')
+        self.config['header'].update(node='sprigatito',node_uid='uid-sprigatito',version=bridge.SOURCE)
+        self.config['files']['/usr/local/bin/k3s']['sha256']=contract.SHA256[bridge.SOURCE]
+        self.copy['metadata'].update(version=contract.VERSIONS[-1])
+        self.copy['metadata']['nodes']={n['metadata']['name']:n['metadata']['uid']for n in self.nodes}
+        self.restore['version']=contract.VERSIONS[-1]
+        with patch.object(shared,'UID','uid-sprigatito'):
+            self.verify()
+        self.assertIn("'source_version': '"+contract.VERSIONS[-1]+"'",self.remote.call_args_list[0].args[1])
+        self.assertIn("'receiver_version': '"+contract.VERSIONS[2]+"'",self.remote.call_args_list[0].args[1])
+        self.remote.reset_mock()
+        self.restore['version']=bridge.TARGET
+        with patch.object(shared,'UID','uid-sprigatito'),self.assertRaises(RuntimeError):self.verify()
+        self.remote.assert_not_called()
     def test_server_recovery_remains_valid_after_its_activation(self):
         self.args.node='bulbasaur'
         self.config['header'].update(node='bulbasaur');self.config['receiver']='pikachu'

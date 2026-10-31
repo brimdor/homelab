@@ -10,6 +10,7 @@ import subprocess
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -160,6 +161,52 @@ class PreviousBridgeTests(unittest.TestCase):
                                (contract.VERSIONS[2], contract.VERSIONS[1]), ('unknown', contract.VERSIONS[1])):
             with self.subTest(source=source, target=target), self.assertRaisesRegex(RuntimeError, 'unreviewed'):
                 production.configure_stage(source, target)
+
+    def node_profile(self, mutate=None):
+        production.configure_stage(*contract.VERSIONS[2:4])
+        profile = {'version': 2, 'nodes': copy.deepcopy(self.anchor['nodes'])}
+        for name, ref in profile['nodes'].items():
+            ref.update(source=contract.VERSIONS[1], target=contract.VERSIONS[2])
+            if name in ('charmander', 'squirtle'):
+                ref.update(source=contract.VERSIONS[2], target=contract.VERSIONS[3])
+        nodes = [{'metadata': {'name': name, 'uid': ref['node_uid']},
+                  'status': {'nodeInfo': {'kubeletVersion': ref['target']}}}
+                 for name, ref in profile['nodes'].items()]
+        if mutate:
+            mutate(profile, nodes)
+        raw = json.dumps(profile).encode()
+        def git(args):
+            return json.dumps(self.anchor).encode() if args[-1].endswith(
+                'k3s-first-bridge-releases.json') else raw
+        with patch.object(Path, 'is_file', return_value=True), \
+                patch.object(Path, 'read_bytes', return_value=raw), \
+                patch.object(production.subprocess, 'check_output', side_effect=git), \
+                patch.object(shared, 'remote', return_value={'accepted': True}) as remote:
+            result = production.previous_bridge_releases(types.SimpleNamespace(node='bulbasaur'), nodes,
+                                                        node_completion=True)
+            self.assertEqual(remote.call_count, 9)
+            programs = [call.args[1] for call in remote.call_args_list]
+            for program in programs:
+                compile(program, 'native-original-release', 'exec')
+            self.assertIn("STAGE=('v1.33.13+k3s2', 'v1.34.12+k3s1')", programs[0])
+            self.assertIn("STAGE=('v1.33.10+k3s1', 'v1.33.13+k3s2')", programs[2])
+            return result
+
+    def test_node_completion_ledger_binds_each_original_released_stage(self):
+        self.node_profile()
+
+    def test_node_completion_ledger_rejects_stale_foreign_or_unreviewed_binding(self):
+        for mutate in (
+                lambda p, n: p.update(version=1),
+                lambda p, n: p['nodes']['squirtle'].update(target=contract.VERSIONS[2]),
+                lambda p, n: p['nodes']['bulbasaur'].update(source=contract.VERSIONS[0]),
+                lambda p, n: p['nodes']['bulbasaur'].update(node_uid='foreign'),
+                lambda p, n: p['nodes']['bulbasaur'].update(address='10.0.40.3'),
+                lambda p, n: n[2]['status']['nodeInfo'].update(kubeletVersion=contract.VERSIONS[3])):
+            with self.subTest(mutate=mutate), patch.object(shared, 'remote') as remote:
+                with self.assertRaises(RuntimeError):
+                    self.node_profile(mutate)
+                remote.assert_not_called()
 
     def test_missing_or_unpublished_profile_stops_before_remote_read(self):
         for kwargs in ({'exists': False}, {'published': False}):
