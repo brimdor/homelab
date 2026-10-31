@@ -311,12 +311,12 @@ app-template:
         egress: []
   rawResources:
     initial-director:
-      forceRename: tsurreal-initial-director-2
+      forceRename: tsurreal-initial-director-3
       manifest:
         apiVersion: batch/v1
         kind: Job
         metadata:
-          name: tsurreal-initial-director-2
+          name: tsurreal-initial-director-3
           namespace: tsurreal-canary
         spec:
           backoffLimit: 0
@@ -335,6 +335,7 @@ app-template:
                 fsGroup: 65532
                 seccompProfile:
                   type: RuntimeDefault
+                fsGroupChangePolicy: OnRootMismatch
               initContainers:
               - name: prepare
                 image: docker.io/library/python:3.13.18-alpine3.24@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
@@ -343,25 +344,20 @@ app-template:
                 - python3
                 - -B
                 - -c
-                - 'import os,sqlite3
-
-                  connection=sqlite3.connect(''file:/var/lib/tsurreal/state/hq.sqlite?mode=ro'',uri=True)
-
-                  assert connection.execute(''SELECT count(*) FROM accounts'').fetchone()[0]==0,''An
-                  account already exists; initial setup refused''
-
-                  rows=connection.execute(''SELECT hq_name FROM installations'').fetchall()
-
-                  assert not rows or rows==[(''Canary HQ'',)],''Existing HQ name requires
-                  explicit preservation''
-
-                  connection.close()
-
-                  os.mkdir(''/handoff/private'',0o700)
-
-                  print(''Initial account precondition verified; private handoff prepared'',flush=True)
-
-                  '
+                - "import os,sqlite3\nimport stat,json\nfrom pathlib import Path\nroot=Path('/var/lib/tsurreal/state')\n\
+                  paths=[root,*root.rglob('*')]\n# Restore this application's private\
+                  \ custody after the operator Pod's default fsGroup recursion.\nfor path\
+                  \ in paths:\n    info=path.lstat()\n    assert info.st_uid==65532 and\
+                  \ not path.is_symlink() and (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode))\n\
+                  \    assert stat.S_ISDIR(info.st_mode) or info.st_nlink==1\nprint(json.dumps({'private_custody_before':[{'path':str(path.relative_to(root)),'mode':oct(stat.S_IMODE(path.lstat().st_mode))}\
+                  \ for path in paths]}),flush=True)\nfor path in paths:\n    os.chmod(path,0o700\
+                  \ if path.is_dir() else 0o600)\nconnection=sqlite3.connect('file:/var/lib/tsurreal/state/hq.sqlite?mode=ro',uri=True)\n\
+                  assert connection.execute('SELECT count(*) FROM accounts').fetchone()[0]==0,'An\
+                  \ account already exists; initial setup refused'\nrows=connection.execute('SELECT\
+                  \ hq_name FROM installations').fetchall()\nassert not rows or rows==[('Canary\
+                  \ HQ',)],'Existing HQ name requires explicit preservation'\nconnection.close()\n\
+                  os.mkdir('/handoff/private',0o700)\nprint('Initial account precondition\
+                  \ verified; private handoff prepared',flush=True)\n"
                 securityContext:
                   allowPrivilegeEscalation: false
                   readOnlyRootFilesystem: true
