@@ -5,6 +5,7 @@ import ast
 import hashlib
 import json
 import io
+import os
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
@@ -31,16 +32,140 @@ class RuntimeTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(RuntimeError, 'protected host state'):
                 production.unchanged_runtime(self.before, changed)
 
-    def test_production_cannot_select_unintegrated_stage_or_touch_unknown_host(self):
+    def test_production_cannot_skip_stage_or_touch_unknown_host(self):
         class Hold:
             state = None
-        for node, source, target in (('charmander', contract.VERSIONS[2], contract.VERSIONS[3]),
+        for node, source, target in (('charmander', contract.VERSIONS[0], contract.VERSIONS[3]),
                                      ('unknown', production.SOURCE, production.TARGET)):
             context = dict.fromkeys(('api', 'controller', 'native', 'identity', 'rpc'))
             context.update(hold=Hold(), operation='activate-binary', owner={
                 'component': 'k3s', 'node': node, 'source': source, 'target': target})
             with self.subTest(node=node), self.assertRaisesRegex(RuntimeError, 'unreviewed production bridge'):
                 production.native_operation(context)
+
+
+class PreviousBridgeTests(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(production.configure_stage, *contract.VERSIONS[:2])
+        self.anchor = json.loads(Path('metal/maintenance/k3s-first-bridge-releases.json').read_bytes())
+
+    def run_profile(self, index=2, change=None, published=True, exists=True, remote=None):
+        production.configure_stage(*contract.VERSIONS[index:index + 2])
+        profile = copy.deepcopy(self.anchor)
+        profile.update(source=contract.VERSIONS[index - 1], target=contract.VERSIONS[index])
+        nodes = [{'metadata': {'name': name, 'uid': ref['node_uid']},
+                  'status': {'nodeInfo': {'kubeletVersion': contract.VERSIONS[index]}}}
+                 for name, ref in profile['nodes'].items()]
+        if change is not None:
+            change(profile, nodes)
+        raw = json.dumps(profile).encode()
+        def git(args):
+            return (json.dumps(self.anchor).encode() if args[-1].endswith('k3s-first-bridge-releases.json')
+                    and index != 1 else raw) if published else b'{}'
+        with patch.object(Path, 'is_file', return_value=exists), patch.object(Path, 'read_bytes', return_value=raw), \
+                patch.object(production.subprocess, 'check_output', side_effect=git), \
+                patch.object(shared, 'remote', side_effect=remote or (lambda *_: {'accepted': True})) as call:
+            result = production.previous_bridge_releases(None, nodes)
+            self.assertEqual(call.call_count, len(contract.ORDER))
+            return result
+
+    def test_all_reviewed_consecutive_stages_and_only_those(self):
+        for index in range(len(contract.VERSIONS) - 1):
+            with self.subTest(index=index):
+                production.configure_stage(*contract.VERSIONS[index:index + 2])
+                if index:
+                    self.run_profile(index)
+        for source, target in ((contract.VERSIONS[0], contract.VERSIONS[2]),
+                               (contract.VERSIONS[2], contract.VERSIONS[1]), ('unknown', contract.VERSIONS[1])):
+            with self.subTest(source=source, target=target), self.assertRaisesRegex(RuntimeError, 'unreviewed'):
+                production.configure_stage(source, target)
+
+    def test_missing_or_unpublished_profile_stops_before_remote_read(self):
+        for kwargs in ({'exists': False}, {'published': False}):
+            with self.subTest(kwargs=kwargs), patch.object(shared, 'remote') as remote:
+                with self.assertRaises(RuntimeError):
+                    self.run_profile(**kwargs)
+                remote.assert_not_called()
+
+    def test_foreign_inventory_stage_host_and_owner_refuse_before_any_ssh(self):
+        def ref(profile):return profile['nodes']['charmander']
+        changes = [
+            lambda p, n: n.pop(),
+            lambda p, n: n.append(copy.deepcopy(n[0])),
+            lambda p, n: n[0]['status']['nodeInfo'].update(kubeletVersion=contract.VERSIONS[1]),
+            lambda p, n: n[0]['metadata'].update(uid='foreign'),
+            lambda p, n: p.update(source=contract.VERSIONS[0]),
+            lambda p, n: p.update(version=True),
+            lambda p, n: ref(p).update(address='10.0.40.3'),
+            lambda p, n: ref(p)['identity'].update(root_uuid='foreign'),
+            lambda p, n: ref(p).update(owner='../../foreign'),
+            lambda p, n: ref(p).update(release_head='wrong'),
+            lambda p, n: ref(p).update(owner=p['nodes']['squirtle']['owner']),
+        ]
+        for change in changes:
+            with self.subTest(change=change), patch.object(shared, 'remote') as remote:
+                with self.assertRaises(RuntimeError):self.run_profile(change=change)
+                remote.assert_not_called()
+
+    def decoded_program(self, node, mutate=None):
+        """Execute real file/hash reads; hostname, root UUID and file owner are synthetic."""
+        programs = {}
+        self.run_profile(remote=lambda args, source, address: programs.setdefault(address, source))
+        ref = self.anchor['nodes'][node]
+        source = programs[ref['address']]
+        bindings = {}
+        exec(source[:source.index('import hashlib,json,os,pathlib,socket,subprocess')], bindings)
+        stage = bindings['STAGE'];steps = bindings['STEPS']
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            owner = {'owner': ref['owner'], 'node': node, 'node_uid': ref['node_uid'],
+                     'component': 'k3s', 'source': stage[0], 'target': stage[1]}
+            owners = {'global': owner, 'host': {'owner': ref['owner']}}
+            hop = root / 'transactions' / ref['owner'];hop.mkdir(parents=True)
+            hashes = {}
+            for index in range(1 + 2 * len(steps)):
+                name = str(index).zfill(8) + '.json'
+                value = {'owners': owners} if index == 0 else {'fixture_record': index}
+                raw = json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+                (hop / name).write_bytes(raw);(hop / name).chmod(0o600);hashes[name] = hashlib.sha256(raw).hexdigest()
+            release = root / 'releases' / ref['owner'];release.mkdir(parents=True)
+            previous = None
+            for index, kind in enumerate(('header', 'host-intent', 'host-accepted', 'global-intent', 'global-accepted')):
+                value = {'sequence': index, 'kind': kind, 'previous': previous}
+                if index == 0:value.update(owners=owners, hop_records=hashes, hop_head_sha256=hashes[sorted(hashes)[-1]])
+                raw = json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+                record = release / (str(index).zfill(8) + '.json');record.write_bytes(raw);record.chmod(0o600)
+                previous = hashlib.sha256(raw).hexdigest()
+            if mutate:mutate(hop, release)
+            bindings['REF']['release_head'] = previous
+            source = source[source.index('import hashlib,json,os,pathlib,socket,subprocess'):]
+            source = source.replace("pathlib.Path('/var/lib/homelab-maintenance')", 'pathlib.Path(' + repr(str(root)) + ')')
+            source = source.replace("pathlib.Path('/etc/machine-id').read_text().strip()", repr(ref['identity']['machine']))
+            original_stat = Path.stat
+            def root_owner(path, *args, **kwargs):
+                fields = list(original_stat(path, *args, **kwargs));fields[4] = 0
+                return os.stat_result(fields)
+            output = io.StringIO()
+            with patch('socket.gethostname', return_value=node), patch('os.geteuid', return_value=0), \
+                    patch.object(production.subprocess, 'check_output', return_value=ref['identity']['root_uuid'] + '\n'), \
+                    patch.object(Path, 'stat', root_owner), redirect_stdout(output):
+                exec(compile(source, 'decoded-prior-release', 'exec'), bindings)
+            return json.loads(output.getvalue())
+
+    def test_original_server_seventeen_and_worker_fifteen_hop_sets(self):
+        self.assertEqual(self.decoded_program('charmander')['hop_records'], 17)
+        self.assertEqual(self.decoded_program('cyndaquil')['hop_records'], 15)
+
+    def test_missing_changed_extra_or_incomplete_original_records_refuse(self):
+        mutations = [
+            lambda h, r: (h / '00000016.json').unlink(),
+            lambda h, r: (h / '00000002.json').write_text('{}'),
+            lambda h, r: (h / 'foreign.json').write_text('{}'),
+            lambda h, r: (r / '00000004.json').unlink(),
+        ]
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                self.decoded_program('charmander', mutation)
 
     def test_all_embedded_remote_programs_compile_after_string_decoding(self):
         tree = ast.parse(Path(production.__file__).read_text())

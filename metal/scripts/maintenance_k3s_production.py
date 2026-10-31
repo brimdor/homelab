@@ -17,7 +17,7 @@ import maintenance_k3s_contract as contract
 from maintenance_node_drain import ZOT, hashed, private_json
 
 
-# Later stages remain disabled until their production integration is qualified.
+# Each later stage also requires all original preceding-stage releases below.
 SOURCE, TARGET = contract.VERSIONS[:2]
 SERVERS = ('charmander', 'squirtle', 'bulbasaur')
 HOSTS = contract.ORDER
@@ -27,23 +27,43 @@ AUTH_WARNINGS = {'AUTH_INSECURE_CLIENT_KEY_TYPE', 'AUTH_INSECURE_KEYS_ALLOWED',
 
 def configure_stage(source, target):
     global SOURCE, TARGET
-    actors.require((source, target) in (contract.VERSIONS[:2], contract.VERSIONS[1:3]),
+    actors.require(contract.reviewed(source, target),
                    'unreviewed production bridge stage')
     SOURCE, TARGET = source, target
 
 
-def first_bridge_releases(args, nodes):
+def previous_bridge_releases(args, nodes):
     """Re-read every original completed release before entering the next pair."""
     import maintenance_production_node as production
-    path = Path('metal/maintenance/k3s-first-bridge-releases.json');raw = path.read_bytes()
+    index = contract.VERSIONS.index(SOURCE)
+    actors.require(index > 0 and contract.reviewed(SOURCE, TARGET), 'no preceding reviewed bridge')
+    stage = contract.VERSIONS[index - 1:index + 1]
+    anchor_path = Path('metal/maintenance/k3s-first-bridge-releases.json')
+    path = anchor_path if index == 1 else Path('metal/maintenance/k3s-bridge-' + str(index) + '-releases.json')
+    actors.require(path.is_file(), 'complete preceding-bridge release bindings are missing')
+    raw = path.read_bytes()
     actors.require(raw == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
-                   'unpublished first-bridge release bindings')
+                   'unpublished preceding-bridge release bindings')
     profile = json.loads(raw)
-    actors.require(profile['version'] == 1 and (profile['source'], profile['target']) == contract.VERSIONS[:2] and
+    anchor = json.loads(subprocess.check_output(['git', 'show', 'HEAD:' + str(anchor_path)]))
+    actors.require(set(profile) == {'version', 'source', 'target', 'nodes'} and
+                   type(profile['version']) is int and profile['version'] == 1 and
+                   (profile['source'], profile['target']) == stage and
                    set(profile['nodes']) == set(HOSTS) and
+                   len(nodes) == len(HOSTS) and
                    {n['metadata']['name']: n['metadata']['uid'] for n in nodes} ==
-                   {name: value['node_uid'] for name, value in profile['nodes'].items()},
-                   'original first-bridge inventory differs')
+                   {name: value['node_uid'] for name, value in profile['nodes'].items()} and
+                   all(n['status']['nodeInfo']['kubeletVersion'] == SOURCE for n in nodes),
+                   'original preceding-bridge inventory or stage differs')
+    import re
+    for name, ref in profile['nodes'].items():
+        actors.require(set(ref) == {'node_uid', 'owner', 'release_head', 'identity', 'address'} and
+                       all(ref[key] == anchor['nodes'][name][key] for key in ('node_uid', 'identity', 'address')) and
+                       re.fullmatch(r'homelab-maintenance-103-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', ref['owner']) and
+                       re.fullmatch('[0-9a-f]{64}', ref['release_head']),
+                       'original preceding-bridge host or release binding differs')
+    actors.require(len({ref['owner'] for ref in profile['nodes'].values()}) == len(HOSTS),
+                   'preceding-bridge owners are not distinct')
     source = '''
 import hashlib,json,os,pathlib,socket,subprocess
 assert os.geteuid()==0 and socket.gethostname()==NODE
@@ -64,14 +84,17 @@ for index,kind in enumerate(('header','host-intent','host-accepted','global-inte
  previous=digest
 assert previous==REF['release_head']
 owner=header['owners']['global'];assert owner['owner']==REF['owner']and owner['node']==NODE and owner['node_uid']==REF['node_uid']
-assert owner['component']=='k3s'and(owner['source'],owner['target'])==('v1.33.6+k3s1','v1.33.10+k3s1')
+assert owner['component']=='k3s'and(owner['source'],owner['target'])==STAGE
 hop=root/'transactions'/REF['owner']
-assert len(header['hop_records'])==15 and set(p.name for p in hop.iterdir())==set(header['hop_records'])
+expected=[str(i).zfill(8)+'.json'for i in range(1+2*len(STEPS))]
+assert sorted(header['hop_records'])==expected and set(p.name for p in hop.iterdir())==set(expected)
 for name,digest in header['hop_records'].items():assert read(hop/name)[1]==digest
-assert read(hop/'00000014.json')[1]==header['hop_head_sha256']
-print(json.dumps({'node':NODE,'release_head':previous,'original_release_and_fifteen_hops_preserved':True}))
+assert read(hop/expected[-1])[1]==header['hop_head_sha256']
+assert read(hop/expected[0])[0]['owners']==header['owners']
+print(json.dumps({'node':NODE,'release_head':previous,'original_release_and_hops_preserved':True,'hop_records':len(expected)}))
 '''
-    return [production.remote(args, 'NODE=' + repr(name) + '\nREF=' + repr(ref) + '\n' + source, ref['address'])
+    return [production.remote(args, 'NODE=' + repr(name) + '\nREF=' + repr(ref) + '\nSTAGE=' + repr(stage) +
+            '\nSTEPS=' + repr(contract.steps({'node': name, 'source': stage[0], 'target': stage[1]})) + '\n' + source, ref['address'])
             for name, ref in profile['nodes'].items()]
 
 
@@ -861,7 +884,7 @@ def main():
     parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'begin-legacy-check', 'legacy-check', 'prepare-binary',
         'activate-binary', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'accept-applications', 'release'))
     parser.add_argument('--node', choices=HOSTS, required=True)
-    parser.add_argument('--target', choices=contract.VERSIONS[1:3], default=contract.VERSIONS[1])
+    parser.add_argument('--target', choices=contract.VERSIONS[1:], default=contract.VERSIONS[1])
     for name in ('kubectl', 'identity', 'known-hosts'):
         parser.add_argument('--' + name, required=True)
     for name in ('recovery-receipt', 'recovery-copy', 'node-recovery'):
@@ -901,8 +924,8 @@ def main():
         else:
             actors.require(args.operation == 'initialize' and contract.next_node(nodes, SOURCE, TARGET) == args.node,
                            'finish preceding node before acquiring next')
-            if args.node == 'charmander' and (SOURCE, TARGET) == contract.VERSIONS[1:3]:
-                first_bridge_releases(args, nodes)
+            if args.node == 'charmander' and SOURCE != contract.VERSIONS[0]:
+                previous_bridge_releases(args, nodes)
             prospective = {'node': args.node}
             observe(args, api, prospective, 'prerequisites')
             program = '''
