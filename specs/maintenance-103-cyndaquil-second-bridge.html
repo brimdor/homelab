@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Cyndaquil second K3s bridge accepted</title>
+<style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1000px;margin:2rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}table{border-collapse:collapse;width:100%}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #374151;padding:.7rem}code{overflow-wrap:anywhere}.accepted{color:#86efac}</style>
+<h1>Issue 103: Cyndaquil second K3s bridge</h1>
+<p class="accepted">Accepted and released. Independent verification: October 31, 2026, 05:23 UTC.</p>
+<p>This record covers the actual Cyndaquil maintenance from v1.33.10+k3s1 to v1.33.13+k3s2. It does not close Issue 103 or certify its unresolved tasks.</p>
+<h2>Actual maintenance</h2>
+<table><tr><th>Action</th><th>Evidence</th></tr>
+<tr><td>Cordon and drain</td><td>Original owner homelab-maintenance-103-b1fd2af3-02eb-4d19-ac01-67a4e9007d62; 5ni43t_z accepted all twenty original targets. Rook restored monitor quorum u/v/w through its existing automatic failover.</td></tr>
+<tr><td>Protected recovery</td><td>n8hsoqag: fresh consistent etcd copy protected off-node, full isolated restore accepted and owned scratch removed. Manifest SHA-256 <code>ece38d7b8e40104215b96542462655d15e23b52a96548af24b9c5976d7ea79a8</code>. Original node configuration and executable recovery retained.</td></tr>
+<tr><td>Binary update</td><td>o9su3c5q dispatched one activation. 32ao1k3o observed v1.33.13+k3s2, new PID 824469, same boot and configuration, SELinux Enforcing. No host reboot or activation replay.</td></tr>
+<tr><td>Scheduling and data plane</td><td>x4eh_z6o accepted the original uncordon intent. 4_cj4jo6 observed held controllers return and Ceph HEALTH_OK. Rook cleared its own noout protection; no manual Ceph flag mutation.</td></tr>
+<tr><td>Application behavior</td><td>gumg3bvl accepted seventeen returned controllers, twenty native processes, nine HTTP probes, two PostgreSQL read-only checks and all six Valkey members. nrbeaoxk proves Rook removed its node daemons; recreated crashcollector/exporter templates remain byte-equivalent by canonical template hash and owned by the original CephCluster.</td></tr>
+<tr><td>Completion and release</td><td>h5zgrgkz: seven accepted maintenance steps, fifteen original hop records, five ordered release records. xzl559gq independently verified both owners absent, original evicted Pod UIDs absent, 177 clean PGs, 57 retained Ceph PV bindings, protected Zot unchanged and original MWF Kured schedule.</td></tr></table>
+<h2>Exact release identity</h2>
+<p>Release head: <code>72fce3d7d971b7dfc250b9ae32f68f7915d43c468a9f31c527c34c5209331171</code></p>
+<p>Installed launcher SHA-256: <code>1572f0f23bd5a844bd405b71875877aacacc7ab79e279d3d73735654c37c7735</code></p>
+<p>Running unpacked executable SHA-256: <code>7a4488683077222138b8bb46a9549697c6cd035924eaf1db7c44204503dcc681</code></p>
+<h2>Restrictions and remaining work</h2>
+<p>No agent NAS data/configuration/export/backup/restore/cleanup writes. Protected Zot was not restarted, replaced, published to or garbage-collected. Existing NAS read-only mounts and held backup helpers remain protected. The temporary application is outside maintenance scope.</p>
+<p>All nine nodes have Fedora 44. Six now run this K3s target; Totodile, Growlithe and Arcanine remain at v1.33.10+k3s1. Finish Totodile next, then Growlithe before Arcanine, and complete subsequent approved consecutive stages. Thirteen Issue 103 parent tasks remain open, including recurring Strata SQLITE_PROTOCOL investigation and previously identified human/provider/device gates. PAT rotation remains the owner's action after true Issue 103 closure.</p>
+<p>Preserved failures include the transient Kured/OSD startup observations, the first return observer's unsupported recreated-controller assumption and the first independent observer's plan-wrapper schema error. Corrected readers subsequently passed; none caused a maintenance mutation to be replayed.</p>
+</html>
