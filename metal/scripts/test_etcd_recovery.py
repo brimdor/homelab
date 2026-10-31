@@ -30,6 +30,22 @@ class RecoveryProfileTests(unittest.TestCase):
         self.assertEqual(RECOVERY.IMAGE, RECOVERY.RECOVERY_IMAGES[contract.VERSIONS[1]])
         self.assertNotEqual(RECOVERY.IMAGE, RECOVERY.RECOVERY_IMAGES[contract.VERSIONS[0]])
 
+    def test_final_control_plane_can_restore_on_the_older_reviewed_receiver(self):
+        versions = tuple(RECOVERY.RECOVERY_IMAGES)
+        for source in versions[2:]:
+            for receiver in versions[2:]:
+                with self.subTest(source=source, receiver=receiver):
+                    if versions.index(receiver) > versions.index(source):
+                        with self.assertRaises(RuntimeError):
+                            RECOVERY.recovery_profile('squirtle', source, receiver)
+                    else:
+                        RECOVERY.configure_profile('squirtle', source, receiver)
+                        self.assertEqual(RECOVERY.VERSION, source)
+                        self.assertEqual(RECOVERY.RECEIVER_VERSION, receiver)
+                        self.assertEqual(RECOVERY.IMAGE, RECOVERY.RECOVERY_IMAGES[source])
+        RECOVERY.configure_profile('squirtle', versions[-1], versions[2])
+        self.assertNotEqual(RECOVERY.IMAGE, RECOVERY.RECOVERY_IMAGES[versions[2]])
+
     def test_foreign_hosts_skipped_versions_and_newer_receivers_are_refused(self):
         baseline = (RECOVERY.SOURCE_HOST, RECOVERY.VERSION, RECOVERY.RECEIVER_VERSION, RECOVERY.IMAGE)
         for profile in (('pikachu', RECOVERY.VERSION, RECOVERY.VERSION),

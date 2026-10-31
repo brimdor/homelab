@@ -42,11 +42,14 @@ SSH = ["ssh", "-i", str(Path.home() / ".ssh/homelab"), "-o", "IdentitiesOnly=yes
 
 
 def recovery_profile(source_host, source_version, receiver_version):
-    """The off-master receiver can trail a server by exactly one reviewed hop."""
+    """The isolated restore uses the source image; the host may trail by three minors."""
     versions = tuple(RECOVERY_IMAGES)
     if (source_host not in SOURCE_ADDRESSES or source_version not in versions or
-            receiver_version not in versions or
-            versions.index(source_version) - versions.index(receiver_version) not in (0, 1)):
+            receiver_version not in versions):
+        raise RuntimeError("unreviewed K3s recovery profile")
+    source, receiver = versions.index(source_version), versions.index(receiver_version)
+    if not (source - receiver in (0, 1) or
+            receiver >= 2 and 0 <= source - receiver <= 3):
         raise RuntimeError("unreviewed K3s recovery profile")
     return {"source_host": source_host, "source_version": source_version,
             "receiver_version": receiver_version}
