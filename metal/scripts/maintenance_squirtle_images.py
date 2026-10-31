@@ -87,7 +87,7 @@ try:
    archive.addfile(entry,io.BytesIO(content))
   add('oci-layout',b'{"imageLayoutVersion":"1.0.0"}')
   index={'schemaVersion':2,'manifests':[{'mediaType':manifest['mediaType'],'digest':DIGEST,'size':len(raw),
-   'platform':{'architecture':'amd64','os':'linux'},'annotations':{'org.opencontainers.image.ref.name':IMAGE}}]}
+   'platform':{'architecture':'amd64','os':'linux'},'annotations':{'org.opencontainers.image.ref.name':IMPORT_REFERENCE}}]}
   add('index.json',json.dumps(index,separators=(',',':')).encode())
   class CheckedReader:
    def __init__(self,source):self.source=source;self.digest=hashlib.sha256();self.bytes=0
@@ -120,6 +120,8 @@ def bindings(key):
     values = {'NAS': NAS, 'PV_UID': PV_UID, 'PVC_UID': PVC_UID,
               'REPOSITORY': profile['image'].split('/', 1)[1].split('@')[0],
               'IMAGE': profile['image'] if '@' in profile['declared'] else profile['declared'],
+              # Keep legacy receipt bindings; new imports need a NamedTagged reference.
+              'IMPORT_REFERENCE': profile['declared'].split('@', 1)[0],
               'DIGEST': profile['digest'], 'CONFIG': profile['config'], 'BLOB_COUNT': profile['blobs'],
               'RECOVERY': '/var/lib/homelab-recovery/maintenance-103/squirtle-image-' + key + '-' + profile['digest'][7:15] + suffix,
               'ARTIFACT': 'maintenance103-squirtle-' + key + '-' + profile['digest'][7:15] + suffix + '.tar',

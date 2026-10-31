@@ -42,7 +42,8 @@ class ReadOnlySourceTests(unittest.TestCase):
                                         'options': 'ro,nosuid,nodev,noexec,nosharecache'}]}
                 output = io.BytesIO()
                 values = {'NAS': IMAGES.NAS, 'REPOSITORY': 'test', 'DIGEST': digest,
-                          'CONFIG': descriptor(config)['digest'], 'BLOB_COUNT': 3, 'IMAGE': 'example/test:original'}
+                          'CONFIG': descriptor(config)['digest'], 'BLOB_COUNT': 3, 'IMAGE': 'example/test@' + digest,
+                          'IMPORT_REFERENCE': 'example/test:original'}
                 with patch('os.geteuid', return_value=0), patch('socket.gethostname', return_value='pikachu'), \
                         patch.object(Path, 'read_text', return_value='0a7daf8b33244d9d85f46223c3582da9'), \
                         patch('subprocess.check_output', side_effect=['76e53a95-725a-4430-9d7b-a8db413f3997\n', json.dumps(view).encode()]), \
@@ -59,8 +60,20 @@ class ReadOnlySourceTests(unittest.TestCase):
                         self.assertEqual(len(archive.getnames()), len(set(archive.getnames())))
                         index = json.load(archive.extractfile('index.json'))
                         self.assertEqual(index['manifests'][0]['digest'], digest)
+                        self.assertEqual(index['manifests'][0]['annotations'],
+                                         {'org.opencontainers.image.ref.name': 'example/test:original'})
                         self.assertEqual(archive.extractfile('blobs/sha256/' + digest[7:]).read(), raw)
                         self.assertEqual(archive.extractfile('blobs/sha256/' + descriptor(layer)['digest'][7:]).read(), layer)
+
+    def test_new_export_tag_does_not_rebind_historical_receipts(self):
+        for key, profile in IMAGES.profiles().items():
+            with self.subTest(key=key):
+                values = {}; exec(IMAGES.bindings(key), values)
+                self.assertEqual(values['IMPORT_REFERENCE'], profile['declared'].split('@')[0])
+                self.assertIn(':', values['IMPORT_REFERENCE'].rsplit('/', 1)[-1])
+                self.assertNotIn('@', values['IMPORT_REFERENCE'])
+                self.assertEqual(values['ALIAS'], profile['image'])
+                self.assertEqual(values['IMAGE'], profile['image'] if '@' in profile['declared'] else profile['declared'])
 
     def test_failed_mount_never_reads_or_changes_source_and_removes_owned_directory(self):
         root = Path(tempfile.mkdtemp())
