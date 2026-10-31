@@ -1,7 +1,9 @@
 """Exact queued-request recovery; synthetic API, real immutable native journals."""
 
+import ast
 import copy
 from datetime import datetime, timezone
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -197,6 +199,20 @@ class FirstUnlinkTests(unittest.TestCase):
 
     def recover(self, profile, verify=lambda *_: True, runtime=lambda: True):
         return recovery.recover_unsubmitted_host(self.worker, profile, verify, runtime)
+
+    def test_actual_native_hold_binds_only_the_original_global_owner(self):
+        profile = self.fixture()
+        assignment = next(n for n in ast.parse(recovery.NATIVE).body if isinstance(n, ast.Assign)
+                          and any(isinstance(t, ast.Name) and t.id == 'hold' for t in n.targets))
+        native_actors = SimpleNamespace(Systemd=lambda: self.native,
+            Hold=lambda native, identity, owned: recovery.actors.Hold(
+                native, identity, owned, self.hold.state, self.hold.units))
+        scope = {'actors': native_actors, 'identity': self.hold.identity,
+                 'controller': self.api.controller(), 'PROFILE': profile}
+        exec(compile(ast.Module(body=[assignment], type_ignores=[]), '<actual-native-hold>', 'exec'), scope)
+        self.assertEqual(scope['hold'].observed(self.token), self.hold.observed(self.token))
+        self.api.ds['metadata']['annotations'][coordination.LOCK] = '{}'
+        with self.assertRaises(RuntimeError):scope['hold'].observed(self.token)
 
     def test_final_refusal_then_first_unlink_preserves_original_records(self):
         profile = self.fixture();original = {p: p.read_bytes() for p in self.worker.path.iterdir()}

@@ -215,7 +215,7 @@ class API:
  def patch(self,operations):return rpc('global_patch',operations=operations)
  def snapshot(self):return(self.call('get','daemonset','kured','-n','kured','-o','json'),self.call('get','pods','-n','kured','-o','json')['items'],self.call('get','nodes','-o','json')['items'])
 api=API();controller=coord.Ownership(api,DS_UID,{n:v['uid']for n,v in PROFILE['nodes'].items()})
-hold=actors.Hold(actors.Systemd(),identity,lambda _:False)
+hold=actors.Hold(actors.Systemd(),identity,lambda token:controller.resume(token)==PROFILE['owner'])
 journal=hops.Journal(controller,hold,PROFILE['owner']['owner']);worker=release.Release(journal)
 before=sys.modules['maintenance_node_drain'].private_json(hold.state/('k3s-before-'+journal.token+'.json'))
 after=bridge.runtime(native,bridge.TARGET);bridge.unchanged_runtime(before,after)
