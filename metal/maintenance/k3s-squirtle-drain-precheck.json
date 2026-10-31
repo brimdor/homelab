@@ -1,0 +1,42 @@
+{
+  "owner": {
+    "component": "k3s",
+    "created": "2026-10-31T17:22:29.753884Z",
+    "node": "squirtle",
+    "node_uid": "10951ffe-dd31-4c38-b854-67f3a011458c",
+    "owner": "homelab-maintenance-103-8756fb2e-f637-42db-98e7-8a1aca21f8d2",
+    "phase": "OWNED_KURED_ONLY",
+    "revision": "39c03db76fea58a0abe26eea25ea3c2304e36cf6",
+    "source": "v1.34.12+k3s1",
+    "target": "v1.35.9+k3s1",
+    "version": 1
+  },
+  "intent_sha256": "d2d6fe11f047848adb7a6b7c98ad5a2175993ed26b13e4a64455e888c15df857",
+  "pod_uid": "6f12369b-6039-4b85-981c-f20bbf87880c",
+  "failure_sha256": "d521f03a539cb11a7e8167146c1da183bfacffec7c5582e164c21f16973c3fc7",
+  "original_source_sha256": "aef889a490a7ad7de481b81e7e6e9916ae0ceec06dfce00fdaca885a43de4a96",
+  "native_records": {
+    "transactions/00000000.json": "d096a5b8ecab8718d0ddf19020c503e9c9c1ef2d99f3394aa43d590d827131d1",
+    "transactions/00000001.json": "0863b6dc73c6ce97cdad10efea2218340d4e70c7b806b2a844651e078500967a",
+    "transactions/00000002.json": "5410ca496eb5e956ee95da8263b1a710aea2ca2c400f02e5dfa38ab335c3a7dd",
+    "transactions/00000003.json": "8e16902a65d2f2217116085957268f8134b092148b72b027aae18fb9a63b4a71",
+    "drains/00000000.intent.json": "3caca970b8cca55c53f88f782554edcb95703c4c5bd5dfef6758ead11b99a3bc",
+    "drains/00000000.observed.json": "dd76bddad2aa2f567f7a3da72f6287f303fbe77885bfbb89f9c1b6a7137dbcae",
+    "drains/00000001.intent.json": "dd9d842be34c447f7f92330b0026cdb4819dc492321a1c08d141e380617d2793",
+    "drains/00000001.observed.json": "b68858e648ddde6f798a77b514366708bc4f20b17603667045b8f5e42b896d6e",
+    "drains/00000002.intent.json": "e5d240dba299c7f4b3e7be4b038e3b68ce1236215464ce5531b199fe8c714b99",
+    "drains/00000002.observed.json": "d19069d6cc1191bab75d75426562e61327db483027f3f5a2bacef6dfcd963b20",
+    "drains/00000003.intent.json": "55b8e1b0e15c5235e1befd5c70aee2ce4cb113f5e7208a71eb604387b34c02ac",
+    "drains/00000003.observed.json": "a9248e9b2349be8085233d02673bddc6a8e549c337412c3fbfe02c5512033b60",
+    "drains/00000004.intent.json": "90aca4fa5f0c8102361bf28adb260860fdb5d41dc80f1bfd12612114e526a0e2",
+    "drains/00000004.observed.json": "1f77a2e514071ee89aab1dee86e78790b286d24b1c754740282868e3ac51fd19",
+    "drains/00000005.intent.json": "3a93308d2c1b5738a9140e93d4d3200fd712416ee59aa16dfbddfc01de15aed7",
+    "drains/00000005.observed.json": "21a4f25e7d21c3b16852f0aa4388a05107d4f412060e3f133028fb44ac7936e0",
+    "drains/00000006.intent.json": "116ce1a5e77baba5a868cda481d419b24501b901dbc27b1e2bba376832a1b878",
+    "drains/00000006.observed.json": "d9535a78f991d9ebf58c3a5b237babc340f863eb247e46643305d849e99d042e",
+    "drains/00000007.intent.json": "b5205cd40f89e3be786b663302b8166acb0e2c4f95b3715319f17d53e14ecae5",
+    "drains/00000007.observed.json": "ce654102ca9122f1c3b1a9beae0b2de1fa463a39a587891ad045a26724fa20ef",
+    "drains/00000008.intent.json": "d2d6fe11f047848adb7a6b7c98ad5a2175993ed26b13e4a64455e888c15df857",
+    "drains/header.json": "430ce6d13bb916fafd46e729fbd2525c751402cec8ce12403c04451ce2dca063"
+  }
+}

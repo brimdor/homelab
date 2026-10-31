@@ -453,6 +453,21 @@ def native_operation(context):
                 result = worker.dispatch(plan, hashed(plan), digest, verifier(value))
             else:
                 result = worker.observe(plan, digest, verifier(value))
+        elif operation == 'resolve-drain-precheck':
+            proof = context['precheck_proof']
+            actors.require(proof and proof['owner'] == owner and state['pending'] and
+                           state['pending']['step'] == 'drain', 'original drain recovery owner differs')
+            worker = Drain(journal, api); value = evidence(); digest = hashed(value)
+            def not_dispatched(pending, failure):
+                records = {}
+                for directory in ('transactions', 'drains'):
+                    for path in (root / directory / owner['owner']).iterdir():
+                        records[directory + '/' + path.name] = hashed(private_json(path))
+                return (pending['intent_sha256'] == proof['intent_sha256'] and
+                        pending['pod']['uid'] == proof['pod_uid'] and failure == proof['failure_sha256'] and
+                        records == proof['native_records'])
+            result = worker.first_dispatch(proof['intent_sha256'], proof['failure_sha256'], digest,
+                                           not_dispatched, verifier(value))
         elif operation == 'drain':
             worker = Drain(journal, api); value = evidence(); digest = hashed(value)
             path = root / ('drain-' + owner['owner'] + '.json')
@@ -919,12 +934,36 @@ def published_revision():
     return revision
 
 
+def drain_precheck_proof(owner, failure_path):
+    """Only the published exact pre-request failure authorizes one first dispatch."""
+    path = Path('metal/maintenance/k3s-squirtle-drain-precheck.json')
+    raw = path.read_bytes()
+    actors.require(raw == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
+                   'unpublished drain recovery profile')
+    proof = json.loads(raw)
+    actors.require(proof['owner'] == owner, 'original drain recovery owner differs')
+    source = subprocess.check_output(['git', 'show', owner['revision'] +
+                                     ':metal/scripts/maintenance_node_drain.py'])
+    actors.require(hashlib.sha256(source).hexdigest() == proof['original_source_sha256'] and
+                   source.decode().splitlines()[358].strip() ==
+                   "actor.require(self.inventory() == current, 'drain inventory changed before eviction dispatch')",
+                   'original pre-dispatch source differs')
+    failure_raw = Path(failure_path).read_bytes(); failure = json.loads(failure_raw)
+    actors.require(hashlib.sha256(failure_raw).hexdigest() == proof['failure_sha256'] and
+                   failure['sequence'] == 17 and failure['exit'] == 1 and
+                   'File "maintenance_node_drain.py", line 359, in advance' in failure['stderr'] and
+                   failure['stderr'].rstrip().endswith(
+                       'RuntimeError: drain inventory changed before eviction dispatch'),
+                   'definitive captured pre-dispatch failure differs')
+    return proof
+
+
 def main():
     import maintenance_production_node as production
     from maintenance_api_reader import Reader
     from maintenance_coordination import JOURNAL, Ownership
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'begin-legacy-check', 'legacy-check', 'prepare-binary',
+    parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'resolve-drain-precheck', 'begin-legacy-check', 'legacy-check', 'prepare-binary',
         'activate-binary', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'accept-applications', 'release'))
     parser.add_argument('--node', choices=HOSTS, required=True)
     parser.add_argument('--target', choices=contract.VERSIONS[1:], default=contract.VERSIONS[1])
@@ -932,7 +971,10 @@ def main():
         parser.add_argument('--' + name, required=True)
     for name in ('recovery-receipt', 'recovery-copy', 'node-recovery'):
         parser.add_argument('--' + name)
+    parser.add_argument('--drain-precheck-failure')
     args = parser.parse_args(); production.select_node(args.node)
+    actors.require(bool(args.drain_precheck_failure) == (args.operation == 'resolve-drain-precheck'),
+                   'exact captured failure required only for drain precheck recovery')
     configure_stage(contract.VERSIONS[contract.VERSIONS.index(args.target) - 1], args.target)
     revision = published_revision()
     from maintenance_etcd_production import MODULES as ETCD_MODULES
@@ -1001,6 +1043,10 @@ print(json.dumps(result))
         def observer(request):
             if request['rpc'] == 'removed_completed_job':
                 actors.require(args.operation == 'drain', 'unreviewed completed removal operation')
+                ref = request['ref']
+                if ref['namespace'] in production.EXCLUDED_APPLICATION_NAMESPACES:
+                    return {'kind': 'owner-excluded-workload', 'namespace': ref['namespace'],
+                            'pod_uid': ref['uid'], 'controller_uid': ref['controller']['uid']}
                 if owner['node'] == 'cyndaquil' and request['ref']['namespace'] == 'versa':
                     from maintenance_k3s_pending import pending_versa_replacement
                     return pending_versa_replacement(api, owner, request['ref'])
@@ -1008,6 +1054,8 @@ print(json.dumps(result))
             return registry(args, api, request['ref']) if request['rpc'] == 'protected_registry' else observe(
                 args, api, owner, request['rpc'])
         print(json.dumps(production.run_worker(args, api, owner, {}, recovery, bundle,
+                                              precheck_proof=(drain_precheck_proof(owner, args.drain_precheck_failure)
+                                                  if args.operation == 'resolve-drain-precheck' else None),
                                               component_observer=observer)))
     finally:
         api.close()

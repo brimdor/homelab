@@ -318,6 +318,63 @@ class NodeDrainTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'identities changed'):self.advance()
         self.assertFalse(self.pod_api.posts)
 
+    def test_excluded_testing_pods_churn_without_controller_reads_or_drain_gates(self):
+        plan = self.start()
+        for namespace in drain.EXCLUDED_NAMESPACES:
+            self.pod_api.pods.append({'metadata': {'namespace': namespace, 'name': 'changing'}})
+        self.assertEqual(self.worker.inventory(), plan)
+        while not self.advance().get('complete'):
+            pass
+        self.assertEqual(len(self.pod_api.posts), 2)
+
+    def test_legacy_plan_keeps_original_identity_and_records_owner_exclusion(self):
+        plan = self.worker.inventory()
+        ref = copy.deepcopy(plan['pods'][-1])
+        ref.update(namespace='tsurreal-canary', name='old-testing-pod', uid='old-testing-uid')
+        plan['pods'].append(ref)
+        self.worker.start(plan, drain.hashed(plan), 'c' * 64, lambda *_: True)
+        for _ in range(4):
+            self.advance()
+        proof = {'kind': 'owner-excluded-workload', 'namespace': ref['namespace'],
+                 'pod_uid': ref['uid'], 'controller_uid': ref['controller']['uid']}
+        result = self.worker.advance('c' * 64, lambda *_: True, lambda _: proof)
+        self.assertEqual(result['external_removal']['proof'], proof)
+        self.assertEqual(self.worker.header()['plan'], plan)
+        self.assertEqual(len(self.pod_api.posts), 2)
+        self.assertTrue(self.advance()['complete'])
+        for change in ({'namespace': 'tsurreal-other'}, {'uid': 'foreign'}, {'keep': True}):
+            with self.assertRaisesRegex(RuntimeError, 'owner-excluded'):
+                drain.Drain.removal_proof(dict(ref, **change), proof)
+
+    def test_first_dispatch_after_proven_precheck_failure_once_and_never_replayed(self):
+        self.start(); original = actors.exclusive_file
+        def stop_after_intent(path, data, mode):
+            original(path, data, mode)
+            if path.name.endswith('.intent.json'):
+                raise RuntimeError('synthetic pre-dispatch failure')
+        with patch.object(actors, 'exclusive_file', side_effect=stop_after_intent), \
+                self.assertRaisesRegex(RuntimeError, 'synthetic pre-dispatch'):
+            self.advance()
+        pending = self.worker.read()['pending']; intent = pending['intent_sha256']
+        marker = self.worker.path / '00000000.first-dispatch.json'
+        for verify in (lambda *_: False, lambda p, _: p['pod']['uid'] == 'foreign'):
+            with self.assertRaisesRegex(RuntimeError, 'pre-dispatch evidence'):
+                self.worker.first_dispatch(intent, 'f' * 64, 'c' * 64, verify, lambda *_: True)
+        self.assertFalse(marker.exists()); self.assertFalse(self.pod_api.posts)
+        self.pod_api.pods.append({'metadata': {'namespace': 'tsurreal', 'name': 'ephemeral'}})
+        self.pod_api.remove = False
+        self.pod_api.response = {'kind': 'Status', 'status': 'Failure'}
+        with self.assertRaisesRegex(RuntimeError, 'uncertain'):
+            self.worker.first_dispatch(intent, 'f' * 64, 'c' * 64, lambda *_: True, lambda *_: True)
+        self.assertTrue(marker.exists())
+        with self.assertRaises((RuntimeError, FileExistsError)):
+            self.fresh_drain().first_dispatch(intent, 'f' * 64, 'c' * 64, lambda *_: True, lambda *_: True)
+        self.assertIn('pending', self.advance())
+        self.assertEqual(len(self.pod_api.posts), 1)
+        self.pod_api.pods = [p for p in self.pod_api.pods if p['metadata'].get('uid') != pending['pod']['uid']]
+        self.assertIn('observed', self.advance())
+        self.assertEqual(len(self.pod_api.posts), 1)
+
     def test_new_pods_missing_keep_and_unstarted_disappearance_refuse(self):
         self.start();original = copy.deepcopy(self.pod_api.pods)
         extra = copy.deepcopy(original[-1]);extra['metadata'].update(name='new-pod', uid='new-uid')

@@ -126,6 +126,72 @@ class RuntimeTests(unittest.TestCase):
                 production.native_operation(context)
 
 
+class DrainPrecheckProofTests(unittest.TestCase):
+    def test_native_precheck_refuses_changed_original_records_before_first_request(self):
+        import maintenance_hop_journal as hops
+        import maintenance_node_drain as drain
+        self.addCleanup(production.configure_stage, production.SOURCE, production.TARGET)
+        owner = {'component': 'k3s', 'node': 'squirtle', 'source': contract.VERSIONS[-3],
+                 'target': contract.VERSIONS[-2], 'owner': 'synthetic-owner'}
+        pending = {'intent_sha256': 'a' * 64, 'pod': {'uid': 'original-pod'}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ('transactions', 'drains'):
+                (root / name / owner['owner']).mkdir(parents=True)
+            record = root / 'drains' / owner['owner'] / '00000008.intent.json'
+            record.write_bytes(hops.canonical({'synthetic': 'original'})); record.chmod(0o600)
+            proof = {'owner': owner, 'intent_sha256': pending['intent_sha256'],
+                     'pod_uid': pending['pod']['uid'], 'failure_sha256': 'f' * 64,
+                     'native_records': {'drains/00000008.intent.json':
+                         hashlib.sha256(record.read_bytes()).hexdigest()}}
+            checked = []
+            def first_dispatch(_worker, intent, failure, digest, verify, prerequisites):
+                self.assertTrue(verify(pending, failure))
+                self.assertFalse(verify(dict(pending, intent_sha256='b' * 64), failure))
+                self.assertFalse(verify(pending, 'e' * 64))
+                record.write_bytes(hops.canonical({'synthetic': 'changed'}))
+                self.assertFalse(verify(pending, failure))
+                checked.append(True)
+                return {'synthetic': True}
+            context = {'api': None, 'controller': None, 'hold': types.SimpleNamespace(state=root),
+                       'owner': owner, 'native': None, 'identity': None, 'rpc': lambda _: {},
+                       'operation': 'resolve-drain-precheck', 'precheck_proof': proof}
+            with patch.object(hops, 'Journal', return_value=types.SimpleNamespace(
+                    hold=context['hold'], token=owner['owner'],
+                    inspect=lambda: {'pending': {'step': 'drain'}})), \
+                    patch.object(drain.Drain, 'first_dispatch', first_dispatch), redirect_stdout(io.StringIO()):
+                production.native_operation(context)
+            self.assertEqual(checked, [True])
+
+    def test_only_exact_published_owner_source_and_captured_failure_are_accepted(self):
+        owner = {'revision': 'a' * 40, 'owner': 'original'}
+        source = ('\n' * 358 + "            actor.require(self.inventory() == current, 'drain inventory changed before eviction dispatch')\n").encode()
+        failure = {'sequence': 17, 'exit': 1, 'stderr':
+            'File "maintenance_node_drain.py", line 359, in advance\n'
+            'RuntimeError: drain inventory changed before eviction dispatch\n'}
+        raw = json.dumps(failure).encode()
+        proof = {'owner': owner, 'original_source_sha256': hashlib.sha256(source).hexdigest(),
+                 'failure_sha256': hashlib.sha256(raw).hexdigest()}
+        profile = json.dumps(proof).encode()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'failure.json'; path.write_bytes(raw)
+            read_bytes = Path.read_bytes
+            def read(p):
+                return profile if p.name == 'k3s-squirtle-drain-precheck.json' else read_bytes(p)
+            with patch.object(Path, 'read_bytes', read), patch.object(production.subprocess, 'check_output',
+                    side_effect=lambda args: source if args[-1].endswith('maintenance_node_drain.py') else profile):
+                self.assertEqual(production.drain_precheck_proof(owner, path), proof)
+                with self.assertRaisesRegex(RuntimeError, 'owner differs'):
+                    production.drain_precheck_proof(dict(owner, owner='foreign'), path)
+                path.write_bytes(raw + b'\n')
+                with self.assertRaisesRegex(RuntimeError, 'failure differs'):
+                    production.drain_precheck_proof(owner, path)
+                path.write_bytes(raw)
+                with patch.object(production.subprocess, 'check_output', return_value=b'foreign'):
+                    with self.assertRaisesRegex(RuntimeError, 'unpublished'):
+                        production.drain_precheck_proof(owner, path)
+
+
 class PreviousBridgeTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(production.configure_stage, *contract.VERSIONS[:2])

@@ -12,6 +12,11 @@ import maintenance_hop_journal as hops
 CONTROLLERS = {'DaemonSet': 'daemonset', 'ReplicaSet': 'replicaset',
                'StatefulSet': 'statefulset', 'Job': 'job',
                'ReplicationController': 'replicationcontroller', 'Node': 'node'}
+EXCLUDED_NAMESPACES = frozenset(('tsurreal', 'tsurreal-canary'))
+
+
+def scoped_inventory(value):
+    return dict(value, pods=[ref for ref in value['pods'] if ref['namespace'] not in EXCLUDED_NAMESPACES])
 
 # Owner-required exception: K3s service maintenance must retain this exact NAS process.
 # Owner accepted this running replacement on October 30; the original loss remains recorded.
@@ -98,6 +103,8 @@ class Drain:
         completed_jobs = set()
         for pod in pods:
             metadata = pod['metadata']
+            if metadata['namespace'] in EXCLUDED_NAMESPACES:
+                continue
             namespace, pod_name = name(metadata['namespace']), name(metadata['name'])
             actor.require(pod['spec']['nodeName'] == owner['node'] and
                           isinstance(metadata.get('uid'), str) and metadata['uid'] and
@@ -160,7 +167,7 @@ class Drain:
         return {'node': owner['node'], 'node_uid': owner['node_uid'], 'pods': refs}
 
     def start(self, reviewed_plan, reviewed_sha256, prerequisites_sha256, verify_prerequisites):
-        actor.require(hashed(reviewed_plan) == reviewed_sha256 and self.inventory() == reviewed_plan,
+        actor.require(hashed(reviewed_plan) == reviewed_sha256 and self.inventory() == scoped_inventory(reviewed_plan),
                       'drain plan differs from reviewed inventory')
         self.journal.begin('drain', reviewed_sha256, prerequisites_sha256, verify_prerequisites)
         return self.attach(reviewed_plan)
@@ -178,7 +185,7 @@ class Drain:
             if self.path.exists() and (self.path / 'header.json').exists():
                 actor.require(self.header() == header, 'existing drain header differs')
             else:
-                actor.require(self.inventory() == reviewed_plan, 'unstarted drain inventory changed')
+                actor.require(self.inventory() == scoped_inventory(reviewed_plan), 'unstarted drain inventory changed')
                 if not self.parent.exists():
                     actor.safe(self.parent);self.parent.mkdir(mode=0o700);actor.fsync_directory(self.parent.parent)
                 hops.private_directory(self.parent)
@@ -266,6 +273,12 @@ class Drain:
 
     @staticmethod
     def removal_proof(ref, proof):
+        if isinstance(proof, dict) and proof.get('kind') == 'owner-excluded-workload':
+            actor.require(not ref['keep'] and ref['namespace'] in EXCLUDED_NAMESPACES and
+                          proof == {'kind': 'owner-excluded-workload', 'namespace': ref['namespace'],
+                                    'pod_uid': ref['uid'], 'controller_uid': ref['controller']['uid']},
+                          'invalid owner-excluded workload disposition')
+            return
         if isinstance(proof, dict) and proof.get('kind') == 'verified-controller-replacement':
             actor.require(ref['controller']['kind'] == 'ReplicaSet' and not ref['keep'] and
                           set(proof) == {'kind', 'pod_uid', 'controller_uid', 'replacement_uid',
@@ -301,7 +314,7 @@ class Drain:
                           'new or changed target-node Pod during drain')
             present = {ref['uid'] for ref in current['pods']}
             actor.require(not present.intersection(state['completed']) and all(
-                ref['uid'] in present for ref in original['pods'] if ref['keep']),
+                ref['uid'] in present for ref in scoped_inventory(original)['pods'] if ref['keep']),
                 'observed drained Pod returned or keep-set changed')
             pending = state['pending']
             if pending and pending['pod']['uid'] in present:
@@ -319,7 +332,7 @@ class Drain:
                 return {'complete': False, 'observed': record, 'mutation_performed': False}
             index = len(state['completed'])
             if index == len(state['targets']):
-                actor.require(current['pods'] == [ref for ref in original['pods'] if ref['keep']],
+                actor.require(current['pods'] == [ref for ref in scoped_inventory(original)['pods'] if ref['keep']],
                               'drain final keep-set differs')
                 return {'complete': True, 'parent_intent': state['header']['intent'],
                         'plan_sha256': hashed(original), 'completed': state['completed'],
@@ -380,7 +393,8 @@ class Drain:
             actor.require(verify_prerequisites('drain', prerequisites_sha256) is True,
                           'current drain prerequisites refused')
             current = self.inventory();ref = pending['pod']
-            expected = [p for p in state['header']['plan']['pods'] if p['uid'] not in state['completed']]
+            expected = [p for p in scoped_inventory(state['header']['plan'])['pods']
+                        if p['uid'] not in state['completed']]
             actor.require(current['pods'] == expected and self.read() == state,
                           'reviewed remaining drain inventory changed')
             pod = self.api.call('get', 'pod', ref['name'], '-n', ref['namespace'], '-o', 'json')
