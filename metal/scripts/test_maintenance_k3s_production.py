@@ -17,6 +17,30 @@ import maintenance_k3s_production as production
 import maintenance_production_node as shared
 
 
+class MaintenanceScopeTests(unittest.TestCase):
+    def test_only_exact_owner_excluded_namespaces_leave_workload_health(self):
+        items = [{'metadata': {'namespace': namespace}, 'status': {'readyReplicas': 0}}
+                 for namespace in ('tsurreal', 'tsurreal-canary', 'tsurreal-other', 'strata', 'rook-ceph')]
+        original = copy.deepcopy(items)
+        self.assertEqual(shared.maintenance_items(items), items[2:])
+        self.assertIs(shared.maintenance_items(items)[0], items[2])
+        self.assertEqual(items, original)
+
+    def test_argo_scope_uses_destination_not_application_name(self):
+        items = [
+            {'metadata': {'name': 'alias'}, 'spec': {'destination': {'namespace': 'tsurreal'}}},
+            {'metadata': {'name': 'alias-canary'}, 'spec': {'destination': {'namespace': 'tsurreal-canary'}}},
+            {'metadata': {'name': 'tsurreal'}, 'spec': {'destination': {'namespace': 'rook-ceph'}}},
+            {'metadata': {'name': 'unknown'}},
+            {'metadata': {'name': 'similar'}, 'spec': {'destination': {'namespace': 'tsurreal-other'}}},
+        ]
+        self.assertEqual(shared.maintenance_items(items, applications=True), items[2:])
+
+    def test_missing_workload_namespace_is_not_silently_excluded(self):
+        with self.assertRaises(KeyError):
+            shared.maintenance_items([{'metadata': {}}])
+
+
 class RuntimeTests(unittest.TestCase):
     def setUp(self):
         self.before = {'boot': 'original', 'configs': {'/config': 'digest'}, 'unit_sha256': 'unit',

@@ -54,6 +54,18 @@ OSD_RECOVERY = {
 }
 ACTIVE_READER = None
 ACTIVE_ARGS = None
+EXCLUDED_APPLICATION_NAMESPACES = frozenset(('tsurreal', 'tsurreal-canary'))
+
+
+def maintenance_items(items, *, applications=False):
+    """Honor the owner's temporary app exclusion; drain evacuation remains separate."""
+    result = []
+    for item in items:
+        namespace = (item.get('spec', {}).get('destination', {}).get('namespace')
+                     if applications else item['metadata']['namespace'])
+        if namespace not in EXCLUDED_APPLICATION_NAMESPACES:
+            result.append(item)
+    return result
 
 
 def select_node(node):
@@ -868,7 +880,7 @@ def prerequisites(api):
             security_followup = (NODE in ('totodile', 'pikachu', 'squirtle') and verified_owner['node'] == NODE and
                                  next(n for n in nodes if n['metadata']['name'] == NODE)['spec'].get('unschedulable') is True)
     for kind in ('deployments', 'statefulsets'):
-        for item in api.call('get', kind, '-A', '-o', 'json')['items']:
+        for item in maintenance_items(api.call('get', kind, '-A', '-o', 'json')['items']):
             desired = item['spec'].get('replicas', 1)
             status = item.get('status', {})
             if (status.get('observedGeneration') == item['metadata']['generation'] and
@@ -1027,7 +1039,7 @@ def pointview_baseline(api, application):
 
 def infrastructure(api, applications=False, intermediate_pikachu=False):
     result = prerequisites(api)
-    pods = api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + NODE, '-o', 'json')['items']
+    pods = maintenance_items(api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + NODE, '-o', 'json')['items'])
     cilium, completed_jobs = [], []
     expected_csi = {'rook-ceph.rbd.csi.ceph.com-nodeplugin',
                     'rook-ceph.cephfs.csi.ceph.com-nodeplugin'}
@@ -1077,14 +1089,14 @@ def infrastructure(api, applications=False, intermediate_pikachu=False):
             require(all(o['up'] == o['in'] == 1 and o['weight'] == 1 for o in mapping['osds']),
                     'final Sprigatito acceptance requires original OSD7 returned and fully recovered')
         for kind in ('deployments', 'statefulsets'):
-            for item in api.call('get', kind, '-A', '-o', 'json')['items']:
+            for item in maintenance_items(api.call('get', kind, '-A', '-o', 'json')['items']):
                 desired = item['spec'].get('replicas', 1)
                 observed = item.get('status', {})
                 require(observed.get('observedGeneration') == item['metadata']['generation'] and
                         observed.get('readyReplicas', 0) == desired and
                         observed.get('updatedReplicas', 0) == desired,
                         'controller recovery incomplete: ' + item['metadata']['namespace'] + '/' + item['metadata']['name'])
-        apps = api.call('get', 'applications', '-n', 'argocd', '-o', 'json')['items']
+        apps = maintenance_items(api.call('get', 'applications', '-n', 'argocd', '-o', 'json')['items'], applications=True)
         require(apps and all(a.get('status', {}).get('sync', {}).get('status') == 'Synced' for a in apps),
                 'Argo application sync incomplete')
         findings = []

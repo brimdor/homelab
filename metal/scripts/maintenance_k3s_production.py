@@ -798,7 +798,7 @@ def _observe_once(args, api, owner, kind):
         if any(p['metadata']['uid'] == profile['database']['original_pod_uid'] and
                not p['metadata'].get('deletionTimestamp') for p in original):
             dependency_proofs.extend(healthy_database_dependencies(api, owner, profile))
-    for item in api.call('get', 'deployments,statefulsets', '-A', '-o', 'json')['items']:
+    for item in production.maintenance_items(api.call('get', 'deployments,statefulsets', '-A', '-o', 'json')['items']):
         status, meta = item.get('status', {}), item['metadata']; desired = item['spec'].get('replicas', 1)
         if (status.get('observedGeneration') == meta['generation'] and
                 status.get('readyReplicas', 0) == status.get('updatedReplicas', 0) == desired):
@@ -821,7 +821,7 @@ def _observe_once(args, api, owner, kind):
     registry(args, api)
     if kind in ('infrastructure', 'applications'):
         actors.require(target_version == TARGET, 'target API has not observed new kubelet')
-        pods = api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + owner['node'], '-o', 'json')['items']
+        pods = production.maintenance_items(api.call('get', 'pods', '-A', '--field-selector', 'spec.nodeName=' + owner['node'], '-o', 'json')['items'])
         for pod in pods:
             if pod.get('status', {}).get('phase') == 'Succeeded':
                 production.completed_job_pod(api, pod)
@@ -845,7 +845,7 @@ def _observe_once(args, api, owner, kind):
         behavior(args, api, pods)
     if kind == 'applications':
         actors.require(not current[owner['node']]['spec'].get('unschedulable'), 'target remains cordoned')
-        applications = api.call('get', 'applications', '-n', 'argocd', '-o', 'json')['items']
+        applications = production.maintenance_items(api.call('get', 'applications', '-n', 'argocd', '-o', 'json')['items'], applications=True)
         actors.require(applications and all(a['status']['sync']['status'] == 'Synced' and
             (a['status']['health']['status'] == 'Healthy' or
              a['metadata']['name'] == 'rook-ceph' and bool(warnings)) for a in applications), 'Argo recovery incomplete')
