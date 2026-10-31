@@ -311,12 +311,12 @@ app-template:
         egress: []
   rawResources:
     initial-director:
-      forceRename: tsurreal-initial-director
+      forceRename: tsurreal-initial-director-2
       manifest:
         apiVersion: batch/v1
         kind: Job
         metadata:
-          name: tsurreal-initial-director
+          name: tsurreal-initial-director-2
           namespace: tsurreal-canary
         spec:
           backoffLimit: 0
@@ -377,7 +377,6 @@ app-template:
                 volumeMounts:
                 - name: state
                   mountPath: /var/lib/tsurreal
-                  readOnly: true
                 - &id001
                   name: handoff
                   mountPath: /handoff
