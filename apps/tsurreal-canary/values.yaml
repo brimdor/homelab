@@ -1,16 +1,324 @@
-# Exact committed Canary artifact; Production promotion requires full-batch approval.
-stage: foundation
-hostname: tsurreal-canary.eaglepass.io
-issuer: letsencrypt-prod
-tlsSecret: tsurreal-canary-tls
-image: 10.0.20.11:32309/tsurreal/hq@sha256:9ea33f09d051aedc7a5069d11c09e81ab5652b0be5cef476583f600feab05620
-sourceCommit: 9d7fe0457f5caaad1b19476ca91f5da9ae826c4e
-sourceTree: 6542ce723bb1a6cf6ae01411dffc6316214f49ee
-storageClass: standard-rwo
-storage:
-  state: 4Gi
-  recovery: 16Gi
-  packages: 8Gi
-privateSources:
-  - 10.0.0.0/16
-identityImage: docker.io/library/python:3.13.18-alpine3.24@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+app-template:
+  global:
+    nameOverride: tsurreal
+    alwaysAppendIdentifierToResourceName: false
+  controllers:
+    main:
+      enabled: true
+      forceRename: tsurreal-canary
+      type: deployment
+      strategy: Recreate
+      replicas: 1
+      annotations:
+        tsurreal.zuriel-labs.io/source-commit: 89f28899edb3e8ad787a850da7f9c4f1f25dea2a
+        tsurreal.zuriel-labs.io/source-tree: b90a2a6d06b68f13dbe16cd5b0a8fd420ef4ff9f
+      initContainers:
+        prepare-identity:
+          image:
+            repository: docker.io/library/python
+            tag: 3.13.18-alpine3.24
+            digest: sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+            pullPolicy: IfNotPresent
+          command:
+          - python3
+          - -B
+          - /scripts/prepare-identity.py
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          probes:
+            startup:
+              enabled: false
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+      containers:
+        hq:
+          image:
+            repository: 10.0.20.11:32309/tsurreal/hq
+            digest: sha256:8c0201a2beaf4865c2bd632981eebed6c3637b74bdce5df97d2332cfa9d1a3ec
+            pullPolicy: IfNotPresent
+          args:
+          - --config
+          - /etc/tsurreal/hq.json
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          ports:
+          - name: https
+            containerPort: 8443
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          probes:
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                  - /opt/tsurreal/package/hq
+                  - --config
+                  - /etc/tsurreal/hq.json
+                  - --readiness-check
+                periodSeconds: 5
+                timeoutSeconds: 12
+                failureThreshold: 24
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                  - /opt/tsurreal/package/hq
+                  - --config
+                  - /etc/tsurreal/hq.json
+                  - --readiness-check
+                periodSeconds: 5
+                timeoutSeconds: 12
+                failureThreshold: 3
+            liveness:
+              enabled: false
+      pod:
+        automountServiceAccountToken: false
+        terminationGracePeriodSeconds: 25
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          fsGroup: 65532
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile:
+            type: RuntimeDefault
+      serviceAccount:
+        name: default
+  service:
+    main:
+      forceRename: tsurreal-canary
+      primary: true
+      controller: main
+      type: LoadBalancer
+      allocateLoadBalancerNodePorts: false
+      externalTrafficPolicy: Cluster
+      loadBalancerSourceRanges:
+      - 10.0.0.0/16
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: tsurreal-canary.eaglepass.io
+        external-dns.alpha.kubernetes.io/cloudflare-proxied: 'false'
+      ports:
+        https:
+          port: 443
+          targetPort: 8443
+          protocol: TCP
+  persistence:
+    data:
+      type: persistentVolumeClaim
+      forceRename: tsurreal-state
+      accessMode: ReadWriteOnce
+      size: 4Gi
+      storageClass: standard-rwo
+      retain: true
+      annotations:
+        helm.sh/resource-policy: keep
+        argocd.argoproj.io/sync-options: Prune=false,Delete=false
+      advancedMounts:
+        main:
+          hq:
+          - path: /var/lib/tsurreal
+    recovery:
+      type: persistentVolumeClaim
+      forceRename: tsurreal-recovery
+      accessMode: ReadWriteOnce
+      size: 16Gi
+      storageClass: standard-rwo
+      retain: true
+      annotations:
+        helm.sh/resource-policy: keep
+        argocd.argoproj.io/sync-options: Prune=false,Delete=false
+      advancedMounts:
+        main:
+          hq:
+          - path: /var/lib/tsurreal-recovery
+    packages:
+      type: persistentVolumeClaim
+      forceRename: tsurreal-packages
+      accessMode: ReadWriteOnce
+      size: 8Gi
+      storageClass: standard-rwo
+      retain: true
+      annotations:
+        helm.sh/resource-policy: keep
+        argocd.argoproj.io/sync-options: Prune=false,Delete=false
+      advancedMounts:
+        main:
+          hq:
+          - path: /var/lib/tsurreal-packages
+    configuration:
+      type: configMap
+      name: tsurreal-configuration
+      advancedMounts:
+        main:
+          hq:
+          - path: /etc/tsurreal
+            readOnly: true
+    identity-script:
+      type: configMap
+      name: tsurreal-identity-preparation
+      advancedMounts:
+        main:
+          prepare-identity:
+          - path: /scripts
+            readOnly: true
+    projected-tls:
+      type: secret
+      name: tsurreal-canary-tls
+      defaultMode: 288
+      advancedMounts:
+        main:
+          prepare-identity:
+          - path: /projected-tls
+            readOnly: true
+    identity:
+      type: emptyDir
+      medium: Memory
+      sizeLimit: 4Mi
+      advancedMounts:
+        main:
+          prepare-identity:
+          - path: /run/tsurreal
+          hq:
+          - path: /run/tsurreal
+            readOnly: true
+    temporary:
+      type: emptyDir
+      sizeLimit: 256Mi
+      advancedMounts:
+        main:
+          hq:
+          - path: /tmp
+  configMaps:
+    configuration:
+      forceRename: tsurreal-configuration
+      includeInChecksum: true
+      data:
+        hq.json: |
+          {{ if ne .Release.Namespace "tsurreal-canary" }}{{ fail "This chart owns only namespace tsurreal-canary" }}{{ end }}{{ if not (regexMatch "^10\\.0\\.20\\.11:32309/tsurreal/hq$" .Values.controllers.main.containers.hq.image.repository) }}{{ fail "Tsurreal requires its selected private registry" }}{{ end }}{{ if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.controllers.main.containers.hq.image.digest) }}{{ fail "Tsurreal requires an immutable image digest" }}{{ end }}{{ range $key := list "tsurreal.zuriel-labs.io/source-commit" "tsurreal.zuriel-labs.io/source-tree" }}{{ if not (regexMatch "^[a-f0-9]{40}$" (index $.Values.controllers.main.annotations $key)) }}{{ fail "Tsurreal requires exact source identities" }}{{ end }}{{ end }}{"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://tsurreal-canary.eaglepass.io","state_dir":"/var/lib/tsurreal/state","tls_cert":"/run/tsurreal/identity/tls.crt","tls_key":"/run/tsurreal/identity/tls.key","tls_client_cidrs":["10.0.0.0/16","127.0.0.1/32","::1/128"]}
+    identity:
+      forceRename: tsurreal-identity-preparation
+      includeInChecksum: true
+      data:
+        prepare-identity.py: |
+          """Copy one projected TLS generation into new private regular files; never log keys."""
+          import os
+          from pathlib import Path
+          import stat
+
+
+          def stage(source, destination):
+              parent = Path(destination).parent
+              for path in [parent, *parent.parents]:
+                  if path.is_symlink() or not path.is_dir():
+                      raise ValueError("Identity output requires existing non-symlink parents")
+              # Pin the Kubernetes atomic writer generation before opening either file.
+              generation = os.open(Path(source) / "..data", os.O_RDONLY | os.O_DIRECTORY)
+              values = {}
+              try:
+                  for name in ["tls.crt", "tls.key"]:
+                      fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=generation)
+                      try:
+                          info = os.fstat(fd)
+                          if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 1024 * 1024:
+                              raise ValueError("Invalid projected TLS input")
+                          with os.fdopen(fd, "rb", closefd=False) as stream:
+                              values[name] = stream.read(1024 * 1024 + 1)
+                          if len(values[name]) != info.st_size:
+                              raise ValueError("Projected TLS input changed")
+                      finally:
+                          os.close(fd)
+              finally:
+                  os.close(generation)
+              # Refuse existing output, including dangling symlinks; no key overwrite.
+              os.mkdir(destination, 0o700)
+              try:
+                  for name, value in values.items():
+                      fd = os.open(Path(destination) / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                      with os.fdopen(fd, "wb") as stream:
+                          stream.write(value)
+                          stream.flush()
+                          os.fsync(stream.fileno())
+              except BaseException:
+                  for name in values:
+                      (Path(destination) / name).unlink(missing_ok=True)
+                  os.rmdir(destination)
+                  raise
+
+
+          if __name__ == "__main__":
+              stage("/projected-tls", "/run/tsurreal/identity")
+  networkpolicies:
+    main:
+      forceRename: tsurreal-private
+      type: native
+      podSelector: {}
+      policyTypes:
+      - Ingress
+      - Egress
+      rules:
+        ingress:
+        - from:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+          ports:
+          - protocol: TCP
+            port: 8443
+        egress: []
+  rawResources:
+    namespace:
+      forceRename: tsurreal-canary
+      manifest:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          annotations:
+            argocd.argoproj.io/sync-options: Prune=false,Delete=false
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+            pod-security.kubernetes.io/enforce-version: v1.33
+        spec: {}
+    certificate:
+      forceRename: tsurreal-canary
+      manifest:
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          namespace: tsurreal-canary
+        spec:
+          secretName: tsurreal-canary-tls
+          issuerRef:
+            name: letsencrypt-prod
+            kind: ClusterIssuer
+          dnsNames:
+          - tsurreal-canary.eaglepass.io
+          privateKey:
+            algorithm: ECDSA
+            size: 256
+            rotationPolicy: Always
+  serviceAccount:
+    main:
+      enabled: false

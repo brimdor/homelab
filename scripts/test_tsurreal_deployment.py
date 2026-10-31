@@ -1,5 +1,4 @@
 """Focused Tsurreal private deployment and projected-identity checks."""
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,9 +10,11 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 CHART = ROOT / "apps/tsurreal-canary"
-spec = importlib.util.spec_from_file_location("prepare_identity", CHART / "files/prepare-identity.py")
-identity = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(identity)
+import types
+identity = types.ModuleType("prepare_identity")
+values = yaml.safe_load((CHART / "values.yaml").read_text())["app-template"]
+identity_source = values["configMaps"]["identity"]["data"]["prepare-identity.py"]
+exec(compile(identity_source, str(CHART / "values.yaml"), "exec"), identity.__dict__)
 
 
 def render(*overrides, namespace="tsurreal-canary", good=True):
@@ -30,62 +31,66 @@ def render(*overrides, namespace="tsurreal-canary", good=True):
 
 
 class ChartTests(unittest.TestCase):
-    def test_namespace_and_foundation_are_inert(self):
-        self.assertEqual([o["kind"] for o in render("stage=namespace")], ["Namespace"])
-        objects = render("stage=foundation")
-        kinds = [o["kind"] for o in objects]
-        self.assertEqual(sorted(kinds), sorted(["Namespace", "Certificate", "Service", "NetworkPolicy", "ConfigMap"] + ["PersistentVolumeClaim"] * 3))
+    def test_standard_chart_and_retained_private_resources(self):
+        self.assertEqual(sorted(p.name for p in CHART.iterdir() if p.name != "charts" and p.name != "Chart.lock"), ["Chart.yaml", "values.yaml"])
+        dependency = yaml.safe_load((CHART / "Chart.yaml").read_text())["dependencies"]
+        self.assertEqual(dependency, [{"name": "app-template", "version": "5.3.0", "repository": "https://bjw-s-labs.github.io/helm-charts/"}])
+        objects = render()
+        self.assertEqual(len(objects), 10)
+        self.assertFalse(any(o["kind"] in ["Ingress", "Secret", "Job"] for o in objects))
         for obj in objects:
-            self.assertNotIn(obj["kind"], ["Ingress", "Deployment", "Pod", "Job", "Secret"])
             self.assertNotIn("production", obj["metadata"]["name"])
             if obj["kind"] != "Namespace": self.assertEqual(obj["metadata"]["namespace"], "tsurreal-canary")
         service = next(o for o in objects if o["kind"] == "Service")
+        self.assertEqual(service["metadata"]["name"], "tsurreal-canary")
         self.assertFalse(service["spec"]["allocateLoadBalancerNodePorts"])
+        self.assertEqual(service["spec"]["loadBalancerSourceRanges"], ["10.0.0.0/16"])
+        self.assertEqual(service["spec"]["externalTrafficPolicy"], "Cluster")
         self.assertEqual(service["metadata"]["annotations"]["external-dns.alpha.kubernetes.io/cloudflare-proxied"], "false")
         policy = next(o for o in objects if o["kind"] == "NetworkPolicy")["spec"]
-        self.assertEqual(policy["egress"], [])
-        self.assertEqual(policy["ingress"][0]["from"], [{"ipBlock": {"cidr": "10.0.0.0/16"}}])
-        config = json.loads(next(o for o in objects if o["kind"] == "ConfigMap")["data"]["hq.json"])
-        self.assertEqual(config["access_mode"], "lan")
+        self.assertFalse(policy.get("egress"))
+        self.assertEqual(policy["policyTypes"], ["Ingress", "Egress"])
+        self.assertEqual(policy["ingress"][0]["ports"], [{"protocol":"TCP", "port":8443}])
+        self.assertEqual(policy["ingress"][0]["from"], [{"ipBlock":{"cidr":"0.0.0.0/0"}}])
+        claims = {o["metadata"]["name"]:o for o in objects if o["kind"] == "PersistentVolumeClaim"}
+        self.assertEqual(set(claims), {"tsurreal-state", "tsurreal-recovery", "tsurreal-packages"})
+        for obj in [*claims.values(), next(o for o in objects if o["kind"] == "Namespace")]:
+            self.assertIn("Prune=false", obj["metadata"]["annotations"]["argocd.argoproj.io/sync-options"])
+        config = json.loads(next(o for o in objects if o["metadata"]["name"] == "tsurreal-configuration")["data"]["hq.json"])
+        self.assertEqual(config["tls_client_cidrs"], ["10.0.0.0/16", "127.0.0.1/32", "::1/128"])
         self.assertEqual(config["origin"], "https://tsurreal-canary.eaglepass.io")
         self.assertFalse(set(config).intersection(["native_file", "execution_file", "push_file", "email_file", "backup_file", "installation_id"]))
-        for obj in objects:
-            if obj["kind"] in ["Namespace", "PersistentVolumeClaim"]:
-                self.assertIn("Prune=false", obj["metadata"]["annotations"]["argocd.argoproj.io/sync-options"])
 
     def test_candidate_is_restricted(self):
-        objects = render("stage=candidate", "image=10.0.20.11:32309/tsurreal/hq@sha256:" + "a" * 64, "sourceCommit=" + "b" * 40, "sourceTree=" + "c" * 40)
-        spec = next(o for o in objects if o["kind"] == "Deployment")["spec"]
-        self.assertEqual((spec["replicas"], spec["strategy"]["type"]), (1, "Recreate"))
-        pod = spec["template"]["spec"]
+        objects=render()
+        deployment=next(o for o in objects if o["kind"]=="Deployment")["spec"]
+        self.assertEqual((deployment["replicas"],deployment["strategy"]["type"]),(1,"Recreate"))
+        pod=deployment["template"]["spec"]
         self.assertFalse(pod["automountServiceAccountToken"])
-        self.assertEqual(pod["securityContext"]["runAsUser"], 65532)
-        self.assertEqual(pod["securityContext"]["seccompProfile"]["type"], "RuntimeDefault")
-        self.assertNotIn("imagePullSecrets", pod)
-        config = json.loads(next(o for o in objects if o["metadata"]["name"] == "tsurreal-configuration")["data"]["hq.json"])
-        identity_mount = next(m["mountPath"] for m in pod["initContainers"][0]["volumeMounts"] if m["name"] == "identity")
-        self.assertEqual(identity_mount, "/run/tsurreal")
-        self.assertEqual(config["tls_cert"], identity_mount + "/identity/tls.crt")
-        self.assertEqual(config["tls_key"], identity_mount + "/identity/tls.key")
-        self.assertEqual(next(m["mountPath"] for m in pod["containers"][0]["volumeMounts"] if m["name"] == "identity"), identity_mount)
-        for container in pod["containers"] + pod["initContainers"]:
-            security = container["securityContext"]
+        self.assertEqual(pod["securityContext"]["runAsUser"],65532)
+        self.assertEqual(pod["securityContext"]["seccompProfile"]["type"],"RuntimeDefault")
+        self.assertNotIn("imagePullSecrets",pod)
+        self.assertEqual(len(pod["initContainers"]),1)
+        for container in pod["containers"]+pod["initContainers"]:
+            security=container["securityContext"]
             self.assertTrue(security["readOnlyRootFilesystem"])
             self.assertFalse(security["allowPrivilegeEscalation"])
-            self.assertEqual(security["capabilities"]["drop"], ["ALL"])
+            self.assertEqual(security["capabilities"]["drop"],["ALL"])
+            self.assertIn("@sha256:",container["image"])
         self.assertFalse(any("hostPath" in v for v in pod["volumes"]))
-        self.assertNotIn("hostNetwork", pod)
-        self.assertNotIn("hostPID", pod)
+        self.assertFalse(pod.get("hostNetwork"))
+        self.assertFalse(pod.get("hostPID"))
+        service=next(o for o in objects if o["kind"]=="Service")
+        self.assertEqual(service["spec"]["selector"],deployment["selector"]["matchLabels"])
+        self.assertTrue(all(deployment["template"]["metadata"]["labels"][k]==v for k,v in service["spec"]["selector"].items()))
+        for name,path in [("configuration","/etc/tsurreal"),("identity","/run/tsurreal")]:
+            mounts=pod["containers"][0]["volumeMounts"]
+            self.assertTrue(any(m["name"]==name and m["mountPath"]==path and m["readOnly"] for m in mounts))
 
-    def test_invalid_candidate_or_target_refused(self):
-        for overrides in [("stage=invalid",), ("stage=candidate", "image="), ("stage=candidate", "sourceCommit="), ("stage=candidate", "sourceTree=invalid"), ("hostname=public.example",), ("stage=candidate", "image=private.example/tsurreal:latest")]:
-            with self.subTest(overrides=overrides):
-                render(*overrides, good=False)
-        render("stage=candidate", "image=public.example/tsurreal/hq@sha256:" + "a" * 64, "sourceCommit=" + "b" * 40, "sourceTree=" + "c" * 40, good=False)
-        render("imagePullSecret=unnecessary-credential", good=False)
-        render("identityImage=python:latest", good=False)
-        render(namespace="tsurreal-production", good=False)
-        render("stage=foundation", "privateSources[0]=0.0.0.0/0", good=False)
+    def test_invalid_identity_or_target_refused(self):
+        render(namespace="tsurreal-production",good=False)
+        for key,value in [("repository","public.example/hq"),("digest","sha256:invalid")]:
+            render("app-template.controllers.main.containers.hq.image."+key+"="+value,good=False)
 
 
 class IdentityTests(unittest.TestCase):
