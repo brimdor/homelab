@@ -76,21 +76,24 @@ class Scheduling:
         actors.require(intent['inputs_sha256'] == hashed(plan), 'pending scheduling plan differs')
 
     def dispatch(self, plan, reviewed_sha256, prerequisites_sha256, verify_prerequisites,
-                 precheck_proof=None):
+                 precheck_proof=None, reconciliation_proof=None):
         plan = copy.deepcopy(plan)
         state = self.journal.inspect()
         self.validate(plan, state['owners']['global'])
         self.original(plan)
         actors.require(hashed(plan) == reviewed_sha256, 'scheduling plan differs from reviewed digest')
-        if precheck_proof is None:
+        actors.require(precheck_proof is None or reconciliation_proof is None,
+                       'conflicting scheduling recovery modes')
+        proof = precheck_proof if reconciliation_proof is None else reconciliation_proof
+        if proof is None:
             pending = self.journal.begin(plan['step'], reviewed_sha256, prerequisites_sha256, verify_prerequisites)
         else:
-            actors.require(isinstance(precheck_proof, dict) and set(precheck_proof) == {
+            actors.require(isinstance(proof, dict) and set(proof) == {
                 'owner', 'intent_sha256', 'failure_sha256'} and
-                precheck_proof['owner'] == state['owners']['global']['owner'] and
-                hops.checksum(precheck_proof['failure_sha256']) and
+                proof['owner'] == state['owners']['global']['owner'] and
+                hops.checksum(proof['failure_sha256']) and
                 plan['step'] == 'restore_scheduling' and state['pending'] is not None and
-                state['pending']['sha256'] == precheck_proof['intent_sha256'],
+                state['pending']['sha256'] == proof['intent_sha256'],
                 'reviewed scheduling pre-dispatch proof differs')
             pending = state
             self.pending(pending, plan)
@@ -102,22 +105,26 @@ class Scheduling:
                            'current scheduling prerequisites refused')
             actors.require(self.journal.read() == pending, 'scheduling state changed during verification')
             self.journal.owners(idle=True)
-            before = self.snapshot(pending['owners']['global'])
+            node = self.api.call('get', 'node', name(plan['node']), '-o', 'json')
+            before = self.snapshot(pending['owners']['global'], node)
             actors.require(before['unschedulable'] is plan['from_unschedulable'],
                            'reviewed scheduling Node changed before patch: ' +
                            coordination.encoded({'plan': plan, 'observed': before}))
-            if precheck_proof is not None:
+            if proof is not None:
                 # Only a proven pre-API exit permits this first dispatch; a sent request never does.
-                marker = self.journal.hold.state / ('scheduling-first-dispatch-' + self.journal.token + '.json')
+                # Reconciliation is explicit desired-state repair, never claimed as a first dispatch.
+                prefix = ('scheduling-first-dispatch-' if reconciliation_proof is None
+                          else 'scheduling-reconciliation-')
+                marker = self.journal.hold.state / (prefix + self.journal.token + '.json')
                 actors.safe(marker)
                 actors.require(not marker.exists(), 'scheduling first dispatch already armed; observe, never replay')
                 actors.exclusive_file(marker, hops.canonical({
-                    'proof': precheck_proof, 'plan_sha256': reviewed_sha256,
+                    'proof': proof, 'plan_sha256': reviewed_sha256,
                     'prerequisites_sha256': prerequisites_sha256, 'before': before}), 0o600)
-            # Fence the fresh read; kubelet status updates need not freeze after review.
+            # Fence the complete spec, not unrelated kubelet status/metadata updates.
             operations = [
                 {'op': 'test', 'path': '/metadata/uid', 'value': plan['uid']},
-                {'op': 'test', 'path': '/metadata/resourceVersion', 'value': before['resource_version']},
+                {'op': 'test', 'path': '/spec', 'value': copy.deepcopy(node['spec'])},
                 {'op': 'add', 'path': '/spec/unschedulable', 'value': plan['to_unschedulable']},
             ]
             result = self.api.call('patch', 'node', name(plan['node']), '--type=json',

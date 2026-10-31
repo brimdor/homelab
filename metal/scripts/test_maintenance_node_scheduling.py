@@ -34,6 +34,10 @@ class NodeAPI:
         if self.reject:raise RuntimeError('synthetic API access refused')
         candidate = copy.deepcopy(self.node)
         for operation in operations:
+            if operation['path'] == '/spec':
+                if candidate['spec'] != operation['value']:
+                    raise RuntimeError('synthetic API spec conflict')
+                continue
             section, field = operation['path'].strip('/').split('/')
             if operation['op'] == 'test':
                 if candidate[section][field] != operation['value']:
@@ -94,10 +98,12 @@ class SchedulingTests(unittest.TestCase):
         self.assertTrue(result['accepted'])
         self.assertEqual(result['journal']['completed'], list(hops.STEPS[:-1]))
         self.assertEqual(len(self.nodes.patches), 2)
-        for operations, value, version in zip(self.nodes.patches, [True, False], ['10', '11']):
+        for operations, value in zip(self.nodes.patches, [True, False]):
+            spec = copy.deepcopy(original_node['spec'])
+            if not value:spec['unschedulable'] = True
             self.assertEqual(operations, [
                 {'op': 'test', 'path': '/metadata/uid', 'value': 'fixture-a-uid'},
-                {'op': 'test', 'path': '/metadata/resourceVersion', 'value': version},
+                {'op': 'test', 'path': '/spec', 'value': spec},
                 {'op': 'add', 'path': '/spec/unschedulable', 'value': value}])
         self.assertEqual(self.nodes.node['spec']['taints'], original_node['spec']['taints'])
         self.assertEqual(self.nodes.node['metadata']['annotations'], original_node['metadata']['annotations'])
@@ -145,12 +151,21 @@ class SchedulingTests(unittest.TestCase):
         self.assertEqual(self.nodes.patches, [])
         self.assertTrue(self.hold.marker.exists())
 
-    def test_version_race_is_rejected_by_actual_patch_preconditions(self):
+    def test_status_version_race_does_not_reject_safe_spec_patch(self):
         plan = self.worker.plan('cordon')
         self.nodes.before_patch = lambda: self.nodes.node['metadata'].update(resourceVersion='99')
-        with self.assertRaisesRegex(RuntimeError, 'precondition conflict'):self.dispatch(plan)
-        self.assertFalse(self.observe(plan)['accepted'])
+        self.dispatch(plan)
+        self.assertTrue(self.observe(plan)['accepted'])
         self.assertEqual(len(self.nodes.patches), 1)
+
+    def test_concurrent_spec_or_uid_change_is_rejected_by_patch(self):
+        for section, key, value in [('metadata', 'uid', 'foreign'),
+                                     ('spec', 'taints', []), ('spec', 'unschedulable', True)]:
+            with self.subTest(key=key):
+                self.setUp();plan = self.worker.plan('cordon')
+                self.nodes.before_patch = lambda: self.nodes.node[section].update({key: value})
+                with self.assertRaisesRegex(RuntimeError, 'conflict'):self.dispatch(plan)
+                self.assertEqual(len(self.nodes.patches), 1)
 
     def test_unrelated_updates_before_dispatch_use_fresh_version_for_each_transition(self):
         for restore in (False, True):
@@ -165,7 +180,9 @@ class SchedulingTests(unittest.TestCase):
                 dispatched = self.dispatch(plan)
                 self.assertEqual(dispatched['before']['resource_version'], '99')
                 self.assertEqual(self.nodes.patches[-1][1], {
-                    'op': 'test', 'path': '/metadata/resourceVersion', 'value': '99'})
+                    'op': 'test', 'path': '/spec', 'value':
+                        dict(self.nodes.node['spec'], unschedulable=True) if restore else
+                        {k:v for k,v in self.nodes.node['spec'].items() if k != 'unschedulable'}})
                 self.assertEqual(plan, reviewed)
                 self.assertTrue(self.observe(plan)['accepted'])
                 self.assertEqual(self.nodes.node['metadata']['annotations'], {'other': 'new'})
@@ -241,7 +258,8 @@ class SchedulingTests(unittest.TestCase):
         self.nodes.node['metadata']['resourceVersion'] = '99'
         self.first_restore(plan, proof)
         self.assertEqual(self.journal.inspect(), pending)
-        self.assertEqual(self.nodes.patches[-1][1]['value'], '99')
+        self.assertEqual(self.nodes.patches[-1][1], {
+            'op': 'test', 'path': '/spec', 'value': dict(self.nodes.node['spec'], unschedulable=True)})
         self.assertEqual(len(self.nodes.patches), 2)
         marker = self.hold.state / ('scheduling-first-dispatch-' + self.token + '.json')
         self.assertEqual(json.loads(marker.read_bytes())['proof'], proof)
@@ -328,6 +346,51 @@ class SchedulingTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'prerequisite digest'):
             self.fresh().observe(plan, 'invalid', lambda *_: True)
         self.assertEqual(len(self.nodes.patches), 1)
+
+    def test_explicit_restore_reconciliation_is_once_and_preserves_original_intent(self):
+        _, plan = self.restore_ready();self.nodes.reject = True
+        with self.assertRaisesRegex(RuntimeError, 'access refused'):self.dispatch(plan)
+        pending = self.journal.inspect()
+        proof = {'owner': self.token, 'intent_sha256': pending['pending']['sha256'], 'failure_sha256': 'f' * 64}
+        self.nodes.reject = False
+        result = self.worker.dispatch(plan, hashed(plan), 'c' * 64, lambda *_: True, reconciliation_proof=proof)
+        self.assertEqual(result['pending'], pending['pending'])
+        self.assertEqual(self.journal.inspect(), pending)
+        marker = self.hold.state / ('scheduling-reconciliation-' + self.token + '.json')
+        self.assertEqual(json.loads(marker.read_bytes())['proof'], proof)
+        self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
+        self.assertTrue(self.observe(plan)['accepted'])
+        self.assertEqual(len(self.nodes.patches), 3)
+
+    def test_reconciliation_lost_response_observes_without_another_patch(self):
+        _, plan = self.restore_ready();self.nodes.reject = True
+        with self.assertRaises(RuntimeError):self.dispatch(plan)
+        pending = self.journal.inspect()
+        proof = {'owner': self.token, 'intent_sha256': pending['pending']['sha256'], 'failure_sha256': 'f' * 64}
+        self.nodes.reject = False;self.nodes.lose_response = True
+        with self.assertRaisesRegex(RuntimeError, 'lost scheduling response'):
+            self.worker.dispatch(plan, hashed(plan), 'c' * 64, lambda *_: True, reconciliation_proof=proof)
+        with self.assertRaises(RuntimeError):
+            self.worker.dispatch(plan, hashed(plan), 'c' * 64, lambda *_: True, reconciliation_proof=proof)
+        self.assertTrue(self.observe(plan)['accepted'])
+        self.assertEqual(len(self.nodes.patches), 3)
+
+    def test_reconciliation_API_failure_cannot_be_repeated_or_used_for_cordon(self):
+        plan = self.worker.plan('cordon');self.nodes.reject = True
+        with self.assertRaises(RuntimeError):self.dispatch(plan)
+        proof = {'owner': self.token, 'intent_sha256': self.journal.inspect()['pending']['sha256'],
+                 'failure_sha256': 'f' * 64}
+        with self.assertRaisesRegex(RuntimeError, 'proof differs'):
+            self.worker.dispatch(plan, hashed(plan), 'c' * 64, lambda *_: True, reconciliation_proof=proof)
+        self.assertEqual(len(self.nodes.patches), 1)
+        self.setUp();_, plan = self.restore_ready();self.nodes.reject = True
+        with self.assertRaises(RuntimeError):self.dispatch(plan)
+        proof['intent_sha256'] = self.journal.inspect()['pending']['sha256']
+        proof['owner'] = self.token
+        for expected in ('access refused', 'already armed'):
+            with self.assertRaisesRegex(RuntimeError, expected):
+                self.worker.dispatch(plan, hashed(plan), 'c' * 64, lambda *_: True, reconciliation_proof=proof)
+        self.assertEqual(len(self.nodes.patches), 3)
 
 
 if __name__ == '__main__':

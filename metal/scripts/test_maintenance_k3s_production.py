@@ -193,6 +193,77 @@ class DrainPrecheckProofTests(unittest.TestCase):
                         production.drain_precheck_proof(owner, path)
 
 
+class SchedulingReconciliationTests(unittest.TestCase):
+    def test_only_published_exact_owner_source_and_captured_API_failure_are_accepted(self):
+        owner = {'owner': 'original'};source = b'original scheduling source'
+        failure = {'exit': 1, 'stderr': 'File "maintenance_node_scheduling.py", line 123, in dispatch\n'
+                   'AssertionError: kubectl failed; observe ownership before retrying\n\n'}
+        raw = json.dumps(failure).encode()
+        proof = {'owner': owner, 'failure_revision': 'a' * 40,
+                 'original_source_sha256': hashlib.sha256(source).hexdigest(),
+                 'failure_sha256': hashlib.sha256(raw).hexdigest()}
+        profile = json.dumps(proof).encode()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'failure.json';path.write_bytes(raw)
+            original_read = Path.read_bytes
+            with patch.object(Path, 'read_bytes', lambda p: profile if p.name ==
+                    'k3s-squirtle-scheduling-reconciliation.json' else original_read(p)), \
+                    patch.object(production.subprocess, 'check_output', side_effect=lambda args:
+                        source if args[-1].endswith('maintenance_node_scheduling.py') else profile):
+                self.assertEqual(production.scheduling_reconciliation_proof(owner, path), proof)
+                with self.assertRaisesRegex(RuntimeError, 'owner differs'):
+                    production.scheduling_reconciliation_proof({'owner': 'foreign'}, path)
+                path.write_bytes(raw + b'\n')
+                with self.assertRaisesRegex(RuntimeError, 'API failure differs'):
+                    production.scheduling_reconciliation_proof(owner, path)
+                path.write_bytes(raw)
+                with patch.object(production.subprocess, 'check_output', return_value=b'changed'):
+                    with self.assertRaisesRegex(RuntimeError, 'unpublished'):
+                        production.scheduling_reconciliation_proof(owner, path)
+
+    def test_native_reconciliation_rechecks_all_original_records_plan_and_runtime(self):
+        import maintenance_hop_journal as hops
+        import maintenance_node_scheduling as scheduling
+        self.addCleanup(production.configure_stage, production.SOURCE, production.TARGET)
+        owner = {'component': 'k3s', 'node': 'squirtle', 'source': contract.VERSIONS[-3],
+                 'target': contract.VERSIONS[-2], 'owner': 'synthetic-owner'}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory);folder = root / 'transactions';folder.mkdir()
+            record = folder / '00000011.json';record.write_bytes(hops.canonical({'original': True}))
+            for name in ('cordon', 'restore_scheduling'):
+                path = root / (name + '-' + owner['owner'] + '.json')
+                path.write_bytes(hops.canonical({'step': name}));path.chmod(0o600)
+            plan = {'step': 'restore_scheduling'};runtime = {'pid': 42}
+            proof = {'owner': owner, 'native_records': {record.name: hashlib.sha256(record.read_bytes()).hexdigest()},
+                     'plan_sha256': production.hashed(plan), 'runtime': runtime,
+                     'intent_sha256': 'a' * 64, 'failure_sha256': 'f' * 64}
+            journal = types.SimpleNamespace(path=folder, hold=types.SimpleNamespace(state=root),
+                inspect=lambda: {'pending': {'step': 'restore_scheduling'}})
+            checked = []
+            def dispatch(_worker, actual, digest, prerequisites, verify, **kwargs):
+                self.assertEqual(actual, plan);self.assertTrue(verify('restore_scheduling', prerequisites))
+                with patch.object(production, 'runtime', return_value={'pid': 43}):
+                    self.assertFalse(verify('restore_scheduling', prerequisites))
+                record.write_bytes(hops.canonical({'original': False}))
+                self.assertFalse(verify('restore_scheduling', prerequisites));checked.append(True)
+                return {'pending': True}
+            context = {'api': None, 'controller': None, 'hold': journal.hold, 'owner': owner,
+                       'native': None, 'identity': None, 'rpc': lambda _: {},
+                       'operation': 'reconcile-scheduling', 'precheck_proof': proof}
+            def observe(_worker, actual, prerequisites, verify):
+                self.assertEqual(actual, plan);self.assertTrue(verify('restore_scheduling', prerequisites))
+                checked.append('observed');return {'accepted': True}
+            with patch.object(hops, 'Journal', return_value=journal), \
+                    patch.object(production, 'runtime', return_value=runtime), \
+                    patch.object(scheduling.Scheduling, 'snapshot', return_value={'unschedulable': True}), \
+                    patch.object(scheduling.Scheduling, 'dispatch', dispatch), redirect_stdout(io.StringIO()):
+                with patch.object(scheduling.Scheduling, 'snapshot', return_value={'unschedulable': False}), \
+                        patch.object(scheduling.Scheduling, 'observe', observe):
+                    production.native_operation(context)
+                production.native_operation(context)
+            self.assertEqual(checked, ['observed', True])
+
+
 class PreviousBridgeTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(production.configure_stage, *contract.VERSIONS[:2])

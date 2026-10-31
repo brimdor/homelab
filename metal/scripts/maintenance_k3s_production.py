@@ -441,15 +441,33 @@ def native_operation(context):
         state = journal.inspect()
         if operation == 'inspect':
             result = {'owner': owner, 'journal': state}
-        elif operation in ('cordon', 'restore-scheduling'):
-            step = operation.replace('-', '_'); worker = Scheduling(journal, api)
+        elif operation in ('cordon', 'restore-scheduling', 'reconcile-scheduling'):
+            step = 'restore_scheduling' if operation == 'reconcile-scheduling' else operation.replace('-', '_')
+            worker = Scheduling(journal, api)
             value = evidence(); digest = hashed(value)
             path = root / (step + '-' + owner['owner'] + '.json')
             original = private_json(root / ('cordon-' + owner['owner'] + '.json')) if step != 'cordon' else None
             if not path.exists():
                 actors.exclusive_file(path, hops.canonical(worker.plan(step, original)), 0o600)
             plan = private_json(path)
-            if not state['pending']:
+            if operation == 'reconcile-scheduling':
+                proof = context['precheck_proof']
+                actors.require(proof and proof['owner'] == owner and state['pending'] and
+                               state['pending']['step'] == step, 'scheduling reconciliation owner differs')
+                def original_verified(step_name, prerequisites):
+                    records = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                               for p in journal.path.iterdir() if p.is_file()}
+                    return (records == proof['native_records'] and hashed(plan) == proof['plan_sha256'] and
+                            runtime(native, TARGET) == proof['runtime'] and
+                            verifier(value)(step_name, prerequisites))
+                actors.require(original_verified(step, digest), 'original scheduling recovery evidence changed')
+                if worker.snapshot(owner)['unschedulable'] is False:
+                    result = worker.observe(plan, digest, original_verified)
+                else:
+                    result = worker.dispatch(plan, hashed(plan), digest, original_verified,
+                        reconciliation_proof={'owner': owner['owner'],
+                            'intent_sha256': proof['intent_sha256'], 'failure_sha256': proof['failure_sha256']})
+            elif not state['pending']:
                 result = worker.dispatch(plan, hashed(plan), digest, verifier(value))
             else:
                 result = worker.observe(plan, digest, verifier(value))
@@ -959,13 +977,34 @@ def drain_precheck_proof(owner, failure_path):
     return proof
 
 
+def scheduling_reconciliation_proof(owner, failure_path):
+    """Bind one desired-state reconciliation; the original API outcome stays unknown."""
+    path = Path('metal/maintenance/k3s-squirtle-scheduling-reconciliation.json')
+    raw = path.read_bytes()
+    actors.require(raw == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
+                   'unpublished scheduling reconciliation profile')
+    proof = json.loads(raw)
+    actors.require(proof['owner'] == owner, 'original scheduling reconciliation owner differs')
+    source = subprocess.check_output(['git', 'show', proof['failure_revision'] +
+                                     ':metal/scripts/maintenance_node_scheduling.py'])
+    failure_raw = Path(failure_path).read_bytes(); failure = json.loads(failure_raw)
+    actors.require(hashlib.sha256(source).hexdigest() == proof['original_source_sha256'] and
+                   hashlib.sha256(failure_raw).hexdigest() == proof['failure_sha256'] and
+                   failure['exit'] == 1 and
+                   'File "maintenance_node_scheduling.py", line 123, in dispatch' in failure['stderr'] and
+                   failure['stderr'].rstrip().endswith(
+                       'AssertionError: kubectl failed; observe ownership before retrying'),
+                   'captured scheduling API failure differs')
+    return proof
+
+
 def main():
     import maintenance_production_node as production
     from maintenance_api_reader import Reader
     from maintenance_coordination import JOURNAL, Ownership
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'resolve-drain-precheck', 'begin-legacy-check', 'legacy-check', 'prepare-binary',
-        'activate-binary', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'accept-applications', 'release'))
+        'activate-binary', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'reconcile-scheduling', 'accept-applications', 'release'))
     parser.add_argument('--node', choices=HOSTS, required=True)
     parser.add_argument('--target', choices=contract.VERSIONS[1:], default=contract.VERSIONS[1])
     for name in ('kubectl', 'identity', 'known-hosts'):
@@ -973,9 +1012,12 @@ def main():
     for name in ('recovery-receipt', 'recovery-copy', 'node-recovery'):
         parser.add_argument('--' + name)
     parser.add_argument('--drain-precheck-failure')
+    parser.add_argument('--scheduling-reconciliation-failure')
     args = parser.parse_args(); production.select_node(args.node)
     actors.require(bool(args.drain_precheck_failure) == (args.operation == 'resolve-drain-precheck'),
                    'exact captured failure required only for drain precheck recovery')
+    actors.require(bool(args.scheduling_reconciliation_failure) == (args.operation == 'reconcile-scheduling'),
+                   'exact captured failure required only for scheduling reconciliation')
     configure_stage(contract.VERSIONS[contract.VERSIONS.index(args.target) - 1], args.target)
     revision = published_revision()
     from maintenance_etcd_production import MODULES as ETCD_MODULES
@@ -1056,7 +1098,9 @@ print(json.dumps(result))
                 args, api, owner, request['rpc'])
         print(json.dumps(production.run_worker(args, api, owner, {}, recovery, bundle,
                                               precheck_proof=(drain_precheck_proof(owner, args.drain_precheck_failure)
-                                                  if args.operation == 'resolve-drain-precheck' else None),
+                                                  if args.operation == 'resolve-drain-precheck' else
+                                                  scheduling_reconciliation_proof(owner, args.scheduling_reconciliation_failure)
+                                                  if args.operation == 'reconcile-scheduling' else None),
                                               component_observer=observer)))
     finally:
         api.close()

@@ -1,0 +1,49 @@
+{
+  "owner": {
+    "component": "k3s",
+    "created": "2026-10-31T17:22:29.753884Z",
+    "node": "squirtle",
+    "node_uid": "10951ffe-dd31-4c38-b854-67f3a011458c",
+    "owner": "homelab-maintenance-103-8756fb2e-f637-42db-98e7-8a1aca21f8d2",
+    "phase": "OWNED_KURED_ONLY",
+    "revision": "39c03db76fea58a0abe26eea25ea3c2304e36cf6",
+    "source": "v1.34.12+k3s1",
+    "target": "v1.35.9+k3s1",
+    "version": 1
+  },
+  "failure_revision": "b459bd42a501c3dc2b914f42f5ac8d11dc7edb2e",
+  "failure_sha256": "56d1c0ee2ea42d9c13ce2f478f52dc082e19cb9b1cc849e35bc9bd896a1d4ddb",
+  "original_source_sha256": "765f4a6a5a7dd8d8102473e4d3146ae47b2342250e117e6310ad1af89c158c8d",
+  "native_records": {
+    "00000000.json": "d096a5b8ecab8718d0ddf19020c503e9c9c1ef2d99f3394aa43d590d827131d1",
+    "00000001.json": "0863b6dc73c6ce97cdad10efea2218340d4e70c7b806b2a844651e078500967a",
+    "00000002.json": "5410ca496eb5e956ee95da8263b1a710aea2ca2c400f02e5dfa38ab335c3a7dd",
+    "00000003.json": "8e16902a65d2f2217116085957268f8134b092148b72b027aae18fb9a63b4a71",
+    "00000004.json": "3eea5b8551b63cc0e88ab10d3a9ce4e7b378f1cb51932bb7765d08ef5d225a51",
+    "00000005.json": "490cfbd8e0931475f00ac0dc5d3fdb4085d2efbb698c08db52f2883eccfdbc6d",
+    "00000006.json": "7847ac417f8710b27c0588f14fb5ae23ebbda3eba23f16ac3a7011f0e329660e",
+    "00000007.json": "1d9b9d0dfd55b0088ae2da18c0c1752106751d5f047b3cd7552c1cb5cc768081",
+    "00000008.json": "4ac12a15ab65afa8b80d61358b90b8e49e8e4b0d03a97bcb700348ff1e0c728c",
+    "00000009.json": "1a4ece01044726ca47d1dc158c60c4173311fe231aa8bea5de8dda006bc73fcd",
+    "00000010.json": "f15f602d74bc6c24dab6f7a6703c0aadf614e13dc87c18de440f1052b8bb9e57",
+    "00000011.json": "7ff576891cdf804a48675ba096a481f97d776a8744085e24673a3f3ab877e729"
+  },
+  "intent_sha256": "7ff576891cdf804a48675ba096a481f97d776a8744085e24673a3f3ab877e729",
+  "plan_sha256": "399c8d963f4526d9a2c07bedce3be0cdbce252e54826a27a59d5af570bafad10",
+  "runtime": {
+    "version": "v1.35.9+k3s1",
+    "binary_sha256": "897acb21cca57d477a211102251a6591450ce767344a9faaa121a1007ca9fa9a",
+    "pid": 167352,
+    "runtime_sha256": "a9e0438d6199414fec70e2d4f5bbf2e06a95836d4dbde76a3002c3e64fd55aff",
+    "boot": "7c2084ed-9e9e-4c2a-92d7-53391c171519",
+    "configs": {
+      "/etc/rancher/k3s/config.yaml": "2f52178260347a9c95d6c724b3a8d083d64ecf232c46028591c57f192becc78b",
+      "/etc/systemd/system/k3s.service.env": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "/etc/systemd/system/k3s.service": "bbb541096ed9941ff8e54bd3c1a70ee222d25bd22c1723823a1b8e18cbfbcdda"
+    },
+    "unit_sha256": "c3fee719966e118d5d402cd121f24b7237a977c6409f5b15010c5cf21102b037",
+    "stargz": true,
+    "selinux": "Enforcing"
+  },
+  "historical_API_outcome": "UNKNOWN"
+}
