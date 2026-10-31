@@ -10,6 +10,17 @@ def expected_http_status(namespace, path):
     return 204 if namespace == 'woodpecker' and path == '/healthz' else 200
 
 
+def http_probe_host(pod, probe):
+    """Honor explicit host-network loopback probes from the owning node."""
+    host = probe.get('host')
+    if host:
+        assert pod['spec'].get('hostNetwork') is True and host in ('127.0.0.1', '::1'), \
+            'explicit probe host needs a reviewed host-network loopback target'
+    else:
+        host = pod['status']['podIP']
+    return '[' + host + ']' if ':' in host else host
+
+
 def returned_pod(reference, pods, deployment, replica_set, baseline_time):
     """Verify every configured replica, then identify the unique replacement."""
     owner = next(o for o in reference['owners'] if o.get('controller'))

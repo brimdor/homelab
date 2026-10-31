@@ -4,10 +4,29 @@ import copy
 import hashlib
 import unittest
 
-from maintenance_application_return import expected_http_status, returned_pod
+from maintenance_application_return import expected_http_status, http_probe_host, returned_pod
 
 
 class ApplicationReturnTests(unittest.TestCase):
+    def test_probe_defaults_to_actual_pod_ip(self):
+        pod = {'spec': {}, 'status': {'podIP': '10.42.1.2'}}
+        self.assertEqual(http_probe_host(pod, {}), '10.42.1.2')
+        self.assertEqual(http_probe_host(pod, {'host': ''}), '10.42.1.2')
+
+    def test_explicit_host_network_loopback_is_not_replaced_with_node_ip(self):
+        pod = {'spec': {'hostNetwork': True}, 'status': {'podIP': '10.0.20.11'}}
+        self.assertEqual(http_probe_host(pod, {'host': '127.0.0.1'}), '127.0.0.1')
+        self.assertEqual(http_probe_host(pod, {'host': '::1'}), '[::1]')
+        pod['spec']['hostNetwork'] = False
+        with self.assertRaises(AssertionError):
+            http_probe_host(pod, {'host': '127.0.0.1'})
+
+    def test_foreign_explicit_probe_host_cannot_redirect_acceptance(self):
+        pod = {'spec': {'hostNetwork': True}, 'status': {'podIP': '10.0.20.11'}}
+        for host in ('other.example', '10.0.40.3', '127.0.0.1@other.example'):
+            with self.subTest(host=host), self.assertRaises(AssertionError):
+                http_probe_host(pod, {'host': host})
+
     def test_woodpecker_health_is_204_without_weakening_other_endpoints(self):
         self.assertEqual(expected_http_status('woodpecker', '/healthz'), 204)
         self.assertEqual(expected_http_status('woodpecker', '/'), 200)
