@@ -876,6 +876,35 @@ def observe(args, api, owner, kind):
                 raise
 
 
+def published_revision():
+    """Allow only unchanged metal beneath published, owner-excluded app commits."""
+    def git(*args):
+        return subprocess.check_output(['git', *args])
+    actors.require(git('remote', 'get-url', 'origin').strip() ==
+                   b'git@git.eaglepass.io:ops/homelab.git' and
+                   git('branch', '--show-current').strip() == b'master',
+                   'canonical maintenance checkout required')
+    revision = git('rev-parse', 'HEAD').decode().strip()
+    advertised = git('ls-remote', 'origin', 'refs/heads/master').decode().split()
+    import re
+    actors.require(len(advertised) == 2 and advertised[1] == 'refs/heads/master' and
+                   re.fullmatch('[0-9a-f]{40}', advertised[0]), 'invalid published master revision')
+    remote = advertised[0]
+    if remote != revision:
+        git('fetch', '--no-tags', 'origin', remote)
+        ancestor = subprocess.run(['git', 'merge-base', '--is-ancestor', revision, remote],
+                                  capture_output=True)
+        actors.require(ancestor.returncode == 0, 'publish reviewed controller before execution')
+        actors.require(git('rev-parse', revision + ':metal') == git('rev-parse', remote + ':metal'),
+                       'published metal tree changed')
+        paths = git('diff', '--no-renames', '--name-only', '-z', revision, remote, '--').split(b'\0')
+        actors.require(paths[-1] == b'' and len(paths) > 1 and all(
+            path.startswith((b'apps/tsurreal/', b'apps/tsurreal-canary/')) or path in (
+                b'plans/tsurreal-deployment.html', b'tools/tsurreal-initial-director.yaml')
+            for path in paths[:-1]), 'published changes exceed owner-excluded application')
+    return revision
+
+
 def main():
     import maintenance_production_node as production
     from maintenance_api_reader import Reader
@@ -891,9 +920,7 @@ def main():
         parser.add_argument('--' + name)
     args = parser.parse_args(); production.select_node(args.node)
     configure_stage(contract.VERSIONS[contract.VERSIONS.index(args.target) - 1], args.target)
-    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-    actors.require(subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/master'], text=True).split()[0] ==
-                   revision, 'publish reviewed controller before execution')
+    revision = published_revision()
     from maintenance_etcd_production import MODULES as ETCD_MODULES
     names = (*production.MODULES, 'maintenance_k3s_contract', 'maintenance_k3s_binary', 'maintenance_k3s_production', *ETCD_MODULES)
     bundle = {}

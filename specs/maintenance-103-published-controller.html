@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: published controller and node priority</title>
+<style>body{background:#111820;color:#e5edf5;font:16px/1.6 system-ui;max-width:900px;margin:3rem auto;padding:0 1.5rem}a{color:#8ac7ff}code{color:#b6dfbf}h1,h2{line-height:1.2}</style>
+<h1>Issue 103: published controller and node priority</h1>
+<p>Owner decision, October 31, 2026: finish Squirtle's complete upgrade and acceptance, then prioritize Sprigatito and Emby before other workers. Other control-plane servers may require intermediate upgrades to keep the API servers within one minor version. Preserve NAS restrictions, protected Zot, the ordinary MWF Kured schedule and Growlithe before Arcanine.</p>
+<h2>Objective and evidence</h2>
+<p>Squirtle's original 1.33.13 to 1.34.12 transaction has accepted the running binary and infrastructure. Scheduling restoration was dispatched once; its observation failed before API or host access because an unrelated excluded-application commit advanced Gitea master. Preserve original ownership and every immutable journal record; observe the pending scheduling action without repeating it.</p>
+<p>The current controller rejects any remote revision advance even when the entire metal tree is identical. Permit only published ancestors of canonical Gitea master whose intervening changes exclusively concern the owner-excluded temporary application. This changes source verification, not application maintenance scope.</p>
+<h2>Plan and files</h2>
+<ol><li>Add a source-publication guard in <code>metal/scripts/maintenance_k3s_production.py</code>.</li><li>Add refusal and acceptance coverage in <code>metal/scripts/test_maintenance_k3s_production.py</code>.</li><li>Validate, review, commit and push canonical Gitea master before execution.</li><li>Resume only the original pending scheduling observation, application acceptance and ordered release. Verify native runtime, storage bindings and ownership independently.</li></ol>
+<h2>Trust boundary</h2>
+<ul><li>Require local master and the exact canonical Gitea SSH origin.</li><li>For a different advertised remote tip, fetch that exact commit and prove local HEAD is its ancestor.</li><li>Require identical complete <code>metal</code> trees.</li><li>Use NUL-separated filename-only diff with rename detection disabled. Permit only <code>apps/tsurreal/</code>, <code>apps/tsurreal-canary/</code>, <code>plans/tsurreal-deployment.html</code> and <code>tools/tsurreal-initial-director.yaml</code>. Do not inspect their contents.</li><li>Retain byte-for-byte published checks for every maintenance dependency. Never rewrite original owner revisions.</li><li>Reject divergent, foreign, unpublished or unrelated changes before API or host access.</li></ul>
+<h2>Commands and verification</h2>
+<p>Run <code>PYTHONPATH=metal/scripts python3 -B -m unittest metal/scripts/test_maintenance_k3s_production.py</code> and scoped <code>pre-commit run --files metal/scripts/maintenance_k3s_production.py metal/scripts/test_maintenance_k3s_production.py specs/maintenance-103-published-controller.html</code>. Review the exact diff and <code>git diff --check</code>.</p>
+<p>Regression cases: equal published revision; excluded-only descendant; changed metal tree; unrelated files; renamed files crossing scope; divergence; foreign origin or branch; invalid advertised revision. Use existing unittest and subprocess patterns; no dependencies or live mutations in regression tests.</p>
+<h2>Boundaries and completion</h2>
+<p>Always preserve original journals, secure access, fresh runtime observations and unrelated dirty files. Never weaken health, bypass release approval, mutate NAS/Zot, inspect excluded app contents, replay an uncertain action or claim a completed upgrade from installation alone. A source guard test does not certify live maintenance. This prerequisite completes when published checks pass and the original Squirtle transaction resumes without dispatch replay; full node completion remains separately evidenced.</p>
+</html>

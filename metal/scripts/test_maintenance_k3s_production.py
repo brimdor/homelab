@@ -6,6 +6,7 @@ import hashlib
 import json
 import io
 import os
+import subprocess
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
@@ -15,6 +16,62 @@ from unittest.mock import patch
 import maintenance_k3s_contract as contract
 import maintenance_k3s_production as production
 import maintenance_production_node as shared
+
+
+class PublishedRevisionTests(unittest.TestCase):
+    def verify(self, *, remote=None, paths=None, metal=b'metal\n', ancestor=0,
+               origin=b'git@git.eaglepass.io:ops/homelab.git\n', branch=b'master\n'):
+        revision = 'a' * 40
+        remote = remote or 'b' * 40
+        outputs = {
+            ('remote', 'get-url', 'origin'): origin,
+            ('branch', '--show-current'): branch,
+            ('rev-parse', 'HEAD'): revision.encode() + b'\n',
+            ('ls-remote', 'origin', 'refs/heads/master'): (remote + '\trefs/heads/master\n').encode(),
+            ('fetch', '--no-tags', 'origin', remote): b'',
+            ('rev-parse', revision + ':metal'): b'metal\n',
+            ('rev-parse', remote + ':metal'): metal,
+            ('diff', '--no-renames', '--name-only', '-z', revision, remote, '--'):
+                paths if paths is not None else b'apps/tsurreal-canary/values.yaml\0',
+        }
+        with patch.object(production.subprocess, 'check_output',
+                          side_effect=lambda args: outputs[tuple(args[1:])]) as git, \
+                patch.object(production.subprocess, 'run',
+                             return_value=subprocess.CompletedProcess([], ancestor)) as run:
+            result = production.published_revision()
+            if remote == revision:
+                self.assertEqual(git.call_count, 4)
+                run.assert_not_called()
+            else:
+                run.assert_called_once_with(['git', 'merge-base', '--is-ancestor', revision, remote],
+                                            capture_output=True)
+            return result
+
+    def test_exact_published_revision_needs_no_fetch(self):
+        self.assertEqual(self.verify(remote='a' * 40), 'a' * 40)
+
+    def test_only_exact_excluded_paths_allow_published_ancestor(self):
+        self.assertEqual(self.verify(paths=b'apps/tsurreal/values.yaml\0'
+            b'apps/tsurreal-canary/values.yaml\0plans/tsurreal-deployment.html\0'
+            b'tools/tsurreal-initial-director.yaml\0'), 'a' * 40)
+
+    def test_changed_metal_divergence_and_unpublished_commit_refuse(self):
+        for kwargs in ({'metal': b'changed\n'}, {'ancestor': 1}, {'ancestor': 128}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(RuntimeError):
+                self.verify(**kwargs)
+
+    def test_unrelated_or_renamed_outside_path_is_not_hidden(self):
+        for paths in (b'apps/emby/values.yaml\0', b'apps/tsurreal-other/values.yaml\0',
+                      b'apps/tsurreal/old\0metal/scripts/new.py\0', b'',
+                      b'apps/tsurreal/values.yaml', b'apps/tsurreal/values.yaml\0\0'):
+            with self.subTest(paths=paths), self.assertRaises(RuntimeError):
+                self.verify(paths=paths)
+
+    def test_foreign_checkout_or_invalid_advertisement_refuses(self):
+        for kwargs in ({'origin': b'git@other:ops/homelab.git'}, {'branch': b'other'},
+                       {'remote': 'unknown'}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(RuntimeError):
+                self.verify(**kwargs)
 
 
 class MaintenanceScopeTests(unittest.TestCase):
