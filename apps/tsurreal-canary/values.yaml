@@ -109,6 +109,157 @@ app-template:
             type: RuntimeDefault
       serviceAccount:
         name: default
+    migration-proof:
+      enabled: true
+      forceRename: tsurreal-migration-proof
+      type: deployment
+      strategy: Recreate
+      replicas: 1
+      initContainers:
+        prepare-identity:
+          image:
+            repository: docker.io/library/python
+            tag: 3.13.18-alpine3.24
+            digest: sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+            pullPolicy: IfNotPresent
+          command:
+          - python3
+          - -B
+          - /scripts/prepare-identity.py
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          probes:
+            startup:
+              enabled: false
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+        verify-state:
+          image: &id001
+            repository: docker.io/library/python
+            tag: 3.13.18-alpine3.24
+            digest: sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+            pullPolicy: IfNotPresent
+          command:
+          - python3
+          - -B
+          - /migration/verify.py
+          - --expected
+          - '35'
+          securityContext: &id002
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          probes:
+            startup:
+              enabled: false
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+      containers:
+        hq:
+          image:
+            repository: 10.0.20.11:32309/tsurreal/hq
+            digest: sha256:8c0201a2beaf4865c2bd632981eebed6c3637b74bdce5df97d2332cfa9d1a3ec
+            pullPolicy: IfNotPresent
+          args:
+          - --config
+          - /etc/tsurreal/hq.json
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          probes:
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                  - /opt/tsurreal/package/hq
+                  - --config
+                  - /etc/tsurreal/hq.json
+                  - --readiness-check
+                periodSeconds: 5
+                timeoutSeconds: 12
+                failureThreshold: 24
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                exec:
+                  command:
+                  - /opt/tsurreal/package/hq
+                  - --config
+                  - /etc/tsurreal/hq.json
+                  - --readiness-check
+                periodSeconds: 5
+                timeoutSeconds: 12
+                failureThreshold: 3
+            liveness:
+              enabled: false
+        inspector:
+          image: *id001
+          command:
+          - python3
+          - -B
+          - -c
+          - import signal; signal.pause()
+          securityContext: *id002
+          resources:
+            requests:
+              cpu: 1m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          probes:
+            startup:
+              enabled: false
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+      pod:
+        automountServiceAccountToken: false
+        terminationGracePeriodSeconds: 25
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          fsGroup: 65532
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile:
+            type: RuntimeDefault
+      serviceAccount:
+        name: default
   service:
     main:
       forceRename: tsurreal-canary
@@ -198,6 +349,10 @@ app-template:
       type: configMap
       name: tsurreal-identity-preparation
       advancedMounts:
+        migration-proof:
+          prepare-identity:
+          - path: /scripts
+            readOnly: true
         main:
           prepare-identity:
           - path: /scripts
@@ -207,6 +362,10 @@ app-template:
       name: tsurreal-canary-tls
       defaultMode: 288
       advancedMounts:
+        migration-proof:
+          prepare-identity:
+          - path: /projected-tls
+            readOnly: true
         main:
           prepare-identity:
           - path: /projected-tls
@@ -216,6 +375,12 @@ app-template:
       medium: Memory
       sizeLimit: 4Mi
       advancedMounts:
+        migration-proof:
+          hq:
+          - path: /run/tsurreal
+            readOnly: true
+          prepare-identity:
+          - path: /run/tsurreal
         main:
           prepare-identity:
           - path: /run/tsurreal
@@ -226,9 +391,46 @@ app-template:
       type: emptyDir
       sizeLimit: 256Mi
       advancedMounts:
+        migration-proof:
+          hq:
+          - path: /tmp
         main:
           hq:
           - path: /tmp
+    migration-proof:
+      type: persistentVolumeClaim
+      forceRename: tsurreal-migration-proof
+      accessMode: ReadWriteOnce
+      size: 4Gi
+      storageClass: standard-rwo
+      dataSource:
+        apiGroup: snapshot.storage.k8s.io
+        kind: VolumeSnapshot
+        name: tsurreal-v35-pre-0d9e030a
+      advancedMounts:
+        migration-proof:
+          hq:
+          - path: /var/lib/tsurreal
+          verify-state:
+          - path: /var/lib/tsurreal
+            readOnly: true
+          inspector:
+          - path: /var/lib/tsurreal
+            readOnly: true
+    migration-configuration:
+      type: configMap
+      name: tsurreal-migration-configuration
+      advancedMounts:
+        migration-proof:
+          hq:
+          - path: /etc/tsurreal
+            readOnly: true
+          verify-state:
+          - path: /migration
+            readOnly: true
+          inspector:
+          - path: /migration
+            readOnly: true
   configMaps:
     configuration:
       forceRename: tsurreal-configuration
@@ -288,6 +490,47 @@ app-template:
 
           if __name__ == "__main__":
               stage("/projected-tls", "/run/tsurreal/identity")
+    migration-configuration:
+      forceRename: tsurreal-migration-configuration
+      includeInChecksum: true
+      data:
+        hq.json: |
+          {"version": 1, "component": "hq", "access_mode": "local", "listen": "127.0.0.1:9443", "origin": "https://tsurreal-canary.eaglepass.io:9443", "state_dir": "/var/lib/tsurreal/state", "tls_cert": "/run/tsurreal/identity/tls.crt", "tls_key": "/run/tsurreal/identity/tls.key", "tls_client_cidrs": ["127.0.0.1/32", "::1/128"]}
+        verify.py: |
+          """Read only the isolated restored database; never export user rows or credentials."""
+          import argparse
+          import json
+          from pathlib import Path
+          import sqlite3
+
+          SCHEMA = [{"version": 1, "sha256": "acc74354f1fbcbeaf62a08b7af53f57d7e59c51f6290d6fe903e9c293849128f"}, {"version": 2, "sha256": "34d77fc8d5e47eba56a28368ba3c445d5067250bd582a8ecc0257b721510de21"}, {"version": 3, "sha256": "205caeee55bf5f3d637840fc72b9394b156454539a485bfab7e70eeb4ac2de2b"}, {"version": 4, "sha256": "f5406bc7f1d47e2c51cca2386dceaa23009bc28f7121fd69458f9a7d8c080d7c"}, {"version": 5, "sha256": "3e3f978d11e2aab35e445385ec6560fa556723fc4991047c315445dd3833fc14"}, {"version": 6, "sha256": "51b809c347136c2127ddcfbb4bd2e46b0771e3a31660593ae458f8b31c636cea"}, {"version": 7, "sha256": "dc704e15b8bc395f83e2a15ce4413c74d72486b356d4d70c746e3e5c10007792"}, {"version": 8, "sha256": "77b388cbb50a04563dfddda5312a058ad51f17baf0923c41cf43651b30888279"}, {"version": 9, "sha256": "c562525765d012e5a8115934c1e9818094e390324f6b923adaf38261f97bf4d0"}, {"version": 10, "sha256": "72fd7463d47183c8161cf4a2bf706b6b39aff5c307146d49f5cfa29ee1285980"}, {"version": 11, "sha256": "4bb23f9dd1638776eab61c6ff134f1bcff1b574f99e6c9c07182804faec7e685"}, {"version": 12, "sha256": "0a95c1576acd63bfc251277617ea7e26b111ba54e20939c875707874881a0c59"}, {"version": 13, "sha256": "1ae80988fa5671804607444fa508aee824a4207bcf28bbbdee210cb52bdbe7b1"}, {"version": 14, "sha256": "978e6072b493a7a0ec989c9ed923335376bb655c4723c8dcd3df0fc67a6d0671"}, {"version": 15, "sha256": "e314a54e4c404358099a338f4419eb8c4b100dee53dced1976188b240e61131b"}, {"version": 16, "sha256": "37f170344dcce53c3b9c4a20a5ca6871f2ce1a4da62da6d4428c4055a6084879"}, {"version": 17, "sha256": "36d667422f47fabf12fecdedb1fac8c62406d5ef1ac8e21bad4aae0f8e824fcd"}, {"version": 18, "sha256": "887fe54df3af8a0fdcfc05a5e00ffc7dcb30413c44191c4e3d287b929ac1afad"}, {"version": 19, "sha256": "354c4b9ff115731f0c69982103ce9845422400c017c0ccc771cd84a80f44053e"}, {"version": 20, "sha256": "e58ac51d2ecc5d7b151de742c74846587bc13a5665347e0d6cc2e6e9b73767ea"}, {"version": 21, "sha256": "b7b388fefe7734e9a1b747d90c628d64c885dac5b23347a2ed102da9587e8dc1"}, {"version": 22, "sha256": "8399f6b326583699477ff89b23895e6bb7761a33a2fa73e46ee88fa63bf6d288"}, {"version": 23, "sha256": "ad251d95af7058f9b9004db4eb9be5ed05f7f6dfffb8bf7a634529cc6b975547"}, {"version": 24, "sha256": "2f97a164af40f7e833dda545d50338f51cbb991e58443a1c93518994924a6986"}, {"version": 25, "sha256": "210d1787199ed6419af74061f98da05b79d08b27cfb46dfa8f4948809ad968bf"}, {"version": 26, "sha256": "17f473ad0445246383892d4d08247bd117c90fe74902efba8706557e36a0f77a"}, {"version": 27, "sha256": "7df5b667eccad8ec74e7c003ce5a64a489e02f460b9bff52a926a10de70923fd"}, {"version": 28, "sha256": "2d18a0d8f0324f18f57067045511117437cd6e475416f4b27b44ed91e99f700d"}, {"version": 29, "sha256": "8f3846cf97b50339914c3d23c0e237ece157bf997614e1d58f642dc9e14e0da3"}, {"version": 30, "sha256": "bd1af776d373f142b38a0e450287f5fdb957a0e2077f2d4b9815668bae3a2ef1"}, {"version": 31, "sha256": "250ca60b73b384562295e3c908d19941685e3b526d7a518c6012c602165d4b33"}, {"version": 32, "sha256": "d672f4cbc5f3730e2a7efdf2178c694c1a6356bb35ca12a256665bb37102da88"}, {"version": 33, "sha256": "5a1c957d52c4c75d3cb203ee1ba51dad3f5f4a16a87b3fb704d41b64beea014f"}, {"version": 34, "sha256": "b68226996978991f99139cad2979ea46ebab0d32afdddf154deb13a0d64e3252"}, {"version": 35, "sha256": "49accefda2fc643a0664733b67e3f7f2452cc179e00a94c3f1a2e5eb7b7a79fa"}, {"version": 36, "sha256": "1170952acec116e01dc797405aa5fb5a931b8f849126e31b805ad0195da4e4fa"}, {"version": 37, "sha256": "c4e8ced78b5fef9ffb9c6638f6a90e4eb12f4e9e782d67f964577ec2e3bcf368"}, {"version": 38, "sha256": "8aca6a5498456761d068d2cf8cdafcf521a462bdee9ae8ab46659eeb1c495fa2"}]
+
+          def verify(path, expected):
+              path = Path(path)
+              if not path.is_file() or any(p.is_symlink() for p in [path, *path.parents]):
+                  raise ValueError("The restored state must be a regular database without symlinks")
+              connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+              try:
+                  connection.execute("PRAGMA query_only=ON")
+                  connection.execute("BEGIN")
+                  if connection.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
+                      raise ValueError("SQLite integrity check failed")
+                  if connection.execute("PRAGMA foreign_key_check").fetchall():
+                      raise ValueError("SQLite foreign key check failed")
+                  schema = [{"version": n, "sha256": digest} for n, digest in connection.execute("SELECT version,digest FROM schema_migrations ORDER BY version")]
+                  if expected not in [35, 38] or schema != SCHEMA[:expected]:
+                      raise ValueError("The restored migration history differs from the pinned release")
+                  tables = [row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+                  counts = {table: connection.execute('SELECT COUNT(*) FROM "' + table.replace('"', '""') + '"').fetchone()[0] for table in tables}
+                  return {"schema": schema, "integrity": "ok", "foreign_keys": "ok", "table_counts": counts}
+              finally:
+                  connection.close()
+
+          if __name__ == "__main__":
+              parser = argparse.ArgumentParser()
+              parser.add_argument("--expected", type=int, choices=[35, 38], required=True)
+              args = parser.parse_args()
+              print(json.dumps(verify("/var/lib/tsurreal/state/hq.sqlite", args.expected)))
   networkpolicies:
     main:
       forceRename: tsurreal-private
@@ -341,6 +584,21 @@ app-template:
             algorithm: ECDSA
             size: 256
             rotationPolicy: Always
+    preupgrade:
+      forceRename: tsurreal-v35-pre-0d9e030a
+      manifest:
+        apiVersion: snapshot.storage.k8s.io/v1
+        kind: VolumeSnapshot
+        metadata:
+          namespace: tsurreal-canary
+          annotations:
+            helm.sh/resource-policy: keep
+            argocd.argoproj.io/sync-options: Prune=false,Delete=false
+            tsurreal.zuriel-labs.io/source-pvc-uid: bbd5ca78-93b1-4a0e-9062-35a79b8103ce
+        spec:
+          volumeSnapshotClassName: ceph-block
+          source:
+            persistentVolumeClaimName: tsurreal-state
   serviceAccount:
     main:
       enabled: false
