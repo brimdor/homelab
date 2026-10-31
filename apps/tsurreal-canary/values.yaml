@@ -10,19 +10,20 @@ app-template:
       strategy: Recreate
       replicas: 1
       annotations:
-        tsurreal.zuriel-labs.io/source-commit: 5e8e0cd471c8e1b4843625d2fa6edb06276e1023
-        tsurreal.zuriel-labs.io/source-tree: 5770d02bb77e1e29654f3e8da69022088e07b097
+        tsurreal.zuriel-labs.io/source-commit: 9edc2e31e70df09bc890cd61896cb9ac00be7848
+        tsurreal.zuriel-labs.io/source-tree: 6a48ed5f77040c87b0b477956c5625e0617f0c19
       initContainers:
         prepare-identity:
           image:
-            repository: docker.io/library/python
-            tag: 3.13.18-alpine3.24
-            digest: sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+            repository: 10.0.20.11:32309/tsurreal/hq
+            digest: sha256:3cffb5749d151b558546af6f237002ce18326d3b62402642452c9999776dee0d
             pullPolicy: IfNotPresent
           command:
-          - python3
-          - -B
-          - /scripts/prepare-identity.py
+          - /opt/tsurreal/package/hq
+          - --stage-identity-source
+          - /projected-tls
+          - --stage-identity-output
+          - /run/tsurreal/identity
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -46,7 +47,7 @@ app-template:
         hq:
           image:
             repository: 10.0.20.11:32309/tsurreal/hq
-            digest: sha256:89623f1ed39d9ceeb5a29af84ccd0f26d3c6dd42af4c2f133129da3567ff7777
+            digest: sha256:3cffb5749d151b558546af6f237002ce18326d3b62402642452c9999776dee0d
             pullPolicy: IfNotPresent
           args:
           - --config
@@ -193,14 +194,6 @@ app-template:
           hq:
           - path: /etc/tsurreal
             readOnly: true
-    identity-script:
-      type: configMap
-      name: tsurreal-identity-preparation
-      advancedMounts:
-        main:
-          prepare-identity:
-          - path: /scripts
-            readOnly: true
     projected-tls:
       type: secret
       name: tsurreal-canary-tls
@@ -234,59 +227,7 @@ app-template:
       includeInChecksum: true
       data:
         hq.json: |
-          {{ if ne .Release.Namespace "tsurreal-canary" }}{{ fail "This chart owns only namespace tsurreal-canary" }}{{ end }}{{ if not (regexMatch "^10\\.0\\.20\\.11:32309/tsurreal/hq$" .Values.controllers.main.containers.hq.image.repository) }}{{ fail "Tsurreal requires its selected private registry" }}{{ end }}{{ if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.controllers.main.containers.hq.image.digest) }}{{ fail "Tsurreal requires an immutable image digest" }}{{ end }}{{ range $key := list "tsurreal.zuriel-labs.io/source-commit" "tsurreal.zuriel-labs.io/source-tree" }}{{ if not (regexMatch "^[a-f0-9]{40}$" (index $.Values.controllers.main.annotations $key)) }}{{ fail "Tsurreal requires exact source identities" }}{{ end }}{{ end }}{"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://tsurreal-canary.eaglepass.io","state_dir":"/var/lib/tsurreal/state","tls_cert":"/run/tsurreal/identity/tls.crt","tls_key":"/run/tsurreal/identity/tls.key","tls_client_cidrs":["10.0.0.0/16","127.0.0.1/32","::1/128"]}
-    identity:
-      forceRename: tsurreal-identity-preparation
-      includeInChecksum: true
-      data:
-        prepare-identity.py: |
-          """Copy one projected TLS generation into new private regular files; never log keys."""
-          import os
-          from pathlib import Path
-          import stat
-
-
-          def stage(source, destination):
-              parent = Path(destination).parent
-              for path in [parent, *parent.parents]:
-                  if path.is_symlink() or not path.is_dir():
-                      raise ValueError("Identity output requires existing non-symlink parents")
-              # Pin the Kubernetes atomic writer generation before opening either file.
-              generation = os.open(Path(source) / "..data", os.O_RDONLY | os.O_DIRECTORY)
-              values = {}
-              try:
-                  for name in ["tls.crt", "tls.key"]:
-                      fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=generation)
-                      try:
-                          info = os.fstat(fd)
-                          if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 1024 * 1024:
-                              raise ValueError("Invalid projected TLS input")
-                          with os.fdopen(fd, "rb", closefd=False) as stream:
-                              values[name] = stream.read(1024 * 1024 + 1)
-                          if len(values[name]) != info.st_size:
-                              raise ValueError("Projected TLS input changed")
-                      finally:
-                          os.close(fd)
-              finally:
-                  os.close(generation)
-              # Refuse existing output, including dangling symlinks; no key overwrite.
-              os.mkdir(destination, 0o700)
-              try:
-                  for name, value in values.items():
-                      fd = os.open(Path(destination) / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-                      with os.fdopen(fd, "wb") as stream:
-                          stream.write(value)
-                          stream.flush()
-                          os.fsync(stream.fileno())
-              except BaseException:
-                  for name in values:
-                      (Path(destination) / name).unlink(missing_ok=True)
-                  os.rmdir(destination)
-                  raise
-
-
-          if __name__ == "__main__":
-              stage("/projected-tls", "/run/tsurreal/identity")
+          {{ if ne .Release.Namespace "tsurreal-canary" }}{{ fail "This chart owns only namespace tsurreal-canary" }}{{ end }}{{ if not (regexMatch "^10\\.0\\.20\\.11:32309/tsurreal/hq$" .Values.controllers.main.containers.hq.image.repository) }}{{ fail "Tsurreal requires its selected private registry" }}{{ end }}{{ if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.controllers.main.containers.hq.image.digest) }}{{ fail "Tsurreal requires an immutable image digest" }}{{ end }}{{ $init := (index .Values.controllers.main.initContainers "prepare-identity").image }}{{ if or (ne $init.repository .Values.controllers.main.containers.hq.image.repository) (ne $init.digest .Values.controllers.main.containers.hq.image.digest) }}{{ fail "Tsurreal identity init requires the exact HQ image" }}{{ end }}{{ range $key := list "tsurreal.zuriel-labs.io/source-commit" "tsurreal.zuriel-labs.io/source-tree" }}{{ if not (regexMatch "^[a-f0-9]{40}$" (index $.Values.controllers.main.annotations $key)) }}{{ fail "Tsurreal requires exact source identities" }}{{ end }}{{ end }}{"version":1,"component":"hq","access_mode":"lan","listen":"0.0.0.0:8443","origin":"https://tsurreal-canary.eaglepass.io","state_dir":"/var/lib/tsurreal/state","tls_cert":"/run/tsurreal/identity/tls.crt","tls_key":"/run/tsurreal/identity/tls.key","tls_client_cidrs":["10.0.0.0/16","127.0.0.1/32","::1/128"]}
   networkpolicies:
     main:
       forceRename: tsurreal-private

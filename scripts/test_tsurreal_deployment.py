@@ -1,20 +1,13 @@
 """Focused Tsurreal private deployment and projected-identity checks."""
 import json
-import os
 from pathlib import Path
 import subprocess
-import tempfile
 import unittest
 
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 CHART = ROOT / "apps/tsurreal-canary"
-import types
-identity = types.ModuleType("prepare_identity")
-values = yaml.safe_load((CHART / "values.yaml").read_text())["app-template"]
-identity_source = values["configMaps"]["identity"]["data"]["prepare-identity.py"]
-exec(compile(identity_source, str(CHART / "values.yaml"), "exec"), identity.__dict__)
 
 
 def render(*overrides, namespace="tsurreal-canary", good=True):
@@ -36,7 +29,7 @@ class ChartTests(unittest.TestCase):
         dependency = yaml.safe_load((CHART / "Chart.yaml").read_text())["dependencies"]
         self.assertEqual(dependency, [{"name": "app-template", "version": "5.3.0", "repository": "https://bjw-s-labs.github.io/helm-charts/"}])
         objects = render()
-        self.assertEqual(len(objects), 12)
+        self.assertEqual(len(objects), 11)
         self.assertFalse(any(o["kind"] in ["Secret", "Job"] for o in objects))
         for obj in objects:
             self.assertNotIn("production", obj["metadata"]["name"])
@@ -91,6 +84,14 @@ class ChartTests(unittest.TestCase):
             self.assertFalse(security["allowPrivilegeEscalation"])
             self.assertEqual(security["capabilities"]["drop"],["ALL"])
             self.assertIn("@sha256:",container["image"])
+        init=pod["initContainers"][0]
+        self.assertEqual(init["image"],pod["containers"][0]["image"])
+        self.assertEqual(init["command"],["/opt/tsurreal/package/hq","--stage-identity-source","/projected-tls","--stage-identity-output","/run/tsurreal/identity"])
+        self.assertEqual(init["resources"]["limits"]["memory"],"64Mi")
+        self.assertEqual({m["name"] for m in init["volumeMounts"]},{"projected-tls","identity"})
+        self.assertTrue(any(m["name"]=="projected-tls" and m["mountPath"]=="/projected-tls" and m["readOnly"] for m in init["volumeMounts"]))
+        self.assertFalse(any(v["name"]=="identity-script" for v in pod["volumes"]))
+        self.assertEqual([o["metadata"]["name"] for o in objects if o["kind"]=="ConfigMap"],["tsurreal-configuration"])
         self.assertFalse(any("hostPath" in v for v in pod["volumes"]))
         self.assertFalse(pod.get("hostNetwork"))
         self.assertFalse(pod.get("hostPID"))
@@ -118,75 +119,8 @@ class ChartTests(unittest.TestCase):
         render(namespace="tsurreal-production",good=False)
         for key,value in [("repository","public.example/hq"),("digest","sha256:invalid")]:
             render("app-template.controllers.main.containers.hq.image."+key+"="+value,good=False)
-
-
-class IdentityTests(unittest.TestCase):
-    def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
-        self.root = Path(self.temporary.name)
-        self.source = self.root / "source"
-        self.source.mkdir()
-        self.generation = self.source / "generation-one"
-        self.generation.mkdir()
-        for name, value in [("tls.crt", b"synthetic certificate"), ("tls.key", b"synthetic key")]:
-            (self.generation / name).write_bytes(value)
-        (self.source / "..data").symlink_to(self.generation.name)
-        self.output = self.root / "identity"
-
-    def tearDown(self):
-        self.temporary.cleanup()
-
-    def test_private_regular_outputs_and_replay_refusal(self):
-        identity.stage(self.source, self.output)
-        self.assertEqual(self.output.stat().st_mode & 0o777, 0o700)
-        for name in ["tls.crt", "tls.key"]:
-            path = self.output / name
-            self.assertFalse(path.is_symlink())
-            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-            self.assertEqual(path.read_bytes(), (self.generation / name).read_bytes())
-        with self.assertRaises(FileExistsError):
-            identity.stage(self.source, self.output)
-        self.assertEqual((self.output / "tls.key").read_bytes(), b"synthetic key")
-
-    def test_one_generation_even_during_rotation(self):
-        next_generation = self.source / "generation-two"
-        next_generation.mkdir()
-        for name in ["tls.crt", "tls.key"]:
-            (next_generation / name).write_bytes(b"changed")
-        original = identity.os.open
-        def rotating_open(path, flags, *args, **kwargs):
-            fd = original(path, flags, *args, **kwargs)
-            if Path(path).name == "..data":
-                (self.source / "..data").unlink()
-                (self.source / "..data").symlink_to(next_generation.name)
-            return fd
-        identity.os.open = rotating_open
-        try:
-            identity.stage(self.source, self.output)
-        finally:
-            identity.os.open = original
-        self.assertEqual((self.output / "tls.key").read_bytes(), b"synthetic key")
-
-    def test_missing_empty_oversize_link_fifo_refused(self):
-        key = self.generation / "tls.key"
-        for mode in ["missing", "empty", "oversize", "symlink", "fifo"]:
-            with self.subTest(mode=mode):
-                key.unlink(missing_ok=True)
-                if mode == "empty": key.write_bytes(b"")
-                if mode == "oversize": key.write_bytes(b"x" * (1024 * 1024 + 1))
-                if mode == "symlink": key.symlink_to("tls.crt")
-                if mode == "fifo": os.mkfifo(key)
-                with self.assertRaises((OSError, ValueError)):
-                    identity.stage(self.source, self.output)
-                self.assertFalse(self.output.exists())
-
-    def test_destination_symlinks_refused(self):
-        self.output.symlink_to(self.root / "absent")
-        with self.assertRaises(FileExistsError): identity.stage(self.source, self.output)
-        self.output.unlink()
-        linked = self.root / "linked"
-        linked.symlink_to(self.root)
-        with self.assertRaises(ValueError): identity.stage(self.source, linked / "identity")
+            render("app-template.controllers.main.initContainers.prepare-identity.image."+key+"="+value,good=False)
+        render("app-template.controllers.main.initContainers.prepare-identity.image.digest=sha256:"+"a"*64,good=False)
 
 
 if __name__ == "__main__":
