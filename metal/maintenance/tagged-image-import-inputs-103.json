@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "node": "pikachu",
+  "node_uid": "7ec4e786-0b5d-416d-9284-8eac993635bf",
+  "address": "10.0.20.14",
+  "identity": {
+    "machine": "0a7daf8b33244d9d85f46223c3582da9",
+    "root_uuid": "76e53a95-725a-4430-9d7b-a8db413f3997"
+  },
+  "runtime_version": "v1.33.13+k3s2",
+  "runtime_sha256": "1572f0f23bd5a844bd405b71875877aacacc7ab79e279d3d73735654c37c7735",
+  "images": {
+    "pointsite-builder": {
+      "original": "/var/lib/homelab-recovery/maintenance-103/squirtle-image-pointsite-builder-39ef6b0c/image.tar",
+      "staged": "/var/lib/rancher/k3s/agent/images/maintenance103-squirtle-pointsite-builder-39ef6b0c.tar",
+      "device": 2050,
+      "inode": 1318138,
+      "links": 2,
+      "bytes": 86323200,
+      "archive_sha256": "c8b5dcf5ce62fc44f4a7e03c3249d79110111dc40a3f07dbb6c2b4d018d30446",
+      "verified_receipt_sha256": "4231af75c519d6ca91a89c4c77b2fa0aedfbc3509edf15673637ede82f985127"
+    },
+    "pointview": {
+      "original": "/var/lib/homelab-recovery/maintenance-103/squirtle-image-pointview-ee4876e6/image.tar",
+      "staged": "/var/lib/rancher/k3s/agent/images/maintenance103-squirtle-pointview-ee4876e6.tar",
+      "device": 2050,
+      "inode": 1318141,
+      "links": 2,
+      "bytes": 432199680,
+      "archive_sha256": "d32868459a20b2e738c5a55d6ad0176a999b37cc7976886ee0167c923f60e80b",
+      "verified_receipt_sha256": "1fb7f7c63d93c7ff5422790017d9f161160f70dfdf1f04df78d5517f8bbf36d5"
+    },
+    "tamalotl": {
+      "original": "/var/lib/homelab-recovery/maintenance-103/squirtle-image-tamalotl-23b06aa9/image.tar",
+      "staged": "/var/lib/rancher/k3s/agent/images/maintenance103-squirtle-tamalotl-23b06aa9.tar",
+      "device": 2050,
+      "inode": 1318163,
+      "links": 2,
+      "bytes": 26572800,
+      "archive_sha256": "55c5489031f33755c17f778443037451896e08f2209e4012be2051a7942b3c83",
+      "verified_receipt_sha256": "f0069e6ef772ce7ae01abf79dcc23533c82d88284b111091453a3b73ce0fe529"
+    },
+    "pointguide": {
+      "original": "/var/lib/homelab-recovery/maintenance-103/squirtle-image-pointguide-f1e45ecc/image.tar",
+      "staged": "/var/lib/rancher/k3s/agent/images/maintenance103-squirtle-pointguide-f1e45ecc.tar",
+      "device": 2050,
+      "inode": 1347360,
+      "links": 2,
+      "bytes": 484771840,
+      "archive_sha256": "e594dd2af85f5849ab8245881486b6a3dd2e45a829f7769477cb72f766502fe5",
+      "verified_receipt_sha256": "a8128f45cab375ec6783cd0cb02cc6c7aaf5fc72fe1f79ea025f85463a0c8fcd"
+    }
+  }
+}
