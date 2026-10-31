@@ -412,8 +412,8 @@ app-template:
           hq:
           - path: /var/lib/tsurreal
           verify-state:
+          # SQLite may create WAL shared memory on this disposable clone; SQL stays read-only.
           - path: /var/lib/tsurreal
-            readOnly: true
           inspector:
           - path: /var/lib/tsurreal
             readOnly: true

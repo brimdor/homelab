@@ -130,9 +130,12 @@ class ChartTests(unittest.TestCase):
             self.assertTrue(container["securityContext"]["readOnlyRootFilesystem"])
             self.assertFalse(container["securityContext"]["allowPrivilegeEscalation"])
             self.assertEqual(container["securityContext"]["capabilities"]["drop"], ["ALL"])
-        for name in ["inspector", "verify-state"]:
+        for name in ["inspector"]:
             container = next(c for c in pod["containers"] + pod["initContainers"] if c["name"] == name)
             self.assertTrue(all(m["readOnly"] for m in container["volumeMounts"]))
+        verifier = next(c for c in pod["initContainers"] if c["name"] == "verify-state")
+        self.assertTrue(next(m for m in verifier["volumeMounts"] if m["mountPath"] == "/migration")["readOnly"])
+        self.assertFalse(next(m for m in verifier["volumeMounts"] if m["mountPath"] == "/var/lib/tsurreal").get("readOnly", False))
         proof_config = json.loads(next(o for o in objects if o["metadata"]["name"] == "tsurreal-migration-configuration")["data"]["hq.json"])
         self.assertEqual(proof_config["listen"], "127.0.0.1:9443")
         self.assertFalse(set(proof_config).intersection(["native_file", "execution_file", "backup_file", "push_file", "email_file"]))
