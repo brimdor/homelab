@@ -3,6 +3,7 @@
 import copy
 import unittest
 import central_postgres_recovery as recovery
+import maintenance_k3s_contract as k3s
 
 
 class BridgeProfileTests(unittest.TestCase):
@@ -60,6 +61,24 @@ class BridgeProfileTests(unittest.TestCase):
                     recovery.configure_profile(changed)
                 self.assertEqual((recovery.SOURCE_UID, recovery.SOURCE_CONTAINER,
                                   recovery.CAPTURE_VERSION, recovery.RESTORE_VERSION), self.original)
+
+    def test_each_approved_consecutive_bridge_keeps_database_identity(self):
+        for source, target in zip(k3s.VERSIONS, k3s.VERSIONS[1:]):
+            with self.subTest(source=source, target=target):
+                recovery.configure_profile({**self.profile, 'source_version': source, 'receiver_version': target})
+                self.assertEqual((recovery.CAPTURE_VERSION, recovery.RESTORE_VERSION), (source, target))
+                self.assertEqual((recovery.SOURCE_UID, recovery.SOURCE_CONTAINER),
+                                 (self.profile['pod_uid'], self.profile['container_id']))
+
+    def test_nonadjacent_or_unknown_versions_refused_atomically(self):
+        pairs = [(k3s.VERSIONS[0], k3s.VERSIONS[2]), (k3s.VERSIONS[2], k3s.VERSIONS[1]),
+                 (k3s.VERSIONS[1], k3s.VERSIONS[1]), ('v1.37.1+k3s1', k3s.VERSIONS[-1]),
+                 (None, k3s.VERSIONS[1]), ([], k3s.VERSIONS[1])]
+        for source, target in pairs:
+            with self.subTest(source=source, target=target), self.assertRaisesRegex(RuntimeError, 'unreviewed'):
+                recovery.configure_profile({**self.profile, 'source_version': source, 'receiver_version': target})
+            self.assertEqual((recovery.SOURCE_UID, recovery.SOURCE_CONTAINER,
+                              recovery.CAPTURE_VERSION, recovery.RESTORE_VERSION), self.original)
 
 
 if __name__ == "__main__":

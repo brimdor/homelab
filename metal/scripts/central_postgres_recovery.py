@@ -14,6 +14,7 @@ import time
 
 import etcd_recovery as common
 import mariadb_recovery as protected
+import maintenance_k3s_contract as k3s
 
 
 SOURCE_UID = "1c5b0e1c-2b0d-499e-8bd2-afe68313ba28"
@@ -30,19 +31,19 @@ RESTORE_VERSION = common.VERSION
 
 
 def configure_profile(profile):
-    """Bind a fresh Pod to the original protected database and first K3s bridge."""
+    """Bind a fresh Pod to the original protected database and approved K3s bridge."""
     global SOURCE_UID, SOURCE_CONTAINER, CAPTURE_VERSION, RESTORE_VERSION
     fixed = {
         "format": 1, "node": "totodile",
         "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
-        "source_version": "v1.33.6+k3s1", "receiver_version": "v1.33.10+k3s1",
         "pvc_uid": PVC_UID, "pv_uid": PV_UID,
         "system_identifier": SYSTEM_ID, "image": IMAGE,
     }
     if (not isinstance(profile, dict) or
-            set(profile) != set(fixed) | {"pod_uid", "container_id"} or
+            set(profile) != set(fixed) | {"pod_uid", "container_id", "source_version", "receiver_version"} or
             type(profile["format"]) is not int or
             any(profile[key] != value for key, value in fixed.items()) or
+            not k3s.reviewed(profile["source_version"], profile["receiver_version"]) or
             not isinstance(profile["pod_uid"], str) or
             not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", profile["pod_uid"]) or
             not isinstance(profile["container_id"], str) or
