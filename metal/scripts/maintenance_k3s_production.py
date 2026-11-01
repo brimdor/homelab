@@ -517,7 +517,7 @@ def native_operation(context):
             actors.require(state['completed'] == ['cordon', 'drain'] and
                            state['pending']['step'] == 'check_legacy_etcd', 'legacy check hop differs')
             result = state
-        elif operation in ('prepare-binary', 'activate-binary', 'observe-binary'):
+        elif operation in ('prepare-binary', 'activate-binary', 'activate-staged', 'observe-binary'):
             worker = Binary(journal, native)
             if operation == 'observe-binary':
                 def verify_runtime(current_owner, pid):
@@ -535,6 +535,7 @@ def native_operation(context):
                         before = source_baseline(hold, owner, before)
                     return verifier(value)(step, observed) and runtime(native, SOURCE) == before
                 result = (worker.prepare(digest, source_verified) if operation == 'prepare-binary'
+                          else worker.activate_staged(digest, source_verified) if operation == 'activate-staged'
                           else worker.activate(digest, source_verified))
         elif operation in ('verify-infrastructure', 'accept-applications'):
             step = operation.replace('-', '_'); kind = 'applications' if step == 'accept_applications' else 'infrastructure'
@@ -1004,7 +1005,7 @@ def main():
     from maintenance_coordination import JOURNAL, Ownership
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('backup', 'initialize', 'inspect', 'cordon', 'drain', 'resolve-drain-precheck', 'begin-legacy-check', 'legacy-check', 'prepare-binary',
-        'activate-binary', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'reconcile-scheduling', 'accept-applications', 'release'))
+        'activate-binary', 'activate-staged', 'observe-binary', 'verify-infrastructure', 'restore-scheduling', 'reconcile-scheduling', 'accept-applications', 'release'))
     parser.add_argument('--node', choices=HOSTS, required=True)
     parser.add_argument('--target', choices=contract.VERSIONS[1:], default=contract.VERSIONS[1])
     for name in ('kubectl', 'identity', 'known-hosts'):
@@ -1037,7 +1038,7 @@ def main():
     api = Reader(args.kubectl, ENDPOINTS[survivor])
     try:
         ds, _, nodes = api.snapshot()
-        recovery = verify_recovery(args, nodes, fresh=args.operation in ('initialize', 'activate-binary'))
+        recovery = verify_recovery(args, nodes, fresh=args.operation in ('initialize', 'activate-binary', 'activate-staged'))
         controller = Ownership(api, production.DS_UID, {n['metadata']['name']: n['metadata']['uid'] for n in nodes})
         raw = ds['metadata'].get('annotations', {}).get(JOURNAL)
         if raw:

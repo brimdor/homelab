@@ -126,6 +126,68 @@ class K3sBinaryTests(unittest.TestCase):
         self.assertEqual(self.restarts, 0)
         self.assertEqual(self.journal.inspect()['pending']['step'], 'prepare_binary')
 
+    def stop_after_staging(self):
+        self.prepare()
+        def verify(*_):
+            if self.worker.stage.exists():
+                raise RuntimeError('fixture readiness changed after staging')
+            return True
+        with self.assertRaisesRegex(RuntimeError, 'readiness changed'):
+            self.worker.activate('c' * 64, verify)
+        self.assertEqual(self.executable.read_bytes(), self.old)
+        self.assertEqual(self.worker.stage.read_bytes(), self.new)
+        self.assertEqual(self.restarts, 0)
+
+    def test_unconsumed_stage_completes_original_intent_without_restaging(self):
+        self.stop_after_staging();before = self.journal.inspect()
+        with patch.object(binary, 'copy_executable', side_effect=AssertionError('must not restage')):
+            result = self.worker.activate_staged('d' * 64, lambda *_: True)
+        self.assertTrue(result['original_staged_activation_completed'])
+        self.assertEqual(self.journal.inspect(), before)
+        self.assertEqual(self.restarts, 1)
+        self.assertFalse(self.worker.stage.exists())
+        with self.assertRaisesRegex(RuntimeError, 'already dispatched'):
+            self.worker.activate_staged('d' * 64, lambda *_: True)
+        self.worker.observe(self.runtime)
+        self.assertIsNone(self.journal.inspect()['pending'])
+
+    def test_staged_readiness_refusal_leaves_no_replacement_dispatch(self):
+        self.stop_after_staging();before = self.journal.inspect()
+        with self.assertRaisesRegex(RuntimeError, 'prerequisites changed'):
+            self.worker.activate_staged('d' * 64, lambda *_: False)
+        self.assertEqual(self.journal.inspect(), before)
+        self.assertEqual(self.executable.read_bytes(), self.old)
+        self.assertFalse((self.worker.path / 'first-replacement.json').exists())
+        self.assertEqual(self.restarts, 0)
+        self.worker.activate_staged('d' * 64, lambda *_: True)
+        self.assertEqual(self.restarts, 1)
+
+    def test_staged_recovery_refuses_changed_pid_stage_or_verification_race(self):
+        self.stop_after_staging()
+        self.pid += 1
+        with self.assertRaisesRegex(RuntimeError, 'not proven unconsumed'):
+            self.worker.activate_staged('d' * 64, lambda *_: True)
+        self.pid -= 1;self.worker.stage.write_bytes(b'foreign')
+        with self.assertRaisesRegex(RuntimeError, 'not proven unconsumed'):
+            self.worker.activate_staged('d' * 64, lambda *_: True)
+        self.worker.stage.write_bytes(self.new)
+        def changed(*_):
+            self.executable.write_bytes(b'changed during verification')
+            return True
+        with self.assertRaisesRegex(RuntimeError, 'changed during verification'):
+            self.worker.activate_staged('d' * 64, changed)
+        self.assertFalse((self.worker.path / 'first-replacement.json').exists())
+        self.assertEqual(self.restarts, 0)
+
+    def test_staged_lost_restart_response_can_only_be_observed(self):
+        self.stop_after_staging();self.interrupt_restart = True
+        with self.assertRaisesRegex(RuntimeError, 'lost restart response'):
+            self.worker.activate_staged('d' * 64, lambda *_: True)
+        with self.assertRaisesRegex(RuntimeError, 'already dispatched'):
+            self.worker.activate_staged('d' * 64, lambda *_: True)
+        self.worker.observe(self.runtime)
+        self.assertEqual(self.restarts, 1)
+
     def test_refuses_metadata_tampering_symlink_and_runtime_refusal(self):
         self.prepare()
         original = self.worker.path / 'original';original.chmod(0o700)

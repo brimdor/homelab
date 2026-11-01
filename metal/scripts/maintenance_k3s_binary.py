@@ -158,6 +158,41 @@ class Binary:
             self.native('systemctl', 'restart', 'k3s')
         return {'pending': state['pending'], 'activation': plan, 'accepted': False}
 
+    def activate_staged(self, prerequisites_sha256, verify_prerequisites):
+        """Complete only an unconsumed stage; never restage or replay a replacement."""
+        actor.require(hops.checksum(prerequisites_sha256), 'invalid staged activation evidence digest')
+        with self.journal.hold.serialized():
+            value = self.prepared();state = self.journal.read()
+            actor.require(state['pending'] and state['pending']['step'] == 'activate_binary',
+                          'exact pending staged activation missing')
+            plan = private_json(self.path / 'activation.json')
+            intent = private_json(self.journal.path / (str(state['pending']['sequence']).zfill(8) + '.json'))
+            dispatch = self.path / 'first-replacement.json'
+            actor.safe(dispatch)
+            actor.require(not dispatch.exists(), 'staged replacement already dispatched; observe only')
+            def unconsumed():
+                return (self.journal.read() == state and self.prepared() == value and
+                        plan['stage'] == str(self.stage) and plan['prepared_sha256'] == hashed(value) and
+                        intent['inputs_sha256'] == hashed(plan) and
+                        record(self.executable) == value['original'] and
+                        record(self.stage) == value['candidate'] and
+                        int(self.native('systemctl', 'show', 'k3s', '-p', 'MainPID', '--value')) == plan['source_pid'] and
+                        self.native('systemctl', 'is-active', 'k3s') == 'active' and
+                        self.native('systemctl', 'show', 'k3s', '-p', 'KillMode', '--value') == 'process')
+            actor.require(plan['source_pid'] > 1 and unconsumed(),
+                          'staged activation is not proven unconsumed; observe only')
+            actor.require(verify_prerequisites('activate_binary', prerequisites_sha256) is True,
+                          'staged activation prerequisites changed')
+            actor.require(unconsumed(), 'staged activation changed during verification')
+            # Atomic rename consumes this exact stage. The exclusive receipt fences retries.
+            actor.exclusive_file(dispatch, hops.canonical({'intent_sha256': state['pending']['sha256'],
+                'activation_sha256': hashed(plan), 'prerequisites_sha256': prerequisites_sha256}), 0o600)
+            os.replace(self.stage, self.executable);actor.fsync_directory(self.executable.parent)
+            actor.require(record(self.executable) == value['candidate'], 'atomic replacement differs')
+            self.native('systemctl', 'restart', 'k3s')
+        return {'pending': state['pending'], 'activation': plan, 'accepted': False,
+                'original_staged_activation_completed': True}
+
     def observe(self, verify_runtime):
         """No replacement or restart here, even after an interrupted first dispatch."""
         value = self.prepared();state = self.journal.inspect()

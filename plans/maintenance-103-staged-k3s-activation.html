@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>Issue 103: staged K3s activation recovery</title>
+<style>body{background:#111827;color:#e5e7eb;font:16px/1.6 system-ui;max-width:900px;margin:3rem auto;padding:0 1rem}code{color:#a5f3fc}h1,h2{color:#f9fafb}a{color:#93c5fd}</style>
+<h1>Issue 103: staged K3s activation recovery</h1>
+<h2>Objective and evidence</h2>
+<p>Complete an original activation whose readiness callback failed after staging but before atomic replacement. The 2026-11-01 Cyndaquil audit (run cymfw3fu) proves the original 1.34.12 executable and PID 3231720 remain active, the exact 1.35.9 candidate remains at its exclusive stage path, and eight original transaction records remain intact. Boot, configuration, unit and enforcing SELinux are unchanged. This is a software recovery prerequisite within approved Issue 103.</p>
+<h2>Contract</h2>
+<ul><li>Use an explicit <code>activate-staged</code> operation. Preserve normal activation and observation semantics.</li>
+<li>Require the same owner, host, pending activation intent, prepared artifact, source executable metadata, source PID, active service and KillMode=process.</li>
+<li>The original stage must still exist and exactly match the candidate. Atomic rename consumes it; a missing or changed stage does not qualify.</li>
+<li>Reverify current prerequisites and original runtime, then repeat native identity checks under the existing host lock.</li>
+<li>Create an exclusive first-replacement receipt before rename and restart. A receipt, uncertain replacement or changed state forbids another dispatch.</li>
+<li>Do not stage files again, append another activation intent, recreate ownership or replay drain. Accept the original activation through existing read-only observation.</li></ul>
+<h2>Implementation plan and tasks</h2>
+<ol><li>Add one guarded method in <code>metal/scripts/maintenance_k3s_binary.py</code>; expose it through the existing production CLI and fresh recovery checks.</li>
+<li>Test real temporary file and journal behavior, including readiness refusal, PID or stage changes, verification races, one replacement, and a lost restart response.</li>
+<li>Review the complete scoped diff, run targeted tests and pre-commit, commit and push only these files to canonical Gitea master.</li>
+<li>Rebind the original audited intent and current recovery evidence. Dispatch the new operation once; continue original observation, uncordon, application return, ordered release and independent acceptance.</li></ol>
+<h2>Commands, structure and style</h2>
+<p>From the repository root: <code>PYTHONPATH=metal/scripts python3 -B -m unittest test_maintenance_k3s_binary test_maintenance_k3s_production</code>. Run <code>pre-commit run --files</code> with only the changed paths and <code>git diff --check</code>. Preserve existing standard-library Python and fail-closed assertions, for example <code>actor.require(record(self.stage) == value['candidate'], 'candidate differs')</code>. Local test storage follows the operator's process-local policy outside repository configuration.</p>
+<h2>Verification and boundaries</h2>
+<p>Success requires one replacement and restart, unchanged original intent and recovery material, accepted target runtime and application behavior, storage and protected registry checks, and final ordered release. Tests must also prove no restart when evidence changes and no second dispatch after a lost response. Always preserve NAS restrictions, Zot, unrelated work and normal MWF Kured scheduling. Never weaken readiness, mutate applications directly or overwrite recovery material. Existing separate application release and genuine human gates remain in force. No new human decision is required for this recovery contract.</p>
+</html>
