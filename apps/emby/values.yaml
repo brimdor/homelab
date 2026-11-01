@@ -184,7 +184,7 @@ app-template:
         schedule: "*/30 * * * *"
         concurrencyPolicy: Forbid
         successfulJobsHistory: 1
-        failedJobsHistory: 1
+        failedJobsHistory: 0
         backoffLimit: 1
         activeDeadlineSeconds: 600
       # Default restartPolicy for CronJobs is "Never". We use "OnFailure"
@@ -227,7 +227,7 @@ app-template:
         schedule: "*/15 * * * *"
         concurrencyPolicy: Forbid
         successfulJobsHistory: 1
-        failedJobsHistory: 1
+        failedJobsHistory: 0
         backoffLimit: 0
         activeDeadlineSeconds: 300
       pod:
