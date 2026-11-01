@@ -57,5 +57,66 @@ class ArchiveIdentityTests(unittest.TestCase):
             recovery.source_runtime(value)
 
 
+class RecoveryProfileTests(unittest.TestCase):
+    def setUp(self):
+        for name in ("SOURCE_UID", "SOURCE_CONTAINER", "CAPTURE_VERSION", "RESTORE_VERSION"):
+            self.addCleanup(setattr, recovery, name, getattr(recovery, name))
+
+    def profile(self, source, receiver):
+        return {
+            "format": 1, "node": "totodile",
+            "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
+            "pvc_uid": recovery.PVC_UID, "pv_uid": recovery.PV_UID,
+            "system_identifier": recovery.SYSTEM_ID, "image": recovery.IMAGE,
+            "pod_uid": "00000000-0000-4000-8000-000000000001",
+            "container_id": "a" * 64,
+            "source_version": source, "receiver_version": receiver,
+        }
+
+    def test_existing_adjacent_profiles_remain_valid(self):
+        versions = recovery.k3s.VERSIONS
+        for source, receiver in zip(versions, versions[1:]):
+            with self.subTest(source=source, receiver=receiver):
+                profile = self.profile(source, receiver)
+                recovery.configure_profile(profile)
+                self.assertEqual(recovery.CAPTURE_VERSION, source)
+                self.assertEqual(recovery.RESTORE_VERSION, receiver)
+                self.assertEqual(recovery.SOURCE_UID, profile["pod_uid"])
+                self.assertEqual(recovery.SOURCE_CONTAINER, profile["container_id"])
+
+    def test_completed_pikachu_receives_remaining_totodile_bridges(self):
+        for source in recovery.k3s.VERSIONS[2:-1]:
+            with self.subTest(source=source):
+                receiver = recovery.k3s.VERSIONS[-1]
+                recovery.configure_profile(self.profile(source, receiver))
+                self.assertEqual(recovery.CAPTURE_VERSION, source)
+                self.assertEqual(recovery.RESTORE_VERSION, receiver)
+
+    def test_unreviewed_receiver_pairs_are_refused(self):
+        versions = recovery.k3s.VERSIONS
+        pairs = [
+            (versions[1], versions[-1]), (versions[2], versions[4]),
+            (versions[3], versions[2]), (versions[-1], versions[-1]),
+            ("v1.32.0+k3s1", versions[-1]), (versions[2], "v1.37.0+k3s1"),
+        ]
+        for source, receiver in pairs:
+            with self.subTest(source=source, receiver=receiver):
+                with self.assertRaisesRegex(RuntimeError, "unreviewed protected PostgreSQL"):
+                    recovery.configure_profile(self.profile(source, receiver))
+
+    def test_later_receiver_keeps_all_database_and_native_identity_guards(self):
+        profile = self.profile(recovery.k3s.VERSIONS[2], recovery.k3s.VERSIONS[-1])
+        for key, value in {
+            "format": True, "node": "other", "node_uid": "other", "pvc_uid": "other",
+            "pv_uid": "other", "system_identifier": "other", "image": "other",
+            "pod_uid": "other", "container_id": "other",
+        }.items():
+            with self.subTest(key=key):
+                with self.assertRaisesRegex(RuntimeError, "unreviewed protected PostgreSQL"):
+                    recovery.configure_profile({**profile, key: value})
+        with self.assertRaisesRegex(RuntimeError, "unreviewed protected PostgreSQL"):
+            recovery.configure_profile({**profile, "unexpected": True})
+
+
 if __name__ == "__main__":
     unittest.main()

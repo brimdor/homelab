@@ -43,7 +43,12 @@ def configure_profile(profile):
             set(profile) != set(fixed) | {"pod_uid", "container_id", "source_version", "receiver_version"} or
             type(profile["format"]) is not int or
             any(profile[key] != value for key, value in fixed.items()) or
-            not k3s.reviewed(profile["source_version"], profile["receiver_version"]) or
+            not (k3s.reviewed(profile["source_version"], profile["receiver_version"]) or
+                 profile["source_version"] in k3s.VERSIONS[2:-1] and
+                 profile["receiver_version"] == k3s.VERSIONS[-1] and
+                 any(state["totodile"] == profile["source_version"] and
+                     state["pikachu"] == profile["receiver_version"]
+                     for state in k3s.completion_states())) or
             not isinstance(profile["pod_uid"], str) or
             not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", profile["pod_uid"]) or
             not isinstance(profile["container_id"], str) or
