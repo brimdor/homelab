@@ -1,0 +1,88 @@
+{{- if and .Values.backup.enabled .Values.backup.restoreQualification }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-restore-%s" (include "meowdoku.name" . | trunc 34 | trimSuffix "-") .Values.backup.snapshotId | quote }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: meowdoku-restore-qualification
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [{{ .Values.scheduling.completedNodeHostname | quote }}]
+      containers:
+        - name: restore-qualification
+          image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
+          command: [node, --input-type=module, -e]
+          args:
+            - |
+              import {restoreDatabase} from './backend/src/restore.mjs';
+              import {openRawDatabase} from './backend/src/sqlite.mjs';
+              import {dataKey} from './backend/src/data-key.mjs';
+              import {createHash} from 'node:crypto';
+              import {createReadStream,readFileSync,statfsSync,statSync,openSync,readSync,closeSync} from 'node:fs';
+              import assert from 'node:assert/strict';
+              const source={{ printf "/backup/%s.%s.sqlite.enc" .Values.backup.snapshotId .Values.dataKey.version | toJson }};
+              const hash=async()=>{const h=createHash('sha256');for await(const chunk of createReadStream(source))h.update(chunk);return h.digest('hex')};
+              const before=await hash(),key=dataKey();let db;
+              try {
+                await restoreDatabase(source,'/restore/qualified.sqlite',{key});
+                db=openRawDatabase('/restore/qualified.sqlite',{key,readOnly:true});
+                assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+                for(const table of ['sessions','nonces','recovery_tickets','runs','entries','bound_sessions','instance_challenges','request_replays','account_transfers','app_instances'])assert.equal(db.prepare('SELECT COUNT(*) n FROM '+table).get().n,0);
+                assert.equal(db.prepare('SELECT COUNT(*) n FROM profiles WHERE sharing!=0').get().n,0);
+                assert.equal(await hash(),before);
+                const fd=openSync('/restore/qualified.sqlite','r'),bytes=Buffer.alloc(16);try{readSync(fd,bytes,0,16,0)}finally{closeSync(fd)}const header=bytes.toString('hex');
+                assert.notEqual(header,'53514c69746520666f726d6174203300');
+                const fs=statfsSync('/backup'),st=statSync('/backup');
+                console.log(JSON.stringify({restored:true,integrity:'ok',restoredEncryptedHeader:true,historicalAuthAndSharingCleared:true,backupUnchanged:true,backupSha256:before,backupBytes:statSync(source).size,nasRootUid:st.uid,nasRootGid:st.gid,nasRootMode:(st.mode&0o777).toString(8),nasAvailableBytes:fs.bavail*fs.bsize,nfsMount:readFileSync('/proc/mounts','utf8').split('\n').find(x=>x.includes('10.0.40.3:')&&x.includes(' /backup ')),restoredProfiles:db.prepare('SELECT COUNT(*) n FROM profiles').get().n,liveClaimMounted:false}));
+              } finally {db?.close();key.fill(0)}
+          env:
+            - name: DATA_KEY_FILE
+              value: /run/meowdoku/data-key/data-key
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          volumeMounts:
+            - {name: restore, mountPath: /restore}
+            - {name: data-key, mountPath: /run/meowdoku/data-key, readOnly: true}
+            - {name: backup, mountPath: /backup, readOnly: true}
+      volumes:
+        - name: restore
+          emptyDir: {sizeLimit: 2Gi}
+        - name: data-key
+          secret:
+            secretName: {{ .Values.dataKey.secretName | quote }}
+            defaultMode: 0440
+            items: [{key: data-key, path: data-key}]
+        - name: backup
+          nfs:
+            server: {{ .Values.backup.nfs.server | quote }}
+            path: {{ .Values.backup.nfs.path | quote }}
+            readOnly: true
+{{- end }}

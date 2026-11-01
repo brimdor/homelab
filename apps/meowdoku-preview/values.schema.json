@@ -232,12 +232,16 @@
             "server",
             "path"
           ]
+        },
+        "restoreQualification": {
+          "type": "boolean"
         }
       },
       "required": [
         "enabled",
         "snapshotId",
-        "nfs"
+        "nfs",
+        "restoreQualification"
       ]
     }
   },
