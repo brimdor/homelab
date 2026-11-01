@@ -194,6 +194,38 @@ class DrainPrecheckProofTests(unittest.TestCase):
 
 
 class SchedulingReconciliationTests(unittest.TestCase):
+    def test_first_dispatch_requires_exact_published_pre_API_failure(self):
+        owner = {'node': 'growlithe', 'source': 'v1.33.13+k3s2', 'target': 'v1.34.12+k3s1',
+                 'owner': 'homelab-maintenance-103-aaa39154-88b2-48eb-a7fb-5b2d02a3a833'}
+        source = ('\n' * 103 + "actors.require(verify_prerequisites(plan['step'], prerequisites_sha256) is True,\n").encode()
+        failure = {'exit': 1, 'stderr': 'File "maintenance_node_scheduling.py", line 104, in dispatch\n'
+                   "AssertionError: etcd observation failed: ('endpoint', 'health')\n\n"}
+        raw = json.dumps(failure).encode()
+        proof = {'owner': owner, 'failure_revision': 'a' * 40,
+                 'original_source_sha256': hashlib.sha256(source).hexdigest(),
+                 'failure_sha256': hashlib.sha256(raw).hexdigest(), 'historical_API_outcome': 'NOT_DISPATCHED'}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'failure.json';path.write_bytes(raw)
+            original_read = Path.read_bytes
+            def profile_read(p):
+                return json.dumps(proof).encode() if p.name == 'k3s-growlithe34-scheduling-first-dispatch.json' else original_read(p)
+            def published(args):
+                return source if args[-1].endswith('maintenance_node_scheduling.py') else json.dumps(proof).encode()
+            with patch.object(Path, 'read_bytes', profile_read), \
+                    patch.object(production.subprocess, 'check_output', side_effect=published):
+                self.assertEqual(production.scheduling_reconciliation_proof(owner, path), proof)
+                with self.assertRaisesRegex(RuntimeError, 'owner differs'):
+                    production.scheduling_reconciliation_proof(dict(owner, owner='foreign'), path)
+                for field, value in (('historical_API_outcome', 'UNKNOWN'), ('failure_sha256', 'f' * 64),
+                                     ('original_source_sha256', 'f' * 64)):
+                    before = proof[field];proof[field] = value
+                    with self.subTest(field=field), self.assertRaisesRegex(RuntimeError, 'pre-API failure differs'):
+                        production.scheduling_reconciliation_proof(owner, path)
+                    proof[field] = before
+                path.write_bytes(raw + b'\n')
+                with self.assertRaisesRegex(RuntimeError, 'pre-API failure differs'):
+                    production.scheduling_reconciliation_proof(owner, path)
+
     def test_only_published_exact_owner_source_and_captured_API_failure_are_accepted(self):
         owner = {'owner': 'original'};source = b'original scheduling source'
         failure = {'exit': 1, 'stderr': 'File "maintenance_node_scheduling.py", line 123, in dispatch\n'
@@ -240,8 +272,10 @@ class SchedulingReconciliationTests(unittest.TestCase):
             journal = types.SimpleNamespace(path=folder, hold=types.SimpleNamespace(state=root),
                 inspect=lambda: {'pending': {'step': 'restore_scheduling'}})
             checked = []
+            dispatch_kinds = []
             def dispatch(_worker, actual, digest, prerequisites, verify, **kwargs):
                 self.assertEqual(actual, plan);self.assertTrue(verify('restore_scheduling', prerequisites))
+                dispatch_kinds.append(set(kwargs))
                 with patch.object(production, 'runtime', return_value={'pid': 43}):
                     self.assertFalse(verify('restore_scheduling', prerequisites))
                 record.write_bytes(hops.canonical({'original': False}))
@@ -261,7 +295,11 @@ class SchedulingReconciliationTests(unittest.TestCase):
                         patch.object(scheduling.Scheduling, 'observe', observe):
                     production.native_operation(context)
                 production.native_operation(context)
-            self.assertEqual(checked, ['observed', True])
+                record.write_bytes(hops.canonical({'original': True}))
+                proof['historical_API_outcome'] = 'NOT_DISPATCHED'
+                production.native_operation(context)
+            self.assertEqual(checked, ['observed', True, True])
+            self.assertEqual(dispatch_kinds, [{'reconciliation_proof'}, {'precheck_proof'}])
 
 
 class PreviousBridgeTests(unittest.TestCase):

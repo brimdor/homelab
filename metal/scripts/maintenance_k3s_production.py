@@ -464,9 +464,12 @@ def native_operation(context):
                 if worker.snapshot(owner)['unschedulable'] is False:
                     result = worker.observe(plan, digest, original_verified)
                 else:
+                    # A source-proven pre-API failure permits one first dispatch, never replay.
+                    proof_kind = ('precheck_proof' if proof.get('historical_API_outcome') == 'NOT_DISPATCHED'
+                                  else 'reconciliation_proof')
                     result = worker.dispatch(plan, hashed(plan), digest, original_verified,
-                        reconciliation_proof={'owner': owner['owner'],
-                            'intent_sha256': proof['intent_sha256'], 'failure_sha256': proof['failure_sha256']})
+                        **{proof_kind: {'owner': owner['owner'],
+                            'intent_sha256': proof['intent_sha256'], 'failure_sha256': proof['failure_sha256']}})
             elif not state['pending']:
                 result = worker.dispatch(plan, hashed(plan), digest, verifier(value))
             else:
@@ -979,8 +982,10 @@ def drain_precheck_proof(owner, failure_path):
 
 
 def scheduling_reconciliation_proof(owner, failure_path):
-    """Bind one desired-state reconciliation; the original API outcome stays unknown."""
-    path = Path('metal/maintenance/k3s-squirtle-scheduling-reconciliation.json')
+    """Bind one exact published pending scheduling recovery and captured failure."""
+    first_dispatch = owner.get('node') == 'growlithe'
+    path = Path('metal/maintenance/k3s-' + ('growlithe34-scheduling-first-dispatch.json'
+                if first_dispatch else 'squirtle-scheduling-reconciliation.json'))
     raw = path.read_bytes()
     actors.require(raw == subprocess.check_output(['git', 'show', 'HEAD:' + str(path)]),
                    'unpublished scheduling reconciliation profile')
@@ -989,6 +994,20 @@ def scheduling_reconciliation_proof(owner, failure_path):
     source = subprocess.check_output(['git', 'show', proof['failure_revision'] +
                                      ':metal/scripts/maintenance_node_scheduling.py'])
     failure_raw = Path(failure_path).read_bytes(); failure = json.loads(failure_raw)
+    if first_dispatch:
+        actors.require(owner['owner'] == 'homelab-maintenance-103-aaa39154-88b2-48eb-a7fb-5b2d02a3a833' and
+                       (owner['source'], owner['target']) == ('v1.33.13+k3s2', 'v1.34.12+k3s1') and
+                       proof.get('historical_API_outcome') == 'NOT_DISPATCHED' and
+                       hashlib.sha256(source).hexdigest() == proof['original_source_sha256'] and
+                       source.decode().splitlines()[103].strip() ==
+                       "actors.require(verify_prerequisites(plan['step'], prerequisites_sha256) is True," and
+                       hashlib.sha256(failure_raw).hexdigest() == proof['failure_sha256'] and
+                       failure['exit'] == 1 and
+                       'File "maintenance_node_scheduling.py", line 104, in dispatch' in failure['stderr'] and
+                       failure['stderr'].rstrip().endswith(
+                           "AssertionError: etcd observation failed: ('endpoint', 'health')"),
+                       'captured scheduling pre-API failure differs')
+        return proof
     actors.require(hashlib.sha256(source).hexdigest() == proof['original_source_sha256'] and
                    hashlib.sha256(failure_raw).hexdigest() == proof['failure_sha256'] and
                    failure['exit'] == 1 and

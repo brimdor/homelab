@@ -1,0 +1,49 @@
+{
+  "owner": {
+    "component": "k3s",
+    "created": "2026-11-01T16:05:17.666807Z",
+    "node": "growlithe",
+    "node_uid": "50f95b8f-4117-4c1e-84bc-266c5b23bffb",
+    "owner": "homelab-maintenance-103-aaa39154-88b2-48eb-a7fb-5b2d02a3a833",
+    "phase": "OWNED_KURED_ONLY",
+    "revision": "ae8d319496d5509d9cbd47a38fd4f7f6dd55201b",
+    "source": "v1.33.13+k3s2",
+    "target": "v1.34.12+k3s1",
+    "version": 1
+  },
+  "native_records": {
+    "00000000.json": "806b5eab648ff77e642d8da16055b3fc6678337f58d5b4f06dca4367e40a9b3d",
+    "00000001.json": "7ded02ba1d7420830200a9081ed3a8c550a02803a642907fdcaf2e74908d0f23",
+    "00000002.json": "72003640a240647fcbf2610e373892ea2dd6721394ed9eaeb9f56f2fee97fe41",
+    "00000003.json": "c88108a8a62b1528c4c4f3a7dd79c515030bad9e1e1515151deee743d16fa5b1",
+    "00000004.json": "1a498dea2a33fefb85cfb86c5801f68693d2639b974dfe80aaeec3ac8cde0141",
+    "00000005.json": "cfbcf9b2d731811077d066589ceef2bf5f4b4dab25a3150c05f6a39fd68282ad",
+    "00000006.json": "b91d4bc2049afa9ba5c73d65a7751cdbcac397655fe428f776376acceee4b8de",
+    "00000007.json": "a1d04e9f448adfa69ab074f53522de67a587eceb85916847334715f9787ceb51",
+    "00000008.json": "5c37418b808f6ba21317a473c2ec288dab4a8c63ce869add847877e838f9f503",
+    "00000009.json": "c92a99d2195acd8089d1f0b48a898ae06d09cd29a89ccd2aecde065900db1172",
+    "00000010.json": "6b05668b31669a3ce9f7e5e9151c5886d5b2d0fe2da8226d64496fa5da5f007a",
+    "00000011.json": "2ec9d66124fe7fe5537f823dd5792fd975fe313ab6f153328b79575b536df19f"
+  },
+  "intent_sha256": "2ec9d66124fe7fe5537f823dd5792fd975fe313ab6f153328b79575b536df19f",
+  "plan_sha256": "106d74af06037bd3e837d04b7ea8992b9b8eb4d1d9cdde88df3029ac900e113f",
+  "runtime": {
+    "version": "v1.34.12+k3s1",
+    "binary_sha256": "ef1df26b26276c0f6d962391c94e12f9362d1f1e30ec7a7926e9ddb84b0d66ce",
+    "pid": 1297446,
+    "runtime_sha256": "8708d77af149a2715d02b0e5e1b05d96cec72298c04fdd3f3d3d947f93820157",
+    "boot": "9abbec7b-5f12-4d96-b833-9d76890eb23b",
+    "configs": {
+      "/etc/rancher/k3s/config.yaml": "d0a0ab8e750095f0dbed2ee06335614a4b862eddc93f733ea20f1126f7af2848",
+      "/etc/systemd/system/k3s.service.env": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "/etc/systemd/system/k3s.service": "87ff1ed929e6de2a4deec0a7f413310de26759f30a091833fe30016b2e863f4b"
+    },
+    "unit_sha256": "9e78fc8e728e3a9c9eecbec0eb1df44f51ead732a02af496100128fc7ab05bcc",
+    "stargz": true,
+    "selinux": "Enforcing"
+  },
+  "failure_revision": "ae8d319496d5509d9cbd47a38fd4f7f6dd55201b",
+  "failure_sha256": "3f0f0acc65613cf93aca5b49c5fe4421ed499eb4a8615744c03b68c8a307a76e",
+  "original_source_sha256": "c2734a222b4ea8f5b3c8799338e8d95970f6d7642b7c9559e26e8fde1fe693f7",
+  "historical_API_outcome": "NOT_DISPATCHED"
+}
