@@ -67,10 +67,10 @@
         "root_uuid": "76e53a95-725a-4430-9d7b-a8db413f3997"
       },
       "node_uid": "7ec4e786-0b5d-416d-9284-8eac993635bf",
-      "owner": "homelab-maintenance-103-d392f7e2-e633-4b1a-b683-480fa4b9132a",
-      "release_head": "5350cd1f6107009a4c7d365727b36ab989c8bdf328c1bf20019f6643b5e669f2",
-      "source": "v1.34.12+k3s1",
-      "target": "v1.35.9+k3s1"
+      "owner": "homelab-maintenance-103-1fb14ea6-def4-437a-9e0e-b2aadbbfb560",
+      "release_head": "ef2eda0eb23bae8661825dcef0c3d844357dd1b4b2ff86b5e117c84cbbf5be38",
+      "source": "v1.35.9+k3s1",
+      "target": "v1.36.5+k3s1"
     },
     "sprigatito": {
       "address": "10.0.20.20",
