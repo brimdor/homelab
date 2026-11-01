@@ -44,10 +44,16 @@ spec:
         - name: encrypted-snapshot
           image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
           imagePullPolicy: IfNotPresent
-          command:
-            - node
-            - backend/src/backup.mjs
-            - {{ printf "/backup/%s.%s.sqlite.enc" $snapshot .Values.dataKey.version | quote }}
+          command: [node, --input-type=module, -e]
+          args:
+            - |
+              import {statSync,readdirSync,readFileSync} from 'node:fs';
+              import {backupDatabase} from './backend/src/backup.mjs';
+              import {dataKey} from './backend/src/data-key.mjs';
+              process.umask(0o077);
+              console.log(JSON.stringify({source:readdirSync('/data').map(name=>{const s=statSync('/data/'+name);return{name,bytes:s.size,uid:s.uid,gid:s.gid,mode:(s.mode&511).toString(8)}}),mounts:readFileSync('/proc/mounts','utf8').split('\n').filter(x=>x.includes(' /data ')||x.includes(' /backup '))}));
+              const key=dataKey();try{await backupDatabase('/data/meowdoku.sqlite',{{ printf "/backup/%s.%s.sqlite.enc" $snapshot .Values.dataKey.version | toJson }},{key})}finally{key.fill(0)}
+              console.log('Encrypted database backup completed.');
           env:
             - name: DATABASE_PATH
               value: /data/meowdoku.sqlite
@@ -63,6 +69,8 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             - name: saves
               mountPath: /data
               readOnly: true
@@ -72,6 +80,10 @@ spec:
             - name: backup
               mountPath: /backup
       volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
         - name: saves
           persistentVolumeClaim:
             claimName: {{ .Values.storage.existingClaim | default (printf "%s-saves" (include "meowdoku.name" .)) | quote }}

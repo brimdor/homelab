@@ -41,7 +41,7 @@ scheduling:
 backup:
   # Manual review candidate only. No schedule/mount/write is enabled by default.
   enabled: true
-  snapshotId: qa-1101t061045-bef9
+  snapshotId: qa-1101t0625-diag
   restoreQualification: false
   nfs:
     server: 10.0.40.3
