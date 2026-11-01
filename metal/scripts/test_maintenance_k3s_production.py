@@ -338,12 +338,13 @@ class PreviousBridgeTests(unittest.TestCase):
             with self.subTest(source=source, target=target), self.assertRaisesRegex(RuntimeError, 'unreviewed'):
                 production.configure_stage(source, target)
 
-    def node_profile(self, mutate=None):
-        production.configure_stage(*contract.VERSIONS[2:4])
+    def node_profile(self, mutate=None, *, completed=False, final_completion=False):
+        production.configure_stage(*(contract.VERSIONS[-2:] if completed else contract.VERSIONS[2:4]))
         profile = {'version': 2, 'nodes': copy.deepcopy(self.anchor['nodes'])}
         for name, ref in profile['nodes'].items():
-            ref.update(source=contract.VERSIONS[1], target=contract.VERSIONS[2])
-            if name in ('charmander', 'squirtle'):
+            ref.update(source=contract.VERSIONS[-2] if completed else contract.VERSIONS[1],
+                       target=contract.VERSIONS[-1] if completed else contract.VERSIONS[2])
+            if not completed and name in ('charmander', 'squirtle'):
                 ref.update(source=contract.VERSIONS[2], target=contract.VERSIONS[3])
         nodes = [{'metadata': {'name': name, 'uid': ref['node_uid']},
                   'status': {'nodeInfo': {'kubeletVersion': ref['target']}}}
@@ -358,15 +359,54 @@ class PreviousBridgeTests(unittest.TestCase):
                 patch.object(Path, 'read_bytes', return_value=raw), \
                 patch.object(production.subprocess, 'check_output', side_effect=git), \
                 patch.object(shared, 'remote', return_value={'accepted': True}) as remote:
-            result = production.previous_bridge_releases(types.SimpleNamespace(node='bulbasaur'), nodes,
-                                                        node_completion=True)
+            result = production.previous_bridge_releases(
+                types.SimpleNamespace(node='arcanine' if completed else 'bulbasaur'), nodes,
+                node_completion=True, final_completion=final_completion)
             self.assertEqual(remote.call_count, 9)
             programs = [call.args[1] for call in remote.call_args_list]
             for program in programs:
                 compile(program, 'native-original-release', 'exec')
-            self.assertIn("STAGE=('v1.33.13+k3s2', 'v1.34.12+k3s1')", programs[0])
-            self.assertIn("STAGE=('v1.33.10+k3s1', 'v1.33.13+k3s2')", programs[2])
+            if completed:
+                for program in programs:
+                    self.assertIn("STAGE=('v1.35.9+k3s1', 'v1.36.5+k3s1')", program)
+            else:
+                self.assertIn("STAGE=('v1.33.13+k3s2', 'v1.34.12+k3s1')", programs[0])
+                self.assertIn("STAGE=('v1.33.10+k3s1', 'v1.33.13+k3s2')", programs[2])
             return result
+
+    def test_final_completion_rechecks_all_nine_original_native_chains(self):
+        self.node_profile(completed=True, final_completion=True)
+
+    def test_completed_ledger_cannot_authorize_another_node_transition(self):
+        with self.assertRaisesRegex(RuntimeError, 'finish preceding node'):
+            self.node_profile(completed=True)
+
+    def test_final_mode_cannot_relax_an_earlier_stage(self):
+        with self.assertRaisesRegex(RuntimeError, 'final completion requires'):
+            self.node_profile(final_completion=True)
+
+    def test_final_mode_requires_node_ledger_and_last_inventory_node(self):
+        production.configure_stage(*contract.VERSIONS[-2:])
+        for node, node_completion in (('arcanine', False), ('growlithe', True)):
+            with self.subTest(node=node, node_completion=node_completion), \
+                    self.assertRaisesRegex(RuntimeError, 'final completion requires'):
+                production.previous_bridge_releases(types.SimpleNamespace(node=node), [],
+                    node_completion=node_completion, final_completion=True)
+
+    def test_final_completion_refuses_stale_runtime_or_foreign_original_binding(self):
+        changes = (
+            lambda p, n: n[0]['status']['nodeInfo'].update(kubeletVersion=contract.VERSIONS[-2]),
+            lambda p, n: p['nodes']['arcanine'].update(source=contract.VERSIONS[-3]),
+            lambda p, n: p['nodes']['arcanine'].update(node_uid='foreign'),
+            lambda p, n: p['nodes']['arcanine']['identity'].update(machine='foreign'),
+            lambda p, n: p['nodes']['arcanine'].update(owner=p['nodes']['growlithe']['owner']),
+            lambda p, n: p['nodes']['arcanine'].update(release_head='foreign'),
+            lambda p, n: n.pop())
+        for change in changes:
+            with self.subTest(change=change), patch.object(shared, 'remote') as remote:
+                with self.assertRaises(RuntimeError):
+                    self.node_profile(change, completed=True, final_completion=True)
+                remote.assert_not_called()
 
     def test_node_completion_ledger_binds_each_original_released_stage(self):
         self.node_profile()

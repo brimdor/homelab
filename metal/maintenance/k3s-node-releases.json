@@ -7,10 +7,10 @@
         "root_uuid": "d5ffa207-0e76-47a7-a941-1829732d3bc6"
       },
       "node_uid": "88aa2572-09df-40b9-8a00-960e9682917c",
-      "owner": "homelab-maintenance-103-090a5d56-ecc5-42d0-80d0-b74595ced87a",
-      "release_head": "920439629ea40b31699e731292dce29d7e52755d92be03cf67b6059dc426df41",
-      "source": "v1.33.10+k3s1",
-      "target": "v1.33.13+k3s2"
+      "owner": "homelab-maintenance-103-a0f2e95f-b3f5-46c0-ad5d-0b9c15625d27",
+      "release_head": "2161442905bfc829414b945b95a692f6a638be2c0102dfe5e4c43c9c488de54f",
+      "source": "v1.33.13+k3s2",
+      "target": "v1.34.12+k3s1"
     },
     "bulbasaur": {
       "address": "10.0.20.13",

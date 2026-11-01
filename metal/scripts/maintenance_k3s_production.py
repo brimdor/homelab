@@ -32,11 +32,16 @@ def configure_stage(source, target):
     SOURCE, TARGET = source, target
 
 
-def previous_bridge_releases(args, nodes, *, node_completion=False):
+def previous_bridge_releases(args, nodes, *, node_completion=False, final_completion=False):
     """Re-read original completed releases before a stage or a node's next hop."""
     import maintenance_production_node as production
     index = contract.VERSIONS.index(SOURCE)
     actors.require(index > 0 and contract.reviewed(SOURCE, TARGET), 'no preceding reviewed bridge')
+    actors.require(not final_completion or node_completion and
+                   (SOURCE, TARGET) == tuple(contract.VERSIONS[-2:]) and
+                   getattr(args, 'node', None) == HOSTS[-1] and
+                   all(n['status']['nodeInfo']['kubeletVersion'] == TARGET for n in nodes),
+                   'final completion requires all reviewed final runtimes and the final node ledger')
     stage = contract.VERSIONS[index - 1:index + 1]
     anchor_path = Path('metal/maintenance/k3s-first-bridge-releases.json')
     path = (Path('metal/maintenance/k3s-node-releases.json') if node_completion else
@@ -60,7 +65,8 @@ def previous_bridge_releases(args, nodes, *, node_completion=False):
                        for n in nodes),
                    'original preceding-bridge inventory or stage differs')
     if node_completion:
-        actors.require(contract.next_transition(nodes) == (args.node, SOURCE, TARGET),
+        expected_transition = None if final_completion else (args.node, SOURCE, TARGET)
+        actors.require(contract.next_transition(nodes) == expected_transition,
                        'finish preceding node completion before acquiring next')
     import re
     for name, ref in profile['nodes'].items():
