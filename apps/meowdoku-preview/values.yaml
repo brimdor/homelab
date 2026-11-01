@@ -1,7 +1,7 @@
 # Qualified image published through the approved Zot route; see PROVENANCE.json.
 image:
   repository: 10.0.20.11:32309/meowdoku-preview
-  digest: sha256:8e8f932acf8fc1804244896e41101787c784ecda0fe2dcd235964cb9e1dc7ce2
+  digest: sha256:802b245f75947e695cedc9c29a92b99c427780f52cec27ad1b00047de2bdd4ee
 googleClientId: 915627421356-64fjvijlt4j0ndimcqmj5k37tisasmh2.apps.googleusercontent.com
 storage:
   # Owner-reviewed restore promotion only; blank creates the dedicated claim below.
@@ -40,9 +40,9 @@ scheduling:
 
 backup:
   # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
-  enabled: true
+  enabled: false
   snapshotId: pm2-1101t2126
-  restoreQualification: true
+  restoreQualification: false
   nfs:
     server: 10.0.40.3
     path: /mnt/user/meowdoku-backups
