@@ -42,7 +42,7 @@ backup:
   # Manual review candidate only. No schedule/mount/write is enabled by default.
   enabled: true
   snapshotId: qa-1101t0635-owned
-  restoreQualification: false
+  restoreQualification: true
   nfs:
     server: 10.0.40.3
     path: /mnt/user/meowdoku-backups
