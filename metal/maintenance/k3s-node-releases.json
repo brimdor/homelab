@@ -43,10 +43,10 @@
         "root_uuid": "fc02c8c4-35c6-4efe-a88a-b03d7673c0c8"
       },
       "node_uid": "6a26f4ed-68e6-4681-baf9-47660549c4fb",
-      "owner": "homelab-maintenance-103-e0c0ca43-f9cd-43d0-9ebd-e1410a065679",
-      "release_head": "a37f91c014218f13aa2570996ead4952d4fe9c1212973661f6b838b714a9ebda",
-      "source": "v1.33.13+k3s2",
-      "target": "v1.34.12+k3s1"
+      "owner": "homelab-maintenance-103-58687f0e-a21e-4e5d-9907-dfc0b3ad3758",
+      "release_head": "eb88152a510c2dafe4ff544461697ab1753e7ba36fb73d03d6027ab2f7d62372",
+      "source": "v1.34.12+k3s1",
+      "target": "v1.35.9+k3s1"
     },
     "growlithe": {
       "address": "10.0.20.18",
