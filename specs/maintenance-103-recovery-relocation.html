@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>Issue 103: protected recovery relocation</title>
+<style>body{background:#111827;color:#e5e7eb;font:16px/1.6 system-ui;max-width:960px;margin:3rem auto;padding:0 1rem}code{color:#93c5fd}td,th{border:1px solid #475569;padding:.5rem;text-align:left}table{border-collapse:collapse}h1,h2{color:#f8fafc}</style>
+<h1>Issue 103: protected recovery relocation</h1>
+<p>Plan dated November 1, 2026. Execution status belongs to the verified run receipts; this document does not claim completion.</p>
+<h2>Finding and scope</h2>
+<p>Pikachu reported DiskPressure at 20:04:45 UTC. Its root filesystem had approximately 7.5 GB available, including approximately 37 GB of retained recovery material. Kubelet reported hard availability thresholds of 5%, minimum reclaim of 10%, and image garbage collection thresholds of 85%/80%. Arcanine initialization failed before ownership acquisition or cordoning.</p>
+<p>Preserve three historical recovery points by moving their complete, verified copies from Pikachu to existing trusted Growlithe. Neither host is repartitioned. No NAS access, live application data change, active K3s recovery point change, container image pruning, or protected Zot change is included.</p>
+<table><thead><tr><th>Exact point</th><th>Protected file bytes</th></tr></thead><tbody>
+<tr><td>radarr-complete-files-20261020-1718</td><td>6,048,412,476</td></tr>
+<tr><td>prometheus-monitoring-20261020-quiesced</td><td>2,178,211,691</td></tr>
+<tr><td>prometheus-monitoring-20261020-retained-current</td><td>1,778,015,410</td></tr>
+</tbody></table>
+<h2>Execution and acceptance</h2>
+<ol><li>Bind both hosts to exact machine IDs and root UUIDs. Require private local ext4 recovery roots and no mounted, open, or mapped consumers of each point.</li>
+<li>Check every payload against its original verified manifest. Publish the exact content and metadata fingerprints in <code>metal/maintenance/recovery-relocation-103-20261101.json</code> with the migration code on canonical Gitea master before copying.</li>
+<li>Stream each point through SSH pipes in workstation RAM. Preserve every file, directory, permission, owner, nanosecond modification time, and extended attribute. Keep partial copies and the original source on failure.</li>
+<li>Flush destination files and directories. Independently reopen and hash the complete receiver tree. Require exact content and metadata equality before committing a source relocation.</li>
+<li>Write and flush the durable source location record before the first source unlink. Recheck every source file before unlinking. Leave <code>relocated.json</code> at the original point path. On Growlithe, append <code>-relocated-20261101</code> to each point name, preserving all preexisting receiver backups. Old local readers fail closed; do not replace this record with a symlink.</li>
+<li>Reopen the protected receiver after relocation. Verify actual capacity and kubelet pressure clearance. Recheck Arcanine's unchanged source binary, boot, ownership, and original journals before any unstarted initialization continuation.</li></ol>
+<h2>Capacity prevention</h2>
+<p>Recovery receipt and restore-copy guards preserve the verified 80% image-GC low threshold, accounting for three recovery payload copies. K3s configuration transfer also preserves that threshold before allocating its bounded archive. These are receiver filesystem checks, not workstation testing quotas.</p>
+<h2>Rollback and interrupted execution</h2>
+<p>Before source retirement, discard nothing: leave the original and inspect the exact partial destination. After retirement, use the durable location record to recover directly from Growlithe. If a future operator needs the original Pikachu location restored, first qualify capacity and perform the same complete verified copy in reverse; keep Growlithe's protected copy until independent source readback passes. Do not blindly replay an interrupted copy or partially completed source retirement.</p>
+<h2>Evidence and limits</h2>
+<p>The exact point manifest checksums, complete tree fingerprints, host identities and byte counts are machine-readable in the repository plan. Local synthetic tests cover tampering, links, permissions, invalid receiver receipts, and receiver capacity. Native Linux transfer and independent readback must prove extended attribute preservation. A successful relocation does not establish whole-homelab GREEN or resolve the separate Bulbasaur I/O finding.</p>
+</html>

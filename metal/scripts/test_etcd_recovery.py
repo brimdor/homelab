@@ -11,8 +11,18 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import etcd_recovery as RECOVERY
+
+
+class ReceiverCapacityTests(unittest.TestCase):
+    def test_all_copy_allocations_preserve_verified_kubelet_reclaim_space(self):
+        space = SimpleNamespace(f_frsize=1024, f_blocks=100, f_bavail=50)
+        with patch.object(RECOVERY.os, 'statvfs', return_value=space):
+            RECOVERY.require_capacity(Path('.'), 1025, copies=3)
+            with self.assertRaisesRegex(RuntimeError, 'kubelet capacity'):
+                RECOVERY.require_capacity(Path('.'), 10 * 1024, copies=3)
 
 
 class RecoveryProfileTests(unittest.TestCase):

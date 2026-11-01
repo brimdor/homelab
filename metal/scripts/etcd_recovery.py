@@ -127,6 +127,14 @@ def read_frame(source):
     return frame
 
 
+def require_capacity(path, size, copies=1):
+    """Keep the receiver's verified kubelet image-GC low threshold (80% used)."""
+    space = os.statvfs(path)
+    allocated = ((size + space.f_frsize - 1) // space.f_frsize + 4) * space.f_frsize
+    if space.f_bavail * space.f_frsize - allocated * copies <= space.f_blocks * space.f_frsize // 5:
+        raise RuntimeError('recovery would cross receiver kubelet capacity threshold')
+
+
 def receive_bundle(source, destination):
     header = read_frame(source)
     metadata = header.get("metadata")
@@ -143,8 +151,7 @@ def receive_bundle(source, destination):
         raise RuntimeError("recovery manifest identity or file contract changed")
     if any(path.is_symlink() for path in (destination.parent, *destination.parent.parents)):
         raise RuntimeError("recovery destination ancestry contains a symlink")
-    if sum(record["size"] for record in files) > shutil.disk_usage(destination.parent).free:
-        raise RuntimeError("insufficient actual capacity for the recovery point")
+    require_capacity(destination.parent, sum(record['size'] for record in files), copies=3)
     destination.mkdir(mode=0o700)
     destination.chmod(0o700)
     for record in files:
@@ -216,8 +223,7 @@ def run_identifier(value):
 def stage_restore_point(point, expected_sha256):
     """Relabel only disposable copies; never change protected original labels."""
     manifest = verify_point(point, expected_sha256)
-    if shutil.disk_usage(ROOT).free <= sum(record['size'] for record in manifest['files']):
-        raise RuntimeError('insufficient capacity for isolated recovery copy')
+    require_capacity(ROOT, sum(record['size'] for record in manifest['files']), copies=3)
     staged = Path(tempfile.mkdtemp(prefix='etcd-readonly-copy-', dir=ROOT))
     try:
         staged.chmod(0o700)
@@ -488,6 +494,8 @@ def qualify(run_id, point=None, manifest_sha256=None, synthetic_check=None):
     if manifest is not None and (manifest["metadata"].get("source_host") != SOURCE_HOST or
                                  manifest["metadata"].get("source_encryption_enabled") is not True):
         raise RuntimeError("real recovery point provenance is incomplete")
+    if manifest is not None:
+        require_capacity(ROOT, sum(record['size'] for record in manifest['files']), copies=3)
     def interrupted(_number, _frame):
         raise InterruptedError("recovery qualification interrupted")
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):

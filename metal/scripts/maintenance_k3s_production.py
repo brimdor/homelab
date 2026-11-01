@@ -161,8 +161,10 @@ point=pathlib.Path(POINT)
 assert not any(p.is_symlink()for p in(point,*point.parents))and not point.exists()
 assert point.parent.is_dir()and point.parent.stat().st_uid==0 and stat.S_IMODE(point.parent.stat().st_mode)==0o700
 assert subprocess.check_output(['findmnt','-n','-o','FSTYPE','-T',str(point.parent)],text=True).strip()=='ext4'
-point.mkdir(mode=0o700)
 value=json.loads(sys.stdin.buffer.readline(65537));assert value['header']==HEADER and len(value['files'])<50
+space=os.statvfs(point.parent)
+assert space.f_bavail*space.f_frsize-256*1024*1024>space.f_blocks*space.f_frsize//5,'receiver kubelet capacity threshold'
+point.mkdir(mode=0o700)
 digest=hashlib.sha256();total=0
 with(point/'config.tar').open('xb')as output:
  os.fchmod(output.fileno(),0o600)

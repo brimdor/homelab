@@ -1,0 +1,35 @@
+{
+  "issue": 103,
+  "source": "pikachu",
+  "receiver": "growlithe",
+  "source_root_uuid": "76e53a95-725a-4430-9d7b-a8db413f3997",
+  "receiver_root_uuid": "710e2dca-691e-4123-a867-4994b9c6e612",
+  "points": [
+    {
+      "name": "radarr-complete-files-20261020-1718",
+      "tree_sha256": "2a0bfe5aec8d864a8f1f83c35610a66a6579a5cabdc962f3096a93e6244ec583",
+      "manifest_sha256": "a6aa9e3fed4b15c27e1e5b71c53a0c2cc3a12b75e4816cca322ac21cb7ddf72e",
+      "file_bytes": 6048412476,
+      "entries": 17072,
+      "allocated_bytes": 6083665920
+    },
+    {
+      "name": "prometheus-monitoring-20261020-quiesced",
+      "tree_sha256": "faeb9c3e066ccd9797ca761ede8ad45ee28b48a33dae0c49fe84844e6e1c2c73",
+      "manifest_sha256": "b9d2bedfa37e07b9eb3d5736337294e465c53b5cb44a9af5521a7f5d4e4e1a58",
+      "file_bytes": 2178211691,
+      "entries": 43,
+      "allocated_bytes": 2178359296
+    },
+    {
+      "name": "prometheus-monitoring-20261020-retained-current",
+      "tree_sha256": "18552b527d0cdae71fdebc63b5a10205e66a36986c653324e296a509f6bc92bf",
+      "manifest_sha256": "570984782b09c0668ebfe520484c0db46bb854f2ea4643d60d2b9735e50dfdae",
+      "file_bytes": 1778015410,
+      "entries": 47,
+      "allocated_bytes": 1778163712
+    }
+  ],
+  "no_nas_operations": true,
+  "current_k3s_recovery_points_unchanged": true
+}
