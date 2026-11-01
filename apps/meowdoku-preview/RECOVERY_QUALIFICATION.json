@@ -1,0 +1,24 @@
+{
+  "restore": {
+    "restored": true,
+    "integrity": "ok",
+    "restoredEncryptedHeader": true,
+    "historicalAuthAndSharingCleared": true,
+    "backupUnchanged": true,
+    "backupSha256": "946c4623af66793454311a3348dc961923bd80e66287f7bc699bc41aa191d8ce",
+    "backupBytes": 192512,
+    "nasRootUid": 99,
+    "nasRootGid": 100,
+    "nasRootMode": "777",
+    "nasAvailableBytes": 10967711744000,
+    "nfsMount": "10.0.40.3:/mnt/user/meowdoku-backups /backup nfs4 ro,relatime,vers=4.2,rsize=1048576,wsize=1048576,namlen=255,hard,fatal_neterrors=none,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=10.0.20.13,local_lock=none,addr=10.0.40.3 0 0",
+    "restoredProfiles": 0,
+    "liveClaimMounted": false
+  },
+  "snapshot": "qa-1101t0635-owned.v1.sqlite.enc",
+  "sourceCommit": "720d5d8ac30621f689994611a9791966aa9946e2",
+  "image": "sha256:8e8f932acf8fc1804244896e41101787c784ecda0fe2dcd235964cb9e1dc7ce2",
+  "initialProfileCount": 0,
+  "automaticDeletion": false,
+  "permissionsChanged": false
+}

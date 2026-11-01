@@ -15,7 +15,7 @@ resources:
   limits:
     cpu: "1"
     memory: 512Mi
-# Approved active key reference; app-only operator projection is not applied.
+# Approved active key reference, projected only into backend and isolated recovery qualification.
 dataKey:
   secretName: meowdoku-preview-data-key
   version: v1
@@ -28,7 +28,7 @@ appInstances:
   signingCertSha256:
     - 1c3fbbb6b605c08227896c0b030e9584569f781fae0f88173bf7d6a7931acfab
   minVersion: 2
-  onlineAdmission: false
+  onlineAdmission: true
 onePassword:
   # Dedicated active DB item only. Recovery/signing records are never projected into this pod.
   vaultId: 4uaua4a45yuhnwhehp5bwylmti
@@ -39,7 +39,7 @@ scheduling:
   completedNodeHostname: bulbasaur
 
 backup:
-  # Manual review candidate only. No schedule/mount/write is enabled by default.
+  # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
   enabled: true
   snapshotId: qa-1101t0635-owned
   restoreQualification: true
