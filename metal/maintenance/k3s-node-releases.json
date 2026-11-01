@@ -19,10 +19,10 @@
         "root_uuid": "2c59d1d1-d2d8-420e-b3a5-d87eb0437823"
       },
       "node_uid": "b921073c-822a-4b74-80ed-563fec33d6ab",
-      "owner": "homelab-maintenance-103-c1c11e5f-f009-45d4-9b13-ebbf9b144780",
-      "release_head": "5ed91baed56a300c7bc4b183aa544ceea176c5156bc2ed03056e353a87a68411",
-      "source": "v1.34.12+k3s1",
-      "target": "v1.35.9+k3s1"
+      "owner": "homelab-maintenance-103-d7cb997c-cd59-4274-97f2-d2d24b2f5040",
+      "release_head": "8e565740c85a44f9cb0e50c536301704b4efd44273f2fba00643891406813958",
+      "source": "v1.35.9+k3s1",
+      "target": "v1.36.5+k3s1"
     },
     "charmander": {
       "address": "10.0.20.11",
