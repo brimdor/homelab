@@ -79,10 +79,10 @@
         "root_uuid": "c27f6613-788e-4d00-802c-5b84a730a631"
       },
       "node_uid": "5d80125d-4228-47dd-b19c-ca86f7d4316c",
-      "owner": "homelab-maintenance-103-456825a9-bcbd-4e40-805a-7dc504974f52",
-      "release_head": "975bad6d8ef3309d7df485d1d14a7290c0e33c361b4276e2c149a9fa4b4cac7f",
-      "source": "v1.33.10+k3s1",
-      "target": "v1.33.13+k3s2"
+      "owner": "homelab-maintenance-103-1caae286-2774-4361-91b0-414c1c7458cb",
+      "release_head": "ef489abf86e8c5db48bcd9e9b6cadcaa0aae59ce47ccb47bf13478c82b299317",
+      "source": "v1.33.13+k3s2",
+      "target": "v1.34.12+k3s1"
     },
     "squirtle": {
       "address": "10.0.20.12",
