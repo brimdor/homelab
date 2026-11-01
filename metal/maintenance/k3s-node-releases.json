@@ -31,10 +31,10 @@
         "root_uuid": "4a64a6d6-e982-4694-aa03-ad5f317b3ab2"
       },
       "node_uid": "9108f105-f73d-41bb-891f-ac2db6658714",
-      "owner": "homelab-maintenance-103-4db3f4d6-3d51-4732-99dc-b36a8d0cafda",
-      "release_head": "fe8538d211f08941134247db2434c55d30d6969f20a09ee535c97bff02d361ac",
-      "source": "v1.34.12+k3s1",
-      "target": "v1.35.9+k3s1"
+      "owner": "homelab-maintenance-103-5a7cb949-31de-41f2-a305-3a1e5bbe3a38",
+      "release_head": "c55b2ad953f89aa711c3e6dbeb25995a688a064fafc130d22c52ced34592221d",
+      "source": "v1.35.9+k3s1",
+      "target": "v1.36.5+k3s1"
     },
     "cyndaquil": {
       "address": "10.0.20.16",
