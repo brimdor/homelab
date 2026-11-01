@@ -2,9 +2,9 @@
   "version": 1,
   "node": "totodile",
   "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
-  "source": "v1.34.12+k3s1",
-  "target": "v1.35.9+k3s1",
-  "captured_at": "2026-11-01T14:20:27.203883+00:00",
+  "source": "v1.35.9+k3s1",
+  "target": "v1.36.5+k3s1",
+  "captured_at": "2026-11-01T15:13:55.122161+00:00",
   "dependents": {
     "versa": {
       "namespace": "versa",
@@ -75,7 +75,7 @@
     "uid": "9a7e7dcd-2302-401e-be49-af545ac06f9b",
     "generation": 18,
     "template_sha256": "b8f7948ef552b8f29dd40f738719793fd5c1b67af323680e34b6e1780c6a29cd",
-    "original_pod_uid": "399af590-3b2f-404d-b677-da910ab3c883",
+    "original_pod_uid": "6bfdd1c9-416e-46b1-af13-dd1745cbbd0c",
     "bindings": [
       {
         "claim": "postgres",
@@ -88,28 +88,28 @@
     "replica_name": "postgres-89f994576",
     "containers": {
       "db-backup": {
-        "containerID": "containerd://d8eeb712b6c36f29dd9fd633e3ed87159a767cae05b65e421a1ab76c14eb3be9",
+        "containerID": "containerd://af5d8d2c8eff9b27a0d454048f76c5b0159a4b3a666f0f5d5b6afbf1cf4e3edd",
         "imageID": "docker.io/library/postgres@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
         "restartCount": 0,
-        "time": "2026-11-01T14:12:09Z"
+        "time": "2026-11-01T14:57:33Z"
       },
       "db-bootstrap": {
-        "containerID": "containerd://34d239eedae0f47ffb01fccbb918ccc03aa08f5040512a31c0f4ca36ff51e762",
+        "containerID": "containerd://28ef772c6f9978b335b10e6fb0255f521a2da4972f03f7e29a5f338e78b94dc1",
         "imageID": "docker.io/library/postgres@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
         "restartCount": 0,
-        "time": "2026-11-01T14:12:09Z"
+        "time": "2026-11-01T14:57:33Z"
       },
       "main": {
-        "containerID": "containerd://362f3a4d1f526d61419c94e3b4b7922fdb299ded12bedf660c9ce62b35aa7acb",
+        "containerID": "containerd://5ab684ce3789e8d647a120abd3236193115ac878016e83006cda4f5419ae2b32",
         "imageID": "docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e",
         "restartCount": 0,
-        "time": "2026-11-01T14:12:09Z"
+        "time": "2026-11-01T14:57:33Z"
       },
       "db-restore": {
-        "containerID": "containerd://21e1ae63e5902cf17c1b19099842eef51d9ebf4cbd9133af5a5bbc4d94947da2",
+        "containerID": "containerd://ab1ab8e891b8b879346fd229fe5bb4783fed33e0f9ed3f6d1af9ed79c294d3da",
         "imageID": "docker.io/library/alpine@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a",
         "restartCount": 0,
-        "time": "2026-11-01T14:12:07Z"
+        "time": "2026-11-01T14:57:32Z"
       }
     }
   }
