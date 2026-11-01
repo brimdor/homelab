@@ -23,7 +23,7 @@ tls:
   hostname: meowdoku-preview.eaglepass.io
   secretName: meowdoku-preview-tls
 ingress:
-  enabled: false
+  enabled: true
 appInstances:
   signingCertSha256:
     - 1c3fbbb6b605c08227896c0b030e9584569f781fae0f88173bf7d6a7931acfab

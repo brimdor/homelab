@@ -2,6 +2,11 @@ app-template:
   controllers:
     cloudflared:
       replicas: 2
+      # Keep existing tunnels available while loading the scoped Meowdoku rule.
+      strategy: RollingUpdate
+      rollingUpdate:
+        surge: 1
+        unavailable: "0"
       containers:
         app:
           image:
@@ -12,6 +17,17 @@ app-template:
             - --config
             - /etc/cloudflared/config.yaml
             - run
+          probes:
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ready
+                  port: 2000
+                periodSeconds: 2
+                timeoutSeconds: 2
+                failureThreshold: 3
   configMaps:
     config:
       enabled: true
@@ -34,6 +50,12 @@ app-template:
               service: http://45.33.2.134:3000
               originRequest:
                 httpHostHeader: builder.eaglepass.io
+            - hostname: 'meowdoku-preview.eaglepass.io'
+              service: https://ingress-nginx-controller.ingress-nginx:443
+              originRequest:
+                originServerName: meowdoku-preview.eaglepass.io
+                httpHostHeader: meowdoku-preview.eaglepass.io
+                noTLSVerify: false
             - hostname: '*.eaglepass.io'
               service: https://ingress-nginx-controller.ingress-nginx
               originRequest:
