@@ -109,6 +109,109 @@ app-template:
             type: RuntimeDefault
       serviceAccount:
         name: default
+    recovery-qualification:
+      enabled: true
+      forceRename: tsurreal-native-a7477d1a-169f8a22
+      type: job
+      annotations:
+        tsurreal.zuriel-labs.io/source-commit: a7477d1a624f676ff81e0754a571910cc6a47e74
+        tsurreal.zuriel-labs.io/source-tree: 8126772ddd8cc98919f26c06c1911256a00888df
+        tsurreal.zuriel-labs.io/runtime-image: sha256:4d8f197294ca299ea34517468c3f63968585ef5b9bb529354fccb47eb222b700
+      job:
+        backoffLimit: 0
+        completions: 1
+        parallelism: 1
+      initContainers:
+        cli:
+          image:
+            repository: 10.0.20.11:32309/tsurreal/qualification
+            digest: sha256:169f8a22609e6b10b7f220fc4c30984411dd0461db556332e2362e6ea74afb18
+            pullPolicy: IfNotPresent
+          command:
+          - /qualification/cli.test
+          args:
+          - -test.v
+          - -test.timeout
+          - '0'
+          - -test.run
+          - TestContainerReadiness|TestHosting|TestBackupHostEncrypted|TestLocalSetupSecret|TestStageIdentity|TestRuntimeThinkingManifest|TestRuntimeRegistration
+          env:
+            TMPDIR: /qa
+            TSURREAL_TEST_RECOVERY_HELPER: /opt/tsurreal/recovery/tsurreal-recovery-helper
+            TSURREAL_TEST_HOSTING_HQ: /opt/tsurreal/package/hq
+            TSURREAL_TEST_HOSTING_COMMIT: a7477d1a624f676ff81e0754a571910cc6a47e74
+            TSURREAL_TEST_HOSTING_TREE: 8126772ddd8cc98919f26c06c1911256a00888df
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          probes:
+            startup:
+              enabled: false
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+      containers:
+        recovery:
+          image:
+            repository: 10.0.20.11:32309/tsurreal/qualification
+            digest: sha256:169f8a22609e6b10b7f220fc4c30984411dd0461db556332e2362e6ea74afb18
+            pullPolicy: IfNotPresent
+          command:
+          - /qualification/recovery.test
+          args:
+          - -test.v
+          - -test.timeout
+          - '0'
+          env:
+            TMPDIR: /qa
+            TSURREAL_TEST_RECOVERY_HELPER: /opt/tsurreal/recovery/tsurreal-recovery-helper
+            TSURREAL_TEST_HOSTING_HQ: /opt/tsurreal/package/hq
+            TSURREAL_TEST_HOSTING_COMMIT: a7477d1a624f676ff81e0754a571910cc6a47e74
+            TSURREAL_TEST_HOSTING_TREE: 8126772ddd8cc98919f26c06c1911256a00888df
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+              - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          probes:
+            startup:
+              enabled: false
+            readiness:
+              enabled: false
+            liveness:
+              enabled: false
+      pod:
+        restartPolicy: Never
+        automountServiceAccountToken: false
+        terminationGracePeriodSeconds: 25
+        nodeSelector:
+          kubernetes.io/arch: amd64
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          fsGroup: 65532
+          seccompProfile:
+            type: RuntimeDefault
+      serviceAccount:
+        name: default
   service:
     main:
       forceRename: tsurreal-canary
@@ -221,6 +324,15 @@ app-template:
         main:
           hq:
           - path: /tmp
+    qualification-scratch:
+      type: emptyDir
+      sizeLimit: 512Mi
+      advancedMounts:
+        recovery-qualification:
+          cli:
+          - path: /qa
+          recovery:
+          - path: /qa
   configMaps:
     configuration:
       forceRename: tsurreal-configuration
