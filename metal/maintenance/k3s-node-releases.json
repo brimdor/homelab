@@ -103,10 +103,10 @@
         "root_uuid": "489f1af8-5d55-4356-8d48-418fcb2069a2"
       },
       "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
-      "owner": "homelab-maintenance-103-605cec73-2e82-4d64-ab21-d0f3550df40c",
-      "release_head": "af888603cb37d4567eb90859a9e9b89af992ffba46f274f16502db7f1c83520c",
-      "source": "v1.34.12+k3s1",
-      "target": "v1.35.9+k3s1"
+      "owner": "homelab-maintenance-103-fc798318-a382-4336-a70c-b83da9a7fad2",
+      "release_head": "df591a7c6a93584db741d597ad313f52348303d7bd0ea226d632ed9edddf46e5",
+      "source": "v1.35.9+k3s1",
+      "target": "v1.36.5+k3s1"
     }
   },
   "version": 2
