@@ -1,0 +1,128 @@
+{{- $completedNode := required "scheduling.completedNodeHostname requires an owner-verified maintenance-complete node" .Values.scheduling.completedNodeHostname -}}
+{{- $repository := required "image.repository must be the reviewed cluster registry pull path" .Values.image.repository -}}
+{{- $digest := required "image.digest must be the published immutable registry digest" .Values.image.digest -}}
+{{- $dataSecret := required "dataKey.secretName requires the approved app-only key projection" .Values.dataKey.secretName -}}
+{{- if and .Values.appInstances.onlineAdmission (empty .Values.appInstances.signingCertSha256) -}}
+{{- fail "online admission requires the approved dedicated signing certificate allowlist" -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "meowdoku.name" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/name: meowdoku
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: meowdoku
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - {{ $completedNode | quote }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: {{ printf "%s@%s" $repository $digest | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: https
+              containerPort: 8080
+          env:
+            - name: GOOGLE_CLIENT_ID
+              value: {{ .Values.googleClientId | quote }}
+            - name: PUBLIC_HOSTNAME
+              value: {{ .Values.tls.hostname | quote }}
+            - name: TLS_CERT_FILE
+              value: /run/meowdoku/tls/tls.crt
+            - name: TLS_KEY_FILE
+              value: /run/meowdoku/tls/tls.key
+            - name: DATA_KEY_FILE
+              value: /run/meowdoku/data-key/data-key
+            - name: DATA_KEY_VERSION
+              value: {{ .Values.dataKey.version | quote }}
+            - name: APP_SIGNING_CERT_SHA256
+              value: {{ join "," .Values.appInstances.signingCertSha256 | quote }}
+            - name: APP_MIN_VERSION
+              value: {{ .Values.appInstances.minVersion | quote }}
+            - name: ONLINE_ADMISSION
+              value: {{ ternary "enabled" "disabled" .Values.appInstances.onlineAdmission | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          startupProbe:
+            exec:
+              command: [node, backend/src/healthcheck.mjs]
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: [node, backend/src/healthcheck.mjs]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: [node, backend/src/healthcheck.mjs]
+            periodSeconds: 20
+            failureThreshold: 3
+          volumeMounts:
+            - name: saves
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+            - name: tls
+              mountPath: /run/meowdoku/tls
+              readOnly: true
+            - name: data-key
+              mountPath: /run/meowdoku/data-key
+              readOnly: true
+      volumes:
+        - name: saves
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.existingClaim | default (printf "%s-saves" (include "meowdoku.name" .)) | quote }}
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName | quote }}
+            defaultMode: 0440
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+        - name: data-key
+          secret:
+            secretName: {{ $dataSecret | quote }}
+            defaultMode: 0440
+            items:
+              - key: data-key
+                path: data-key

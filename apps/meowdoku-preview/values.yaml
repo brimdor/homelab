@@ -1,0 +1,47 @@
+# Qualified image published through the approved Zot route; see PROVENANCE.json.
+image:
+  repository: 10.0.20.11:32309/meowdoku-preview
+  digest: sha256:8e8f932acf8fc1804244896e41101787c784ecda0fe2dcd235964cb9e1dc7ce2
+googleClientId: 915627421356-64fjvijlt4j0ndimcqmj5k37tisasmh2.apps.googleusercontent.com
+storage:
+  # Owner-reviewed restore promotion only; blank creates the dedicated claim below.
+  existingClaim: ""
+  # Verified initial live PVC size; independent backups use the dedicated NAS export.
+  size: 2Gi
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+# Approved active key reference; app-only operator projection is not applied.
+dataKey:
+  secretName: meowdoku-preview-data-key
+  version: v1
+tls:
+  hostname: meowdoku-preview.eaglepass.io
+  secretName: meowdoku-preview-tls
+ingress:
+  enabled: false
+appInstances:
+  signingCertSha256:
+    - 1c3fbbb6b605c08227896c0b030e9584569f781fae0f88173bf7d6a7931acfab
+  minVersion: 2
+  onlineAdmission: false
+onePassword:
+  # Dedicated active DB item only. Recovery/signing records are never projected into this pod.
+  vaultId: 4uaua4a45yuhnwhehp5bwylmti
+  activeDatabaseItemId: lwcarttg4cqgaanhksg55ng4au
+
+scheduling:
+  # Controller verified maintenance acceptance, hostname, capacity and Ceph topology at 03:35–03:36 UTC.
+  completedNodeHostname: bulbasaur
+
+backup:
+  # Manual review candidate only. No schedule/mount/write is enabled by default.
+  enabled: false
+  snapshotId: ""
+  nfs:
+    server: 10.0.40.3
+    path: /mnt/user/meowdoku-backups

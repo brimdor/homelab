@@ -1,0 +1,258 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^$|^10\\.0\\.20\\.11:32309/[a-z0-9][a-z0-9._/-]*$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^$|^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "repository",
+        "digest"
+      ]
+    },
+    "googleClientId": {
+      "type": "string",
+      "pattern": "^[0-9]+-[a-z0-9]+\\.apps\\.googleusercontent\\.com$"
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "size": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*(Mi|Gi|Ti)$"
+        },
+        "existingClaim": {
+          "type": "string",
+          "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$",
+          "maxLength": 253
+        }
+      },
+      "required": [
+        "size",
+        "existingClaim"
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "pattern": "^([1-9][0-9]*m|[1-9][0-9]*)$"
+            },
+            "memory": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*(Mi|Gi|Ti)$"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "pattern": "^([1-9][0-9]*m|[1-9][0-9]*)$"
+            },
+            "memory": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*(Mi|Gi|Ti)$"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        }
+      },
+      "required": [
+        "requests",
+        "limits"
+      ]
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\\.[a-z]{2,}$"
+        },
+        "secretName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+        }
+      },
+      "required": [
+        "hostname",
+        "secretName"
+      ]
+    },
+    "dataKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "secretName": {
+          "type": "string",
+          "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^v[1-9][0-9]*$"
+        }
+      },
+      "required": [
+        "secretName",
+        "version"
+      ]
+    },
+    "appInstances": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "signingCertSha256": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "not": {
+              "enum": [
+                "97302559ce3ba15cf1c376137a7ab521658310e4b0da302aa71fbf9d556fbb6b"
+              ]
+            }
+          }
+        },
+        "minVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "onlineAdmission": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "signingCertSha256",
+        "minVersion",
+        "onlineAdmission"
+      ]
+    },
+    "onePassword": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vaultId": {
+          "type": "string",
+          "pattern": "^[a-z0-9]{26}$"
+        },
+        "activeDatabaseItemId": {
+          "type": "string",
+          "pattern": "^[a-z0-9]{26}$"
+        }
+      },
+      "required": [
+        "vaultId",
+        "activeDatabaseItemId"
+      ]
+    },
+    "scheduling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "completedNodeHostname": {
+          "type": "string",
+          "maxLength": 63,
+          "pattern": "^$|^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$"
+        }
+      },
+      "required": [
+        "completedNodeHostname"
+      ]
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "snapshotId": {
+          "type": "string",
+          "maxLength": 20,
+          "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        },
+        "nfs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "server": {
+              "type": "string",
+              "const": "10.0.40.3"
+            },
+            "path": {
+              "type": "string",
+              "const": "/mnt/user/meowdoku-backups"
+            }
+          },
+          "required": [
+            "server",
+            "path"
+          ]
+        }
+      },
+      "required": [
+        "enabled",
+        "snapshotId",
+        "nfs"
+      ]
+    }
+  },
+  "required": [
+    "image",
+    "googleClientId",
+    "storage",
+    "resources",
+    "ingress",
+    "tls",
+    "dataKey",
+    "appInstances",
+    "onePassword",
+    "scheduling",
+    "backup"
+  ],
+  "$schema": "https://json-schema.org/draft-07/schema#"
+}

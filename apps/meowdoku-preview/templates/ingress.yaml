@@ -1,0 +1,30 @@
+{{- if .Values.ingress.enabled }}
+{{- $hostname := required "ingress.hostname requires the selected app-specific hostname/access review" .Values.tls.hostname }}
+{{- $secret := required "ingress.tlsSecretName requires the selected app-specific TLS secret" .Values.tls.secretName }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "meowdoku.name" . }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
+    nginx.ingress.kubernetes.io/proxy-ssl-name: {{ $hostname | quote }}
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - {{ $hostname | quote }}
+      secretName: {{ $secret | quote }}
+  rules:
+    - host: {{ $hostname | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "meowdoku.name" . }}
+                port:
+                  name: https
+{{- end }}

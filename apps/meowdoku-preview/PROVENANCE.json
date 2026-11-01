@@ -1,0 +1,66 @@
+{
+  "source_repository": "https://github.com/Zuriel-Labs/meowdoku",
+  "source_commit": "720d5d8ac30621f689994611a9791966aa9946e2",
+  "source_tree": "42bb692442c11291bec66a6b9b4545f917b69a99",
+  "image_index_digest": "sha256:8e8f932acf8fc1804244896e41101787c784ecda0fe2dcd235964cb9e1dc7ce2",
+  "linux_amd64_manifest_digest": "sha256:8f773dcac839db2f6b23774408b16c11e0b30d4727117cc0e9d77a1b52b25b80",
+  "image_config_digest": "sha256:9044907b41827104d80208f8af4a4bffc99cd20562cd97fcfa5548d9b2be64a3",
+  "verification": {
+    "attestation_jvm_tests": 2,
+    "backend_tests": 64,
+    "packaged_security_checks": 7,
+    "failures": 0,
+    "runtime_source_files_match_prior_receipt": 23,
+    "unchanged_third_party_verifier_jars": 27,
+    "production_verification_deadlines_unchanged": true
+  },
+  "build_metadata": {
+    "additive_sha256_pins": [
+      {
+        "coordinate": "com.google.guava:guava-parent:33.3.1-jre",
+        "artifact": "guava-parent-33.3.1-jre.pom",
+        "canonical_url": "https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/33.3.1-jre/guava-parent-33.3.1-jre.pom",
+        "sha256": "55441db27e8869dfefe053059bdf478bdc7e95585642bf391f0023345fd56287",
+        "cached_bytes_match": true,
+        "publisher_checksum": {
+          "algorithm": "sha1",
+          "value": "94729a0ed1dc35f623edd13afa6c1c2fe9a15d7c"
+        }
+      },
+      {
+        "coordinate": "org.junit:junit-bom:5.10.2",
+        "artifact": "junit-bom-5.10.2.module",
+        "canonical_url": "https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.10.2/junit-bom-5.10.2.module",
+        "sha256": "de23b114b3e4119a8fe6eb17bed5a3852816698bace67071579d6d927ebb080a",
+        "cached_bytes_match": true,
+        "publisher_checksum": {
+          "algorithm": "sha256",
+          "value": "de23b114b3e4119a8fe6eb17bed5a3852816698bace67071579d6d927ebb080a"
+        }
+      },
+      {
+        "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.8.0",
+        "artifact": "kotlinx-coroutines-bom-1.8.0.pom",
+        "canonical_url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.8.0/kotlinx-coroutines-bom-1.8.0.pom",
+        "sha256": "1239e9dbe1397cd5971342956b2511bc3ace7b641842e4372a088dcfa8b9ad55",
+        "cached_bytes_match": true,
+        "publisher_checksum": {
+          "algorithm": "sha256",
+          "value": "1239e9dbe1397cd5971342956b2511bc3ace7b641842e4372a088dcfa8b9ad55"
+        }
+      }
+    ],
+    "original_pins_preserved": 952,
+    "dependency_versions_changed": false,
+    "source_change_scope": "Local additive dependency-verification metadata only; excluded from Docker context. Runtime source unchanged."
+  },
+  "initial_state": {
+    "ingress": false,
+    "online_admission": false,
+    "nas_backup_job": false
+  },
+  "limits": [
+    "Synthetic Google and hardware-attestation fixtures do not prove physical phone enrollment",
+    "Live routing, storage and restore qualification follow initial rollout"
+  ]
+}
