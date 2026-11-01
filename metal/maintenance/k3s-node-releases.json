@@ -55,10 +55,10 @@
         "root_uuid": "710e2dca-691e-4123-a867-4994b9c6e612"
       },
       "node_uid": "50f95b8f-4117-4c1e-84bc-266c5b23bffb",
-      "owner": "homelab-maintenance-103-aaa39154-88b2-48eb-a7fb-5b2d02a3a833",
-      "release_head": "fc6d8789ced7c9c7ca952385d112735d142d4de9584fd486067facbe898cdf03",
-      "source": "v1.33.13+k3s2",
-      "target": "v1.34.12+k3s1"
+      "owner": "homelab-maintenance-103-9a7267cc-f760-46dd-a737-e119d467242b",
+      "release_head": "56fee291409343a7547e63c38c88e6776d3b8a8878cfdf1f0e9cca77acde0dfc",
+      "source": "v1.34.12+k3s1",
+      "target": "v1.35.9+k3s1"
     },
     "pikachu": {
       "address": "10.0.20.14",
