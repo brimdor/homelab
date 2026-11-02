@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 import maintenance_coordination as coordination
 import maintenance_hop_journal as hops
@@ -12,6 +13,32 @@ import maintenance_kubelet_image_pulls as subject
 
 
 class SerialImagePullTests(unittest.TestCase):
+    def test_published_observer_keeps_native_candidate_frozen(self):
+        import subprocess
+        candidate, head, remote = ('a' * 40, 'b' * 40, 'c' * 40)
+        path = 'metal/scripts/maintenance_kubelet_image_pulls.py'
+        outputs = {('remote', 'get-url', 'origin'): b'git@git.eaglepass.io:ops/homelab.git',
+                   ('branch', '--show-current'): b'master', ('rev-parse', 'HEAD'): head.encode(),
+                   ('ls-remote', 'origin', 'refs/heads/master'): (remote + '\trefs/heads/master\n').encode(),
+                   ('fetch', '--no-tags', 'origin', remote): b'',
+                   ('rev-parse', head + ':metal'): b'unchanged',
+                   ('rev-parse', remote + ':metal'): b'unchanged',
+                   ('diff', '--no-renames', '--name-only', '-z', candidate, head, '--', 'metal'):
+                       path.encode() + b'\0metal/scripts/test_maintenance_kubelet_image_pulls.py\0',
+                   ('show', head + ':' + path): b'published-observer'}
+        with patch.object(subprocess, 'check_output', side_effect=lambda a: outputs[tuple(a[1:])]), \
+                patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)), \
+                patch.object(Path, 'read_bytes', return_value=b'published-observer'):
+            self.assertEqual(subject.published_source(candidate), (head, remote))
+            for key, value in ((('rev-parse', remote + ':metal'), b'changed-metal'),
+                               (('show', head + ':' + path), b'unpublished-observer'),
+                               (('diff', '--no-renames', '--name-only', '-z', candidate, head, '--', 'metal'),
+                                b'metal/scripts/maintenance_production_node.py\0')):
+                original = outputs[key]; outputs[key] = value
+                with self.subTest(key=key), self.assertRaises(RuntimeError):
+                    subject.published_source(candidate)
+                outputs[key] = original
+
     def test_registry_observation_preserves_identity_and_excludes_target(self):
         status = dict(containerID='original-container', imageID='original-image', restartCount=0, ready=True)
         pod = {'metadata': {'uid': 'original-pod', 'name': 'zot-0'},

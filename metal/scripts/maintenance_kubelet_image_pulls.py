@@ -267,10 +267,11 @@ def observe(args, api, baseline, kind):
         applications = production.maintenance_items(api.call('get', 'applications', '-n', 'argocd', '-o', 'json')['items'],
                                                     applications=True)
         actors.require(applications, 'application inventory absent')
+        comparison_revision = published_source(baseline['revision'])[1]
         for app in applications:
             actors.require(app['status']['sync']['status'] == 'Synced' and
                            app['status']['health']['status'] == 'Healthy' and
-                           app['status']['sync']['revision'] == baseline['revision'] and
+                           app['status']['sync']['revision'] == comparison_revision and
                            not app['status'].get('conditions'), 'application comparison is not current and green')
         for item in production.maintenance_items(target_pods):
             if item['status']['phase'] == 'Succeeded':
@@ -282,7 +283,42 @@ def observe(args, api, baseline, kind):
                            all(c.get('ready') for c in item['status']['containerStatuses']),
                            'target workload is not ready')
         result['applications'] = sorted(app['metadata']['name'] for app in applications)
+        result['comparison_revision'] = comparison_revision
     return result
+
+
+def published_source(candidate):
+    """Keep native execution frozen while unrelated application owners advance master."""
+    import re
+    import subprocess
+
+    def git(*args):
+        return subprocess.check_output(['git', *args])
+
+    actors.require(re.fullmatch('[0-9a-f]{40}', candidate) and
+                   git('remote', 'get-url', 'origin').strip() == b'git@git.eaglepass.io:ops/homelab.git' and
+                   git('branch', '--show-current').strip() == b'master', 'canonical published source required')
+    head = git('rev-parse', 'HEAD').decode().strip()
+    advertised = git('ls-remote', 'origin', 'refs/heads/master').decode().split()
+    actors.require(len(advertised) == 2 and advertised[1] == 'refs/heads/master' and
+                   re.fullmatch('[0-9a-f]{40}', advertised[0]), 'invalid master advertisement')
+    remote = advertised[0]
+    if remote != head:
+        git('fetch', '--no-tags', 'origin', remote)
+    for first, last in ((candidate, head), (head, remote)):
+        actors.require(subprocess.run(['git', 'merge-base', '--is-ancestor', first, last],
+                                     capture_output=True).returncode == 0, 'source is not published master ancestry')
+    actors.require(git('rev-parse', head + ':metal') == git('rev-parse', remote + ':metal'),
+                   'unreviewed remote metal changes')
+    changed = git('diff', '--no-renames', '--name-only', '-z', candidate, head, '--', 'metal').split(b'\0')
+    allowed = {b'metal/scripts/maintenance_kubelet_image_pulls.py',
+               b'metal/scripts/test_maintenance_kubelet_image_pulls.py'}
+    actors.require(changed == [b''] or changed[-1] == b'' and set(changed[:-1]) <= allowed,
+                   'native candidate changed; preserve original owner and inspect')
+    path = 'metal/scripts/maintenance_kubelet_image_pulls.py'
+    actors.require(Path(path).read_bytes() == git('show', head + ':' + path),
+                   'unpublished workstation observer')
+    return head, remote
 
 
 def main():
@@ -290,7 +326,6 @@ def main():
     import subprocess
     import maintenance_production_node as production
     from maintenance_api_reader import Reader
-    from maintenance_k3s_production import published_revision
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('initialize', 'inspect', 'cordon', 'drain', 'apply-policy',
         'observe-policy', 'restore-scheduling', 'accept-applications', 'release'))
@@ -298,9 +333,10 @@ def main():
     for name in ('kubectl', 'identity', 'known-hosts', 'baseline'):
         parser.add_argument('--' + name, required=True)
     args = parser.parse_args(); production.select_node(args.node)
-    revision = published_revision()
     baseline = json.loads(Path(args.baseline).read_bytes())
-    actors.require(baseline['revision'] == revision and baseline['target'] == args.node,
+    revision = baseline['revision']
+    published_source(revision)
+    actors.require(baseline['target'] == args.node,
                    'rollout baseline is not bound to the published candidate')
     policy_path = 'metal/roles/k3s/files/kubelet-serial-image-pulls.conf'
     policy = Path(policy_path).read_text(); policy_bytes(policy)
@@ -312,7 +348,8 @@ def main():
     for name in names:
         path = 'metal/scripts/' + name + '.py'
         source = subprocess.check_output(['git', 'show', revision + ':' + path])
-        actors.require(Path(path).read_bytes() == source, 'unpublished image-pull dependency: ' + path)
+        actors.require(name == 'maintenance_kubelet_image_pulls' or Path(path).read_bytes() == source,
+                       'unpublished image-pull dependency: ' + path)
         bundle[name] = source.decode()
     api = Reader(args.kubectl, 'https://10.0.20.11:6443')
     try:
