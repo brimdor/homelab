@@ -14,6 +14,27 @@
       cyndaquil:
         name: cilium-22bxl
         uid: 4c528dec-34cb-472a-8a56-7a949f774674
+      squirtle:
+        name: cilium-7flm7
+        uid: d3a0d3a1-5f10-4100-8de3-a14b71b2d2c1
+      sprigatito:
+        name: cilium-wdf8g
+        uid: 8bae78d4-19e0-486e-b1e0-f7a8f4b0715b
+      bulbasaur:
+        name: cilium-mf8cr
+        uid: 8a923a3b-6504-49fc-9a09-b51922915c35
+      charmander:
+        name: cilium-wlr72
+        uid: 2c6eea16-f4c2-4a36-a941-cb35c6d78b47
+      totodile:
+        name: cilium-z87hf
+        uid: 4dcd8068-8629-4a99-88ca-2941d19fdd7a
+      growlithe:
+        name: cilium-2lfss
+        uid: b05f6ba5-0bef-4ebc-a10e-13378c736b14
+      arcanine:
+        name: cilium-trw66
+        uid: 6c8ddc2a-d18b-4bd4-92d7-aec9047b6b3b
   module_defaults:
     kubernetes.core.k8s:
       kubeconfig: "{{ playbook_dir }}/kubeconfig.yaml"
