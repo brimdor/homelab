@@ -3,7 +3,7 @@
 <title>Issue 103: CORE chart expectations at the deployment revision</title>
 <style>body{background:#111722;color:#e4eaf4;font:17px/1.6 system-ui;max-width:980px;margin:3rem auto;padding:0 1rem}a,code{color:#91cbff}</style>
 <h1>CORE chart expectations at the deployment revision</h1>
-<p>Status: implementation candidate. No workload change.</p>
+<p>Status: implemented and accepted at <code>924c64c5d262fc04f071a880aab7fc6ca6da37c5</code>. No workload change. Receipt <code>maintenance103-CORE-chart-revision-validation-3_gh2mt5</code> passed all 74 synthetic tests and static checks. Receipt <code>maintenance103-CORE-chart-revision-publication-ape6_xwf</code> verified actual revision-bound collection: no evidence errors, the unpublished draft untouched, and no false missing-Application finding for that draft. The unfiltered post-publication report retains 77 other findings: 69 revision observations and eight warning events. These remain findings, not completion.</p>
 <h2>Evidence and cause</h2>
 <p>Receipt <code>maintenance103-postpublic-CORE-gmx0uf5l</code>, captured at revision <code>722b9250e8dd2effc235be18a0b8d4519124ed8f</code>, retained 68 findings and no evidence errors. One missing Application finding came from the untracked <code>apps/scribe-discord/Chart.yaml</code>. The same revision's Git tree contains no such chart. The collector currently walks the local working directory even when an immutable expected deployment revision is supplied. This conflates an unpublished draft with deployed desired state. Existing warnings and revision findings remain separate findings.</p>
 <h2>Change and acceptance</h2>
