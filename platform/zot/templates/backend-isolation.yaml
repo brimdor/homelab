@@ -1,0 +1,38 @@
+{{- if .Values.authProxy.backendIsolation }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: zot-backend-isolation
+  namespace: {{ .Release.Namespace }}
+spec:
+  description: Anonymous image pulls and native health probes; other backend access only through the authenticated proxy.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: zot
+      app.kubernetes.io/instance: zot
+  enableDefaultDeny:
+    ingress: true
+    egress: false
+  ingress:
+    - fromEntities:
+        - all
+      toPorts:
+        - ports:
+            - port: "5000"
+              protocol: TCP
+          rules:
+            http:
+              - method: "^(GET|HEAD)$"
+                path: '^/v2(/?|/[^?]+/(manifests|blobs|referrers)/[^/?]+|/[^?]+/tags/list)([?].*)?$'
+              - method: "^GET$"
+                path: '^/(livez|readyz|startupz)$'
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+            app.kubernetes.io/name: zot-auth
+            app.kubernetes.io/instance: zot
+      toPorts:
+        - ports:
+            - port: "5000"
+              protocol: TCP
+{{- end }}

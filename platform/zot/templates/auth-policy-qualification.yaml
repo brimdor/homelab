@@ -5,7 +5,7 @@ metadata:
   name: zot-auth-method-qualification
   namespace: {{ .Release.Namespace }}
 spec:
-  description: Qualify HTTP method isolation against the stateless mock only.
+  description: Qualify backend HTTP method and path isolation against the stateless mock only.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: zot-auth
@@ -20,8 +20,15 @@ spec:
           rules:
             http:
               - method: "^(GET|HEAD)$"
+                path: '^/v2(/?|/[^?]+/(manifests|blobs|referrers)/[^/?]+|/[^?]+/tags/list)([?].*)?$'
+              - method: "^GET$"
+                path: '^/(livez|readyz|startupz)$'
+              # Preserve only the mock proxy's own startup/liveness endpoint.
+              - method: "^GET$"
+                path: '^/healthz$'
     - fromEndpoints:
         - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
             app.kubernetes.io/name: zot-auth
             app.kubernetes.io/instance: zot
       toPorts:
