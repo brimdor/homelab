@@ -347,10 +347,20 @@ def storage_contract(api, pods):
 
 
 def preserve_storage(api, refs):
+    # Fresh typed lists keep every exact binding check without spawning a client per volume.
+    resources = {'Deployment': 'deployments', 'StatefulSet': 'statefulsets', 'pvc': 'pvc', 'pv': 'pv'}
+    current = {}
+    for kind in sorted({ref['kind'] for ref in refs}):
+        actors.require(kind in resources, 'unreviewed storage contract resource')
+        items = api.call('get', resources[kind], *([] if kind == 'pv' else ['-A']), '-o', 'json')['items']
+        for item in items:
+            key = (kind, item['metadata'].get('namespace', ''), item['metadata']['name'])
+            actors.require(key not in current, 'duplicate storage contract resource')
+            current[key] = item
     for ref in refs:
-        item = api.call('get', ref['kind'], ref['name'],
-                        *(['-n', ref['namespace']] if ref['namespace'] else []), '-o', 'json')
-        actors.require(item['metadata']['uid'] == ref['uid'] and not item['metadata'].get('deletionTimestamp') and
+        item = current.get((ref['kind'], ref['namespace'], ref['name']))
+        actors.require(item is not None and item['metadata']['uid'] == ref['uid'] and
+                       not item['metadata'].get('deletionTimestamp') and
                        hashed(item['spec']) == ref['spec_sha256'], 'application storage or access mode changed')
         if ref['kind'] in ('pvc', 'pv'):
             actors.require(item['status']['phase'] == 'Bound', 'application volume is no longer Bound')

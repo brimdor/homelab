@@ -98,17 +98,21 @@ class SerialImagePullTests(unittest.TestCase):
         subject.storage_boundary([pod], 'charmander')
         with self.assertRaises(RuntimeError):
             subject.storage_boundary([dict(pod, metadata={'namespace': 'zot'})], 'charmander')
-        item = {'metadata': {'uid': 'original'}, 'spec': {'accessModes': ['ReadWriteOnce']},
+        item = {'metadata': {'uid': 'original', 'namespace': 'budget', 'name': 'budget'}, 'spec': {'accessModes': ['ReadWriteOnce']},
                 'status': {'phase': 'Bound'}}
         ref = {'kind': 'pvc', 'namespace': 'budget', 'name': 'budget', 'uid': 'original',
                'spec_sha256': subject.hashed(item['spec'])}
         from unittest.mock import Mock
-        api = Mock(); api.call.return_value = item
+        api = Mock(); api.call.return_value = {'items': [item]}
         subject.preserve_storage(api, [ref])
         for changed in (dict(item, spec={'accessModes': ['ReadWriteMany']}),
-                        dict(item, metadata={'uid': 'replacement'}),
+                        dict(item, metadata={'uid': 'replacement', 'namespace': 'budget', 'name': 'budget'}),
                         dict(item, status={'phase': 'Pending'})):
-            api.call.return_value = changed
+            api.call.return_value = {'items': [changed]}
+            with self.assertRaises(RuntimeError):
+                subject.preserve_storage(api, [ref])
+        for items in ([], [item, item]):
+            api.call.return_value = {'items': items}
             with self.assertRaises(RuntimeError):
                 subject.preserve_storage(api, [ref])
 
