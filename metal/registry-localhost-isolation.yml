@@ -11,6 +11,9 @@
       pikachu:
         name: cilium-vslvg
         uid: 8b32a074-eaa7-4023-90f9-bfda8c7bddcd
+      cyndaquil:
+        name: cilium-22bxl
+        uid: 4c528dec-34cb-472a-8a56-7a949f774674
   module_defaults:
     kubernetes.core.k8s:
       kubeconfig: "{{ playbook_dir }}/kubeconfig.yaml"
