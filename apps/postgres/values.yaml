@@ -106,6 +106,7 @@ app-template:
           image:
             repository: postgres
             tag: "18.4-bookworm"
+            digest: sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
           env:
             TZ: "America/Chicago"
             MAX_BACKUPS: "15"
@@ -153,6 +154,7 @@ app-template:
           image:
             repository: postgres
             tag: "18.4-bookworm"
+            digest: sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
           env:
             TZ: "America/Chicago"
             PGHOST: "127.0.0.1"
