@@ -1,0 +1,31 @@
+{{- if .Values.authProxy.policyQualification }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: zot-auth-method-qualification
+  namespace: {{ .Release.Namespace }}
+spec:
+  description: Qualify HTTP method isolation against the stateless mock only.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: zot-auth
+      app.kubernetes.io/instance: zot
+  ingress:
+    - fromEntities:
+        - all
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              - method: "^(GET|HEAD)$"
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: zot-auth
+            app.kubernetes.io/instance: zot
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+{{- end }}
