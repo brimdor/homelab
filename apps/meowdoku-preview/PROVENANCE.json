@@ -87,5 +87,31 @@
     "schema": 2,
     "retained": true,
     "eligible_after_schema3": false
+  },
+  "post_migration_recovery": {
+    "snapshot": "pm6s3-1102t1119",
+    "bytes": 221184,
+    "sha256": "83573d3a9eb6e8263b8152119bbd24b588e697d0599a320c7bdcc3c37dda858e",
+    "nas_server": "10.0.40.3",
+    "nas_path": "/mnt/user/meowdoku-backups",
+    "schema": 3,
+    "isolated_restore_integrity": "ok",
+    "restored_rows_preserved": true,
+    "original_backup_unchanged": true,
+    "live_pvc_mounted_by_restore": false,
+    "schema3_recovery_image": "sha256:7fd2f186765128ec32217bded95f0e6287df054f1d50cf27d6d365aac2456c91"
+  },
+  "deployment_verification": {
+    "sync": "Synced",
+    "health": "Healthy",
+    "node": "bulbasaur",
+    "pvc_uid": "ce19a819-a04d-4b1d-a218-f6aa24a9a3f3",
+    "live_schema": 3,
+    "profiles": 1,
+    "runs": 36,
+    "entries": 2,
+    "valid_public_tls": true,
+    "unauthorized_private_requests": 401,
+    "real_account_renamed_or_deleted": false
   }
 }
