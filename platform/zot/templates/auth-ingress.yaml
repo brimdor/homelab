@@ -1,0 +1,33 @@
+{{- if .Values.authProxy.publicIngress }}
+{{- $backend := .Subcharts.zot }}
+{{- $ingress := $backend.Values.ingress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "zot.fullname" $backend }}
+  namespace: {{ $backend.Values.namespace | default .Release.Namespace }}
+  labels:
+    app: {{ $backend.Chart.Name }}
+    release: {{ .Release.Name }}
+  annotations:
+    {{- toYaml $ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ $ingress.className | quote }}
+  tls:
+    {{- toYaml $ingress.tls | nindent 4 }}
+  rules:
+    {{- range $ingress.hosts }}
+    - host: {{ .host }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ $ingress.pathtype }}
+            backend:
+              service:
+                name: zot-auth
+                port:
+                  number: 5000
+          {{- end }}
+    {{- end }}
+{{- end }}
