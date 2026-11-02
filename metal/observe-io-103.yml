@@ -1,5 +1,5 @@
 ---
-- name: Install the Issue 103 passive host I/O observer
+- name: Govern the Issue 103 passive host-service I/O observer
   hosts: bulbasaur
   gather_facts: false
   any_errors_fatal: true
@@ -13,7 +13,7 @@
           - ansible_limit == 'bulbasaur'
           - inventory_hostname == 'bulbasaur'
           - ansible_host == '10.0.20.13'
-          - io_capture_action == 'disable'
+          - io_capture_action in ['disable', 'qualify']
     - name: Respect persistent maintenance ownership
       ansible.builtin.import_tasks: tasks/maintenance-guard.yml
     - name: Verify the existing host identity before installing anything
@@ -45,7 +45,7 @@
         mode: '0644'
         content: |
           [Unit]
-          Description=Issue 103 private host I/O evidence
+          Description=Issue 103 private host-service aggregate I/O evidence
           After=local-fs.target
 
           [Service]
@@ -64,7 +64,7 @@
           ProtectKernelModules=yes
           ProtectKernelLogs=yes
           ProtectControlGroups=yes
-          CapabilityBoundingSet=CAP_PERFMON
+          CapabilityBoundingSet=
           RestrictAddressFamilies=AF_UNIX
           Nice=19
           IOSchedulingClass=idle
@@ -93,7 +93,7 @@
 
           [Install]
           WantedBy=timers.target
-    - name: Keep the refused observer stopped and disabled
+    - name: Stop and disable observation before applying qualification
       ansible.builtin.systemd_service:
         name: homelab-io-103.service
         daemon_reload: true
@@ -104,3 +104,59 @@
         name: homelab-io-103.timer
         enabled: false
         state: stopped
+    - name: Qualify the published aggregate observer
+      when: io_capture_action == 'qualify'
+      block:
+        - name: Bind a fresh qualification timestamp
+          ansible.builtin.command: /usr/bin/python3 -B -c 'import time; print(time.time())'
+          register: io_capture_started
+          changed_when: false
+        - name: Observe existing host-service traffic
+          block:
+            - name: Start only the published service
+              ansible.builtin.systemd_service:
+                name: homelab-io-103.service
+                state: started
+            - name: Collect a brief native sample
+              ansible.builtin.pause:
+                seconds: 20
+            - name: Require the aggregate collector still running
+              ansible.builtin.command: systemctl is-active homelab-io-103.service
+              changed_when: false
+          always:
+            - name: Stop and reap the owned qualification
+              ansible.builtin.systemd_service:
+                name: homelab-io-103.service
+                state: stopped
+        - name: Accept the actual stopped private evidence
+          ansible.builtin.command:
+            argv:
+              - /usr/bin/python3
+              - -B
+              - /usr/local/libexec/homelab-io-103.py
+              - --accept-after
+              - "{{ io_capture_started.stdout }}"
+          changed_when: false
+        - name: Enable observation on future boots after native acceptance
+          ansible.builtin.systemd_service:
+            name: homelab-io-103.service
+            enabled: true
+        - name: Enable the observation calendar after native acceptance
+          ansible.builtin.systemd_service:
+            name: homelab-io-103.timer
+            enabled: true
+            state: started
+      rescue:
+        - name: Leave an unaccepted service stopped and disabled
+          ansible.builtin.systemd_service:
+            name: homelab-io-103.service
+            enabled: false
+            state: stopped
+        - name: Leave an unaccepted calendar stopped and disabled
+          ansible.builtin.systemd_service:
+            name: homelab-io-103.timer
+            enabled: false
+            state: stopped
+        - name: Preserve the failed qualification as a failure
+          ansible.builtin.fail:
+            msg: Native aggregate qualification failed; both observer units remain disabled.
