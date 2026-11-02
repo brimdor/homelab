@@ -23,6 +23,8 @@ PV_UID = "e83c623f-adf2-45ab-92b0-b568c37540f3"
 SYSTEM_ID = "7702033148198322214"
 IMAGE = "docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e"
 SOURCE_CONTAINER = "218b0fb30daefaf042b2e42b3f6e20cd3e063850e60c026565c266924f7dd865"
+POST_MAINTENANCE_SOURCE = ("c5e0d9a0-9fed-48db-9955-9306dee688f7",
+                           "e7b827becfc9f0cc2f56970ec703c73b3a19496da0326c3ee53d486ddaedb052")
 
 
 
@@ -48,7 +50,9 @@ def configure_profile(profile):
                  profile["receiver_version"] == k3s.VERSIONS[-1] and
                  any(state["totodile"] == profile["source_version"] and
                      state["pikachu"] == profile["receiver_version"]
-                     for state in k3s.completion_states())) or
+                     for state in k3s.completion_states()) or
+                 profile["source_version"] == profile["receiver_version"] == k3s.VERSIONS[-1] and
+                 (profile["pod_uid"], profile["container_id"]) == POST_MAINTENANCE_SOURCE) or
             not isinstance(profile["pod_uid"], str) or
             not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", profile["pod_uid"]) or
             not isinstance(profile["container_id"], str) or

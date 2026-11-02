@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "node": "totodile",
+  "node_uid": "83e0e536-e94a-45a1-8dfb-1cedac1e9bd7",
+  "source_version": "v1.36.5+k3s1",
+  "receiver_version": "v1.36.5+k3s1",
+  "pod_uid": "c5e0d9a0-9fed-48db-9955-9306dee688f7",
+  "container_id": "e7b827becfc9f0cc2f56970ec703c73b3a19496da0326c3ee53d486ddaedb052",
+  "pvc_uid": "2b7b4f6f-d198-4bb1-adc0-65467a8840a6",
+  "pv_uid": "e83c623f-adf2-45ab-92b0-b568c37540f3",
+  "system_identifier": "7702033148198322214",
+  "image": "docker.io/brimdor/postgres@sha256:cf396ec97def9e03769e1736e7f1224b989bb664ead28e49dc28815e5c25988e"
+}

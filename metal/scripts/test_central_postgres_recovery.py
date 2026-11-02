@@ -104,6 +104,17 @@ class RecoveryProfileTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "unreviewed protected PostgreSQL"):
                     recovery.configure_profile(self.profile(source, receiver))
 
+    def test_exact_completed_source_can_use_matching_final_receiver(self):
+        final = recovery.k3s.VERSIONS[-1]
+        profile = self.profile(final, final)
+        profile['pod_uid'], profile['container_id'] = recovery.POST_MAINTENANCE_SOURCE
+        recovery.configure_profile(profile)
+        self.assertEqual(recovery.CAPTURE_VERSION, final)
+        self.assertEqual(recovery.RESTORE_VERSION, final)
+        for key in ('pod_uid', 'container_id'):
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                recovery.configure_profile({**profile, key: self.profile(final, final)[key]})
+
     def test_later_receiver_keeps_all_database_and_native_identity_guards(self):
         profile = self.profile(recovery.k3s.VERSIONS[2], recovery.k3s.VERSIONS[-1])
         for key, value in {
