@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remove only published terminal eviction objects after their replacements recover."""
+"""Remove published terminal Deployment Pod objects after their replacements recover."""
 
 import argparse
 import json
@@ -29,25 +29,34 @@ def healthy(resource):
 def terminal(resource, node, reference, controller):
     statuses = (resource['status'].get('containerStatuses', []) +
                 resource['status'].get('initContainerStatuses', []))
+    phase = reference['phase']
+    disposition = (phase == 'Failed' and reference['reason'] == 'Evicted')
+    if phase == 'Succeeded' and reference['reason'] is None:
+        mains = resource['status'].get('containerStatuses', [])
+        disposition = (resource['spec'].get('restartPolicy') == 'Always' and bool(mains) and
+                       {c['name'] for c in mains} == {c['name'] for c in resource['spec']['containers']} and
+                       all(c.get('state', {}).get('terminated', {}).get('exitCode') == 0 for c in statuses))
     return (resource['metadata']['uid'] == reference['uid'] and
             resource['metadata']['name'] == reference['name'] and
             not resource['metadata'].get('deletionTimestamp') and
             resource['spec'].get('nodeName') == node and
-            resource['status'].get('phase') == 'Failed' and
-            resource['status'].get('reason') == 'Evicted' and
+            disposition and resource['status'].get('phase') == phase and
+            resource['status'].get('reason') == reference['reason'] and
             owned(resource, 'ReplicaSet', controller) and
             all('terminated' in c.get('state', {}) for c in statuses))
 
 
 def inspect(api, profile):
-    require(profile['issue'] == 103 and profile['node'] == 'pikachu', 'unreviewed cleanup scope')
+    require(profile.get('schema_version') == 2 and profile['issue'] == 103 and
+            profile['node'] == 'pikachu', 'unreviewed cleanup scope')
     node = api.call('get', 'node', profile['node'], '-o', 'json')
     conditions = {c['type']: c['status'] for c in node['status']['conditions']}
     require(not node['spec'].get('unschedulable') and conditions.get('Ready') == 'True' and
             all(conditions.get(k) == 'False' for k in ('DiskPressure', 'MemoryPressure', 'PIDPressure')),
             'node pressure or readiness has not recovered')
     targets, absent = {}, []
-    for namespace, application in profile['applications'].items():
+    for application in profile['applications']:
+        namespace = application['namespace']
         deployment = api.call('get', 'deployment', application['deployment']['name'], '-n', namespace, '-o', 'json')
         status = deployment['status']
         require(deployment['metadata']['uid'] == application['deployment']['uid'] and
@@ -75,7 +84,12 @@ def inspect(api, profile):
 
 
 def remove(api, profile, uid):
-    targets, _ = inspect(api, profile)
+    matches = [(application, reference) for application in profile['applications']
+               for reference in application['targets'] if reference['uid'] == uid]
+    require(len(matches) == 1, 'one unique published target required')
+    application, reference = matches[0]
+    scoped = dict(profile, applications=[dict(application, targets=[reference])])
+    targets, _ = inspect(api, scoped)
     require(uid in targets, 'target absent or unpublished; do not replay an uncertain deletion')
     namespace, pod = targets[uid]
     options = {'apiVersion': 'v1', 'kind': 'DeleteOptions', 'preconditions': {

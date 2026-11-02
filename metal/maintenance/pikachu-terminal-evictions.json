@@ -1,9 +1,10 @@
 {
   "issue": 103,
   "node": "pikachu",
-  "cause": "Evicted during the previously repaired DiskPressure incident",
-  "applications": {
-    "pointguide": {
+  "cause": "26 historical evictions plus eight obsolete Deployment-owned completed Pod objects; original status retained in evidence",
+  "applications": [
+    {
+      "namespace": "pointguide",
       "deployment": {
         "name": "pointguide",
         "uid": "def01749-4984-4d49-8290-d22f0fdbfbed"
@@ -19,87 +20,128 @@
       "targets": [
         {
           "name": "pointguide-5755bbd444-42kdf",
-          "uid": "99e95302-bfa1-40a4-a766-64d541d5f5e9"
+          "uid": "99e95302-bfa1-40a4-a766-64d541d5f5e9",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-494n9",
-          "uid": "714e427e-df74-4634-a5ee-2543fec26c39"
+          "uid": "714e427e-df74-4634-a5ee-2543fec26c39",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-5595h",
-          "uid": "0dcd35ef-cbaf-4624-a3ab-100653c7b074"
+          "uid": "0dcd35ef-cbaf-4624-a3ab-100653c7b074",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-6kvdb",
-          "uid": "eb97c179-a060-49e1-8a37-4bdcb92423a1"
+          "uid": "eb97c179-a060-49e1-8a37-4bdcb92423a1",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-6q7qq",
-          "uid": "6d9b4a3d-a960-4ba1-850f-d925e929f500"
+          "uid": "6d9b4a3d-a960-4ba1-850f-d925e929f500",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-8mmdf",
-          "uid": "f7b206c3-0f00-4096-a989-1b65d1c45452"
+          "uid": "f7b206c3-0f00-4096-a989-1b65d1c45452",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-cn6xl",
-          "uid": "450046c8-0fa2-4cb0-ad97-4760a6e0931a"
+          "uid": "450046c8-0fa2-4cb0-ad97-4760a6e0931a",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-cp8c4",
-          "uid": "4f436108-d11d-4bdd-af79-7343f15050b5"
+          "uid": "4f436108-d11d-4bdd-af79-7343f15050b5",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-dv7xn",
-          "uid": "a3df7012-d3c2-4596-805a-a10fc6ec3ff6"
+          "uid": "a3df7012-d3c2-4596-805a-a10fc6ec3ff6",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-fcw4t",
-          "uid": "2b456b4e-2456-4ed8-b1f3-900447a29b6d"
+          "uid": "2b456b4e-2456-4ed8-b1f3-900447a29b6d",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-flzq8",
-          "uid": "e59e1488-79e3-4b63-838d-8354c4c98f5b"
+          "uid": "e59e1488-79e3-4b63-838d-8354c4c98f5b",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-g788f",
-          "uid": "2c7f2336-99fd-44ce-9920-7be8e9184b24"
+          "uid": "2c7f2336-99fd-44ce-9920-7be8e9184b24",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-gjshc",
-          "uid": "44158357-53fa-46dc-88bd-c8c594001917"
+          "uid": "44158357-53fa-46dc-88bd-c8c594001917",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-gjxbt",
-          "uid": "5cc0b887-eb29-4b41-9f1d-21a5bd3e8169"
+          "uid": "5cc0b887-eb29-4b41-9f1d-21a5bd3e8169",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-p4rfm",
-          "uid": "ee67ad0a-e91f-4cef-a9ce-b9a19060e2b5"
+          "uid": "ee67ad0a-e91f-4cef-a9ce-b9a19060e2b5",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-t28fw",
-          "uid": "0f6f064f-01fb-456a-9e93-cdfea8922662"
+          "uid": "0f6f064f-01fb-456a-9e93-cdfea8922662",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-tkfht",
-          "uid": "46d140ee-8201-45f4-828f-c54740a2f67d"
+          "uid": "46d140ee-8201-45f4-828f-c54740a2f67d",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-vjd5b",
-          "uid": "08b9a44a-769c-4ea2-add1-6a760d13035c"
+          "uid": "08b9a44a-769c-4ea2-add1-6a760d13035c",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-vjjkb",
-          "uid": "e34329d1-d073-4436-8257-37fe9f54bb4d"
+          "uid": "e34329d1-d073-4436-8257-37fe9f54bb4d",
+          "phase": "Failed",
+          "reason": "Evicted"
         },
         {
           "name": "pointguide-5755bbd444-xj558",
-          "uid": "d0b6b2f2-e722-4d5a-8c9f-4be506deaa4f"
+          "uid": "d0b6b2f2-e722-4d5a-8c9f-4be506deaa4f",
+          "phase": "Failed",
+          "reason": "Evicted"
         }
       ]
     },
-    "second-brain": {
+    {
+      "namespace": "second-brain",
       "deployment": {
         "name": "second-brain",
         "uid": "17883dd6-0740-4c46-be77-20dfcea4ae75"
@@ -115,11 +157,14 @@
       "targets": [
         {
           "name": "second-brain-849fd69bc9-hggs9",
-          "uid": "686c8e32-6535-4c13-8cd4-2f23b35caaa8"
+          "uid": "686c8e32-6535-4c13-8cd4-2f23b35caaa8",
+          "phase": "Failed",
+          "reason": "Evicted"
         }
       ]
     },
-    "humbleai": {
+    {
+      "namespace": "humbleai",
       "deployment": {
         "name": "humbleai",
         "uid": "86bab80e-f0a8-4347-ade6-56c3d64cae97"
@@ -135,11 +180,14 @@
       "targets": [
         {
           "name": "humbleai-c48bc974b-x7kj9",
-          "uid": "505a847a-cdb0-4b45-a831-bf442df0c499"
+          "uid": "505a847a-cdb0-4b45-a831-bf442df0c499",
+          "phase": "Failed",
+          "reason": "Evicted"
         }
       ]
     },
-    "pages": {
+    {
+      "namespace": "pages",
       "deployment": {
         "name": "pages",
         "uid": "f1cd67cb-f5fe-442d-8b87-5c3f84ca0eb1"
@@ -155,11 +203,14 @@
       "targets": [
         {
           "name": "pages-6d87cbc4b9-7mxrz",
-          "uid": "e9998fbf-58a1-4e62-8c88-7338f9b029f3"
+          "uid": "e9998fbf-58a1-4e62-8c88-7338f9b029f3",
+          "phase": "Failed",
+          "reason": "Evicted"
         }
       ]
     },
-    "pointview-canary": {
+    {
+      "namespace": "pointview-canary",
       "deployment": {
         "name": "pointview-canary",
         "uid": "076838cc-a102-40ef-933b-62f658e818a3"
@@ -175,11 +226,14 @@
       "targets": [
         {
           "name": "pointview-canary-7fddfb5cb7-h6ctt",
-          "uid": "87a94f01-46d6-4a91-a829-a670d2138a98"
+          "uid": "87a94f01-46d6-4a91-a829-a670d2138a98",
+          "phase": "Failed",
+          "reason": "Evicted"
         }
       ]
     },
-    "pointview": {
+    {
+      "namespace": "pointview",
       "deployment": {
         "name": "pointview",
         "uid": "7e18dd42-cf69-4e0c-972e-51267472a21e"
@@ -195,11 +249,14 @@
       "targets": [
         {
           "name": "pointview-7f5df9ff69-45ngg",
-          "uid": "5a8ef1d2-f163-4201-acae-1fb0b4b40c9e"
+          "uid": "5a8ef1d2-f163-4201-acae-1fb0b4b40c9e",
+          "phase": "Failed",
+          "reason": "Evicted"
         }
       ]
     },
-    "sonarr": {
+    {
+      "namespace": "sonarr",
       "deployment": {
         "name": "sonarr",
         "uid": "68da4567-47f8-41e9-9a26-5db52d661629"
@@ -215,9 +272,196 @@
       "targets": [
         {
           "name": "sonarr-56bc4f585f-zfvzj",
-          "uid": "a0948ba3-fbc4-4933-8699-4d17985eccb3"
+          "uid": "a0948ba3-fbc4-4933-8699-4d17985eccb3",
+          "phase": "Failed",
+          "reason": "Evicted"
+        }
+      ]
+    },
+    {
+      "namespace": "builder",
+      "deployment": {
+        "name": "builder",
+        "uid": "170349b8-f7c7-488a-9efc-ccb309c54a38"
+      },
+      "replicaset": {
+        "name": "builder-75d89f6987",
+        "uid": "bdf37412-bc5e-45f8-96f0-2571ea0e4b4a"
+      },
+      "replacement": {
+        "name": "builder-75d89f6987-tfqqg",
+        "uid": "343403f7-0c02-4157-afa1-66998a76fee2"
+      },
+      "targets": [
+        {
+          "name": "builder-75d89f6987-7rvqf",
+          "uid": "e9702b9d-f049-47cf-8f1e-c4b1fc3f20e6",
+          "phase": "Succeeded",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "namespace": "external-dns",
+      "deployment": {
+        "name": "external-dns",
+        "uid": "ad383efd-361f-4531-9f6b-0a2baf81dec1"
+      },
+      "replicaset": {
+        "name": "external-dns-6d4756ff94",
+        "uid": "a034a8b7-7342-4f20-9f90-4f0b4b59a2cd"
+      },
+      "replacement": {
+        "name": "external-dns-6d4756ff94-dd5n8",
+        "uid": "d8f7029d-9a92-471f-bda5-32e1b81cf29c"
+      },
+      "targets": [
+        {
+          "name": "external-dns-6d4756ff94-9bvdz",
+          "uid": "de7a0429-6ca9-4ec4-b92f-b92947cf9250",
+          "phase": "Succeeded",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "namespace": "grafana",
+      "deployment": {
+        "name": "grafana",
+        "uid": "99a2a511-745b-49d3-8d70-07d4b1cf61c1"
+      },
+      "replicaset": {
+        "name": "grafana-5f895dfd44",
+        "uid": "8e92ab7b-8af6-4806-a3cd-61fbf8a8bc74"
+      },
+      "replacement": {
+        "name": "grafana-5f895dfd44-wvbjq",
+        "uid": "ec36faed-51e8-4cd7-84d5-b3580352ec31"
+      },
+      "targets": [
+        {
+          "name": "grafana-5f895dfd44-svj25",
+          "uid": "f94c4532-e07c-4b03-84d2-89a48cb20b63",
+          "phase": "Succeeded",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "namespace": "sporecast",
+      "deployment": {
+        "name": "sporecast-frontend",
+        "uid": "90743f70-26be-477c-b8ed-2494f0101d62"
+      },
+      "replicaset": {
+        "name": "sporecast-frontend-5d44b6fbd8",
+        "uid": "ad6287e7-763f-493d-bb85-5b4f826d07fd"
+      },
+      "replacement": {
+        "name": "sporecast-frontend-5d44b6fbd8-kztb4",
+        "uid": "1c8544f7-55dc-44dd-87c0-e9f09653eeb7"
+      },
+      "targets": [
+        {
+          "name": "sporecast-frontend-5d44b6fbd8-hg5c4",
+          "uid": "6519b664-d74e-491f-aaa0-1bc5321a08aa",
+          "phase": "Succeeded",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "namespace": "sporecast",
+      "deployment": {
+        "name": "sporecast-main",
+        "uid": "f370d547-688a-4bf9-b98f-c1821df9445d"
+      },
+      "replicaset": {
+        "name": "sporecast-main-56b776d5d7",
+        "uid": "db067c26-9f52-42c4-9bac-0a941ef13aa8"
+      },
+      "replacement": {
+        "name": "sporecast-main-56b776d5d7-t6gvb",
+        "uid": "13278bd2-fdd7-410a-bff0-b7e1cc1347d2"
+      },
+      "targets": [
+        {
+          "name": "sporecast-main-56b776d5d7-twfhf",
+          "uid": "dc6b7990-a2ef-4cb1-b7ca-389a7a5d1d69",
+          "phase": "Succeeded",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "namespace": "sporecast-canary",
+      "deployment": {
+        "name": "sporecast-canary-frontend",
+        "uid": "4de54525-c7d8-4d1f-8270-f2b497c663ca"
+      },
+      "replicaset": {
+        "name": "sporecast-canary-frontend-6bd69bcbf7",
+        "uid": "a4f79de2-b933-4cdf-ad33-8f9c688bcfdb"
+      },
+      "replacement": {
+        "name": "sporecast-canary-frontend-6bd69bcbf7-sj5tx",
+        "uid": "1ffad06e-8f2a-446b-b317-2e767b86b8ad"
+      },
+      "targets": [
+        {
+          "name": "sporecast-canary-frontend-6bd69bcbf7-fskkn",
+          "uid": "9e8f839e-ecf4-4192-afe6-872fcded17ac",
+          "phase": "Succeeded",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "namespace": "tamalotl",
+      "deployment": {
+        "name": "tamalotl",
+        "uid": "3226ee5e-9385-411a-be84-243d7bb2de5f"
+      },
+      "replicaset": {
+        "name": "tamalotl-f86f44584",
+        "uid": "22ef8bc2-73c4-4383-b831-0e0440383d47"
+      },
+      "replacement": {
+        "name": "tamalotl-f86f44584-zc84h",
+        "uid": "a2fd8840-03dc-43ad-94d4-dc3ce7ec2198"
+      },
+      "targets": [
+        {
+          "name": "tamalotl-f86f44584-4lblm",
+          "uid": "88cbaebb-1ea8-47be-a690-5b47ddd328c8",
+          "phase": "Succeeded",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "namespace": "tamalotl-canary",
+      "deployment": {
+        "name": "tamalotl-canary",
+        "uid": "db8725fb-5242-46c7-9da5-5b4fe024b6b5"
+      },
+      "replicaset": {
+        "name": "tamalotl-canary-87db8d588",
+        "uid": "ed1e3c0e-f7ea-4bff-8395-5f6183dccd14"
+      },
+      "replacement": {
+        "name": "tamalotl-canary-87db8d588-lmq79",
+        "uid": "20bf6a12-034b-4b5f-adca-40fd73193ba4"
+      },
+      "targets": [
+        {
+          "name": "tamalotl-canary-87db8d588-gpth6",
+          "uid": "0d7a50d5-4fb0-4d73-9a55-0878508a7794",
+          "phase": "Succeeded",
+          "reason": null
         }
       ]
     }
-  }
+  ],
+  "schema_version": 2
 }
