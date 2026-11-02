@@ -62,7 +62,7 @@ spec:
           name: handoff
           mountPath: /handoff
       - name: mint
-        image: 10.0.20.11:32309/tsurreal/hq@sha256:e5b1fd08e8c006e2fac54ffab99bbdd9614e9f1d37f3724b91c6a543d0f048da
+        image: 10.0.20.11:32309/tsurreal/hq@sha256:9767faef1781170830aac37524cf1225fb2cbe1bc7b95220d0fdfd3209983e38
         imagePullPolicy: IfNotPresent
         command:
         - /opt/tsurreal/package/hq
