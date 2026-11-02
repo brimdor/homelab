@@ -10,13 +10,13 @@ app-template:
       strategy: Recreate
       replicas: 1
       annotations:
-        tsurreal.zuriel-labs.io/source-commit: 7a88586e877909842a82120272d1b3e0bf15ac7c
-        tsurreal.zuriel-labs.io/source-tree: b18ecc91cbe6cc72cface96bdbad3366d6e492ec
+        tsurreal.zuriel-labs.io/source-commit: 0e2a942f8de9d852b9cf19463147ae7186f642eb
+        tsurreal.zuriel-labs.io/source-tree: 8345aa85a20dcb22b4a1049d4232e92e3944742c
       initContainers:
         prepare-identity:
           image:
             repository: 10.0.20.11:32309/tsurreal/hq
-            digest: sha256:9767faef1781170830aac37524cf1225fb2cbe1bc7b95220d0fdfd3209983e38
+            digest: sha256:82fbed62d0ec31ddf5550eb74eb84aaaa2ef8ad9765b32e04b5ae565a4f2d475
             pullPolicy: IfNotPresent
           command:
           - /opt/tsurreal/package/hq
@@ -47,7 +47,7 @@ app-template:
         hq:
           image:
             repository: 10.0.20.11:32309/tsurreal/hq
-            digest: sha256:9767faef1781170830aac37524cf1225fb2cbe1bc7b95220d0fdfd3209983e38
+            digest: sha256:82fbed62d0ec31ddf5550eb74eb84aaaa2ef8ad9765b32e04b5ae565a4f2d475
             pullPolicy: IfNotPresent
           args:
           - --config
