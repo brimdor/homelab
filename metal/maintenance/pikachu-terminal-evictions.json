@@ -1,0 +1,123 @@
+{
+  "issue": 103,
+  "node": "pikachu",
+  "cause": "Evicted during the previously repaired DiskPressure incident",
+  "applications": {
+    "pointguide": {
+      "deployment": {
+        "name": "pointguide",
+        "uid": "def01749-4984-4d49-8290-d22f0fdbfbed"
+      },
+      "replicaset": {
+        "name": "pointguide-5755bbd444",
+        "uid": "092e28ee-bd0e-4c1f-b5f4-8ef2af6edd20"
+      },
+      "replacement": {
+        "name": "pointguide-5755bbd444-8mxgc",
+        "uid": "d2771b36-f361-436d-8994-315349903381"
+      },
+      "targets": [
+        {
+          "name": "pointguide-5755bbd444-42kdf",
+          "uid": "99e95302-bfa1-40a4-a766-64d541d5f5e9"
+        },
+        {
+          "name": "pointguide-5755bbd444-494n9",
+          "uid": "714e427e-df74-4634-a5ee-2543fec26c39"
+        },
+        {
+          "name": "pointguide-5755bbd444-5595h",
+          "uid": "0dcd35ef-cbaf-4624-a3ab-100653c7b074"
+        },
+        {
+          "name": "pointguide-5755bbd444-6kvdb",
+          "uid": "eb97c179-a060-49e1-8a37-4bdcb92423a1"
+        },
+        {
+          "name": "pointguide-5755bbd444-6q7qq",
+          "uid": "6d9b4a3d-a960-4ba1-850f-d925e929f500"
+        },
+        {
+          "name": "pointguide-5755bbd444-8mmdf",
+          "uid": "f7b206c3-0f00-4096-a989-1b65d1c45452"
+        },
+        {
+          "name": "pointguide-5755bbd444-cn6xl",
+          "uid": "450046c8-0fa2-4cb0-ad97-4760a6e0931a"
+        },
+        {
+          "name": "pointguide-5755bbd444-cp8c4",
+          "uid": "4f436108-d11d-4bdd-af79-7343f15050b5"
+        },
+        {
+          "name": "pointguide-5755bbd444-dv7xn",
+          "uid": "a3df7012-d3c2-4596-805a-a10fc6ec3ff6"
+        },
+        {
+          "name": "pointguide-5755bbd444-fcw4t",
+          "uid": "2b456b4e-2456-4ed8-b1f3-900447a29b6d"
+        },
+        {
+          "name": "pointguide-5755bbd444-flzq8",
+          "uid": "e59e1488-79e3-4b63-838d-8354c4c98f5b"
+        },
+        {
+          "name": "pointguide-5755bbd444-g788f",
+          "uid": "2c7f2336-99fd-44ce-9920-7be8e9184b24"
+        },
+        {
+          "name": "pointguide-5755bbd444-gjshc",
+          "uid": "44158357-53fa-46dc-88bd-c8c594001917"
+        },
+        {
+          "name": "pointguide-5755bbd444-gjxbt",
+          "uid": "5cc0b887-eb29-4b41-9f1d-21a5bd3e8169"
+        },
+        {
+          "name": "pointguide-5755bbd444-p4rfm",
+          "uid": "ee67ad0a-e91f-4cef-a9ce-b9a19060e2b5"
+        },
+        {
+          "name": "pointguide-5755bbd444-t28fw",
+          "uid": "0f6f064f-01fb-456a-9e93-cdfea8922662"
+        },
+        {
+          "name": "pointguide-5755bbd444-tkfht",
+          "uid": "46d140ee-8201-45f4-828f-c54740a2f67d"
+        },
+        {
+          "name": "pointguide-5755bbd444-vjd5b",
+          "uid": "08b9a44a-769c-4ea2-add1-6a760d13035c"
+        },
+        {
+          "name": "pointguide-5755bbd444-vjjkb",
+          "uid": "e34329d1-d073-4436-8257-37fe9f54bb4d"
+        },
+        {
+          "name": "pointguide-5755bbd444-xj558",
+          "uid": "d0b6b2f2-e722-4d5a-8c9f-4be506deaa4f"
+        }
+      ]
+    },
+    "second-brain": {
+      "deployment": {
+        "name": "second-brain",
+        "uid": "17883dd6-0740-4c46-be77-20dfcea4ae75"
+      },
+      "replicaset": {
+        "name": "second-brain-849fd69bc9",
+        "uid": "ef13c92a-8ac8-467e-881d-04120ecb10e8"
+      },
+      "replacement": {
+        "name": "second-brain-849fd69bc9-h7qps",
+        "uid": "ac028aa6-7dac-42fa-b619-58a7124b7172"
+      },
+      "targets": [
+        {
+          "name": "second-brain-849fd69bc9-hggs9",
+          "uid": "686c8e32-6535-4c13-8cd4-2f23b35caaa8"
+        }
+      ]
+    }
+  }
+}
