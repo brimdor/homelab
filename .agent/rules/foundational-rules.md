@@ -74,7 +74,7 @@ Establish the canonical checkout, source, branch, kubeconfig, and target before 
 | `KUBECONFIG` | `/Users/chris/Documents/Github/homelab/metal/kubeconfig.yaml` |
 | API endpoint | `https://10.0.20.50:6443` |
 
-Verify client/server version skew, authentication, and context without displaying credentials. The repository pins k3s `v1.33.6+k3s1`; Kubernetes 1.33 permits kubectl `>=1.32.0,<1.35.0`. The audited kubectl 1.35 versus server 1.33 is incompatible. Select managed compatible tooling; do not install “latest.” Recheck the actual server and keep tooling bounds aligned after upgrades. Read-only requests do not authorize installation.
+Verify client/server version skew, authentication, and context without displaying credentials. The repository pins k3s `v1.36.5+k3s1`; Kubernetes 1.36 permits kubectl `>=1.35.0,<1.38.0` under the [Kubernetes version skew policy](https://kubernetes.io/releases/version-skew-policy/#kubectl). Use the managed compatible kubectl 1.35 client for this cluster; do not install “latest.” Recheck the actual server and keep tooling bounds aligned after upgrades. Read-only requests do not authorize installation.
 
 The baseline helper, run from the canonical checkout after prerequisites pass, is:
 
