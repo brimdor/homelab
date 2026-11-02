@@ -56,7 +56,9 @@ class BulbasaurTests(unittest.TestCase):
             compile(monitor.bindings('bulbasaur') + source, 'bulbasaur-monitor', 'exec')
 
     def test_registry_guard_rejects_movement_restarts_identity_and_storage_changes(self):
-        pod = {'metadata': {'uid': production.ZOT['pod_uid']},
+        pod = {'metadata': {'namespace': 'zot', 'name': 'zot-0', 'uid': production.ZOT['pod_uid'],
+                           'ownerReferences': [{'controller': True, 'kind': 'StatefulSet', 'name': 'zot',
+                                                'uid': 'e2298393-7a40-463f-b50d-d757eaae4f12'}]},
                'spec': {'nodeName': production.ZOT['node']}, 'status': {'conditions': [{'type': 'Ready', 'status': 'True'}],
                'containerStatuses': [{'name': 'zot', 'ready': True, 'restartCount': 0,
                'containerID': production.ZOT['container_id']}]}}
@@ -65,16 +67,23 @@ class BulbasaurTests(unittest.TestCase):
         volume = {'metadata': {'uid': '81d390a2-71fd-48ac-ac2f-49df07bda484', 'name': claim['spec']['volumeName']},
                   'spec': {'claimRef': {'uid': claim['metadata']['uid']}, 'persistentVolumeReclaimPolicy': 'Retain',
                   'nfs': {'server': '10.0.40.3', 'path': '/mnt/user/heartlib/zot-zot-nfs-pvc-pvc-0ce8a5c9-b53a-4b2d-920a-a9efcf82e7a6'}}}
-        for fault in (None, 'movement', 'restart', 'pod', 'container', 'storage', 'deletion'):
+        for fault in (None, 'movement', 'restart', 'pod', 'container', 'storage', 'deletion',
+                      'owner', 'missing', 'duplicate', 'proxy-storage'):
             p, c, v = copy.deepcopy((pod, claim, volume))
+            proxy = {'metadata': {'namespace': 'zot', 'name': 'zot-auth-proxy', 'uid': 'proxy'}, 'spec': {}}
             if fault == 'movement': p['spec']['nodeName'] = 'bulbasaur'
             if fault == 'restart': p['status']['containerStatuses'][0]['restartCount'] = 1
             if fault == 'pod': p['metadata']['uid'] = 'new'
             if fault == 'container': p['status']['containerStatuses'][0]['containerID'] = 'new'
             if fault == 'storage': v['spec']['nfs']['path'] = '/different'
             if fault == 'deletion': p['metadata']['deletionTimestamp'] = 'now'
+            if fault == 'owner': p['metadata']['ownerReferences'][0]['uid'] = 'foreign'
+            if fault == 'proxy-storage': proxy['spec']['volumes'] = [{'persistentVolumeClaim': {'claimName': 'zot-nfs-pvc'}}]
+            members = [proxy, p]
+            if fault == 'missing': members = [proxy]
+            if fault == 'duplicate': members.append(copy.deepcopy(p))
             api = unittest.mock.Mock()
-            api.call.side_effect = lambda *args: {'items': [p]} if args[1] == 'pods' else c if args[1] == 'pvc' else v
+            api.call.side_effect = lambda *args: {'items': members} if args[1] == 'pods' else c if args[1] == 'pvc' else v
             if fault is None:
                 self.assertEqual(production.protected_registry(api)['restarts'], 0)
             else:

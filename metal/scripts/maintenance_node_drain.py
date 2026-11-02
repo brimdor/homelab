@@ -32,10 +32,20 @@ ZOT = {'pod_uid': '5f1fc88b-f064-42ed-96a7-9a31b2ba1c20',
        'pv_uid': '81d390a2-71fd-48ac-ac2f-49df07bda484', 'storage_retained': True}
 
 
+def registry_member(pod):
+    """Identify the protected process without treating stateless proxies as Zot."""
+    metadata = pod['metadata']
+    return (metadata.get('uid') == ZOT['pod_uid'] or metadata.get('name') == 'zot-0' or
+            any(ref.get('kind') == 'StatefulSet' and ref.get('name') == 'zot'
+                for ref in metadata.get('ownerReferences', [])))
+
+
 def retain_registry(api, pod, owner):
-    if owner.get('component') != 'k3s' or pod['metadata']['namespace'] != 'zot':
+    if (owner.get('component') != 'k3s' or pod['metadata']['namespace'] != 'zot' or
+            not registry_member(pod)):
         return False
     actor.require(owner['node'] == ZOT['node'] and pod['spec']['nodeName'] == ZOT['node'] and
+                  pod['metadata']['name'] == 'zot-0' and
                   pod['metadata']['uid'] == ZOT['pod_uid'] and not pod['metadata'].get('deletionTimestamp'),
                   'protected registry Pod identity differs')
     statuses = pod.get('status', {}).get('containerStatuses', [])

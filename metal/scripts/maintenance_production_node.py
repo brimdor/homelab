@@ -20,7 +20,7 @@ import sys
 from fedora_public_key import armor_public_key
 from maintenance_coordination import JOURNAL, Kubectl, Ownership, encoded, require
 from maintenance_api_reader import Reader
-from maintenance_node_drain import ZOT
+from maintenance_node_drain import ZOT, registry_member
 
 
 NODE = 'totodile'
@@ -925,11 +925,21 @@ def prerequisites(api):
     return result
 
 
-def protected_registry(api):
+def protected_registry_pod(api):
     """Node maintenance must preserve the existing NAS-backed registry process."""
     pods = api.call('get', 'pods', '-n', 'zot', '-o', 'json')['items']
-    require(len(pods) == 1, 'protected registry Pod membership changed')
-    pod = pods[0]
+    members = [pod for pod in pods if registry_member(pod)]
+    require(len(members) == 1, 'protected registry Pod membership changed')
+    pod = members[0]
+    owners = [ref for ref in pod['metadata'].get('ownerReferences', []) if ref.get('controller') is True]
+    require(pod['metadata'].get('namespace') == 'zot' and pod['metadata'].get('name') == 'zot-0' and
+            len(owners) == 1 and owners[0].get('kind') == 'StatefulSet' and owners[0].get('name') == 'zot' and
+            owners[0].get('uid') == 'e2298393-7a40-463f-b50d-d757eaae4f12',
+            'protected registry controller identity changed')
+    require(all(not any(v.get('persistentVolumeClaim', {}).get('claimName') == 'zot-nfs-pvc' or
+                        v.get('nfs', {}).get('server') == '10.0.40.3'
+                        for v in other['spec'].get('volumes', [])) for other in pods if other is not pod),
+            'another registry namespace Pod mounts protected storage')
     require(pod['metadata']['uid'] == ZOT['pod_uid'] and
             pod['spec'].get('nodeName') == ZOT['node'] and not pod['metadata'].get('deletionTimestamp') and
             any(c['type'] == 'Ready' and c['status'] == 'True' for c in pod['status'].get('conditions', [])),
@@ -948,6 +958,11 @@ def protected_registry(api):
                 'server': '10.0.40.3',
                 'path': '/mnt/user/heartlib/zot-zot-nfs-pvc-pvc-0ce8a5c9-b53a-4b2d-920a-a9efcf82e7a6'},
             'protected registry storage identity changed')
+    return pod
+
+
+def protected_registry(api):
+    pod = protected_registry_pod(api)
     return {'pod_uid': pod['metadata']['uid'], 'node': ZOT['node'], 'restarts': 0}
 
 

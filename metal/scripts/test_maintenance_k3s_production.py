@@ -540,7 +540,7 @@ class BehaviorTests(unittest.TestCase):
         class API:
             def call(self, *args):
                 return {'items': [pod]}
-        with patch.object(shared, 'protected_registry'), patch.object(shared, 'remote') as remote:
+        with patch.object(shared, 'protected_registry_pod', return_value=pod), patch.object(shared, 'remote') as remote:
             with self.assertRaisesRegex(RuntimeError, 'registry drain reference differs'):
                 production.registry(None, API(), {'namespace': 'zot', 'name': 'zot', 'uid': 'different'})
         remote.assert_not_called()

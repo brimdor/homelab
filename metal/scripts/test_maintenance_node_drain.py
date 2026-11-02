@@ -135,7 +135,7 @@ class NodeDrainTests(unittest.TestCase):
 
     def test_registry_exception_requires_exact_component_container_native_and_storage_proof(self):
         owner = {'node': drain.ZOT['node'], 'component': 'k3s'}
-        pod = {'metadata': {'namespace': 'zot', 'name': 'retained-zot', 'uid': drain.ZOT['pod_uid']},
+        pod = {'metadata': {'namespace': 'zot', 'name': 'zot-0', 'uid': drain.ZOT['pod_uid']},
                'spec': {'nodeName': drain.ZOT['node'], 'containers': [{'name': 'zot', 'image': 'existing'}]},
                'status': {'phase': 'Running', 'containerStatuses': [{'name': 'zot', 'ready': True,
                           'restartCount': 0, 'containerID': drain.ZOT['container_id']}]}}
@@ -143,6 +143,8 @@ class NodeDrainTests(unittest.TestCase):
         api = SimpleNamespace(protected_registry=lambda _: copy.deepcopy(proof))
         self.assertTrue(drain.retain_registry(api, pod, owner))
         self.assertFalse(drain.retain_registry(api, pod, dict(owner, component='fedora')))
+        proxy = {'metadata': {'namespace': 'zot', 'name': 'zot-auth-proxy', 'uid': 'proxy'}, 'spec': {}}
+        self.assertFalse(drain.retain_registry(api, proxy, owner))
         for key in drain.ZOT:
             changed = copy.deepcopy(proof);changed[key] = 'foreign'
             with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, 'native process or storage'):

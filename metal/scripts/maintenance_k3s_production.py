@@ -565,8 +565,7 @@ def native_operation(context):
 
 def registry(args, api, ref=None):
     import maintenance_production_node as production
-    production.protected_registry(api)
-    pods = api.call('get', 'pods', '-n', 'zot', '-o', 'json')['items']; pod = pods[0]
+    pod = production.protected_registry_pod(api)
     if ref is not None:
         actors.require(ref == {'namespace': 'zot', 'name': pod['metadata']['name'], 'uid': ZOT['pod_uid'],
                                'spec_sha256': hashed(pod['spec'])}, 'registry drain reference differs')
