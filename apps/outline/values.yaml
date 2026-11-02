@@ -9,6 +9,9 @@ app-template:
   controllers:
     outline:
       type: deployment
+      annotations:
+        # Explicitly clear the transition's replacement policy under server-side apply.
+        argocd.argoproj.io/sync-options: Replace=false
       replicas: 1
       strategy: Recreate
       pod:
