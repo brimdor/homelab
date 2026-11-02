@@ -1,0 +1,11 @@
+apiVersion: cilium.io/v2
+kind: CiliumNodeConfig
+metadata:
+  name: "registry-localhost-{{ registry_isolation_node }}"
+  namespace: kube-system
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: "{{ registry_isolation_node }}"
+  defaults:
+    allow-localhost: policy

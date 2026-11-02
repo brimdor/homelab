@@ -1,0 +1,31 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: registry-localhost-preserve-host-access
+specs:
+  - description: Preserve existing local-host access outside the registry namespace.
+    endpointSelector:
+      matchExpressions:
+        - key: "k8s:io.kubernetes.pod.namespace"
+          operator: Exists
+        - key: "k8s:io.kubernetes.pod.namespace"
+          operator: NotIn
+          values: [zot]
+    enableDefaultDeny:
+      ingress: false
+      egress: false
+    ingress:
+      - fromEntities: [host]
+  - description: Preserve local-host access to other registry namespace components.
+    endpointSelector:
+      matchLabels:
+        "k8s:io.kubernetes.pod.namespace": zot
+      matchExpressions:
+        - key: "k8s:app.kubernetes.io/name"
+          operator: NotIn
+          values: [zot, zot-auth]
+    enableDefaultDeny:
+      ingress: false
+      egress: false
+    ingress:
+      - fromEntities: [host]

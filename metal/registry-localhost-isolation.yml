@@ -1,0 +1,107 @@
+- name: Qualify registry local-host isolation on one published Cilium agent
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    registry_isolation_mode: inspect
+    registry_isolation_profiles:
+      pikachu:
+        name: cilium-vslvg
+        uid: 8b32a074-eaa7-4023-90f9-bfda8c7bddcd
+  module_defaults:
+    kubernetes.core.k8s:
+      kubeconfig: "{{ playbook_dir }}/kubeconfig.yaml"
+    kubernetes.core.k8s_info:
+      kubeconfig: "{{ playbook_dir }}/kubeconfig.yaml"
+  tasks:
+    - name: Require the explicit published canary scope
+      ansible.builtin.assert:
+        that:
+          - registry_isolation_node | default('') in registry_isolation_profiles
+          - registry_isolation_node in groups['metal']
+          - registry_isolation_mode in ['inspect', 'configure', 'activate']
+          - control_plane_endpoint == '10.0.20.50'
+        fail_msg: Refusing an unpublished node or isolation operation
+
+    - name: Read the selected Cilium agent
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: kube-system
+        name: "{{ registry_isolation_profiles[registry_isolation_node].name }}"
+      register: registry_isolation_agent
+
+    - name: Require the exact ready Cilium Pod before any change
+      ansible.builtin.assert:
+        that:
+          - registry_isolation_agent.resources | length == 1
+          - registry_isolation_agent.resources[0].metadata.uid == registry_isolation_profiles[registry_isolation_node].uid
+          - registry_isolation_agent.resources[0].spec.nodeName == registry_isolation_node
+          - registry_isolation_agent.resources[0].metadata.deletionTimestamp is not defined
+          - registry_isolation_agent.resources[0].metadata.ownerReferences | selectattr('kind', 'equalto', 'DaemonSet') | selectattr('name', 'equalto', 'cilium') | selectattr('controller', 'equalto', true) | list | length == 1
+          - registry_isolation_agent.resources[0].status.containerStatuses | selectattr('ready', 'equalto', false) | list | length == 0
+          - registry_isolation_agent.resources[0].status.containerStatuses | rejectattr('restartCount', 'equalto', 0) | list | length == 0
+
+    - name: Preserve existing host access without enabling default deny
+      kubernetes.core.k8s:
+        state: present
+        apply: true
+        template: roles/cilium/templates/registry-localhost-host-access.yaml
+      when: registry_isolation_mode == 'configure'
+
+    - name: Declare only the selected node local-host policy
+      kubernetes.core.k8s:
+        state: present
+        apply: true
+        template: roles/cilium/templates/registry-localhost-node-config.yaml
+      when: registry_isolation_mode == 'configure'
+
+    - name: Read the exact node override before activation
+      kubernetes.core.k8s_info:
+        api_version: cilium.io/v2
+        kind: CiliumNodeConfig
+        namespace: kube-system
+        name: "registry-localhost-{{ registry_isolation_node }}"
+      register: registry_isolation_override
+      when: registry_isolation_mode == 'activate'
+
+    - name: Require the declared override before recycling its agent
+      ansible.builtin.assert:
+        that:
+          - registry_isolation_override.resources | length == 1
+          - "registry_isolation_override.resources[0].spec.nodeSelector.matchLabels == {'kubernetes.io/hostname': registry_isolation_node}"
+          - "registry_isolation_override.resources[0].spec.defaults == {'allow-localhost': 'policy'}"
+      when: registry_isolation_mode == 'activate'
+
+    - name: Read host-access preservation before activation
+      kubernetes.core.k8s_info:
+        api_version: cilium.io/v2
+        kind: CiliumClusterwideNetworkPolicy
+        name: registry-localhost-preserve-host-access
+      register: registry_isolation_host_policy
+      when: registry_isolation_mode == 'activate'
+
+    - name: Refuse activation without the exact host-access policy
+      ansible.builtin.assert:
+        that:
+          - registry_isolation_host_policy.resources | length == 1
+          - registry_isolation_host_policy.resources[0].specs == (lookup('ansible.builtin.file', 'roles/cilium/templates/registry-localhost-host-access.yaml') | from_yaml).specs
+      when: registry_isolation_mode == 'activate'
+
+    - name: Recycle only the exact old stateless Cilium Pod once
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Pod
+        namespace: kube-system
+        name: "{{ registry_isolation_profiles[registry_isolation_node].name }}"
+        state: absent
+        delete_options:
+          preconditions:
+            uid: "{{ registry_isolation_profiles[registry_isolation_node].uid }}"
+            resourceVersion: "{{ registry_isolation_agent.resources[0].metadata.resourceVersion }}"
+        wait: true
+        wait_timeout: 300
+      when: registry_isolation_mode == 'activate'
