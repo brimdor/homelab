@@ -104,6 +104,41 @@
   <h2>Actual traffic after the mitigation</h2>
   <p>Read-only receipt <code>maintenance103-released-masters-real-pull-envelope-zsg17nxr</code> observed existing traffic, without a synthetic pull or stress test. Squirtle had 12 starts and 12 successful completions after 11:40 UTC; Charmander had eight starts, seven successful completions and one still-open pull after 12:40:30 UTC. Both observed maximum concurrency one through 13:25 UTC, with no window-edge completions. This verifies the intended limit during those real requests, not the sole WAL-stall cause. The open request was not reclassified as a failure.</p>
 
+  <h2>Forward writer evidence — November 2 implementation specification</h2>
+  <p>Existing logs cannot reconstruct the missing host writer. Add a repository-owned passive
+    capture on Bulbasaur only, bound to its existing machine ID, root UUID, Enforcing state and
+    active Node identity. This is diagnosis of CONTROLPLANE_API_STALL, not causal closure or a
+    new hardware claim. The collector reads host-process I/O counters, physical sda counters and
+    I/O pressure with UTC/monotonic timestamps. Skip all Kubernetes application processes,
+    including the excluded temporary applications. Never read arguments, environment, memory,
+    database bytes, file descriptors or NAS paths. Hash unknown host process names.</p>
+  <p>Implementation: <code>metal/scripts/controlplane_io_capture.py</code>, its focused tests and
+    <code>metal/observe-io-103.yml</code>. Use Python's standard library and the existing Ansible
+    workflow; no package installation. A root systemd service has private networking, read-only
+    system/home protections, only read-observation capability, low CPU/I/O priority, and one
+    private state directory. Start at boot and Monday/Wednesday/Friday 01:45 America/Chicago;
+    collect for four hours per activation. This diagnostic window is not a task deadline.
+    The existing 02:00 reboot-required cron entries and Kured configuration remain byte-identical.
+    Preserve all original recovery material. Rollback disables/removes only these exact owned
+    observer units and executable, retaining the private observations.</p>
+  <p>Validate PID reuse/counter-reset refusals, unknown-name redaction, skipped Kubernetes
+    processes, pressure/disk parsing, private exclusive outputs and orderly shutdown. Run
+    <code>python3 -B -m unittest discover -s metal/scripts -p test_controlplane_io_capture.py</code>,
+    narrow pre-commit checks and
+    <code>ansible-playbook --syntax-check -i metal/inventories/prod.yml metal/observe-io-103.yml --limit bulbasaur</code>.
+    Review and publish before execution. Apply with the same explicit inventory/playbook/limit;
+    <code>-e io_capture_action=qualify</code> starts only the owned observer briefly and always
+    stops it afterward. Verify the actual service sandbox, private native records, absent owned
+    running processes, timer's next activation, unchanged node/K3s/Kured/registry identities and
+    Ceph HEALTH_OK. Failed native checks remain findings; never weaken security to pass.</p>
+  <p>The <a href="https://docs.kernel.org/filesystems/proc.html">kernel I/O accounting contract</a>
+    attributes write_bytes at page-dirtying time and exposes cancellation separately. It is not
+    exact device latency or a complete history of exited processes. Kubernetes-process writes
+    remain explicitly outside this collector. The
+    <a href="https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html">systemd timer contract</a>
+    prevents concurrent instances and supports the existing local calendar. A future observation
+    must be time-correlated with native WAL/API evidence before choosing any further repair.</p>
+
   <h2>Bulbasaur recovery receiver — November 2</h2>
   <p>Before Bulbasaur's intervention, fresh protected transfer <code>y_w2sjge</code> stopped.
     Read-only receiver receipt <code>kcp5c_mq</code> found Pikachu with 13,381,926,912 bytes

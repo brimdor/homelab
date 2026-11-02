@@ -1,0 +1,126 @@
+---
+- name: Install the Issue 103 passive host I/O observer
+  hosts: bulbasaur
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    io_capture_action: enable
+    ansible_python_interpreter: /usr/bin/python3
+  pre_tasks:
+    - name: Require the exact reviewed scope
+      ansible.builtin.assert:
+        that:
+          - ansible_limit == 'bulbasaur'
+          - inventory_hostname == 'bulbasaur'
+          - ansible_host == '10.0.20.13'
+          - io_capture_action in ['enable', 'qualify']
+    - name: Respect persistent maintenance ownership
+      ansible.builtin.import_tasks: tasks/maintenance-guard.yml
+    - name: Verify the existing host identity before installing anything
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python3
+          - -B
+          - -c
+          - >-
+            import pathlib,socket,subprocess,os;
+            assert os.geteuid()==0 and socket.gethostname()=='bulbasaur';
+            assert pathlib.Path('/etc/machine-id').read_text().strip()=='f61201c3e2ba4b8cbd31e09f77da2ad0';
+            assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()=='2c59d1d1-d2d8-420e-b3a5-d87eb0437823';
+            assert subprocess.check_output(['getenforce'],text=True).strip()=='Enforcing'
+      changed_when: false
+  tasks:
+    - name: Install the reviewed observer
+      ansible.builtin.copy:
+        src: scripts/controlplane_io_capture.py
+        dest: /usr/local/libexec/homelab-io-103.py
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Declare the passive service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-io-103.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Issue 103 private host I/O evidence
+          After=local-fs.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/python3 -B /usr/local/libexec/homelab-io-103.py --seconds 14400
+          StateDirectory=homelab-io-103
+          StateDirectoryMode=0700
+          UMask=0077
+          NoNewPrivileges=yes
+          PrivateNetwork=yes
+          PrivateTmp=yes
+          PrivateDevices=yes
+          ProtectSystem=strict
+          ProtectHome=yes
+          ProtectKernelTunables=yes
+          ProtectKernelModules=yes
+          ProtectKernelLogs=yes
+          ProtectControlGroups=yes
+          CapabilityBoundingSet=CAP_PERFMON
+          RestrictAddressFamilies=AF_UNIX
+          Nice=19
+          IOSchedulingClass=idle
+          CPUQuota=5%
+          MemoryMax=64M
+          TasksMax=8
+          TimeoutStopSec=20
+          Restart=no
+
+          [Install]
+          WantedBy=multi-user.target
+    - name: Declare the calendar without changing Kured or cron
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-io-103.timer
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Capture before the unchanged MWF restart window
+
+          [Timer]
+          OnCalendar=Mon,Wed,Fri *-*-* 01:45:00 America/Chicago
+          AccuracySec=1s
+          Persistent=false
+
+          [Install]
+          WantedBy=timers.target
+    - name: Enable future boot observation without starting it now
+      ansible.builtin.systemd_service:
+        name: homelab-io-103.service
+        daemon_reload: true
+        enabled: true
+    - name: Enable the calendar
+      ansible.builtin.systemd_service:
+        name: homelab-io-103.timer
+        enabled: true
+        state: started
+    - name: Qualify the actual service and always stop only this owned observation
+      when: io_capture_action == 'qualify'
+      block:
+        - name: Require no existing active observer
+          ansible.builtin.command: systemctl is-active homelab-io-103.service
+          register: io_capture_active
+          failed_when: io_capture_active.rc != 3
+          changed_when: false
+        - name: Start the published observation
+          ansible.builtin.systemd_service:
+            name: homelab-io-103.service
+            state: started
+        - name: Observe existing traffic briefly
+          ansible.builtin.pause:
+            seconds: 20
+      always:
+        - name: Stop only the owned qualification
+          ansible.builtin.systemd_service:
+            name: homelab-io-103.service
+            state: stopped
+          when: io_capture_active.rc | default(0) == 3
