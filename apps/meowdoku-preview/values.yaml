@@ -40,8 +40,8 @@ scheduling:
 
 backup:
   # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
-  enabled: false
-  snapshotId: pm6-1102t0518
+  enabled: true
+  snapshotId: pm6-1102t1103
   restoreQualification: false
   nfs:
     server: 10.0.40.3
