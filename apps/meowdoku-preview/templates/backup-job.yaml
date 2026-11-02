@@ -53,7 +53,7 @@ spec:
               import {openSync,closeSync,writeFileSync,fsyncSync,statSync,statfsSync,readFileSync} from 'node:fs';
               import assert from 'node:assert/strict';
               process.umask(0o077);
-              const expectedBytes=192512,expectedSha256='2b63525ae85e12f7a140ace094e1a84f8cbd229b445dfd06ca3171168c352fe4';
+              const expectedBytes=221184,expectedSha256='a321fed29bd9326b4a0383e73ca8018eeebcd12b9fa3cc57f05676acee61b3bd';
               const chunks=[];let count=0;
               for await(const chunk of process.stdin){count+=chunk.length;if(count>expectedBytes)throw Error('Ciphertext exceeds reviewed snapshot size');chunks.push(chunk)}
               assert.equal(count,expectedBytes);
