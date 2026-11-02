@@ -26,9 +26,12 @@ namespaced Role/RoleBinding, ClusterRole/ClusterRoleBinding, and StorageClass.
 The published chart `4.0.18` ships application `v4.0.2`; these are not interchangeable
 version numbers. Both already ran before adoption. The observed running image
 digest is `sha256:63d5e04551ec8b5aae83b6f35938ca5ddc50a88d85492d9731810c31591fa4c9`.
-The existing image text and pod restart annotation deliberately remain unchanged
-to avoid restarting the controller. Current published versions do not establish
-an active upstream security-maintenance commitment.
+Initial adoption preserved the image text and pod restart annotation to avoid
+restarting the controller. Issue 103 subsequently pins that same running artifact
+by digest through a controlled GitOps rollout. The application version remains
+v4.0.2; chart 4.0.18 is not an application upgrade. The restart annotation, export,
+provisioner identity and storage protections remain unchanged. Current published
+versions do not establish an active upstream security-maintenance commitment.
 
 ## Protected storage contract
 
