@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103 — Bulbasaur passive disk timing</title>
+<style>html{color-scheme:dark}body{background:#10151d;color:#e2e8f0;font:17px/1.6 system-ui;max-width:950px;margin:3rem auto;padding:0 1.5rem}a{color:#8dccff}code{color:#b5e5ce}h1,h2{line-height:1.2}</style>
+<h1>Bulbasaur passive disk timing</h1>
+<p>Status: planned diagnostic, not a verified repair. Issue 103, CONTROLPLANE_API_STALL and METAL_STORAGE_PATH. Prior observations on November 1, 2026 showed root-disk saturation and approximately two-second write/flush latency. Attribution and hardware cause remain unknown.</p>
+<h2>Scope and prerequisites</h2>
+<p>The repository-owned script binds root SSH execution to Bulbasaur’s machine ID, root UUID, disk size, device number and Fedora 44. SELinux must remain enforcing. It observes existing <code>sda</code> I/O for 1,800 seconds. No synthetic load, filesystem writes to production data, disk tuning, package installation, service restart, scheduling change or NAS operation is included.</p>
+<p>Only <code>bpf-biosnoop</code> is extracted from the exact Fedora-signed RPM into a private disposable native directory. The RPM SHA256, full Fedora 44 signing fingerprint, NEVRA and signed per-file digest are checked. Existing native libraries are used. The executable is removed after the owned tracer exits.</p>
+<h2>Measurement and interpretation</h2>
+<p>Queue and service latency are collected separately without a service-latency filter. Every output record is parsed, event losses and unexpected stderr make coverage incomplete, and compact per-minute/process/operation aggregates are retained. Disk statistics and I/O pressure are sampled every ten seconds. UTC timestamps are userspace completion receipt time.</p>
+<p>Upstream attributes requests to the last merged BIO process. Requeues and partial completions limit attribution and timing. A quiet window does not resolve earlier stalls, and timings alone do not establish a hardware failure or an error count. A slow queue and a slow device service time require different follow-up; no tuning is authorized merely by this capture.</p>
+<h2>Cleanup and rollback</h2>
+<p>The tracked parent reaps only its tracer and extraction children. Ordinary failure and signals trigger cleanup of its exact native scratch directory. Closing the tracer removes its unpinned BPF objects; no global BPF cleanup touches Cilium. No durable host setting changes, so rollback consists of stopping the owned tracer and removing its scratch.</p>
+<h2>Primary sources</h2>
+<p><a href="https://packages.fedoraproject.org/pkgs/bcc/libbpf-tools/fedora-44.html">Fedora 44 package</a>; <a href="https://fedoraproject.org/security/">Fedora signing keys</a>; <a href="https://github.com/iovisor/bcc/blob/v0.35.0/libbpf-tools/biosnoop.c">BCC 0.35.0 biosnoop implementation</a>. Package SHA256: <code>ba1c23ca487bc3082209817dd9345806b183af491cab966ecb99e93d1874d8ad</code>. Source SHA256: <code>f5be45672bf029d03aefd732307cdfcfceeec82347291e2fb3d9b740e9a6afb7</code>. Native signature and dependency inspection passed before implementation; capture acceptance remains pending.</p>
+</html>
