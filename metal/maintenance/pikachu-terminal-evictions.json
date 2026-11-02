@@ -118,6 +118,106 @@
           "uid": "686c8e32-6535-4c13-8cd4-2f23b35caaa8"
         }
       ]
+    },
+    "humbleai": {
+      "deployment": {
+        "name": "humbleai",
+        "uid": "86bab80e-f0a8-4347-ade6-56c3d64cae97"
+      },
+      "replicaset": {
+        "name": "humbleai-c48bc974b",
+        "uid": "4d6e60c3-a684-4489-a739-22ba2aa2e086"
+      },
+      "replacement": {
+        "name": "humbleai-c48bc974b-nm2tn",
+        "uid": "1bf877bf-b301-43bd-954a-e8453899937a"
+      },
+      "targets": [
+        {
+          "name": "humbleai-c48bc974b-x7kj9",
+          "uid": "505a847a-cdb0-4b45-a831-bf442df0c499"
+        }
+      ]
+    },
+    "pages": {
+      "deployment": {
+        "name": "pages",
+        "uid": "f1cd67cb-f5fe-442d-8b87-5c3f84ca0eb1"
+      },
+      "replicaset": {
+        "name": "pages-6d87cbc4b9",
+        "uid": "d2bda9b1-04bd-437f-9af2-29cbc672f664"
+      },
+      "replacement": {
+        "name": "pages-6d87cbc4b9-5xcbt",
+        "uid": "280f9ccd-5492-48cb-b1d9-3e37947cf1c7"
+      },
+      "targets": [
+        {
+          "name": "pages-6d87cbc4b9-7mxrz",
+          "uid": "e9998fbf-58a1-4e62-8c88-7338f9b029f3"
+        }
+      ]
+    },
+    "pointview-canary": {
+      "deployment": {
+        "name": "pointview-canary",
+        "uid": "076838cc-a102-40ef-933b-62f658e818a3"
+      },
+      "replicaset": {
+        "name": "pointview-canary-7fddfb5cb7",
+        "uid": "88d40719-5cbd-4912-96af-44edf421689e"
+      },
+      "replacement": {
+        "name": "pointview-canary-7fddfb5cb7-s8zdw",
+        "uid": "1806ecab-35ff-49be-9bf6-4f6d6ad845aa"
+      },
+      "targets": [
+        {
+          "name": "pointview-canary-7fddfb5cb7-h6ctt",
+          "uid": "87a94f01-46d6-4a91-a829-a670d2138a98"
+        }
+      ]
+    },
+    "pointview": {
+      "deployment": {
+        "name": "pointview",
+        "uid": "7e18dd42-cf69-4e0c-972e-51267472a21e"
+      },
+      "replicaset": {
+        "name": "pointview-7f5df9ff69",
+        "uid": "64a9fba9-0707-404c-aeb0-909f50003b55"
+      },
+      "replacement": {
+        "name": "pointview-7f5df9ff69-pkc6l",
+        "uid": "cf7992de-9e8a-44ec-ae61-df254f468603"
+      },
+      "targets": [
+        {
+          "name": "pointview-7f5df9ff69-45ngg",
+          "uid": "5a8ef1d2-f163-4201-acae-1fb0b4b40c9e"
+        }
+      ]
+    },
+    "sonarr": {
+      "deployment": {
+        "name": "sonarr",
+        "uid": "68da4567-47f8-41e9-9a26-5db52d661629"
+      },
+      "replicaset": {
+        "name": "sonarr-56bc4f585f",
+        "uid": "92cc5649-f635-4c0c-8151-fc15aeca2469"
+      },
+      "replacement": {
+        "name": "sonarr-56bc4f585f-gqxsh",
+        "uid": "e328224d-05ba-426e-a28d-d35c9b256d0c"
+      },
+      "targets": [
+        {
+          "name": "sonarr-56bc4f585f-zfvzj",
+          "uid": "a0948ba3-fbc4-4933-8699-4d17985eccb3"
+        }
+      ]
     }
   }
 }
