@@ -234,12 +234,13 @@ def restore(run_id, checksum):
                                   '-c', 'exec sleep 2147483647').stdout.decode().strip()
         if not re.fullmatch('[a-f0-9]{64}', container): raise RuntimeError('invalid owned container identity')
         state = common.inspect(container); require_container(state, scratch, run_id)
+        common.docker('start', container)
         private_context = os.getxattr(data, 'security.selinux').decode().rstrip('\0')
+        result['scratch_selinux'] = {'before': original_context, 'private': private_context,
+                                     'process': state['ProcessLabel'], 'expected_private': state['MountLabel'],
+                                     'enforcing': True}
         if private_context != state['MountLabel']:
             raise RuntimeError('owned restore scratch lacks the exact private container label')
-        result['scratch_selinux'] = {'before': original_context, 'private': private_context,
-                                     'process': state['ProcessLabel'], 'enforcing': True}
-        common.docker('start', container)
         state = common.inspect(container); require_container(state, scratch, run_id)
         net = ['nsenter', '-t', str(state['State']['Pid']), '-n', '--']
         common.require_network(json.loads(common.command([*net, 'ip', '-j', 'address']).stdout),
