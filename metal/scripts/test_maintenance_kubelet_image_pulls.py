@@ -1,4 +1,4 @@
-"""Fence the first serial-pull mitigation and its single-file activation boundary."""
+"""Fence serial-pull mitigation and its single-file activation boundary."""
 
 import copy
 import hashlib
@@ -68,16 +68,47 @@ class SerialImagePullTests(unittest.TestCase):
             subject.storage_boundary([dict(pod, metadata={'namespace': 'tsurreal-other'},
                                            spec={'volumes': [{'persistentVolumeClaim': {}}]})])
 
-    def test_only_the_first_reviewed_master_has_execution_authority(self):
+    def test_only_the_three_reviewed_masters_have_execution_authority(self):
         self.assertTrue(coordination.reviewed_hop('squirtle', 'parallel', 'serial', 'kubelet-image-pulls'))
-        for node in ('bulbasaur', 'charmander', 'cyndaquil', 'chikorita'):
+        for node in ('cyndaquil', 'chikorita', 'growlithe'):
             self.assertFalse(coordination.reviewed_hop(node, 'parallel', 'serial', 'kubelet-image-pulls'))
         owner = {'component': 'kubelet-image-pulls', 'node': 'squirtle', 'source': 'parallel', 'target': 'serial'}
         self.assertEqual(hops.steps(owner),
                          ('cordon', 'drain', 'apply_policy', 'restore_scheduling', 'accept_applications'))
-        for key, value in (('node', 'bulbasaur'), ('source', 'serial'), ('target', 'parallel')):
+        for node in ('charmander', 'bulbasaur'):
+            self.assertTrue(coordination.reviewed_hop(node, 'parallel', 'serial', 'kubelet-image-pulls'))
+        for key, value in (('node', 'growlithe'), ('source', 'serial'), ('target', 'parallel')):
             with self.subTest(key=key), self.assertRaises(RuntimeError):
                 hops.steps(dict(owner, **{key: value}))
+
+    def test_later_master_preserves_existing_volume_contract(self):
+        pod = {'metadata': {'namespace': 'budget'},
+               'spec': {'volumes': [{'nfs': {'server': '10.0.40.3', 'path': '/mnt/user/budget'}}]}}
+        subject.storage_boundary([pod], 'charmander')
+        with self.assertRaises(RuntimeError):
+            subject.storage_boundary([dict(pod, metadata={'namespace': 'zot'})], 'charmander')
+        item = {'metadata': {'uid': 'original'}, 'spec': {'accessModes': ['ReadWriteOnce']},
+                'status': {'phase': 'Bound'}}
+        ref = {'kind': 'pvc', 'namespace': 'budget', 'name': 'budget', 'uid': 'original',
+               'spec_sha256': subject.hashed(item['spec'])}
+        from unittest.mock import Mock
+        api = Mock(); api.call.return_value = item
+        subject.preserve_storage(api, [ref])
+        for changed in (dict(item, spec={'accessModes': ['ReadWriteMany']}),
+                        dict(item, metadata={'uid': 'replacement'}),
+                        dict(item, status={'phase': 'Pending'})):
+            api.call.return_value = changed
+            with self.assertRaises(RuntimeError):
+                subject.preserve_storage(api, [ref])
+
+    def test_next_master_requires_published_complete_preceding_release(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        raw = json.dumps({'version': 1, 'nodes': {}}).encode()
+        with patch.object(Path, 'read_bytes', return_value=raw), \
+                patch('subprocess.check_output', return_value=raw):
+            with self.assertRaises(RuntimeError):
+                subject.previous_releases(SimpleNamespace(node='bulbasaur'), Mock(), 'a' * 40)
 
     def test_repository_policy_contains_no_other_kubelet_change(self):
         path = Path(__file__).resolve().parents[1] / 'roles/k3s/files/kubelet-serial-image-pulls.conf'

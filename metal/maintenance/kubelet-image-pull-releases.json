@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "nodes": {
+    "squirtle": {
+      "node_uid": "10951ffe-dd31-4c38-b854-67f3a011458c",
+      "address": "10.0.20.12",
+      "identity": {
+        "machine": "90c7f1d7caea486d9dc9bdbb4ec5ae21",
+        "root_uuid": "eea5afa0-dbb6-43f5-abe6-f1be801fb03a"
+      },
+      "owner": "homelab-maintenance-103-d144f20e-53b5-491e-8410-c483ce01dda1",
+      "revision": "dfc63f21f654cf146a26837accb2203f1b501800",
+      "release_head": "7dad2f54b71ee94df83c901187ec9acdaea20b4c6731e1beba8bb7c8f407021b"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""Journal the first control-plane serial-image-pull mitigation without changing data."""
+"""Journal serial control-plane image-pull mitigation without changing data."""
 
 import hashlib
 import json
@@ -13,6 +13,7 @@ from maintenance_node_drain import Drain, EXCLUDED_NAMESPACES, hashed, private_j
 from maintenance_node_scheduling import Scheduling
 
 
+SERVERS = ('squirtle', 'charmander', 'bulbasaur')
 VERSION = 'v1.36.5+k3s1'
 POLICY = Path('/var/lib/rancher/k3s/agent/etc/kubelet.conf.d/20-serial-image-pulls.conf')
 REQUIRED = {'apiVersion': 'kubelet.config.k8s.io/v1beta1',
@@ -58,18 +59,20 @@ def installed(before, after, content):
                    'kubelet configuration changed beyond the reviewed serial policy')
 
 
-def storage_boundary(pods):
-    """This first intervention has no application volume or NAS consumer to evict."""
+def storage_boundary(pods, node='squirtle'):
+    actors.require(node in SERVERS, 'unreviewed image-pull node')
+    """Squirtle stays volume-free; later masters retain already-authorized normal application mounts."""
     actors.require(not any(p['metadata']['namespace'] == 'zot' or
-        any(set(v) & {'nfs', 'persistentVolumeClaim', 'csi'} for v in p['spec'].get('volumes', []))
+        (node == 'squirtle' and any(set(v) & {'nfs', 'persistentVolumeClaim', 'csi'}
+                                   for v in p['spec'].get('volumes', [])))
         for p in pods if p['metadata']['namespace'] not in EXCLUDED_NAMESPACES),
         'target has a protected or unreviewed storage consumer')
 
 
-def preserve_registry_observation(pod, original):
+def preserve_registry_observation(pod, original, target='squirtle'):
     """Preserve a remote observation without replacing the older accepted process guard."""
     statuses = pod['status'].get('containerStatuses', [])
-    actors.require(original['node'] != 'squirtle' and
+    actors.require(original['node'] != target and
                    pod['metadata']['uid'] == original['uid'] and
                    pod['metadata']['name'] == original['name'] and
                    pod['spec']['nodeName'] == original['node'] and
@@ -227,7 +230,10 @@ def observe(args, api, baseline, kind):
     cordoned = target['spec'].get('unschedulable', False)
     target_pods = api.call('get', 'pods', '-A', '--field-selector',
                           'spec.nodeName=' + args.node, '-o', 'json')['items']
-    storage_boundary(target_pods)
+    storage_boundary(target_pods, args.node)
+    if args.node != SERVERS[0]:
+        previous_releases(args, api, baseline['revision'])
+        preserve_storage(api, baseline['storage'])
     from maintenance_control_plane import observe as etcd_observe
     etcd = etcd_observe(args, {name: VERSION for name in ('charmander', 'squirtle', 'bulbasaur')})
     for node in nodes:
@@ -255,7 +261,7 @@ def observe(args, api, baseline, kind):
                 expected_outages.append(item['metadata']['uid']); continue
             raise RuntimeError('controller unready: ' + item['metadata']['namespace'] + '/' + item['metadata']['name'])
     pod = api.call('get', 'pod', baseline['zot']['name'], '-n', 'zot', '-o', 'json')
-    preserve_registry_observation(pod, baseline['zot'])
+    preserve_registry_observation(pod, baseline['zot'], args.node)
     result = {'node_uids': baseline['nodes'], 'ceph_fsid': baseline['fsid'],
               'etcd_cluster_id': etcd['status'][0]['Status']['header']['cluster_id'],
               'monitor_members': view['members'], 'monitor_quorum': view['quorum'],
@@ -283,8 +289,117 @@ def observe(args, api, baseline, kind):
                            all(c.get('ready') for c in item['status']['containerStatuses']),
                            'target workload is not ready')
         result['applications'] = sorted(app['metadata']['name'] for app in applications)
-        result['comparison_revision'] = comparison_revision
     return result
+
+
+def storage_contract(api, pods):
+    """Bind existing application storage and access modes; never read or write NAS files."""
+    import maintenance_production_node as production
+    refs = {}
+
+    def capture(kind, namespace, name):
+        key = (kind, namespace, name)
+        if key not in refs:
+            item = api.call('get', kind, name, *(['-n', namespace] if namespace else []), '-o', 'json')
+            refs[key] = {'kind': kind, 'namespace': namespace, 'name': name,
+                         'uid': item['metadata']['uid'], 'spec_sha256': hashed(item['spec'])}
+            return item
+        return api.call('get', kind, name, *(['-n', namespace] if namespace else []), '-o', 'json')
+
+    for pod in production.maintenance_items(pods):
+        if pod['status']['phase'] == 'Succeeded':
+            production.completed_job_pod(api, pod)
+            continue
+        volumes = [v for v in pod['spec'].get('volumes', [])
+                   if set(v) & {'nfs', 'persistentVolumeClaim', 'csi'}]
+        if not volumes:
+            continue
+        namespace = pod['metadata']['namespace']
+        owner, = [o for o in pod['metadata']['ownerReferences'] if o.get('controller') is True]
+        if owner['kind'] == 'ReplicaSet':
+            replica = api.call('get', 'replicaset', owner['name'], '-n', namespace, '-o', 'json')
+            actors.require(replica['metadata']['uid'] == owner['uid'], 'storage ReplicaSet identity changed')
+            owner, = [o for o in replica['metadata']['ownerReferences'] if o.get('controller') is True]
+        actors.require(owner['kind'] in ('Deployment', 'StatefulSet'), 'unreviewed active storage owner')
+        item = capture(owner['kind'], namespace, owner['name'])
+        actors.require(item['metadata']['uid'] == owner['uid'], 'storage controller identity changed')
+        for volume in volumes:
+            if 'persistentVolumeClaim' not in volume:
+                actors.require('nfs' in volume, 'unreviewed inline CSI storage')
+                continue
+            claim = capture('pvc', namespace, volume['persistentVolumeClaim']['claimName'])
+            actors.require(claim['status']['phase'] == 'Bound', 'application claim is not Bound')
+            pv = capture('pv', '', claim['spec']['volumeName'])
+            actors.require(pv['spec']['claimRef']['uid'] == claim['metadata']['uid'] and
+                           pv['status']['phase'] == 'Bound', 'application volume binding changed')
+    return sorted(refs.values(), key=lambda r: (r['kind'], r['namespace'], r['name']))
+
+
+def preserve_storage(api, refs):
+    for ref in refs:
+        item = api.call('get', ref['kind'], ref['name'],
+                        *(['-n', ref['namespace']] if ref['namespace'] else []), '-o', 'json')
+        actors.require(item['metadata']['uid'] == ref['uid'] and not item['metadata'].get('deletionTimestamp') and
+                       hashed(item['spec']) == ref['spec_sha256'], 'application storage or access mode changed')
+        if ref['kind'] in ('pvc', 'pv'):
+            actors.require(item['status']['phase'] == 'Bound', 'application volume is no longer Bound')
+
+
+def previous_releases(args, api, revision):
+    """Require original ordered releases and current serial policy on every preceding master."""
+    import subprocess
+    import maintenance_production_node as production
+    path = 'metal/maintenance/kubelet-image-pull-releases.json'
+    raw = Path(path).read_bytes()
+    actors.require(raw == subprocess.check_output(['git', 'show', revision + ':' + path]),
+                   'unpublished preceding serial-pull release')
+    profile = json.loads(raw)
+    actors.require(set(profile) == {'version', 'nodes'} and profile['version'] == 1 and
+                   set(profile['nodes']) == set(SERVERS[:SERVERS.index(args.node)]),
+                   'complete the preceding master before acquiring the next')
+    anchor = json.loads(Path('metal/maintenance/k3s-node-releases.json').read_bytes())
+    for node, ref in profile['nodes'].items():
+        actors.require(all(ref[k] == anchor['nodes'][node][k] for k in ('node_uid', 'address', 'identity')),
+                       'preceding master identity differs')
+        program = """
+import hashlib,json,os,pathlib,socket,subprocess
+assert os.geteuid()==0 and socket.gethostname()==NODE
+assert pathlib.Path('/etc/machine-id').read_text().strip()==REF['identity']['machine']
+assert subprocess.check_output(['findmnt','-n','-o','UUID','/'],text=True).strip()==REF['identity']['root_uuid']
+def read(path):
+ assert not any(p.is_symlink()for p in(path,*path.parents))
+ info=path.stat();assert info.st_uid==0 and info.st_nlink==1 and info.st_mode&0o777==0o600
+ raw=path.read_bytes();value=json.loads(raw);assert raw==json.dumps(value,sort_keys=True,separators=(',',':')).encode()
+ return value,hashlib.sha256(raw).hexdigest()
+root=pathlib.Path('/var/lib/homelab-maintenance');release=root/'releases'/REF['owner']
+assert not (root/'owner.json').exists()
+assert sorted(p.name for p in release.iterdir())==[str(i).zfill(8)+'.json'for i in range(5)]
+previous=None
+for index,kind in enumerate(('header','host-intent','host-accepted','global-intent','global-accepted')):
+ value,digest=read(release/(str(index).zfill(8)+'.json'))
+ assert value['sequence']==index and value['kind']==kind and value['previous']==previous
+ if index==0:header=value
+ previous=digest
+assert previous==REF['release_head'] and header['owners']['host']['identity']==REF['identity']
+owner=header['owners']['global']
+assert all(owner[k]==REF[k]for k in ('owner','node_uid','revision'))
+assert owner['node']==NODE and owner['component']=='kubelet-image-pulls'
+assert(owner['source'],owner['target'])==('parallel','serial')
+hop=root/'transactions'/REF['owner'];expected=[str(i).zfill(8)+'.json'for i in range(11)]
+assert sorted(header['hop_records'])==expected and sorted(p.name for p in hop.iterdir())==expected
+for name,digest in header['hop_records'].items():assert read(hop/name)[1]==digest
+assert read(hop/expected[-1])[1]==header['hop_head_sha256']
+assert read(hop/expected[0])[0]['owners']==header['owners']
+assert pathlib.Path(POLICY).read_text()==CONTENT
+print(json.dumps({'node':NODE,'release_head':previous,'serial_policy_preserved':True}))
+"""
+        production.remote(args, 'NODE=' + repr(node) + '\nREF=' + repr(ref) +
+            '\nPOLICY=' + repr(str(POLICY)) + '\nCONTENT=' +
+            repr(Path('metal/roles/k3s/files/kubelet-serial-image-pulls.conf').read_text()) + '\n' + program,
+            ref['address'])
+        config = api.call('get', '--raw=/api/v1/nodes/' + node + '/proxy/configz')
+        actors.require(config['kubeletconfig'].get('serializeImagePulls') is True,
+                       'preceding master lost its accepted effective serial policy')
 
 
 def published_source(candidate):
@@ -329,7 +444,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('initialize', 'inspect', 'cordon', 'drain', 'apply-policy',
         'observe-policy', 'restore-scheduling', 'accept-applications', 'release'))
-    parser.add_argument('--node', choices=('squirtle',), required=True)
+    parser.add_argument('--node', choices=SERVERS, required=True)
     for name in ('kubectl', 'identity', 'known-hosts', 'baseline'):
         parser.add_argument('--' + name, required=True)
     args = parser.parse_args(); production.select_node(args.node)
@@ -351,7 +466,7 @@ def main():
         actors.require(name == 'maintenance_kubelet_image_pulls' or Path(path).read_bytes() == source,
                        'unpublished image-pull dependency: ' + path)
         bundle[name] = source.decode()
-    api = Reader(args.kubectl, 'https://10.0.20.11:6443')
+    api = Reader(args.kubectl, 'https://10.0.20.' + ('12' if args.node == 'charmander' else '11') + ':6443')
     try:
         controller = coordination.Ownership(api, production.DS_UID, baseline['nodes'])
         ds = controller.observed()

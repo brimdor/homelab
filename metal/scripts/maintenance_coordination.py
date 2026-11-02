@@ -35,7 +35,7 @@ def require(condition, message):
 
 def reviewed_hop(node, source, target, component='fedora'):
     if component == 'kubelet-image-pulls':
-        return node == 'squirtle' and (source, target) == ('parallel', 'serial')
+        return node in ('squirtle', 'charmander', 'bulbasaur') and (source, target) == ('parallel', 'serial')
     if component == 'k3s':
         from maintenance_k3s_contract import reviewed
         return reviewed(source, target)
