@@ -25,6 +25,10 @@ IMAGE = 'docker.io/library/postgres@sha256:47855c76129d1383e7efc66a1a776e33c9171
 IDENTITY = ['b46072f5-1edd-4b93-8dc0-27bc2f89cf37', 'c361fc29-fa98-425e-8551-df21704e2c87',
             '36cb3442-3bf9-4ccd-a7be-4edd211f361a', '409b7753-b5c5-424b-8709-643290566685']
 CONTAINER = 'a79db0b9828837c44b4a95b628db5439be3861a0fa30481d7ecc606edba95dca'
+SOURCE_NODE = 'pikachu'
+RECEIVER_VERSION = common.VERSION
+PROFILE = 'legacy'
+PROFILES = ('legacy', 'legacy-on-1365', 'post-maintenance-1365')
 SECRET_UID = 'f18ca58e-61d7-4a22-8ae9-ca2d7d709bcb'
 HANDLE_SHA256 = 'ea8ddaabcfccef059cbb2a7da0a44cd5e00dee177daacba9b2cb5831503c5ec3'
 LABEL = 'io.eaglepass.outline-postgres-recovery-103'
@@ -36,6 +40,21 @@ FEATURES = {'version': '18.4 (Debian 18.4-1.pgdg12+1)', 'database': 'outline', '
             'prepared_transactions': 0, 'subscriptions': 0, 'replication_slots': 0}
 
 
+def configure_profile(name):
+    """Select only the reviewed current source or the original protected archive contract."""
+    global IMAGE, IDENTITY, CONTAINER, SOURCE_NODE, RECEIVER_VERSION, PROFILE
+    if name not in PROFILES or PROFILE != 'legacy':
+        raise RuntimeError('unreviewed or already configured Outline recovery profile')
+    PROFILE = name
+    if name != 'legacy':
+        RECEIVER_VERSION = 'v1.36.5+k3s1'
+    if name == 'post-maintenance-1365':
+        IMAGE = 'docker.io/library/postgres@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382'
+        IDENTITY = ['863899db-7ea5-42fd-9d09-78e47a1e6552', *IDENTITY[1:]]
+        CONTAINER = '68c65dfddde05f8659c8aaadc741c17eaf50fa73aab62f51f4216d35ef795d26'
+        SOURCE_NODE = 'squirtle'
+
+
 def source_identity():
     def get(*args):
         return json.loads(common.command([os.environ.get('KUBECTL', 'kubectl'), 'get', *args, '-o=json']).stdout)
@@ -44,7 +63,7 @@ def source_identity():
     statuses = pod['status'].get('containerStatuses', [])
     if (len(containers) != 1 or containers[0]['name'] != 'main' or len(statuses) != 1 or
             not statuses[0]['ready'] or statuses[0]['restartCount'] != 0 or statuses[0]['imageID'] != IMAGE or
-            statuses[0]['containerID'] != 'containerd://' + CONTAINER or pod['spec']['nodeName'] != 'pikachu' or
+            statuses[0]['containerID'] != 'containerd://' + CONTAINER or pod['spec']['nodeName'] != SOURCE_NODE or
             pod['metadata'].get('deletionTimestamp')): raise RuntimeError('reviewed source runtime changed')
     expected = {'POSTGRES_USER': 'postgres-user', 'POSTGRES_PASSWORD': 'postgres-password', 'POSTGRES_DB': 'postgres-db'}
     refs = {e['name']: e.get('valueFrom', {}).get('secretKeyRef') for e in containers[0].get('env', []) if e['name'] in expected}
@@ -87,7 +106,7 @@ def source_metadata():
 
 
 def point_path(run_id):
-    common.require_host('pikachu'); common.private_root()
+    common.require_host('pikachu', RECEIVER_VERSION); common.private_root()
     point = common.ROOT / ('outline-postgres-' + common.run_identifier(run_id))
     if any(p.is_symlink() for p in (point, *point.parents)): raise RuntimeError('unsafe protected point ancestry')
     return point
@@ -100,7 +119,8 @@ def remote(mode, run_id, *extra):
         code += 'm=types.ModuleType(' + repr(name) + ');sys.modules[' + repr(name) + ']=m;exec(base64.b64decode(' + repr(encoded) + '),m.__dict__);'
     code += 'exec(base64.b64decode(' + repr(base64.b64encode(Path(__file__).read_bytes()).decode()) + '))'
     return [*common.SSH[:-1], '-o', 'ControlMaster=no', common.SSH[-1],
-            shlex.join(['python3', '-B', '-c', postgres.compressed_program(code), mode, '--run-id', run_id, *extra])]
+            shlex.join(['python3', '-B', '-c', postgres.compressed_program(code), mode, '--run-id', run_id,
+                        '--profile', PROFILE, *extra])]
 
 
 def receive(run_id, name):
@@ -276,7 +296,9 @@ def main():
     def cancel(_number, _frame): raise InterruptedError('owned Outline recovery interrupted')
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP): signal.signal(number, cancel)
     parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('mode', choices=('capture', 'receive', 'finalize', 'restore'))
-    parser.add_argument('--run-id', type=common.run_identifier, required=True); parser.add_argument('--file'); parser.add_argument('--manifest'); args = parser.parse_args()
+    parser.add_argument('--run-id', type=common.run_identifier, required=True); parser.add_argument('--file'); parser.add_argument('--manifest')
+    parser.add_argument('--profile', choices=PROFILES, default='legacy'); args = parser.parse_args()
+    configure_profile(args.profile)
     if args.mode == 'capture': result = capture(args.run_id)
     elif args.mode == 'receive': result = receive(args.run_id, args.file)
     elif args.mode == 'finalize':
