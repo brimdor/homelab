@@ -30,6 +30,15 @@ cluster:
 		$(limit_arg) \
 		cluster.yml
 
+# Select the existing addon play explicitly; never run a metal host role.
+cilium-install:
+	ansible-playbook \
+		--inventory inventories/${env}.yml \
+		--inventory localhost, \
+		--limit localhost \
+		--tags cilium_install \
+		cluster.yml
+
 nodes:
 	ansible-playbook \
 		--inventory inventories/${env}.yml \
@@ -41,7 +50,7 @@ console:
 		--inventory inventories/${env}.yml \
 		$(limit_arg)
 
-.PHONY: ssh-trust ssh-trust-refresh kubevip-standby
+.PHONY: ssh-trust ssh-trust-refresh kubevip-standby cilium-install
 
 # One explicitly selected nonleader only; never invokes provisioning or k3s roles.
 kubevip-standby:

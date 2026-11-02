@@ -18,6 +18,7 @@
   loop:
     - ciliuml2announcementpolicies.cilium.io
     - ciliumloadbalancerippools.cilium.io
+    - ciliumclusterwidenetworkpolicies.cilium.io
   register: crd
   until: crd.resources | length > 0
   retries: 5
@@ -80,4 +81,5 @@
   loop:
     - ciliuml2announcementpolicy.yaml
     - ciliumloadbalancerippool.yaml
+    - registry-localhost-host-access.yaml
   tags: cilium_resources
