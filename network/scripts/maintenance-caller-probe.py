@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only public path checks; caller location must be established independently."""
+"""Read-only checks of declared public or private routes; verify caller location separately."""
 
 import argparse
 import hashlib
@@ -17,6 +17,17 @@ TARGETS = (
     ('grafana', 'grafana.eaglepass.io', '/api/health'),
     ('dex', 'dex.eaglepass.io', '/.well-known/openid-configuration'),
 )
+PUBLIC_TARGETS = (
+    ('builder-canary', 'builder-canary.eaglepass.io', '/healthz'),
+    ('builder-production', 'builder.eaglepass.io', '/healthz'),
+)
+
+
+def targets(origin):
+    if origin not in ('collector', 'outside-lan', 'tailnet'):
+        raise ValueError('unreviewed caller origin')
+    # These private ingress names intentionally publish RFC1918 addresses.
+    return PUBLIC_TARGETS if origin == 'outside-lan' else TARGETS
 
 
 def require_body(name, value):
@@ -33,6 +44,8 @@ def require_body(name, value):
                 'token_endpoint': 'https://dex.eaglepass.io/token',
                 'jwks_uri': 'https://dex.eaglepass.io/keys',
             }.items())
+    elif name in ('builder-canary', 'builder-production'):
+        accepted = value.get('ok') is True
     else:
         accepted = False
     if not accepted:
@@ -40,7 +53,7 @@ def require_body(name, value):
 
 
 def probe(name, host, path):
-    if (name, host, path) not in TARGETS:
+    if (name, host, path) not in (*TARGETS, *PUBLIC_TARGETS):
         raise ValueError('unreviewed endpoint')
     connection = http.client.HTTPSConnection(host, timeout=20, context=ssl.create_default_context())
     result = {'name': name, 'accepted': False}
@@ -86,6 +99,7 @@ def main():
     args = parser.parse_args()
     result = {'source_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'claimed_origin': args.origin, 'origin_independently_verified': False,
+              'target_scope': 'public-tunnel' if args.origin == 'outside-lan' else 'private-ingress',
               'authenticated_application_behavior_verified': False,
               'private_tailnet_data_path_verified': False}
     if args.origin == 'tailnet':
@@ -93,7 +107,7 @@ def main():
         if not result['expected_tailnet_running']:
             print(json.dumps(dict(result, accepted=False, failure='existing_tailnet_state_unverified')))
             return 1
-    result['checks'] = [probe(*target) for target in TARGETS]
+    result['checks'] = [probe(*target) for target in targets(args.origin)]
     result['accepted'] = all(check['accepted'] for check in result['checks'])
     print(json.dumps(result, sort_keys=True))
     return 0 if result['accepted'] else 1
