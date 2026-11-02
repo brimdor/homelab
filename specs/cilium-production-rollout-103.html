@@ -4,8 +4,30 @@
 <title>Issue 103: Cilium production rollout</title>
 <style>body{background:#10151d;color:#e1e8f1;font:16px/1.6 system-ui;max-width:1050px;margin:3rem auto;padding:1rem}a,code{color:#93c5fd}h1,h2{color:#fff}code{overflow-wrap:anywhere}</style>
 <h1>Issue 103: Cilium production rollout</h1>
-<p>Preparation, October 29, 2026. No Cilium upgrade is accepted by this document. Finish Sprigatito's
-existing recovery, final acceptance and Emby return before starting a cluster component transition.</p>
+<p>Final runtime qualification passed on November 2, 2026 at 00:25:39Z: all nine agents run Cilium
+1.20.4 with K3s 1.36.5. The sections below retain the dated preparation and adjacent-release history.
+This component acceptance does not close independent storage, access, application or host I/O findings.</p>
+<h2>Final paired-version acceptance</h2>
+<p>Native status run whx80san at 00:21:51Z verified each of the nine original inventory nodes has a
+ready Cilium agent, version 1.20.4, healthy Kubernetes connection to 1.36.5, and healthy Hubble observer.
+Independent 2gi7969u at 00:25:39Z verified complete fresh HTTP/ICMP host and endpoint mesh probes
+from every agent; existing cluster DNS and Gitea health; TLS-verified Gitea through the existing L2 VIP;
+increasing Hubble flow counters on every agent; no current controller failures; current L2 leases;
+network policy inventory; no CNP, CCNP or NodeConfig consumers; and Ceph HEALTH_OK. Hubble metrics
+remain disabled as configured; they are not required for the healthy native observers and relay.</p>
+<p>All nine final native K3s completion chains were reverified before accepted ledger commit
+ee2df3c321b11f8837a9210bcdf05febc0b7fd9e. Commit 8aca23acea0eb3c9b3888615ff2b83c77f87bd3a
+aligns provisioning with the accepted 1.36.5 runtime. The consecutive bridge, matching protected
+snapshot restores and per-node behavior receipts remain in the K3s rollout record; no activation or
+drain was replayed for this final qualification. Bulbasaur's independently tracked I/O stalls remain
+unresolved and are not reclassified as a completed root-cause repair.</p>
+<p>The final 1.20.4 runtime is outside the affected version ranges published for
+<a href="https://github.com/cilium/cilium/security/advisories/GHSA-3fcv-jvfp-m4q9">Envoy admin socket access</a>,
+<a href="https://github.com/cilium/cilium/security/advisories/GHSA-hxv8-4j4r-cqgv">same-node L7 policy bypass</a>
+and <a href="https://github.com/cilium/cilium/security/advisories/GHSA-gj49-89wh-h4gj">WireGuard data in bugtool archives</a>,
+reviewed November 2. Native encryption remains disabled on every agent. No bugtool/sysdump archive,
+admin socket request or secret extraction was used. This addresses those specific advisories and
+does not claim absence of every vulnerability.</p>
 <h2>Observed contract</h2>
 <p>Read-only run h4ehadma at 12:23:41 UTC verified Cilium 1.15.1's nine ready agents, DaemonSet
 UID 5523ed6c-0a1d-406c-aa5b-706d1e2abef1, and the exact six user-supplied Helm values.
