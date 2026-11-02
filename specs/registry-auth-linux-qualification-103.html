@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Issue 103: Linux registry authentication qualification</title>
+<style>:root{color-scheme:dark}body{background:#10151d;color:#e4eaf3;font:17px/1.6 system-ui;max-width:940px;margin:3rem auto;padding:0 1rem}a{color:#8bc9ff}code{overflow-wrap:anywhere}</style>
+<h1>Issue 103: Linux registry authentication qualification</h1>
+<p>Status: native execution pending. This change adds a qualification helper and mock configuration; it does not deploy an authentication proxy.</p>
+<h2>Acceptance contract</h2>
+<p>Run the pinned official Nginx image on the trusted Pikachu host with SELinux enforcing. Use a fresh synthetic bcrypt credential, never an existing registry password. Require an unprivileged container, no network interface except loopback, no published ports, read-only root and private read-only test mounts, no capabilities, no logging driver, and bounded container resources.</p>
+<p>Verify anonymous GET and HEAD for registry reads. Require authentication for catalog, administration, upload status and write methods. Reject incorrect passwords; accept the synthetic bcrypt password. The mock upstream rejects forwarded Authorization headers. Contact only loopback inside the isolated network namespace.</p>
+<h2>Data protection and cleanup</h2>
+<p>No protected Zot requests, registry writes, NAS mounts or recovery data access. Remove the exact owned container, reap its attached process, remove owned synthetic files, and remove a newly pulled unused image reference. Retain only sanitized results and hashes. A passing mock does not prove production routing or close the registry maintenance task.</p>
+<h2>Inputs and references</h2>
+<p>Configuration: <code>platform/zot/files/registry-auth.conf</code>. Executable: <code>platform/zot/scripts/qualify_auth_proxy.py</code>. Immutable image: <code>docker.io/library/nginx@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949</code>.</p>
+<p><a href="https://nginx.org/en/docs/http/ngx_http_auth_basic_module.html">Nginx HTTP Basic authentication</a>; <a href="https://external-secrets.io/latest/guides/templating/#htpasswd-example">External Secrets bcrypt template contract</a>.</p>
+</html>
