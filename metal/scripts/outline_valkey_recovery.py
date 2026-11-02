@@ -30,11 +30,37 @@ CONTAINER = "7a7ec3fe6bf6677e90bcf7c66660cbae70d7b1d260c2d542899839d93e67ff3b"
 LABEL = "io.eaglepass.outline-valkey-recovery-103"
 MAX_SNAPSHOT = 128 * 1024**2
 MODULES_SHA256 = "4df4afbb43d9173b3a3de17573d90ed785a5769cf27aa090e943bb95eaa25673"
+PROFILE = "original"
+SOURCE_NODE = "bulbasaur"
+RECEIVER = "pikachu"
+MAIN = None
+PROFILES = {
+    "original": {"pod": POD, "uid": POD_UID, "container": CONTAINER,
+                 "node": SOURCE_NODE, "receiver": RECEIVER, "main": None},
+    "growlithe-20261102": {
+        "pod": "outline-5bdfb8cb84-7zjf4", "uid": "62b73e44-1a31-4251-be50-eefed281a231",
+        "container": "5756fd780ffa4cbb72de9bdc266db688450a1caaa8045e403ca5978a2eeac637",
+        "node": "growlithe", "receiver": "cyndaquil",
+        "main": {
+            "containerID": "containerd://a5c3307a9fd5ed577b0821670c89eb60e91555297a52c1358582757ac30d956c",
+            "imageID": "docker.io/outlinewiki/outline@sha256:f670705964cfb5521aea45b6e78dc2eaf1fd20dec265f17bd75497938d1f3461",
+        },
+    },
+}
 
 
 def require(value, message):
     if not value:
         raise RuntimeError(message)
+
+
+def configure_profile(name):
+    global PROFILE, POD, POD_UID, CONTAINER, SOURCE_NODE, RECEIVER, MAIN
+    require(name in PROFILES, "unreviewed Outline recovery profile")
+    selected = PROFILES[name]
+    PROFILE = name
+    POD, POD_UID, CONTAINER = (selected[k] for k in ("pod", "uid", "container"))
+    SOURCE_NODE, RECEIVER, MAIN = (selected[k] for k in ("node", "receiver", "main"))
 
 
 def source():
@@ -45,12 +71,14 @@ def source():
     pod = get("pod", POD, "-n=outline")
     statuses = {c["name"]: c for c in pod["status"].get("containerStatuses", [])}
     require(pod["metadata"]["uid"] == POD_UID and not pod["metadata"].get("deletionTimestamp") and
-            pod["spec"]["nodeName"] == "bulbasaur" and set(statuses) == {"main", "redis"} and
+            pod["spec"]["nodeName"] == SOURCE_NODE and set(statuses) == {"main", "redis"} and
             all(c["ready"] and c["restartCount"] == 0 and c.get("state", {}).get("running") for c in statuses.values()),
             "reviewed Outline source is not unchanged and ready")
     redis = next(c for c in pod["spec"]["containers"] if c["name"] == "redis")
     require(not redis.get("volumeMounts") and statuses["redis"]["imageID"] == IMAGE and
             statuses["redis"]["containerID"] == "containerd://" + CONTAINER, "volatile source binding changed")
+    require(MAIN is None or {k: statuses["main"][k] for k in MAIN} == MAIN,
+            "reviewed application runtime changed")
     owners = [o for o in pod["metadata"].get("ownerReferences", []) if o.get("controller")]
     require(len(owners) == 1 and owners[0]["kind"] == "ReplicaSet", "source controller changed")
     replica = get("replicaset", owners[0]["name"], "-n=outline")
@@ -88,19 +116,29 @@ def remote(mode, run_id, *extra):
         code += "m=types.ModuleType(" + repr(name) + ");sys.modules[" + repr(name) + "]=m;exec(zlib.decompress(base64.b64decode(" + repr(raw) + ")),m.__dict__);"
     raw = base64.b64encode(zlib.compress(Path(__file__).read_bytes())).decode()
     code += "exec(zlib.decompress(base64.b64decode(" + repr(raw) + ")))"
-    return [*common.SSH, shlex.join(["python3", "-B", "-c", code, mode, "--run-id", run_id, *extra])]
+    profile = ["--profile", PROFILE] if PROFILE != "original" else []
+    ssh = [*common.SSH[:-1], "root@" + common.RECEIVERS[RECEIVER]["address"]]
+    return [*ssh, shlex.join(["python3", "-B", "-c", code, mode, "--run-id", run_id, *profile, *extra])]
 
 
 def point_path(run_id):
-    common.require_host("pikachu", "v1.36.5+k3s1")
-    require(Path("/etc/machine-id").read_text().strip() == "0a7daf8b33244d9d85f46223c3582da9" and
-            common.command(["findmnt", "-n", "-o", "UUID", "/"]).stdout.strip() == b"76e53a95-725a-4430-9d7b-a8db413f3997" and
+    common.require_host(RECEIVER, "v1.36.5+k3s1")
+    expected = common.RECEIVERS[RECEIVER]
+    require(Path("/etc/machine-id").read_text().strip() == expected["machine"] and
+            common.command(["findmnt", "-n", "-o", "UUID", "/"]).stdout.decode().strip() == expected["root_uuid"] and
             common.command(["getenforce"]).stdout.strip() == b"Enforcing", "receiver identity or SELinux changed")
     require(not any(p.is_symlink() for p in (common.ROOT, *common.ROOT.parents)), "recovery ancestry contains symlink")
     common.private_root()
     point = common.ROOT / ("outline-valkey-" + common.run_identifier(run_id))
     require(not point.is_symlink(), "recovery point contains symlink")
     return point
+
+
+def receiver_preflight(run_id):
+    point = point_path(run_id)
+    require(not point.exists(), "recovery point already exists; inspect original outcome")
+    common.require_capacity(point.parent, MAX_SNAPSHOT, copies=3)
+    return {"receiver": RECEIVER, "point": str(point), "capacity_verified": True}
 
 
 def require_header(header):
@@ -143,6 +181,7 @@ def require_manifest(manifest):
             set(identity["containers"]) == {"main", "redis"} and
             identity["containers"]["redis"] == {"containerID": "containerd://" + CONTAINER, "imageID": IMAGE},
             "source provenance changed")
+    require(MAIN is None or identity["containers"]["main"] == MAIN, "application provenance changed")
     for c in identity["containers"].values():
         require(set(c) == {"containerID", "imageID"} and re.fullmatch(r"containerd://[0-9a-f]{64}", c["containerID"]) and
                 re.fullmatch(r"[a-zA-Z0-9./:_-]+@sha256:[0-9a-f]{64}", c["imageID"]), "container provenance changed")
@@ -165,6 +204,8 @@ def backup(run_id):
     before = source()
     producer = receiver = None
     try:
+        common.command(remote("internal-preflight", run_id))
+        require(source() == before, "source changed during receiver preflight")
         producer = subprocess.Popen([os.environ.get("KUBECTL", "kubectl"), "exec", "-n=outline", POD,
                                      "-c=redis", "--", "valkey-cli", "--rdb", "-"],
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -315,10 +356,12 @@ def main():
     for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, interrupted)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("backup", "restore", "internal-receive", "internal-finalize", "internal-restore"))
+    parser.add_argument("mode", choices=("backup", "restore", "internal-preflight", "internal-receive", "internal-finalize", "internal-restore"))
     parser.add_argument("--run-id", type=common.run_identifier, required=True)
     parser.add_argument("--manifest")
+    parser.add_argument("--profile", choices=tuple(PROFILES), default="original")
     args = parser.parse_args()
+    configure_profile(args.profile)
     os.umask(0o077)
     if args.mode == "backup":
         result = backup(args.run_id)
@@ -328,6 +371,8 @@ def main():
         result = receive(args.run_id)
     elif args.mode == "internal-finalize":
         result = finalize(args.run_id, json.loads(args.manifest))
+    elif args.mode == "internal-preflight":
+        result = receiver_preflight(args.run_id)
     else:
         result = restore(args.run_id, args.manifest)
     print(json.dumps(result), flush=True)

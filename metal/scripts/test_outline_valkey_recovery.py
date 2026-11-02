@@ -18,8 +18,8 @@ def manifest():
                        "module_list_sha256": recovery.MODULES_SHA256,
                        "containers": {"redis": {"containerID": "containerd://" + recovery.CONTAINER,
                                                 "imageID": recovery.IMAGE},
-                                      "main": {"containerID": "containerd://" + "d" * 64,
-                                               "imageID": "docker.io/outlinewiki/outline@sha256:" + "e" * 64}}}}
+                                      "main": recovery.MAIN or {"containerID": "containerd://" + "d" * 64,
+                                                                "imageID": "docker.io/outlinewiki/outline@sha256:" + "e" * 64}}}}
 
 
 def container():
@@ -33,6 +33,58 @@ def container():
 
 
 class OutlineValkeyRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        recovery.configure_profile("original")
+        self.addCleanup(recovery.configure_profile, "original")
+
+    def test_named_profile_cannot_rebind_either_historical_manifest(self):
+        original = manifest()
+        recovery.configure_profile("growlithe-20261102")
+        current = manifest()
+        recovery.require_manifest(current)
+        with self.assertRaisesRegex(RuntimeError, "source provenance"):
+            recovery.require_manifest(original)
+        changed = copy.deepcopy(current)
+        changed["source"]["containers"]["main"]["containerID"] = "containerd://" + "f" * 64
+        with self.assertRaisesRegex(RuntimeError, "application provenance"):
+            recovery.require_manifest(changed)
+        recovery.configure_profile("original")
+        recovery.require_manifest(original)
+        with self.assertRaisesRegex(RuntimeError, "source provenance"):
+            recovery.require_manifest(current)
+
+    def test_current_profile_binds_receiver_and_all_internal_transports(self):
+        recovery.configure_profile("growlithe-20261102")
+        self.assertEqual(recovery.SOURCE_NODE, "growlithe")
+        self.assertEqual(recovery.RECEIVER, "cyndaquil")
+        for mode in ("internal-preflight", "internal-receive", "internal-finalize", "internal-restore"):
+            command = recovery.remote(mode, "test-point")
+            self.assertEqual(command[:-2], recovery.common.SSH[:-1])
+            self.assertEqual(command[-2], "root@10.0.20.16")
+            self.assertLess(len(command[-1].encode()), 100000)
+            arguments = shlex.split(command[-1])
+            compile(arguments[3], "<current-profile-transport>", "exec")
+            self.assertEqual(arguments[4:], [mode, "--run-id", "test-point", "--profile", "growlithe-20261102"])
+        with self.assertRaisesRegex(RuntimeError, "unreviewed"):
+            recovery.configure_profile("foreign")
+        self.assertEqual(recovery.PROFILE, "growlithe-20261102")
+
+    def test_receiver_preflight_failure_starts_no_snapshot_or_transfer(self):
+        with patch.object(recovery, "source", return_value={"synthetic": True}), \
+                patch.object(recovery, "remote", return_value=["receiver-preflight"]), \
+                patch.object(recovery.common, "command", side_effect=RuntimeError("receiver capacity")), \
+                patch.object(recovery.subprocess, "Popen", side_effect=AssertionError("No snapshot may start")):
+            with self.assertRaisesRegex(RuntimeError, "receiver capacity"):
+                recovery.backup("test-point")
+
+    def test_existing_point_refuses_preflight_without_overwriting_or_allocating(self):
+        with patch.object(recovery, "point_path", return_value=Path("/protected/test-point")), \
+                patch.object(Path, "exists", return_value=True), \
+                patch.object(recovery.common, "require_capacity") as capacity:
+            with self.assertRaisesRegex(RuntimeError, "already exists"):
+                recovery.receiver_preflight("test-point")
+            capacity.assert_not_called()
+
     def test_exact_manifest_and_changed_source_refusals(self):
         original = manifest()
         recovery.require_manifest(original)
