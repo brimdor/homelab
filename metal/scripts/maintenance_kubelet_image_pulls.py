@@ -244,7 +244,6 @@ def observe(args, api, baseline, kind):
                           'spec.nodeName=' + args.node, '-o', 'json')['items']
     storage_boundary(target_pods, args.node)
     if args.node != SERVERS[0]:
-        previous_releases(args, api, baseline['revision'])
         preserve_storage(api, baseline['storage'])
     from maintenance_control_plane import observe as etcd_observe
     etcd = etcd_observe(args, {name: VERSION for name in ('charmander', 'squirtle', 'bulbasaur')})
@@ -480,6 +479,9 @@ def main():
         bundle[name] = source.decode()
     api = Reader(args.kubectl, 'https://10.0.20.' + ('12' if args.node == 'charmander' else '11') + ':6443')
     try:
+        # Global ownership excludes another governed node change throughout each operation.
+        if args.node != SERVERS[0]:
+            previous_releases(args, api, revision)
         controller = coordination.Ownership(api, production.DS_UID, baseline['nodes'])
         ds = controller.observed()
         raw = ds['metadata'].get('annotations', {}).get(coordination.JOURNAL)
