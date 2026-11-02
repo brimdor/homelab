@@ -235,6 +235,10 @@
         },
         "restoreQualification": {
           "type": "boolean"
+        },
+        "qualificationImage": {
+          "type": "string",
+          "pattern": "^$|^10\\.0\\.20\\.11:32309/meowdoku-preview@sha256:[a-f0-9]{64}$"
         }
       },
       "required": [

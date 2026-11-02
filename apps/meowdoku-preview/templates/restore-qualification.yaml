@@ -32,12 +32,12 @@ spec:
                     values: [{{ .Values.scheduling.completedNodeHostname | quote }}]
       containers:
         - name: restore-qualification
-          image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
+          image: {{ .Values.backup.qualificationImage | default (printf "%s@%s" .Values.image.repository .Values.image.digest) | quote }}
           command: [node, --input-type=module, -e]
           args:
             - |
               import {restoreDatabase} from './backend/src/restore.mjs';
-              import {openRawDatabase} from './backend/src/sqlite.mjs';
+              import {openDatabase,openRawDatabase} from './backend/src/sqlite.mjs';
               import {dataKey} from './backend/src/data-key.mjs';
               import {createHash} from 'node:crypto';
               import {createReadStream,readFileSync,statfsSync,statSync,openSync,readSync,closeSync} from 'node:fs';
@@ -49,13 +49,30 @@ spec:
                 await restoreDatabase(source,'/restore/qualified.sqlite',{key});
                 db=openRawDatabase('/restore/qualified.sqlite',{key,readOnly:true});
                 assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+                const schemaBefore=db.prepare('PRAGMA user_version').get().user_version;
+                assert.ok([2,3].includes(schemaBefore));
+                const tables=db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(x=>x.name);
+                assert.ok(tables.every(x=>/^[a-zA-Z0-9_]+$/.test(x)));
+                const content=connection=>Object.fromEntries(tables.map(table=>{
+                  const cols=connection.prepare('PRAGMA table_info('+table+')').all().map(c=>c.name).filter(c=>!(schemaBefore===2&&table==='profiles'&&c==='username_changed_at')).sort();
+                  const rows=connection.prepare('SELECT * FROM '+table).all().map(row=>JSON.stringify(cols.map(c=>row[c]))).sort();
+                  return [table,rows];
+                }));
+                const contentBefore=content(db);db.close();db=null;
+                const migrated=openDatabase('/restore/qualified.sqlite',{key});migrated.close();
+                db=openRawDatabase('/restore/qualified.sqlite',{key,readOnly:true});
+                assert.equal(db.prepare('PRAGMA user_version').get().user_version,3);
+                assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+                assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
+                assert.ok(JSON.stringify(content(db))===JSON.stringify(contentBefore),'Restored data changed during migration');
+                if(schemaBefore===2)assert.equal(db.prepare('SELECT COUNT(*) n FROM profiles WHERE username_changed_at!=0').get().n,0);
                 for(const table of ['sessions','nonces','recovery_tickets','runs','entries','bound_sessions','instance_challenges','request_replays','account_transfers','app_instances'])assert.equal(db.prepare('SELECT COUNT(*) n FROM '+table).get().n,0);
                 assert.equal(db.prepare('SELECT COUNT(*) n FROM profiles WHERE sharing!=0').get().n,0);
                 assert.equal(await hash(),before);
                 const fd=openSync('/restore/qualified.sqlite','r'),bytes=Buffer.alloc(16);try{readSync(fd,bytes,0,16,0)}finally{closeSync(fd)}const header=bytes.toString('hex');
                 assert.notEqual(header,'53514c69746520666f726d6174203300');
                 const fs=statfsSync('/backup'),st=statSync('/backup');
-                console.log(JSON.stringify({restored:true,integrity:'ok',restoredEncryptedHeader:true,historicalAuthAndSharingCleared:true,backupUnchanged:true,backupSha256:before,backupBytes:statSync(source).size,nasRootUid:st.uid,nasRootGid:st.gid,nasRootMode:(st.mode&0o777).toString(8),nasAvailableBytes:fs.bavail*fs.bsize,nfsMount:readFileSync('/proc/mounts','utf8').split('\n').find(x=>x.includes('10.0.40.3:')&&x.includes(' /backup ')),restoredProfiles:db.prepare('SELECT COUNT(*) n FROM profiles').get().n,liveClaimMounted:false}));
+                console.log(JSON.stringify({restored:true,integrity:'ok',schemaBefore,schemaAfter:3,restoredRowsPreservedThroughMigration:true,usernameColumnPresent:true,restoredEncryptedHeader:true,historicalAuthAndSharingCleared:true,backupUnchanged:true,backupSha256:before,backupBytes:statSync(source).size,nasRootUid:st.uid,nasRootGid:st.gid,nasRootMode:(st.mode&0o777).toString(8),nasAvailableBytes:fs.bavail*fs.bsize,nfsMount:readFileSync('/proc/mounts','utf8').split('\n').find(x=>x.includes('10.0.40.3:')&&x.includes(' /backup ')),restoredProfiles:db.prepare('SELECT COUNT(*) n FROM profiles').get().n,liveClaimMounted:false}));
               } finally {db?.close();key.fill(0)}
           env:
             - name: DATA_KEY_FILE
