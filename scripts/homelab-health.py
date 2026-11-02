@@ -9,6 +9,8 @@ Live mode requires the canonical checkout on macOS, origin below, branch master,
 metal/kubeconfig.yaml targeting the verified VIP, and already-installed PyYAML or
 ansible-inventory. Dirty local desired state is reported, not rejected. Nothing is
 installed. No SSH, remote Git operations, logs, secrets, or mutation commands run.
+With --expected-revision, expected charts come from that exact local Git commit;
+otherwise chart discovery describes the working directory, including drafts.
 Each child has a 20-second deadline and 32 MiB stdout limit; collection has a
 240-second deadline starting before Git/inventory prerequisites. All children and
 kubectl requests share its remaining budget; requests also cap at 15 seconds. No
@@ -309,6 +311,34 @@ def discover_charts(repo):
                 require(chart.is_file() and not chart.is_symlink(), "Chart.yaml is not a regular owned file.")
                 paths.append(f"{layer}/{child.name}")
     # monitoring-system and external-secrets are active via the separate CRD ApplicationSet.
+    return chart_paths(paths)
+
+
+def discover_revision_charts(repo, revision, deadline):
+    git = ["git", "--no-optional-locks", "-C", str(repo)]
+    revision = sha(revision)
+    require(command(git + ["rev-parse", "--verify", revision + "^{commit}"], deadline).strip() == revision,
+            "Expected chart revision must identify an available local commit.")
+    records = command(git + ["ls-tree", "-r", "-z", "--full-tree", revision, "--",
+                             "system", "platform", "apps"], deadline)
+    require(records.endswith("\0"), "Missing or unterminated committed chart evidence.")
+    paths, seen = [], set()
+    for record in records[:-1].split("\0"):
+        match = re.fullmatch(r"(100644|100755|120000|160000) (blob|commit) ([0-9a-f]{40}|[0-9a-f]{64})\t(.+)",
+                             record, flags=re.DOTALL)
+        require(match is not None, "Invalid committed tree record.")
+        mode, kind, _, path = match.groups()
+        parts = path.split("/")
+        require(parts[0] in ("system", "platform", "apps") and
+                all(part not in ("", ".", "..") for part in parts) and path not in seen,
+                "Ambiguous committed chart path.")
+        seen.add(path)
+        chart = len(parts) == 3 and parts[2] == "Chart.yaml"
+        if len(parts) <= 2 or chart:
+            require(mode in ("100644", "100755") and kind == "blob",
+                    "Committed chart root or Chart.yaml is not a regular owned file.")
+        if chart:
+            paths.append("/".join(parts[:2]))
     return chart_paths(paths)
 
 
@@ -871,7 +901,12 @@ def main(argv=None):
             repo, metadata = repository_metadata(Path(args.repo), deadline)
             report["repository"] = metadata
             nodes, reader = load_inventory(repo, deadline)
-            charts = discover_charts(repo)
+            if expected_revision:
+                charts = discover_revision_charts(repo, expected_revision, deadline)
+                metadata["expected_charts"] = {"source": "local_git_commit", "revision": expected_revision}
+            else:
+                charts = discover_charts(repo)
+                metadata["expected_charts"] = {"source": "local_worktree_not_necessarily_deployed"}
             sources, receipts = collect_live(repo, deadline)
             report["collection"].update({"inventory_reader": reader, "sources": receipts})
         report["expected"] = {"nodes": nodes, "applications": charts, "revision": expected_revision}

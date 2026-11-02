@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Issue 103: CORE chart expectations at the deployment revision</title>
+<style>body{background:#111722;color:#e4eaf4;font:17px/1.6 system-ui;max-width:980px;margin:3rem auto;padding:0 1rem}a,code{color:#91cbff}</style>
+<h1>CORE chart expectations at the deployment revision</h1>
+<p>Status: implementation candidate. No workload change.</p>
+<h2>Evidence and cause</h2>
+<p>Receipt <code>maintenance103-postpublic-CORE-gmx0uf5l</code>, captured at revision <code>722b9250e8dd2effc235be18a0b8d4519124ed8f</code>, retained 68 findings and no evidence errors. One missing Application finding came from the untracked <code>apps/scribe-discord/Chart.yaml</code>. The same revision's Git tree contains no such chart. The collector currently walks the local working directory even when an immutable expected deployment revision is supplied. This conflates an unpublished draft with deployed desired state. Existing warnings and revision findings remain separate findings.</p>
+<h2>Change and acceptance</h2>
+<p>When <code>--expected-revision</code> is supplied in live mode, discover active direct-child charts from that exact local Git commit. Verify it is a commit, read NUL-delimited tree records through the existing bounded command function, require regular chart blobs and reject ambiguous symlink/submodule chart roots and duplicate names. Record the chart source and revision explicitly. Keep default worktree discovery, inventory loading and fixture mode unchanged. A missing committed chart must still fail. Preserve all original evidence; never deploy or delete the user's draft.</p>
+<p>Regression checks cover unpublished draft isolation, committed missing applications, malformed records, missing objects, symlinks, duplicate application names, the default worktree contract and live CLI wiring. Run the existing complete synthetic collector suite, narrow hooks and an actual revision-bound CORE collection. Report remaining findings without suppression. Rollback is a Git revert of the collector change; it has no cluster resources or data migration.</p>
+<h2>Primary contract</h2>
+<p><a href="https://git-scm.com/docs/git-ls-tree">Git ls-tree documentation</a> defines the tree-object input, full-tree scope, NUL termination and mode/type/object/path record format. This change uses names and public object identities only, never file contents or credentials.</p>
+</html>

@@ -1023,6 +1023,61 @@ class HealthTests(unittest.TestCase):
             with self.assertRaisesRegex(health.EvidenceError, "nothing is installed"):
                 health.load_inventory(health.CANONICAL, float("inf"))
 
+    def test_revision_charts_ignore_worktree_drafts_and_keep_missing_committed_app(self):
+        records = "".join(f"100644 blob {OTHER_REVISION}\t{path}/Chart.yaml\0" for path in CHARTS)
+        with patch.object(health, "command", side_effect=[REVISION + "\n", records]) as command, \
+                patch.object(Path, "iterdir", side_effect=AssertionError("Worktree drafts must not be inspected")):
+            charts = health.discover_revision_charts(health.CANONICAL, REVISION, 1234.0)
+        self.assertEqual(charts, health.chart_paths(CHARTS))
+        self.assertNotIn("scribe-discord", charts)
+        self.assertEqual(command.call_args.args[0][-5:], [REVISION, "--", "system", "platform", "apps"])
+        self.assertTrue(all(call.args[1] == 1234.0 for call in command.call_args_list))
+        sources = copy.deepcopy(self.data["sources"])
+        sources["applications"]["items"] = sources["applications"]["items"][:-1]
+        _, findings, errors = health.evaluate(sources, sorted(NODES), charts, REVISION)
+        self.assertFalse(errors)
+        self.assertIn(("expected_application_missing", "example"), {(f["code"], f["name"]) for f in findings})
+
+    def test_revision_charts_reject_missing_commit_and_malformed_records(self):
+        with patch.object(health, "command", side_effect=health.EvidenceError("Missing local commit")):
+            with self.assertRaises(health.EvidenceError):
+                health.discover_revision_charts(health.CANONICAL, REVISION, 1234.0)
+        for records in ("", "100644 blob " + OTHER_REVISION + "\tapps/example/Chart.yaml",
+                        "invalid-secret\0", "100644 blob " + OTHER_REVISION + "\tapps/../Chart.yaml\0"):
+            with self.subTest(records=records), patch.object(health, "command", side_effect=[REVISION, records]):
+                with self.assertRaises(health.EvidenceError) as error:
+                    health.discover_revision_charts(health.CANONICAL, REVISION, 1234.0)
+                self.assertNotIn("invalid-secret", str(error.exception))
+        with patch.object(health, "command", return_value=OTHER_REVISION) as command:
+            with self.assertRaises(health.EvidenceError):
+                health.discover_revision_charts(health.CANONICAL, REVISION, 1234.0)
+            self.assertEqual(command.call_count, 1)
+
+    def test_revision_charts_reject_symlinks_submodules_and_duplicates(self):
+        valid = f"100644 blob {OTHER_REVISION}\tapps/example/Chart.yaml\0"
+        for bad in (f"120000 blob {OTHER_REVISION}\tapps\0",
+                    f"120000 blob {OTHER_REVISION}\tapps/linked\0",
+                    f"120000 blob {OTHER_REVISION}\tapps/linked/Chart.yaml\0",
+                    f"160000 commit {OTHER_REVISION}\tapps/module\0", valid,
+                    f"100644 blob {OTHER_REVISION}\tsystem/example/Chart.yaml\0"):
+            with self.subTest(bad=bad), patch.object(health, "command", side_effect=[REVISION, valid + bad]):
+                with self.assertRaises(health.EvidenceError):
+                    health.discover_revision_charts(health.CANONICAL, REVISION, 1234.0)
+
+    def test_live_revision_chart_discovery_wiring_and_metadata(self):
+        output = io.StringIO()
+        metadata = {"revision": REVISION}
+        with patch.object(health, "repository_metadata", return_value=(health.CANONICAL, metadata)), \
+                patch.object(health, "load_inventory", return_value=(sorted(NODES), "synthetic")), \
+                patch.object(health, "discover_revision_charts", return_value=health.chart_paths(CHARTS)) as discovery, \
+                patch.object(health, "discover_charts", side_effect=AssertionError("Unexpected worktree discovery")), \
+                patch.object(health, "collect_live", return_value=(self.data["sources"], {})), \
+                contextlib.redirect_stdout(output):
+            self.assertEqual(health.main(["--json", "--expected-revision", REVISION]), 0)
+        self.assertEqual(discovery.call_args.args[:2], (health.CANONICAL, REVISION))
+        self.assertEqual(json.loads(output.getvalue())["repository"]["expected_charts"],
+                         {"source": "local_git_commit", "revision": REVISION})
+
     def test_existing_pyyaml_inventory_parser_reads_only_synthetic_input(self):
         with patch.object(Path, "is_file", return_value=True), patch.object(Path, "is_symlink", return_value=False), \
                 patch.object(Path, "open", return_value=io.StringIO(json.dumps(self.data["inventory"]))), \
