@@ -138,15 +138,18 @@ class OutlineRecoveryGuards(unittest.TestCase):
         host = {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'IpcMode': 'private', 'PidMode': '', 'UTSMode': '', 'UsernsMode': '',
                 'PidsLimit': 128, 'Memory': 1073741824, 'NanoCpus': 1000000000, 'Tmpfs': {'/tmp': 'rw,nosuid,nodev'},
-                'RestartPolicy': {'Name': 'no'}}
+                'RestartPolicy': {'Name': 'no'}, 'Binds': [str(scratch / 'data') + ':' + recovery.MOUNT + ':Z']}
         original = {'HostConfig': host, 'Config': {'Image': recovery.IMAGE, 'User': '999:999', 'Labels': {recovery.LABEL: runid},
                     'Entrypoint': ['/bin/sh'], 'Cmd': ['-c', 'exec sleep 2147483647'], 'Env': ['PG_MAJOR=18']},
-                    'Mounts': [{'Type': 'bind', 'Source': str(scratch / 'data'), 'Destination': recovery.MOUNT, 'RW': True}]}
+                    'ProcessLabel': 'system_u:system_r:container_t:s0:c100,c200',
+                    'MountLabel': 'system_u:object_r:container_file_t:s0:c100,c200',
+                    'Mounts': [{'Type': 'bind', 'Source': str(scratch / 'data'), 'Destination': recovery.MOUNT, 'Mode': 'Z', 'RW': True}]}
         recovery.require_container(original, scratch, runid)
         for section, key, value in (('HostConfig', 'NetworkMode', 'host'), ('HostConfig', 'ReadonlyRootfs', False),
                                    ('HostConfig', 'Privileged', True), ('HostConfig', 'CapAdd', ['SYS_ADMIN']),
                                    ('HostConfig', 'PidMode', 'host'), ('HostConfig', 'Devices', [{'PathOnHost': '/dev/sda'}]),
                                    ('HostConfig', 'PortBindings', {'5432/tcp': [{'HostPort': '5432'}]}),
+                                   ('HostConfig', 'Binds', [str(scratch / 'data') + ':' + recovery.MOUNT + ':z']),
                                    ('Config', 'User', '0'), ('Config', 'Image', 'postgres:18'),
                                    ('Config', 'Entrypoint', ['docker-entrypoint.sh']),
                                    ('Config', 'Env', ['PGPASSWORD=synthetic'])):
@@ -154,6 +157,12 @@ class OutlineRecoveryGuards(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(RuntimeError): recovery.require_container(changed, scratch, runid)
         changed = copy.deepcopy(original); changed['Mounts'][0]['Source'] = '/production'
         with self.assertRaises(RuntimeError): recovery.require_container(changed, scratch, runid)
+        for key, value in (('ProcessLabel', ''), ('ProcessLabel', 'system_u:system_r:unconfined_t:s0:c100,c200'),
+                           ('MountLabel', 'system_u:object_r:container_file_t:s0'),
+                           ('MountLabel', 'system_u:object_r:container_file_t:s0:c101,c201')):
+            changed = copy.deepcopy(original); changed[key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(RuntimeError):
+                recovery.require_container(changed, scratch, runid)
 
 
 if __name__ == '__main__': unittest.main()

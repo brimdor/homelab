@@ -188,14 +188,21 @@ def require_container(value, scratch, run_id):
     expected = {'NetworkMode': 'none', 'ReadonlyRootfs': True, 'Privileged': False, 'CapDrop': ['ALL'],
                 'SecurityOpt': ['no-new-privileges:true'], 'IpcMode': 'private', 'PidMode': '', 'UTSMode': '', 'UsernsMode': '',
                 'PidsLimit': 128, 'Memory': 1073741824, 'NanoCpus': 1000000000, 'Tmpfs': {'/tmp': 'rw,nosuid,nodev'}}
+    process_label = value.get('ProcessLabel', '').split(':', 3)
+    mount_label = value.get('MountLabel', '').split(':', 3)
     if (config['Image'] != IMAGE or config['User'] != '999:999' or config.get('Labels', {}).get(LABEL) != run_id or
             config.get('Entrypoint') != ['/bin/sh'] or config.get('Cmd') != ['-c', 'exec sleep 2147483647'] or
             any(h in e for e in config.get('Env', []) for h in ('POSTGRES_PASSWORD=', 'PGPASSWORD=')) or
             any(host.get(k) != v for k, v in expected.items()) or host.get('RestartPolicy', {}).get('Name') != 'no' or
             any(host.get(k) for k in ('CapAdd', 'Devices', 'DeviceRequests', 'PortBindings')) or
+            host.get('Binds') != [str(scratch / 'data') + ':' + MOUNT + ':Z'] or
+            len(process_label) != 4 or process_label[:3] != ['system_u', 'system_r', 'container_t'] or
+            len(mount_label) != 4 or mount_label[:3] != ['system_u', 'object_r', 'container_file_t'] or
+            not re.fullmatch(r's0:c\d+,c\d+', mount_label[3]) or process_label[3] != mount_label[3] or
             len(value['Mounts']) != 1 or value['Mounts'][0].get('Type') != 'bind' or
             value['Mounts'][0].get('Source') != str(scratch / 'data') or value['Mounts'][0].get('Destination') != MOUNT or
-            value['Mounts'][0].get('RW') is not True): raise RuntimeError('native restore isolation changed')
+            value['Mounts'][0].get('Mode') != 'Z' or value['Mounts'][0].get('RW') is not True):
+        raise RuntimeError('native restore isolation changed')
 
 
 def restore(run_id, checksum):
@@ -207,7 +214,10 @@ def restore(run_id, checksum):
     scratch = Path(tempfile.mkdtemp(prefix='outline-restore-', dir=common.ROOT)); scratch.chmod(0o700)
     container = image_id = None; result = {'accepted': False, 'manifest_sha256': checksum}
     try:
+        if common.command(['getenforce']).stdout.strip() != b'Enforcing':
+            raise RuntimeError('native restore requires enforcing SELinux')
         data = scratch / 'data'; data.mkdir(mode=0o700); os.chown(data, 999, 999)
+        original_context = os.getxattr(data, 'security.selinux').decode().rstrip('\0')
         for name in manifest['files']:
             shutil.copyfile(point / name, data / name); (data / name).chmod(0o600); os.chown(data / name, 999, 999)
             if protected.file_digest(point / name) != manifest['files'][name]: raise RuntimeError('protected source changed during copy')
@@ -220,10 +230,16 @@ def restore(run_id, checksum):
         container = common.docker('create', '--network=none', '--read-only', '--cap-drop=ALL', '--user=999:999',
                                   '--security-opt=no-new-privileges:true', '--ipc=private', '--pids-limit=128', '--cpus=1', '--memory=1g',
                                   '--label=' + LABEL + '=' + run_id, '--tmpfs=/tmp:rw,nosuid,nodev',
-                                  '--mount=type=bind,source=' + str(data) + ',target=' + MOUNT, '--entrypoint=/bin/sh', IMAGE,
+                                  '--volume=' + str(data) + ':' + MOUNT + ':Z', '--entrypoint=/bin/sh', IMAGE,
                                   '-c', 'exec sleep 2147483647').stdout.decode().strip()
         if not re.fullmatch('[a-f0-9]{64}', container): raise RuntimeError('invalid owned container identity')
-        require_container(common.inspect(container), scratch, run_id); common.docker('start', container)
+        state = common.inspect(container); require_container(state, scratch, run_id)
+        private_context = os.getxattr(data, 'security.selinux').decode().rstrip('\0')
+        if private_context != state['MountLabel']:
+            raise RuntimeError('owned restore scratch lacks the exact private container label')
+        result['scratch_selinux'] = {'before': original_context, 'private': private_context,
+                                     'process': state['ProcessLabel'], 'enforcing': True}
+        common.docker('start', container)
         state = common.inspect(container); require_container(state, scratch, run_id)
         net = ['nsenter', '-t', str(state['State']['Pid']), '-n', '--']
         common.require_network(json.loads(common.command([*net, 'ip', '-j', 'address']).stdout),
