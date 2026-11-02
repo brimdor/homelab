@@ -22,6 +22,17 @@
       "owner": "homelab-maintenance-103-52364ed1-615b-4495-a7db-2b1d9c234e49",
       "revision": "211926eee32bf119db04a2c2277c5a37e8ef97bd",
       "release_head": "a49afe40404cbad2759f2808e02a3152a064ec07bc82034a73837238d81cee0f"
+    },
+    "bulbasaur": {
+      "node_uid": "b921073c-822a-4b74-80ed-563fec33d6ab",
+      "address": "10.0.20.13",
+      "identity": {
+        "machine": "f61201c3e2ba4b8cbd31e09f77da2ad0",
+        "root_uuid": "2c59d1d1-d2d8-420e-b3a5-d87eb0437823"
+      },
+      "owner": "homelab-maintenance-103-0216012c-bac1-4bd1-a06f-6effc75e1e69",
+      "revision": "0bc511030541d519eeb617a5ac5b1407abf095d9",
+      "release_head": "894c57d51c5ff10433acc5c71952f93cea2691f0649885cde4b93a7b53a66642"
     }
   }
 }
