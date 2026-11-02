@@ -12,6 +12,21 @@ import maintenance_kubelet_image_pulls as subject
 
 
 class SerialImagePullTests(unittest.TestCase):
+    def test_registry_observation_preserves_identity_and_excludes_target(self):
+        status = dict(containerID='original-container', imageID='original-image', restartCount=0, ready=True)
+        pod = {'metadata': {'uid': 'original-pod', 'name': 'zot-0'},
+               'spec': {'nodeName': 'growlithe'}, 'status': {'containerStatuses': [status]}}
+        original = dict(uid='original-pod', name='zot-0', node='growlithe',
+                        container={k: status[k] for k in ('containerID', 'imageID', 'restartCount')})
+        subject.preserve_registry_observation(pod, original)
+        for key, value in (('containerID', 'new'), ('imageID', 'new'), ('restartCount', 1), ('ready', False)):
+            changed = copy.deepcopy(pod); changed['status']['containerStatuses'][0][key] = value
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                subject.preserve_registry_observation(changed, original)
+        for key, value in (('uid', 'new'), ('node', 'squirtle')):
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                subject.preserve_registry_observation(pod, dict(original, **{key: value}))
+
     def test_first_target_cannot_gain_a_nas_or_application_volume(self):
         pod = {'metadata': {'namespace': 'kube-system'}, 'spec': {'volumes': [{'hostPath': {}}]}}
         subject.storage_boundary([pod])

@@ -66,6 +66,19 @@ def storage_boundary(pods):
         'target has a protected or unreviewed storage consumer')
 
 
+def preserve_registry_observation(pod, original):
+    """Preserve a remote observation without replacing the older accepted process guard."""
+    statuses = pod['status'].get('containerStatuses', [])
+    actors.require(original['node'] != 'squirtle' and
+                   pod['metadata']['uid'] == original['uid'] and
+                   pod['metadata']['name'] == original['name'] and
+                   pod['spec']['nodeName'] == original['node'] and
+                   not pod['metadata'].get('deletionTimestamp') and
+                   len(statuses) == 1 and statuses[0].get('ready') is True and
+                   {k: statuses[0].get(k) for k in ('containerID', 'imageID', 'restartCount')} ==
+                   original['container'], 'observed protected Zot runtime changed')
+
+
 def native_operation(context):
     from maintenance_k3s_production import verified_completed_drain
     from maintenance_safe_release import Release, KINDS
@@ -242,12 +255,7 @@ def observe(args, api, baseline, kind):
                 expected_outages.append(item['metadata']['uid']); continue
             raise RuntimeError('controller unready: ' + item['metadata']['namespace'] + '/' + item['metadata']['name'])
     pod = api.call('get', 'pod', baseline['zot']['name'], '-n', 'zot', '-o', 'json')
-    statuses = pod['status'].get('containerStatuses', [])
-    actors.require(pod['metadata']['uid'] == baseline['zot']['uid'] and
-                   pod['spec']['nodeName'] == 'cyndaquil' and not pod['metadata'].get('deletionTimestamp') and
-                   len(statuses) == 1 and statuses[0].get('ready') is True and
-                   {k: statuses[0].get(k) for k in ('containerID', 'imageID', 'restartCount')} ==
-                   baseline['zot']['container'], 'observed protected Zot runtime changed')
+    preserve_registry_observation(pod, baseline['zot'])
     result = {'node_uids': baseline['nodes'], 'ceph_fsid': baseline['fsid'],
               'etcd_cluster_id': etcd['status'][0]['Status']['header']['cluster_id'],
               'monitor_members': view['members'], 'monitor_quorum': view['quorum'],
