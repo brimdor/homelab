@@ -16,6 +16,44 @@
   <p><strong>CONTROLPLANE_API_STALL: INCOMPLETE.</strong> This records the newly observed
     2026-10-21 incident, subsequent recurrence and actual mitigation. Causal repair acceptance remains incomplete.</p>
 
+  <h2>Current assessment — November 2, 2026 23:44 UTC</h2>
+  <p>The owner reports that Sprigatito runs without issue and Emby playback is smooth, and
+    considers the I/O symptom a temporary hiccup. This is current application-behavior evidence,
+    not a demonstrated historical cause. Sprigatito's SATA history and Bulbasaur's control-plane
+    WAL stalls concern different physical disks; do not conflate them or request physical work
+    on Sprigatito to explain Bulbasaur's capture.</p>
+  <p>Read-only <code>maintenance103-Sprigatito-current-native-completed-check-nme3wq8a</code>
+    verifies Sprigatito's original machine/root/disk identities, Enforcing mode, active
+    <code>k3s.service</code>, absent maintenance owner and Ready Emby process with zero restarts
+    since 08:19:52 UTC. Its current-boot kernel journal contains 1,104 entries and no selected
+    ATA timeout/reset, block I/O, root-filesystem-error or hung-task markers. Native passive
+    SMART returns zero, passes, and reports zero ATA errors, reallocated/pending/uncorrectable
+    sectors and UDMA CRC errors. No self-test, stress, reboot, application request or NAS access
+    was introduced. These checks do not prove a historical cause or exclude every hardware fault.</p>
+  <p>Bulbasaur's separate zero-capability operational capture remains active. Analysis
+    <code>maintenance103-owner-evidence-and-current-I-O-analysis-mtayp5g3</code> covers 1,492 samples
+    through 23:37:41 UTC: maximum sampled physical-disk busy fraction 0.080769661, no selected
+    slow-fdatasync or leader-loss markers, zero counter resets and one cgroup replacement.
+    Paired intervals record 553,811,968 physical write bytes and 486,547,456 observed host-service
+    write bytes, principally K3s and Journald. Their accounting boundaries differ; the difference
+    does not identify another writer. Maximum sampled full I/O-pressure fraction 0.373281860
+    measures stalled-task time, not physical-disk utilization. This later window cannot
+    reconstruct the morning failure.</p>
+  <p>The original failed fresh Sprigatito check is retained in <code>7wzz_9jd</code>.
+    Independent scope inspection <code>haa2s_do</code> found this worker uses
+    <code>k3s.service</code>; the first check incorrectly queried inactive
+    <code>k3s-agent.service</code>. The corrected check accepted the existing service without
+    changing or starting either unit. The original command's exact first traceback was not retained.</p>
+  <p>No immediate physical intervention is indicated. Keep the unknown historical cause and
+    current capture distinct from completed node/application maintenance. A single tracked
+    workstation follow-through may wait for this exact capture's natural four-hour footer,
+    verify the original PID/source/host/file identities and aggregate the complete window.
+    It must preserve failure and coverage gaps, use existing strict SSH and audited Tea, update
+    only Issue 103's compact current prefix with exact readback, and leave all unfinished
+    parents open. It must never restart the capture, follow a replacement PID, generate load,
+    touch NAS data or change the existing timer/restart schedule. This is one operational
+    follow-through, not another recurring automation.</p>
+
   <h2>Requirement and protected scope</h2>
   <p>Establish the cause of slow persistent I/O preceding Bulbasaur's controller-manager lease loss
     and K3s restart. Repair a proven software cause through repository desired state and verify
