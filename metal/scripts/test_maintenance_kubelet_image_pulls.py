@@ -81,6 +81,17 @@ class SerialImagePullTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(RuntimeError):
                 hops.steps(dict(owner, **{key: value}))
 
+    def test_target_without_monitor_cannot_ignore_any_ceph_warning(self):
+        baseline = {'target_monitor': None, 'monitors': ['aa', 'ab', 'ac'], 'fsid': 'original'}
+        ceph = {'fsid': 'original', 'quorum_names': ['aa', 'ab', 'ac'],
+                'health': {'status': 'HEALTH_OK', 'checks': {}}}
+        monmap = {'fsid': 'original', 'mons': [{'name': n} for n in baseline['monitors']]}
+        self.assertEqual(subject.monitor_health(ceph, monmap, baseline)['checks'], [])
+        for changed in (dict(ceph, quorum_names=['aa', 'ab']), dict(ceph, fsid='new'),
+                        dict(ceph, health={'status': 'HEALTH_WARN', 'checks': {'MON_DOWN': {}}})):
+            with self.assertRaises(RuntimeError):
+                subject.monitor_health(changed, monmap, baseline)
+
     def test_later_master_preserves_existing_volume_contract(self):
         pod = {'metadata': {'namespace': 'budget'},
                'spec': {'volumes': [{'nfs': {'server': '10.0.40.3', 'path': '/mnt/user/budget'}}]}}

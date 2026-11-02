@@ -60,8 +60,8 @@ def installed(before, after, content):
 
 
 def storage_boundary(pods, node='squirtle'):
-    actors.require(node in SERVERS, 'unreviewed image-pull node')
     """Squirtle stays volume-free; later masters retain already-authorized normal application mounts."""
+    actors.require(node in SERVERS, 'unreviewed image-pull node')
     actors.require(not any(p['metadata']['namespace'] == 'zot' or
         (node == 'squirtle' and any(set(v) & {'nfs', 'persistentVolumeClaim', 'csi'}
                                    for v in p['spec'].get('volumes', [])))
@@ -219,10 +219,22 @@ def native_operation(context):
     print(json.dumps({'result': result}), flush=True)
 
 
+def monitor_health(ceph, monmap, baseline):
+    from rook_monitor_qualification import monitor_view
+    if baseline['target_monitor'] is not None:
+        return monitor_view(ceph, monmap, baseline['monitors'], baseline['target_monitor'], baseline['fsid'])
+    members = sorted(m['name'] for m in monmap['mons'])
+    quorum = sorted(ceph.get('quorum_names', []))
+    actors.require(ceph['fsid'] == monmap['fsid'] == baseline['fsid'] and
+                   len(members) == 3 and members == quorum == sorted(baseline['monitors']) and
+                   ceph['health']['status'] == 'HEALTH_OK' and not ceph['health'].get('checks'),
+                   'monitor health changed on a target without a monitor')
+    return {'members': members, 'quorum': quorum, 'checks': [], 'complete': False}
+
+
 def observe(args, api, baseline, kind):
     """Allow only the selected cordoned node's proven Rook monitor downtime."""
     import maintenance_production_node as production
-    from rook_monitor_qualification import monitor_view
     nodes = api.call('get', 'nodes', '-o', 'json')['items']
     actors.require({n['metadata']['name']: n['metadata']['uid'] for n in nodes} == baseline['nodes'],
                    'image-pull inventory identities changed')
@@ -243,7 +255,7 @@ def observe(args, api, baseline, kind):
                        ('MemoryPressure', 'DiskPressure', 'PIDPressure')), 'node health differs')
     ceph = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'status', '-f', 'json')
     monmap = api.call('exec', '-n', 'rook-ceph', 'deploy/rook-ceph-tools', '--', 'ceph', 'mon', 'dump', '-f', 'json')
-    view = monitor_view(ceph, monmap, baseline['monitors'], baseline['target_monitor'], baseline['fsid'])
+    view = monitor_health(ceph, monmap, baseline)
     actors.require(not view['checks'] or cordoned, 'monitor outage outside the cordoned intervention')
     groups = ceph['pgmap']['pgs_by_state']
     actors.require(groups and all({'active', 'clean'} <= set(g['state_name'].split('+')) and
