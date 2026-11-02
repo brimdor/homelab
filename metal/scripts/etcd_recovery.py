@@ -21,6 +21,13 @@ import time
 IMAGE = "docker.io/rancher/k3s@sha256:d7119ab9e0054692a86a8eda454f2d3370dafc1c3a96b3ace5c5599f0c1e9f15"
 VERSION = "v1.33.6+k3s1"
 RECEIVER_VERSION = VERSION
+RECEIVER_HOST = "pikachu"
+RECEIVERS = {
+    "pikachu": {"address": "10.0.20.14", "machine": "0a7daf8b33244d9d85f46223c3582da9",
+                "root_uuid": "76e53a95-725a-4430-9d7b-a8db413f3997"},
+    "cyndaquil": {"address": "10.0.20.16", "machine": "51140709f60f45c1bcd0edfa23dba2ef",
+                  "root_uuid": "fc02c8c4-35c6-4efe-a88a-b03d7673c0c8"},
+}
 SOURCE_HOST = "charmander"
 SOURCE_ADDRESSES = {"charmander": "10.0.20.11", "squirtle": "10.0.20.12", "bulbasaur": "10.0.20.13"}
 RECOVERY_IMAGES = {
@@ -41,24 +48,31 @@ SSH = ["ssh", "-i", str(Path.home() / ".ssh/homelab"), "-o", "IdentitiesOnly=yes
        "-o", "ConnectTimeout=15", "root@10.0.20.14"]
 
 
-def recovery_profile(source_host, source_version, receiver_version):
+def recovery_profile(source_host, source_version, receiver_version, receiver_host="pikachu"):
     """The isolated restore uses the source image; the host may trail by three minors."""
     versions = tuple(RECOVERY_IMAGES)
     if (source_host not in SOURCE_ADDRESSES or source_version not in versions or
-            receiver_version not in versions):
+            receiver_version not in versions or receiver_host not in RECEIVERS or
+            (receiver_host == "cyndaquil" and
+             (source_version, receiver_version) != (versions[-1], versions[-1]))):
         raise RuntimeError("unreviewed K3s recovery profile")
     source, receiver = versions.index(source_version), versions.index(receiver_version)
     if not (source - receiver in (0, 1) or
             receiver >= 2 and 0 <= source - receiver <= 3):
         raise RuntimeError("unreviewed K3s recovery profile")
-    return {"source_host": source_host, "source_version": source_version,
-            "receiver_version": receiver_version}
+    selected = {"source_host": source_host, "source_version": source_version,
+                "receiver_version": receiver_version}
+    if receiver_host != "pikachu":
+        selected["receiver_host"] = receiver_host
+    return selected
 
 
-def configure_profile(source_host, source_version, receiver_version):
-    global SOURCE_HOST, VERSION, RECEIVER_VERSION, IMAGE
-    recovery_profile(source_host, source_version, receiver_version)
+def configure_profile(source_host, source_version, receiver_version, receiver_host="pikachu"):
+    global SOURCE_HOST, VERSION, RECEIVER_VERSION, RECEIVER_HOST, IMAGE
+    recovery_profile(source_host, source_version, receiver_version, receiver_host)
     SOURCE_HOST, VERSION, RECEIVER_VERSION = source_host, source_version, receiver_version
+    RECEIVER_HOST = receiver_host
+    SSH[-1] = "root@" + RECEIVERS[receiver_host]["address"]
     IMAGE = RECOVERY_IMAGES[source_version]
 
 
@@ -383,6 +397,23 @@ def require_host(name, version=None):
         raise RuntimeError("installed recovery version changed")
 
 
+def require_receiver():
+    require_host(RECEIVER_HOST, RECEIVER_VERSION)
+    expected = RECEIVERS[RECEIVER_HOST]
+    if (Path("/etc/machine-id").read_text().strip() != expected["machine"] or
+            command(["findmnt", "-n", "-o", "UUID", "/"]).stdout.decode().strip() != expected["root_uuid"] or
+            command(["getenforce"]).stdout.strip() != b"Enforcing"):
+        raise RuntimeError("protected receiver identity or SELinux changed")
+    return {"host": RECEIVER_HOST, **expected}
+
+
+def receiver_preflight():
+    receiver = require_receiver()
+    private_root()
+    require_capacity(ROOT, 0, copies=3)
+    return {"accepted": True, "phase": "receiver-preflight", "receiver": receiver}
+
+
 def source_identity():
     client = ["/usr/local/bin/kubectl", "--kubeconfig=/etc/rancher/k3s/k3s.yaml", "--request-timeout=30s"]
     namespaces = json.loads(command([*client, "get", "namespaces", "-o=json"]).stdout)["items"]
@@ -424,12 +455,13 @@ def produce_point(run_id):
 
 
 def preserve_point(run_id):
-    require_host("pikachu", RECEIVER_VERSION)
+    receiver = require_receiver()
     private_root()
     point = ROOT / run_id
     manifest = receive_bundle(sys.stdin.buffer, point)
     return {"accepted": True, "phase": "protected-copy", "run_id": run_id, "point": str(point),
-            "manifest_sha256": hashlib.sha256(canonical(manifest)).hexdigest(), **manifest}
+            "manifest_sha256": hashlib.sha256(canonical(manifest)).hexdigest(),
+            "receiver": receiver, **manifest}
 
 
 def remote_command(source, phase, run_id):
@@ -438,15 +470,24 @@ def remote_command(source, phase, run_id):
 
 def copy_point(run_id, source, profile=None):
     source_host = SOURCE_HOST
+    receiver_host = RECEIVER_HOST
     if profile is not None:
         selected = recovery_profile(**profile)
         source_host = selected['source_host']
+        receiver_host = selected.get('receiver_host', 'pikachu')
         source = profile_program(source, **selected)
+    receiver_ssh = [*SSH[:-1], "root@" + RECEIVERS[receiver_host]["address"]]
+    # Refuse a full receiver before creating another protected source snapshot.
+    check = command([*receiver_ssh, remote_command(source, "internal-preflight", run_id)])
+    preflight = json.loads(check.stdout)
+    if preflight != {"accepted": True, "phase": "receiver-preflight",
+                     "receiver": {"host": receiver_host, **RECEIVERS[receiver_host]}}:
+        raise RuntimeError("protected receiver preflight binding changed")
     sender = receiver = None
     try:
         sender = subprocess.Popen([*SSH[:-1], "root@" + SOURCE_ADDRESSES[source_host], remote_command(source, "internal-send", run_id)],
                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        receiver = subprocess.Popen([*SSH, remote_command(source, "internal-receive", run_id)],
+        receiver = subprocess.Popen([*receiver_ssh, remote_command(source, "internal-receive", run_id)],
                                     stdin=sender.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         sender.stdout.close()
         output, _ = receiver.communicate()
@@ -455,7 +496,8 @@ def copy_point(run_id, source, profile=None):
             raise RuntimeError("recovery copy incomplete; protected partial point retained; source exit " +
                                str(source_exit) + ", receiver exit " + str(receiver.returncode))
         receipt = json.loads(output)
-        if receipt.get("accepted") is not True or receipt.get("run_id") != run_id:
+        if (receipt.get("accepted") is not True or receipt.get("run_id") != run_id or
+                receipt.get("receiver") != preflight["receiver"]):
             raise RuntimeError("recovery receiver returned an invalid receipt")
         return receipt
     finally:
@@ -486,9 +528,7 @@ def log_diagnostic(path):
 def qualify(run_id, point=None, manifest_sha256=None, synthetic_check=None):
     if point is not None and synthetic_check is not None:
         raise RuntimeError("component qualification cannot use production recovery material")
-    if os.geteuid() != 0 or command(["hostname"]).stdout.strip() != b"pikachu":
-        raise RuntimeError("qualification must run on the exact authorized off-master host")
-    require_host("pikachu", RECEIVER_VERSION)
+    require_receiver()
     private_root()
     manifest = verify_point(point, manifest_sha256) if point is not None else None
     if manifest is not None and (manifest["metadata"].get("source_host") != SOURCE_HOST or
@@ -677,13 +717,15 @@ def cancel_qualification(run_id):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["qualify", "internal-qualify", "cancel-qualify", "internal-cancel-qualify",
-                                         "copy", "internal-send", "internal-receive", "restore", "internal-restore"])
+                                         "copy", "internal-preflight", "internal-send", "internal-receive", "restore", "internal-restore"])
     parser.add_argument("--run-id", required=True, type=run_identifier)
     parser.add_argument("--manifest-sha256")
     args = parser.parse_args()
     if args.phase in ("restore", "internal-restore") and not re.fullmatch(r"[a-f0-9]{64}", args.manifest_sha256 or ""):
         parser.error("restore requires the exact preserved manifest SHA256")
-    if args.phase == "internal-qualify":
+    if args.phase == "internal-preflight":
+        receipt = receiver_preflight()
+    elif args.phase == "internal-qualify":
         receipt = qualify(args.run_id)
     elif args.phase == "internal-cancel-qualify":
         receipt = cancel_qualification(args.run_id)

@@ -85,6 +85,75 @@ class RecoveryProfileTests(unittest.TestCase):
         self.assertIn('def cancel_qualification(', program)
         self.assertIn('def main(', program)
 
+    def test_alternate_receiver_is_explicit_and_limited_to_reviewed_current_versions(self):
+        version = tuple(RECOVERY.RECOVERY_IMAGES)[-1]
+        selected = RECOVERY.recovery_profile('bulbasaur', version, version, 'cyndaquil')
+        self.assertEqual(selected['receiver_host'], 'cyndaquil')
+        RECOVERY.configure_profile(**selected)
+        self.assertEqual(RECOVERY.RECEIVER_HOST, 'cyndaquil')
+        self.assertEqual(RECOVERY.SSH[-1], 'root@10.0.20.16')
+        for receiver, source, target in (('growlithe', version, version),
+                                         ('cyndaquil', 'v1.35.9+k3s1', 'v1.35.9+k3s1')):
+            with self.subTest(receiver=receiver), self.assertRaises(RuntimeError):
+                RECOVERY.configure_profile('bulbasaur', source, target, receiver)
+            self.assertEqual(RECOVERY.RECEIVER_HOST, 'cyndaquil')
+        RECOVERY.configure_profile('bulbasaur', version, version)
+        self.assertEqual(RECOVERY.RECEIVER_HOST, 'pikachu')
+        self.assertEqual(RECOVERY.SSH[-1], 'root@10.0.20.14')
+
+    def test_receiver_machine_root_and_selinux_are_independently_bound(self):
+        expected = RECOVERY.RECEIVERS['pikachu']
+        for machine, root, selinux, accepted in (
+            (expected['machine'], expected['root_uuid'], b'Enforcing', True),
+            ('foreign', expected['root_uuid'], b'Enforcing', False),
+            (expected['machine'], 'foreign', b'Enforcing', False),
+            (expected['machine'], expected['root_uuid'], b'Permissive', False),
+        ):
+            def command(args):
+                return SimpleNamespace(stdout=root.encode() if args[0] == 'findmnt' else selinux)
+            with patch.object(RECOVERY, 'require_host') as host, \
+                    patch.object(Path, 'read_text', return_value=machine), \
+                    patch.object(RECOVERY, 'command', side_effect=command):
+                if accepted:
+                    self.assertEqual(RECOVERY.require_receiver(), {'host': 'pikachu', **expected})
+                    host.assert_called_once_with('pikachu', RECOVERY.RECEIVER_VERSION)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'receiver identity'):
+                        RECOVERY.require_receiver()
+
+    def test_failed_or_foreign_receiver_preflight_cannot_create_a_source_snapshot(self):
+        for reply in (RuntimeError('recovery would cross receiver kubelet capacity threshold'),
+                      SimpleNamespace(stdout=b'{"accepted": true, "receiver": {"host": "foreign"}}')):
+            with patch.object(RECOVERY, 'command', side_effect=reply if isinstance(reply, Exception) else None,
+                              return_value=reply), patch.object(RECOVERY.subprocess, 'Popen') as launch:
+                with self.assertRaises(RuntimeError):
+                    RECOVERY.copy_point('qualify-12345678', 'reviewed-source')
+                launch.assert_not_called()
+
+    def test_alternate_transport_checks_receiver_before_start_and_binds_copy_receipt(self):
+        from unittest.mock import Mock
+        version = tuple(RECOVERY.RECOVERY_IMAGES)[-1]
+        profile = RECOVERY.recovery_profile('bulbasaur', version, version, 'cyndaquil')
+        expected = {'host': 'cyndaquil', **RECOVERY.RECEIVERS['cyndaquil']}
+        preflight = {'accepted': True, 'phase': 'receiver-preflight', 'receiver': expected}
+        sender = Mock(); sender.wait.return_value = 0; sender.poll.return_value = 0
+        receiver = Mock(); receiver.returncode = 0; receiver.poll.return_value = 0
+        receipt = {'accepted': True, 'run_id': 'qualify-12345678', 'receiver': expected}
+        receiver.communicate.return_value = (json.dumps(receipt).encode(), None)
+        with patch.object(RECOVERY, 'command', return_value=SimpleNamespace(stdout=json.dumps(preflight).encode())) as check, \
+                patch.object(RECOVERY.subprocess, 'Popen', side_effect=[sender, receiver]) as launch:
+            self.assertEqual(RECOVERY.copy_point('qualify-12345678', 'reviewed-source', profile), receipt)
+            self.assertEqual(check.call_args.args[0][-2], 'root@10.0.20.16')
+            self.assertIn('internal-preflight', check.call_args.args[0][-1])
+            self.assertEqual(launch.call_args_list[0].args[0][-2], 'root@10.0.20.13')
+            self.assertEqual(launch.call_args_list[1].args[0][-2], 'root@10.0.20.16')
+        receipt['receiver'] = {'host': 'foreign'}
+        receiver.communicate.return_value = (json.dumps(receipt).encode(), None)
+        with patch.object(RECOVERY, 'command', return_value=SimpleNamespace(stdout=json.dumps(preflight).encode())), \
+                patch.object(RECOVERY.subprocess, 'Popen', side_effect=[sender, receiver]), \
+                self.assertRaisesRegex(RuntimeError, 'invalid receipt'):
+            RECOVERY.copy_point('qualify-12345678', 'reviewed-source', profile)
+
 
 class IsolationTests(unittest.TestCase):
     def setUp(self):
