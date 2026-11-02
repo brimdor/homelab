@@ -18,6 +18,10 @@ SECURITY_STEPS = ('cordon', 'drain', 'security_default', 'trusted_reconnect',
 
 
 def steps(owner):
+    if owner.get('component') == 'kubelet-image-pulls':
+        actor.require(global_owner.reviewed_hop(owner['node'], owner['source'], owner['target'],
+                      'kubelet-image-pulls'), 'unreviewed image-pull policy target')
+        return ('cordon', 'drain', 'apply_policy', 'restore_scheduling', 'accept_applications')
     if owner.get('component') == 'k3s':
         from maintenance_k3s_contract import steps as k3s_steps
         return k3s_steps(owner)

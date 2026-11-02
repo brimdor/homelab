@@ -21,10 +21,85 @@
     and K3s restart. Repair a proven software cause through repository desired state and verify
     control-plane, storage and affected application behavior. Preserve lease/probe settings,
     quorum, production data, original recovery material and the owner's rolling-restart schedule.</p>
-  <p>This incident occurred at 13:42–13:43 America/Chicago, outside the reported Monday/Wednesday/Friday
+  <p>The original October 21 incident occurred at 13:42–13:43 America/Chicago, outside the reported Monday/Wednesday/Friday
     02:00 window. Source cron and Kured settings remain unchanged. Timing alone does not establish cause.</p>
 
-  <h2>Observed sequence, UTC</h2>
+  <h2>Active recurrence — November 2, 2026</h2>
+  <p>The failure recurred during the normal Monday rolling restart window. This task cannot use
+    historical-only UNKNOWN closeout. Strict authenticated native collection
+    <code>maintenance103-exact-controlplane-recurrence-b0vas9os</code> records Squirtle's K3s
+    stopping at 10:03:07 UTC and returning active at 10:04:51. Before and during that interval,
+    Bulbasaur reports WAL fdatasync of 5.336355223 seconds at 10:03:05,
+    8.762445691 seconds at 10:03:29, and 9.130017841 seconds at 10:04:33.
+    Charmander failed lease renewal/lost leadership at 10:03:32, exited with failure,
+    and returned active at 10:04:36. Its current boot has one K3s service restart.
+    These are native journal durations and timestamps, not duration guesses from arbitrary log text.</p>
+  <p><code>maintenance103-rolling-restart-correlation-amuprpc1</code> preserves the three-master
+    journal classifications and CSI controller's previous-container API connection refusal at
+    10:03:33 UTC. The observation does not establish a CSI software defect or justify a forced
+    attachment/finalizer action. The later 10:23 observation
+    <code>maintenance103-post-restart-failures-9o2dct4d</code> found all nine nodes Ready and
+    schedulable, no unready current workload, and Ceph HEALTH_OK. Warning events remain preserved;
+    recovered readiness is not a repair of the recurring control-plane failure.</p>
+  <p>Read-only existing Prometheus history in
+    <code>maintenance103-recurrence-existing-metrics-p19v4fh4</code> covers 09:55–10:08 UTC,
+    with 53 samples per returned host series. Bulbasaur's one-minute disk-busy rate peaks at
+    1.0009666667, mean write await at 0.724326452 seconds, mean flush await at 0.23514 seconds,
+    and full I/O pressure at 0.677309. A sampled busy rate slightly above one is retained as
+    observed, not interpreted as physically exceeding 100 percent. Root writes peak at
+    51,072,204.8 bytes/second; sampled container-root writes are much smaller and do not account
+    for the host writer. These windowed rates do not measure individual request latency or
+    identify the physical component or offending process. The optional subwindow field in that
+    first collector used an incorrect epoch filter and is not acceptance evidence; full-window
+    peak and coverage fields use the actual returned timestamps.</p>
+  <p>Authenticated native runtime inventory
+    <code>maintenance103-native-unpack-semantics-fy5mbo96</code> confirms K3s
+    v1.36.5+k3s1, containerd v2.3.4-k3s1.36 and configured stargz. The root device identifies as
+    KingFast, with BFQ selected, queue depth 64 and write-back cache. Those settings were read,
+    not changed. No atop, sysstat or process-accounting history exists at the checked standard
+    paths; the missing writer history cannot be reconstructed from current counters.</p>
+  <p>Correct logfmt parsing in <code>maintenance103-native-pull-envelope-rysacqas</code>
+    pairs 16 image-pull starts with 16 successful completions; 11 pulls overlap at
+    10:02:45.083563 UTC. Eleven pulls took 117–168 seconds. These are pull intervals,
+    not measured extraction jobs or bytes written. Earlier exploratory searches matched
+    nested “extract” error text and image-digest digits; those counts do not establish
+    unpack operations or HTTP status codes. The 154 remote-prepare failures include 149
+    gzip header/magic/footer messages; all 16 observed image pulls ultimately succeeded.</p>
+  <p><a href="https://docs.k3s.io/advanced#enabling-lazy-pulling-of-estargz-experimental">K3s
+    documents eStargz format requirements</a>; the
+    <a href="https://github.com/containerd/stargz-snapshotter/blob/v0.18.2/snapshot/snapshot.go">upstream
+    snapshotter</a> supports normal mounting fallback. Neither proves the exact deployed cause.
+    <code>maintenance103-effective-image-pull-policy-9eyqnmqo</code> reads all three masters'
+    effective configuration: serializeImagePulls=false, maxParallelImagePulls absent.
+    This proves unbounded parallel-pull exposure during shared-root disk pressure, not
+    that image pulls alone caused every WAL stall or a failed physical component.</p>
+  <h2>Repository mitigation: serialize control-plane image pulls</h2>
+  <p><a href="https://kubernetes.io/docs/concepts/containers/images/">Kubernetes documents
+    serial pulls as a limit on competing disk/network work</a>.
+    The candidate adds only serializeImagePulls=true in a
+    <a href="https://docs.k3s.io/installation/configuration#kubelet-configuration-files">supported
+    K3s kubelet configuration drop-in</a>. Lease/probe timing, durability, snapshotter,
+    storage format, disk policy and image versions remain unchanged.</p>
+  <p>The first execution target is Squirtle only. The existing durable ownership and
+    Kured hold enclose exact-UID cordon, serial drain, single service activation,
+    scheduling restoration and application acceptance. Fresh guards reject every target
+    in-scope NAS/PVC/inline-CSI consumer and any changed protected Zot runtime. The owner's
+    Tsurreal exclusion remains intact; container-preserving activation does not evict it.
+    Three original etcd
+    identities, surviving quorum, clean Ceph PGs, controller health and the published source
+    are checked. No NAS writes, registry mutation or deliberate Zot restart is authorized.</p>
+  <p>Rollback boundary: preserve a fresh consistent off-master etcd recovery point and
+    prior public configuration hashes before activation. There is no data-format change.
+    If activation fails, keep ownership and inspect the pending native intent; never replay
+    an uncertain restart. Publish an exact reversal removing only the owned drop-in,
+    verify all other hashes, activate once under the same maintenance protection, then
+    prove restored runtime and applications. Existing etcd recovery material is preserved;
+    restoring cluster data is a separate recovery action, not the normal config rollback.</p>
+  <p>At this document revision the mitigation is prepared, not yet accepted live.
+    Squirtle must pass before another node proceeds. A quiet interval alone will not close
+    CONTROLPLANE_API_STALL; the shared-device writer/cause and repair proof remain open.</p>
+
+  <h2>Historical observed sequence, UTC</h2>
   <table>
     <thead><tr><th>Time</th><th>Native observation</th><th>Evidence receipt</th></tr></thead>
     <tbody>

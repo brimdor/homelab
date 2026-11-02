@@ -91,6 +91,10 @@
     - k3s-server.service
   when: item in ansible_facts.services
 
+- name: Configure bounded control-plane image pulls
+  ansible.builtin.include_tasks: image-pulls.yml
+  when: "'masters' in group_names"
+
 - name: Enable k3s service
   ansible.builtin.systemd:
     name: k3s

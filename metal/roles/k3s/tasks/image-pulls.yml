@@ -1,0 +1,17 @@
+---
+# Embedded etcd shares the root device with container image storage.
+- name: Create control-plane kubelet configuration directory
+  ansible.builtin.file:
+    path: "{{ k3s_data_dir }}/agent/etc/kubelet.conf.d"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Serialize control-plane image pulls to bound competing disk work
+  ansible.builtin.copy:
+    src: kubelet-serial-image-pulls.conf
+    dest: "{{ k3s_data_dir }}/agent/etc/kubelet.conf.d/20-serial-image-pulls.conf"
+    owner: root
+    group: root
+    mode: '0644'

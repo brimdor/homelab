@@ -366,6 +366,9 @@ def prerequisites(value):
 if owner.get('component')=='k3s':
  sys.modules['maintenance_k3s_production'].native_operation(globals())
  raise SystemExit(0)
+if owner.get('component')=='kubelet-image-pulls':
+ sys.modules['maintenance_kubelet_image_pulls'].native_operation(globals())
+ raise SystemExit(0)
 def final_security():
  if owner['target']!=44:return None
  assert api.call('get','node',expected_node,'-o','json')['status']['nodeInfo']['bootID']==pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'Node readiness belongs to an earlier boot'
@@ -1191,7 +1194,8 @@ def run_worker(args, api, owner, public_keys, recovery_manifest, bundle, prechec
             try:
                 if component_observer is not None and request['rpc'] in (
                         'prerequisites', 'infrastructure', 'applications', 'protected_registry', 'removed_completed_job'):
-                    require(owner.get('component') == 'k3s', 'component observer requires K3s ownership')
+                    require(owner.get('component') in ('k3s', 'kubelet-image-pulls'),
+                            'component observer requires reviewed node-component ownership')
                     value = component_observer(request)
                 elif request['rpc'] == 'prerequisites':
                     value = prerequisites(api)
