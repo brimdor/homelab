@@ -40,9 +40,9 @@ scheduling:
 
 backup:
   # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
-  enabled: true
+  enabled: false
   snapshotId: pm6-1102t0518
-  restoreQualification: true
+  restoreQualification: false
   nfs:
     server: 10.0.40.3
     path: /mnt/user/meowdoku-backups
