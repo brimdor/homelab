@@ -1,17 +1,17 @@
 {
   "source_repository": "https://github.com/Zuriel-Labs/meowdoku",
-  "source_commit": "6e4e991d93395d3f598fa09ab98c955120230e64",
-  "source_tree": "e69870cb74c9d4a0dab9c69013eb7ee57078567c",
-  "linux_amd64_manifest_digest": "sha256:802b245f75947e695cedc9c29a92b99c427780f52cec27ad1b00047de2bdd4ee",
-  "image_config_digest": "sha256:e432eb6bbfd53fe6065834a57dc085719bb2a91e34298b441a2967a30b0f6c26",
+  "source_commit": "ece8ed6e48dedb3bbfeb35eb17e32f53976133bd",
+  "source_tree": "aa62cb8c99ca9ee04b133e1d8c5e8e138d849cc8",
+  "linux_amd64_manifest_digest": "sha256:7fd2f186765128ec32217bded95f0e6287df054f1d50cf27d6d365aac2456c91",
+  "image_config_digest": "sha256:a540af140c890f8dfc0d3dbfbc33950716b951eab045626cfe31a3e8865916f3",
   "verification": {
-    "candidate_cloud_jvm_native": 77,
-    "candidate_cloud_backend": 79,
+    "candidate_cloud_jvm_native": 139,
+    "candidate_cloud_backend": 90,
     "candidate_policy_checks": 20,
     "controller_packaged_security_checks": 7,
     "controller_packaged_failures": 0,
     "production_verification_deadlines_unchanged": true,
-    "controller_backend_tests": 79,
+    "controller_backend_tests": 90,
     "controller_backend_failures": 0
   },
   "build_metadata": {
@@ -60,8 +60,8 @@
     "nas_backup_job": false
   },
   "limits": [
-    "Phone Google recovery and actual hardware attestation remain PM acceptance.",
-    "Additive deletion_receipts migration; do not roll back to a deletion-unaware backend after a real account deletion without reconciliation.",
+    "Phone Google recovery, genuine hardware attestation and phone animation remain PM acceptance.",
+    "Schema3 cannot be opened by the retained schema2 runtime. Use only schema3-capable recovery code; see RECOVERY.md.",
     "Historical encrypted backups retained; no retention or deletion policy changed."
   ],
   "prior_approved_preview": {
@@ -70,14 +70,22 @@
     "retained_in_registry": true
   },
   "pre_rollout_backup": {
-    "snapshot": "pm2-1101t2126",
-    "bytes": 192512,
-    "sha256": "2b63525ae85e12f7a140ace094e1a84f8cbd229b445dfd06ca3171168c352fe4",
+    "snapshot": "pm6-1102t1103",
+    "bytes": 221184,
+    "sha256": "1fe25b94127fe0004cc0bd488c1f743706448be1f8f63dd4710fed94cdefaa84",
     "nas_server": "10.0.40.3",
     "nas_path": "/mnt/user/meowdoku-backups",
-    "consistent_ciphertext": true,
-    "isolated_restore_integrity": "ok",
-    "original_backup_unchanged": true,
-    "live_pvc_not_mounted_by_restore": true
+    "isolated_restore_schema_before": 2,
+    "isolated_restore_schema_after": 3,
+    "restored_rows_preserved": true,
+    "integrity": "ok",
+    "live_pvc_mounted": false
+  },
+  "previous_runtime": {
+    "source_commit": "6e4e991d93395d3f598fa09ab98c955120230e64",
+    "digest": "sha256:802b245f75947e695cedc9c29a92b99c427780f52cec27ad1b00047de2bdd4ee",
+    "schema": 2,
+    "retained": true,
+    "eligible_after_schema3": false
   }
 }
