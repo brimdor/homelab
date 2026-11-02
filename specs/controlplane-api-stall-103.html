@@ -14,7 +14,7 @@
 <body>
   <h1>Issue 103: control-plane API stall</h1>
   <p><strong>CONTROLPLANE_API_STALL: INCOMPLETE.</strong> This records the newly observed
-    2026-10-21 incident and its repair prerequisites. No production repair is represented here.</p>
+    2026-10-21 incident, subsequent recurrence and actual mitigation. Causal repair acceptance remains incomplete.</p>
 
   <h2>Requirement and protected scope</h2>
   <p>Establish the cause of slow persistent I/O preceding Bulbasaur's controller-manager lease loss
@@ -98,7 +98,7 @@
     verify all other hashes, activate once under the same maintenance protection, then
     prove restored runtime and applications. Existing etcd recovery material is preserved;
     restoring cluster data is a separate recovery action, not the normal config rollback.</p>
-  <p>Squirtle completed all five actual steps and ordered ownership release at 11:36:17 UTC. Native effective configuration reports serializeImagePulls=true; unchanged binary, boot, SELinux, stargz and other configuration hashes passed. Ceph HEALTH_OK, all nine Cilium host/endpoint probes, internal DNS/Gitea and trusted LAN TLS passed. All 68 in-scope Applications compared Synced/Healthy at current master. Recovery receipt <code>61u41ywh</code>, functional checks <code>kszprpne</code>, application comparisons <code>y0i5yl2_</code> and final release <code>5pyj86fv</code> preserve exact evidence. The published release anchor binds its original owner and eleven hop records. Before a later master starts, re-read each preceding original native release and its effective policy. Charmander is next, then Bulbasaur, each with fresh off-master recovery, serial exact-UID drain and full return acceptance. A quiet interval alone will not close
+  <p>Squirtle completed all five actual steps and ordered ownership release at 11:36:17 UTC. Native effective configuration reports serializeImagePulls=true; unchanged binary, boot, SELinux, stargz and other configuration hashes passed. Ceph HEALTH_OK, all nine Cilium host/endpoint probes, internal DNS/Gitea and trusted LAN TLS passed. All 68 in-scope Applications compared Synced/Healthy at current master. Recovery receipt <code>61u41ywh</code>, functional checks <code>kszprpne</code>, application comparisons <code>y0i5yl2_</code> and final release <code>5pyj86fv</code> preserve exact evidence. The published release anchor binds its original owner and eleven hop records. Before a later master starts, re-read each preceding original native release and its effective policy. Charmander completed all five steps and ordered ownership release at 12:49:52 UTC. Its effective serial policy and unchanged runtime boundary passed. Return receipt <code>8j4as73d</code> accepted all 20 controller contracts: 18 returned and two generated Rook node daemons were removed because no Ceph daemon remained on Charmander. Exact Rook v1.21.1 nodedaemon/reconcile.go:220 and fresh placement support that lifecycle; no missing application was hidden. Ten configured HTTP checks, Outline PostgreSQL and Backlog MariaDB SELECT 1, Gitea Valkey PING, the nine-node Cilium mesh, DNS, trusted LAN TLS, current application comparisons and Ceph HEALTH_OK passed. Final release <code>1q0lvbed</code> binds eleven hop records. Bulbasaur is next, with fresh off-master recovery, serial exact-UID drain and full return acceptance. A quiet interval alone will not close
     CONTROLPLANE_API_STALL; the shared-device writer/cause and repair proof remain open.</p>
 
   <h2>Historical observed sequence, UTC</h2>

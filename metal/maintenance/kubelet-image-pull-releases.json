@@ -11,6 +11,17 @@
       "owner": "homelab-maintenance-103-d144f20e-53b5-491e-8410-c483ce01dda1",
       "revision": "dfc63f21f654cf146a26837accb2203f1b501800",
       "release_head": "7dad2f54b71ee94df83c901187ec9acdaea20b4c6731e1beba8bb7c8f407021b"
+    },
+    "charmander": {
+      "node_uid": "9108f105-f73d-41bb-891f-ac2db6658714",
+      "address": "10.0.20.11",
+      "identity": {
+        "machine": "58d682ccab5a4269acedc3cdf53e46dc",
+        "root_uuid": "4a64a6d6-e982-4694-aa03-ad5f317b3ab2"
+      },
+      "owner": "homelab-maintenance-103-52364ed1-615b-4495-a7db-2b1d9c234e49",
+      "revision": "211926eee32bf119db04a2c2277c5a37e8ef97bd",
+      "release_head": "a49afe40404cbad2759f2808e02a3152a064ec07bc82034a73837238d81cee0f"
     }
   }
 }
