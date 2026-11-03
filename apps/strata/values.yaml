@@ -4,6 +4,9 @@ app-template:
       replicas: 1
       containers:
         main:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           image:
             repository: 10.0.20.11:32309/strata
             tag: 0edef37
@@ -94,6 +97,8 @@ app-template:
       runAsUser: 1000
       runAsGroup: 1000
       fsGroup: 1000
+      seLinuxOptions:
+        level: s0:c203,c553
   networkpolicies:
     main:
       enabled: true

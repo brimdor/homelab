@@ -30,6 +30,8 @@ spec:
             runAsUser: 1000
             runAsGroup: 1000
             fsGroup: 1000
+            seLinuxOptions:
+              level: s0:c203,c553
           # The live SQLite PVC is Ceph RBD (ReadWriteOnce). Co-locate the
           # backup pod with Strata so the volume is never attached to two nodes.
           affinity:
@@ -169,6 +171,8 @@ spec:
                     rmSync(manifestPartialPath, { force: true });
                   }
               securityContext:
+                seccompProfile:
+                  type: RuntimeDefault
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
                 capabilities:
