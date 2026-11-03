@@ -40,8 +40,8 @@ scheduling:
 
 backup:
   # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
-  enabled: false
-  snapshotId: ""
+  enabled: true
+  snapshotId: "pd115-1103t1856-af10"
   restoreQualification: false
   qualificationImage: "10.0.20.11:32309/meowdoku-preview@sha256:4ffde2781271d5c8e6d1336ba2a46544cf1e6586cfe7540e3bf4b0b88557ffc6"
   nfs:
