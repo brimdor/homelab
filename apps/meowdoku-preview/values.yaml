@@ -42,8 +42,8 @@ backup:
   # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
   enabled: true
   snapshotId: "pd117-1103t2353-3c62"
-  restoreQualification: false
-  qualificationImage: "10.0.20.11:32309/meowdoku-preview@sha256:4920fb23393f07d7768f9a4f084d53b5e5b6d82b10651f035aaf85997ce37f31"
+  restoreQualification: true
+  qualificationImage: "10.0.20.11:32309/meowdoku-preview@sha256:5f83a1f0abf188a760b14ccd22ce9fffd92baf20b02050978921c5273892b9e0"
   nfs:
     server: 10.0.40.3
     path: /mnt/user/meowdoku-backups

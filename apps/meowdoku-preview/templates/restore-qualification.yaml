@@ -36,6 +36,8 @@ spec:
           command: [node, --input-type=module, -e]
           args:
             - |
+              import {verificationHelper} from './backend/src/verification-helper.mjs';
+              const verifier=verificationHelper({classpath:'/app/attestation/lib/*'}),verifierStart=performance.now();let nativeVerifierMilliseconds;try{const ready=await verifier.request('ping');if(!ready.ready)throw Error('Native verifier not ready');nativeVerifierMilliseconds=performance.now()-verifierStart}finally{await verifier.close()}
               import {backupDatabase} from './backend/src/backup.mjs';
               import {restoreDatabase} from './backend/src/restore.mjs';
               import {openDatabase,openRawDatabase} from './backend/src/sqlite.mjs';
@@ -56,13 +58,13 @@ spec:
               const key=dataKey();let db;
               try{
                db=openRawDatabase(source,{key,readOnly:true});
-               const schemaBefore=db.prepare('PRAGMA user_version').get().user_version;assert.ok([4,5].includes(schemaBefore));
+               const schemaBefore=db.prepare('PRAGMA user_version').get().user_version;assert.ok([5,6].includes(schemaBefore));
                assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
                const tables=db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(x=>x.name);
                assert.ok(tables.every(t=>/^[A-Za-z0-9_]+$/.test(t)));
-               if(schemaBefore===4)assert.equal(db.prepare("SELECT COUNT(*) n FROM entries WHERE kind='score' AND (score<0 OR score%100!=0)").get().n,0);
-               const expected=Object.fromEntries(tables.map(t=>[t,tableHash(db,t,t==='entries'&&schemaBefore===4?r=>({...r,score:r.kind==='score'?r.score/100:r.score}):r=>r)]));
-               const profilesBefore=rows(db,'profiles');const profileCount=profilesBefore.length;
+
+               const expected=Object.fromEntries(tables.map(t=>[t,tableHash(db,t,t==='profiles'&&schemaBefore===5?r=>({...r,sharing_off_period:'',last_enable_op:''}):r=>r)]));
+               const profilesBefore=rows(db,'profiles').map(r=>schemaBefore===5?({...r,sharing_off_period:'',last_enable_op:''}):r);const profileCount=profilesBefore.length;
                const scoreRows=rows(db,'entries').filter(r=>r.kind==='score').length;
                const resetTables=new Set(['sessions','nonces','recovery_tickets','runs','entries','bound_sessions','instance_challenges','request_replays','account_transfers','app_instances','run_content','profiles']);
                const retained=Object.fromEntries(tables.filter(t=>!resetTables.has(t)&&t!=='economy_state').map(t=>[t,tableHash(db,t)]));
@@ -70,17 +72,17 @@ spec:
                await backupDatabase(source,destination+'/migrated.sqlite',{key});
                let migrated=openDatabase(destination+'/migrated.sqlite',{key});migrated.close();
                db=openRawDatabase(destination+'/migrated.sqlite',{key,readOnly:true});
-               assert.equal(db.prepare('PRAGMA user_version').get().user_version,5);assert.equal(db.prepare('SELECT version FROM economy_state WHERE id=1').get().version,2);
+               assert.equal(db.prepare('PRAGMA user_version').get().user_version,6);assert.equal(db.prepare('SELECT version FROM economy_state WHERE id=1').get().version,2);
                for(const t of tables)assert.ok(tableHash(db,t)===expected[t],'Unexpected migration change in '+t);
                assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
                db.close();db=null;migrated=openDatabase(destination+'/migrated.sqlite',{key});migrated.close();
                db=openRawDatabase(destination+'/migrated.sqlite',{key,readOnly:true});
                for(const t of tables)assert.ok(tableHash(db,t)===expected[t],'Reopening changed '+t);
                db.close();db=null;
-               await backupDatabase(destination+'/migrated.sqlite',destination+'/post5.sqlite.enc',{key});
-               await restoreDatabase(destination+'/post5.sqlite.enc',destination+'/restored5.sqlite',{key});
-               db=openRawDatabase(destination+'/restored5.sqlite',{key,readOnly:true});
-               assert.equal(db.prepare('PRAGMA user_version').get().user_version,5);assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
+               await backupDatabase(destination+'/migrated.sqlite',destination+'/post6.sqlite.enc',{key});
+               await restoreDatabase(destination+'/post6.sqlite.enc',destination+'/restored6.sqlite',{key});
+               db=openRawDatabase(destination+'/restored6.sqlite',{key,readOnly:true});
+               assert.equal(db.prepare('PRAGMA user_version').get().user_version,6);assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
                for(const [t,want]of Object.entries(retained))assert.ok(tableHash(db,t)===want,'Restored history changed in '+t);
                for(const t of resetTables)if(!['profiles','run_content'].includes(t))assert.equal(db.prepare('SELECT COUNT(*) n FROM '+t).get().n,0);
                const puzzles=JSON.parse(readFileSync('./content/puzzles.json','utf8'));
@@ -89,11 +91,11 @@ spec:
                const byId=new Map(profilesBefore.map(p=>[p.id,p]));
                for(const p of restored){const old=byId.get(p.id);assert.ok(old,'Unknown restored profile');assert.equal(p.sharing,0);assert.ok(p.device.startsWith('restored:'));assert.equal(p.privacy_epoch,old.privacy_epoch+1);assert.equal(p.version,old.version+1);assert.ok(fingerprint(normalized(p))===fingerprint(normalized(old)),'Private gameplay state changed during restore');if(p.snapshot)await validateSnapshot(upgradeEconomy(JSON.parse(p.snapshot)),Date.now(),async(_identity,id)=>{const p=puzzles.find(x=>x.id===id);assert.ok(p,'Missing canonical puzzle');return p})}
                assert.equal(fileHash(source),expectedHash,'NAS backup changed');assert.notEqual(readFileSync(destination+'/migrated.sqlite').subarray(0,16).toString('hex'),'53514c69746520666f726d6174203300');
-               console.log(JSON.stringify({qualified:true,schemaBefore,schemaAfter:5,economyVersion:2,scoreRows,profiles:profileCount,scoreConversionExactlyOnce:true,challengeTimesAndOtherTablesUnchanged:true,integrity:'ok',foreignKeys:'ok',encryptedBackupRestore:true,privateGameplayBalancesAndAnimalHistoryRetained:true,authAndSharingClearedOnlyInIsolatedRestore:true,originalEncryptedNasBackupUnchanged:true,backupSha256:expectedHash,backupBytes:statSync(source).size,livePvcMounted:false}));
+               console.log(JSON.stringify({qualified:true,nativeVerifierReady:true,nativeVerifierMilliseconds,nativeArchitecture:process.arch,migrationTableWitnesses:expected,schemaBefore,schemaAfter:6,economyVersion:2,scoreRows,profiles:profileCount,newPrivacyFieldsDefaultEmptyWithoutInventedOptOut:schemaBefore===5,schema6PrivacyFieldsRetained:schemaBefore===6,scoresAndAllExistingRowsUnchanged:true,challengeTimesAndOtherTablesUnchanged:true,integrity:'ok',foreignKeys:'ok',encryptedBackupRestore:true,privateGameplayBalancesAndAnimalHistoryRetained:true,authAndSharingClearedOnlyInIsolatedRestore:true,originalEncryptedNasBackupUnchanged:true,backupSha256:expectedHash,backupBytes:statSync(source).size,livePvcMounted:false}));
               }finally{db?.close();key.fill(0)}
             - {{ printf "/backup/%s.%s.sqlite.enc" .Values.backup.snapshotId .Values.dataKey.version | quote }}
             - /restore
-            - "ddf0ea3ca0defefef4b7411b18545e8c70bbc78bb4df1eac47acca26554fc27e"
+            - "510ff094b0e0a44bf1691f24b4091db9a7ca1183f40c92f811fa73a6278c4183"
           env:
             - name: DATA_KEY_FILE
               value: /run/meowdoku/data-key/data-key
