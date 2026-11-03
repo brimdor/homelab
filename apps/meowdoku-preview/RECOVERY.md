@@ -1,4 +1,8 @@
-# Animal-aware schema4 recovery
+# PlushDoku schema4 recovery
+
+Current compatible validator:0.1.13 source9ef2b44fefebfde3da608c875d22d605f7c4e7b3; current live digestsha256:4ffde2781271d5c8e6d1336ba2a46544cf1e6586cfe7540e3bf4b0b88557ffc6. Actual live verification and preserved baseline evidence are in PROVENANCE.json. No SQL/key/storage migration occurred in0.1.13.
+
+## Retained0.1.11 migration history
 
 Frozen source:9dd835686ef69d67e2608a31e09bd85c44e5aea1. Published OCI digest:sha256:85c6dd0e47daccdf24d43cd156466c694301869ebcd81c452c466ccf6861ed4e. Only descriptor media types changed; configuration bytes, Healthcheck and all layers stayed identical. Exact provenance and operational results are in PROVENANCE.json.
 
