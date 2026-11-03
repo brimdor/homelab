@@ -29,3 +29,13 @@ Source9ef2b44fefebfde3da608c875d22d605f7c4e7b3; immutable image10.0.20.11:32309/
 ## Verified post-migration anchor
 
 pd115-1103t1902-5786.v1.sqlite.enc;315392bytes;SHA256257ad709ebbee4fe6bfca7db26ca8dbfe40123984fe6d3ae8ebada4c795eb5ff. Independent encrypted NAS write and actual5-to5 isolated restore passed: all3profiles/private balances/history retained, challenge values unchanged, marker2 and integrity/foreign keys valid. Authentication/sharing reset affected only the disposable restored copy. Pre4 and older anchors remain retained; no original data or NAS file was deleted. Owned qualification Jobs are disabled after receipts are saved.
+
+## Schema 5 preparation anchor for 0.1.17
+
+Verified at 2026-11-03T23:27:20.116573+00:00. NAS file: pd117-1103t2322-7459.v1.sqlite.enc. Size: 331,776 bytes. SHA256: ddf0ea3ca0defefef4b7411b18545e8c70bbc78bb4df1eac47acca26554fc27e.
+
+The keyless writer at commit df2cb0fbbcc2cb927f3a51e9008089961f76b3c4 completed before the isolated restore at commit 8366d83150a1aad9fec4fb4c79cb62d6e88bd679. The actual schema 5-to-5 restore passed integrity and foreign-key checks and retained all 3 profiles, private gameplay, rewards, history, animal metadata and challenge values. Authentication and public consent were reset only in the disposable restored copy. Live account rows, the original claim and previous NAS anchors remain intact. Owned temporary Jobs are disabled after completion evidence is retained.
+
+This does not establish schema 5-to-6 acceptance. Candidate source a2555ea7df35595ae549aa82ba6cbb68984d0706 and prepared OCI digest sha256:5f83a1f0abf188a760b14ccd22ce9fffd92baf20b02050978921c5273892b9e0 remain unpublished at this checkpoint. Keep the schema 5 service until exact-image publication, operational migration/recovery qualification and native one-CPU readiness pass. Old schema 5 binaries refuse schema 6. Do not automatically revert to old code or overwrite active data. Revalidate backup freshness and intervening saves before promotion.
+
+The unchanged verifier passed a cold native AMD64 ping in 345.7 ms under the existing one-CPU/512 MiB limit. Dependency bytes and verifier class payload match the candidate. This component check does not prove full schema 6 server readiness. No registry credential was transmitted during this preparation.
