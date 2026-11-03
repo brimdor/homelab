@@ -247,6 +247,19 @@
         "nfs",
         "restoreQualification"
       ]
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "releaseJson": {
+          "type": "string",
+          "maxLength": 524288
+        }
+      },
+      "required": [
+        "releaseJson"
+      ]
     }
   },
   "required": [
