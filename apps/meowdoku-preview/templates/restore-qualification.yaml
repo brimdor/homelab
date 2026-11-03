@@ -93,7 +93,7 @@ spec:
               }finally{db?.close();key.fill(0)}
             - {{ printf "/backup/%s.%s.sqlite.enc" .Values.backup.snapshotId .Values.dataKey.version | quote }}
             - /restore
-            - "53c8c09e821fb5a0439b391d4c66ddb24bb267a6c58e0e851dd82f7a9b7f6d8c"
+            - "257ad709ebbee4fe6bfca7db26ca8dbfe40123984fe6d3ae8ebada4c795eb5ff"
           env:
             - name: DATA_KEY_FILE
               value: /run/meowdoku/data-key/data-key
