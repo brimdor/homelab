@@ -41,10 +41,9 @@ tailscale-operator:
   installCRDs: true
 
   operatorConfig:
-    # The replacement OAuth pair lacks the approved tag:k8s-operator grant.
-    # Keep the real operator stopped until provider scope/tag acceptance; a
-    # sleeping substitute must not be used to manufacture healthy status.
-    replicas: 0
+    # Owner-confirmed grants and the pinned ordinary OAuth flow are accepted.
+    # Keep the real controller active; prove its registered device/tag after rollout.
+    replicas: 1
     # Tags applied to the operator's own device in the tailnet.
     # `tag:k8s-operator` matches what the Tailscale ACL tagOwners entry
     # above grants ownership to.
