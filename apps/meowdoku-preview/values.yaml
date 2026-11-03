@@ -1,7 +1,7 @@
 # Qualified immutable OCI image published and independently byte-verified; see PROVENANCE.json.
 image:
   repository: 10.0.20.11:32309/meowdoku-preview
-  digest: sha256:85c6dd0e47daccdf24d43cd156466c694301869ebcd81c452c466ccf6861ed4e
+  digest: sha256:4ffde2781271d5c8e6d1336ba2a46544cf1e6586cfe7540e3bf4b0b88557ffc6
 googleClientId: 915627421356-64fjvijlt4j0ndimcqmj5k37tisasmh2.apps.googleusercontent.com
 storage:
   # Owner-reviewed restore promotion only; blank creates the dedicated claim below.
@@ -40,9 +40,9 @@ scheduling:
 
 backup:
   # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
-  enabled: true
-  snapshotId: "pd113-1103t1505-e7f3"
-  restoreQualification: true
+  enabled: false
+  snapshotId: ""
+  restoreQualification: false
   qualificationImage: "10.0.20.11:32309/meowdoku-preview@sha256:4ffde2781271d5c8e6d1336ba2a46544cf1e6586cfe7540e3bf4b0b88557ffc6"
   nfs:
     server: 10.0.40.3

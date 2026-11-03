@@ -11,3 +11,7 @@ Both anchors remain on10.0.40.3:/mnt/user/meowdoku-backups. The writer streams a
 Prefer a tested animal-aware schema4 forward fix. Old live schema3 image7fd2f186 cannot reopen schema4. Pending93b5124e lacks animal validation/merge safeguards and is not a safe semantic rollback. Never automatically overwrite/reset the active claim with an older backup; a reviewed restore to a new claim must reconcile intervening saves/deletions. Git rollback alone does not reverse migration.
 
 Original claim UID remainsce19a819-a04d-4b1d-a218-f6aa24a9a3f3. Namespace, key, signing identity, TLS, Bulbasaur affinity and resource limits remain unchanged. No backup retention/deletion policy is configured.
+
+## Compatible0.1.13 validator update
+
+Source9ef2b44fefebfde3da608c875d22d605f7c4e7b3; immutable image10.0.20.11:32309/meowdoku-preview@sha256:4ffde2781271d5c8e6d1336ba2a46544cf1e6586cfe7540e3bf4b0b88557ffc6. SQL schema4, key, original claim and security unchanged. Fresh encrypted NAS anchorpd113-1103t1505-e7f3.v1.sqlite.enc; SHA25631b56f79351565541b11a5742e3f76256e730324e37ec0598e933b4a240acbaf. Isolated restore preserved all3profiles/history and passed the new snapshot validator. Synthetic encrypted recovery retained red cells, paid receipt and exact pending move. Previous validator rejects the optional new fields, so prefer a compatible forward fix after updated clients sync; never strip data, reset the live claim or automatically overwrite with an older backup.
