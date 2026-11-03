@@ -1,5 +1,5 @@
 {
-  "status": "Published and operational migration qualification passed; applying GitOps promotion",
+  "status": "Deployed schema4 animal-aware backend; verified service-local HTTPS; external scripted request blocked by Cloudflare BIC",
   "source": "9dd835686ef69d67e2608a31e09bd85c44e5aea1",
   "image": {
     "source": "9dd835686ef69d67e2608a31e09bd85c44e5aea1",
@@ -138,5 +138,109 @@
     "schema": 3,
     "retained": true,
     "eligible_after_schema4": false
+  },
+  "post_migration_backup": {
+    "nasBackupWritten": true,
+    "bytes": 266240,
+    "sha256": "702047effe344ceb2b4cfb262709b671c4d32f826dc19791fd79ae328df85e99",
+    "mode": "600",
+    "uid": 99,
+    "gid": 100,
+    "nfsMount": "10.0.40.3:/mnt/user/meowdoku-backups /backup nfs4 rw,relatime,vers=4.2,rsize=1048576,wsize=1048576,namlen=255,hard,fatal_neterrors=none,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=10.0.20.13,local_lock=none,addr=10.0.40.3 0 0",
+    "keyProjected": false,
+    "livePvcMounted": false,
+    "snapshot": "pd114-1103t0438-8f",
+    "job": "meowdoku-preview-backup-pd114-1103t0438-8f",
+    "pod": "meowdoku-preview-backup-pd114-1103t0438-8f-qvr7m",
+    "operational": true,
+    "gitops_commit": "fd2b263e1d2aae80b6026aa683bacd6dcd9c0ca5"
+  },
+  "post_migration_restore": {
+    "restored": true,
+    "integrity": "ok",
+    "schemaBefore": 4,
+    "schemaAfter": 4,
+    "restoredRowsPreservedThroughMigration": true,
+    "usernameColumnPresent": true,
+    "restoredEncryptedHeader": true,
+    "historicalAuthAndSharingCleared": true,
+    "contentHistoryAndRewardsPreserved": true,
+    "privateAnimalMetadataPreserved": true,
+    "backupUnchanged": true,
+    "backupSha256": "702047effe344ceb2b4cfb262709b671c4d32f826dc19791fd79ae328df85e99",
+    "backupBytes": 266240,
+    "nasRootUid": 99,
+    "nasRootGid": 100,
+    "nasRootMode": "777",
+    "nasAvailableBytes": 10923094835200,
+    "nfsMount": "10.0.40.3:/mnt/user/meowdoku-backups /backup nfs4 ro,relatime,vers=4.2,rsize=1048576,wsize=1048576,namlen=255,hard,fatal_neterrors=none,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=10.0.20.13,local_lock=none,addr=10.0.40.3 0 0",
+    "restoredProfiles": 1,
+    "liveClaimMounted": false,
+    "snapshot": "pd114-1103t0438-8f",
+    "job": "meowdoku-preview-restore-pd114-1103t0438-8f",
+    "gitops_commit": "29033c8fd52b7836d459252b786815d0db726a6c",
+    "operational": true
+  },
+  "deployment_verification": {
+    "verifiedLocalHttps": true,
+    "certificateVerification": true,
+    "healthStatus": 200,
+    "timeStatus": 200,
+    "features": [
+      "personal-streak-v1",
+      "account-delete-v1",
+      "profile-name-v1",
+      "animals-v1",
+      "content-v1"
+    ],
+    "anonymousPrivateStatus": 401,
+    "fabricatedPrivateStatus": 401,
+    "schema": 4,
+    "integrity": "ok",
+    "originalProfilesPreserved": true,
+    "originalProgressAndGrantsPreserved": true,
+    "nameClocksNotRegressed": true,
+    "profiles": 1,
+    "realAccountMutatedByVerification": false,
+    "at": "2026-11-03T04:37:21.147512+00:00",
+    "pod": "meowdoku-preview-6c4b648658-l6b48",
+    "image": "10.0.20.11:32309/meowdoku-preview@sha256:85c6dd0e47daccdf24d43cd156466c694301869ebcd81c452c466ccf6861ed4e",
+    "external": {
+      "status": 403,
+      "server": "cloudflare",
+      "content_type": "text/plain; charset=UTF-8",
+      "cloudflare_ray": "a548aee83ac33588-DFW",
+      "proxy_error": null
+    }
+  },
+  "live_rollout": {
+    "at": "2026-11-03T04:35:57.657948+00:00",
+    "gitops_commit": "da63566450eb2f527dfc89e31d4d1a0f6f1410f1",
+    "source": "9dd835686ef69d67e2608a31e09bd85c44e5aea1",
+    "image": "10.0.20.11:32309/meowdoku-preview@sha256:85c6dd0e47daccdf24d43cd156466c694301869ebcd81c452c466ccf6861ed4e",
+    "deployment_uid": "0756922a-529f-4df2-a8a5-59b62f8cc210",
+    "pod": "meowdoku-preview-6c4b648658-l6b48",
+    "pod_uid": "8fa4ed9c-7160-40de-9567-68ce29dd23bb",
+    "node": "bulbasaur",
+    "ready": true,
+    "pvc_uid": "ce19a819-a04d-4b1d-a218-f6aa24a9a3f3",
+    "pvc_phase": "Bound",
+    "pre_migration_backup": "pd111-1103t0427-e5",
+    "live_account_deleted_or_reset": false
+  },
+  "external_block": {
+    "ray": "a548aee83ac33588",
+    "at": "2026-11-03T04:37:21Z",
+    "host": "meowdoku-preview.eaglepass.io",
+    "path": "/v1/time",
+    "http_status": 403,
+    "provider_event": {
+      "action": "block",
+      "source": "bic",
+      "ruleId": "bic"
+    },
+    "verified_by": "Cloudflare GraphQL firewallEventsAdaptive exact Ray ID",
+    "security_settings_changed": false,
+    "phone_client_result": "not established"
   }
 }
