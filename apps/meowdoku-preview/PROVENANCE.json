@@ -1,5 +1,5 @@
 {
-  "status": "Qualified economy-v2 schema5 rollout; live verification pending",
+  "status": "Deployed and verified PlushDoku0.1.15 economy-v2/schema5; original claim/history retained; independent pre4 and post5 NAS restore passed",
   "source": "00e730f206bc367c624481640b87fabfcfe1ae56",
   "image": {
     "source": "00e730f206bc367c624481640b87fabfcfe1ae56",
@@ -454,7 +454,7 @@
     "cloudflareSecurityChanged": false,
     "initial_probe_error": "Probe incorrectly replaced default public roots with leaf/intermediate file; corrected to unchanged healthcheck public-root plus expected-host verification; no runtime/security change."
   },
-  "automation": "Existing Argo reconciliation after validated GitOps publication. Source build/packaged tests, backup/restore, signing and private delivery remain this controller workflow, not automatic unreviewed source deployment.",
+  "automation": "Existing Argo reconciliation follows validated canonical GitOps publication; source qualification, protected registry/signing and backup/restore checks remain the existing controller workflow.",
   "previous_schema4_release": {
     "source": "9ef2b44fefebfde3da608c875d22d605f7c4e7b3",
     "image": {
@@ -641,6 +641,96 @@
       "rollback": "Compatible forward fix; no automatic old-image rollback or restore over active data."
     },
     "schema_transition": "4 to5; score-kind entries divide by100 once, challenge elapsed/reward/private state preserved",
-    "recovery_policy": "Old schema4 binaries refuse5. Prefer compatible forward fix; no automatic restore over active claim. Keep original PVC and independent NAS anchors."
+    "recovery_policy": "Old schema4 binaries refuse5. Prefer compatible forward fix; no automatic restore over active claim. Keep original PVC and independent NAS anchors.",
+    "post5_independent_backup": {
+      "nasBackupWritten": true,
+      "bytes": 315392,
+      "sha256": "257ad709ebbee4fe6bfca7db26ca8dbfe40123984fe6d3ae8ebada4c795eb5ff",
+      "mode": "600",
+      "uid": 99,
+      "gid": 100,
+      "nfsMount": "10.0.40.3:/mnt/user/meowdoku-backups /backup nfs4 rw,relatime,vers=4.2,rsize=1048576,wsize=1048576,namlen=255,hard,fatal_neterrors=none,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=10.0.20.13,local_lock=none,addr=10.0.40.3 0 0",
+      "keyProjected": false,
+      "livePvcMounted": false,
+      "snapshot": "pd115-1103t1902-5786",
+      "job": "meowdoku-preview-backup-pd115-1103t1902-5786",
+      "pod": "meowdoku-preview-backup-pd115-1103t1902-5786-dg2zz",
+      "operational": true,
+      "gitops_commit": "82d14b12de14b1eb9c2ba92507f3d64bfe714c62",
+      "sourceCiphertextPath": "/data/backups/pd1155-1103t1902-5786.v1.sqlite.enc",
+      "at": "2026-11-03T19:04:27.359521+00:00"
+    },
+    "post5_isolated_restore": {
+      "qualified": true,
+      "schemaBefore": 5,
+      "schemaAfter": 5,
+      "economyVersion": 2,
+      "scoreRows": 1,
+      "profiles": 3,
+      "scoreConversionExactlyOnce": true,
+      "challengeTimesAndOtherTablesUnchanged": true,
+      "integrity": "ok",
+      "foreignKeys": "ok",
+      "encryptedBackupRestore": true,
+      "privateGameplayBalancesAndAnimalHistoryRetained": true,
+      "authAndSharingClearedOnlyInIsolatedRestore": true,
+      "originalEncryptedNasBackupUnchanged": true,
+      "backupSha256": "257ad709ebbee4fe6bfca7db26ca8dbfe40123984fe6d3ae8ebada4c795eb5ff",
+      "backupBytes": 315392,
+      "livePvcMounted": false,
+      "gitops_commit": "987a725ac04c76204278b1a53947bf91e6525c45",
+      "job": "meowdoku-preview-restore-pd115-1103t1902-5786",
+      "operational": true,
+      "at": "2026-11-03T19:06:24.369222+00:00"
+    }
+  },
+  "verified_0_1_15_live": {
+    "schema": 5,
+    "economyVersion": 2,
+    "integrity": "ok",
+    "foreignKeys": "ok",
+    "allWitnessedTableTransformsMatch": true,
+    "witnessedTables": [
+      "profiles",
+      "completions",
+      "entries",
+      "awards",
+      "finalized",
+      "content_releases",
+      "content_state",
+      "content_puzzles",
+      "content_events",
+      "content_periods"
+    ],
+    "profileCount": 3,
+    "scoreRowsConvertedExactlyOnce": true,
+    "challengeTimesHistoryAndPrivateSavesPreserved": true,
+    "verifiedServiceLocalHttps": true,
+    "protectedOnlineReady": true,
+    "healthStatus": 200,
+    "features": [
+      "personal-streak-v1",
+      "account-delete-v1",
+      "profile-name-v1",
+      "animals-v1",
+      "economy-v2",
+      "content-v1"
+    ],
+    "anonymousPrivateStatus": 401,
+    "fabricatedPrivateStatus": 401,
+    "realAccountsModifiedByVerification": false,
+    "phoneGoogleAttestationOrScoringAcceptanceTested": false,
+    "at": "2026-11-03T19:00:38.955152+00:00",
+    "source": "00e730f206bc367c624481640b87fabfcfe1ae56",
+    "image": "10.0.20.11:32309/meowdoku-preview@sha256:4920fb23393f07d7768f9a4f084d53b5e5b6d82b10651f035aaf85997ce37f31",
+    "node": "bulbasaur",
+    "pod": "meowdoku-preview-8b75f95d5-6sf2t",
+    "pvc_uid": "ce19a819-a04d-4b1d-a218-f6aa24a9a3f3",
+    "rollout_commit": "c08cc902cceafe90eb593c6c8c4a4a56359248d0",
+    "argoObservedRevision": "c08cc902cceafe90eb593c6c8c4a4a56359248d0",
+    "argoSync": "Synced",
+    "argoHealth": "Healthy",
+    "old_image_rollback_incompatible": true,
+    "securityChanged": false
   }
 }
