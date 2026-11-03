@@ -13,8 +13,37 @@
 </head>
 <body>
   <h1>Issue 103: control-plane API stall</h1>
-  <p><strong>CONTROLPLANE_API_STALL: INCOMPLETE.</strong> This records the newly observed
-    2026-10-21 incident, subsequent recurrence and actual mitigation. Causal repair acceptance remains incomplete.</p>
+  <p><strong>CONTROLPLANE_API_STALL: OWNER-DEFERRED OUTSIDE ISSUE 103.</strong>
+    The owner removed intermittent I/O monitoring and further investigation from this maintenance
+    on November 2, 2026. Historical cause remains UNKNOWN; no causal repair is claimed.
+    Keep the original incident, recurrence, accepted serial-pull mitigation and observations below.</p>
+
+  <h2>Owner stop and scope decision — November 3, 2026 00:06 UTC</h2>
+  <p>The owner considers this a hiccup, reports normal system and Emby behavior, and directs
+    addressing intermittent I/O another time outside maintenance. Do not wait for a longer
+    capture, reactivate observation or hold unrelated Issue 103 tasks on this investigation.
+    The four-hour window was an observation choice, not the time needed to check or analyze
+    the data. Checking the retained evidence took seconds.</p>
+  <p>Published disable workflow acceptance
+    <code>maintenance103-owner-deferred-I-O-published-disable-5rgrj_ga</code> passed at
+    00:06:55 UTC: observer service and timer inactive and disabled, original PID 1009744 absent,
+    no next timer activation, and the original private capture retained with an orderly
+    <code>stopped</code> footer. It contains 3,105 samples over 3,363.803435 seconds through
+    00:06:46 UTC. This is an owner-stopped 56-minute observation, not a completed four-hour test.</p>
+  <p>Existing analysis <code>pkjd2p72</code> covered 2,983 samples through 00:04:33 UTC. It
+    includes sampled physical busy fractions up to 0.995946444 and full I/O-pressure fraction
+    up to 0.471745049, with no selected K3s slow-fdatasync or leader-loss markers. Utilization
+    spikes alone do not prove an application failure or identify a failed component. Preserve
+    these observations without extending the investigation after the owner's stop.</p>
+  <p>The exact workstation completion controller was cancelled and its scratch removed.
+    The one-time 21:12 America/Chicago chat continuation is PAUSED. No further I/O callback
+    remains scheduled. Native acceptance proves unchanged boot, K3s, cron, Kured specification
+    and protected Zot process, with Ceph HEALTH_OK. NAS data/configuration, restart schedules
+    and all original recovery material remain preserved.</p>
+  <p>The owning playbook now permits only <code>io_capture_action=disable</code>; its scope
+    assertion refuses qualification before host mutation. Its earlier qualification procedure
+    below is historical. Resuming diagnosis outside this maintenance requires a separately
+    reviewed scope and removal of this owner-deferral fence.</p>
 
   <h2>Current assessment — November 2, 2026 23:44 UTC</h2>
   <p>The owner reports that Sprigatito runs without issue and Emby playback is smooth, and

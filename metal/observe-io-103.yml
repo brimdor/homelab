@@ -13,7 +13,9 @@
           - ansible_limit == 'bulbasaur'
           - inventory_hostname == 'bulbasaur'
           - ansible_host == '10.0.20.13'
-          - io_capture_action in ['disable', 'qualify']
+          # Owner deferred intermittent I/O investigation outside Issue 103.
+          - io_capture_action == 'disable'
+        fail_msg: Owner-deferred I/O investigation; this maintenance workflow may only disable observation.
     - name: Respect persistent maintenance ownership
       ansible.builtin.import_tasks: tasks/maintenance-guard.yml
     - name: Verify the existing host identity before installing anything
