@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["app-template"],
+  "properties": {
+    "app-template": {
+      "type": "object",
+      "required": ["controllers"],
+      "properties": {
+        "controllers": {
+          "type": "object",
+          "required": ["main"],
+          "properties": {
+            "main": {
+              "type": "object",
+              "description": "The dormant Canary may remain stopped without an artifact. Activation requires an immutable image digest.",
+              "anyOf": [
+                {
+                  "required": ["replicas"],
+                  "properties": {
+                    "replicas": {"const": 0}
+                  }
+                },
+                {
+                  "required": ["containers"],
+                  "properties": {
+                    "containers": {
+                      "type": "object",
+                      "required": ["main"],
+                      "properties": {
+                        "main": {
+                          "type": "object",
+                          "required": ["image"],
+                          "properties": {
+                            "image": {
+                              "type": "object",
+                              "required": ["digest"],
+                              "properties": {
+                                "digest": {
+                                  "type": "string",
+                                  "pattern": "^sha256:[a-f0-9]{64}$"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
