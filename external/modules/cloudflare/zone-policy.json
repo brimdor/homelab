@@ -1,0 +1,16 @@
+{
+  "zone_id": "5e5a04c2e2975b78eb682d8d616eaa9f",
+  "zone_name": "eaglepass.io",
+  "account_id": "33780c6eabd9daae5bc57ef508339da4",
+  "settings": {
+    "min_tls_version": "1.2"
+  },
+  "preserve": {
+    "ssl": "strict",
+    "browser_check": "on",
+    "security_level": "medium"
+  },
+  "rollback": {
+    "min_tls_version": "1.0"
+  }
+}
