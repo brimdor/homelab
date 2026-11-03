@@ -1,0 +1,12 @@
+{{- if .Values.content.releaseJson }}
+{{- if gt (len .Values.content.releaseJson) 524288 }}
+{{- fail "content release exceeds 512 KiB" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "meowdoku.name" . }}-content
+  namespace: {{ .Release.Namespace }}
+data:
+  current.json: {{ .Values.content.releaseJson | quote }}
+{{- end }}

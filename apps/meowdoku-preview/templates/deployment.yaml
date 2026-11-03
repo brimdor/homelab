@@ -52,6 +52,10 @@ spec:
             - name: https
               containerPort: 8080
           env:
+            {{- if .Values.content.releaseJson }}
+            - name: CONTENT_RELEASE_FILE
+              value: /content-release/current.json
+            {{- end }}
             - name: GOOGLE_CLIENT_ID
               value: {{ .Values.googleClientId | quote }}
             - name: PUBLIC_HOSTNAME
@@ -92,6 +96,11 @@ spec:
             periodSeconds: 20
             failureThreshold: 3
           volumeMounts:
+            {{- if .Values.content.releaseJson }}
+            - name: content-release
+              mountPath: /content-release
+              readOnly: true
+            {{- end }}
             - name: saves
               mountPath: /data
             - name: tmp
@@ -103,6 +112,12 @@ spec:
               mountPath: /run/meowdoku/data-key
               readOnly: true
       volumes:
+        {{- if .Values.content.releaseJson }}
+        - name: content-release
+          configMap:
+            name: {{ include "meowdoku.name" . }}-content
+            defaultMode: 0444
+        {{- end }}
         - name: saves
           persistentVolumeClaim:
             claimName: {{ .Values.storage.existingClaim | default (printf "%s-saves" (include "meowdoku.name" .)) | quote }}

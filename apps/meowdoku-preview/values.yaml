@@ -1,7 +1,7 @@
-# Qualified image published through the approved Zot route; see PROVENANCE.json.
+# Qualified immutable OCI image published and independently byte-verified; see PROVENANCE.json.
 image:
   repository: 10.0.20.11:32309/meowdoku-preview
-  digest: sha256:7fd2f186765128ec32217bded95f0e6287df054f1d50cf27d6d365aac2456c91
+  digest: sha256:85c6dd0e47daccdf24d43cd156466c694301869ebcd81c452c466ccf6861ed4e
 googleClientId: 915627421356-64fjvijlt4j0ndimcqmj5k37tisasmh2.apps.googleusercontent.com
 storage:
   # Owner-reviewed restore promotion only; blank creates the dedicated claim below.
@@ -40,10 +40,14 @@ scheduling:
 
 backup:
   # Completed manual encrypted backup and isolated restore. No automatic schedule or deletion.
-  enabled: true
-  snapshotId: pd111-1103t0427-e5
-  restoreQualification: true
+  enabled: false
+  snapshotId: ""
+  restoreQualification: false
   qualificationImage: "10.0.20.11:32309/meowdoku-preview@sha256:85c6dd0e47daccdf24d43cd156466c694301869ebcd81c452c466ccf6861ed4e"
   nfs:
     server: 10.0.40.3
     path: /mnt/user/meowdoku-backups
+
+# Optional reviewed public data only; empty uses the frozen image overlay.
+content:
+  releaseJson: ""
