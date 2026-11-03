@@ -1,4 +1,10 @@
-# PlushDoku schema4 recovery
+# PlushDoku schema5 recovery
+
+## Current economy-v2 release
+
+Source00e730f206bc367c624481640b87fabfcfe1ae56; accepted image10.0.20.11:32309/meowdoku-preview@sha256:4920fb23393f07d7768f9a4f084d53b5e5b6d82b10651f035aaf85997ce37f31. Fresh independent encrypted schema4 NAS anchorpd115-1103t1856-af10.v1.sqlite.enc, SHA25653c8c09e821fb5a0439b391d4c66ddb24bb267a6c58e0e851dd82f7a9b7f6d8c. Actual isolated4-to5 migration, exact-once point scaling, unchanged challenge/history/private data, reopening and encrypted5 restore passed before live publication. Existing original claim/key retained. Old4 binaries reject5: prefer a compatible forward fix; no automatic restore over active data. Any reviewed new-claim recovery must reconcile intervening saves/deletions. No retention deletion is configured.
+
+## Historical schema4 instructions and anchors (retained)
 
 Current compatible validator:0.1.13 source9ef2b44fefebfde3da608c875d22d605f7c4e7b3; current live digestsha256:4ffde2781271d5c8e6d1336ba2a46544cf1e6586cfe7540e3bf4b0b88557ffc6. Actual live verification and preserved baseline evidence are in PROVENANCE.json. No SQL/key/storage migration occurred in0.1.13.
 
