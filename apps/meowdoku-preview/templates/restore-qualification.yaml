@@ -39,6 +39,7 @@ spec:
               import {restoreDatabase} from './backend/src/restore.mjs';
               import {openDatabase,openRawDatabase} from './backend/src/sqlite.mjs';
               import {dataKey} from './backend/src/data-key.mjs';
+              import {validateSnapshot} from './backend/src/snapshot.mjs';
               import {createHash} from 'node:crypto';
               import {createReadStream,readFileSync,statfsSync,statSync,openSync,readSync,closeSync} from 'node:fs';
               import assert from 'node:assert/strict';
@@ -82,11 +83,17 @@ spec:
                 assert.equal(db.prepare('SELECT COUNT(*) n FROM profiles WHERE sharing!=0').get().n,0);
                 assert.ok(JSON.stringify(protectedState(db))===protectedBefore,'Preserved history or rewards changed');
                 assert.ok(JSON.stringify(animalState(db))===animalsBefore,'Private animal metadata changed during restore');
+                const puzzles=JSON.parse(readFileSync('./content/puzzles.json','utf8'));
+                let validatedProfiles=0;
+                for(const row of db.prepare('SELECT snapshot FROM profiles').all())if(row.snapshot){
+                  await validateSnapshot(JSON.parse(row.snapshot),Date.now(),async(_identity,id)=>{const p=puzzles.find(x=>x.id===id);assert.ok(p,'Restored puzzle must exist');return p});validatedProfiles++;
+                }
+
                 assert.equal(await hash(),before);
                 const fd=openSync('/restore/qualified.sqlite','r'),bytes=Buffer.alloc(16);try{readSync(fd,bytes,0,16,0)}finally{closeSync(fd)}const header=bytes.toString('hex');
                 assert.notEqual(header,'53514c69746520666f726d6174203300');
                 const fs=statfsSync('/backup'),st=statSync('/backup');
-                console.log(JSON.stringify({restored:true,integrity:'ok',schemaBefore,schemaAfter:4,restoredRowsPreservedThroughMigration:true,usernameColumnPresent:true,restoredEncryptedHeader:true,historicalAuthAndSharingCleared:true,contentHistoryAndRewardsPreserved:true,privateAnimalMetadataPreserved:true,backupUnchanged:true,backupSha256:before,backupBytes:statSync(source).size,nasRootUid:st.uid,nasRootGid:st.gid,nasRootMode:(st.mode&0o777).toString(8),nasAvailableBytes:fs.bavail*fs.bsize,nfsMount:readFileSync('/proc/mounts','utf8').split('\n').find(x=>x.includes('10.0.40.3:')&&x.includes(' /backup ')),restoredProfiles:db.prepare('SELECT COUNT(*) n FROM profiles').get().n,liveClaimMounted:false}));
+                console.log(JSON.stringify({restored:true,integrity:'ok',schemaBefore,schemaAfter:4,restoredRowsPreservedThroughMigration:true,usernameColumnPresent:true,restoredEncryptedHeader:true,historicalAuthAndSharingCleared:true,contentHistoryAndRewardsPreserved:true,privateAnimalMetadataPreserved:true,backupUnchanged:true,backupSha256:before,backupBytes:statSync(source).size,nasRootUid:st.uid,nasRootGid:st.gid,nasRootMode:(st.mode&0o777).toString(8),nasAvailableBytes:fs.bavail*fs.bsize,nfsMount:readFileSync('/proc/mounts','utf8').split('\n').find(x=>x.includes('10.0.40.3:')&&x.includes(' /backup ')),restoredSnapshotsAcceptNewValidator:true,restoredProfiles:db.prepare('SELECT COUNT(*) n FROM profiles').get().n,liveClaimMounted:false}));
               } finally {db?.close();key.fill(0)}
           env:
             - name: DATA_KEY_FILE
