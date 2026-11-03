@@ -22,8 +22,8 @@
 #   4. Add to `tagOwners`:
 #        "tagOwners": { "tag:k8s-operator": [], "tag:k8s": ["tag:k8s-operator"] }
 #   5. Qualify the replacement through repository-owned secret delivery.
-#      The current ClusterSecretStore reads two Kubernetes Secrets in
-#      global-secrets, not a 1Password item. See templates/externalsecret.yaml.
+#      OnePasswordItem projects the approved item to global-secrets; ESO
+#      selects only the OAuth pair. See oauth-recovery.html for the gates.
 #      Never put credential values in Git or update live Secrets as a shortcut.
 # These historical ACL examples are not authority to change policy; review
 # the actual tailnet policy and obtain exact-candidate approval first.
@@ -41,9 +41,9 @@ tailscale-operator:
   installCRDs: true
 
   operatorConfig:
-    # The synchronized OAuth credential is currently rejected by Tailscale.
-    # Keep the real operator stopped until the credential is rotated; a fake
-    # sleeping operator masks the fault and must not be used as health.
+    # The replacement OAuth pair lacks the approved tag:k8s-operator grant.
+    # Keep the real operator stopped until provider scope/tag acceptance; a
+    # sleeping substitute must not be used to manufacture healthy status.
     replicas: 0
     # Tags applied to the operator's own device in the tailnet.
     # `tag:k8s-operator` matches what the Tailscale ACL tagOwners entry

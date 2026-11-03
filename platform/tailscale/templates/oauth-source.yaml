@@ -1,0 +1,10 @@
+apiVersion: onepassword.com/v1
+kind: OnePasswordItem
+metadata:
+  name: ts-oauth-client-103
+  namespace: global-secrets
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    operator.1password.io/auto-restart: "false"
+spec:
+  itemPath: vaults/4uaua4a45yuhnwhehp5bwylmti/items/uxqzdgyxnn4yin2ftm5kkbsc2i
