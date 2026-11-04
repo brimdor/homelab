@@ -1,4 +1,6 @@
 zot:
+  # Issue 103: cold capture precedes the authorized v2.1.22 process replacement.
+  replicaCount: 0
   ingress:
     enabled: false
     annotations:
@@ -20,14 +22,15 @@ zot:
       app: zot
       app.kubernetes.io/name: zot
       app.kubernetes.io/instance: zot
-  # Preserve this process; authentication is handled by the separate proxy and policy.
+  # Preserve authentication in the separate proxy and policy during the authorized upgrade.
   mountConfig: true
   configFiles:
     config.json: |-
       {
         "storage": {
           "rootDirectory": "/var/lib/registry",
-          "dedupe": false
+          "dedupe": false,
+          "gc": false
         },
         "http": {
           "address": "0.0.0.0",
@@ -39,8 +42,13 @@ zot:
       }
   persistence: true
   pvc:
-    create: true
+    create: false
+    name: zot-nfs-pvc
     storage: 50Gi
+
+upgradeRecovery:
+  retain: true
+  run: false
 
 authProxy:
   image: docker.io/library/nginx@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949

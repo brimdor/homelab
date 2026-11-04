@@ -1,0 +1,132 @@
+{{- if .Values.upgradeRecovery.retain }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zot-upgrade-recovery-103
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 100Gi
+{{- end }}
+{{- if .Values.upgradeRecovery.run }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zot-upgrade-recovery-103
+  namespace: {{ .Release.Namespace }}
+data:
+  recovery.py: |
+{{ .Files.Get "scripts/upgrade_recovery.py" | indent 4 }}
+  old.json: |
+    {"storage":{"rootDirectory":"/var/lib/registry","dedupe":false,"gc":false},"http":{"address":"127.0.0.1","port":"5001"},"log":{"level":"error"}}
+  new.json: |
+    {"storage":{"rootDirectory":"/var/lib/registry","dedupe":false,"gc":false},"http":{"address":"127.0.0.1","port":"5002"},"log":{"level":"error"}}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: zot-upgrade-recovery-103
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector:
+    matchLabels:
+      maintenance.eaglepass.io/task: zot-upgrade-103
+  ingressDeny:
+    - fromEntities: [all]
+  egressDeny:
+    - toEntities: [all]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zot-upgrade-recovery-103
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        maintenance.eaglepass.io/task: zot-upgrade-103
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 0
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: cold-capture
+          image: &python docker.io/library/python:3.13.9-alpine3.22@sha256:e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
+          command: [python3, -B, /scripts/recovery.py, capture]
+          securityContext: &security
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN, FOWNER, DAC_OVERRIDE]
+          resources: &resources
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: recovery
+              mountPath: /recovery
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+        {{- range $version, $image := dict "old" "ghcr.io/project-zot/zot@sha256:48b0c11c8c61a07246e047f22e02aad615816683fd8d8073b2862fb7ed0a3cc0" "new" "ghcr.io/project-zot/zot@sha256:96cda11459ce6f8c60da3b03f03e9f67fd11b3ae2d82c4c04c92b3c608996080" }}
+        - name: native-{{ $version }}
+          restartPolicy: Always
+          image: {{ $image }}
+          command: [/usr/bin/zot, serve, /scripts/{{ $version }}.json]
+          securityContext: *security
+          resources: *resources
+          volumeMounts:
+            - name: recovery
+              mountPath: /var/lib/registry
+              subPath: zot-2.1.17-cold-20261103-a/restore-{{ $version }}
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+        {{- end }}
+      containers:
+        - name: acceptance
+          image: *python
+          command: [python3, -B, /scripts/recovery.py, acceptance]
+          securityContext: *security
+          resources: *resources
+          volumeMounts:
+            - name: recovery
+              mountPath: /recovery
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: source
+          persistentVolumeClaim:
+            claimName: zot-nfs-pvc
+            readOnly: true
+        - name: recovery
+          persistentVolumeClaim:
+            claimName: zot-upgrade-recovery-103
+        - name: scripts
+          configMap:
+            name: zot-upgrade-recovery-103
+        - name: tmp
+          emptyDir: {}
+{{- end }}
